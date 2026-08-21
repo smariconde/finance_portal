@@ -1,0 +1,191 @@
+{
+  "title": "Elegí el mundo visual de Portal Financiero",
+  "question": "La base será editorial financiera contemporánea. Elegí qué objeto debe gobernar su lenguaje visual.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Mesa de calibración",
+      "kicker": "LA PROPUESTA",
+      "lineage": "certificados de metrología y placas de instrumental",
+      "thesis": "Cada cifra entra como una medición calibrada: valor, tolerancia, fecha y origen comparten una misma línea.",
+      "palette": ["#F2F4F1", "#142A31", "#2B6F88", "#E7B43C"],
+      "materials": ["placa esmaltada", "film de dibujo técnico", "tinta de calibración"],
+      "viewport": "Una regla vertical fija ordena la portada; el buscador funciona como entrada de medición y las preguntas se leen como registros precisos, con salud y provenance integrados en la misma grilla.",
+      "risk": "Puede sentirse demasiado institucional si la tipografía y el ritmo no aportan humanidad.",
+      "raised": [
+        {
+          "from": "Matriz ASCII",
+          "raise": "Toda la interfaz comparte una única escala de densidad; no hay tarjetas huérfanas."
+        },
+        {
+          "from": "Terminal de fósforo",
+          "raise": "Los estados se expresan dentro del registro y no como chrome flotante."
+        },
+        {
+          "from": "Etiquetado industrial",
+          "raise": "Planificado, degradado y disponible reciben marcas literales e inequívocas."
+        },
+        {
+          "from": "Descenso mesofótico",
+          "raise": "La profundidad progresa de respuesta a evidencia y luego a metodología."
+        }
+      ],
+      "wireframe": {
+        "cols": 12,
+        "rows": 10,
+        "regions": [
+          {"label": "regla / estado", "x": 0, "y": 0, "w": 2, "h": 10, "accent": true},
+          {"label": "nombre + tesis", "x": 2, "y": 0, "w": 6, "h": 3},
+          {"label": "entrada de análisis", "x": 8, "y": 0, "w": 4, "h": 3, "accent": true},
+          {"label": "preguntas / registro", "x": 2, "y": 3, "w": 10, "h": 5},
+          {"label": "fuentes + alcance", "x": 2, "y": 8, "w": 10, "h": 2}
+        ]
+      },
+      "comp": ".impeccable/mocks/decision/assigned.webp"
+    },
+    {
+      "id": "model-pick",
+      "label": "Dossier de research",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "carpetas de análisis, índices de archivo y anotación editorial",
+      "thesis": "La investigación se presenta como un expediente vivo: una conclusión breve arriba y la evidencia ordenada detrás.",
+      "palette": ["#ECEFEB", "#1B252A", "#24558A", "#B64B3F"],
+      "materials": ["pestañas de archivo", "regla de libro mayor", "lápiz azul"],
+      "viewport": "Una portada de expediente aloja el buscador y la promesa; cuatro pestañas laterales abren preguntas, mientras una matriz de evidencia muestra qué está listo y qué sigue planificado.",
+      "risk": "Es la alternativa más familiar para finanzas y puede caer en editorial convencional si las pestañas pierden función.",
+      "wireframe": {
+        "cols": 12,
+        "rows": 10,
+        "regions": [
+          {"label": "cubierta / tesis", "x": 0, "y": 0, "w": 7, "h": 4, "accent": true},
+          {"label": "índice", "x": 7, "y": 0, "w": 5, "h": 4},
+          {"label": "pestañas", "x": 0, "y": 4, "w": 2, "h": 6},
+          {"label": "matriz de evidencia", "x": 2, "y": 4, "w": 10, "h": 6}
+        ]
+      },
+      "comp": ".impeccable/mocks/decision/model-pick.webp"
+    },
+    {
+      "id": "challenger-star-atlas",
+      "label": "Atlas de cobertura",
+      "verdict": "competitive",
+      "lineage": "cartas celestes y coordenadas de observación",
+      "thesis": "Las empresas forman un atlas navegable; magnitud, anillos y coordenadas codifican tamaño, calidad y acceso vía CEDEAR.",
+      "palette": ["#0B1736", "#EFF2E8", "#D35F3A", "#89BDD3"],
+      "materials": ["papel de carta nocturna", "retícula coordinada", "tinta de observación"],
+      "viewport": "Un campo de compañías ocupa la portada y el buscador centra un instrumento; una columna lateral traduce la posición en evidencia y cobertura.",
+      "case": "Compite en descubrimiento y memorabilidad, pero explica peor la salud operativa y las capacidades todavía planificadas.",
+      "risk": "Puede parecer una visualización antes de que exista el universo de datos que la justifique.",
+      "wireframe": {
+        "cols": 12,
+        "rows": 10,
+        "regions": [
+          {"label": "atlas de compañías", "x": 0, "y": 0, "w": 8, "h": 10, "accent": true},
+          {"label": "buscar", "x": 8, "y": 0, "w": 4, "h": 2},
+          {"label": "coordenadas + evidencia", "x": 8, "y": 2, "w": 4, "h": 8}
+        ]
+      },
+      "comp": ".impeccable/mocks/decision/challenger-star-atlas.webp",
+      "hero": "https://impeccable.style/worlds/cards/notation-diagram-systems-star-atlas-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/notation-diagram-systems-star-atlas.webp"
+    },
+    {
+      "id": "challenger-ascii",
+      "label": "Matriz ASCII",
+      "verdict": "declined",
+      "lineage": "escenas vivas renderizadas como caracteres",
+      "thesis": "La cobertura financiera completa se vuelve una matriz tipográfica cuya densidad revela calidad y disponibilidad.",
+      "palette": ["#07110C", "#8CF5A7", "#DCFDE4"],
+      "materials": ["glifo monoespaciado", "fósforo de baja persistencia"],
+      "viewport": "Una única grilla de caracteres contiene buscador, universo y estado de datos sin separar contenido y representación.",
+      "case": "Pierde identificación y claridad: convierte la investigación en una demostración técnica.",
+      "kept": "Una escala de densidad rigurosa para toda la interfaz.",
+      "risk": "La novedad formal domina la lectura financiera.",
+      "hero": "https://impeccable.style/worlds/cards/medium-native-ascii-live-scene-render-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/medium-native-ascii-live-scene-render.webp"
+    },
+    {
+      "id": "challenger-terminal",
+      "label": "Bitácora de fósforo",
+      "verdict": "declined",
+      "lineage": "terminal verde en sala de máquinas",
+      "thesis": "Fuentes, cálculos y alertas se imprimen como una bitácora continua operada con teclado.",
+      "palette": ["#050B08", "#62D684", "#B8F5C8"],
+      "materials": ["vidrio curvo", "afterimage", "cursor luminoso"],
+      "viewport": "El portal abre en un transcript de ingestión y análisis con una línea de comando como única acción.",
+      "case": "Pierde ambos ejes: se confunde con una terminal de trading y reduce la accesibilidad para lectura cotidiana.",
+      "kept": "Estado inline, historial continuo y operación por teclado.",
+      "risk": "Contradice de forma directa el posicionamiento sin estética de terminal.",
+      "hero": "https://impeccable.style/worlds/cards/signals-instruments-phosphor-terminal-midnight-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/signals-instruments-phosphor-terminal-midnight.webp"
+    },
+    {
+      "id": "challenger-industrial",
+      "label": "Etiquetado industrial",
+      "verdict": "declined",
+      "lineage": "stockroom, etiquetas con precinto y señalización de riesgo",
+      "thesis": "Cada módulo nombra literalmente su estado y las diagonales de seguridad reservan lo que todavía no está listo.",
+      "palette": ["#F5F5F0", "#121212", "#F06A23"],
+      "materials": ["nylon negro", "algodón de stock", "precinto naranja"],
+      "viewport": "Grandes rótulos entre comillas dividen preguntas y un precinto naranja marca la acción activa.",
+      "case": "La claridad de estado es fuerte, pero la cultura streetwear no identifica al usuario ni a la tarea.",
+      "kept": "Etiquetas inequívocas y una señal fuerte en lugar de píldoras pastel.",
+      "risk": "El gesto de moda envejece antes que el sistema financiero.",
+      "hero": "https://impeccable.style/worlds/cards/textiles-weave-drape-fashion-industrial-quote-grammar-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/textiles-weave-drape-fashion-industrial-quote-grammar.webp"
+    },
+    {
+      "id": "challenger-depth",
+      "label": "Descenso a la evidencia",
+      "verdict": "declined",
+      "lineage": "perfil de buceo mesofótico y capas de profundidad",
+      "thesis": "Cada pregunta desciende desde la lectura rápida hasta los supuestos, las fuentes y la metodología.",
+      "palette": ["#061B2B", "#0F5D75", "#35C3C8", "#EFF7F5"],
+      "materials": ["columna de agua", "nieve marina", "luz de instrumento"],
+      "viewport": "Un eje vertical acompaña el scroll y cambia luz y densidad al pasar de respuesta a evidencia.",
+      "case": "La progresión sirve, pero la metáfora oceánica no aporta identificación ni claridad suficiente al producto completo.",
+      "kept": "Una profundidad explícita para el progressive disclosure.",
+      "risk": "La atmósfera oscura puede convertir análisis en experiencia contemplativa.",
+      "hero": "https://impeccable.style/worlds/cards/rivers-tides-ocean-depths-mesophotic-deep-dive-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/rivers-tides-ocean-depths-mesophotic-deep-dive.webp"
+    },
+    {
+      "id": "challenger-pop",
+      "label": "Boletín saturado",
+      "verdict": "declined",
+      "lineage": "fundas de pop francés y bloques de tracks",
+      "thesis": "Cada pregunta es una pista dentro de una edición limitada, sobre un gran campo de color que cambia por sección.",
+      "palette": ["#E85D24", "#1BA7A1", "#FFF7E8"],
+      "materials": ["cartulina saturada", "tinta plana", "lista de pistas"],
+      "viewport": "El nombre ocupa la cabecera, las cuatro preguntas forman una lista compacta y el color inunda la sección activa.",
+      "case": "La jerarquía es clara, pero la identidad musical no sostiene provenance, densidad y estados operativos.",
+      "kept": "El color debe poseer regiones completas, no aparecer como confeti de acentos.",
+      "risk": "Puede sentirse promocional donde el producto necesita rigor.",
+      "hero": "https://impeccable.style/worlds/cards/posters-covers-sleeves-yeye-pop-sleeve-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/posters-covers-sleeves-yeye-pop-sleeve.webp"
+    }
+  ],
+  "reroll": {"registers": ["safer", "bolder"]},
+  "buildPath": {"value": "code", "toggle": true},
+  "canon": true,
+  "canonCard": {
+    "label": "Dashboard financiero estándar",
+    "thesis": "Un buscador, una grilla de KPI cards, navegación lateral y gráficos limpios ejecutados con rigor.",
+    "palette": ["#F7F8FA", "#111827", "#2563EB", "#16A34A"],
+    "materials": ["grilla limpia", "panel plano", "iconografía de producto"],
+    "viewport": "Una cabecera breve conduce a métricas destacadas y accesos rápidos organizados en tarjetas regulares.",
+    "risk": "Es usable y familiar, pero indistinguible de otros productos financieros por definición.",
+    "wireframe": {
+      "cols": 12,
+      "rows": 10,
+      "regions": [
+        {"label": "nav", "x": 0, "y": 0, "w": 2, "h": 10},
+        {"label": "hero + search", "x": 2, "y": 0, "w": 10, "h": 3, "accent": true},
+        {"label": "kpi cards", "x": 2, "y": 3, "w": 10, "h": 3},
+        {"label": "charts", "x": 2, "y": 6, "w": 10, "h": 4}
+      ]
+    },
+    "comp": ".impeccable/mocks/decision/canon.webp"
+  },
+  "steer": true
+}

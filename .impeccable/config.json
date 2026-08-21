@@ -1,0 +1,8 @@
+{
+  "buildPath": "code",
+  "hook": {
+    "enabled": false
+  },
+  "stalenessCheck": false,
+  "updateCheck": false
+}

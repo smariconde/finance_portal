@@ -19,7 +19,7 @@ Solo una fase puede estar `in_progress`. No marcar `done` por porcentaje, esfuer
 | Etapa | Estado | Ultima evidencia |
 |---|---|---|
 | Masterplan y auditoria | done | Replanteo single-owner, datos y persistencia revisado el 2026-08-20 |
-| Fase 0 - Fundacion | not_started | - |
+| Fase 0 - Fundacion | in_progress | Fase 0A, README publico y skill UI validados el 2026-08-21 |
 | Fase 1 - Vertical slice demo | not_started | - |
 | Fase 2 - Empresas y CEDEAR | not_started | - |
 | Fase 3 - Divergencias | not_started | - |
@@ -30,7 +30,9 @@ Solo una fase puede estar `in_progress`. No marcar `done` por porcentaje, esfuer
 | Fase 8 - Persistencia personal y asistente | not_started | - |
 | Fase 9 - Hardening y publicacion del proyecto | not_started | - |
 
-**Proximo slice autorizado:** Fase 0A, bootstrap del repo, toolchain y CI minima. No comenzar Fase 1 en la misma sesion.
+**Proximo slice autorizado:** Fase 0B.1, ADR de stack, cache de Next.js 16 y Postgres/pooling. No comenzar Fase 1.
+
+**Bloqueos actuales:** ninguno. La inspeccion visual automatizada no estuvo disponible por un error del entorno de navegador; el smoke HTTP local respondio 200 y el build de produccion paso.
 
 ## Protocolo por sesion
 
@@ -47,10 +49,10 @@ Una fase grande puede ocupar muchas sesiones. Una excepcion al orden requiere AD
 
 ### Fase 0A: bootstrap
 
-- [ ] Crear Next.js estable, TypeScript estricto, pnpm y Node LTS compatible.
-- [ ] Configurar lint, format, typecheck, unit test, build y CI minima.
-- [ ] Crear estructura modular y aliases sin implementar dominios futuros.
-- [ ] Crear `.env.example` y health de configuracion sin secretos.
+- [x] Crear Next.js estable, TypeScript estricto, pnpm y Node LTS compatible.
+- [x] Configurar lint, format, typecheck, unit test, build y CI minima.
+- [x] Crear estructura modular y aliases sin implementar dominios futuros.
+- [x] Crear `.env.example` y health de configuracion sin secretos.
 
 ### Fase 0B: contratos y gobierno
 
@@ -190,3 +192,6 @@ Agregar una fila al cerrar cada sesion. No borrar historia; corregir con una fil
 |---|---|---|---|---|---|
 | 2026-08-20 | Masterplan | Auditoria externa y endurecimiento documental | done | `docs/finance-portal-masterplan/` | Fase 0A: bootstrap; implementacion aun no iniciada |
 | 2026-08-20 | Masterplan | Replanteo single-owner: SEC/Caja/Alpaca, cache Postgres, sin auth/BYOK y demo fixture | done | `00`, `01`, `02`, `03`, `04`, `06`, `07`, `08`, `09`, `10`, `README`, `AGENTS.md` | Fase 0A: bootstrap; implementacion aun no iniciada |
+| 2026-08-21 | Fase 0A | Bootstrap Next.js 16, toolchain, CI y health seguro `demo \| personal` | done | `package.json`, `pnpm-lock.yaml`, `.github/workflows/quality.yml`, `src/app/`, `src/modules/configuration/`; format, lint, typecheck, 5 unit tests, build y smoke HTTP 200 | Fase 0B.1: ADR de stack, cache de Next.js 16 y Postgres/pooling |
+| 2026-08-21 | Fase 0 / README publico | Presentacion profesional del producto, estado real, setup, arquitectura, seguridad y despliegue | done | `README.md`; enlaces relativos y scripts verificados, format y diff check | Fase 0B.1: ADR de stack, cache de Next.js 16 y Postgres/pooling |
+| 2026-08-21 | Fase 0 / skill UI | Impeccable instalada y auditada para direccion visual no generica, con red, hooks y updates deshabilitados por defecto | done | `.agents/skills/impeccable/`, `.impeccable/config.json`, `docs/agent/skills-inventory.md`, `AGENTS.md`; source pin `f88b283` | Fase 0B.1; definir `DESIGN.md` antes del proximo cambio visual |

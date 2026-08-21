@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Test output
+coverage/
+test-results/
+
+# Environment files (the example is intentionally versioned)
+.env
+.env.*
+!.env.example
+
+# Logs and local tooling
+*.log
+.vercel/
+.impeccable/config.local.json
+.DS_Store
+Thumbs.db
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts

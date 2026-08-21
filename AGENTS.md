@@ -31,6 +31,14 @@ Before implementation, read `06_PHASED_ROADMAP.md`. Work only on its next author
 
 Use concise Markdown, ATX headings, fenced code blocks with language tags, and repository-relative paths. Preserve the numbered, uppercase document pattern. In planned TypeScript, use two-space indentation, `camelCase` for values/functions, `PascalCase` for types/components, and kebab-case module directories. Zod schemas are the runtime source of truth. Keep calculations deterministic and versioned; never convert missing financial values to zero.
 
+## UI Art Direction
+
+Every task that creates, redesigns, or materially changes a page, component, dashboard, chart, table, empty state, theme, or responsive layout must use the project-local `impeccable` skill before editing UI code. Establish a clear visual concept and interaction mode, then apply the skill's craft floor and bounded desktop/mobile review.
+
+Avoid generic AI-interface defaults: decorative purple/blue gradients, gratuitous glass blur, interchangeable rounded cards, icon tiles above every heading, excessive pill controls, timid typography, and empty marketing copy. Favor a deliberate financial-product hierarchy, legible numeric density, visible provenance, restrained motion, and aesthetic decisions tied to the owner's workflow. Familiar patterns are welcome when they improve scanability; novelty must earn its place.
+
+Persist approved visual decisions in `DESIGN.md` when that system is established. Do not enable Impeccable hooks, live editing, concept network calls, image generation, or automatic updates unless the user explicitly requests that workflow and its scripts have been reviewed for the action.
+
 ## Testing, Data, and Security
 
 Every formula change requires unit tests plus edge cases for nulls, zero, negatives, currency mismatch, and non-finite results. Provider changes require sanitized fixtures, provenance, license review, schema validation, and failure-path contract tests. Keep secrets server-only, never use `NEXT_PUBLIC_` for keys, and never commit real credentials or licensed payloads.
