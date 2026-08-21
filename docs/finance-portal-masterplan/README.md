@@ -61,6 +61,7 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 - [`../security/threat-model.md`](../security/threat-model.md): activos, fronteras, amenazas, controles y gates de seguridad por fase.
 - [`../design/interface-foundations.md`](../design/interface-foundations.md): autoridad de artefactos, wireframe ejecutable, tokens y deuda visual conocida.
 - [`../agent/skills-inventory.md`](../agent/skills-inventory.md): skills locales aprobadas, acciones auditadas y candidatos diferidos.
+- [`../runbooks/database-migrations.md`](../runbooks/database-migrations.md): conexiones pooled/direct, generación, aplicación, prueba y rollback de migraciones.
 
 ## Principios no negociables
 
@@ -80,4 +81,4 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 
 ## Estado actual
 
-El masterplan esta revisado, la Fase 0 esta terminada y la Fase 1 esta en curso. `F1-01` cerro el shell y health; `F1-02` es el proximo slice autorizado. El estado operativo y el historial de sesiones viven exclusivamente en `06_PHASED_ROADMAP.md`; el orden ejecutable vive en `../backlog/README.md` y no se infiere avance por la mera existencia de una pagina o documento.
+El masterplan está revisado, la Fase 0 está terminada y la Fase 1 está en curso. `F1-02` cerró la persistencia base contra PostgreSQL real y `F1-03` es el próximo slice autorizado. El estado operativo y el historial de sesiones viven exclusivamente en `06_PHASED_ROADMAP.md`; el orden ejecutable vive en `../backlog/README.md` y no se infiere avance por la mera existencia de una página o documento.

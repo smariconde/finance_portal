@@ -12,9 +12,9 @@ export default defineConfig({
     },
   },
   test: {
-    coverage: {
-      reporter: ["text", "json", "html"],
-    },
-    include: ["src/**/*.test.ts"],
+    include: ["tests/integration/**/*.test.ts"],
+    setupFiles: ["./tests/integration/setup.ts"],
+    testTimeout: 20_000,
+    hookTimeout: 20_000,
   },
 });

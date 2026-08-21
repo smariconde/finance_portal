@@ -27,16 +27,17 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 | Orden | Issue   | Estado   | Resultado verificable                                                                                        | Dependencias  |
 | ----: | ------- | -------- | ------------------------------------------------------------------------------------------------------------ | ------------- |
 |     1 | `F1-01` | `done`   | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos. | Fase 0 `done` |
-|     2 | `F1-02` | `ready`  | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.      | `F1-01`       |
-|     3 | `F1-03` | `queued` | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.               | `F1-02`       |
+|     2 | `F1-02` | `done`   | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.      | `F1-01`       |
+|     3 | `F1-03` | `ready`  | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.               | `F1-02`       |
 |     4 | `F1-04` | `queued` | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.          | `F1-03`       |
 |     5 | `F1-05` | `queued` | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                      | `F1-04`       |
 |     6 | `F1-06` | `queued` | Resultado demo muestra fuentes, freshness, supuestos, escenarios y sensibilidad accesibles.                  | `F1-05`       |
 |     7 | `F1-07` | `queued` | Unit, contract y E2E prueban el flujo demo, degradación, aislamiento, teclado y mobile.                      | `F1-06`       |
 |     8 | `F1-08` | `queued` | Walkthrough reproducible del owner registra hallazgos y cierra el gate de Fase 1.                            | `F1-07`       |
 
-`F1-01` cerró con shell, health, headers base y revisión desktop/mobile. El único
-próximo slice autorizado es `F1-02`; no iniciar fake providers ni otros issues.
+`F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
+aislada y repository integration test. El único próximo slice autorizado es
+`F1-03`; no iniciar otros issues de Fase 1 en paralelo.
 
 ## Issues por fase
 
@@ -246,28 +247,28 @@ Esta matriz evita que una amenaza o deuda visual quede mencionada sin un issue q
 la cierre. La columna “primer cierre” indica el primer slice que debe implementar o
 probar el control; fases posteriores pueden volver a verificarlo.
 
-| Deuda   | Primer cierre                                           | Seguimiento posterior                      | Estado actual                                            |
-| ------- | ------------------------------------------------------- | ------------------------------------------ | -------------------------------------------------------- |
-| `TM-01` | `F1-02`                                                 | `F1-07`, `F7-01`, `F9-06`                  | contrato fail-closed implementado; aislamiento pendiente |
-| `TM-02` | `F1-02`                                                 | cada frontera, `F8-03`, `F9-06`            | baseline implementada; pruebas por frontera pendientes   |
-| `TM-03` | primer slice con frontera; gate en `F1-07`              | `F4-04`, `F7-01`, `F8-06`                  | contracted                                               |
-| `TM-04` | `F1-02`                                                 | `F1-07`, `F7-01`, `F8-04`                  | contracted                                               |
-| `TM-05` | `F1-03`                                                 | `F2-03`, `F3-05`, cada parser/modelo       | contracted                                               |
-| `TM-06` | `F1-04`                                                 | `F2-02`, `F3-05`, cada consulta histórica  | contratos implementados; persistencia pendiente          |
-| `TM-07` | `F1-02`                                                 | `F1-07`, `F2-06`, `F8-05`                  | contracted                                               |
-| `TM-08` | `F2-01` antes del primer provider                       | `F6-01`, `F7-04`, `F8-05`                  | required; no hay egress aún                              |
-| `TM-09` | `F7-04`                                                 | `F7-06`, `F8-05`, `F8-06`                  | required; no hay IA aún                                  |
-| `TM-10` | `F2-01`                                                 | `F2-05`, `F7-02`, `F9-02`                  | contracted; no hay gasto live aún                        |
-| `TM-11` | `F2-05`                                                 | `F6-01`, `F9-01`, `F9-05`                  | contracted; cron live deshabilitado                      |
-| `TM-12` | `F1-01`                                                 | cada UI externa, `F9-03`                   | headers base y render seguro verificados                 |
-| `TM-13` | `F9-06`                                                 | cada actualización de dependencia/skill    | baseline implementada; scans pendientes                  |
-| `TM-14` | antes del primer preview personal (`F7-01` como máximo) | `F8-03`, `F9-06`                           | contracted; no hay deployment personal                   |
-| `TM-15` | `F1-03` para fixtures                                   | cada proveedor/export/IA, `F8-02`, `F9-04` | unknowns fail-closed implementados                       |
-| `TM-16` | `F1-03`                                                 | cada operación y gate                      | contracted                                               |
-| `UI-01` | Fase `0B.7`                                             | revisar copy al cambiar roadmap            | `done`: registro de home alineado con Fases 2, 3, 4 y 6  |
-| `UI-02` | `F1-07`                                                 | `F1-08`, `F9-03`                           | pendiente                                                |
-| `UI-03` | `F1-01`                                                 | cada feedback stateful, `F9-03`            | `done`: estados y reduced motion conservan feedback      |
-| `UI-04` | `F1-01`                                                 | cada extracción visual, `F9-03`            | `done`: escala reusable y token de contraste registrados |
+| Deuda   | Primer cierre                                           | Seguimiento posterior                      | Estado actual                                                                |
+| ------- | ------------------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------- |
+| `TM-01` | `F1-02`                                                 | `F1-07`, `F7-01`, `F9-06`                  | `done`: composición y tests cruzados demo/personal verificados               |
+| `TM-02` | `F1-02`                                                 | cada frontera, `F8-03`, `F9-06`            | `done`: DB server-only y URLs pooled/direct separadas probadas               |
+| `TM-03` | primer slice con frontera; gate en `F1-07`              | `F4-04`, `F7-01`, `F8-06`                  | contracted                                                                   |
+| `TM-04` | `F1-02`                                                 | `F1-07`, `F7-01`, `F8-04`                  | `done`: repository y cache namespaced por modo, integración verificada       |
+| `TM-05` | `F1-03`                                                 | `F2-03`, `F3-05`, cada parser/modelo       | contracted                                                                   |
+| `TM-06` | `F1-04`                                                 | `F2-02`, `F3-05`, cada consulta histórica  | contratos implementados; persistencia pendiente                              |
+| `TM-07` | `F1-02`                                                 | `F1-07`, `F2-06`, `F8-05`                  | `done`: Drizzle parametrizado y límite de consulta verificados en PostgreSQL |
+| `TM-08` | `F2-01` antes del primer provider                       | `F6-01`, `F7-04`, `F8-05`                  | required; no hay egress aún                                                  |
+| `TM-09` | `F7-04`                                                 | `F7-06`, `F8-05`, `F8-06`                  | required; no hay IA aún                                                      |
+| `TM-10` | `F2-01`                                                 | `F2-05`, `F7-02`, `F9-02`                  | contracted; no hay gasto live aún                                            |
+| `TM-11` | `F2-05`                                                 | `F6-01`, `F9-01`, `F9-05`                  | contracted; cron live deshabilitado                                          |
+| `TM-12` | `F1-01`                                                 | cada UI externa, `F9-03`                   | headers base y render seguro verificados                                     |
+| `TM-13` | `F9-06`                                                 | cada actualización de dependencia/skill    | baseline implementada; scans pendientes                                      |
+| `TM-14` | antes del primer preview personal (`F7-01` como máximo) | `F8-03`, `F9-06`                           | contracted; no hay deployment personal                                       |
+| `TM-15` | `F1-03` para fixtures                                   | cada proveedor/export/IA, `F8-02`, `F9-04` | unknowns fail-closed implementados                                           |
+| `TM-16` | `F1-03`                                                 | cada operación y gate                      | contracted                                                                   |
+| `UI-01` | Fase `0B.7`                                             | revisar copy al cambiar roadmap            | `done`: registro de home alineado con Fases 2, 3, 4 y 6                      |
+| `UI-02` | `F1-07`                                                 | `F1-08`, `F9-03`                           | pendiente                                                                    |
+| `UI-03` | `F1-01`                                                 | cada feedback stateful, `F9-03`            | `done`: estados y reduced motion conservan feedback                          |
+| `UI-04` | `F1-01`                                                 | cada extracción visual, `F9-03`            | `done`: escala reusable y token de contraste registrados                     |
 
 ## Plantilla para nuevos issues
 

@@ -15,9 +15,14 @@ The current application command contract is:
 - `pnpm dev`: start local Next.js development.
 - `pnpm lint && pnpm typecheck`: run static checks.
 - `pnpm test`: run unit and property tests without network access.
+- `pnpm test:integration`: run PostgreSQL integration tests with a dedicated `DATABASE_TEST_URL`.
 - `pnpm build`: verify the production build.
+- `pnpm db:generate`: generate reviewed SQL migrations from the Drizzle schema.
+- `pnpm db:migrate`: apply migrations through the direct administrative connection.
+- `pnpm db:test:up`: start the dedicated local PostgreSQL integration database.
+- `pnpm db:test:down`: stop the local PostgreSQL integration database without deleting its volume.
 
-`test:integration` and `test:e2e` remain planned and must not be claimed until their scripts exist. Review documentation changes with `pnpm format:check`, `git diff --check`, and searches for stale references.
+`test:e2e` remains planned and must not be claimed until its script exists. Review documentation changes with `pnpm format:check`, `git diff --check`, and searches for stale references.
 
 ## Incremental Delivery
 

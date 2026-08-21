@@ -31,7 +31,7 @@ describe("getConfigHealth", () => {
     });
   });
 
-  it("keeps persistence disabled until its implementation slice", () => {
+  it("reports personal persistence ready with a pooled runtime URL", () => {
     const health = getConfigHealth({
       APP_MODE: "personal",
       APP_RUNTIME_ACCESS: "local",
@@ -39,9 +39,9 @@ describe("getConfigHealth", () => {
     });
 
     expect(health.items.find((item) => item.id === "database")).toMatchObject({
-      status: "disabled",
+      status: "ready",
       message:
-        "La variable está presente, pero la persistencia se habilita recién en F1-02.",
+        "Configurada para runtime pooled; este health no prueba conectividad.",
       missingVariables: [],
     });
   });

@@ -19,13 +19,14 @@ La aplicación está diseñada para responder preguntas como:
 
 ## Estado actual
 
-La **Fase 0 — Fundación** está terminada y la Fase 1 está en curso. `F1-01` cerró el shell, la navegación y el health; el próximo slice autorizado es `F1-02`: persistencia PostgreSQL/Drizzle y repositorios base, todavía sin proveedores.
+La **Fase 0 — Fundación** está terminada y la Fase 1 está en curso. `F1-02` cerró la base PostgreSQL/Drizzle y el aislamiento de repositorios contra PostgreSQL real. El próximo slice es `F1-03`: source registry, ingestion runs y fake provider determinista; todavía no hay proveedores reales ni datos financieros.
 
 Disponible hoy:
 
 - Next.js con App Router, React y TypeScript estricto.
 - Shell responsive con navegación sólo a superficies implementadas.
 - Health seguro de configuración para los modos `demo` y `personal`, con estados honestos y headers base.
+- Schema y migración Drizzle iniciales, con repositorios separados para fixture demo y storage personal.
 - Variables de entorno documentadas sin credenciales reales.
 - Tests unitarios, lint, typecheck, formato, build y CI mínima.
 - Límites de módulos preparados para crecer sin mezclar dominio, framework y proveedores.
@@ -63,13 +64,13 @@ Todavía no están implementados los datos financieros, el screener, las valuaci
 - React 19 y TypeScript estricto.
 - Tailwind CSS 4.
 - Zod para validación en fronteras.
+- Drizzle ORM y Postgres.js para schema, migraciones y runtime personal pooled.
 - Vitest para tests unitarios.
 - ESLint, Prettier y GitHub Actions.
 - pnpm con lockfile reproducible.
 
 ### Incorporación planificada
 
-- PostgreSQL serverless y Drizzle ORM para persistencia durable.
 - shadcn/ui, Recharts y TanStack Table para la experiencia financiera.
 - Adaptadores reemplazables para SEC, mercado, CEDEAR y macroeconomía argentina.
 - Vercel AI SDK y OpenRouter, solo después de implementar presupuestos, trazabilidad y controles de datos.
@@ -108,8 +109,12 @@ src/
   modules/
     configuration/
       domain/                   # health puro y testeable
+    persistence/                # contrato, port y repository demo
   server/
     config/                     # lectura server-only del entorno
+    db/                         # schema, cliente pooled y adapter Drizzle
+    persistence/                # composición por modo efectivo
+drizzle/                        # migración SQL y metadata versionada
 .github/workflows/quality.yml   # quality gate de CI
 ```
 
@@ -170,17 +175,22 @@ Definir variables en `.env.local` no habilita por sí solo una integración toda
 
 ## Comandos
 
-| Comando             | Uso                                                 |
-| ------------------- | --------------------------------------------------- |
-| `pnpm dev`          | Inicia el servidor local con recarga en desarrollo. |
-| `pnpm build`        | Genera y valida el build de producción.             |
-| `pnpm start`        | Sirve un build de producción ya generado.           |
-| `pnpm lint`         | Ejecuta ESLint sin permitir warnings.               |
-| `pnpm typecheck`    | Verifica TypeScript sin emitir archivos.            |
-| `pnpm test`         | Ejecuta la suite unitaria una vez.                  |
-| `pnpm test:watch`   | Ejecuta tests en modo interactivo.                  |
-| `pnpm format:check` | Comprueba el formato del repositorio.               |
-| `pnpm format`       | Aplica Prettier a los archivos permitidos.          |
+| Comando                 | Uso                                                                 |
+| ----------------------- | ------------------------------------------------------------------- |
+| `pnpm dev`              | Inicia el servidor local con recarga en desarrollo.                 |
+| `pnpm build`            | Genera y valida el build de producción.                             |
+| `pnpm start`            | Sirve un build de producción ya generado.                           |
+| `pnpm lint`             | Ejecuta ESLint sin permitir warnings.                               |
+| `pnpm typecheck`        | Verifica TypeScript sin emitir archivos.                            |
+| `pnpm test`             | Ejecuta la suite unitaria una vez.                                  |
+| `pnpm test:integration` | Prueba migración y repositorio contra una base PostgreSQL dedicada. |
+| `pnpm test:watch`       | Ejecuta tests en modo interactivo.                                  |
+| `pnpm db:generate`      | Genera SQL versionado desde el schema Drizzle.                      |
+| `pnpm db:migrate`       | Aplica migraciones con `DATABASE_DIRECT_URL`.                       |
+| `pnpm db:test:up`       | Inicia PostgreSQL local dedicado a integración.                     |
+| `pnpm db:test:down`     | Detiene PostgreSQL local sin borrar su volumen.                     |
+| `pnpm format:check`     | Comprueba el formato del repositorio.                               |
+| `pnpm format`           | Aplica Prettier a los archivos permitidos.                          |
 
 Antes de entregar un cambio:
 
@@ -249,11 +259,12 @@ Documentos ejecutables actuales:
 - [Inventario auditado de skills](docs/agent/skills-inventory.md)
 - [ADR 0001: stack, cache y PostgreSQL](docs/architecture/adr/0001-stack-cache-postgres.md)
 - [ADR 0002: modos, persistencia y exposición](docs/architecture/adr/0002-runtime-modes-persistence-exposure.md)
+- [Runbook de migraciones PostgreSQL](docs/runbooks/database-migrations.md)
 
 Los contratos de fuentes, modos, exposición y amenazas ya están registrados sin
 aprobar ni conectar proveedores reales. La home es el único wireframe ejecutable;
 sus tokens, autoridad y deuda abierta están reconciliados sin simular rutas futuras.
-El backlog marca `F1-01` como `ready`; ninguna capacidad de Fase 1 está implementada aún.
+El backlog marca `F1-02` como terminado y `F1-03` como único próximo slice autorizado.
 
 ## Desarrollo y colaboración
 

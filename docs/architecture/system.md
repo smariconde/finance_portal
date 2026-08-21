@@ -9,7 +9,7 @@
 - Contratos transversales:
   [`../security/threat-model.md`](../security/threat-model.md) y
   [`../design/interface-foundations.md`](../design/interface-foundations.md)
-- Alcance activo: Fase 0; no describe capacidades futuras como implementadas
+- Alcance activo: Fase 1, `F1-02`; no describe capacidades futuras como implementadas
 
 ## Objetivo
 
@@ -18,9 +18,10 @@ compone páginas, casos de uso, dominio puro, repositorios y adaptadores. La
 arquitectura prioriza trazabilidad financiera, ejecución simple y sustitución de
 proveedores antes que distribución prematura.
 
-La aplicación implementada hoy contiene el shell inicial y health de
-configuración. PostgreSQL, Drizzle, proveedores y motores financieros se agregan
-únicamente en los slices autorizados por el roadmap.
+La aplicación implementada hoy contiene el shell, health y la base de persistencia
+de `F1-02`: schema/migración Drizzle, conexión pooled personal y repositorio demo
+aislado. Proveedores, datos financieros y motores se agregan únicamente en los
+slices autorizados por el roadmap.
 
 ## Topología objetivo
 
@@ -162,9 +163,10 @@ schema, respuesta vacía o cuota no reemplaza datos válidos por vacío.
 
 ## Persistencia
 
-PostgreSQL será la fuente durable en modo personal. Fixtures versionados serán la
-fuente de la demo. La persistencia inicial incluirá registros de fuentes e
-ingestas y crecerá por migraciones versionadas.
+PostgreSQL es la fuente durable en modo personal. Fixtures versionados son la
+fuente de la demo. La migración base materializa manifiestos temporales de snapshots;
+los registros de fuentes e ingestas pertenecen a `F1-03` y crecerán por migraciones
+versionadas.
 
 `DATABASE_URL` es la conexión pooled exclusiva del runtime. La conexión directa
 `DATABASE_DIRECT_URL` sólo puede ser leída por Drizzle Kit, migraciones o tareas
@@ -172,8 +174,9 @@ administrativas controladas. Las Functions no ejecutan migraciones al iniciar.
 
 Los contratos aceptados son el
 [modelo de identidad](../data/identity-model.md) y el
-[contrato point-in-time](../data/point-in-time-contract.md). Su persistencia se
-difiere a la migración de Fase 1. Rigen estas invariantes:
+[contrato point-in-time](../data/point-in-time-contract.md). `F1-02` materializa el
+envelope temporal base; las relaciones completas de identidad y observaciones se
+implementan en sus slices posteriores. Rigen estas invariantes:
 
 - los tickers no son claves estables;
 - el tiempo efectivo y el tiempo de conocimiento son distintos;
@@ -309,11 +312,12 @@ un cambio por una caída externa sin diagnóstico.
 - ADR 0001 fija stack, Cache Components y conexiones PostgreSQL.
 - ADR 0002 fija los modos efectivos, la persistencia durable y el límite de
   exposición de datos.
-- El modelo de identidad y el contrato point-in-time fijan semántica; schema,
-  constraints y repositorios se implementan en Fase 1.
+- El modelo de identidad y el contrato point-in-time fijan semántica; `F1-02`
+  implementa su envelope base y los slices siguientes amplían tablas y queries.
 - La matriz contractual de fuentes registra derechos, cache, retención y cuotas;
   ninguna fuente real está aprobada por defecto.
-- Fase 1 elegirá schema, driver instalado, migración y repositorios concretos.
+- `F1-02` fija Drizzle ORM, Postgres.js, la migración inicial y la composición de
+  repositorios, verificadas contra PostgreSQL 17.11 local dedicado.
 - Fase 2 decidirá el mecanismo durable de jobs si el refresh lo requiere.
 - Ningún proveedor real, cuenta externa o recurso con costo se crea desde este
   documento.

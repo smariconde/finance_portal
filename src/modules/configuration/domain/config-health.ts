@@ -133,7 +133,7 @@ function inspectDatabase(
       id: "database",
       label: "Postgres",
       status: "disabled",
-      message: "No es necesario para el bootstrap en modo demo.",
+      message: "La demo usa fixtures y no abre una conexión PostgreSQL.",
       missingVariables: [],
     };
   }
@@ -145,10 +145,10 @@ function inspectDatabase(
   return {
     id: "database",
     label: "Postgres",
-    status: missingVariables.length === 0 ? "disabled" : "degraded",
+    status: missingVariables.length === 0 ? "ready" : "degraded",
     message:
       missingVariables.length === 0
-        ? "La variable está presente, pero la persistencia se habilita recién en F1-02."
+        ? "Configurada para runtime pooled; este health no prueba conectividad."
         : "El modo personal requiere una conexión pooled server-only.",
     missingVariables: [...missingVariables],
   };

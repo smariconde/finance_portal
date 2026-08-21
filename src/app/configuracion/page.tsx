@@ -124,14 +124,14 @@ export default function ConfigurationPage() {
         <div>
           <h2 id="boundary-title">Límite actual del sistema.</h2>
           <p>
-            F1-01 entrega orientación y diagnóstico. La persistencia comienza en
-            el próximo slice, después de este gate.
+            F1-02 incorpora el contrato de persistencia. Postgres sólo se abre
+            en modo personal; la demo permanece aislada en fixtures.
           </p>
         </div>
         <ul>
-          <li>Sin conexión a Postgres.</li>
+          <li>Postgres requiere modo personal y una conexión pooled.</li>
           <li>Sin proveedores ni tráfico externo.</li>
-          <li>Sin ingestas, mutaciones o datos financieros.</li>
+          <li>Sin ingestas, mutaciones persistentes o datos financieros.</li>
           <li>Sin rutas que simulen capacidades futuras.</li>
         </ul>
       </section>
