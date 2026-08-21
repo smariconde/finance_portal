@@ -1,0 +1,142 @@
+# Entorno y despliegue Vercel
+
+## Filosofia de configuracion
+
+La app debe arrancar con modulos opcionales deshabilitados y mostrar un setup health claro. El codigo es publico, pero las variables y la base pertenecen al owner. `APP_MODE=demo` nunca necesita keys; `APP_MODE=personal` habilita datos reales y solo se ejecuta en localhost o en un deployment protegido.
+
+## Variables
+
+```dotenv
+# Publicas, nunca secretos
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_NAME=Portal Financiero
+
+# Core server-only
+# Pooled runtime connection
+DATABASE_URL=
+# Direct connection, migrations/admin only
+DATABASE_DIRECT_URL=
+CRON_SECRET=
+APP_ENV=development
+APP_MODE=demo
+LOG_LEVEL=info
+
+# Mercado personal: provider inicial
+MARKET_DATA_PROVIDER=alpaca
+ALPACA_API_KEY_ID=
+ALPACA_API_SECRET_KEY=
+ALPACA_DATA_FEED=sip
+MARKET_DATA_MAX_REQUESTS_PER_MINUTE=100
+MARKET_DATA_MAX_REQUESTS_PER_RUN=1000
+
+# SEC exige identificacion responsable
+SEC_USER_AGENT=PortalFinanciero/0.1 contact@example.com
+
+# IA e investigacion
+OPENROUTER_API_KEY=
+OPENROUTER_MODEL_FAST=
+OPENROUTER_MODEL_REASONING=
+OPENROUTER_ENFORCE_ZDR=true
+OPENROUTER_DATA_COLLECTION=deny
+OPENROUTER_PROVIDER_ALLOWLIST=
+TAVILY_API_KEY=
+
+# Opcionales
+SENTRY_DSN=
+```
+
+No fijar model IDs en este documento: cambian. La fase que habilita IA consulta la lista actual, elige modelos compatibles con structured outputs, registra costo/capacidades/politica de datos en ADR y valida las variables. Las variables anteriores deben mapearse a controles por request y verificarse en metadata; no son controles por si solas.
+
+## Esquema de validacion
+
+Crear grupos:
+
+- `core`: modo, base y cron cuando se use scheduling;
+- `marketData`: keys de Alpaca solo en `personal`;
+- `ai`: OpenRouter;
+- `research`: Tavily;
+- `observability`: opcional por fase.
+
+`demo` rechaza cualquier configuracion de ingesta live aunque existan keys por error. `personal` exige Postgres y habilita modulos solo si sus variables estan completas. `DATABASE_URL` usa pooling compatible con Functions; `DATABASE_DIRECT_URL` nunca se importa desde rutas normales y se reserva al job controlado de migracion. Si una cola/workflow se aprueba por ADR, agregar sus variables en ese cambio.
+
+`getModuleHealth()` retorna `ready | degraded | disabled`, missing vars y mensaje seguro. Nunca incluye valores.
+
+## Setup local
+
+```bash
+pnpm install
+cp .env.example .env.local
+pnpm db:migrate
+pnpm db:seed:demo
+pnpm dev
+```
+
+Comandos objetivo:
+
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm test:integration
+pnpm test:e2e
+pnpm build
+```
+
+## Modos de ejecucion
+
+### Personal
+
+- Opcion mas simple: localhost con Postgres remoto o local y refresh manual.
+- Opcion desplegada: Preview/Deployment URL protegida con Vercel Authentication. No requiere construir login, sesiones ni tablas de usuarios.
+- En Hobby, Standard Protection no protege el production domain. Por eso production queda en `demo`; los datos reales se usan en localhost o en una URL que la plataforma confirme como protegida.
+
+### Demo publica
+
+- `APP_MODE=demo`, fixtures deterministas y ninguna key financiera/IA.
+- Sin refresh live, cron de proveedores, mutaciones persistentes ni historial personal.
+- Sirve para mostrar UI, formulas y arquitectura desde el repositorio publico.
+
+## Vercel
+
+1. Importar repo en Vercel.
+2. Provisionar Postgres (Neon/Supabase/otro) desde Marketplace en region compatible.
+3. Configurar Production con `APP_MODE=demo`; agregar keys solo al entorno personal/protegido y marcarlas como sensibles.
+4. Ejecutar migraciones mediante job controlado, no implicitamente desde cada Function.
+5. No configurar cron live mientras Production sea demo. El modo personal comienza con refresh manual; un cron posterior exige un destino protegido y `CRON_SECRET`.
+6. Configurar `maxDuration` solo en rutas que lo necesiten; no subirlo globalmente como parche.
+7. Desplegar preview, correr E2E smoke y promover.
+8. Registrar modelo de cache de la version Next.js instalada y probar invalidacion/freshness; no mezclar Cache Components y convenciones anteriores accidentalmente.
+
+Ejemplo conceptual para una fase posterior, solo despues de aprobar un destino live protegido:
+
+```json
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    { "path": "/api/cron/daily-market-data", "schedule": "15 3 * * *" },
+    { "path": "/api/cron/daily-argentina", "schedule": "45 11 * * *" }
+  ]
+}
+```
+
+Los cron usan UTC. En Hobby solo pueden ejecutarse diariamente y dentro de la hora, por lo que el portal no depende de precision intrahoraria. El precio objetivo es EOD.
+
+## Check de deployment
+
+- env health sin exponer secretos;
+- migracion aplicada y rollback conocido;
+- guard `personal | demo` y, si existe cron, secreto verificado;
+- region DB/Functions documentada;
+- provider live smoke de bajo costo solo en `personal`;
+- source registry/licencia vigente;
+- no `NEXT_PUBLIC_*KEY*`;
+- logs redacted y presupuesto de proveedor activo;
+- disclaimer/metodologia/freshness visibles.
+- uso personal/cache/export confirmado para el plan; demo publica sin datos live;
+- data map minimo revisado para IA/telemetria habilitadas;
+- endpoints IA ausentes en demo y con budget/kill switch en personal;
+- pooling verificado y la URL directa ausente del runtime normal.
+
+## Persistencia entre sesiones
+
+Postgres es la fuente durable para snapshots, uso de cuota, preferencias, watchlists y valuaciones. El cache de Next.js puede invalidarse o desaparecer sin perder datos. `localStorage` se limita a tema, densidad de tabla y borradores no sensibles; `sessionStorage` no se usa como cache. Las API keys existen unicamente en variables server-only y se rotan desde el entorno.

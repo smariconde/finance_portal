@@ -1,0 +1,192 @@
+# Roadmap incremental y estado
+
+Este archivo es la fuente unica de avance. Todas las secciones forman parte de la vision, pero se implementan de a una fase y, dentro de cada fase, mediante slices verticales pequenos. La existencia de una ruta, mockup o documento no significa que una feature este terminada.
+
+Supuesto operativo vigente: un unico owner, repositorio publico y runtime live personal. No se construyen cuentas, login propio, multi-tenancy ni BYOK. Los datos reales corren en localhost o deployment protegido; una URL anonima solo usa fixtures.
+
+## Estados
+
+- `not_started`: no hay implementacion aprobada.
+- `in_progress`: existe un slice activo con alcance acotado.
+- `blocked`: falta una decision, credencial, contrato o accion externa identificada.
+- `done`: todos los checks y el gate tienen evidencia.
+- `deferred`: se pospone con motivo y condicion de reingreso.
+
+Solo una fase puede estar `in_progress`. No marcar `done` por porcentaje, esfuerzo realizado o archivos creados.
+
+## Estado actual
+
+| Etapa | Estado | Ultima evidencia |
+|---|---|---|
+| Masterplan y auditoria | done | Replanteo single-owner, datos y persistencia revisado el 2026-08-20 |
+| Fase 0 - Fundacion | not_started | - |
+| Fase 1 - Vertical slice demo | not_started | - |
+| Fase 2 - Empresas y CEDEAR | not_started | - |
+| Fase 3 - Divergencias | not_started | - |
+| Fase 4 - Valuacion no financiera V1 | not_started | - |
+| Fase 5 - Arquetipos deterministas | not_started | - |
+| Fase 6 - Argentina y soja | not_started | - |
+| Fase 7 - IA personal acotada | not_started | - |
+| Fase 8 - Persistencia personal y asistente | not_started | - |
+| Fase 9 - Hardening y publicacion del proyecto | not_started | - |
+
+**Proximo slice autorizado:** Fase 0A, bootstrap del repo, toolchain y CI minima. No comenzar Fase 1 en la misma sesion.
+
+## Protocolo por sesion
+
+1. Leer este estado y elegir el primer check pendiente de la fase activa.
+2. Definir un resultado demostrable que entre en una sesion; no agrupar secciones no dependientes.
+3. Mantener build ejecutable y usar fake/fixture antes de una API real.
+4. Ejecutar solo los checks relevantes y guardar evidencia: paths, comandos, preview o ADR.
+5. Actualizar checkboxes, estado, bloqueos y registro de sesiones.
+6. Especificar el proximo slice; no iniciarlo automaticamente si el actual ya cumplio su objetivo.
+
+Una fase grande puede ocupar muchas sesiones. Una excepcion al orden requiere ADR con impacto, riesgo y condicion de retorno.
+
+## Fase 0 - Fundacion y decisiones
+
+### Fase 0A: bootstrap
+
+- [ ] Crear Next.js estable, TypeScript estricto, pnpm y Node LTS compatible.
+- [ ] Configurar lint, format, typecheck, unit test, build y CI minima.
+- [ ] Crear estructura modular y aliases sin implementar dominios futuros.
+- [ ] Crear `.env.example` y health de configuracion sin secretos.
+
+### Fase 0B: contratos y gobierno
+
+- [ ] ADR de stack, modelo de cache Next.js y Postgres/pooling.
+- [ ] PRD, arquitectura, source registry y metodologia derivados.
+- [ ] Modelo entity/security/listing/depositary y contrato point-in-time.
+- [ ] Matriz de uso personal, cache, retencion y cuotas antes de cualquier spike tecnico.
+- [ ] ADR de modos `personal | demo`, persistencia durable y limite de exposicion de datos.
+- [ ] Threat model, wireframes, design tokens e inventario de skills.
+- [ ] Backlog y tracker enlazados desde el repo implementado.
+
+**Gate:** lint, typecheck, unit y build pasan; CI corre; no hay secrets; arquitectura, cache durable, identidad, modos y restricciones de proveedor estan registradas. No se compra ni integra una API real.
+
+## Fase 1 - Vertical slice sin proveedor real
+
+Implementar en sesiones separadas: shell/health, persistencia base, fake provider, motor FCFF y UI.
+
+- [ ] Shell, navegacion y estados honestos `ready | degraded | disabled | planned`.
+- [ ] Postgres/Drizzle, migracion y repositorios base.
+- [ ] `source_registry`, `ingestion_runs` y fake provider deterministico.
+- [ ] Una empresa fixture con identidad completa y provenance point-in-time.
+- [ ] FCFF base calculado por dominio puro con sensibilidad.
+- [ ] UI de fuentes, freshness, supuestos y resultado.
+- [ ] Unit, contract y un E2E del flujo demo.
+- [ ] Walkthrough reproducible del owner con hallazgos documentados.
+
+**Gate:** preview reproducible; el mismo snapshot produce el mismo hash/resultado; no hay llamada LLM ni proveedor real; feedback de uso queda en backlog.
+
+## Fase 2 - Empresas, CEDEAR y screener
+
+- [ ] Registrar terminos del plan personal y aprobar SEC + Caja + snapshot S&P + Alpaca Basic como stack inicial, o documentar su reemplazo.
+- [ ] Implementar issuer/security/listing/identifier/corporate-action mapping.
+- [ ] Integrar SEC identity/audit y validacion de muestra Arelle/DQC.
+- [ ] Ingesta historica de CEDEAR, ratios y vigencia.
+- [ ] Cache Postgres durable, refresh manual/EOD, batching, presupuesto de cuota, cursor/checkpoint, reintentos y poison policy.
+- [ ] Metric catalog versionado y screener 2Y/5Y.
+- [ ] Export personal con metadata y atribucion dentro de los terminos aplicables.
+- [ ] Degradacion, reconciliacion y quality score explicable.
+
+**Gate:** 30 empresas representativas reconciliadas; 100% de filas con source/as-of/available-at; delistings/splits/ADRs probados; ningun page view llama proveedores; uso/cache personal y presupuesto de cuota quedan verificados.
+
+## Fase 3 - Divergencias fundamentales
+
+- [ ] Pipeline fiscal-aligned de precio, market cap, EPS, net income y shares.
+- [ ] Vista agregada `net income vs market cap`.
+- [ ] Vista por accion `EPS vs price` y puente de dilucion/recompras.
+- [ ] Categorias de EPS no comparable y ventanas con tolerancia.
+- [ ] Scatter, tabla, filtros y detail drawer accesibles.
+- [ ] Tests de splits, restatements, negativos, outliers y look-ahead.
+
+**Gate:** golden dataset revisado manualmente; formulas y limitaciones publicadas; ninguna UI presenta un gap aislado como senal de compra.
+
+## Fase 4 - Valuacion no financiera V1
+
+- [ ] Normalizador reported/adjusted con puentes auditables.
+- [ ] Selector madura/high-growth inicial.
+- [ ] FCFF multi-etapa, bear/base/bull y sensitivity.
+- [ ] Assumptions workbench con locks y audit trace.
+- [ ] Snapshots de parametros Damodaran con version.
+- [ ] Fixtures independientes y revision contra spreadsheets.
+- [ ] Labels de escenarios, limitaciones y ausencia de recomendacion revisados para uso personal.
+
+**Gate:** invariantes con precondiciones y tolerancias pasan; replay de snapshot es deterministico; recalcular no requiere IA; output muestra rango e incertidumbre.
+
+Un MVP util termina aqui. Validar uso antes de ampliar profundidad.
+
+## Fase 5 - Arquetipos deterministas
+
+Implementar un arquetipo por slice y llevarlo a gate antes del siguiente:
+
+1. bancos/aseguradoras: excess return/DDM;
+2. ciclicas/commodities: normalizacion de ciclo;
+3. perdidas/high growth: revenue-to-margin y supervivencia;
+4. REIT: AFFO/NAV;
+5. holding/SOTP y distress solo con demanda observada.
+
+Cada slice exige selector, inputs, formulas, fixtures, diagnosticos y estado `experimental | reviewed | production`. No agregar IA en esta fase.
+
+**Gate:** casos por arquetipo, revision independiente y limites visibles; metodos no soportados devuelven `unsupported_method`.
+
+## Fase 6 - Argentina y soja
+
+Construir un bloque por sesion, empezando por catalogo/vintages y luego nominal, monetario, cambiario, actividad, fiscal/externo y agro.
+
+- [ ] BCRA Estadisticas Monetarias v4 con catalogo dinamico.
+- [ ] Datos.gob.ar/INDEC/BNA con metadata, revisions y quiebres.
+- [ ] Transformaciones nominal/real y seasonal-adjustment auditables.
+- [ ] Rosario/Chicago con licencia, contrato, conversion y roll policy.
+- [ ] Graficos, tabla accesible, freshness y lectura sin causalidad inventada.
+
+**Gate por bloque:** ultima publicacion oficial reconciliada, cambio de schema falla seguro y metodologia visible. La fase termina cuando todos los bloques priorizados estan `done`; los restantes pueden quedar `deferred` explicitamente.
+
+## Fase 7 - IA personal acotada
+
+Primero proteger costo y datos; despues habilitar una sola feature IA. No se implementa identidad de usuario: el limite de acceso es localhost o la proteccion del deployment.
+
+- [ ] Guard de modo: IA disponible en `personal` y deshabilitada en `demo`.
+- [ ] Budget por request/dia, limite global, kill switch y observabilidad.
+- [ ] Data map/transferencias y politica OpenRouter ZDR/data collection verificadas.
+- [ ] Research sobre documentos primarios con evidence IDs y allowlist.
+- [ ] Propuesta estructurada de supuestos para un metodo ya validado.
+- [ ] Policy engine, abstencion, prompt-injection tests y evals.
+
+**Gate:** no hay endpoint IA en modo demo; proveedor/routing/politica quedan trazados; replay usa output persistido; costo y tasa de rechazo/correccion son visibles.
+
+## Fase 8 - Persistencia personal y asistente
+
+- [ ] Saved views, watchlists, preferencias y valuaciones del unico owner sin `user_id`.
+- [ ] Historial, exportacion, backup y borrado manual de datos locales.
+- [ ] Claves server-owned por entorno con health, rotacion manual y redaccion de logs.
+- [ ] Restauracion de preferencias y borradores entre sesiones desde Postgres; `localStorage` solo para UX no sensible.
+- [ ] Asistente con acciones acotadas: explicar, comparar y navegar evidencia.
+- [ ] Tool calls tipadas sin URL/SQL arbitrario y aprobacion humana para acciones sensibles.
+
+**Gate:** una key nunca llega al browser; backup/restore personal probado; assistant eval suite factual/financiera pasa; el modo demo no accede a datos live.
+
+## Fase 9 - Hardening y publicacion del proyecto
+
+- [ ] SLOs, alertas, backups y restore drill.
+- [ ] Load/cost tests, rate limits y circuit breakers.
+- [ ] Auditoria WCAG 2.2 AA y performance budgets.
+- [ ] Terminos de uso personal, atribuciones, secretos y copy metodologico revisados.
+- [ ] Runbooks, rollback y changelog de metodologia.
+- [ ] README publico con setup seguro; demo fixture opcional y runtime live local/protegido verificados.
+
+**Gate:** checklist firmado, presupuesto/alertas activos, incident drill completado, secretos ausentes del repo y ninguna URL anonima sirve datos live.
+
+## Definicion global de terminado
+
+Una feature esta `done` cuando pregunta y criterio estan claros; schema, identidad, formula, fuente y version estan documentados; happy path, bordes y degradacion tienen tests; la UI muestra source/as-of/available-at/quality; seguridad, uso personal y modo de despliegue fueron revisados; es usable por teclado y movil; observabilidad/costo/rollback existen; preview y diff fueron verificados.
+
+## Registro de sesiones
+
+Agregar una fila al cerrar cada sesion. No borrar historia; corregir con una fila nueva.
+
+| Fecha | Fase/slice | Resultado | Estado | Evidencia | Proximo slice/bloqueo |
+|---|---|---|---|---|---|
+| 2026-08-20 | Masterplan | Auditoria externa y endurecimiento documental | done | `docs/finance-portal-masterplan/` | Fase 0A: bootstrap; implementacion aun no iniciada |
+| 2026-08-20 | Masterplan | Replanteo single-owner: SEC/Caja/Alpaca, cache Postgres, sin auth/BYOK y demo fixture | done | `00`, `01`, `02`, `03`, `04`, `06`, `07`, `08`, `09`, `10`, `README`, `AGENTS.md` | Fase 0A: bootstrap; implementacion aun no iniciada |
