@@ -2,6 +2,9 @@ import "@fontsource-variable/archivo";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
+import { PortalShell } from "@/app/_components/portal-shell";
+import { getAppConfigHealth } from "@/server/config/app-environment";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -21,6 +24,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 export default function RootLayout({
   children,
 }: Readonly<{ children: ReactNode }>) {
+  const health = getAppConfigHealth();
+
   return (
     <html lang="es-AR">
       <body>
@@ -28,7 +33,7 @@ export default function RootLayout({
           data-design-contract="fe67c6ea"
           dangerouslySetInnerHTML={{ __html: `<!-- ${designContract} -->` }}
         />
-        {children}
+        <PortalShell mode={health.mode}>{children}</PortalShell>
       </body>
     </html>
   );

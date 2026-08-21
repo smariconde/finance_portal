@@ -232,7 +232,7 @@
       "disabled": {
         "role": "neutral",
         "displayName": "Neutral deshabilitado",
-        "canonical": "#667376",
+        "canonical": "#59676a",
         "tonalRamp": [
           "oklch(15% 0.016 213.2)",
           "oklch(27% 0.016 213.2)",
@@ -432,7 +432,7 @@
       "refersTo": "status-ready",
       "description": "Estados de configuración con etiqueta y geometría, nunca sólo color.",
       "html": "<div class=\"ds-health-states\"><span class=\"ds-status ds-ready\"><i aria-hidden=\"true\"></i>Listo</span><span class=\"ds-status ds-critical\"><i aria-hidden=\"true\"></i>Requiere atención</span><span class=\"ds-status ds-disabled\"><i aria-hidden=\"true\"></i>Deshabilitado</span></div>",
-      "css": ".ds-health-states { display:flex; flex-wrap:wrap; gap:1rem 1.5rem; font-family:\"Archivo Variable\",\"Arial Narrow\",sans-serif; } .ds-status { display:inline-flex; align-items:center; gap:.55rem; font-size:.72rem; font-weight:660; } .ds-status i { position:relative; width:.55rem; height:.55rem; border:1px solid currentColor; } .ds-ready { color:var(--success,#2f755f); } .ds-ready i { background:var(--success,#2f755f); } .ds-critical { color:var(--critical,#9f4038); } .ds-critical i { background:var(--critical-soft,#f3dfdc); } .ds-critical i::after { position:absolute; top:50%; left:50%; width:.25rem; height:1px; background:currentColor; content:\"\"; transform:translate(-50%,-50%); } .ds-disabled { color:var(--disabled,#667376); } .ds-disabled i { background:var(--disabled-soft,#e2e7e4); } .ds-status:focus-visible { outline:2px solid var(--focus,#146f92); outline-offset:4px; }"
+      "css": ".ds-health-states { display:flex; flex-wrap:wrap; gap:1rem 1.5rem; font-family:\"Archivo Variable\",\"Arial Narrow\",sans-serif; } .ds-status { display:inline-flex; align-items:center; gap:.55rem; font-size:.72rem; font-weight:660; } .ds-status i { position:relative; width:.55rem; height:.55rem; border:1px solid currentColor; } .ds-ready { color:var(--success,#2f755f); } .ds-ready i { background:var(--success,#2f755f); } .ds-critical { color:var(--critical,#9f4038); } .ds-critical i { background:var(--critical-soft,#f3dfdc); } .ds-critical i::after { position:absolute; top:50%; left:50%; width:.25rem; height:1px; background:currentColor; content:\"\"; transform:translate(-50%,-50%); } .ds-disabled { color:var(--disabled,#59676a); } .ds-disabled i { background:var(--disabled-soft,#e2e7e4); } .ds-status:focus-visible { outline:2px solid var(--focus,#146f92); outline-offset:4px; }"
     },
     {
       "name": "Evidence Fields",

@@ -80,4 +80,4 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 
 ## Estado actual
 
-El masterplan esta revisado y la Fase 0 esta terminada. `F1-01` es el proximo slice autorizado, pero la Fase 1 aun no comenzo. El estado operativo y el historial de sesiones viven exclusivamente en `06_PHASED_ROADMAP.md`; el orden ejecutable vive en `../backlog/README.md` y no se infiere avance por la mera existencia de una pagina o documento.
+El masterplan esta revisado, la Fase 0 esta terminada y la Fase 1 esta en curso. `F1-01` cerro el shell y health; `F1-02` es el proximo slice autorizado. El estado operativo y el historial de sesiones viven exclusivamente en `06_PHASED_ROADMAP.md`; el orden ejecutable vive en `../backlog/README.md` y no se infiere avance por la mera existencia de una pagina o documento.

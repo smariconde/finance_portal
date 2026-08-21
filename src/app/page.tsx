@@ -1,11 +1,7 @@
-import type { ConfigStatus } from "@/modules/configuration/domain/config-health";
-import { getAppConfigHealth } from "@/server/config/app-environment";
+import Link from "next/link";
 
-const statusLabels: Record<ConfigStatus, string> = {
-  ready: "Listo",
-  degraded: "Requiere atención",
-  disabled: "Deshabilitado",
-};
+import { StatusMark } from "@/app/_components/status-mark";
+import { getAppConfigHealth } from "@/server/config/app-environment";
 
 const tools = [
   {
@@ -52,33 +48,12 @@ const tools = [
 
 export default function HomePage() {
   const health = getAppConfigHealth();
+  const attentionCount = health.items.filter(
+    (item) => item.status === "degraded",
+  ).length;
 
   return (
-    <main>
-      <header className="site-header">
-        <a
-          className="wordmark"
-          href="#inicio"
-          aria-label="Portal Financiero, inicio"
-        >
-          <span className="wordmark-mark" aria-hidden="true">
-            PF
-          </span>
-          <span>Portal Financiero</span>
-        </a>
-
-        <nav className="site-nav" aria-label="Navegación principal">
-          <a href="#herramientas">Herramientas</a>
-          <a href="#datos">Datos</a>
-          <a href="#metodo">Método</a>
-        </nav>
-
-        <div className="mode-indicator">
-          <span className="mode-signal" aria-hidden="true" />
-          Modo {health.mode}
-        </div>
-      </header>
-
+    <main id="contenido">
       <div className="portal-frame" id="inicio">
         <aside className="measure-rail" aria-label="Referencia del portal">
           <div className="measure-scale" aria-hidden="true">
@@ -111,7 +86,7 @@ export default function HomePage() {
             >
               <div className="entry-heading">
                 <h2 id="analysis-entry-title">¿Qué querés analizar?</h2>
-                <span>Se habilita en Fase 1</span>
+                <span>Planificado</span>
               </div>
               <label htmlFor="global-analysis">Empresa, ticker o CEDEAR</label>
               <div className="search-shell">
@@ -130,11 +105,7 @@ export default function HomePage() {
             </div>
           </section>
 
-          <section
-            className="tools-section"
-            id="herramientas"
-            aria-labelledby="tools-title"
-          >
+          <section className="tools-section" aria-labelledby="tools-title">
             <div className="section-heading">
               <h2 id="tools-title">Una entrada distinta para cada decisión.</h2>
               <p>
@@ -158,74 +129,55 @@ export default function HomePage() {
                     <span>Formato</span>
                     <strong>{tool.output}</strong>
                   </div>
-                  <span className="planned-state">Planificado</span>
+                  <StatusMark status="planned" />
                 </article>
               ))}
             </div>
           </section>
 
-          <section
-            className="data-section"
-            id="datos"
-            aria-labelledby="data-title"
-          >
+          <section className="data-section" aria-labelledby="data-title">
             <div className="section-heading data-heading">
               <div>
-                <h2 id="data-title">Estado real de la base.</h2>
-                <p>La configuración se informa sin revelar valores secretos.</p>
+                <h2 id="data-title">El estado operativo, sin ambigüedad.</h2>
+                <p>
+                  La configuración informa capacidad y límites sin revelar
+                  valores secretos.
+                </p>
               </div>
               <dl className="health-summary">
                 <div>
-                  <dt>Entorno</dt>
+                  <dt>Modo efectivo</dt>
                   <dd>{health.mode}</dd>
                 </div>
                 <div>
-                  <dt>Controles</dt>
-                  <dd>{health.items.length}</dd>
+                  <dt>Atenciones</dt>
+                  <dd>{attentionCount}</dd>
                 </div>
               </dl>
             </div>
 
-            <div
-              className="health-register"
-              role="table"
-              aria-label="Salud de configuración"
-            >
-              <div className="health-row health-header" role="row">
-                <span role="columnheader">Componente</span>
-                <span role="columnheader">Estado</span>
-                <span role="columnheader">Lectura</span>
-                <span role="columnheader">Configuración</span>
+            <div className="health-callout">
+              <div>
+                <StatusMark
+                  status={attentionCount > 0 ? "degraded" : "ready"}
+                  label={
+                    attentionCount > 0
+                      ? `${attentionCount} revisión pendiente`
+                      : "Configuración base lista"
+                  }
+                />
+                <p>
+                  Postgres y las integraciones live permanecen deshabilitados en
+                  este slice; ninguna página abre una conexión ni llama APIs.
+                </p>
               </div>
-              {health.items.map((item) => (
-                <div className="health-row" role="row" key={item.id}>
-                  <strong role="cell" data-label="Componente">
-                    {item.label}
-                  </strong>
-                  <span role="cell" data-label="Estado">
-                    <span className={`status-mark status-${item.status}`}>
-                      <span aria-hidden="true" />
-                      {statusLabels[item.status]}
-                    </span>
-                  </span>
-                  <p role="cell" data-label="Lectura">
-                    {item.message}
-                  </p>
-                  <code role="cell" data-label="Configuración">
-                    {item.missingVariables.length > 0
-                      ? item.missingVariables.join(" · ")
-                      : "Sin faltantes"}
-                  </code>
-                </div>
-              ))}
+              <Link className="text-link" href="/configuracion">
+                Ver diagnóstico completo
+              </Link>
             </div>
           </section>
 
-          <section
-            className="method-section"
-            id="metodo"
-            aria-labelledby="method-title"
-          >
+          <section className="method-section" aria-labelledby="method-title">
             <div className="method-copy">
               <h2 id="method-title">La evidencia viaja con el resultado.</h2>
               <p>
@@ -254,11 +206,6 @@ export default function HomePage() {
           </section>
         </div>
       </div>
-
-      <footer className="site-footer">
-        <p>Información educativa, no asesoramiento financiero.</p>
-        <p>Portal personal · código público · datos reales protegidos</p>
-      </footer>
     </main>
   );
 }

@@ -145,10 +145,10 @@ function inspectDatabase(
   return {
     id: "database",
     label: "Postgres",
-    status: missingVariables.length === 0 ? "ready" : "degraded",
+    status: missingVariables.length === 0 ? "disabled" : "degraded",
     message:
       missingVariables.length === 0
-        ? "La conexión pooled de runtime está configurada."
+        ? "La variable está presente, pero la persistencia se habilita recién en F1-02."
         : "El modo personal requiere una conexión pooled server-only.",
     missingVariables: [...missingVariables],
   };

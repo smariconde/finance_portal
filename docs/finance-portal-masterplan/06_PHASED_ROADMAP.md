@@ -20,7 +20,7 @@ Solo una fase puede estar `in_progress`. No marcar `done` por porcentaje, esfuer
 |---|---|---|
 | Masterplan y auditoria | done | Replanteo single-owner, datos y persistencia revisado el 2026-08-20 |
 | Fase 0 - Fundacion | done | Fase 0A y contratos 0B.1-0B.7 validados el 2026-08-21; gate completo sin integrar proveedores reales |
-| Fase 1 - Vertical slice demo | not_started | - |
+| Fase 1 - Vertical slice demo | in_progress | `F1-01` cerrado el 2026-08-21; shell, health y headers base verificados |
 | Fase 2 - Empresas y CEDEAR | not_started | - |
 | Fase 3 - Divergencias | not_started | - |
 | Fase 4 - Valuacion no financiera V1 | not_started | - |
@@ -30,7 +30,7 @@ Solo una fase puede estar `in_progress`. No marcar `done` por porcentaje, esfuer
 | Fase 8 - Persistencia personal y asistente | not_started | - |
 | Fase 9 - Hardening y publicacion del proyecto | not_started | - |
 
-**Proximo slice autorizado:** `F1-01`, shell, navegacion y health con estados honestos `ready | degraded | disabled | planned`, conforme a [`docs/backlog/README.md`](../backlog/README.md#f1-01). No iniciar persistencia, fake provider, motor FCFF ni otras tarjetas de Fase 1 en el mismo slice.
+**Proximo slice autorizado:** `F1-02`, persistencia PostgreSQL/Drizzle y repositorios base con aislamiento entre fixture demo y storage personal, conforme a [`docs/backlog/README.md`](../backlog/README.md#f1-02). No iniciar fake provider, motor FCFF ni otras tarjetas de Fase 1 en el mismo slice.
 
 **Bloqueos actuales:** ninguno.
 
@@ -70,7 +70,7 @@ Una fase grande puede ocupar muchas sesiones. Una excepcion al orden requiere AD
 
 Implementar en sesiones separadas: shell/health, persistencia base, fake provider, motor FCFF y UI.
 
-- [ ] Shell, navegacion y estados honestos `ready | degraded | disabled | planned`.
+- [x] Shell, navegacion y estados honestos `ready | degraded | disabled | planned`.
 - [ ] Postgres/Drizzle, migracion y repositorios base.
 - [ ] `source_registry`, `ingestion_runs` y fake provider deterministico.
 - [ ] Una empresa fixture con identidad completa y provenance point-in-time.
@@ -203,3 +203,4 @@ Agregar una fila al cerrar cada sesion. No borrar historia; corregir con una fil
 | 2026-08-21 | Fase 0B.5 | ADR de modos efectivos, persistencia durable y limite de exposicion con fallback seguro a demo; Production queda publica/demo y el personal live se limita a local o Preview protegido | done | `docs/architecture/adr/0002-runtime-modes-persistence-exposure.md`, `src/modules/configuration/domain/config-health.ts`, `.env.example`, arquitectura y deploy; fuentes primarias revisadas; format, enlaces, referencias obsoletas, diff check, lint, typecheck, 10 unit tests y build | Fase 0B.6: threat model y reconciliacion de wireframes, design tokens e inventario de skills |
 | 2026-08-21 | Fase 0B.6 | Threat model consolidado y evidencia de interfaz/skills reconciliada; la home queda como unico wireframe ejecutable y la deuda visual se mantiene explicita | done | `docs/security/threat-model.md`, `docs/design/interface-foundations.md`, `docs/agent/skills-inventory.md`, enlaces en arquitectura/README/AGENTS; OWASP, Next.js, Vercel y GitHub revalidados; detector Impeccable con 14 advisories y sin findings blocking/major; format, enlaces, secrets patterns, diff check, lint, typecheck, 10 unit tests y build | Fase 0B.7: backlog ejecutable y tracker enlazado; incorporar `TM-*` y `UI-01` a `UI-04`; no comenzar Fase 1 |
 | 2026-08-21 | Fase 0B.7 | Backlog por fases ejecutable, trazabilidad completa `TM-01..16`/`UI-01..04` y copy de fases reconciliado; gate de Fase 0 cerrado | done | `docs/backlog/README.md`, enlaces en `README.md`, masterplan, threat model, interface foundations y `AGENTS.md`, `src/app/page.tsx`; format, enlaces, secret patterns, diff check, lint, typecheck, 10 unit tests y build | `F1-01`: shell, navegacion y health; no iniciar `F1-02` |
+| 2026-08-21 | Fase 1 / `F1-01` | Shell compartido, navegacion a superficies reales, health honesto y headers base con review desktop/mobile | done | `src/app/`, `src/server/security/`, `next.config.ts`, brief y capturas en `.impeccable/`; format, lint, typecheck, 12 unit tests, build, HTTP 200 y verdict Impeccable `ship` | `F1-02`: Postgres/Drizzle y repositorios base; no iniciar `F1-03` |

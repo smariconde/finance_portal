@@ -26,8 +26,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 
 | Orden | Issue   | Estado   | Resultado verificable                                                                                        | Dependencias  |
 | ----: | ------- | -------- | ------------------------------------------------------------------------------------------------------------ | ------------- |
-|     1 | `F1-01` | `ready`  | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos. | Fase 0 `done` |
-|     2 | `F1-02` | `queued` | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.      | `F1-01`       |
+|     1 | `F1-01` | `done`   | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos. | Fase 0 `done` |
+|     2 | `F1-02` | `ready`  | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.      | `F1-01`       |
 |     3 | `F1-03` | `queued` | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.               | `F1-02`       |
 |     4 | `F1-04` | `queued` | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.          | `F1-03`       |
 |     5 | `F1-05` | `queued` | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                      | `F1-04`       |
@@ -35,8 +35,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |     7 | `F1-07` | `queued` | Unit, contract y E2E prueban el flujo demo, degradación, aislamiento, teclado y mobile.                      | `F1-06`       |
 |     8 | `F1-08` | `queued` | Walkthrough reproducible del owner registra hallazgos y cierra el gate de Fase 1.                            | `F1-07`       |
 
-No se inicia `F1-01` dentro del cierre de Fase 0. Su alcance exacto se vuelve a
-confirmar contra el roadmap al comenzar la próxima sesión.
+`F1-01` cerró con shell, health, headers base y revisión desktop/mobile. El único
+próximo slice autorizado es `F1-02`; no iniciar fake providers ni otros issues.
 
 ## Issues por fase
 
@@ -259,15 +259,15 @@ probar el control; fases posteriores pueden volver a verificarlo.
 | `TM-09` | `F7-04`                                                 | `F7-06`, `F8-05`, `F8-06`                  | required; no hay IA aún                                  |
 | `TM-10` | `F2-01`                                                 | `F2-05`, `F7-02`, `F9-02`                  | contracted; no hay gasto live aún                        |
 | `TM-11` | `F2-05`                                                 | `F6-01`, `F9-01`, `F9-05`                  | contracted; cron live deshabilitado                      |
-| `TM-12` | `F1-01`                                                 | cada UI externa, `F9-03`                   | React escaping implementado; headers/tests pendientes    |
+| `TM-12` | `F1-01`                                                 | cada UI externa, `F9-03`                   | headers base y render seguro verificados                 |
 | `TM-13` | `F9-06`                                                 | cada actualización de dependencia/skill    | baseline implementada; scans pendientes                  |
 | `TM-14` | antes del primer preview personal (`F7-01` como máximo) | `F8-03`, `F9-06`                           | contracted; no hay deployment personal                   |
 | `TM-15` | `F1-03` para fixtures                                   | cada proveedor/export/IA, `F8-02`, `F9-04` | unknowns fail-closed implementados                       |
 | `TM-16` | `F1-03`                                                 | cada operación y gate                      | contracted                                               |
 | `UI-01` | Fase `0B.7`                                             | revisar copy al cambiar roadmap            | `done`: registro de home alineado con Fases 2, 3, 4 y 6  |
 | `UI-02` | `F1-07`                                                 | `F1-08`, `F9-03`                           | pendiente                                                |
-| `UI-03` | `F1-01`                                                 | cada feedback stateful, `F9-03`            | pendiente                                                |
-| `UI-04` | `F1-01`                                                 | cada extracción visual, `F9-03`            | pendiente                                                |
+| `UI-03` | `F1-01`                                                 | cada feedback stateful, `F9-03`            | `done`: estados y reduced motion conservan feedback      |
+| `UI-04` | `F1-01`                                                 | cada extracción visual, `F9-03`            | `done`: escala reusable y token de contraste registrados |
 
 ## Plantilla para nuevos issues
 

@@ -31,7 +31,7 @@ describe("getConfigHealth", () => {
     });
   });
 
-  it("marks the personal runtime database connection as ready", () => {
+  it("keeps persistence disabled until its implementation slice", () => {
     const health = getConfigHealth({
       APP_MODE: "personal",
       APP_RUNTIME_ACCESS: "local",
@@ -39,7 +39,9 @@ describe("getConfigHealth", () => {
     });
 
     expect(health.items.find((item) => item.id === "database")).toMatchObject({
-      status: "ready",
+      status: "disabled",
+      message:
+        "La variable está presente, pero la persistencia se habilita recién en F1-02.",
       missingVariables: [],
     });
   });

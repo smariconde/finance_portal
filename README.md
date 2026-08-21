@@ -19,13 +19,13 @@ La aplicación está diseñada para responder preguntas como:
 
 ## Estado actual
 
-La **Fase 0 — Fundación** está terminada. La aplicación puede ejecutarse localmente y el próximo slice autorizado es `F1-01`: shell, navegación y health honestos, todavía sin persistencia ni proveedores.
+La **Fase 0 — Fundación** está terminada y la Fase 1 está en curso. `F1-01` cerró el shell, la navegación y el health; el próximo slice autorizado es `F1-02`: persistencia PostgreSQL/Drizzle y repositorios base, todavía sin proveedores.
 
 Disponible hoy:
 
 - Next.js con App Router, React y TypeScript estricto.
-- Interfaz inicial responsive con tema claro y oscuro.
-- Health seguro de configuración para los modos `demo` y `personal`.
+- Shell responsive con navegación sólo a superficies implementadas.
+- Health seguro de configuración para los modos `demo` y `personal`, con estados honestos y headers base.
 - Variables de entorno documentadas sin credenciales reales.
 - Tests unitarios, lint, typecheck, formato, build y CI mínima.
 - Límites de módulos preparados para crecer sin mezclar dominio, framework y proveedores.

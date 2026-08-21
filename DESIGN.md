@@ -17,7 +17,7 @@ colors:
   critical-soft: "#f3dfdc"
   success: "#2f755f"
   success-soft: "#dcebe4"
-  disabled: "#667376"
+  disabled: "#59676a"
   disabled-soft: "#e2e7e4"
   focus: "#146f92"
   selection: "#c9e4ec"
