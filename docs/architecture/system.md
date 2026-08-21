@@ -6,6 +6,9 @@
 - Decisiones base:
   [`adr/0001-stack-cache-postgres.md`](adr/0001-stack-cache-postgres.md) y
   [`adr/0002-runtime-modes-persistence-exposure.md`](adr/0002-runtime-modes-persistence-exposure.md)
+- Contratos transversales:
+  [`../security/threat-model.md`](../security/threat-model.md) y
+  [`../design/interface-foundations.md`](../design/interface-foundations.md)
 - Alcance activo: Fase 0; no describe capacidades futuras como implementadas
 
 ## Objetivo

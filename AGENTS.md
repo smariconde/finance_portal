@@ -47,6 +47,11 @@ Persist approved visual decisions in `DESIGN.md` when that system is established
 
 Every formula change requires unit tests plus edge cases for nulls, zero, negatives, currency mismatch, and non-finite results. Provider changes require sanitized fixtures, provenance, license review, schema validation, and failure-path contract tests. Keep secrets server-only, never use `NEXT_PUBLIC_` for keys, and never commit real credentials or licensed payloads.
 
+Before adding a Route Handler, Server Action, provider, export, job, or AI capability,
+read `docs/security/threat-model.md` and close the controls assigned to that surface.
+Before reusing or expanding the visual system, read
+`docs/design/interface-foundations.md`; the home is evidence, not a universal layout.
+
 ## Commits & Pull Requests
 
 Git history is unavailable, so use short imperative subjects, for example `docs(architecture): clarify provider boundary`. Pull requests should summarize changes, link issues or ADRs, state validation, and include screenshots only for UI changes.

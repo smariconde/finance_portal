@@ -242,12 +242,15 @@ Documentos ejecutables actuales:
 - [Modelo de identidad financiera](docs/data/identity-model.md)
 - [Contrato point-in-time](docs/data/point-in-time-contract.md)
 - [Metodología de valuación](docs/valuation/methodology.md)
+- [Threat model](docs/security/threat-model.md)
+- [Fundaciones de interfaz y evidencia](docs/design/interface-foundations.md)
+- [Inventario auditado de skills](docs/agent/skills-inventory.md)
 - [ADR 0001: stack, cache y PostgreSQL](docs/architecture/adr/0001-stack-cache-postgres.md)
 - [ADR 0002: modos, persistencia y exposición](docs/architecture/adr/0002-runtime-modes-persistence-exposure.md)
 
-Los contratos de fuentes, modos y exposición ya están registrados sin aprobar ni
-conectar proveedores reales. El roadmap autoriza a continuación el threat model
-y la reconciliación de wireframes, design tokens e inventario de skills.
+Los contratos de fuentes, modos, exposición y amenazas ya están registrados sin
+aprobar ni conectar proveedores reales. La home es el único wireframe ejecutable;
+sus tokens, autoridad y deuda abierta están reconciliados sin simular rutas futuras.
 
 ## Desarrollo y colaboración
 

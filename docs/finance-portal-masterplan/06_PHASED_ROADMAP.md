@@ -19,7 +19,7 @@ Solo una fase puede estar `in_progress`. No marcar `done` por porcentaje, esfuer
 | Etapa | Estado | Ultima evidencia |
 |---|---|---|
 | Masterplan y auditoria | done | Replanteo single-owner, datos y persistencia revisado el 2026-08-20 |
-| Fase 0 - Fundacion | in_progress | Fase 0A y contratos 0B.1-0B.5 validados el 2026-08-21; proveedores reales siguen sin aprobar |
+| Fase 0 - Fundacion | in_progress | Fase 0A y contratos 0B.1-0B.6 validados el 2026-08-21; proveedores reales siguen sin aprobar |
 | Fase 1 - Vertical slice demo | not_started | - |
 | Fase 2 - Empresas y CEDEAR | not_started | - |
 | Fase 3 - Divergencias | not_started | - |
@@ -30,7 +30,7 @@ Solo una fase puede estar `in_progress`. No marcar `done` por porcentaje, esfuer
 | Fase 8 - Persistencia personal y asistente | not_started | - |
 | Fase 9 - Hardening y publicacion del proyecto | not_started | - |
 
-**Proximo slice autorizado:** Fase 0B.6, consolidar el threat model y reconciliar la evidencia existente de wireframes, design tokens e inventario de skills. No comenzar Fase 1.
+**Proximo slice autorizado:** Fase 0B.7, crear el backlog ejecutable y enlazar su tracker desde el repositorio. Debe incorporar la deuda abierta del threat model y de la auditoria visual. No comenzar Fase 1.
 
 **Bloqueos actuales:** ninguno.
 
@@ -61,7 +61,7 @@ Una fase grande puede ocupar muchas sesiones. Una excepcion al orden requiere AD
 - [x] Modelo entity/security/listing/depositary y contrato point-in-time.
 - [x] Matriz de uso personal, cache, retencion y cuotas antes de cualquier spike tecnico.
 - [x] ADR de modos `personal | demo`, persistencia durable y limite de exposicion de datos.
-- [ ] Threat model, wireframes, design tokens e inventario de skills.
+- [x] Threat model, wireframes, design tokens e inventario de skills.
 - [ ] Backlog y tracker enlazados desde el repo implementado.
 
 **Gate:** lint, typecheck, unit y build pasan; CI corre; no hay secrets; arquitectura, cache durable, identidad, modos y restricciones de proveedor estan registradas. No se compra ni integra una API real.
@@ -201,3 +201,4 @@ Agregar una fila al cerrar cada sesion. No borrar historia; corregir con una fil
 | 2026-08-21 | Fase 0B.3 | Modelo entity/security/listing/depositary y contrato point-in-time con vigencia efectiva, conocimiento público, registro local y revisiones reproducibles | done | `docs/data/identity-model.md`, `docs/data/point-in-time-contract.md`, `docs/architecture/system.md`, `docs/data/source-registry.md`, `AGENTS.md`; fuentes primarias revisadas; format, enlaces, diff check, lint, typecheck, 5 unit tests y build | Fase 0B.4: matriz de uso personal, cache, retencion y cuotas |
 | 2026-08-21 | Fase 0B.4 | Matriz por fuente de uso personal, cache, retencion, export/IA y cuotas con desconocidos cerrados; ningun proveedor, cuenta, gasto o spike aprobado | done | `docs/data/provider-use-matrix.md`, `docs/data/source-registry.md`, `README.md`, masterplan `README`; fuentes primarias revisadas; format, enlaces, referencias obsoletas, diff check, lint, typecheck, 5 unit tests y build | Fase 0B.5: ADR de modos `personal \| demo`, persistencia durable y limite de exposicion de datos |
 | 2026-08-21 | Fase 0B.5 | ADR de modos efectivos, persistencia durable y limite de exposicion con fallback seguro a demo; Production queda publica/demo y el personal live se limita a local o Preview protegido | done | `docs/architecture/adr/0002-runtime-modes-persistence-exposure.md`, `src/modules/configuration/domain/config-health.ts`, `.env.example`, arquitectura y deploy; fuentes primarias revisadas; format, enlaces, referencias obsoletas, diff check, lint, typecheck, 10 unit tests y build | Fase 0B.6: threat model y reconciliacion de wireframes, design tokens e inventario de skills |
+| 2026-08-21 | Fase 0B.6 | Threat model consolidado y evidencia de interfaz/skills reconciliada; la home queda como unico wireframe ejecutable y la deuda visual se mantiene explicita | done | `docs/security/threat-model.md`, `docs/design/interface-foundations.md`, `docs/agent/skills-inventory.md`, enlaces en arquitectura/README/AGENTS; OWASP, Next.js, Vercel y GitHub revalidados; detector Impeccable con 14 advisories y sin findings blocking/major; format, enlaces, secrets patterns, diff check, lint, typecheck, 10 unit tests y build | Fase 0B.7: backlog ejecutable y tracker enlazado; incorporar `TM-*` y `UI-01` a `UI-04`; no comenzar Fase 1 |

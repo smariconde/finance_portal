@@ -57,6 +57,9 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 - [`../data/identity-model.md`](../data/identity-model.md): separación entity/security/listing/symbol, programas depositarios y resolución de identidad.
 - [`../data/point-in-time-contract.md`](../data/point-in-time-contract.md): vigencia, conocimiento, revisiones, consultas as-known y snapshots reproducibles.
 - [`../valuation/methodology.md`](../valuation/methodology.md): política numérica, selección de métodos, FCFF, checks y reproducibilidad.
+- [`../security/threat-model.md`](../security/threat-model.md): activos, fronteras, amenazas, controles y gates de seguridad por fase.
+- [`../design/interface-foundations.md`](../design/interface-foundations.md): autoridad de artefactos, wireframe ejecutable, tokens y deuda visual conocida.
+- [`../agent/skills-inventory.md`](../agent/skills-inventory.md): skills locales aprobadas, acciones auditadas y candidatos diferidos.
 
 ## Principios no negociables
 
