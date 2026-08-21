@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 const appModeSchema = z.enum(["demo", "personal"]);
+const appRuntimeAccessSchema = z.enum(["public", "local", "protected"]);
 
 const liveConfigurationVariables = [
   "ALPACA_API_KEY_ID",
@@ -13,6 +14,7 @@ const liveConfigurationVariables = [
 const personalRuntimeDatabaseVariables = ["DATABASE_URL"] as const;
 
 export type AppMode = z.infer<typeof appModeSchema>;
+export type AppRuntimeAccess = z.infer<typeof appRuntimeAccessSchema>;
 export type ConfigStatus = "ready" | "degraded" | "disabled";
 
 export type ConfigHealthItem = {
@@ -25,6 +27,7 @@ export type ConfigHealthItem = {
 
 export type ConfigHealth = {
   mode: AppMode;
+  access: AppRuntimeAccess;
   items: ConfigHealthItem[];
 };
 
@@ -34,18 +37,78 @@ function hasValue(value: string | undefined): boolean {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+type RuntimeResolution = {
+  mode: AppMode;
+  access: AppRuntimeAccess;
+  problems: string[];
+  usedSafeFallback: boolean;
+};
+
+function resolveRuntime(environment: Environment): RuntimeResolution {
+  const parsedMode = appModeSchema.safeParse(environment.APP_MODE ?? "demo");
+  const hasExplicitAccess = hasValue(environment.APP_RUNTIME_ACCESS);
+  const parsedAccess = appRuntimeAccessSchema.safeParse(
+    environment.APP_RUNTIME_ACCESS ?? "public",
+  );
+  const requestedMode = parsedMode.success ? parsedMode.data : "demo";
+  const access = parsedAccess.success ? parsedAccess.data : "public";
+  const problems = new Set<string>();
+
+  if (!parsedMode.success) {
+    problems.add("APP_MODE");
+  }
+
+  if (!parsedAccess.success) {
+    problems.add("APP_RUNTIME_ACCESS");
+  }
+
+  if (requestedMode === "personal") {
+    if (!hasExplicitAccess || access === "public") {
+      problems.add("APP_RUNTIME_ACCESS");
+    }
+
+    if (access === "local" && environment.VERCEL === "1") {
+      problems.add("APP_RUNTIME_ACCESS");
+    }
+
+    const isProtectedPreview =
+      access === "protected" &&
+      environment.VERCEL === "1" &&
+      environment.VERCEL_ENV === "preview";
+
+    if (access === "protected" && !isProtectedPreview) {
+      problems.add("VERCEL_ENV");
+    }
+  }
+
+  const usedSafeFallback =
+    !parsedMode.success || (requestedMode === "personal" && problems.size > 0);
+
+  return {
+    mode: usedSafeFallback ? "demo" : requestedMode,
+    access,
+    problems: [...problems],
+    usedSafeFallback,
+  };
+}
+
 function inspectCore(
   environment: Environment,
-  parsedMode: ReturnType<typeof appModeSchema.safeParse>,
+  runtime: RuntimeResolution,
 ): ConfigHealthItem {
   const appUrl = environment.NEXT_PUBLIC_APP_URL;
   const hasInvalidUrl =
     hasValue(appUrl) && !z.url().safeParse(appUrl?.trim()).success;
 
   const problems = [
-    ...(parsedMode.success ? [] : ["APP_MODE"]),
+    ...runtime.problems,
     ...(hasInvalidUrl ? ["NEXT_PUBLIC_APP_URL"] : []),
   ];
+
+  const healthyMessage =
+    runtime.mode === "personal"
+      ? "El modo personal está limitado al runtime local o protegido declarado."
+      : "El modo demo y su límite de exposición son seguros.";
 
   return {
     id: "core",
@@ -53,8 +116,10 @@ function inspectCore(
     status: problems.length === 0 ? "ready" : "degraded",
     message:
       problems.length === 0
-        ? "El modo de ejecución y la URL pública son seguros."
-        : "Hay valores inválidos; la aplicación usa el modo demo seguro.",
+        ? healthyMessage
+        : runtime.usedSafeFallback
+          ? "La configuración solicitada no es segura; se aplicó el modo demo."
+          : "Hay valores de configuración inválidos que requieren revisión.",
     missingVariables: problems,
   };
 }
@@ -119,15 +184,15 @@ function inspectLiveIntegrations(
 }
 
 export function getConfigHealth(environment: Environment): ConfigHealth {
-  const parsedMode = appModeSchema.safeParse(environment.APP_MODE ?? "demo");
-  const mode = parsedMode.success ? parsedMode.data : "demo";
+  const runtime = resolveRuntime(environment);
 
   return {
-    mode,
+    mode: runtime.mode,
+    access: runtime.access,
     items: [
-      inspectCore(environment, parsedMode),
-      inspectDatabase(environment, mode),
-      inspectLiveIntegrations(environment, mode),
+      inspectCore(environment, runtime),
+      inspectDatabase(environment, runtime.mode),
+      inspectLiveIntegrations(environment, runtime.mode),
     ],
   };
 }

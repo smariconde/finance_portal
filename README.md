@@ -140,7 +140,8 @@ Copy-Item .env.example .env.local
 
 Abrir [http://localhost:3000](http://localhost:3000).
 
-La configuración incluida inicia en `APP_MODE=demo` y no necesita claves de proveedores.
+La configuración incluida inicia en `APP_MODE=demo` y
+`APP_RUNTIME_ACCESS=public`; no necesita claves de proveedores.
 
 ## Modos de ejecución
 
@@ -148,6 +149,7 @@ La configuración incluida inicia en `APP_MODE=demo` y no necesita claves de pro
 
 Es el modo seguro por defecto y el único apropiado para una URL pública anónima.
 
+- Usa `APP_RUNTIME_ACCESS=public`.
 - No necesita API keys.
 - Ignora cualquier configuración live cargada por error.
 - No habilita ingestas, IA ni mutaciones persistentes.
@@ -157,6 +159,8 @@ Es el modo seguro por defecto y el único apropiado para una URL pública anóni
 
 Está reservado al owner y se ejecutará en localhost o detrás de protección de plataforma.
 
+- Usa `APP_RUNTIME_ACCESS=local` fuera de Vercel o
+  `APP_RUNTIME_ACCESS=protected` en un Vercel Preview protegido.
 - Requiere una conexión PostgreSQL pooled para el runtime.
 - Las integraciones live permanecen deshabilitadas hasta superar sus gates técnicos y de licencia.
 - No agrega login, cuentas, roles, multi-tenancy ni claves aportadas por usuarios.
@@ -216,8 +220,12 @@ Cada observación persistida deberá conservar provenance, fecha efectiva, fecha
 
 El destino previsto es Vercel, pero el repositorio todavía no publica una URL de producción.
 
-- Una demo pública deberá ejecutarse con `APP_MODE=demo` y fixtures.
-- La instancia personal con datos reales deberá ejecutarse localmente o en un deployment protegido.
+- Una demo pública deberá ejecutarse con `APP_MODE=demo`,
+  `APP_RUNTIME_ACCESS=public` y fixtures.
+- La instancia personal con datos reales deberá ejecutarse localmente o en un
+  Vercel Preview cuya protección se haya verificado fuera de la aplicación.
+- Vercel Production permanece en `demo`; no se configura cron live mientras esa
+  frontera siga vigente.
 - PostgreSQL se provisionará con pooling para runtime y una conexión directa separada para migraciones.
 - Las migraciones se ejecutarán como un job controlado, nunca automáticamente desde cada Function.
 
@@ -235,8 +243,11 @@ Documentos ejecutables actuales:
 - [Contrato point-in-time](docs/data/point-in-time-contract.md)
 - [Metodología de valuación](docs/valuation/methodology.md)
 - [ADR 0001: stack, cache y PostgreSQL](docs/architecture/adr/0001-stack-cache-postgres.md)
+- [ADR 0002: modos, persistencia y exposición](docs/architecture/adr/0002-runtime-modes-persistence-exposure.md)
 
-La matriz de uso personal, cache, retención y cuotas ya está registrada sin aprobar ni conectar proveedores reales. La siguiente entrega autorizada es el ADR de modos `personal | demo`, persistencia durable y límites de exposición de datos.
+Los contratos de fuentes, modos y exposición ya están registrados sin aprobar ni
+conectar proveedores reales. El roadmap autoriza a continuación el threat model
+y la reconciliación de wireframes, design tokens e inventario de skills.
 
 ## Desarrollo y colaboración
 

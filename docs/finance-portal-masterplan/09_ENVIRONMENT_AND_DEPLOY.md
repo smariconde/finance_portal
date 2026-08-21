@@ -2,7 +2,7 @@
 
 ## Filosofia de configuracion
 
-La app debe arrancar con modulos opcionales deshabilitados y mostrar un setup health claro. El codigo es publico, pero las variables y la base pertenecen al owner. `APP_MODE=demo` nunca necesita keys; `APP_MODE=personal` habilita datos reales y solo se ejecuta en localhost o en un deployment protegido.
+La app debe arrancar con modulos opcionales deshabilitados y mostrar un setup health claro. El codigo es publico, pero las variables y la base pertenecen al owner. `APP_MODE=demo` nunca necesita keys; `APP_MODE=personal` solo es efectivo junto con un limite de acceso valido: local fuera de Vercel o Preview protegido.
 
 ## Variables
 
@@ -19,6 +19,7 @@ DATABASE_DIRECT_URL=
 CRON_SECRET=
 APP_ENV=development
 APP_MODE=demo
+APP_RUNTIME_ACCESS=public
 LOG_LEVEL=info
 
 # Mercado personal: provider inicial
@@ -57,9 +58,9 @@ Crear grupos:
 - `research`: Tavily;
 - `observability`: opcional por fase.
 
-`demo` rechaza cualquier configuracion de ingesta live aunque existan keys por error. `personal` exige Postgres y habilita modulos solo si sus variables estan completas. `DATABASE_URL` usa pooling compatible con Functions; `DATABASE_DIRECT_URL` nunca se importa desde rutas normales y se reserva al job controlado de migracion. Si una cola/workflow se aprueba por ADR, agregar sus variables en ese cambio.
+`demo` rechaza cualquier configuracion de ingesta live aunque existan keys por error. `personal` exige Postgres y habilita modulos solo si sus variables estan completas. Tambien exige `APP_RUNTIME_ACCESS=local` fuera de Vercel o `APP_RUNTIME_ACCESS=protected` en un Vercel Preview. Una combinacion ausente, invalida o insegura cae al modo efectivo `demo`; Vercel Production siempre queda en `demo` en esta etapa. `DATABASE_URL` usa pooling compatible con Functions; `DATABASE_DIRECT_URL` nunca se importa desde rutas normales y se reserva al job controlado de migracion. Si una cola/workflow se aprueba por ADR, agregar sus variables en ese cambio.
 
-`getModuleHealth()` retorna `ready | degraded | disabled`, missing vars y mensaje seguro. Nunca incluye valores.
+`getConfigHealth()` retorna `ready | degraded | disabled`, missing vars y mensaje seguro. Nunca incluye valores.
 
 ## Setup local
 
@@ -86,13 +87,14 @@ pnpm build
 
 ### Personal
 
-- Opcion mas simple: localhost con Postgres remoto o local y refresh manual.
-- Opcion desplegada: Preview/Deployment URL protegida con Vercel Authentication. No requiere construir login, sesiones ni tablas de usuarios.
+- Opcion mas simple: `APP_MODE=personal` y `APP_RUNTIME_ACCESS=local` fuera de Vercel, con Postgres remoto o local y refresh manual.
+- Opcion desplegada: `APP_MODE=personal` y `APP_RUNTIME_ACCESS=protected` en una Preview URL protegida con Vercel Authentication. La variable es una declaracion operativa; el checklist debe confirmar la proteccion real. No requiere construir login, sesiones ni tablas de usuarios.
 - En Hobby, Standard Protection no protege el production domain. Por eso production queda en `demo`; los datos reales se usan en localhost o en una URL que la plataforma confirme como protegida.
+- No se programa Vercel Cron para este modo: el servicio invoca Production, no Preview. El refresh inicial es manual.
 
 ### Demo publica
 
-- `APP_MODE=demo`, fixtures deterministas y ninguna key financiera/IA.
+- `APP_MODE=demo`, `APP_RUNTIME_ACCESS=public`, fixtures deterministas y ninguna key financiera/IA.
 - Sin refresh live, cron de proveedores, mutaciones persistentes ni historial personal.
 - Sirve para mostrar UI, formulas y arquitectura desde el repositorio publico.
 
@@ -100,9 +102,9 @@ pnpm build
 
 1. Importar repo en Vercel.
 2. Provisionar Postgres (Neon/Supabase/otro) desde Marketplace en region compatible.
-3. Configurar Production con `APP_MODE=demo`; agregar keys solo al entorno personal/protegido y marcarlas como sensibles.
+3. Configurar Production con `APP_MODE=demo` y `APP_RUNTIME_ACCESS=public`; agregar keys solo al entorno Preview personal/protegido y marcarlas como sensibles.
 4. Ejecutar migraciones mediante job controlado, no implicitamente desde cada Function.
-5. No configurar cron live mientras Production sea demo. El modo personal comienza con refresh manual; un cron posterior exige un destino protegido y `CRON_SECRET`.
+5. No configurar cron live mientras Production sea demo. Vercel Cron invoca Production, no Preview; el modo personal comienza con refresh manual. Una automatizacion posterior exige un nuevo ADR, un destino protegido y autenticacion verificable.
 6. Configurar `maxDuration` solo en rutas que lo necesiten; no subirlo globalmente como parche.
 7. Desplegar preview, correr E2E smoke y promover.
 8. Registrar modelo de cache de la version Next.js instalada y probar invalidacion/freshness; no mezclar Cache Components y convenciones anteriores accidentalmente.
@@ -125,7 +127,8 @@ Los cron usan UTC. En Hobby solo pueden ejecutarse diariamente y dentro de la ho
 
 - env health sin exponer secretos;
 - migracion aplicada y rollback conocido;
-- guard `personal | demo` y, si existe cron, secreto verificado;
+- guard `personal | demo` y `public | local | protected` verificados;
+- Preview personal confirmada como protegida fuera de la aplicacion; Production confirmada en `demo`;
 - region DB/Functions documentada;
 - provider live smoke de bajo costo solo en `personal`;
 - source registry/licencia vigente;

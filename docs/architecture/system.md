@@ -1,9 +1,11 @@
 # Arquitectura del sistema
 
 - Estado: aceptada como arquitectura objetivo incremental
-- Versión: 0.1
+- Versión: 0.2
 - Fecha: 2026-08-21
-- Decisión base: [`adr/0001-stack-cache-postgres.md`](adr/0001-stack-cache-postgres.md)
+- Decisiones base:
+  [`adr/0001-stack-cache-postgres.md`](adr/0001-stack-cache-postgres.md) y
+  [`adr/0002-runtime-modes-persistence-exposure.md`](adr/0002-runtime-modes-persistence-exposure.md)
 - Alcance activo: Fase 0; no describe capacidades futuras como implementadas
 
 ## Objetivo
@@ -209,7 +211,14 @@ Reglas comunes:
 
 ## Modos y configuración
 
-`APP_MODE` acepta `demo | personal` y se decide exclusivamente en servidor.
+El runtime se resuelve exclusivamente en servidor con dos ejes:
+
+- `APP_MODE=demo | personal` expresa las capacidades solicitadas;
+- `APP_RUNTIME_ACCESS=public | local | protected` declara el límite de acceso.
+
+La declaración no prueba por sí sola que un deployment esté protegido. El
+despliegue debe verificar esa protección fuera de la aplicación. Una combinación
+inválida o insegura degrada al modo efectivo `demo`; nunca amplía capacidades.
 
 ### `demo`
 
@@ -221,11 +230,17 @@ Reglas comunes:
 ### `personal`
 
 - exige PostgreSQL pooled;
-- se ejecuta en localhost o deployment protegido;
+- sólo es efectivo con `APP_RUNTIME_ACCESS=local` fuera de Vercel o con
+  `APP_RUNTIME_ACCESS=protected` en un Vercel Preview protegido;
+- Vercel Production permanece en `demo`, aunque se solicite `personal`;
 - sólo habilita un módulo cuando sus variables y gate están completos;
 - mantiene keys server-owned y no introduce cuentas o BYOK.
 
-`getModuleHealth()` informa `ready | degraded | disabled`, variables faltantes y
+El modo personal desplegado comienza con refresh manual. No se configura cron
+live mientras Production permanezca en `demo`, porque el cron gestionado de
+Vercel invoca el deployment de Production y no el Preview protegido.
+
+`getConfigHealth()` informa `ready | degraded | disabled`, variables faltantes y
 un mensaje seguro. Nunca devuelve valores del entorno.
 
 ## Errores y degradación
@@ -289,10 +304,12 @@ un cambio por una caída externa sin diagnóstico.
 ## Decisiones y trabajo diferido
 
 - ADR 0001 fija stack, Cache Components y conexiones PostgreSQL.
+- ADR 0002 fija los modos efectivos, la persistencia durable y el límite de
+  exposición de datos.
 - El modelo de identidad y el contrato point-in-time fijan semántica; schema,
   constraints y repositorios se implementan en Fase 1.
-- Un slice posterior registrará la matriz contractual de fuentes.
-- Otro ADR fijará formalmente los modos, persistencia y exposición de datos.
+- La matriz contractual de fuentes registra derechos, cache, retención y cuotas;
+  ninguna fuente real está aprobada por defecto.
 - Fase 1 elegirá schema, driver instalado, migración y repositorios concretos.
 - Fase 2 decidirá el mecanismo durable de jobs si el refresh lo requiere.
 - Ningún proveedor real, cuenta externa o recurso con costo se crea desde este
