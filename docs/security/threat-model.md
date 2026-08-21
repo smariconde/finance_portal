@@ -2,6 +2,7 @@
 
 - Estado: baseline aceptada para Fase 0B.6
 - Fecha: 2026-08-21
+- Tracker de mitigaciones: [`../backlog/README.md`](../backlog/README.md#cobertura-de-deuda-transversal)
 - Alcance: repositorio público, demo anónima y runtime personal de un único owner
 - Revisión obligatoria: antes de cada nueva frontera web, proveedor, export, capacidad IA o cambio de exposición
 

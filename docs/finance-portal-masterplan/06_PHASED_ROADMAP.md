@@ -19,7 +19,7 @@ Solo una fase puede estar `in_progress`. No marcar `done` por porcentaje, esfuer
 | Etapa | Estado | Ultima evidencia |
 |---|---|---|
 | Masterplan y auditoria | done | Replanteo single-owner, datos y persistencia revisado el 2026-08-20 |
-| Fase 0 - Fundacion | in_progress | Fase 0A y contratos 0B.1-0B.6 validados el 2026-08-21; proveedores reales siguen sin aprobar |
+| Fase 0 - Fundacion | done | Fase 0A y contratos 0B.1-0B.7 validados el 2026-08-21; gate completo sin integrar proveedores reales |
 | Fase 1 - Vertical slice demo | not_started | - |
 | Fase 2 - Empresas y CEDEAR | not_started | - |
 | Fase 3 - Divergencias | not_started | - |
@@ -30,7 +30,7 @@ Solo una fase puede estar `in_progress`. No marcar `done` por porcentaje, esfuer
 | Fase 8 - Persistencia personal y asistente | not_started | - |
 | Fase 9 - Hardening y publicacion del proyecto | not_started | - |
 
-**Proximo slice autorizado:** Fase 0B.7, crear el backlog ejecutable y enlazar su tracker desde el repositorio. Debe incorporar la deuda abierta del threat model y de la auditoria visual. No comenzar Fase 1.
+**Proximo slice autorizado:** `F1-01`, shell, navegacion y health con estados honestos `ready | degraded | disabled | planned`, conforme a [`docs/backlog/README.md`](../backlog/README.md#f1-01). No iniciar persistencia, fake provider, motor FCFF ni otras tarjetas de Fase 1 en el mismo slice.
 
 **Bloqueos actuales:** ninguno.
 
@@ -62,7 +62,7 @@ Una fase grande puede ocupar muchas sesiones. Una excepcion al orden requiere AD
 - [x] Matriz de uso personal, cache, retencion y cuotas antes de cualquier spike tecnico.
 - [x] ADR de modos `personal | demo`, persistencia durable y limite de exposicion de datos.
 - [x] Threat model, wireframes, design tokens e inventario de skills.
-- [ ] Backlog y tracker enlazados desde el repo implementado.
+- [x] Backlog y tracker enlazados desde el repo implementado.
 
 **Gate:** lint, typecheck, unit y build pasan; CI corre; no hay secrets; arquitectura, cache durable, identidad, modos y restricciones de proveedor estan registradas. No se compra ni integra una API real.
 
@@ -202,3 +202,4 @@ Agregar una fila al cerrar cada sesion. No borrar historia; corregir con una fil
 | 2026-08-21 | Fase 0B.4 | Matriz por fuente de uso personal, cache, retencion, export/IA y cuotas con desconocidos cerrados; ningun proveedor, cuenta, gasto o spike aprobado | done | `docs/data/provider-use-matrix.md`, `docs/data/source-registry.md`, `README.md`, masterplan `README`; fuentes primarias revisadas; format, enlaces, referencias obsoletas, diff check, lint, typecheck, 5 unit tests y build | Fase 0B.5: ADR de modos `personal \| demo`, persistencia durable y limite de exposicion de datos |
 | 2026-08-21 | Fase 0B.5 | ADR de modos efectivos, persistencia durable y limite de exposicion con fallback seguro a demo; Production queda publica/demo y el personal live se limita a local o Preview protegido | done | `docs/architecture/adr/0002-runtime-modes-persistence-exposure.md`, `src/modules/configuration/domain/config-health.ts`, `.env.example`, arquitectura y deploy; fuentes primarias revisadas; format, enlaces, referencias obsoletas, diff check, lint, typecheck, 10 unit tests y build | Fase 0B.6: threat model y reconciliacion de wireframes, design tokens e inventario de skills |
 | 2026-08-21 | Fase 0B.6 | Threat model consolidado y evidencia de interfaz/skills reconciliada; la home queda como unico wireframe ejecutable y la deuda visual se mantiene explicita | done | `docs/security/threat-model.md`, `docs/design/interface-foundations.md`, `docs/agent/skills-inventory.md`, enlaces en arquitectura/README/AGENTS; OWASP, Next.js, Vercel y GitHub revalidados; detector Impeccable con 14 advisories y sin findings blocking/major; format, enlaces, secrets patterns, diff check, lint, typecheck, 10 unit tests y build | Fase 0B.7: backlog ejecutable y tracker enlazado; incorporar `TM-*` y `UI-01` a `UI-04`; no comenzar Fase 1 |
+| 2026-08-21 | Fase 0B.7 | Backlog por fases ejecutable, trazabilidad completa `TM-01..16`/`UI-01..04` y copy de fases reconciliado; gate de Fase 0 cerrado | done | `docs/backlog/README.md`, enlaces en `README.md`, masterplan, threat model, interface foundations y `AGENTS.md`, `src/app/page.tsx`; format, enlaces, secret patterns, diff check, lint, typecheck, 10 unit tests y build | `F1-01`: shell, navegacion y health; no iniciar `F1-02` |

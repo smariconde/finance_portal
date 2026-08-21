@@ -21,7 +21,7 @@ The current application command contract is:
 
 ## Incremental Delivery
 
-Before implementation, read `06_PHASED_ROADMAP.md`. Work only on its next authorized slice. At handoff, update status, evidence, blockers, and the session log. Partial work is not `done` until its gate passes.
+Before implementation, read `06_PHASED_ROADMAP.md` and `docs/backlog/README.md`. The roadmap authorizes the phase; the backlog supplies issue order, dependencies, acceptance criteria, and `TM-*`/`UI-*` traceability. Work only on its next authorized slice. At handoff, update status, evidence, blockers, and the session log. Partial work is not `done` until its gate passes.
 
 ## Writing, Coding, and Naming Conventions
 

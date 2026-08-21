@@ -5,6 +5,7 @@
 - Superficie implementada: home `/`
 - Modo de interacción: `Operate`
 - Dirección: `Mesa de calibración`
+- Tracker de deuda: [`../backlog/README.md`](../backlog/README.md#cobertura-de-deuda-transversal)
 
 ## Propósito
 
@@ -132,17 +133,17 @@ de dos opciones y registrarla en `DESIGN.md`:
 1. promover los pasos compactos realmente repetidos a una escala estable; o
 2. normalizar CSS hacia los roles existentes cuando la diferencia no tenga intención.
 
-### Hallazgos abiertos
+### Hallazgos rastreados
 
-| ID      | Severidad | Hallazgo                                                                                                                     | Impacto / cierre                                                                                                            |
-| ------- | --------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `UI-01` | P2        | Los rótulos de fase del registro de herramientas no coinciden con el roadmap vigente.                                        | Puede comunicar un orden falso. Corregir el copy al enlazar el backlog o activar navegación; no cambia el concepto visual.  |
-| `UI-02` | P2        | No hay artefacto reproducible de navegación por teclado/contraste; sólo consta la revisión y capturas de la sesión original. | Fase 1 agrega E2E/walkthrough desktop-mobile y conserva evidencia.                                                          |
-| `UI-03` | P2        | `prefers-reduced-motion` reduce toda transición a `0.01ms`.                                                                  | Hoy sólo afecta decoración; antes de feedback stateful, diseñar alternativa sin movimiento que conserve cambio y jerarquía. |
-| `UI-04` | P3        | 14 tamaños tipográficos quedan fuera de la rampa semántica parseable.                                                        | Consolidar al extraer el shell; no expandir la escala por cada literal aislado.                                             |
+| ID      | Severidad | Estado    | Hallazgo / cierre                                                                                                       |
+| ------- | --------- | --------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `UI-01` | P2        | `done`    | Los rótulos del registro se alinearon con las Fases 2, 3, 4 y 6 del roadmap en `src/app/page.tsx`.                      |
+| `UI-02` | P2        | `pending` | Falta evidencia reproducible de teclado/contraste; `F1-07` agrega E2E y `F1-08` conserva el walkthrough desktop-mobile. |
+| `UI-03` | P2        | `pending` | `F1-01` debe reemplazar el kill global de movimiento antes de introducir feedback stateful.                             |
+| `UI-04` | P3        | `pending` | `F1-01` consolida los 14 tamaños al extraer el shell sin expandir la escala por cada literal.                           |
 
-No se corrigen dentro de esta auditoría para mantener separado el diagnóstico del
-slice visual que adopte los componentes.
+`UI-01` se cerró al crear el tracker; `UI-02` a `UI-04` permanecen separadas del
+diagnóstico hasta que el slice visual indicado adopte los componentes.
 
 ## Reglas para el siguiente cambio visual
 

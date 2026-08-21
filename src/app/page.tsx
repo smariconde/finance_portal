@@ -9,7 +9,7 @@ const statusLabels: Record<ConfigStatus, string> = {
 
 const tools = [
   {
-    phase: "Fase 1",
+    phase: "Fase 2",
     area: "Empresas · CEDEAR",
     question: "¿Qué empresas cumplen mis criterios?",
     description:
@@ -17,7 +17,7 @@ const tools = [
     output: "Screener + ficha",
   },
   {
-    phase: "Fase 2",
+    phase: "Fase 3",
     area: "Matrices · Divergencias",
     question: "¿Dónde se separaron precio y fundamentales?",
     description:
@@ -25,7 +25,7 @@ const tools = [
     output: "Matriz + tabla",
   },
   {
-    phase: "Fase 3",
+    phase: "Fase 4",
     area: "Valuación",
     question: "¿Qué valor explican estos supuestos?",
     description:
@@ -33,7 +33,7 @@ const tools = [
     output: "Workbench",
   },
   {
-    phase: "Fase 4",
+    phase: "Fase 6",
     area: "Argentina · Macro",
     question: "¿Qué está cambiando en el régimen local?",
     description:
@@ -41,7 +41,7 @@ const tools = [
     output: "Tablero por bloques",
   },
   {
-    phase: "Fase 4",
+    phase: "Fase 6",
     area: "Agro · Soja",
     question: "¿Qué cuenta hoy el precio de la soja?",
     description:

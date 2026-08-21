@@ -48,6 +48,7 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 
 ## Documentos derivados
 
+- [`../backlog/README.md`](../backlog/README.md): tracker ejecutable con orden, dependencias, criterios de aceptación y trazabilidad de deuda.
 - [`../architecture/adr/0001-stack-cache-postgres.md`](../architecture/adr/0001-stack-cache-postgres.md): decision aceptada sobre stack, Cache Components y conexiones PostgreSQL.
 - [`../architecture/adr/0002-runtime-modes-persistence-exposure.md`](../architecture/adr/0002-runtime-modes-persistence-exposure.md): modos efectivos, persistencia durable y limite de exposicion de datos.
 - [`../product/prd.md`](../product/prd.md): requisitos de producto, modos, alcance, métricas y criterios de aceptación.
@@ -79,4 +80,4 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 
 ## Estado actual
 
-El masterplan esta revisado y la Fase 0 se encuentra en progreso. El estado operativo y el historial de sesiones viven exclusivamente en `06_PHASED_ROADMAP.md`; no se infiere avance por la mera existencia de una pagina o documento.
+El masterplan esta revisado y la Fase 0 esta terminada. `F1-01` es el proximo slice autorizado, pero la Fase 1 aun no comenzo. El estado operativo y el historial de sesiones viven exclusivamente en `06_PHASED_ROADMAP.md`; el orden ejecutable vive en `../backlog/README.md` y no se infiere avance por la mera existencia de una pagina o documento.

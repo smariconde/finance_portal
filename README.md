@@ -19,7 +19,7 @@ La aplicación está diseñada para responder preguntas como:
 
 ## Estado actual
 
-El proyecto se encuentra en **Fase 0 — Fundación**. El bootstrap técnico está terminado y la aplicación ya puede ejecutarse localmente.
+La **Fase 0 — Fundación** está terminada. La aplicación puede ejecutarse localmente y el próximo slice autorizado es `F1-01`: shell, navegación y health honestos, todavía sin persistencia ni proveedores.
 
 Disponible hoy:
 
@@ -30,6 +30,7 @@ Disponible hoy:
 - Tests unitarios, lint, typecheck, formato, build y CI mínima.
 - Límites de módulos preparados para crecer sin mezclar dominio, framework y proveedores.
 - PRD, arquitectura ejecutable, registro inicial de fuentes y metodología de valuación derivados del masterplan.
+- Backlog ejecutable con dependencias, criterios de aceptación y trazabilidad de riesgos y deuda visual.
 
 Todavía no están implementados los datos financieros, el screener, las valuaciones, el tablero argentino ni las funciones de IA. Esas capacidades se incorporarán por slices verificables; la interfaz no las presenta como disponibles antes de tiempo.
 
@@ -231,10 +232,11 @@ El destino previsto es Vercel, pero el repositorio todavía no publica una URL d
 
 ## Roadmap y documentación técnica
 
-El avance operativo y la evidencia de cada slice viven en [el roadmap](docs/finance-portal-masterplan/06_PHASED_ROADMAP.md). La arquitectura, el modelo de datos, la metodología financiera y los criterios de seguridad están documentados en [docs/finance-portal-masterplan](docs/finance-portal-masterplan/README.md).
+El avance de fases y la evidencia de cada slice viven en [el roadmap](docs/finance-portal-masterplan/06_PHASED_ROADMAP.md). El orden ejecutable, las dependencias y los criterios de aceptación viven en [el backlog](docs/backlog/README.md). La arquitectura, el modelo de datos, la metodología financiera y los criterios de seguridad están documentados en [docs/finance-portal-masterplan](docs/finance-portal-masterplan/README.md).
 
 Documentos ejecutables actuales:
 
+- [Backlog ejecutable y tracker](docs/backlog/README.md)
 - [PRD](docs/product/prd.md)
 - [Arquitectura del sistema](docs/architecture/system.md)
 - [Registro de fuentes](docs/data/source-registry.md)
@@ -251,6 +253,7 @@ Documentos ejecutables actuales:
 Los contratos de fuentes, modos, exposición y amenazas ya están registrados sin
 aprobar ni conectar proveedores reales. La home es el único wireframe ejecutable;
 sus tokens, autoridad y deuda abierta están reconciliados sin simular rutas futuras.
+El backlog marca `F1-01` como `ready`; ninguna capacidad de Fase 1 está implementada aún.
 
 ## Desarrollo y colaboración
 
