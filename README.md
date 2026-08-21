@@ -230,10 +230,12 @@ Documentos ejecutables actuales:
 - [PRD](docs/product/prd.md)
 - [Arquitectura del sistema](docs/architecture/system.md)
 - [Registro de fuentes](docs/data/source-registry.md)
+- [Modelo de identidad financiera](docs/data/identity-model.md)
+- [Contrato point-in-time](docs/data/point-in-time-contract.md)
 - [Metodología de valuación](docs/valuation/methodology.md)
 - [ADR 0001: stack, cache y PostgreSQL](docs/architecture/adr/0001-stack-cache-postgres.md)
 
-La siguiente entrega autorizada especificará el modelo `entity / security / listing / depositary` y el contrato point-in-time. No se conectará un proveedor real antes de aprobar contratos y fixtures.
+La siguiente entrega autorizada registrará la matriz de uso personal, cache, retención y cuotas antes de cualquier spike técnico. No se conectará un proveedor real antes de aprobar contratos y fixtures.
 
 ## Desarrollo y colaboración
 

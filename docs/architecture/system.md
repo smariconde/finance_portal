@@ -165,11 +165,14 @@ ingestas y crecerá por migraciones versionadas.
 `DATABASE_DIRECT_URL` sólo puede ser leída por Drizzle Kit, migraciones o tareas
 administrativas controladas. Las Functions no ejecutan migraciones al iniciar.
 
-El detalle de entity, security, listing, identificadores, programas depositarios
-y tiempo bitemporal pertenece a Fase 0B.3. Hasta entonces rigen estas invariantes:
+Los contratos aceptados son el
+[modelo de identidad](../data/identity-model.md) y el
+[contrato point-in-time](../data/point-in-time-contract.md). Su persistencia se
+difiere a la migración de Fase 1. Rigen estas invariantes:
 
 - los tickers no son claves estables;
 - el tiempo efectivo y el tiempo de conocimiento son distintos;
+- la disponibilidad pública y el registro local responden preguntas distintas;
 - una revisión crea lineage y no destruye el valor anterior;
 - joins entre proveedores exigen identidad y vigencia explícitas.
 
@@ -286,7 +289,8 @@ un cambio por una caída externa sin diagnóstico.
 ## Decisiones y trabajo diferido
 
 - ADR 0001 fija stack, Cache Components y conexiones PostgreSQL.
-- Fase 0B.3 especificará identidad y contrato point-in-time.
+- El modelo de identidad y el contrato point-in-time fijan semántica; schema,
+  constraints y repositorios se implementan en Fase 1.
 - Un slice posterior registrará la matriz contractual de fuentes.
 - Otro ADR fijará formalmente los modos, persistencia y exposición de datos.
 - Fase 1 elegirá schema, driver instalado, migración y repositorios concretos.

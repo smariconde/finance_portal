@@ -93,6 +93,7 @@ identificador y transformación permitidos; nunca se omite el hecho silenciosame
 | ------------------------- | ------------------------------------------------------- | ---- | -------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | `sec-edgar`               | identidad CIK, submissions, filings y XBRL/companyfacts | 2    | `technical_reviewed` | `rights_review_pending` | APIs JSON sin key y bulk nocturno; requiere User-Agent responsable, Fair Access y validación semántica de muestra     |
 | `caja-valores-cedear`     | listado, ISIN, subyacente, ratio y alcance CEDEAR       | 2    | `technical_reviewed` | `rights_review_pending` | la página oficial publica campos útiles y descarga; faltan condiciones de automatización, cache e historial           |
+| `iso-mic-register`        | catálogo versionado de Market Identifier Codes          | 2    | `technical_reviewed` | `rights_review_pending` | ISO 10383 identifica venues; pin por publicación y fecha efectiva, no por nombre comercial                            |
 | `datahub-sp500-pddl`      | snapshot versionado del universo de desarrollo          | 2    | `technical_reviewed` | `rights_review_pending` | el paquete declara PDDL, se actualiza desde Wikipedia y no prueba membresía oficial; pin obligatorio por hash/fecha   |
 | `alpaca-market-data`      | precios y barras históricas EOD del modo personal       | 2    | `technical_reviewed` | `rights_review_pending` | candidato, no integración; plan Basic y retención deben revisarse antes del spike                                     |
 | `bcra-monetarias-v4`      | catálogo, observaciones y metodología monetaria         | 6    | `technical_reviewed` | `rights_review_pending` | v4 es la versión vigente publicada; la antigua Principales Variables v3 figura deprecada desde 2026-02-28             |
@@ -103,16 +104,16 @@ identificador y transformación permitidos; nunca se omite el hecho silenciosame
 
 ## Inventario diferido
 
-| Source ID          | Uso posible                                      | Fase | Estado técnico       | Aprobación              | Condición de entrada                                                                 |
-| ------------------ | ------------------------------------------------ | ---- | -------------------- | ----------------------- | ------------------------------------------------------------------------------------ |
-| `indec-direct`     | releases y series cuya fuente primaria sea INDEC | 6    | `proposed`           | `rights_unreviewed`     | elegir datasets y contratos concretos, no tratar el portal completo como un endpoint |
-| `comafi-cedear`    | contraste de programas CEDEAR                    | 2    | `proposed`           | `rights_unreviewed`     | documentar dataset, vigencia y rol de fallback                                       |
-| `byma-cedear`      | contexto oficial de negociación CEDEAR           | 2    | `proposed`           | `rights_unreviewed`     | definir si aporta datos estructurados o evidencia documental                         |
-| `openfigi`         | reconciliación secundaria de identificadores     | 2    | `proposed`           | `rights_unreviewed`     | nunca decidir matches ambiguos sin revisión                                          |
-| `chicago-soy-feed` | contrato/futuro de soja Chicago                  | 6    | `proposed`           | `rights_unreviewed`     | seleccionar feed con licencia y política de roll; no hay candidato aprobado          |
-| `mep-ccl-feed`     | referencias MEP/CCL                              | 6    | `proposed`           | `rights_unreviewed`     | exige fuente contractual y metodología visible                                       |
-| `openrouter`       | modelos para research y supuestos estructurados  | 7    | `technical_reviewed` | `rights_review_pending` | ZDR, data collection, routing y logging deben aplicarse y verificarse por request    |
-| `tavily`           | búsqueda/extracción cualitativa con allowlist    | 7    | `proposed`           | `rights_unreviewed`     | revisar plan, retención, dominios, costos y contenido transferido                    |
+| Source ID          | Uso posible                                      | Fase | Estado técnico       | Aprobación              | Condición de entrada                                                                           |
+| ------------------ | ------------------------------------------------ | ---- | -------------------- | ----------------------- | ---------------------------------------------------------------------------------------------- |
+| `indec-direct`     | releases y series cuya fuente primaria sea INDEC | 6    | `proposed`           | `rights_unreviewed`     | elegir datasets y contratos concretos, no tratar el portal completo como un endpoint           |
+| `comafi-cedear`    | contraste de programas CEDEAR                    | 2    | `proposed`           | `rights_unreviewed`     | documentar dataset, vigencia y rol de fallback                                                 |
+| `byma-cedear`      | contexto oficial de negociación CEDEAR           | 2    | `proposed`           | `rights_unreviewed`     | definir si aporta datos estructurados o evidencia documental                                   |
+| `openfigi`         | reconciliación secundaria de identificadores     | 2    | `technical_reviewed` | `rights_review_pending` | mapping puede devolver múltiples instrumentos; exigir scope/MIC y revisión de matches ambiguos |
+| `chicago-soy-feed` | contrato/futuro de soja Chicago                  | 6    | `proposed`           | `rights_unreviewed`     | seleccionar feed con licencia y política de roll; no hay candidato aprobado                    |
+| `mep-ccl-feed`     | referencias MEP/CCL                              | 6    | `proposed`           | `rights_unreviewed`     | exige fuente contractual y metodología visible                                                 |
+| `openrouter`       | modelos para research y supuestos estructurados  | 7    | `technical_reviewed` | `rights_review_pending` | ZDR, data collection, routing y logging deben aplicarse y verificarse por request              |
+| `tavily`           | búsqueda/extracción cualitativa con allowlist    | 7    | `proposed`           | `rights_unreviewed`     | revisar plan, retención, dominios, costos y contenido transferido                              |
 
 ## Evidencia primaria revisada
 
@@ -123,6 +124,20 @@ describe submissions, XBRL company facts, frames y archivos bulk; indica que las
 APIs públicas no requieren key y que el acceso automatizado debe cumplir la
 política de la SEC. El diseño usará CIK como identidad, accession y fechas de
 filing/acceptance como lineage, y validará una muestra XBRL con Arelle/EFM y DQC.
+
+### Identidad y mercados
+
+La [SEC advierte](https://www.sec.gov/search-filings/edgar-search-assistance/accessing-edgar-data)
+que sus asociaciones CIK, ticker y exchange se actualizan periódicamente pero no
+garantizan exactitud ni alcance. Se usarán para candidatos de búsqueda, no para
+crear joins irreversibles.
+
+ISO publica el estándar [ISIN 6166](https://www.iso.org/standard/78502.html) para
+instrumentos y el [registro MIC 10383](https://www.iso20022.org/market-identifier-codes)
+para venues. El [mapping de OpenFIGI](https://www.openfigi.com/api/documentation)
+conserva variantes de scope y puede devolver múltiples candidatos; será una ayuda
+secundaria, nunca un árbitro automático. La semántica completa vive en el
+[modelo de identidad](identity-model.md).
 
 ### Alpaca
 

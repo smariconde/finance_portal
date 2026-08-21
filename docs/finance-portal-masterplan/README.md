@@ -52,6 +52,8 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 - [`../product/prd.md`](../product/prd.md): requisitos de producto, modos, alcance, métricas y criterios de aceptación.
 - [`../architecture/system.md`](../architecture/system.md): límites ejecutables, flujos, dependencias, cache y persistencia objetivo.
 - [`../data/source-registry.md`](../data/source-registry.md): contrato del registro e inventario de fuentes candidatas sin aprobaciones implícitas.
+- [`../data/identity-model.md`](../data/identity-model.md): separación entity/security/listing/symbol, programas depositarios y resolución de identidad.
+- [`../data/point-in-time-contract.md`](../data/point-in-time-contract.md): vigencia, conocimiento, revisiones, consultas as-known y snapshots reproducibles.
 - [`../valuation/methodology.md`](../valuation/methodology.md): política numérica, selección de métodos, FCFF, checks y reproducibilidad.
 
 ## Principios no negociables

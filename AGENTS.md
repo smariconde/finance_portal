@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This repository contains a masterplan, not application code. Read `docs/finance-portal-masterplan/` in numeric order and update its `README.md` when adding or renaming documents.
+This repository contains an active Next.js application plus its masterplan. Read `docs/finance-portal-masterplan/` in numeric order before implementation and update its `README.md` when adding or renaming documents.
 
 The target is a single-owner portal with a public codebase. Do not add application auth, accounts, multi-tenancy, or BYOK unless scope changes explicitly. Real providers run only in personal mode; anonymous demo mode uses deterministic fixtures.
 
@@ -10,18 +10,14 @@ Generated code uses `src/app/` for routes, `src/modules/<domain>/` for domains, 
 
 ## Development and Validation Commands
 
-There is no local build for this documentation kit. Review changes with `git diff --check` and search for stale references with commands such as `rg "02_ARCHITECTURE"`.
-
-The future application command contract is:
+The current application command contract is:
 
 - `pnpm dev`: start local Next.js development.
 - `pnpm lint && pnpm typecheck`: run static checks.
 - `pnpm test`: run unit and property tests without network access.
-- `pnpm test:integration`: test repositories, migrations, and provider contracts.
-- `pnpm test:e2e`: run Playwright user flows.
 - `pnpm build`: verify the production build.
 
-Do not claim they pass before the scripts exist.
+`test:integration` and `test:e2e` remain planned and must not be claimed until their scripts exist. Review documentation changes with `pnpm format:check`, `git diff --check`, and searches for stale references.
 
 ## Incremental Delivery
 
@@ -30,6 +26,14 @@ Before implementation, read `06_PHASED_ROADMAP.md`. Work only on its next author
 ## Writing, Coding, and Naming Conventions
 
 Use concise Markdown, ATX headings, fenced code blocks with language tags, and repository-relative paths. Preserve the numbered, uppercase document pattern. In planned TypeScript, use two-space indentation, `camelCase` for values/functions, `PascalCase` for types/components, and kebab-case module directories. Zod schemas are the runtime source of truth. Keep calculations deterministic and versioned; never convert missing financial values to zero.
+
+## Financial Identity & Time
+
+Before changing identity, mappings, observations, corporate actions, or historical queries, read `docs/data/identity-model.md` and `docs/data/point-in-time-contract.md`.
+
+Keep `legal_entity -> security -> listing -> listing_symbol` separate. Depositary programs connect a depositary security to an underlying security through versioned ratios; they do not merge both instruments. Tickers are time-bound lookup values, never stable foreign keys.
+
+Every historical read must declare effective time, knowledge cutoff, revision policy, and corporate-action adjustment basis. Preserve `available_at`, `recorded_at`, vintages, restatements, and source lineage. A later filing or mapping must never leak into an earlier `as_known` result.
 
 ## UI Art Direction
 
