@@ -1,538 +1,197 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-21T17:20:33Z",
+  "generatedAt": "2026-08-21T23:03:10Z",
   "title": "Design System: Portal Financiero",
   "extensions": {
     "colorMeta": {
-      "paper": {
+      "background": {
         "role": "neutral",
-        "displayName": "Papel mineral",
-        "canonical": "#f2f4f1",
-        "tonalRamp": [
-          "oklch(15% 0.004 134.8)",
-          "oklch(27% 0.004 134.8)",
-          "oklch(39% 0.004 134.8)",
-          "oklch(51% 0.004 134.8)",
-          "oklch(63% 0.004 134.8)",
-          "oklch(75% 0.004 134.8)",
-          "oklch(87% 0.004 134.8)",
-          "oklch(95% 0.004 134.8)"
-        ]
+        "displayName": "Fondo de workspace",
+        "canonical": "oklch(0.985 0.002 247.84)",
+        "tonalRamp": ["oklch(0.15 0.002 247.84)", "oklch(0.27 0.002 247.84)", "oklch(0.39 0.002 247.84)", "oklch(0.51 0.002 247.84)", "oklch(0.63 0.002 247.84)", "oklch(0.75 0.002 247.84)", "oklch(0.87 0.002 247.84)", "oklch(0.95 0.002 247.84)"]
       },
-      "paper-raised": {
+      "foreground": {
         "role": "neutral",
-        "displayName": "Papel elevado",
-        "canonical": "#fbfcfa",
-        "tonalRamp": [
-          "oklch(15% 0.003 128.5)",
-          "oklch(27% 0.003 128.5)",
-          "oklch(39% 0.003 128.5)",
-          "oklch(51% 0.003 128.5)",
-          "oklch(63% 0.003 128.5)",
-          "oklch(75% 0.003 128.5)",
-          "oklch(87% 0.003 128.5)",
-          "oklch(95% 0.003 128.5)"
-        ]
+        "displayName": "Texto principal",
+        "canonical": "oklch(0.205 0.012 258.34)",
+        "tonalRamp": ["oklch(0.15 0.012 258.34)", "oklch(0.27 0.012 258.34)", "oklch(0.39 0.012 258.34)", "oklch(0.51 0.012 258.34)", "oklch(0.63 0.012 258.34)", "oklch(0.75 0.012 258.34)", "oklch(0.87 0.012 258.34)", "oklch(0.95 0.012 258.34)"]
       },
-      "ink": {
+      "card": {
         "role": "neutral",
-        "displayName": "Tinta petróleo",
-        "canonical": "#142a31",
-        "tonalRamp": [
-          "oklch(15% 0.031 220.6)",
-          "oklch(27% 0.031 220.6)",
-          "oklch(39% 0.031 220.6)",
-          "oklch(51% 0.031 220.6)",
-          "oklch(63% 0.031 220.6)",
-          "oklch(75% 0.031 220.6)",
-          "oklch(87% 0.031 220.6)",
-          "oklch(95% 0.031 220.6)"
-        ]
+        "displayName": "Superficie de card",
+        "canonical": "oklch(1 0 0)",
+        "tonalRamp": ["oklch(0.15 0 0)", "oklch(0.27 0 0)", "oklch(0.39 0 0)", "oklch(0.51 0 0)", "oklch(0.63 0 0)", "oklch(0.75 0 0)", "oklch(0.87 0 0)", "oklch(0.95 0 0)"]
       },
-      "ink-soft": {
-        "role": "neutral",
-        "displayName": "Tinta secundaria",
-        "canonical": "#506166",
-        "tonalRamp": [
-          "oklch(15% 0.022 217.5)",
-          "oklch(27% 0.022 217.5)",
-          "oklch(39% 0.022 217.5)",
-          "oklch(51% 0.022 217.5)",
-          "oklch(63% 0.022 217.5)",
-          "oklch(75% 0.022 217.5)",
-          "oklch(87% 0.022 217.5)",
-          "oklch(95% 0.022 217.5)"
-        ]
-      },
-      "rule": {
-        "role": "neutral",
-        "displayName": "Regla mineral",
-        "canonical": "#aeb9b8",
-        "tonalRamp": [
-          "oklch(15% 0.012 190.4)",
-          "oklch(27% 0.012 190.4)",
-          "oklch(39% 0.012 190.4)",
-          "oklch(51% 0.012 190.4)",
-          "oklch(63% 0.012 190.4)",
-          "oklch(75% 0.012 190.4)",
-          "oklch(87% 0.012 190.4)",
-          "oklch(95% 0.012 190.4)"
-        ]
-      },
-      "rule-strong": {
-        "role": "neutral",
-        "displayName": "Regla estructural",
-        "canonical": "#708084",
-        "tonalRamp": [
-          "oklch(15% 0.020 214.5)",
-          "oklch(27% 0.020 214.5)",
-          "oklch(39% 0.020 214.5)",
-          "oklch(51% 0.020 214.5)",
-          "oklch(63% 0.020 214.5)",
-          "oklch(75% 0.020 214.5)",
-          "oklch(87% 0.020 214.5)",
-          "oklch(95% 0.020 214.5)"
-        ]
-      },
-      "blue": {
+      "primary": {
         "role": "primary",
-        "displayName": "Azul federal",
-        "canonical": "#2b6f88",
-        "tonalRamp": [
-          "oklch(15% 0.078 225.8)",
-          "oklch(27% 0.078 225.8)",
-          "oklch(39% 0.078 225.8)",
-          "oklch(51% 0.078 225.8)",
-          "oklch(63% 0.078 225.8)",
-          "oklch(75% 0.078 225.8)",
-          "oklch(87% 0.078 225.8)",
-          "oklch(95% 0.078 225.8)"
-        ]
+        "displayName": "Azul funcional",
+        "canonical": "oklch(0.488 0.177 255.73)",
+        "tonalRamp": ["oklch(0.15 0.177 255.73)", "oklch(0.27 0.177 255.73)", "oklch(0.39 0.177 255.73)", "oklch(0.51 0.177 255.73)", "oklch(0.63 0.177 255.73)", "oklch(0.75 0.177 255.73)", "oklch(0.87 0.177 255.73)", "oklch(0.95 0.177 255.73)"]
       },
-      "blue-deep": {
-        "role": "primary",
-        "displayName": "Azul federal profundo",
-        "canonical": "#204f61",
-        "tonalRamp": [
-          "oklch(15% 0.059 226.3)",
-          "oklch(27% 0.059 226.3)",
-          "oklch(39% 0.059 226.3)",
-          "oklch(51% 0.059 226.3)",
-          "oklch(63% 0.059 226.3)",
-          "oklch(75% 0.059 226.3)",
-          "oklch(87% 0.059 226.3)",
-          "oklch(95% 0.059 226.3)"
-        ]
-      },
-      "blue-soft": {
-        "role": "primary",
-        "displayName": "Azul federal suave",
-        "canonical": "#dcebef",
-        "tonalRamp": [
-          "oklch(15% 0.017 215.5)",
-          "oklch(27% 0.017 215.5)",
-          "oklch(39% 0.017 215.5)",
-          "oklch(51% 0.017 215.5)",
-          "oklch(63% 0.017 215.5)",
-          "oklch(75% 0.017 215.5)",
-          "oklch(87% 0.017 215.5)",
-          "oklch(95% 0.017 215.5)"
-        ]
-      },
-      "signal": {
-        "role": "secondary",
-        "displayName": "Amarillo señal",
-        "canonical": "#e7b43c",
-        "tonalRamp": [
-          "oklch(15% 0.130 84.6)",
-          "oklch(27% 0.130 84.6)",
-          "oklch(39% 0.130 84.6)",
-          "oklch(51% 0.130 84.6)",
-          "oklch(63% 0.130 84.6)",
-          "oklch(75% 0.130 84.6)",
-          "oklch(87% 0.130 84.6)",
-          "oklch(95% 0.130 84.6)"
-        ]
-      },
-      "signal-soft": {
-        "role": "secondary",
-        "displayName": "Amarillo señal suave",
-        "canonical": "#f6ebcb",
-        "tonalRamp": [
-          "oklch(15% 0.044 91.3)",
-          "oklch(27% 0.044 91.3)",
-          "oklch(39% 0.044 91.3)",
-          "oklch(51% 0.044 91.3)",
-          "oklch(63% 0.044 91.3)",
-          "oklch(75% 0.044 91.3)",
-          "oklch(87% 0.044 91.3)",
-          "oklch(95% 0.044 91.3)"
-        ]
-      },
-      "critical": {
-        "role": "tertiary",
-        "displayName": "Rojo crítico",
-        "canonical": "#9f4038",
-        "tonalRamp": [
-          "oklch(15% 0.128 27.5)",
-          "oklch(27% 0.128 27.5)",
-          "oklch(39% 0.128 27.5)",
-          "oklch(51% 0.128 27.5)",
-          "oklch(63% 0.128 27.5)",
-          "oklch(75% 0.128 27.5)",
-          "oklch(87% 0.128 27.5)",
-          "oklch(95% 0.128 27.5)"
-        ]
-      },
-      "critical-soft": {
-        "role": "tertiary",
-        "displayName": "Rojo crítico suave",
-        "canonical": "#f3dfdc",
-        "tonalRamp": [
-          "oklch(15% 0.022 27.8)",
-          "oklch(27% 0.022 27.8)",
-          "oklch(39% 0.022 27.8)",
-          "oklch(51% 0.022 27.8)",
-          "oklch(63% 0.022 27.8)",
-          "oklch(75% 0.022 27.8)",
-          "oklch(87% 0.022 27.8)",
-          "oklch(95% 0.022 27.8)"
-        ]
-      },
-      "success": {
-        "role": "tertiary",
-        "displayName": "Verde validado",
-        "canonical": "#2f755f",
-        "tonalRamp": [
-          "oklch(15% 0.079 169.5)",
-          "oklch(27% 0.079 169.5)",
-          "oklch(39% 0.079 169.5)",
-          "oklch(51% 0.079 169.5)",
-          "oklch(63% 0.079 169.5)",
-          "oklch(75% 0.079 169.5)",
-          "oklch(87% 0.079 169.5)",
-          "oklch(95% 0.079 169.5)"
-        ]
-      },
-      "success-soft": {
-        "role": "tertiary",
-        "displayName": "Verde validado suave",
-        "canonical": "#dcebe4",
-        "tonalRamp": [
-          "oklch(15% 0.018 166.4)",
-          "oklch(27% 0.018 166.4)",
-          "oklch(39% 0.018 166.4)",
-          "oklch(51% 0.018 166.4)",
-          "oklch(63% 0.018 166.4)",
-          "oklch(75% 0.018 166.4)",
-          "oklch(87% 0.018 166.4)",
-          "oklch(95% 0.018 166.4)"
-        ]
-      },
-      "disabled": {
+      "muted": {
         "role": "neutral",
-        "displayName": "Neutral deshabilitado",
-        "canonical": "#59676a",
-        "tonalRamp": [
-          "oklch(15% 0.016 213.2)",
-          "oklch(27% 0.016 213.2)",
-          "oklch(39% 0.016 213.2)",
-          "oklch(51% 0.016 213.2)",
-          "oklch(63% 0.016 213.2)",
-          "oklch(75% 0.016 213.2)",
-          "oklch(87% 0.016 213.2)",
-          "oklch(95% 0.016 213.2)"
-        ]
+        "displayName": "Superficie secundaria",
+        "canonical": "oklch(0.961 0.006 247.86)",
+        "tonalRamp": ["oklch(0.15 0.006 247.86)", "oklch(0.27 0.006 247.86)", "oklch(0.39 0.006 247.86)", "oklch(0.51 0.006 247.86)", "oklch(0.63 0.006 247.86)", "oklch(0.75 0.006 247.86)", "oklch(0.87 0.006 247.86)", "oklch(0.95 0.006 247.86)"]
       },
-      "disabled-soft": {
+      "muted-foreground": {
         "role": "neutral",
-        "displayName": "Neutral deshabilitado suave",
-        "canonical": "#e2e7e4",
-        "tonalRamp": [
-          "oklch(15% 0.007 160.1)",
-          "oklch(27% 0.007 160.1)",
-          "oklch(39% 0.007 160.1)",
-          "oklch(51% 0.007 160.1)",
-          "oklch(63% 0.007 160.1)",
-          "oklch(75% 0.007 160.1)",
-          "oklch(87% 0.007 160.1)",
-          "oklch(95% 0.007 160.1)"
-        ]
+        "displayName": "Texto secundario",
+        "canonical": "oklch(0.52 0.024 257.42)",
+        "tonalRamp": ["oklch(0.15 0.024 257.42)", "oklch(0.27 0.024 257.42)", "oklch(0.39 0.024 257.42)", "oklch(0.51 0.024 257.42)", "oklch(0.63 0.024 257.42)", "oklch(0.75 0.024 257.42)", "oklch(0.87 0.024 257.42)", "oklch(0.95 0.024 257.42)"]
       },
-      "focus": {
-        "role": "primary",
-        "displayName": "Azul de foco",
-        "canonical": "#146f92",
-        "tonalRamp": [
-          "oklch(15% 0.096 230.4)",
-          "oklch(27% 0.096 230.4)",
-          "oklch(39% 0.096 230.4)",
-          "oklch(51% 0.096 230.4)",
-          "oklch(63% 0.096 230.4)",
-          "oklch(75% 0.096 230.4)",
-          "oklch(87% 0.096 230.4)",
-          "oklch(95% 0.096 230.4)"
-        ]
-      },
-      "selection": {
+      "accent": {
         "role": "primary",
         "displayName": "Azul de selección",
-        "canonical": "#c9e4ec",
-        "tonalRamp": [
-          "oklch(15% 0.031 217.5)",
-          "oklch(27% 0.031 217.5)",
-          "oklch(39% 0.031 217.5)",
-          "oklch(51% 0.031 217.5)",
-          "oklch(63% 0.031 217.5)",
-          "oklch(75% 0.031 217.5)",
-          "oklch(87% 0.031 217.5)",
-          "oklch(95% 0.031 217.5)"
-        ]
+        "canonical": "oklch(0.94 0.025 252.57)",
+        "tonalRamp": ["oklch(0.15 0.025 252.57)", "oklch(0.27 0.025 252.57)", "oklch(0.39 0.025 252.57)", "oklch(0.51 0.025 252.57)", "oklch(0.63 0.025 252.57)", "oklch(0.75 0.025 252.57)", "oklch(0.87 0.025 252.57)", "oklch(0.95 0.025 252.57)"]
+      },
+      "destructive": {
+        "role": "tertiary",
+        "displayName": "Destructivo",
+        "canonical": "oklch(0.577 0.245 27.325)",
+        "tonalRamp": ["oklch(0.15 0.245 27.325)", "oklch(0.27 0.245 27.325)", "oklch(0.39 0.245 27.325)", "oklch(0.51 0.245 27.325)", "oklch(0.63 0.245 27.325)", "oklch(0.75 0.245 27.325)", "oklch(0.87 0.245 27.325)", "oklch(0.95 0.245 27.325)"]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Borde suave",
+        "canonical": "oklch(0.91 0.012 255.51)",
+        "tonalRamp": ["oklch(0.15 0.012 255.51)", "oklch(0.27 0.012 255.51)", "oklch(0.39 0.012 255.51)", "oklch(0.51 0.012 255.51)", "oklch(0.63 0.012 255.51)", "oklch(0.75 0.012 255.51)", "oklch(0.87 0.012 255.51)", "oklch(0.95 0.012 255.51)"]
+      },
+      "sidebar": {
+        "role": "neutral",
+        "displayName": "Sidebar neutral",
+        "canonical": "oklch(0.972 0.004 252.89)",
+        "tonalRamp": ["oklch(0.15 0.004 252.89)", "oklch(0.27 0.004 252.89)", "oklch(0.39 0.004 252.89)", "oklch(0.51 0.004 252.89)", "oklch(0.63 0.004 252.89)", "oklch(0.75 0.004 252.89)", "oklch(0.87 0.004 252.89)", "oklch(0.95 0.004 252.89)"]
       }
     },
     "typographyMeta": {
-      "display": {
-        "displayName": "Display",
-        "purpose": "Tesis principal breve, balanceada y de alto contraste editorial."
-      },
-      "headline": {
-        "displayName": "Headline",
-        "purpose": "Preguntas mayores y encabezados de sección."
-      },
-      "title": {
-        "displayName": "Title",
-        "purpose": "Preguntas de registro y títulos operativos."
-      },
-      "body": {
-        "displayName": "Body",
-        "purpose": "Explicación principal y lectura narrativa."
-      },
-      "body-small": {
-        "displayName": "Body Small",
-        "purpose": "Detalle denso, descripción de filas y metadata."
-      },
-      "label": {
-        "displayName": "Label",
-        "purpose": "Estados y rótulos operativos breves."
-      },
-      "mono-label": {
-        "displayName": "Mono Label",
-        "purpose": "Escalas, fechas, unidades, variables y provenance."
-      }
+      "headline": { "displayName": "Headline", "purpose": "Título único de página, con escala responsive contenida." },
+      "title": { "displayName": "Title", "purpose": "Títulos de cards y secciones operativas." },
+      "body": { "displayName": "Body", "purpose": "Lectura principal, controles y tablas densas." },
+      "body-large": { "displayName": "Body Large", "purpose": "Introducción de página desde pantallas medianas." },
+      "label": { "displayName": "Label", "purpose": "Metadata, estados y rótulos compactos." }
     },
-    "shadows": [],
+    "shadows": [
+      { "name": "drawer", "value": "var(--shadow-lg)", "purpose": "Separar el Sheet mobile del contenido cubierto; las cards permanecen sin sombra." }
+    ],
     "motion": [
-      {
-        "name": "ease-calibration",
-        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
-        "purpose": "Calibración inicial y subrayados de registros."
-      },
-      {
-        "name": "duration-calibration",
-        "value": "900ms",
-        "purpose": "Recorrido único del marcador de calibración."
-      },
-      {
-        "name": "duration-register",
-        "value": "420ms",
-        "purpose": "Despliegue de la regla azul en hover o foco."
-      },
-      {
-        "name": "scroll-standard",
-        "value": "smooth",
-        "purpose": "Navegación por anclas cuando no se solicita movimiento reducido."
-      },
-      {
-        "name": "reduced-motion",
-        "value": "0.01ms",
-        "purpose": "Neutraliza animaciones y transiciones bajo prefers-reduced-motion."
-      }
+      { "name": "sidebar", "value": "200ms linear", "purpose": "Cambio de ancho y posición de la sidebar." },
+      { "name": "sheet-overlay", "value": "150ms", "purpose": "Entrada y salida de opacidad del overlay mobile." },
+      { "name": "sheet-content", "value": "200ms ease-in-out", "purpose": "Entrada y salida del drawer mobile." },
+      { "name": "reduced-motion", "value": "0.01ms", "purpose": "Duración efectiva de sidebar y Sheet bajo prefers-reduced-motion." }
     ],
     "breakpoints": [
-      { "name": "compact-desktop", "value": "64rem" },
-      { "name": "mobile", "value": "46rem" }
-    ],
-    "themeModes": {
-      "strategy": "prefers-color-scheme",
-      "dark": {
-        "paper": "#0e191d",
-        "paper-raised": "#13242a",
-        "ink": "#eaf0ed",
-        "ink-soft": "#a9b8b7",
-        "rule": "#3b4b4e",
-        "rule-strong": "#718083",
-        "blue": "#78bed1",
-        "blue-deep": "#9ad4e2",
-        "blue-soft": "#183843",
-        "signal": "#f0c45a",
-        "signal-soft": "#3c321b",
-        "critical": "#f08a7e",
-        "critical-soft": "#432622",
-        "success": "#80c7ad",
-        "success-soft": "#173a30",
-        "disabled": "#b1bcba",
-        "disabled-soft": "#293639",
-        "focus": "#8bd3e7",
-        "selection": "#275363"
-      }
-    }
+      { "name": "md", "value": "48rem" },
+      { "name": "lg", "value": "64rem" },
+      { "name": "xl", "value": "80rem" }
+    ]
   },
   "components": [
     {
-      "name": "Wordmark",
-      "kind": "nav",
-      "refersTo": "wordmark-mark",
-      "description": "Marca compacta con monograma ortogonal y nombre del producto.",
-      "html": "<a class=\"ds-wordmark\" href=\"#\" aria-label=\"Portal Financiero, inicio\"><span class=\"ds-wordmark-mark\" aria-hidden=\"true\">PF</span><span>Portal Financiero</span></a>",
-      "css": ".ds-wordmark { display:inline-flex; align-items:center; gap:.75rem; width:fit-content; color:var(--ink,#142a31); font-family:\"Archivo Variable\",\"Arial Narrow\",sans-serif; font-size:.88rem; font-weight:650; text-decoration:none; } .ds-wordmark-mark { display:grid; width:2rem; height:2rem; place-items:center; border:1px solid currentColor; font-family:ui-monospace,\"SFMono-Regular\",Consolas,monospace; font-size:.68rem; font-weight:760; letter-spacing:.02em; } .ds-wordmark:hover { color:var(--blue-deep,#204f61); } .ds-wordmark:focus-visible { outline:2px solid var(--focus,#146f92); outline-offset:4px; }"
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Acción primaria compacta con azul funcional y foco visible.",
+      "html": "<button class=\"ds-button-primary\">Continuar</button>",
+      "css": ".ds-button-primary{display:inline-flex;height:2rem;align-items:center;justify-content:center;border:1px solid transparent;border-radius:var(--radius,.75rem);padding:0 .625rem;background:var(--primary,oklch(.488 .177 255.73));color:var(--primary-foreground,oklch(.985 0 0));font-family:\"Archivo Variable\",\"Segoe UI\",sans-serif;font-size:.875rem;font-weight:500;transition:all 150ms}.ds-button-primary:hover{background:color-mix(in oklab,var(--primary) 80%,transparent)}.ds-button-primary:focus-visible{border-color:var(--ring);outline:none;box-shadow:0 0 0 3px color-mix(in oklab,var(--ring) 50%,transparent)}.ds-button-primary:active{transform:translateY(1px)}.ds-button-primary:disabled{pointer-events:none;opacity:.5}"
     },
     {
-      "name": "Primary Navigation",
-      "kind": "nav",
-      "refersTo": "navigation-link",
-      "description": "Navegación textual centrada, sin contenedor ni píldoras.",
-      "html": "<nav class=\"ds-nav\" aria-label=\"Navegación principal\"><a href=\"#\">Herramientas</a><a href=\"#\">Datos</a><a href=\"#\">Método</a></nav>",
-      "css": ".ds-nav { display:flex; align-items:center; justify-content:center; gap:clamp(1.25rem,3vw,2.75rem); font-family:\"Archivo Variable\",\"Arial Narrow\",sans-serif; } .ds-nav a { padding-block:1.45rem; color:var(--ink-soft,#506166); font-size:.78rem; font-weight:610; text-decoration:none; } .ds-nav a:hover { color:var(--blue-deep,#204f61); } .ds-nav a:focus-visible { outline:2px solid var(--focus,#146f92); outline-offset:4px; }"
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Acción secundaria usada para navegación contextual y diagnóstico.",
+      "html": "<button class=\"ds-button-outline\">Ver diagnóstico</button>",
+      "css": ".ds-button-outline{display:inline-flex;height:2rem;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:var(--radius,.75rem);padding:0 .625rem;background:var(--background);color:var(--foreground);font-family:\"Archivo Variable\",\"Segoe UI\",sans-serif;font-size:.875rem;font-weight:500;transition:all 150ms}.ds-button-outline:hover{background:var(--muted)}.ds-button-outline:focus-visible{border-color:var(--ring);outline:none;box-shadow:0 0 0 3px color-mix(in oklab,var(--ring) 50%,transparent)}.ds-button-outline:active{transform:translateY(1px)}"
     },
     {
-      "name": "Mode Indicator",
-      "kind": "chip",
-      "refersTo": "status-ready",
-      "description": "Estado operativo inline con señal cuadrada y etiqueta explícita.",
-      "html": "<span class=\"ds-mode\"><span class=\"ds-mode-signal\" aria-hidden=\"true\"></span>Modo demo</span>",
-      "css": ".ds-mode { display:inline-flex; align-items:center; gap:.55rem; color:var(--ink-soft,#506166); font-family:\"Archivo Variable\",\"Arial Narrow\",sans-serif; font-size:.7rem; font-weight:650; letter-spacing:.06em; text-transform:uppercase; } .ds-mode-signal { width:.5rem; height:.5rem; border:1px solid var(--success,#2f755f); background:var(--success,#2f755f); outline:2px solid var(--success-soft,#dcebe4); outline-offset:1px; } .ds-mode:focus-visible { outline:2px solid var(--focus,#146f92); outline-offset:4px; }"
-    },
-    {
-      "name": "Analysis Field",
+      "name": "Input",
       "kind": "input",
-      "refersTo": "analysis-field",
-      "description": "Campo de búsqueda plano con acción terminal separada y explicación de disponibilidad.",
-      "html": "<div class=\"ds-analysis\"><label for=\"ds-query\">Empresa, ticker o CEDEAR</label><div class=\"ds-search-shell\"><input id=\"ds-query\" type=\"search\" placeholder=\"Ej. MercadoLibre, MELI o MELI.BA\"><span aria-hidden=\"true\">Enter</span></div><p>La búsqueda se activa cuando existe un universo auditable.</p></div>",
-      "css": ".ds-analysis { color:var(--ink,#142a31); font-family:\"Archivo Variable\",\"Arial Narrow\",sans-serif; } .ds-analysis label { display:block; margin-bottom:.55rem; color:var(--ink-soft,#506166); font-size:.7rem; font-weight:650; } .ds-search-shell { display:grid; grid-template-columns:1fr 3.5rem; min-height:3.4rem; border:1px solid var(--rule-strong,#708084); background:var(--paper-raised,#fbfcfa); } .ds-search-shell:focus-within { outline:2px solid var(--focus,#146f92); outline-offset:3px; } .ds-search-shell input { min-width:0; padding:.85rem 1rem; border:0; color:var(--ink,#142a31); background:transparent; font:inherit; } .ds-search-shell span { display:grid; place-items:center; border-left:1px solid var(--rule-strong,#708084); color:var(--ink-soft,#506166); font-family:ui-monospace,\"SFMono-Regular\",Consolas,monospace; font-size:.62rem; text-transform:uppercase; } .ds-analysis p { max-width:52ch; margin:1rem 0 0; color:var(--ink-soft,#506166); font-size:.72rem; line-height:1.55; }"
+      "refersTo": "input",
+      "description": "Campo compacto con borde semántico y foco de tres píxeles.",
+      "html": "<input class=\"ds-input\" type=\"search\" placeholder=\"Ej. MercadoLibre, MELI o MELI.BA\">",
+      "css": ".ds-input{width:100%;height:2rem;border:1px solid var(--input);border-radius:var(--radius,.75rem);padding:.25rem .625rem;background:transparent;color:var(--foreground);font-family:\"Archivo Variable\",\"Segoe UI\",sans-serif;font-size:.875rem;transition:border-color 150ms,box-shadow 150ms}.ds-input::placeholder{color:var(--muted-foreground)}.ds-input:focus-visible{border-color:var(--ring);outline:none;box-shadow:0 0 0 3px color-mix(in oklab,var(--ring) 50%,transparent)}.ds-input:disabled{cursor:not-allowed;background:color-mix(in oklab,var(--input) 50%,transparent);opacity:.5}"
     },
     {
-      "name": "Planned State",
-      "kind": "chip",
-      "refersTo": "planned-state",
-      "description": "Placa rectangular para capacidades futuras, visible sin insinuar disponibilidad.",
-      "html": "<span class=\"ds-planned\">Planificado</span>",
-      "css": ".ds-planned { display:inline-block; padding:.36rem .48rem; border:1px solid var(--blue,#2b6f88); border-radius:0; color:var(--blue-deep,#204f61); background:var(--blue-soft,#dcebef); font-family:\"Archivo Variable\",\"Arial Narrow\",sans-serif; font-size:.66rem; font-weight:720; letter-spacing:.06em; text-transform:uppercase; } .ds-planned:hover { border-color:var(--blue-deep,#204f61); } .ds-planned:focus-visible { outline:2px solid var(--focus,#146f92); outline-offset:4px; }"
-    },
-    {
-      "name": "Tool Register Row",
+      "name": "Card",
       "kind": "card",
-      "refersTo": "register-row",
-      "description": "Fila editorial para relacionar fase, pregunta, formato y disponibilidad sin una card flotante.",
-      "html": "<article class=\"ds-tool-row\" tabindex=\"0\"><div class=\"ds-tool-meta\"><span>Fase 2</span><strong>Matrices · Divergencias</strong></div><div class=\"ds-tool-copy\"><h3>¿Dónde se separaron precio y fundamentales?</h3><p>Compará períodos y abrí el puente entre resultados, precio y cantidad de acciones.</p></div><div class=\"ds-tool-output\"><span>Formato</span><strong>Matriz + tabla</strong></div></article>",
-      "css": ".ds-tool-row { position:relative; display:grid; grid-template-columns:minmax(8rem,.7fr) minmax(16rem,2.2fr) minmax(8rem,.7fr); gap:clamp(1.25rem,3vw,3rem); padding:1.5rem 0 1.65rem; overflow:hidden; border-top:1px solid var(--rule-strong,#708084); border-bottom:1px solid var(--rule,#aeb9b8); color:var(--ink,#142a31); background:transparent; font-family:\"Archivo Variable\",\"Arial Narrow\",sans-serif; } .ds-tool-row::after { position:absolute; right:0; bottom:-1px; width:100%; height:2px; background:var(--blue,#2b6f88); content:\"\"; transform:scaleX(0); transform-origin:right; transition:transform 420ms cubic-bezier(.16,1,.3,1); } .ds-tool-row:hover::after,.ds-tool-row:focus-visible::after { transform:scaleX(1); } .ds-tool-row:focus-visible { outline:2px solid var(--focus,#146f92); outline-offset:4px; } .ds-tool-meta,.ds-tool-output { display:flex; flex-direction:column; gap:.45rem; } .ds-tool-meta span,.ds-tool-output span { color:var(--ink-soft,#506166); font-family:ui-monospace,\"SFMono-Regular\",Consolas,monospace; font-size:.62rem; text-transform:uppercase; } .ds-tool-meta strong,.ds-tool-output strong { font-size:.78rem; line-height:1.35; } .ds-tool-copy h3 { margin:0; font-size:clamp(1.15rem,1.8vw,1.55rem); font-weight:640; letter-spacing:-.025em; line-height:1.15; } .ds-tool-copy p { max-width:61ch; margin:.7rem 0 0; color:var(--ink-soft,#506166); font-size:.83rem; line-height:1.55; }"
+      "refersTo": "card",
+      "description": "Contenedor estándar para una decisión, resumen o bloque real.",
+      "html": "<section class=\"ds-card\"><h3>Salud de configuración</h3><p>Estado seguro del runtime, sin exponer credenciales.</p></section>",
+      "css": ".ds-card{display:flex;flex-direction:column;gap:1rem;border-radius:calc(var(--radius,.75rem)*1.35);padding:1rem;background:var(--card);color:var(--card-foreground);font-family:\"Archivo Variable\",\"Segoe UI\",sans-serif;font-size:.875rem;box-shadow:0 0 0 1px color-mix(in oklab,var(--foreground) 10%,transparent)}.ds-card h3{margin:0;font-size:1rem;font-weight:500;line-height:1.375}.ds-card p{margin:0;color:var(--muted-foreground);line-height:1.429}.ds-card:focus-within{box-shadow:0 0 0 1px var(--ring),0 0 0 4px color-mix(in oklab,var(--ring) 30%,transparent)}"
     },
     {
-      "name": "Health States",
-      "kind": "chip",
-      "refersTo": "status-ready",
-      "description": "Estados de configuración con etiqueta y geometría, nunca sólo color.",
-      "html": "<div class=\"ds-health-states\"><span class=\"ds-status ds-ready\"><i aria-hidden=\"true\"></i>Listo</span><span class=\"ds-status ds-critical\"><i aria-hidden=\"true\"></i>Requiere atención</span><span class=\"ds-status ds-disabled\"><i aria-hidden=\"true\"></i>Deshabilitado</span></div>",
-      "css": ".ds-health-states { display:flex; flex-wrap:wrap; gap:1rem 1.5rem; font-family:\"Archivo Variable\",\"Arial Narrow\",sans-serif; } .ds-status { display:inline-flex; align-items:center; gap:.55rem; font-size:.72rem; font-weight:660; } .ds-status i { position:relative; width:.55rem; height:.55rem; border:1px solid currentColor; } .ds-ready { color:var(--success,#2f755f); } .ds-ready i { background:var(--success,#2f755f); } .ds-critical { color:var(--critical,#9f4038); } .ds-critical i { background:var(--critical-soft,#f3dfdc); } .ds-critical i::after { position:absolute; top:50%; left:50%; width:.25rem; height:1px; background:currentColor; content:\"\"; transform:translate(-50%,-50%); } .ds-disabled { color:var(--disabled,#59676a); } .ds-disabled i { background:var(--disabled-soft,#e2e7e4); } .ds-status:focus-visible { outline:2px solid var(--focus,#146f92); outline-offset:4px; }"
-    },
-    {
-      "name": "Evidence Fields",
+      "name": "Alert",
       "kind": "card",
-      "refersTo": "evidence-cell",
-      "description": "Campo inverso que mantiene fuente, fecha, unidad y transformación en la lectura principal.",
-      "html": "<dl class=\"ds-evidence\"><div><dt>Fuente</dt><dd>Origen verificable</dd></div><div><dt>Fecha</dt><dd>Disponible desde</dd></div><div><dt>Unidad</dt><dd>Moneda y escala</dd></div><div><dt>Transformación</dt><dd>Fórmula versionada</dd></div></dl>",
-      "css": ".ds-evidence { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); margin:0; border-top:1px solid color-mix(in srgb,var(--paper,#f2f4f1) 45%,transparent); color:var(--paper,#f2f4f1); background:var(--ink,#142a31); font-family:\"Archivo Variable\",\"Arial Narrow\",sans-serif; } .ds-evidence div { min-height:8rem; padding:1rem 1rem 1.25rem; border-bottom:1px solid color-mix(in srgb,var(--paper,#f2f4f1) 28%,transparent); } .ds-evidence div:nth-child(odd) { border-right:1px solid color-mix(in srgb,var(--paper,#f2f4f1) 28%,transparent); } .ds-evidence dt { color:var(--signal,#e7b43c); font-family:ui-monospace,\"SFMono-Regular\",Consolas,monospace; font-size:.65rem; letter-spacing:.04em; text-transform:uppercase; } .ds-evidence dd { max-width:14ch; margin:2.5rem 0 0; font-size:1rem; font-weight:580; } .ds-evidence div:hover { background:color-mix(in srgb,var(--paper,#f2f4f1) 5%,transparent); } .ds-evidence div:focus-visible { outline:2px solid var(--focus,#146f92); outline-offset:-4px; }"
+      "refersTo": "alert",
+      "description": "Mensaje operativo compacto con título y explicación.",
+      "html": "<div class=\"ds-alert\" role=\"status\"><strong>Diagnóstico sin efectos laterales</strong><span>Esta página no abre conexiones ni revela secretos.</span></div>",
+      "css": ".ds-alert{display:grid;gap:.125rem;border:1px solid var(--border);border-radius:var(--radius,.75rem);padding:.5rem .625rem;background:var(--card);color:var(--card-foreground);font-family:\"Archivo Variable\",\"Segoe UI\",sans-serif;font-size:.875rem;text-align:left}.ds-alert strong{font-weight:500}.ds-alert span{color:var(--muted-foreground);line-height:1.429}.ds-alert:focus-within{border-color:var(--ring);box-shadow:0 0 0 3px color-mix(in oklab,var(--ring) 50%,transparent)}"
     },
     {
-      "name": "Calibration Scale",
+      "name": "Planned Status",
+      "kind": "chip",
+      "refersTo": "status-badge",
+      "description": "Estado planificado con icono, texto y tratamiento azul.",
+      "html": "<span class=\"ds-status-planned\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-dasharray=\"3 3\"/></svg>Planificado</span>",
+      "css": ".ds-status-planned{display:inline-flex;height:1.25rem;width:max-content;align-items:center;gap:.25rem;border:1px solid var(--color-blue-200,oklch(.882 .059 254.128));border-radius:2rem;padding:.125rem .5rem;background:var(--color-blue-50,oklch(.97 .014 254.604));color:var(--color-blue-700,oklch(.488 .243 264.376));font-family:\"Archivo Variable\",\"Segoe UI\",sans-serif;font-size:.75rem;font-weight:500;white-space:nowrap}.ds-status-planned svg{width:.75rem;height:.75rem}.ds-status-planned:focus-visible{border-color:var(--ring);outline:none;box-shadow:0 0 0 3px color-mix(in oklab,var(--ring) 50%,transparent)}"
+    },
+    {
+      "name": "Sidebar Navigation",
+      "kind": "nav",
+      "refersTo": "sidebar-item-active",
+      "description": "Navegación familiar con item activo y herramientas futuras deshabilitadas.",
+      "html": "<nav class=\"ds-sidebar-nav\" aria-label=\"Workspace\"><a class=\"ds-sidebar-active\" href=\"#\">Inicio</a><a href=\"#\">Configuración</a><button disabled>Empresas <span>Plan</span></button></nav>",
+      "css": ".ds-sidebar-nav{display:flex;width:16rem;flex-direction:column;gap:0;padding:.5rem;background:var(--sidebar);color:var(--sidebar-foreground);font-family:\"Archivo Variable\",\"Segoe UI\",sans-serif;font-size:.875rem}.ds-sidebar-nav a,.ds-sidebar-nav button{display:flex;height:2rem;align-items:center;justify-content:space-between;border:0;border-radius:calc(var(--radius,.75rem)*.8);padding:.5rem;background:transparent;color:inherit;font:inherit;text-align:left;text-decoration:none}.ds-sidebar-nav a:hover,.ds-sidebar-nav button:hover,.ds-sidebar-active{background:var(--sidebar-accent)!important;color:var(--sidebar-accent-foreground)!important}.ds-sidebar-nav a:focus-visible,.ds-sidebar-nav button:focus-visible{outline:2px solid var(--sidebar-ring);outline-offset:-2px}.ds-sidebar-nav button:disabled{pointer-events:none;opacity:.5}.ds-sidebar-nav span{font-size:.75rem;font-variant-numeric:tabular-nums}"
+    },
+    {
+      "name": "Table",
       "kind": "custom",
-      "refersTo": "register-row",
-      "description": "Notación instrumental opcional para una dimensión que realmente se está midiendo.",
-      "html": "<aside class=\"ds-rail\" aria-label=\"Escala de referencia\"><div class=\"ds-scale\" aria-hidden=\"true\"><span>00</span><span>25</span><span>50</span><span>75</span><span>100</span></div><p>POINT-IN-TIME</p></aside>",
-      "css": ".ds-rail { position:relative; display:flex; width:5rem; min-height:18rem; flex-direction:column; padding:1rem; overflow:hidden; border:1px solid var(--rule-strong,#708084); color:var(--ink-soft,#506166); background-color:var(--paper,#f2f4f1); background-image:repeating-linear-gradient(to bottom,transparent 0,transparent .55rem,var(--rule,#aeb9b8) .6rem,transparent .65rem,transparent 2rem); background-position:right top; background-size:.75rem 100%; background-repeat:no-repeat; font-family:ui-monospace,\"SFMono-Regular\",Consolas,monospace; } .ds-rail::after { position:absolute; top:0; right:0; width:.75rem; height:2px; background:var(--blue,#2b6f88); content:\"\"; animation:ds-calibrate 900ms cubic-bezier(.16,1,.3,1) both; } .ds-scale { display:flex; flex:1; flex-direction:column; justify-content:space-between; font-size:.62rem; } .ds-rail p { margin:1rem 0 0; font-family:\"Archivo Variable\",\"Arial Narrow\",sans-serif; font-size:.58rem; font-weight:650; letter-spacing:.08em; writing-mode:vertical-rl; } .ds-rail:focus-visible { outline:2px solid var(--focus,#146f92); outline-offset:4px; } @keyframes ds-calibrate { from { transform:translateY(0); } to { transform:translateY(10rem); } } @media (prefers-reduced-motion:reduce) { .ds-rail::after { animation-duration:.01ms; } }"
+      "refersTo": "table",
+      "description": "Tabla semántica densa con divisores, hover y overflow horizontal.",
+      "html": "<div class=\"ds-table-wrap\"><table class=\"ds-table\"><thead><tr><th>Componente</th><th>Estado</th><th>Configuración</th></tr></thead><tbody><tr><td>Base de datos</td><td>Listo</td><td><code>Sin faltantes</code></td></tr></tbody></table></div>",
+      "css": ".ds-table-wrap{width:100%;overflow-x:auto}.ds-table{width:100%;border-collapse:collapse;color:var(--foreground);font-family:\"Archivo Variable\",\"Segoe UI\",sans-serif;font-size:.875rem}.ds-table tr{border-bottom:1px solid var(--border);transition:background-color 150ms}.ds-table tbody tr:hover{background:color-mix(in oklab,var(--muted) 50%,transparent)}.ds-table th{height:2.5rem;padding:.5rem;text-align:left;font-weight:500;white-space:nowrap}.ds-table td{padding:.5rem;vertical-align:middle;white-space:nowrap}.ds-table code{border-radius:calc(var(--radius,.75rem)*.6);padding:.25rem .375rem;background:var(--muted);font-size:.75rem}.ds-table tr:focus-within{outline:2px solid var(--ring);outline-offset:-2px}"
     }
   ],
   "narrative": {
-    "northStar": "Mesa de calibración",
-    "overview": "Portal Financiero se comporta como un instrumento editorial de medición: cada cifra ocupa una posición clara, cada estado aparece junto al contenido que califica y cada resultado conserva su evidencia. La identidad combina la precisión de una mesa técnica con una voz financiera contemporánea, sobria y argentina. La densidad es organizada, no terminal; el carácter surge de la escala tipográfica, las reglas, las placas planas y el ritmo de registros.\n\nEl sistema rechaza el dashboard de tarjetas intercambiables. No busca dramatizar el mercado ni simular velocidad operativa: ordena preguntas, supuestos, series y provenance para una lectura reflexiva. La portada expresa este mundo con un rail calibrado y un registro lineal, pero esa composición pertenece a su surface brief y no debe convertirse en la plantilla universal de las herramientas.",
+    "northStar": "Workspace financiero familiar",
+    "overview": "Portal Financiero es un workspace operativo, sobrio y reconocible. La interfaz usa convenciones estándar de software financiero —sidebar, header compacto, cards, tablas, campos y estados explícitos— para que el owner pueda orientarse sin aprender una gramática propia. La personalidad aparece en el contenido financiero en español, la densidad numérica y la provenance visible, no en una composición experimental.\n\nEl sistema trabaja con neutrales fríos, blanco para superficies contenidas y azul para interacción. La jerarquía es corta, los controles son compactos y los radios moderados. El modo claro y el oscuro conservan los mismos roles semánticos; la información importante nunca depende sólo del color.",
     "keyCharacteristics": [
-      "Superficies minerales planas, divididas por reglas precisas.",
-      "Jerarquía editorial amplia combinada con densidad numérica tabular.",
-      "Azul para interacción y estructura; amarillo para evidencia destacada.",
-      "Estados visibles inline, siempre acompañados por lenguaje o forma.",
-      "Profundidad progresiva: pregunta, respuesta, evidencia y detalle.",
-      "Movimiento corto y funcional que explica calibración o cambio de estado."
+      "Shell estándar con sidebar colapsable, drawer mobile y header compacto.",
+      "Cards, alertas y tablas convencionales con bordes o rings suaves.",
+      "Azul funcional sobre neutrales sobrios, con color de estado siempre acompañado por icono y texto.",
+      "Archivo Variable en toda la interfaz y numerales tabulares para datos comparables.",
+      "Profundidad progresiva: respuesta, estado, provenance y detalle permanecen conectados.",
+      "Densidad legible en escritorio y reflow directo en mobile."
     ],
     "rules": [
-      {
-        "name": "The Signal Has Meaning Rule",
-        "body": "El azul dirige, el amarillo señala evidencia y rojo/verde califican estados; ningún acento se aplica por variedad visual.",
-        "section": "colors"
-      },
-      {
-        "name": "The State Is Never Color Alone Rule",
-        "body": "Todo estado combina color con etiqueta, forma o patrón legible sin color.",
-        "section": "colors"
-      },
-      {
-        "name": "The Editorial–Instrument Split Rule",
-        "body": "Archivo formula preguntas y explicaciones; la monoespaciada identifica evidencia y coordenadas, nunca párrafos completos.",
-        "section": "typography"
-      },
-      {
-        "name": "The Numbers Align Rule",
-        "body": "Métricas comparables mantienen numerales tabulares y una alineación estable antes de recibir énfasis cromático.",
-        "section": "typography"
-      },
-      {
-        "name": "The Question Shapes the Surface Rule",
-        "body": "La gramática visual es común, pero la estructura cambia según investigar una compañía, calibrar supuestos, explorar una matriz, leer una serie o entender un régimen.",
-        "section": "layout"
-      },
-      {
-        "name": "The Wide Becomes Explicit Rule",
-        "body": "En mobile, una tabla o matriz no se encoge hasta ser ilegible: refluye a bloques etiquetados o habilita desplazamiento con contexto persistente.",
-        "section": "layout"
-      },
-      {
-        "name": "The Flat Instrument Rule",
-        "body": "Las superficies descansan en el plano; jerarquía y agrupación se construyen con borde, tono, espacio y contraste, nunca con sombras ambientales.",
-        "section": "elevation"
-      },
-      {
-        "name": "The Inversion Means Evidence Rule",
-        "body": "Los campos oscuros se reservan para metodología, provenance o cierres de alta importancia, no para decorar módulos arbitrarios.",
-        "section": "elevation"
-      },
-      {
-        "name": "The Honest Edge Rule",
-        "body": "Los componentes muestran su límite real: esquinas rectas, bordes visibles y sin recortes que sugieran flotación.",
-        "section": "shapes"
-      },
-      {
-        "name": "The Pill Is Exceptional Rule",
-        "body": "No se usan píldoras para estados o filtros por defecto; una forma redondeada sólo entra si comunica una propiedad real del dato o la interacción.",
-        "section": "shapes"
-      },
-      {
-        "name": "The Inline Evidence Rule",
-        "body": "Fuente, fecha, unidad, transformación y estado se presentan donde se interpreta el dato; no se relegan a una nota genérica al pie.",
-        "section": "components"
-      }
+      { "name": "The Functional Blue Rule", "body": "El azul señala acción, selección o información planificada; no se distribuye como decoración.", "section": "colors" },
+      { "name": "The State Is Never Color Alone Rule", "body": "Cada estado combina color con icono y etiqueta legible.", "section": "colors" },
+      { "name": "The Numbers Align Rule", "body": "Los valores comparables usan numerales tabulares antes de recibir cualquier énfasis cromático.", "section": "typography" },
+      { "name": "The Short Hierarchy Rule", "body": "Una página usa un único `h1`, títulos de card sobrios y texto secundario; no introduce titulares de landing dentro del workspace.", "section": "typography" },
+      { "name": "The Familiar First Rule", "body": "Sidebar, header, cards, tablas y formularios siguen convenciones shadcn/Base UI antes de crear un patrón propio.", "section": "layout" },
+      { "name": "The Wide Content Scrolls Rule", "body": "Una tabla ancha conserva columnas, encabezados y desplazamiento horizontal; no reduce texto y cifras hasta perder legibilidad.", "section": "layout" },
+      { "name": "The Containment Before Elevation Rule", "body": "Borde, ring y superficie resuelven la agrupación cotidiana; la sombra se reserva para overlays y paneles modales.", "section": "elevation" },
+      { "name": "The Moderate Radius Rule", "body": "El sistema usa esquinas suaves y consistentes: ni radios cero como identidad ni contenedores excesivamente redondeados.", "section": "shapes" },
+      { "name": "The Pill Has a Role Rule", "body": "Las cápsulas pertenecen a badges y estados breves; botones, campos, cards y bloques de contenido conservan radios moderados.", "section": "shapes" },
+      { "name": "The Evidence Travels With the Result Rule", "body": "Fuente, fecha, unidad, moneda, transformación y estado permanecen junto al resultado que explican.", "section": "components" },
+      { "name": "The Card Has a Job Rule", "body": "Una card agrupa una decisión o bloque real; no envuelve cada línea, etiqueta o gráfico por decoración.", "section": "components" }
     ],
     "dos": [
-      "**Do** usar reglas continuas, placas tonales y espacio para expresar jerarquía antes de crear contenedores nuevos.",
-      "**Do** elegir un arquetipo de layout según la pregunta financiera y adaptar su densidad al dispositivo.",
-      "**Do** mostrar estado, fecha, unidad, moneda y fuente junto al contenido que califican.",
-      "**Do** mantener foco visible, navegación por teclado, reflow legible y una tabla accesible equivalente para cada gráfico.",
-      "**Do** reservar movimiento para calibración, orientación o cambio de estado y respetar `prefers-reduced-motion`."
+      "**Do** empezar con primitivas shadcn/Base UI existentes y sus variantes implementadas.",
+      "**Do** usar azul para interacción y mostrar estados con icono, texto y color.",
+      "**Do** mantener numerales tabulares, fechas, unidades, moneda y provenance junto a los datos.",
+      "**Do** conservar el shell compacto, los gutters responsivos y el overflow horizontal de tablas.",
+      "**Do** usar cards para agrupaciones reales y divisores para filas relacionadas dentro de una misma card.",
+      "**Do** revisar tema claro y oscuro, teclado, foco, reflow y `prefers-reduced-motion`."
     ],
     "donts": [
-      "**Don't** construir grids de tarjetas intercambiables para métricas, herramientas o gráficos.",
-      "**Don't** usar neón, gradientes decorativos, vidrio, sombras flotantes ni blur ambiental.",
-      "**Don't** convertir cada estado, filtro o etiqueta en una píldora.",
-      "**Don't** imitar una terminal de trading ni introducir urgencia visual, flashes o señales de compra/venta.",
-      "**Don't** presentar capacidades futuras, datos simulados o valores faltantes como información real.",
-      "**Don't** universalizar la composición de la home: su rail y registro pertenecen a esa superficie."
+      "**Don't** recuperar la “Mesa de calibración”, el rail editorial, titulares de landing o registros lineales como identidad del producto.",
+      "**Don't** imponer radios cero ni oponerse a cards, badges o patrones shadcn convencionales.",
+      "**Don't** usar gradientes decorativos, neón, vidrio, blur ambiental, icon tiles o estética de terminal de trading.",
+      "**Don't** convertir cada etiqueta o control en una píldora; resérvala para badges y estados breves.",
+      "**Don't** usar color como único canal de estado ni presentar capacidades planificadas como disponibles.",
+      "**Don't** separar un resultado financiero de su fecha, unidad, moneda, fuente o transformación."
     ]
   }
 }

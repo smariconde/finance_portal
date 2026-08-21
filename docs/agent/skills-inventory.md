@@ -8,9 +8,10 @@ dependencies, and must not be presented as available to every contributor.
 
 ## Approved skills
 
-| Skill        | Purpose                                                                                                                                           | Source                                              | Version/ref                                          | License    | Installed  |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ---------------------------------------------------- | ---------- | ---------- |
-| `impeccable` | Create and review distinctive production-grade web interfaces; typography, layout, responsive behavior, accessibility and anti-pattern detection. | `pbakaus/impeccable` at `.agents/skills/impeccable` | `4.1.1` / `f88b2837a7d7c3182e46307bbbb091a1ed547571` | Apache-2.0 | 2026-08-21 |
+| Skill                            | Purpose                                                                                                                                           | Source                                                              | Version/ref                                          | License    | Installed  |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------- | ---------- | ---------- |
+| `impeccable`                     | Create and review distinctive production-grade web interfaces; typography, layout, responsive behavior, accessibility and anti-pattern detection. | `pbakaus/impeccable` at `.agents/skills/impeccable`                 | `4.1.1` / `f88b2837a7d7c3182e46307bbbb091a1ed547571` | Apache-2.0 | 2026-08-21 |
+| `financial-visualization-review` | Review financial charts, metric tables, screeners and dashboards for semantics, provenance, accessibility, responsive behavior and performance.   | repository-local at `.agents/skills/financial-visualization-review` | `1.0` / repository-local                             | Repository | 2026-08-21 |
 
 ## Audit notes: `impeccable`
 
@@ -28,6 +29,17 @@ dependencies, and must not be presented as available to every contributor.
 - `live`, concept generation, image generation, hook management and self-update commands require a new review and explicit user request before execution.
 - Updates are manual, pinned and reviewed in a separate change. Never follow an in-skill update prompt automatically.
 
+## Audit notes: `financial-visualization-review`
+
+- Created with the session-provided `skill-creator` workflow and validated with
+  `quick_validate.py` on 2026-08-21.
+- The repository contract selects shadcn/Recharts for ordinary charts and permits
+  ECharts/Canvas only for a demonstrated feature gap or measured performance failure.
+- The skill is improvement-ready, not autonomous: a real review may emit a scoped
+  improvement candidate, but changing the skill requires explicit maintenance scope,
+  supporting evidence, validation and inventory update.
+- The learning loop never enables hooks, downloads rules or makes network calls.
+
 ## Deferred candidates
 
 Nothing in this table is installed or approved by being listed. Installation requires
@@ -41,7 +53,6 @@ a concrete slice, source/license review, exact ref, diff review and lock evidenc
 | `ai-sdk` from `vercel/ai`                                     | Fase 7                                                         | deferred; no AI dependency or endpoint exists                                     |
 | `damodaran-valuation-engine` local                            | first valuation-engine change                                  | not created; methodology remains authoritative until a repetitive workflow exists |
 | `financial-data-provenance` local                             | first provider/parser change                                   | not created; source registry and contracts currently cover the inactive surface   |
-| `financial-visualization-review` local                        | first financial chart/table                                    | not created; no financial visualization is implemented                            |
 | `release-quality-gate` local                                  | first phase/release gate that exceeds current command contract | not created; Fase 0 uses repository commands and roadmap evidence directly        |
 
 The four local skills described by the masterplan remain design candidates, not missing
@@ -58,5 +69,11 @@ authorized automatically; Fase 0B.6 required no external plugin.
 ## Activation policy
 
 Use `impeccable` for any visual implementation or review, including pages, components, app shells, dashboards, financial tables, charts, empty/loading/error states, responsive behavior, themes, typography, layout, interaction and UX copy.
+
+Additionally use `financial-visualization-review` whenever the change creates or
+alters a financial chart, metric table, screener, sensitivity or dashboard data
+display. A task may activate both skills: Impeccable owns product UI craft while the
+financial skill owns data meaning, provenance, accessible equivalence and renderer
+choice.
 
 The product brief remains authoritative. The skill supplies design process and quality controls; it does not override financial correctness, roadmap scope, accessibility requirements, provider restrictions or the `personal | demo` boundary.

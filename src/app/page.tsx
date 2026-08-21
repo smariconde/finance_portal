@@ -1,6 +1,19 @@
+import { ArrowRight, Info, Search, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
 import { StatusMark } from "@/app/_components/status-mark";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { buttonVariants } from "@/components/ui/button";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import { getAppConfigHealth } from "@/server/config/app-environment";
 
 const tools = [
@@ -9,7 +22,7 @@ const tools = [
     area: "Empresas · CEDEAR",
     question: "¿Qué empresas cumplen mis criterios?",
     description:
-      "Filtrá por fundamentales actuales e históricos sin perder de vista cobertura, fecha y calidad.",
+      "Filtrado por fundamentales actuales e históricos, con cobertura, fecha y calidad visibles.",
     output: "Screener + ficha",
   },
   {
@@ -17,7 +30,7 @@ const tools = [
     area: "Matrices · Divergencias",
     question: "¿Dónde se separaron precio y fundamentales?",
     description:
-      "Explorá la matriz, compará períodos y abrí el puente entre resultados, precio y cantidad de acciones.",
+      "Comparación temporal y puente entre resultados, precio y cantidad de acciones.",
     output: "Matriz + tabla",
   },
   {
@@ -25,7 +38,7 @@ const tools = [
     area: "Valuación",
     question: "¿Qué valor explican estos supuestos?",
     description:
-      "Construí escenarios reproducibles y contrastá el rango de valor intrínseco con el precio observado.",
+      "Escenarios reproducibles y contraste del rango intrínseco con el precio observado.",
     output: "Workbench",
   },
   {
@@ -33,7 +46,7 @@ const tools = [
     area: "Argentina · Macro",
     question: "¿Qué está cambiando en el régimen local?",
     description:
-      "Leé nominalidad, liquidez, dólares, actividad y sector externo por preguntas, no como una pared de gráficos.",
+      "Nominalidad, liquidez, dólares, actividad y sector externo organizados por preguntas.",
     output: "Tablero por bloques",
   },
   {
@@ -41,7 +54,7 @@ const tools = [
     area: "Agro · Soja",
     question: "¿Qué cuenta hoy el precio de la soja?",
     description:
-      "Compará Rosario y Chicago, el basis y el percentil histórico con unidad, ventana y fuente visibles.",
+      "Rosario, Chicago, basis y percentil histórico con unidad, ventana y fuente visibles.",
     output: "Serie + contexto",
   },
 ] as const;
@@ -53,159 +66,183 @@ export default function HomePage() {
   ).length;
 
   return (
-    <main id="contenido">
-      <div className="portal-frame" id="inicio">
-        <aside className="measure-rail" aria-label="Referencia del portal">
-          <div className="measure-scale" aria-hidden="true">
-            <span>00</span>
-            <span>25</span>
-            <span>50</span>
-            <span>75</span>
-            <span>100</span>
-          </div>
-          <p>POINT-IN-TIME</p>
-          <p>ES-AR / OWNER</p>
-        </aside>
+    <div id="contenido" className="flex-1">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 md:p-6 lg:p-8">
+        <section className="flex flex-col gap-2" aria-labelledby="home-title">
+          <h1
+            id="home-title"
+            className="text-2xl font-semibold tracking-tight md:text-3xl"
+          >
+            Inicio
+          </h1>
+          <p className="max-w-3xl text-sm text-muted-foreground md:text-base">
+            Acceso central a investigación de empresas, valuación y contexto
+            local, con datos fechados y supuestos explícitos.
+          </p>
+        </section>
 
-        <div className="portal-content">
-          <section className="opening" aria-labelledby="portal-title">
-            <div className="opening-copy">
-              <h1 id="portal-title">
-                Decidir mejor empieza por saber de dónde sale cada número.
-              </h1>
-              <p>
-                Un espacio personal para investigar empresas, construir
-                valuaciones y leer Argentina con datos fechados, cálculos
-                reproducibles y supuestos a la vista.
-              </p>
-            </div>
+        <Alert className="border-blue-200 bg-blue-50/70 dark:border-blue-900 dark:bg-blue-950/30">
+          <Info aria-hidden="true" />
+          <AlertTitle>Slice de interfaz en curso</AlertTitle>
+          <AlertDescription>
+            La navegación y el diagnóstico son funcionales. Las herramientas de
+            análisis permanecen identificadas como planificadas hasta contar con
+            datos auditables.
+          </AlertDescription>
+        </Alert>
 
-            <div
-              className="analysis-entry"
-              aria-labelledby="analysis-entry-title"
-            >
-              <div className="entry-heading">
-                <h2 id="analysis-entry-title">¿Qué querés analizar?</h2>
-                <span>Planificado</span>
-              </div>
-              <label htmlFor="global-analysis">Empresa, ticker o CEDEAR</label>
-              <div className="search-shell">
-                <input
-                  id="global-analysis"
+        <section
+          className="grid gap-4 md:grid-cols-3"
+          aria-label="Resumen operativo"
+        >
+          <Card size="sm">
+            <CardHeader>
+              <CardDescription>Modo efectivo</CardDescription>
+              <CardTitle className="numeric text-xl capitalize">
+                {health.mode}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+          <Card size="sm">
+            <CardHeader>
+              <CardDescription>Revisiones pendientes</CardDescription>
+              <CardTitle className="numeric text-xl">
+                {attentionCount}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+          <Card size="sm">
+            <CardHeader>
+              <CardDescription>Próximo slice autorizado</CardDescription>
+              <CardTitle className="numeric text-xl">F1-03</CardTitle>
+            </CardHeader>
+          </Card>
+        </section>
+
+        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.55fr)]">
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2">Buscar una empresa o instrumento</CardTitle>
+              <CardDescription>
+                La entrada global se habilitará con el universo canónico y sus
+                identificadores point-in-time.
+              </CardDescription>
+              <CardAction>
+                <StatusMark status="planned" />
+              </CardAction>
+            </CardHeader>
+            <CardContent>
+              <div className="relative">
+                <Search
+                  className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <Input
+                  className="pl-9"
                   type="search"
                   placeholder="Ej. MercadoLibre, MELI o MELI.BA"
+                  aria-label="Buscar empresa, ticker o CEDEAR"
                   disabled
                 />
-                <span aria-hidden="true">Enter</span>
               </div>
-              <p className="entry-note">
-                La búsqueda se activará cuando exista un universo auditable. Hoy
-                no se muestran resultados simulados como si fueran reales.
-              </p>
-            </div>
-          </section>
+            </CardContent>
+          </Card>
 
-          <section className="tools-section" aria-labelledby="tools-title">
-            <div className="section-heading">
-              <h2 id="tools-title">Una entrada distinta para cada decisión.</h2>
-              <p>
-                El lenguaje visual es común; la superficie cambia según la
-                tarea.
-              </p>
-            </div>
-
-            <div className="tool-register">
-              {tools.map((tool) => (
-                <article className="tool-row" key={tool.area}>
-                  <div className="tool-meta">
-                    <span>{tool.phase}</span>
-                    <strong>{tool.area}</strong>
-                  </div>
-                  <div className="tool-copy">
-                    <h3>{tool.question}</h3>
-                    <p>{tool.description}</p>
-                  </div>
-                  <div className="tool-output">
-                    <span>Formato</span>
-                    <strong>{tool.output}</strong>
-                  </div>
-                  <StatusMark status="planned" />
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <section className="data-section" aria-labelledby="data-title">
-            <div className="section-heading data-heading">
-              <div>
-                <h2 id="data-title">El estado operativo, sin ambigüedad.</h2>
-                <p>
-                  La configuración informa capacidad y límites sin revelar
-                  valores secretos.
-                </p>
-              </div>
-              <dl className="health-summary">
-                <div>
-                  <dt>Modo efectivo</dt>
-                  <dd>{health.mode}</dd>
-                </div>
-                <div>
-                  <dt>Atenciones</dt>
-                  <dd>{attentionCount}</dd>
-                </div>
-              </dl>
-            </div>
-
-            <div className="health-callout">
-              <div>
-                <StatusMark
-                  status={attentionCount > 0 ? "degraded" : "ready"}
-                  label={
-                    attentionCount > 0
-                      ? `${attentionCount} revisión pendiente`
-                      : "Configuración base lista"
-                  }
-                />
-                <p>
-                  Postgres y las integraciones live permanecen deshabilitados en
-                  este slice; ninguna página abre una conexión ni llama APIs.
-                </p>
-              </div>
-              <Link className="text-link" href="/configuracion">
-                Ver diagnóstico completo
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2">Salud de configuración</CardTitle>
+              <CardDescription>
+                Estado seguro del runtime, sin exponer credenciales.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex items-center justify-between gap-4">
+              <StatusMark
+                status={attentionCount > 0 ? "degraded" : "ready"}
+                label={
+                  attentionCount > 0
+                    ? `${attentionCount} pendiente${attentionCount === 1 ? "" : "s"}`
+                    : "Base lista"
+                }
+              />
+              <Link
+                href="/configuracion"
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "sm" }),
+                )}
+              >
+                Ver diagnóstico
+                <ArrowRight data-icon="inline-end" />
               </Link>
-            </div>
-          </section>
+            </CardContent>
+          </Card>
+        </section>
 
-          <section className="method-section" aria-labelledby="method-title">
-            <div className="method-copy">
-              <h2 id="method-title">La evidencia viaja con el resultado.</h2>
-              <p>
-                Fuente, fecha, unidad y transformación no viven en una nota al
-                pie: forman parte de la lectura principal.
-              </p>
-            </div>
-            <dl className="evidence-strip">
-              <div>
-                <dt>Fuente</dt>
-                <dd>Origen verificable</dd>
-              </div>
-              <div>
-                <dt>Fecha</dt>
-                <dd>Disponible desde</dd>
-              </div>
-              <div>
-                <dt>Unidad</dt>
-                <dd>Moneda y escala</dd>
-              </div>
-              <div>
-                <dt>Transformación</dt>
-                <dd>Fórmula versionada</dd>
-              </div>
+        <Card>
+          <CardHeader className="border-b">
+            <CardTitle as="h2">Herramientas del portal</CardTitle>
+            <CardDescription>
+              Una superficie estándar por tarea; todas comparten estado,
+              provenance y convenciones numéricas.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="divide-y px-0">
+            {tools.map((tool) => (
+              <article
+                className="grid gap-3 px-4 py-4 md:grid-cols-[9rem_minmax(0,1fr)_9rem_auto] md:items-center"
+                key={tool.area}
+              >
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {tool.phase}
+                  </p>
+                  <p className="text-sm font-semibold">{tool.area}</p>
+                </div>
+                <div className="space-y-1">
+                  <h2 className="text-sm font-medium">{tool.question}</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {tool.description}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Formato</p>
+                  <p className="text-sm font-medium">{tool.output}</p>
+                </div>
+                <StatusMark status="planned" />
+              </article>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle as="h2" className="flex items-center gap-2">
+              <ShieldCheck className="size-4 text-primary" aria-hidden="true" />
+              Contrato de evidencia
+            </CardTitle>
+            <CardDescription>
+              Cada resultado financiero debe poder leerse y verificarse sin
+              abrir una nota auxiliar.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                ["Fuente", "Origen verificable"],
+                ["Fecha", "Disponible desde"],
+                ["Unidad", "Moneda y escala"],
+                ["Transformación", "Fórmula versionada"],
+              ].map(([term, description]) => (
+                <div className="border-l-2 border-primary/30 pl-3" key={term}>
+                  <dt className="text-xs font-medium text-muted-foreground">
+                    {term}
+                  </dt>
+                  <dd className="mt-1 text-sm font-medium">{description}</dd>
+                </div>
+              ))}
             </dl>
-          </section>
-        </div>
+          </CardContent>
+        </Card>
       </div>
-    </main>
+    </div>
   );
 }

@@ -24,24 +24,50 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 
 ## Tracker activo
 
-| Orden | Issue   | Estado   | Resultado verificable                                                                                        | Dependencias  |
-| ----: | ------- | -------- | ------------------------------------------------------------------------------------------------------------ | ------------- |
-|     1 | `F1-01` | `done`   | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos. | Fase 0 `done` |
-|     2 | `F1-02` | `done`   | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.      | `F1-01`       |
-|     3 | `F1-03` | `ready`  | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.               | `F1-02`       |
-|     4 | `F1-04` | `queued` | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.          | `F1-03`       |
-|     5 | `F1-05` | `queued` | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                      | `F1-04`       |
-|     6 | `F1-06` | `queued` | Resultado demo muestra fuentes, freshness, supuestos, escenarios y sensibilidad accesibles.                  | `F1-05`       |
-|     7 | `F1-07` | `queued` | Unit, contract y E2E prueban el flujo demo, degradación, aislamiento, teclado y mobile.                      | `F1-06`       |
-|     8 | `F1-08` | `queued` | Walkthrough reproducible del owner registra hallazgos y cierra el gate de Fase 1.                            | `F1-07`       |
+| Orden | Issue      | Estado        | Resultado verificable                                                                                        | Dependencias  |
+| ----: | ---------- | ------------- | ------------------------------------------------------------------------------------------------------------ | ------------- |
+|     1 | `F1-01`    | `done`        | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos. | Fase 0 `done` |
+|     2 | `F1-02`    | `done`        | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.      | `F1-01`       |
+|     3 | `F1-UI-01` | `in_progress` | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.               | `F1-02`       |
+|     4 | `F1-03`    | `queued`      | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.               | `F1-UI-01`    |
+|     5 | `F1-04`    | `queued`      | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.          | `F1-03`       |
+|     6 | `F1-05`    | `queued`      | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                      | `F1-04`       |
+|     7 | `F1-06`    | `queued`      | Resultado demo muestra fuentes, freshness, supuestos, escenarios y sensibilidad accesibles.                  | `F1-05`       |
+|     8 | `F1-07`    | `queued`      | Unit, contract y E2E prueban el flujo demo, degradación, aislamiento, teclado y mobile.                      | `F1-06`       |
+|     9 | `F1-08`    | `queued`      | Walkthrough reproducible del owner registra hallazgos y cierra el gate de Fase 1.                            | `F1-07`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
-aislada y repository integration test. El único próximo slice autorizado es
-`F1-03`; no iniciar otros issues de Fase 1 en paralelo.
+aislada y repository integration test. El usuario autorizó `F1-UI-01` antes de
+continuar con datos; no iniciar `F1-03` hasta cerrar este reemplazo visual.
 
 ## Issues por fase
 
 ### Fase 1 — vertical slice demo
+
+<a id="f1-ui-01"></a>
+
+#### `F1-UI-01` — Fundación shadcn y migración visual
+
+Alcance: reemplazar la dirección “Mesa de calibración” por un workspace financiero
+estándar y familiar. Incluye Base UI/shadcn, tokens semánticos, shell, home,
+configuración, contratos de diseño y skill de revisión financiera. No incluye
+datos, charts reales, rutas futuras ni controles que simulen capacidades.
+
+Criterios de aceptación:
+
+- `components.json` fija Base UI y CSS variables; los primitives viven en
+  `src/components/ui/` y se agregan sólo cuando tienen uso real;
+- sidebar, header, cards, estados y tabla de health usan patrones familiares y
+  conservan foco, contraste, reflow y lectura sin color;
+- home y configuración eliminan rail, hero editorial y geometría experimental;
+- Recharts/shadcn queda como motor inicial y ECharts como escape medido, sin
+  instalar una segunda librería sin evidencia;
+- `financial-visualization-review` se valida y su mejora requiere evidencia,
+  diff y autorización, sin autoescritura silenciosa ni red;
+- documentación normativa, briefs y sidecar quedan alineados con el render;
+- format, lint, typecheck, unit, build y revisión desktop/mobile pasan.
+
+Controles: `TM-12`, `TM-13`, `UI-02`, `UI-03`, `UI-04`.
 
 <a id="f1-01"></a>
 

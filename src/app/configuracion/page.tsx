@@ -1,9 +1,26 @@
+import { Info } from "lucide-react";
 import type { Metadata } from "next";
 
 import {
   StatusMark,
   type AvailabilityStatus,
 } from "@/app/_components/status-mark";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { getAppConfigHealth } from "@/server/config/app-environment";
 
 export const metadata: Metadata = {
@@ -21,7 +38,7 @@ const stateGuide: Array<{
   },
   {
     status: "degraded",
-    meaning: "La app sigue operativa, pero hay una condición para revisar.",
+    meaning: "La app sigue operativa, pero existe una condición para revisar.",
   },
   {
     status: "disabled",
@@ -37,104 +54,146 @@ export default function ConfigurationPage() {
   const health = getAppConfigHealth();
 
   return (
-    <main className="configuration-page" id="contenido">
-      <section className="configuration-intro" aria-labelledby="config-title">
-        <div>
-          <h1 id="config-title">
-            Saber qué está listo también es parte del análisis.
+    <div id="contenido" className="flex-1">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 md:p-6 lg:p-8">
+        <section className="flex flex-col gap-2" aria-labelledby="config-title">
+          <h1
+            id="config-title"
+            className="text-2xl font-semibold tracking-tight md:text-3xl"
+          >
+            Configuración
           </h1>
-          <p>
-            Este diagnóstico lee únicamente nombres y presencia de configuración
-            server-only. Nunca devuelve credenciales, conexiones ni payloads.
+          <p className="max-w-3xl text-sm text-muted-foreground md:text-base">
+            Diagnóstico seguro de runtime y capacidades. Sólo se muestran
+            nombres y presencia de configuración server-only, nunca valores
+            secretos.
           </p>
-        </div>
-        <dl className="runtime-plate">
-          <div>
-            <dt>Modo efectivo</dt>
-            <dd>{health.mode}</dd>
-          </div>
-          <div>
-            <dt>Límite de acceso</dt>
-            <dd>{health.access}</dd>
-          </div>
-          <div>
-            <dt>Controles</dt>
-            <dd>{health.items.length}</dd>
-          </div>
-        </dl>
-      </section>
+        </section>
 
-      <section className="state-section" aria-labelledby="states-title">
-        <div className="section-heading compact-heading">
-          <h2 id="states-title">Cuatro estados, una lectura.</h2>
-          <p>La forma y el texto conservan el significado aun sin color.</p>
-        </div>
-        <div className="state-band">
-          {stateGuide.map((state) => (
-            <div key={state.status}>
-              <StatusMark status={state.status} />
-              <p>{state.meaning}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section
-        className="diagnostic-section"
-        aria-labelledby="diagnostic-title"
-      >
-        <div className="section-heading compact-heading">
-          <h2 id="diagnostic-title">Diagnóstico de esta instancia.</h2>
-          <p>Los faltantes muestran nombres de variables, nunca sus valores.</p>
-        </div>
-
-        <div
-          className="health-register"
-          role="table"
-          aria-label="Salud de configuración"
+        <section
+          className="grid gap-4 md:grid-cols-3"
+          aria-label="Resumen de configuración"
         >
-          <div className="health-row health-header" role="row">
-            <span role="columnheader">Componente</span>
-            <span role="columnheader">Estado</span>
-            <span role="columnheader">Lectura</span>
-            <span role="columnheader">Configuración</span>
-          </div>
-          {health.items.map((item) => (
-            <div className="health-row" role="row" key={item.id}>
-              <strong role="cell" data-label="Componente">
-                {item.label}
-              </strong>
-              <span role="cell" data-label="Estado">
-                <StatusMark status={item.status} />
-              </span>
-              <p role="cell" data-label="Lectura">
-                {item.message}
-              </p>
-              <code role="cell" data-label="Configuración">
-                {item.missingVariables.length > 0
-                  ? item.missingVariables.join(" · ")
-                  : "Sin faltantes"}
-              </code>
-            </div>
-          ))}
-        </div>
-      </section>
+          <Card size="sm">
+            <CardHeader>
+              <CardDescription>Modo efectivo</CardDescription>
+              <CardTitle className="numeric text-xl capitalize">
+                {health.mode}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+          <Card size="sm">
+            <CardHeader>
+              <CardDescription>Límite de acceso</CardDescription>
+              <CardTitle className="numeric text-xl capitalize">
+                {health.access}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+          <Card size="sm">
+            <CardHeader>
+              <CardDescription>Controles evaluados</CardDescription>
+              <CardTitle className="numeric text-xl">
+                {health.items.length}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+        </section>
 
-      <section className="boundary-section" aria-labelledby="boundary-title">
-        <div>
-          <h2 id="boundary-title">Límite actual del sistema.</h2>
-          <p>
-            F1-02 incorpora el contrato de persistencia. Postgres sólo se abre
-            en modo personal; la demo permanece aislada en fixtures.
-          </p>
-        </div>
-        <ul>
-          <li>Postgres requiere modo personal y una conexión pooled.</li>
-          <li>Sin proveedores ni tráfico externo.</li>
-          <li>Sin ingestas, mutaciones persistentes o datos financieros.</li>
-          <li>Sin rutas que simulen capacidades futuras.</li>
-        </ul>
-      </section>
-    </main>
+        <Alert>
+          <Info aria-hidden="true" />
+          <AlertTitle>Diagnóstico sin efectos laterales</AlertTitle>
+          <AlertDescription>
+            Esta página no abre conexiones, no llama proveedores y no revela
+            payloads de configuración.
+          </AlertDescription>
+        </Alert>
+
+        <Card>
+          <CardHeader className="border-b">
+            <CardTitle as="h2">Cómo leer los estados</CardTitle>
+            <CardDescription>
+              Icono y texto preservan el significado aun cuando el color no está
+              disponible.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 pt-1 sm:grid-cols-2 xl:grid-cols-4">
+            {stateGuide.map((state) => (
+              <div className="space-y-2" key={state.status}>
+                <StatusMark status={state.status} />
+                <p className="text-sm text-muted-foreground">{state.meaning}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="border-b">
+            <CardTitle as="h2">Salud de esta instancia</CardTitle>
+            <CardDescription>
+              Los faltantes muestran el nombre de la variable, nunca su valor.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="px-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Componente</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="w-[44%]">Lectura</TableHead>
+                  <TableHead>Configuración</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {health.items.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-medium">{item.label}</TableCell>
+                    <TableCell>
+                      <StatusMark status={item.status} />
+                    </TableCell>
+                    <TableCell className="min-w-64 text-muted-foreground">
+                      {item.message}
+                    </TableCell>
+                    <TableCell>
+                      <code className="rounded bg-muted px-1.5 py-1 text-xs">
+                        {item.missingVariables.length > 0
+                          ? item.missingVariables.join(" · ")
+                          : "Sin faltantes"}
+                      </code>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle as="h2">Límite actual del sistema</CardTitle>
+            <CardDescription>
+              F1-02 incorpora el contrato de persistencia. Postgres sólo se abre
+              en modo personal; la demo permanece aislada en fixtures.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+              <li className="rounded-md border bg-muted/30 px-3 py-2">
+                Postgres requiere modo personal y una conexión pooled.
+              </li>
+              <li className="rounded-md border bg-muted/30 px-3 py-2">
+                Sin proveedores ni tráfico externo.
+              </li>
+              <li className="rounded-md border bg-muted/30 px-3 py-2">
+                Sin ingestas, mutaciones persistentes o datos financieros.
+              </li>
+              <li className="rounded-md border bg-muted/30 px-3 py-2">
+                Sin rutas que simulen capacidades futuras.
+              </li>
+            </ul>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   );
 }

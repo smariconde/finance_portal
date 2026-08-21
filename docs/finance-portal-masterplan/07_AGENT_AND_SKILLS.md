@@ -76,7 +76,17 @@ Debe exigir source registry y derechos del plan concreto antes del spike, schema
 
 Trigger: scatter, heatmap, ratio table o dashboard macro.
 
-Debe revisar definicion/ejes/unidad, negativos y N/M, outliers, comparabilidad agregada vs por accion, tooltips, fuente/vintage, WCAG 2.2 AA y equivalente tabular.
+Implementada en `.agents/skills/financial-visualization-review/`. Revisa
+definición/ejes/unidad, negativos y N/M, outliers, comparabilidad agregada vs por
+acción, tooltips, fuente/vintage, WCAG 2.2 AA, equivalente tabular, responsive y
+presupuesto del renderer.
+
+Su mejora es acotada y auditable: una corrección del usuario, un gate fallido o un
+patrón repetido puede producir un `Skill improvement candidate` con evidencia,
+alcance, regla y contraejemplo. No se autoedita durante una tarea común. Una
+actualización requiere alcance explícito de mantenimiento, dos ejemplos del repo o
+una especificación autoritativa más un ejemplo, `quick_validate.py`, revisión del
+diff e inventario actualizado. No habilita hooks ni aprendizaje por red.
 
 ### `release-quality-gate`
 
@@ -115,8 +125,8 @@ Una prueba falla si la skill no se activa, si activa dos workflows contradictori
 3. Inventariar skills ya disponibles.
 4. Listar paquetes externos antes de instalar.
 5. Auditar y versionar las skills seleccionadas.
-6. Crear las cuatro skills locales con alcance estrecho.
-7. Ejecutar `quick_validate.py` para cada skill.
+6. Crear cada skill local cuando exista un trigger real; no generar las cuatro por completar una lista.
+7. Ejecutar `quick_validate.py` para cada skill creada o modificada.
 8. Ejecutar una prueba de activacion: pedir un provider, una valuacion y un chart review y comprobar que cada skill dirige el workflow correcto.
 9. Actualizar checklist, evidencia, bloqueos y proximo slice del roadmap antes del handoff.
 

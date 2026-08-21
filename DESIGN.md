@@ -1,298 +1,308 @@
 ---
 name: "Portal Financiero"
-description: "Una mesa de calibración editorial para investigación financiera reproducible y trazable."
+description: "Workspace financiero familiar para investigación reproducible y trazable."
 colors:
-  paper: "#f2f4f1"
-  paper-raised: "#fbfcfa"
-  ink: "#142a31"
-  ink-soft: "#506166"
-  rule: "#aeb9b8"
-  rule-strong: "#708084"
-  blue: "#2b6f88"
-  blue-deep: "#204f61"
-  blue-soft: "#dcebef"
-  signal: "#e7b43c"
-  signal-soft: "#f6ebcb"
-  critical: "#9f4038"
-  critical-soft: "#f3dfdc"
-  success: "#2f755f"
-  success-soft: "#dcebe4"
-  disabled: "#59676a"
-  disabled-soft: "#e2e7e4"
-  focus: "#146f92"
-  selection: "#c9e4ec"
+  background: "oklch(0.985 0.002 247.84)"
+  foreground: "oklch(0.205 0.012 258.34)"
+  card: "oklch(1 0 0)"
+  card-foreground: "oklch(0.205 0.012 258.34)"
+  popover: "oklch(1 0 0)"
+  popover-foreground: "oklch(0.205 0.012 258.34)"
+  primary: "oklch(0.488 0.177 255.73)"
+  primary-foreground: "oklch(0.985 0 0)"
+  secondary: "oklch(0.961 0.006 247.86)"
+  secondary-foreground: "oklch(0.28 0.018 256.85)"
+  muted: "oklch(0.961 0.006 247.86)"
+  muted-foreground: "oklch(0.52 0.024 257.42)"
+  accent: "oklch(0.94 0.025 252.57)"
+  accent-foreground: "oklch(0.31 0.087 255.66)"
+  destructive: "oklch(0.577 0.245 27.325)"
+  border: "oklch(0.91 0.012 255.51)"
+  input: "oklch(0.91 0.012 255.51)"
+  ring: "oklch(0.58 0.145 255.66)"
+  sidebar: "oklch(0.972 0.004 252.89)"
+  sidebar-foreground: "oklch(0.27 0.018 256.85)"
+  sidebar-primary: "oklch(0.488 0.177 255.73)"
+  sidebar-primary-foreground: "oklch(0.985 0 0)"
+  sidebar-accent: "oklch(0.925 0.024 252.63)"
+  sidebar-accent-foreground: "oklch(0.31 0.087 255.66)"
+  sidebar-border: "oklch(0.91 0.012 255.51)"
+  sidebar-ring: "oklch(0.58 0.145 255.66)"
 typography:
-  display:
-    fontFamily: '"Archivo Variable", "Arial Narrow", sans-serif'
-    fontSize: "clamp(3rem, 6.8vw, 6rem)"
-    fontWeight: 690
-    lineHeight: 0.94
-    letterSpacing: "-0.038em"
   headline:
-    fontFamily: '"Archivo Variable", "Arial Narrow", sans-serif'
-    fontSize: "clamp(2.1rem, 4vw, 4.25rem)"
-    fontWeight: 660
-    lineHeight: 1
-    letterSpacing: "-0.035em"
-  title:
-    fontFamily: '"Archivo Variable", "Arial Narrow", sans-serif'
-    fontSize: "clamp(1.15rem, 1.8vw, 1.55rem)"
-    fontWeight: 640
-    lineHeight: 1.15
+    fontFamily: '"Archivo Variable", "Segoe UI", sans-serif'
+    fontSize: "1.5rem"
+    fontWeight: 600
+    lineHeight: "2rem"
     letterSpacing: "-0.025em"
-  body:
-    fontFamily: '"Archivo Variable", "Arial Narrow", sans-serif'
-    fontSize: "0.95rem"
-    fontWeight: 400
-    lineHeight: 1.55
+  title:
+    fontFamily: '"Archivo Variable", "Segoe UI", sans-serif'
+    fontSize: "1rem"
+    fontWeight: 500
+    lineHeight: 1.375
     letterSpacing: "normal"
-  body-small:
-    fontFamily: '"Archivo Variable", "Arial Narrow", sans-serif'
-    fontSize: "0.83rem"
+  body:
+    fontFamily: '"Archivo Variable", "Segoe UI", sans-serif'
+    fontSize: "0.875rem"
     fontWeight: 400
-    lineHeight: 1.55
+    lineHeight: "1.25rem"
+    letterSpacing: "normal"
+  body-large:
+    fontFamily: '"Archivo Variable", "Segoe UI", sans-serif'
+    fontSize: "1rem"
+    fontWeight: 400
+    lineHeight: "1.5rem"
     letterSpacing: "normal"
   label:
-    fontFamily: '"Archivo Variable", "Arial Narrow", sans-serif'
-    fontSize: "0.7rem"
-    fontWeight: 650
-    lineHeight: 1.35
-    letterSpacing: "0.06em"
-  mono-label:
-    fontFamily: 'ui-monospace, "SFMono-Regular", Consolas, monospace'
-    fontSize: "0.62rem"
-    fontWeight: 400
-    lineHeight: 1.5
-    letterSpacing: "0.04em"
+    fontFamily: '"Archivo Variable", "Segoe UI", sans-serif'
+    fontSize: "0.75rem"
+    fontWeight: 500
+    lineHeight: "1rem"
+    letterSpacing: "normal"
 rounded:
-  none: "0px"
+  sm: "calc(0.75rem * 0.6)"
+  md: "calc(0.75rem * 0.8)"
+  lg: "0.75rem"
+  xl: "calc(0.75rem * 1.35)"
+  2xl: "calc(0.75rem * 1.7)"
 spacing:
-  xs: "0.5rem"
-  sm: "0.75rem"
-  md: "1rem"
-  lg: "1.5rem"
-  xl: "2rem"
-  section: "clamp(4rem, 8vw, 8rem)"
-  page-gutter: "clamp(1rem, 3.2vw, 3.5rem)"
+  1: "0.25rem"
+  2: "0.5rem"
+  3: "0.75rem"
+  4: "1rem"
+  6: "1.5rem"
+  8: "2rem"
 components:
-  wordmark-mark:
-    backgroundColor: "{colors.paper}"
-    textColor: "{colors.ink}"
-    typography: "{typography.mono-label}"
-    rounded: "{rounded.none}"
+  button-primary:
+    backgroundColor: "{colors.primary}"
+    textColor: "{colors.primary-foreground}"
+    typography: "{typography.body}"
+    rounded: "{rounded.lg}"
+    padding: "0 0.625rem"
     height: "2rem"
-    width: "2rem"
-  navigation-link:
-    backgroundColor: "transparent"
-    textColor: "{colors.ink-soft}"
-    typography: "{typography.label}"
-    rounded: "{rounded.none}"
-    padding: "1.45rem 0"
-  analysis-field:
-    backgroundColor: "{colors.paper-raised}"
-    textColor: "{colors.ink}"
+  button-outline:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.foreground}"
     typography: "{typography.body}"
-    rounded: "{rounded.none}"
-    padding: "0.85rem 1rem"
-    height: "3.4rem"
-  planned-state:
-    backgroundColor: "{colors.blue-soft}"
-    textColor: "{colors.blue-deep}"
-    typography: "{typography.label}"
-    rounded: "{rounded.none}"
-    padding: "0.36rem 0.48rem"
-  register-row:
+    rounded: "{rounded.lg}"
+    padding: "0 0.625rem"
+    height: "2rem"
+  input:
     backgroundColor: "transparent"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.none}"
-    padding: "1.5rem 0 1.65rem"
-  health-row:
-    backgroundColor: "transparent"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.none}"
-    padding: "1.2rem 0"
-  status-ready:
-    backgroundColor: "transparent"
-    textColor: "{colors.success}"
-    typography: "{typography.label}"
-    rounded: "{rounded.none}"
-  status-critical:
-    backgroundColor: "transparent"
-    textColor: "{colors.critical}"
-    typography: "{typography.label}"
-    rounded: "{rounded.none}"
-  evidence-cell:
-    backgroundColor: "{colors.ink}"
-    textColor: "{colors.paper}"
+    textColor: "{colors.foreground}"
     typography: "{typography.body}"
-    rounded: "{rounded.none}"
-    padding: "1rem 1rem 1.25rem 0"
+    rounded: "{rounded.lg}"
+    padding: "0.25rem 0.625rem"
+    height: "2rem"
+  card:
+    backgroundColor: "{colors.card}"
+    textColor: "{colors.card-foreground}"
+    typography: "{typography.body}"
+    rounded: "{rounded.xl}"
+    padding: "1rem"
+  alert:
+    backgroundColor: "{colors.card}"
+    textColor: "{colors.card-foreground}"
+    typography: "{typography.body}"
+    rounded: "{rounded.lg}"
+    padding: "0.5rem 0.625rem"
+  status-badge:
+    backgroundColor: "transparent"
+    textColor: "{colors.foreground}"
+    typography: "{typography.label}"
+    rounded: "2rem"
+    padding: "0.125rem 0.5rem"
+    height: "1.25rem"
+  sidebar-item-active:
+    backgroundColor: "{colors.sidebar-accent}"
+    textColor: "{colors.sidebar-accent-foreground}"
+    typography: "{typography.body}"
+    rounded: "{rounded.md}"
+    padding: "0.5rem"
+    height: "2rem"
+  table:
+    backgroundColor: "transparent"
+    textColor: "{colors.foreground}"
+    typography: "{typography.body}"
+    rounded: "{rounded.sm}"
+    padding: "0.5rem"
 ---
 
 # Design System: Portal Financiero
 
 ## Overview
 
-**Creative North Star: "Mesa de calibración"**
+**Creative North Star: "Workspace financiero familiar"**
 
-Portal Financiero se comporta como un instrumento editorial de medición: cada cifra ocupa una posición clara, cada estado aparece junto al contenido que califica y cada resultado conserva su evidencia. La identidad combina la precisión de una mesa técnica con una voz financiera contemporánea, sobria y argentina. La densidad es organizada, no terminal; el carácter surge de la escala tipográfica, las reglas, las placas planas y el ritmo de registros.
+Portal Financiero es un workspace operativo, sobrio y reconocible. La interfaz usa convenciones estándar de software financiero —sidebar, header compacto, cards, tablas, campos y estados explícitos— para que el owner pueda orientarse sin aprender una gramática propia. La personalidad aparece en el contenido financiero en español, la densidad numérica y la provenance visible, no en una composición experimental.
 
-El sistema rechaza el dashboard de tarjetas intercambiables. No busca dramatizar el mercado ni simular velocidad operativa: ordena preguntas, supuestos, series y provenance para una lectura reflexiva. La portada expresa este mundo con un rail calibrado y un registro lineal, pero esa composición pertenece a su surface brief y no debe convertirse en la plantilla universal de las herramientas.
+El sistema trabaja con neutrales fríos, blanco para superficies contenidas y azul para interacción. La jerarquía es corta, los controles son compactos y los radios moderados. El modo claro y el oscuro conservan los mismos roles semánticos; la información importante nunca depende sólo del color.
 
 **Key Characteristics:**
 
-- Superficies minerales planas, divididas por reglas precisas.
-- Jerarquía editorial amplia combinada con densidad numérica tabular.
-- Azul para interacción y estructura; amarillo para evidencia destacada.
-- Estados visibles inline, siempre acompañados por lenguaje o forma.
-- Profundidad progresiva: pregunta, respuesta, evidencia y detalle.
-- Movimiento corto y funcional que explica calibración o cambio de estado.
+- Shell estándar con sidebar colapsable, drawer mobile y header compacto.
+- Cards, alertas y tablas convencionales con bordes o rings suaves.
+- Azul funcional sobre neutrales sobrios, con color de estado siempre acompañado por icono y texto.
+- Archivo Variable en toda la interfaz y numerales tabulares para datos comparables.
+- Profundidad progresiva: respuesta, estado, provenance y detalle permanecen conectados.
+- Densidad legible en escritorio y reflow directo en mobile.
 
 ## Colors
 
-La paleta se lee como papel, tinta y señalización técnica; el tema oscuro conserva los mismos roles semánticos mediante remapeo automático, sin convertir la experiencia en una terminal.
+La paleta es semántica: fondos y superficies neutrales sostienen el trabajo; el azul identifica interacción y los colores de estado sólo califican información explícita.
 
 ### Primary
 
-- **Azul federal** (`colors.blue`): guía interacción, calibración y énfasis estructural; su variante profunda sirve para texto activo y hover, y la variante suave para fondos de estado.
-
-### Secondary
-
-- **Amarillo señal** (`colors.signal`): marca evidencia, unidades o referencias que necesitan distinguirse dentro de un campo oscuro. No funciona como decoración general.
-
-### Tertiary
-
-- **Rojo crítico** (`colors.critical`): comunica degradación o atención junto con texto y una marca geométrica.
-- **Verde validado** (`colors.success`): comunica disponibilidad o validación junto con texto y una marca geométrica.
+- **Azul funcional** (`colors.primary`): acciones primarias, iconos de énfasis y señales interactivas. Su foreground garantiza contraste en controles rellenos.
 
 ### Neutral
 
-- **Papel mineral** (`colors.paper`): plano base continuo de la aplicación.
-- **Papel elevado** (`colors.paper-raised`): variación tonal mínima para campos y controles; no implica una tarjeta flotante.
-- **Tinta petróleo** (`colors.ink`): texto principal y campo inverso de evidencia.
-- **Tinta secundaria** (`colors.ink-soft`): explicación, metadata y lectura secundaria.
-- **Regla mineral** (`colors.rule`): separaciones internas de baja intensidad.
-- **Regla estructural** (`colors.rule-strong`): límites de secciones, cabeceras y controles.
-- **Neutral deshabilitado** (`colors.disabled`): estado no disponible, acompañado por texto explícito.
+- **Fondo de workspace** (`colors.background`): lienzo continuo detrás del shell y del contenido.
+- **Texto principal** (`colors.foreground`): títulos, valores y lectura prioritaria.
+- **Superficie de card** (`colors.card`): agrupación convencional de una decisión o bloque de información.
+- **Superficie secundaria** (`colors.muted`): filas activas suaves, código, placeholders y fondos auxiliares.
+- **Texto secundario** (`colors.muted-foreground`): contexto, metadata y explicaciones.
+- **Borde suave** (`colors.border`): separación entre regiones, filas y controles.
+- **Sidebar neutral** (`colors.sidebar`): plano persistente de navegación, separado del contenido sin contraste teatral.
 
-**The Signal Has Meaning Rule.** El azul dirige, el amarillo señala evidencia y rojo/verde califican estados; ningún acento se aplica por variedad visual.
+### Tertiary
 
-**The State Is Never Color Alone Rule.** Todo estado combina color con etiqueta, forma o patrón legible sin color.
+- **Destructivo** (`colors.destructive`): errores o acciones destructivas; no se usa para variación financiera ordinaria.
+- **Estados de disponibilidad:** verde para `ready`, ámbar para `degraded`, neutral para `disabled` y azul para `planned`. Son tratamientos implementados en `StatusMark`, no nuevos tokens globales.
+
+**The Functional Blue Rule.** El azul señala acción, selección o información planificada; no se distribuye como decoración.
+
+**The State Is Never Color Alone Rule.** Cada estado combina color con icono y etiqueta legible.
 
 ## Typography
 
-**Display Font:** Archivo Variable (con Arial Narrow y sans-serif como fallback)  
-**Body Font:** Archivo Variable (con Arial Narrow y sans-serif como fallback)  
-**Label/Mono Font:** ui-monospace (con SFMono-Regular y Consolas como fallback)
+**Display Font:** Archivo Variable (con Segoe UI y sans-serif como fallback)
 
-**Character:** Una sola familia variable sostiene voz editorial y lectura compacta; el contraste proviene de peso, ancho óptico, escala y espaciado. La monoespaciada queda reservada para coordenadas, fases, unidades, configuración y provenance.
+**Body Font:** Archivo Variable (con Segoe UI y sans-serif como fallback)
+
+**Label Font:** Archivo Variable (con Segoe UI y sans-serif como fallback)
+
+**Character:** Una sola familia sans variable mantiene continuidad entre navegación, lectura y cifras. El contraste surge de peso, tamaño y color semántico; no existe una voz editorial separada ni una tipografía display ornamental.
 
 ### Hierarchy
 
-- **Display** (`typography.display`): tesis principales; bloque corto, balanceado y con ancho máximo controlado.
-- **Headline** (`typography.headline`): encabezados de secciones y preguntas mayores.
-- **Title** (`typography.title`): preguntas de registros y títulos operativos.
-- **Body** (`typography.body`): explicación principal, con líneas cercanas a 48–61 caracteres cuando la composición lo permite.
-- **Body Small** (`typography.body-small`): detalle denso, descripciones de filas y metadata explicativa.
-- **Label** (`typography.label`): estados y rótulos compactos; puede usar mayúsculas sólo para vocabulario operativo breve.
-- **Mono Label** (`typography.mono-label`): escalas, fechas, unidades, variables y coordenadas técnicas.
+- **Headline** (`typography.headline`): título de página en mobile; sube a `1.875rem` desde el breakpoint `md` sin cambiar de carácter.
+- **Title** (`typography.title`): títulos de cards, secciones y decisiones operativas.
+- **Body** (`typography.body`): densidad principal para tablas, controles, descripciones y navegación.
+- **Body Large** (`typography.body-large`): introducciones de página en pantallas medianas o mayores.
+- **Label** (`typography.label`): metadata, fases, estados y rótulos compactos.
 
-Los números usan cifras tabulares y alineadas en todo el documento para sostener comparaciones verticales.
+La clase utilitaria `.numeric` aplica numerales tabulares y alineados a valores comparables. El código de configuración conserva una voz monoespaciada sólo para nombres técnicos.
 
-**The Editorial–Instrument Split Rule.** Archivo formula preguntas y explicaciones; la monoespaciada identifica evidencia y coordenadas, nunca párrafos completos.
+**The Numbers Align Rule.** Los valores comparables usan numerales tabulares antes de recibir cualquier énfasis cromático.
 
-**The Numbers Align Rule.** Métricas comparables mantienen numerales tabulares y una alineación estable antes de recibir énfasis cromático.
+**The Short Hierarchy Rule.** Una página usa un único `h1`, títulos de card sobrios y texto secundario; no introduce titulares de landing dentro del workspace.
 
 ## Layout
 
-El lienzo es mobile-first y se expande hasta un ancho de contenido de 92rem. En escritorio, los márgenes fluidos y las columnas minmax sostienen tanto titulares amplios como registros densos. Las secciones se separan con reglas continuas y grandes pausas verticales; dentro de registros, el ritmo se comprime a filas de aproximadamente 1–1.65rem de padding vertical. Los cortes observados están en 64rem y 46rem: primero colapsan navegación y columnas auxiliares; después las tablas se convierten en bloques etiquetados, el rail cambia de vertical a horizontal y el padding lateral queda en 1rem.
+El shell ocupa el viewport completo. En escritorio, la sidebar mide `16rem` expandida y `3rem` colapsada; desde `md` (`48rem`) permanece lateral. En mobile se convierte en un drawer de `18rem`. El header sticky mide `3.5rem` y mantiene trigger, identidad compacta y estado operativo en la primera línea.
 
-Los layouts de ruta son arquetipos adaptables, no copias de la portada:
+El contenido se centra en un máximo de `80rem`, con padding de `1rem`, `1.5rem` desde `md` y `2rem` desde `lg` (`64rem`). Las páginas usan una columna principal con gaps de `1.5rem`; los resúmenes pasan a tres columnas desde `md`, y las composiciones asimétricas sólo entran cuando el ancho `xl` (`80rem`) las sostiene. El footer es discreto y se apila en mobile.
 
-- **Company research:** identidad y disponibilidad arriba; fundamentales y evidencia en registros comparables; filings y transformaciones en profundidad progresiva.
-- **Valuation workbench:** supuestos y resultados mantienen relación visible en escritorio y una secuencia inequívoca en mobile; escenarios se comparan con columnas o bandas, no con tarjetas desconectadas.
-- **Matrix explorer:** el plano bidimensional prioriza encabezados estables, escalas legibles y una tabla accesible equivalente; el detalle se abre desde la celda o fila elegida.
-- **Time-series analysis:** pregunta, ventana, unidad y fuente preceden al gráfico; el relato, la serie y su tabla accesible comparten el mismo contrato de evidencia.
-- **Macro overview:** bloques editoriales por pregunta y régimen; evita una pared uniforme de gráficos y conserva transiciones, fechas y fuentes junto a cada lectura.
+Las tablas conservan semántica nativa y overflow horizontal. Los grids se apilan; no se comprimen valores, estados o provenance hasta volverlos ilegibles. Los targets principales del menú mobile y el trigger llegan a `2.75rem`.
 
-La portada conserva su rail calibrado, tesis amplia, entrada de análisis y registro lineal en `.impeccable/surfaces/src-app-page-tsx.md`; esos elementos no son requisitos de composición para otras rutas.
+**The Familiar First Rule.** Sidebar, header, cards, tablas y formularios siguen convenciones shadcn/Base UI antes de crear un patrón propio.
 
-**The Question Shapes the Surface Rule.** La gramática visual es común, pero la estructura cambia según investigar una compañía, calibrar supuestos, explorar una matriz, leer una serie o entender un régimen.
-
-**The Wide Becomes Explicit Rule.** En mobile, una tabla o matriz no se encoge hasta ser ilegible: refluye a bloques etiquetados o habilita desplazamiento con contexto persistente.
+**The Wide Content Scrolls Rule.** Una tabla ancha conserva columnas, encabezados y desplazamiento horizontal; no reduce texto y cifras hasta perder legibilidad.
 
 ## Elevation & Depth
 
-La elevación es plana y estructural. No hay sombras decorativas ni vidrio: la profundidad surge de reglas, campos tonales y secciones inversas. Un control puede usar un plano apenas más claro y una sección de evidencia puede invertir tinta y papel, pero ambos permanecen dentro del mismo tablero material.
+El sistema es plano por defecto y separa niveles mediante color semántico, borde y ring. Las cards usan un ring de `1px` con el foreground al `10%`; no flotan. La sidebar se distingue por su propio neutral y borde. El drawer mobile es la excepción estructural: usa overlay tenue y `shadow-lg` para comunicar modalidad. El header sticky puede usar transparencia y blur leve para conservar legibilidad al desplazar contenido, nunca como vidrio decorativo.
 
-**The Flat Instrument Rule.** Las superficies descansan en el plano; jerarquía y agrupación se construyen con borde, tono, espacio y contraste, nunca con sombras ambientales.
-
-**The Inversion Means Evidence Rule.** Los campos oscuros se reservan para metodología, provenance o cierres de alta importancia, no para decorar módulos arbitrarios.
+**The Containment Before Elevation Rule.** Borde, ring y superficie resuelven la agrupación cotidiana; la sombra se reserva para overlays y paneles modales.
 
 ## Shapes
 
-El lenguaje formal es ortogonal. Controles, placas, chips y marcadores no usan radios; las reglas de 1px y los acentos lineales de 2–3px forman la geometría dominante. Los cuadrados pequeños funcionan como marcas de estado y los ticks de calibración como notación instrumental. Cualquier futura visualización debe preferir ejes, bandas y contornos nítidos antes que cápsulas o blobs.
+La raíz de radios es `0.75rem`. Controles estándar usan el radio `lg`; elementos compactos derivan `md` o `sm`; las cards usan `xl`. Los badges de estado son cápsulas compactas porque agrupan icono y etiqueta en una sola unidad reconocible. Los bordes son finos y los iconos Lucide mantienen una geometría simple.
 
-**The Honest Edge Rule.** Los componentes muestran su límite real: esquinas rectas, bordes visibles y sin recortes que sugieran flotación.
+**The Moderate Radius Rule.** El sistema usa esquinas suaves y consistentes: ni radios cero como identidad ni contenedores excesivamente redondeados.
 
-**The Pill Is Exceptional Rule.** No se usan píldoras para estados o filtros por defecto; una forma redondeada sólo entra si comunica una propiedad real del dato o la interacción.
+**The Pill Has a Role Rule.** Las cápsulas pertenecen a badges y estados breves; botones, campos, cards y bloques de contenido conservan radios moderados.
 
 ## Components
 
-Los componentes son instrumentos honestos, planos y precisos. El estado vive inline con el contenido y cada interacción mantiene foco visible.
+Las primitivas son componentes shadcn editables construidos sobre Base UI. Se reutilizan antes de introducir una nueva abstracción visual.
+
+### Buttons
+
+- **Shape:** radio `lg`, texto `0.875rem` medium y altura base de `2rem`; las variantes compactas bajan a `1.75rem` o `1.5rem`.
+- **Primary:** fondo azul funcional, texto de contraste y hover por reducción de opacidad.
+- **Outline:** fondo del workspace, borde semántico y hover sobre muted.
+- **Focus / Active:** borde ring más halo de `3px`; el estado activo desplaza `1px` vertical cuando no abre un popup.
+- **Disabled:** bloquea interacción y usa opacidad al `50%`.
+
+### Inputs
+
+- **Style:** altura de `2rem`, radio `lg`, borde input y fondo transparente en claro.
+- **Focus:** borde ring más halo de `3px` al `50%`.
+- **Disabled / Invalid:** fondo input atenuado y opacidad al `50%`; invalid usa destructive con halo, nunca sólo color.
+
+### Badges & Status
+
+- **Badge:** altura de `1.25rem`, tipografía de `0.75rem`, cápsula compacta y borde opcional.
+- **StatusMark:** variantes `ready`, `degraded`, `disabled` y `planned`; cada una incluye icono Lucide, etiqueta y tratamiento claro/oscuro.
+- **Usage:** disponibilidad y modo operativo, no metadata arbitraria.
+
+### Cards / Containers
+
+- **Corner Style:** radio `xl`.
+- **Background:** card semántica con texto card-foreground.
+- **Boundary:** ring suave de `1px`; no sombra en reposo.
+- **Internal Padding:** `1rem` por defecto y `0.75rem` en cards pequeñas.
+- **Usage:** una decisión, resumen o bloque real por card; las filas internas usan divisores cuando comparten contexto.
+
+### Alerts
+
+- **Style:** grid compacto, borde, radio `lg` y padding de `0.5rem 0.625rem`.
+- **Meaning:** icono, título y descripción explican alcance o condición operativa.
+- **Color:** el fondo azul suave usado en la home es informativo y contextual, no una variante decorativa universal.
+
+### Tables
+
+- **Structure:** tabla semántica de ancho completo dentro de un contenedor con overflow horizontal.
+- **Density:** headers de `2.5rem`; celdas con `0.5rem` de padding y contenido sin wrap por defecto.
+- **State:** divisores horizontales y hover muted al `50%`; filas seleccionadas usan muted.
+- **Financial data:** valores comparables usan `.numeric`; estado y provenance viajan en columnas explícitas.
 
 ### Navigation
 
-- **Wordmark:** monograma cuadrado de 2rem con borde de tinta y nombre compacto; se reduce al monograma en mobile.
-- **Links:** texto pequeño y sobrio sobre el papel base; el hover cambia a azul profundo sin desplazar el layout.
-- **Mode indicator:** señal cuadrada más etiqueta en mayúsculas; informa el modo operativo, no funciona como badge decorativo.
-- **Responsive:** la navegación central se oculta bajo 64rem, mientras marca y modo permanecen visibles.
+- **Desktop:** sidebar de `16rem`, colapsable a iconos de `3rem`; shortcut `Ctrl/Cmd+B` y tooltips cuando está colapsada.
+- **Mobile:** drawer lateral de `18rem`; al elegir una ruta se cierra.
+- **Items:** altura base de `2rem`, radio `md`, icono de `1rem`; activo y hover usan sidebar-accent.
+- **Information architecture:** sólo Inicio y Configuración enlazan. Las herramientas futuras aparecen deshabilitadas con la etiqueta `Plan`.
 
-### Analysis Field
+### Shell
 
-- **Shape:** rectángulo sin radio, borde estructural y altura mínima de 3.4rem.
-- **Surface:** papel elevado dentro del plano base; tecla o acción terminal separada por una regla vertical.
-- **Focus:** contorno visible de 2px con offset de 3px en el shell completo.
-- **Disabled:** conserva contraste y explica inline por qué la capacidad aún no está disponible.
+- **Header:** sticky, compacto y separado por borde; contiene trigger, nombre, descriptor y estado del modo.
+- **Skip link:** oculto fuera de foco y visible al navegar por teclado.
+- **Footer:** advertencia educativa y descripción del modo sin competir con el contenido.
+- **Motion:** sidebar y drawer usan transiciones cortas; `prefers-reduced-motion` reduce sus duraciones a `0.01ms` y desactiva smooth scroll.
 
-### State Labels
+**The Evidence Travels With the Result Rule.** Fuente, fecha, unidad, moneda, transformación y estado permanecen junto al resultado que explican.
 
-- **Planned:** placa rectangular azul suave con borde azul, texto compacto en mayúsculas y sin sombra.
-- **Ready / Critical / Disabled:** etiqueta textual junto a un cuadrado de estado; relleno, línea interior o tono distinguen cada condición además del color.
-
-### Registers
-
-- **Tool register:** filas lineales con metadata, pregunta, formato y estado; una línea azul de 2px recorre la base en hover o foco.
-- **Health register:** tabla semántica en escritorio y bloques con pseudoencabezados visibles en mobile.
-- **Density:** separación generosa entre grupos y padding contenido dentro de cada fila; no encapsular cada registro como tarjeta.
-
-### Evidence Fields
-
-- **Surface:** inversión tinta/papel para metodología y provenance de alta importancia.
-- **Structure:** celdas divididas por reglas translúcidas, etiqueta monoespaciada amarilla y valor en Archivo.
-- **Reading order:** fuente, fecha, unidad y transformación permanecen cerca del resultado que explican.
-
-### Calibration Marks
-
-El rail y sus ticks son una firma opcional del mundo, no un marco obligatorio. Pueden reaparecer como escala, cursor, umbral o anotación cuando exista una dimensión que realmente se esté midiendo. Su animación ocurre una vez y se desactiva bajo `prefers-reduced-motion`.
-
-**The Inline Evidence Rule.** Fuente, fecha, unidad, transformación y estado se presentan donde se interpreta el dato; no se relegan a una nota genérica al pie.
+**The Card Has a Job Rule.** Una card agrupa una decisión o bloque real; no envuelve cada línea, etiqueta o gráfico por decoración.
 
 ## Do's and Don'ts
 
 ### Do:
 
-- **Do** usar reglas continuas, placas tonales y espacio para expresar jerarquía antes de crear contenedores nuevos.
-- **Do** elegir un arquetipo de layout según la pregunta financiera y adaptar su densidad al dispositivo.
-- **Do** mostrar estado, fecha, unidad, moneda y fuente junto al contenido que califican.
-- **Do** mantener foco visible, navegación por teclado, reflow legible y una tabla accesible equivalente para cada gráfico.
-- **Do** reservar movimiento para calibración, orientación o cambio de estado y respetar `prefers-reduced-motion`.
+- **Do** empezar con primitivas shadcn/Base UI existentes y sus variantes implementadas.
+- **Do** usar azul para interacción y mostrar estados con icono, texto y color.
+- **Do** mantener numerales tabulares, fechas, unidades, moneda y provenance junto a los datos.
+- **Do** conservar el shell compacto, los gutters responsivos y el overflow horizontal de tablas.
+- **Do** usar cards para agrupaciones reales y divisores para filas relacionadas dentro de una misma card.
+- **Do** revisar tema claro y oscuro, teclado, foco, reflow y `prefers-reduced-motion`.
 
 ### Don't:
 
-- **Don't** construir grids de tarjetas intercambiables para métricas, herramientas o gráficos.
-- **Don't** usar neón, gradientes decorativos, vidrio, sombras flotantes ni blur ambiental.
-- **Don't** convertir cada estado, filtro o etiqueta en una píldora.
-- **Don't** imitar una terminal de trading ni introducir urgencia visual, flashes o señales de compra/venta.
-- **Don't** presentar capacidades futuras, datos simulados o valores faltantes como información real.
-- **Don't** universalizar la composición de la home: su rail y registro pertenecen a esa superficie.
+- **Don't** recuperar la “Mesa de calibración”, el rail editorial, titulares de landing o registros lineales como identidad del producto.
+- **Don't** imponer radios cero ni oponerse a cards, badges o patrones shadcn convencionales.
+- **Don't** usar gradientes decorativos, neón, vidrio, blur ambiental, icon tiles o estética de terminal de trading.
+- **Don't** convertir cada etiqueta o control en una píldora; resérvala para badges y estados breves.
+- **Don't** usar color como único canal de estado ni presentar capacidades planificadas como disponibles.
+- **Don't** separar un resultado financiero de su fecha, unidad, moneda, fuente o transformación.

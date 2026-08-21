@@ -1,0 +1,4 @@
+interface:
+  display_name: "Financial Visualization Review"
+  short_description: "Review financial charts and tables safely"
+  default_prompt: "Use $financial-visualization-review to review this financial visualization for correctness, accessibility, and performance."

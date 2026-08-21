@@ -20,7 +20,7 @@ Solo una fase puede estar `in_progress`. No marcar `done` por porcentaje, esfuer
 |---|---|---|
 | Masterplan y auditoria | done | Replanteo single-owner, datos y persistencia revisado el 2026-08-20 |
 | Fase 0 - Fundacion | done | Fase 0A y contratos 0B.1-0B.7 validados el 2026-08-21; gate completo sin integrar proveedores reales |
-| Fase 1 - Vertical slice demo | in_progress | `F1-02` cerrado el 2026-08-21 contra PostgreSQL 17.11 local dedicado |
+| Fase 1 - Vertical slice demo | in_progress | `F1-UI-01` autorizado el 2026-08-21 para reemplazar el mundo visual antes de `F1-03` |
 | Fase 2 - Empresas y CEDEAR | not_started | - |
 | Fase 3 - Divergencias | not_started | - |
 | Fase 4 - Valuacion no financiera V1 | not_started | - |
@@ -30,7 +30,7 @@ Solo una fase puede estar `in_progress`. No marcar `done` por porcentaje, esfuer
 | Fase 8 - Persistencia personal y asistente | not_started | - |
 | Fase 9 - Hardening y publicacion del proyecto | not_started | - |
 
-**Próximo slice autorizado:** `F1-03`, source registry, ingestion runs y fake provider determinista conforme a [`docs/backlog/README.md`](../backlog/README.md#f1-03). No iniciar empresa fixture, motor FCFF ni otras tarjetas de Fase 1 en el mismo slice.
+**Slice excepcional en curso:** `F1-UI-01`, fundación shadcn/Base UI y migración del shell, home y configuración conforme a [`docs/backlog/README.md`](../backlog/README.md#f1-ui-01). No agrega datos ni capacidades. Al cerrar, `F1-03` vuelve a ser el próximo slice autorizado.
 
 **Bloqueos actuales:** ninguno.
 
@@ -72,6 +72,7 @@ Implementar en sesiones separadas: shell/health, persistencia base, fake provide
 
 - [x] Shell, navegacion y estados honestos `ready | degraded | disabled | planned`.
 - [x] Postgres/Drizzle, migracion y repositorios base.
+- [ ] Reemplazar la dirección visual provisional por un workspace shadcn/Base UI estándar sin agregar capacidades.
 - [ ] `source_registry`, `ingestion_runs` y fake provider deterministico.
 - [ ] Una empresa fixture con identidad completa y provenance point-in-time.
 - [ ] FCFF base calculado por dominio puro con sensibilidad.

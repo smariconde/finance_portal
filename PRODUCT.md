@@ -76,12 +76,17 @@ financiera.
 - Idioma principal: español, con formatos de datos `es-AR`.
 - La voz es precisa, sobria, explicable y educativa; separa hechos,
   transformaciones, supuestos y opinión.
-- La dirección visual confirmada es editorial financiera contemporánea: con
-  carácter argentino, densidad organizada y el rigor de un informe de inversión
-  excepcional.
-- La identidad debe evitar los clichés de interfaces generadas por IA y de
-  fintech: neón, gradientes decorativos, tarjetas flotantes repetitivas, exceso de
-  píldoras y estética de terminal de trading.
+- La dirección visual confirmada es un workspace financiero estándar,
+  `shadcn-first`: navegación, controles, cards, tablas y estados deben resultar
+  familiares antes que novedosos.
+- El sistema usa Base UI, tokens semánticos, radios moderados, densidad numérica
+  legible y un azul funcional sobre neutrales. La personalidad vive en el
+  contenido financiero, el locale `es-AR` y la provenance, no en una composición
+  experimental.
+- La identidad evita los clichés de interfaces generadas por IA y fintech: neón,
+  gradientes decorativos, vidrio, icon tiles, píldoras excesivas y estética de
+  terminal de trading. También evita rails ornamentales, titulares de landing y
+  patrones propios cuando un componente shadcn conocido resuelve mejor la tarea.
 - Debe mostrarse que la información es educativa y no constituye asesoramiento
   financiero, sin usar esa advertencia como excusa para reducir la calidad.
 
