@@ -19,7 +19,7 @@ Solo una fase puede estar `in_progress`. No marcar `done` por porcentaje, esfuer
 | Etapa | Estado | Ultima evidencia |
 |---|---|---|
 | Masterplan y auditoria | done | Replanteo single-owner, datos y persistencia revisado el 2026-08-20 |
-| Fase 0 - Fundacion | in_progress | Fase 0A, sistema visual, ADR 0001 y contratos de producto, identidad y tiempo validados el 2026-08-21 |
+| Fase 0 - Fundacion | in_progress | Fase 0A y contratos 0B.1-0B.4 validados el 2026-08-21; proveedores reales siguen sin aprobar |
 | Fase 1 - Vertical slice demo | not_started | - |
 | Fase 2 - Empresas y CEDEAR | not_started | - |
 | Fase 3 - Divergencias | not_started | - |
@@ -30,7 +30,7 @@ Solo una fase puede estar `in_progress`. No marcar `done` por porcentaje, esfuer
 | Fase 8 - Persistencia personal y asistente | not_started | - |
 | Fase 9 - Hardening y publicacion del proyecto | not_started | - |
 
-**Proximo slice autorizado:** Fase 0B.4, registrar la matriz de uso personal, cache, retencion y cuotas antes de cualquier spike tecnico. No comenzar Fase 1.
+**Proximo slice autorizado:** Fase 0B.5, ADR de modos `personal | demo`, persistencia durable y limite de exposicion de datos. No comenzar Fase 1.
 
 **Bloqueos actuales:** ninguno.
 
@@ -59,7 +59,7 @@ Una fase grande puede ocupar muchas sesiones. Una excepcion al orden requiere AD
 - [x] ADR de stack, modelo de cache Next.js y Postgres/pooling.
 - [x] PRD, arquitectura, source registry y metodologia derivados.
 - [x] Modelo entity/security/listing/depositary y contrato point-in-time.
-- [ ] Matriz de uso personal, cache, retencion y cuotas antes de cualquier spike tecnico.
+- [x] Matriz de uso personal, cache, retencion y cuotas antes de cualquier spike tecnico.
 - [ ] ADR de modos `personal | demo`, persistencia durable y limite de exposicion de datos.
 - [ ] Threat model, wireframes, design tokens e inventario de skills.
 - [ ] Backlog y tracker enlazados desde el repo implementado.
@@ -199,3 +199,4 @@ Agregar una fila al cerrar cada sesion. No borrar historia; corregir con una fil
 | 2026-08-21 | Fase 0B.1 | ADR de stack, Cache Components de Next.js 16 y contrato PostgreSQL pooled/direct | done | `docs/architecture/adr/0001-stack-cache-postgres.md`, `next.config.ts`; fuentes primarias revisadas; lint, typecheck, 5 unit tests y build con Cache Components habilitado | Fase 0B.2: derivar PRD, arquitectura ejecutable, source registry y metodologia |
 | 2026-08-21 | Fase 0B.2 | PRD, arquitectura ejecutable, registro inicial de fuentes y metodología de valuación derivados sin integrar proveedores ni adelantar aprobaciones | done | `docs/product/prd.md`, `docs/architecture/system.md`, `docs/data/source-registry.md`, `docs/valuation/methodology.md`; fuentes primarias revisadas; format, lint, typecheck, 5 unit tests, build, referencias y diff check | Fase 0B.3: modelo entity/security/listing/depositary y contrato point-in-time |
 | 2026-08-21 | Fase 0B.3 | Modelo entity/security/listing/depositary y contrato point-in-time con vigencia efectiva, conocimiento público, registro local y revisiones reproducibles | done | `docs/data/identity-model.md`, `docs/data/point-in-time-contract.md`, `docs/architecture/system.md`, `docs/data/source-registry.md`, `AGENTS.md`; fuentes primarias revisadas; format, enlaces, diff check, lint, typecheck, 5 unit tests y build | Fase 0B.4: matriz de uso personal, cache, retencion y cuotas |
+| 2026-08-21 | Fase 0B.4 | Matriz por fuente de uso personal, cache, retencion, export/IA y cuotas con desconocidos cerrados; ningun proveedor, cuenta, gasto o spike aprobado | done | `docs/data/provider-use-matrix.md`, `docs/data/source-registry.md`, `README.md`, masterplan `README`; fuentes primarias revisadas; format, enlaces, referencias obsoletas, diff check, lint, typecheck, 5 unit tests y build | Fase 0B.5: ADR de modos `personal \| demo`, persistencia durable y limite de exposicion de datos |

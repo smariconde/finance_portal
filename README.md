@@ -230,12 +230,13 @@ Documentos ejecutables actuales:
 - [PRD](docs/product/prd.md)
 - [Arquitectura del sistema](docs/architecture/system.md)
 - [Registro de fuentes](docs/data/source-registry.md)
+- [Matriz de uso personal, cache, retención y cuotas](docs/data/provider-use-matrix.md)
 - [Modelo de identidad financiera](docs/data/identity-model.md)
 - [Contrato point-in-time](docs/data/point-in-time-contract.md)
 - [Metodología de valuación](docs/valuation/methodology.md)
 - [ADR 0001: stack, cache y PostgreSQL](docs/architecture/adr/0001-stack-cache-postgres.md)
 
-La siguiente entrega autorizada registrará la matriz de uso personal, cache, retención y cuotas antes de cualquier spike técnico. No se conectará un proveedor real antes de aprobar contratos y fixtures.
+La matriz de uso personal, cache, retención y cuotas ya está registrada sin aprobar ni conectar proveedores reales. La siguiente entrega autorizada es el ADR de modos `personal | demo`, persistencia durable y límites de exposición de datos.
 
 ## Desarrollo y colaboración
 

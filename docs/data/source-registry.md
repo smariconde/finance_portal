@@ -1,9 +1,10 @@
 # Registro de fuentes
 
 - Estado: contrato documental inicial; ningún proveedor real está integrado
-- Versión: 0.1
+- Versión: 0.2
 - Fecha de revisión técnica: 2026-08-21
-- Próximo gate relacionado: matriz de uso personal, cache, retención y cuotas
+- Política operativa: [`provider-use-matrix.md`](provider-use-matrix.md)
+- Próximo gate relacionado: ADR de modos `personal | demo` y exposición de datos
 
 ## Propósito
 
@@ -15,6 +16,8 @@ permita automatización, persistencia, exportación o exposición a una IA.
 Las filas de este documento son candidatas. Ninguna tiene estado
 `approved_for_spike` o `active`; por lo tanto, este registro no autoriza llamadas,
 creación de cuentas, uso de credenciales, compras ni persistencia de payloads.
+La matriz de uso registra evidencia y límites propuestos, pero tampoco eleva por sí
+sola el estado de aprobación.
 
 ## Estados
 
@@ -78,7 +81,11 @@ type SourceRegistryEntry = {
   technicalStatus: string;
   approvalStatus: string;
   reviewedAt: string | null;
+  rightsReviewedAt: string | null;
+  rightsReviewDueAt: string | null;
   reviewEvidence: string[];
+  retentionClasses: Array<"R0" | "R1" | "R2" | "R3" | "R4">;
+  quotaPolicyId: string | null;
   ownerNotes: string;
 };
 ```
@@ -86,6 +93,8 @@ type SourceRegistryEntry = {
 `unknown` falla cerrado. No equivale a permiso. Si el raw no puede persistirse,
 las observaciones usan `raw_value_status=license_restricted` y conservan hash,
 identificador y transformación permitidos; nunca se omite el hecho silenciosamente.
+Las clases, hard caps y preguntas pendientes están definidas en la
+[matriz operativa](provider-use-matrix.md).
 
 ## Inventario prioritario
 
@@ -219,11 +228,13 @@ según el metric catalog. Nunca se repara con cero o una estimación silenciosa.
 
 ## Gate para elevar una fuente
 
-Antes de `approved_for_spike` se debe:
+Antes de `approved_for_spike` se debe cumplir la
+[matriz operativa](provider-use-matrix.md#gate-para-cambiar-una-fila-a-approved_for_spike)
+y además:
 
 1. elegir dataset, endpoint y plan concretos;
 2. registrar términos, licencia, atribución, cache, retención, derivados, export y
-   transferencia a IA;
+   transferencia a IA sin reemplazar `unknown` por inferencias;
 3. definir presupuesto, rate limit interno, timeout, paginación y backoff;
 4. especificar schema Zod, fixture, identidad y contrato point-in-time;
 5. documentar fallback, freshness, reconciliación y failure modes;
