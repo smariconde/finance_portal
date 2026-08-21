@@ -19,7 +19,7 @@ Solo una fase puede estar `in_progress`. No marcar `done` por porcentaje, esfuer
 | Etapa | Estado | Ultima evidencia |
 |---|---|---|
 | Masterplan y auditoria | done | Replanteo single-owner, datos y persistencia revisado el 2026-08-20 |
-| Fase 0 - Fundacion | in_progress | Fase 0A, sistema visual y ADR 0001 validados el 2026-08-21 |
+| Fase 0 - Fundacion | in_progress | Fase 0A, sistema visual, ADR 0001 y contratos derivados de 0B.2 validados el 2026-08-21 |
 | Fase 1 - Vertical slice demo | not_started | - |
 | Fase 2 - Empresas y CEDEAR | not_started | - |
 | Fase 3 - Divergencias | not_started | - |
@@ -30,7 +30,7 @@ Solo una fase puede estar `in_progress`. No marcar `done` por porcentaje, esfuer
 | Fase 8 - Persistencia personal y asistente | not_started | - |
 | Fase 9 - Hardening y publicacion del proyecto | not_started | - |
 
-**Proximo slice autorizado:** Fase 0B.2, derivar PRD, arquitectura ejecutable, source registry y metodologia. No comenzar Fase 1.
+**Proximo slice autorizado:** Fase 0B.3, especificar el modelo entity/security/listing/depositary y el contrato point-in-time. No comenzar Fase 1.
 
 **Bloqueos actuales:** ninguno.
 
@@ -57,7 +57,7 @@ Una fase grande puede ocupar muchas sesiones. Una excepcion al orden requiere AD
 ### Fase 0B: contratos y gobierno
 
 - [x] ADR de stack, modelo de cache Next.js y Postgres/pooling.
-- [ ] PRD, arquitectura, source registry y metodologia derivados.
+- [x] PRD, arquitectura, source registry y metodologia derivados.
 - [ ] Modelo entity/security/listing/depositary y contrato point-in-time.
 - [ ] Matriz de uso personal, cache, retencion y cuotas antes de cualquier spike tecnico.
 - [ ] ADR de modos `personal | demo`, persistencia durable y limite de exposicion de datos.
@@ -197,3 +197,4 @@ Agregar una fila al cerrar cada sesion. No borrar historia; corregir con una fil
 | 2026-08-21 | Fase 0 / skill UI | Impeccable instalada y auditada para direccion visual no generica, con red, hooks y updates deshabilitados por defecto | done | `.agents/skills/impeccable/`, `.impeccable/config.json`, `docs/agent/skills-inventory.md`, `AGENTS.md`; source pin `f88b283` | Fase 0B.1; definir `DESIGN.md` antes del proximo cambio visual |
 | 2026-08-21 | Fase 0 / sistema visual | Mundo “Mesa de calibracion” aplicado a la portada y documentado como sistema adaptable para home, empresas, valuacion, matrices, series y macro | done | `DESIGN.md`, `.impeccable/design.json`, `.impeccable/surfaces/src-app-page-tsx.md`, `src/app/`; format, lint, typecheck, 5 unit tests, build, detector Impeccable y capturas 1440/390; review `ship` | Fase 0B.1: ADR de stack, cache de Next.js 16 y Postgres/pooling |
 | 2026-08-21 | Fase 0B.1 | ADR de stack, Cache Components de Next.js 16 y contrato PostgreSQL pooled/direct | done | `docs/architecture/adr/0001-stack-cache-postgres.md`, `next.config.ts`; fuentes primarias revisadas; lint, typecheck, 5 unit tests y build con Cache Components habilitado | Fase 0B.2: derivar PRD, arquitectura ejecutable, source registry y metodologia |
+| 2026-08-21 | Fase 0B.2 | PRD, arquitectura ejecutable, registro inicial de fuentes y metodología de valuación derivados sin integrar proveedores ni adelantar aprobaciones | done | `docs/product/prd.md`, `docs/architecture/system.md`, `docs/data/source-registry.md`, `docs/valuation/methodology.md`; fuentes primarias revisadas; format, lint, typecheck, 5 unit tests, build, referencias y diff check | Fase 0B.3: modelo entity/security/listing/depositary y contrato point-in-time |

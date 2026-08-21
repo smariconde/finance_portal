@@ -29,6 +29,7 @@ Disponible hoy:
 - Variables de entorno documentadas sin credenciales reales.
 - Tests unitarios, lint, typecheck, formato, build y CI mínima.
 - Límites de módulos preparados para crecer sin mezclar dominio, framework y proveedores.
+- PRD, arquitectura ejecutable, registro inicial de fuentes y metodología de valuación derivados del masterplan.
 
 Todavía no están implementados los datos financieros, el screener, las valuaciones, el tablero argentino ni las funciones de IA. Esas capacidades se incorporarán por slices verificables; la interfaz no las presenta como disponibles antes de tiempo.
 
@@ -224,7 +225,15 @@ El destino previsto es Vercel, pero el repositorio todavía no publica una URL d
 
 El avance operativo y la evidencia de cada slice viven en [el roadmap](docs/finance-portal-masterplan/06_PHASED_ROADMAP.md). La arquitectura, el modelo de datos, la metodología financiera y los criterios de seguridad están documentados en [docs/finance-portal-masterplan](docs/finance-portal-masterplan/README.md).
 
-La siguiente entrega autorizada es derivar el PRD, la arquitectura ejecutable, el source registry y la metodología. No se conectará un proveedor real antes de aprobar contratos y fixtures.
+Documentos ejecutables actuales:
+
+- [PRD](docs/product/prd.md)
+- [Arquitectura del sistema](docs/architecture/system.md)
+- [Registro de fuentes](docs/data/source-registry.md)
+- [Metodología de valuación](docs/valuation/methodology.md)
+- [ADR 0001: stack, cache y PostgreSQL](docs/architecture/adr/0001-stack-cache-postgres.md)
+
+La siguiente entrega autorizada especificará el modelo `entity / security / listing / depositary` y el contrato point-in-time. No se conectará un proveedor real antes de aprobar contratos y fixtures.
 
 ## Desarrollo y colaboración
 
