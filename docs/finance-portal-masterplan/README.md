@@ -46,6 +46,10 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 - `09_ENVIRONMENT_AND_DEPLOY.md`: variables, setup y despliegue Vercel.
 - `10_DECISIONS_AND_SOURCES.md`: decisiones ya tomadas y bibliografia primaria.
 
+## Documentos derivados
+
+- [`../architecture/adr/0001-stack-cache-postgres.md`](../architecture/adr/0001-stack-cache-postgres.md): decision aceptada sobre stack, Cache Components y conexiones PostgreSQL.
+
 ## Principios no negociables
 
 1. Fuente y fecha visibles para todo dato importante.
@@ -64,4 +68,4 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 
 ## Estado actual
 
-El masterplan esta revisado y endurecido. La implementacion de Fase 0 aun no comenzo. El estado operativo y el historial de sesiones viven exclusivamente en `06_PHASED_ROADMAP.md`; no se infiere avance por la mera existencia de una pagina o documento.
+El masterplan esta revisado y la Fase 0 se encuentra en progreso. El estado operativo y el historial de sesiones viven exclusivamente en `06_PHASED_ROADMAP.md`; no se infiere avance por la mera existencia de una pagina o documento.

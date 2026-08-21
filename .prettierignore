@@ -1,5 +1,9 @@
 .next
 .agents/skills
+.impeccable/direction-options.json
+.impeccable/questions
+.impeccable/review
+.impeccable/mocks
 coverage
 docs/finance-portal-masterplan
 node_modules

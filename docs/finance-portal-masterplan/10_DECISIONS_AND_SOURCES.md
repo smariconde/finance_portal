@@ -1,16 +1,20 @@
 # Decisiones, riesgos y fuentes
 
-Investigacion revisada el 20 de agosto de 2026. Los enlaces y condiciones comerciales deben revalidarse al iniciar el repo y antes del lanzamiento.
+Investigacion revisada el 21 de agosto de 2026. Los enlaces y condiciones comerciales deben revalidarse al iniciar el repo y antes del lanzamiento.
 
 ## Decisiones tomadas
 
-### ADR-001 resumido
+### ADR 0001 resumido
+
+Decision completa: [`../architecture/adr/0001-stack-cache-postgres.md`](../architecture/adr/0001-stack-cache-postgres.md).
 
 | Tema | Decision | Motivo | Revisar cuando |
 |---|---|---|---|
 | Arquitectura | monolito modular Next.js | deploy simple y limites claros | jobs excedan Functions |
 | Runtime | TypeScript/Node en Vercel | una sola toolchain; dominio portable | calculo requiera stack cientifico no viable |
 | DB | Postgres serverless + Drizzle | series/lineage/relaciones y SQL | escala analitica lo justifique |
+| Conexion DB | Postgres.js con `DATABASE_URL` pooled, `max: 1`; conexion directa aislada para migraciones | evita multiplicar conexiones por Function y conserva portabilidad | proveedor/medicion justifique otro driver o limite |
+| Cache web | Cache Components de Next.js 16; cache derivada con tags | un unico modelo explicito sin convertir la cache en persistencia | cambie el contrato estable de Next.js |
 | UI | shadcn + Tailwind | componentes editables y accesibles | no aplica |
 | Charts | Recharts/shadcn primero | menor complejidad | scatter real no rinda |
 | Table | TanStack Table | filtros/columnas controlables | no aplica |
@@ -43,6 +47,9 @@ No copiar automaticamente esos modulos Python. Usarlos como inventario de requis
 - Next.js, Backend for Frontend: https://nextjs.org/docs/app/guides/backend-for-frontend
 - Next.js, caching/revalidation: https://nextjs.org/docs/app/getting-started/revalidating
 - Next.js, Cache Components: https://nextjs.org/docs/app/api-reference/config/next-config-js/cacheComponents
+- Drizzle ORM, PostgreSQL: https://orm.drizzle.team/docs/get-started-postgresql
+- Postgres.js, conexiones y serverless: https://github.com/porsager/postgres
+- Vercel, Postgres mediante Marketplace: https://vercel.com/docs/postgres
 - Next.js, auth y seguridad: https://nextjs.org/docs/app/guides/authentication
 - Vercel Functions: https://vercel.com/docs/functions
 - Vercel max duration: https://vercel.com/docs/functions/configuring-functions/duration
@@ -53,7 +60,7 @@ No copiar automaticamente esos modulos Python. Usarlos como inventario de requis
 - Sensitive environment variables: https://vercel.com/docs/environment-variables/sensitive-environment-variables
 - Vercel Deployment Protection: https://vercel.com/docs/deployment-protection
 
-Hechos relevantes: Route Handlers son endpoints alcanzables aunque no haya links; Functions no deben asumir filesystem persistente ni memoria compartida; cron llama un endpoint HTTP, usa UTC, no reintenta una falla y comparte limites de Function. Postgres se provisiona mediante Marketplace y el runtime serverless requiere pooling. Vercel Authentication protege previews/deployment URLs en Hobby, pero Standard Protection no cubre el production domain: production permanece en modo demo salvo proteccion confirmada. Para la version Next.js instalada se elige explicitamente Cache Components o el modelo anterior.
+Hechos relevantes: Route Handlers son endpoints alcanzables aunque no haya links; Functions no deben asumir filesystem persistente ni memoria compartida; cron llama un endpoint HTTP, usa UTC, no reintenta una falla y comparte limites de Function. Postgres se provisiona mediante Marketplace y el runtime serverless requiere pooling. Vercel Authentication protege previews/deployment URLs en Hobby, pero Standard Protection no cubre el production domain: production permanece en modo demo salvo proteccion confirmada. Para Next.js 16 se adopta Cache Components y no se mezclan convenciones del modelo anterior.
 
 ## IA e investigacion
 

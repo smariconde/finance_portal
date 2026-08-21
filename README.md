@@ -94,6 +94,9 @@ Reglas centrales:
 - Las páginas leen snapshots persistidos; nunca llaman proveedores durante el render.
 - El acceso a secretos, base de datos, proveedores e IA permanece server-only.
 - `DATABASE_URL` es la conexión pooled de runtime; `DATABASE_DIRECT_URL` queda reservada a migraciones controladas.
+- Next.js 16 usa Cache Components como capa derivada; Postgres sigue siendo la fuente durable.
+
+La decisión y sus reglas de invalidación, pooling y migraciones están en [ADR 0001](docs/architecture/adr/0001-stack-cache-postgres.md).
 
 Estructura actual:
 
@@ -221,7 +224,7 @@ El destino previsto es Vercel, pero el repositorio todavía no publica una URL d
 
 El avance operativo y la evidencia de cada slice viven en [el roadmap](docs/finance-portal-masterplan/06_PHASED_ROADMAP.md). La arquitectura, el modelo de datos, la metodología financiera y los criterios de seguridad están documentados en [docs/finance-portal-masterplan](docs/finance-portal-masterplan/README.md).
 
-La siguiente entrega autorizada es el ADR de stack, caché de Next.js y estrategia PostgreSQL/pooling. No se conectará un proveedor real antes de aprobar contratos y fixtures.
+La siguiente entrega autorizada es derivar el PRD, la arquitectura ejecutable, el source registry y la metodología. No se conectará un proveedor real antes de aprobar contratos y fixtures.
 
 ## Desarrollo y colaboración
 

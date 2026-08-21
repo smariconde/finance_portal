@@ -18,6 +18,11 @@ test-results/
 *.log
 .vercel/
 .impeccable/config.local.json
+.impeccable/direction-options.json
+.impeccable/questions/
+.impeccable/review/
+.impeccable/mocks/
+.impeccable/*-brief-body.md
 .DS_Store
 Thumbs.db
 

@@ -163,6 +163,8 @@ Las tablas revisables conservan tiempo efectivo (`valid_from/valid_to`) y tiempo
 
 Postgres conserva snapshots entre navegadores y sesiones. El cache de Next.js es una capa derivada y descartable: se elige un solo modelo para la version instalada y cada lectura declara freshness e invalidacion. `localStorage` se limita a preferencias visuales y borradores; claves y datos financieros autoritativos permanecen en servidor. `sessionStorage` no es persistencia.
 
+La decision ejecutable vive en [`../architecture/adr/0001-stack-cache-postgres.md`](../architecture/adr/0001-stack-cache-postgres.md): Next.js 16 usa Cache Components, las descargas de proveedores no dependen de esa cache y el runtime separa estrictamente la URL pooled de la conexion directa de migraciones.
+
 ## Escalabilidad sin sobreingenieria
 
 Extraer un worker cuando una ingesta no quepa de forma confiable en el limite de Function, necesite fan-out/retries fuertes o consuma CPU sostenida. Opciones futuras: QStash, Inngest, DBOS o Vercel Workflow, evaluadas con una ADR. No introducir Kafka, Kubernetes ni una segunda base para el MVP.
