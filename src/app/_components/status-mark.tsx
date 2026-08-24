@@ -43,12 +43,9 @@ export function StatusMark({ status, label }: StatusMarkProps) {
   const Icon = config.icon;
 
   return (
-    <Badge
-      variant="outline"
-      className={cn("gap-1", config.className)}
-      aria-label={`Estado: ${label ?? config.label}`}
-    >
+    <Badge variant="outline" className={cn("gap-1", config.className)}>
       <Icon aria-hidden="true" />
+      <span className="sr-only">Estado: </span>
       {label ?? config.label}
     </Badge>
   );

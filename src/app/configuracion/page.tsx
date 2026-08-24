@@ -135,7 +135,7 @@ export default function ConfigurationPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="px-0">
-            <Table>
+            <Table containerLabel="Salud de esta instancia, tabla desplazable">
               <TableHeader>
                 <TableRow>
                   <TableHead>Componente</TableHead>
@@ -151,7 +151,7 @@ export default function ConfigurationPage() {
                     <TableCell>
                       <StatusMark status={item.status} />
                     </TableCell>
-                    <TableCell className="min-w-64 text-muted-foreground">
+                    <TableCell className="w-[44%] min-w-64 text-muted-foreground whitespace-normal">
                       {item.message}
                     </TableCell>
                     <TableCell>

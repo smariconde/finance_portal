@@ -24,21 +24,22 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 
 ## Tracker activo
 
-| Orden | Issue      | Estado        | Resultado verificable                                                                                        | Dependencias  |
-| ----: | ---------- | ------------- | ------------------------------------------------------------------------------------------------------------ | ------------- |
-|     1 | `F1-01`    | `done`        | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos. | Fase 0 `done` |
-|     2 | `F1-02`    | `done`        | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.      | `F1-01`       |
-|     3 | `F1-UI-01` | `in_progress` | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.               | `F1-02`       |
-|     4 | `F1-03`    | `queued`      | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.               | `F1-UI-01`    |
-|     5 | `F1-04`    | `queued`      | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.          | `F1-03`       |
-|     6 | `F1-05`    | `queued`      | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                      | `F1-04`       |
-|     7 | `F1-06`    | `queued`      | Resultado demo muestra fuentes, freshness, supuestos, escenarios y sensibilidad accesibles.                  | `F1-05`       |
-|     8 | `F1-07`    | `queued`      | Unit, contract y E2E prueban el flujo demo, degradación, aislamiento, teclado y mobile.                      | `F1-06`       |
-|     9 | `F1-08`    | `queued`      | Walkthrough reproducible del owner registra hallazgos y cierra el gate de Fase 1.                            | `F1-07`       |
+| Orden | Issue      | Estado   | Resultado verificable                                                                                        | Dependencias  |
+| ----: | ---------- | -------- | ------------------------------------------------------------------------------------------------------------ | ------------- |
+|     1 | `F1-01`    | `done`   | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos. | Fase 0 `done` |
+|     2 | `F1-02`    | `done`   | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.      | `F1-01`       |
+|     3 | `F1-UI-01` | `done`   | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.               | `F1-02`       |
+|     4 | `F1-03`    | `ready`  | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.               | `F1-UI-01`    |
+|     5 | `F1-04`    | `queued` | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.          | `F1-03`       |
+|     6 | `F1-05`    | `queued` | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                      | `F1-04`       |
+|     7 | `F1-06`    | `queued` | Resultado demo muestra fuentes, freshness, supuestos, escenarios y sensibilidad accesibles.                  | `F1-05`       |
+|     8 | `F1-07`    | `queued` | Unit, contract y E2E prueban el flujo demo, degradación, aislamiento, teclado y mobile.                      | `F1-06`       |
+|     9 | `F1-08`    | `queued` | Walkthrough reproducible del owner registra hallazgos y cierra el gate de Fase 1.                            | `F1-07`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
-aislada y repository integration test. El usuario autorizó `F1-UI-01` antes de
-continuar con datos; no iniciar `F1-03` hasta cerrar este reemplazo visual.
+aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
+revisión desktop/mobile ejecutada sobre el build de producción y las capturas de
+`.impeccable/review/` regeneradas. `F1-03` es el próximo slice autorizado.
 
 ## Issues por fase
 
@@ -68,6 +69,15 @@ Criterios de aceptación:
 - format, lint, typecheck, unit, build y revisión desktop/mobile pasan.
 
 Controles: `TM-12`, `TM-13`, `UI-02`, `UI-03`, `UI-04`.
+
+Evidencia (2026-08-23): `components.json`, `src/components/ui/`, `src/app/` y
+`DESIGN.md` con su brief en `.impeccable/surfaces/`; `detect.mjs` sin findings;
+capturas `.impeccable/review/desktop.png` y `mobile.png` regeneradas desde el
+build de producción; medición 1440×900 y 390×844 en tema claro y oscuro sin
+overflow horizontal, sin controles sin nombre accesible y sin targets menores a
+24 px fuera del rail duplicado de la sidebar; la tabla de health expone región
+desplazable enfocable sólo cuando desborda; format, lint, typecheck, 20 unit
+tests y build pasan.
 
 <a id="f1-01"></a>
 

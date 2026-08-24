@@ -4,11 +4,40 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+function Table({
+  className,
+  containerLabel,
+  ...props
+}: React.ComponentProps<"table"> & { containerLabel?: string }) {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [isScrollable, setIsScrollable] = React.useState(false);
+
+  // A horizontally scrolling region needs to be reachable and named for
+  // keyboard and screen reader users, but only while it actually scrolls.
+  React.useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const update = () =>
+      setIsScrollable(container.scrollWidth > container.clientWidth);
+
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(container);
+    const table = container.firstElementChild;
+    if (table) observer.observe(table);
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div
+      ref={containerRef}
       data-slot="table-container"
-      className="relative w-full overflow-x-auto"
+      className="relative w-full overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      role={isScrollable ? "region" : undefined}
+      aria-label={isScrollable ? containerLabel : undefined}
+      tabIndex={isScrollable ? 0 : undefined}
     >
       <table
         data-slot="table"

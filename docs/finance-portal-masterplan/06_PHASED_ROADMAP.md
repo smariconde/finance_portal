@@ -20,7 +20,7 @@ Solo una fase puede estar `in_progress`. No marcar `done` por porcentaje, esfuer
 |---|---|---|
 | Masterplan y auditoria | done | Replanteo single-owner, datos y persistencia revisado el 2026-08-20 |
 | Fase 0 - Fundacion | done | Fase 0A y contratos 0B.1-0B.7 validados el 2026-08-21; gate completo sin integrar proveedores reales |
-| Fase 1 - Vertical slice demo | in_progress | `F1-UI-01` autorizado el 2026-08-21 para reemplazar el mundo visual antes de `F1-03` |
+| Fase 1 - Vertical slice demo | in_progress | `F1-UI-01` cerrado el 2026-08-23 con review desktop/mobile y capturas refrescadas; sigue `F1-03` |
 | Fase 2 - Empresas y CEDEAR | not_started | - |
 | Fase 3 - Divergencias | not_started | - |
 | Fase 4 - Valuacion no financiera V1 | not_started | - |
@@ -30,7 +30,7 @@ Solo una fase puede estar `in_progress`. No marcar `done` por porcentaje, esfuer
 | Fase 8 - Persistencia personal y asistente | not_started | - |
 | Fase 9 - Hardening y publicacion del proyecto | not_started | - |
 
-**Slice excepcional en curso:** `F1-UI-01`, fundación shadcn/Base UI y migración del shell, home y configuración conforme a [`docs/backlog/README.md`](../backlog/README.md#f1-ui-01). No agrega datos ni capacidades. Al cerrar, `F1-03` vuelve a ser el próximo slice autorizado.
+**Slice excepcional cerrado:** `F1-UI-01`, fundación shadcn/Base UI y migración del shell, home y configuración conforme a [`docs/backlog/README.md`](../backlog/README.md#f1-ui-01). No agregó datos ni capacidades. `F1-03` vuelve a ser el próximo slice autorizado.
 
 **Bloqueos actuales:** ninguno.
 
@@ -72,7 +72,7 @@ Implementar en sesiones separadas: shell/health, persistencia base, fake provide
 
 - [x] Shell, navegacion y estados honestos `ready | degraded | disabled | planned`.
 - [x] Postgres/Drizzle, migracion y repositorios base.
-- [ ] Reemplazar la dirección visual provisional por un workspace shadcn/Base UI estándar sin agregar capacidades.
+- [x] Reemplazar la dirección visual provisional por un workspace shadcn/Base UI estándar sin agregar capacidades.
 - [ ] `source_registry`, `ingestion_runs` y fake provider deterministico.
 - [ ] Una empresa fixture con identidad completa y provenance point-in-time.
 - [ ] FCFF base calculado por dominio puro con sensibilidad.
@@ -207,3 +207,4 @@ Agregar una fila al cerrar cada sesion. No borrar historia; corregir con una fil
 | 2026-08-21 | Fase 1 / `F1-01` | Shell compartido, navegacion a superficies reales, health honesto y headers base con review desktop/mobile | done | `src/app/`, `src/server/security/`, `next.config.ts`, brief y capturas en `.impeccable/`; format, lint, typecheck, 12 unit tests, build, HTTP 200 y verdict Impeccable `ship` | `F1-02`: Postgres/Drizzle y repositorios base; no iniciar `F1-03` |
 | 2026-08-21 | Fase 1 / `F1-02` | Schema y migración Drizzle, runtime pooled, job directo, repositories demo/personal y cache aislados; falta PostgreSQL real | in_progress | `drizzle/`, `src/modules/persistence/`, `src/server/db/`, `scripts/migrate.ts`, `docs/runbooks/database-migrations.md`; generate, format, lint, typecheck y build pasan; 20 unit tests pasan; guards sin URLs fallan seguro | Proveer base PostgreSQL dedicada, ejecutar migration up y `pnpm test:integration`; no iniciar `F1-03` |
 | 2026-08-21 | Fase 1 / `F1-02` | PostgreSQL local reproducible y gate real de persistencia completado | done | `compose.test.yaml`, `.env.docker.example`, PostgreSQL `17.11` healthy en `127.0.0.1:55432`, tablas `drizzle.__drizzle_migrations` y `public.dataset_snapshots`; format, lint, typecheck, 20 unit tests, 1 integration test y build pasan | `F1-03`: source registry, ingestion runs y fake provider; no iniciar `F1-04` |
+| 2026-08-23 | Fase 1 / `F1-UI-01` | Review desktop/mobile del workspace shadcn cerrada: jerarquia de encabezados corregida, tabla de health navegable por teclado y con reflow, nombres de control en español, badges de estado anunciados y drift de tipografia eliminado | done | `src/app/page.tsx`, `src/app/configuracion/page.tsx`, `src/app/_components/status-mark.tsx`, `src/components/ui/{table,sidebar,button}.tsx`, capturas `.impeccable/review/{desktop,mobile}.png` regeneradas desde build de produccion; `detect.mjs` sin findings; medicion CDP 1440/390 en claro y oscuro sin overflow horizontal, sin controles sin nombre ni targets <24px fuera del rail duplicado; format, lint, typecheck, 20 unit tests y build pasan | `F1-03`: source registry, ingestion runs y fake provider; no iniciar `F1-04` |

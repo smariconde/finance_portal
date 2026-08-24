@@ -83,11 +83,11 @@ export default function HomePage() {
 
         <Alert className="border-blue-200 bg-blue-50/70 dark:border-blue-900 dark:bg-blue-950/30">
           <Info aria-hidden="true" />
-          <AlertTitle>Slice de interfaz en curso</AlertTitle>
+          <AlertTitle>Alcance actual del portal</AlertTitle>
           <AlertDescription>
-            La navegación y el diagnóstico son funcionales. Las herramientas de
-            análisis permanecen identificadas como planificadas hasta contar con
-            datos auditables.
+            La navegación y el diagnóstico de configuración son funcionales. Las
+            herramientas de análisis permanecen identificadas como planificadas
+            hasta contar con datos auditables.
           </AlertDescription>
         </Alert>
 
@@ -141,7 +141,7 @@ export default function HomePage() {
                   className="pl-9"
                   type="search"
                   placeholder="Ej. MercadoLibre, MELI o MELI.BA"
-                  aria-label="Buscar empresa, ticker o CEDEAR"
+                  aria-label="Buscar empresa, ticker o CEDEAR (planificado, todavía no disponible)"
                   disabled
                 />
               </div>
@@ -198,7 +198,7 @@ export default function HomePage() {
                   <p className="text-sm font-semibold">{tool.area}</p>
                 </div>
                 <div className="space-y-1">
-                  <h2 className="text-sm font-medium">{tool.question}</h2>
+                  <h3 className="text-sm font-medium">{tool.question}</h3>
                   <p className="text-sm text-muted-foreground">
                     {tool.description}
                   </p>
@@ -232,7 +232,7 @@ export default function HomePage() {
                 ["Unidad", "Moneda y escala"],
                 ["Transformación", "Fórmula versionada"],
               ].map(([term, description]) => (
-                <div className="border-l-2 border-primary/30 pl-3" key={term}>
+                <div className="border-l pl-3" key={term}>
                   <dt className="text-xs font-medium text-muted-foreground">
                     {term}
                   </dt>
