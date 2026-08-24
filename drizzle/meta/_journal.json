@@ -22,6 +22,13 @@
       "when": 1787566997319,
       "tag": "0002_fresh_redwing",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787601862374,
+      "tag": "0003_typical_maximus",
+      "breakpoints": true
     }
   ]
 }

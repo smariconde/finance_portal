@@ -51,6 +51,7 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 - [`../backlog/README.md`](../backlog/README.md): tracker ejecutable con orden, dependencias, criterios de aceptación y trazabilidad de deuda.
 - [`../architecture/adr/0001-stack-cache-postgres.md`](../architecture/adr/0001-stack-cache-postgres.md): decision aceptada sobre stack, Cache Components y conexiones PostgreSQL.
 - [`../architecture/adr/0002-runtime-modes-persistence-exposure.md`](../architecture/adr/0002-runtime-modes-persistence-exposure.md): modos efectivos, persistencia durable y limite de exposicion de datos.
+- [`../architecture/adr/0003-decimal-arithmetic-valuation-engine.md`](../architecture/adr/0003-decimal-arithmetic-valuation-engine.md): aritmetica decimal del motor, precision, redondeo y fronteras de serializacion.
 - [`../product/prd.md`](../product/prd.md): requisitos de producto, modos, alcance, métricas y criterios de aceptación.
 - [`../architecture/system.md`](../architecture/system.md): límites ejecutables, flujos, dependencias, cache y persistencia objetivo.
 - [`../data/source-registry.md`](../data/source-registry.md): contrato del registro e inventario de fuentes candidatas sin aprobaciones implícitas.

@@ -461,3 +461,115 @@ export const observations = pgTable(
     ),
   ],
 );
+
+export const valuationRunStatus = pgEnum("valuation_run_status", [
+  "computed",
+  "requires_review",
+  "rejected",
+]);
+
+export const valuationFailureCode = pgEnum("valuation_failure_code", [
+  "invalid_decimal",
+  "non_finite_value",
+  "division_by_zero",
+  "policy_check_failed",
+  "unsupported_method",
+]);
+
+/**
+ * Corridas de valuación: registro append-only de qué snapshot se valuó, con qué
+ * motor y con qué resultado (`TM-16`).
+ *
+ * Una corrida rechazada también se persiste, porque explicar por qué un valor
+ * **no** se calculó es parte del audit trail. El índice único sobre
+ * `input_hash` más las versiones hace que un replay exacto sea la misma corrida
+ * y no una fila nueva: el motor es determinista, así que recalcular no puede
+ * producir otro resultado. Los decimales viajan dentro del JSON como strings
+ * canónicos y la política numérica queda registrada por fila, de modo que
+ * cambiarla no reescriba corridas históricas.
+ */
+export const valuationRuns = pgTable(
+  "valuation_runs",
+  {
+    valuationRunId: uuid("valuation_run_id").primaryKey(),
+    // Identidad no colapsada: nunca un ticker.
+    legalEntityId: uuid("legal_entity_id").notNull(),
+    securityId: uuid("security_id").notNull(),
+    listingId: uuid("listing_id"),
+    depositaryProgramId: uuid("depositary_program_id"),
+    asOf: date("as_of", { mode: "string" }).notNull(),
+    currency: varchar("currency", { length: 3 }).notNull(),
+    assetProfile: varchar("asset_profile", { length: 32 }).notNull(),
+    method: varchar("method", { length: 64 }).notNull(),
+    engineVersion: varchar("engine_version", { length: 32 }).notNull(),
+    methodologyVersion: varchar("methodology_version", {
+      length: 32,
+    }).notNull(),
+    decimalPrecision: integer("decimal_precision").notNull(),
+    decimalRounding: varchar("decimal_rounding", { length: 32 }).notNull(),
+    status: valuationRunStatus("status").notNull(),
+    inputHash: text("input_hash").notNull(),
+    resultHash: text("result_hash"),
+    input: jsonb("input").$type<Record<string, unknown>>().notNull(),
+    result: jsonb("result").$type<Record<string, unknown>>(),
+    failureCode: valuationFailureCode("failure_code"),
+    failureMessage: varchar("failure_message", { length: 240 }),
+    failureSubjects: jsonb("failure_subjects")
+      .$type<string[]>()
+      .notNull()
+      .default(emptyJsonArray),
+    sourceIds: jsonb("source_ids")
+      .$type<string[]>()
+      .notNull()
+      .default(emptyJsonArray),
+    observationIds: jsonb("observation_ids")
+      .$type<string[]>()
+      .notNull()
+      .default(emptyJsonArray),
+    startedAt: timestamp("started_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+    finishedAt: timestamp("finished_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+    recordedAt: timestamp("recorded_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    // El mismo snapshot bajo el mismo motor es la misma corrida. Un cambio de
+    // versión sí produce otra, porque el resultado puede diferir.
+    uniqueIndex("valuation_runs_replay_uidx").on(
+      table.inputHash,
+      table.engineVersion,
+      table.methodologyVersion,
+    ),
+    index("valuation_runs_subject_idx").on(
+      table.legalEntityId,
+      table.securityId,
+      table.asOf,
+    ),
+    check(
+      "valuation_runs_hash_check",
+      sql`${table.inputHash} ~ '^[a-f0-9]{64}$' and (${table.resultHash} is null or ${table.resultHash} ~ '^[a-f0-9]{64}$')`,
+    ),
+    check(
+      "valuation_runs_outcome_check",
+      sql`(${table.status} = 'rejected') = (${table.result} is null and ${table.resultHash} is null and ${table.failureCode} is not null and ${table.failureMessage} is not null)`,
+    ),
+    check(
+      "valuation_runs_finished_after_started_check",
+      sql`${table.finishedAt} >= ${table.startedAt}`,
+    ),
+    check(
+      "valuation_runs_currency_check",
+      sql`${table.currency} ~ '^[A-Z]{3}$'`,
+    ),
+    check(
+      "valuation_runs_decimal_policy_check",
+      sql`${table.decimalPrecision} > 0 and ${table.decimalRounding} <> ''`,
+    ),
+  ],
+);

@@ -31,8 +31,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |     3 | `F1-UI-01` | `done`   | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.               | `F1-02`       |
 |     4 | `F1-03`    | `done`   | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.               | `F1-UI-01`    |
 |     5 | `F1-04`    | `done`   | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.          | `F1-03`       |
-|     6 | `F1-05`    | `ready`  | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                      | `F1-04`       |
-|     7 | `F1-06`    | `queued` | Resultado demo muestra fuentes, freshness, supuestos, escenarios y sensibilidad accesibles.                  | `F1-05`       |
+|     6 | `F1-05`    | `done`   | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                      | `F1-04`       |
+|     7 | `F1-06`    | `ready`  | Resultado demo muestra fuentes, freshness, supuestos, escenarios y sensibilidad accesibles.                  | `F1-05`       |
 |     8 | `F1-07`    | `queued` | Unit, contract y E2E prueban el flujo demo, degradación, aislamiento, teclado y mobile.                      | `F1-06`       |
 |     9 | `F1-08`    | `queued` | Walkthrough reproducible del owner registra hallazgos y cierra el gate de Fase 1.                            | `F1-07`       |
 
@@ -43,9 +43,10 @@ revisión desktop/mobile ejecutada sobre el build de producción y las capturas 
 `src/modules/ingestion/`, la migración `0001` y su rollback pareado, y contract e
 integration tests sin red. `F1-04` cerró el 2026-08-24 con los módulos
 `src/modules/temporal/`, `src/modules/identity/` y `src/modules/observations/`, la
-migración `0002` y su rollback pareado. `F1-05` es el próximo slice autorizado;
-ninguno de estos módulos expone todavía una superficie de UI, que corresponde a
-`F1-06`.
+migración `0002` y su rollback pareado. `F1-05` cerró el 2026-08-24 con
+`src/modules/valuation/`, la ADR 0003 que incorpora `decimal.js` y la migración
+`0003` con su rollback pareado. `F1-06` es el próximo slice autorizado; ninguno de
+estos módulos expone todavía una superficie de UI.
 
 ## Issues por fase
 
@@ -234,6 +235,61 @@ Criterios de aceptación:
 
 Controles: `TM-06`, `TM-16`.
 
+Evidencia (2026-08-24): `src/modules/valuation/domain/` con la política decimal,
+el snapshot de entrada, el motor FCFF, los policy checks, la sensibilidad y la
+corrida persistible; `src/modules/valuation/application/` con el orquestador y el
+puerto de repositorio; `src/modules/valuation/infrastructure/` con el snapshot
+sintético de `FixtureCo` y el repositorio demo en memoria; `valuation_runs` en
+`src/server/db/schema.ts` con la migración `drizzle/0003_typical_maximus.sql` y su
+rollback pareado; `docs/architecture/adr/0003-decimal-arithmetic-valuation-engine.md`
+como gate de la dependencia `decimal.js`.
+
+- Política decimal: `decimal.js` clonado con `precision=34` y `ROUND_HALF_EVEN`,
+  importado sólo desde `decimal-policy.ts`. `0.1 + 0.2` da exactamente `0.3`, los
+  empates rompen al dígito par, `toFixed()` nunca emite notación exponencial y el
+  cero no conserva signo. `100,000,000`, `1e5` y `NaN` son `invalid_decimal`.
+- Hash reproducible: el mismo snapshot canónico produce
+  `input_hash = fb0277d0…8c25` y `result_hash = b0c831f0…4169` bajo otro
+  `valuation_run_id`; reordenar las claves del snapshot no cambia el hash y
+  cambiar un supuesto sí. `valuePerShare = 13.54613115387460161790309586190624`.
+- Dominio puro: NOPAT, reinversión por sales-to-capital o `growth / ROIC`, factor
+  de descuento acumulado, terminal y puente EV-equity viven en `domain/` sin
+  importar React, Next.js, Drizzle ni un SDK. Mezclar convenciones sin puente
+  declarado es un rechazo.
+- Checks en modo `reject`: no finitos y división por cero
+  (`salesToCapital = 0`, ROIC terminal `0`), acciones diluidas no positivas,
+  `WACC <= g + 0.005`, moneda distinta a la de la valuación, claim `missing`,
+  `1 + wacc <= 0` y reinversión terminal fuera de `[0, 1]`. En modo
+  `require_review`: tax rate fuera de `[0, 0.5]`, margen terminal fuera de
+  `[0, 0.6]`, terminal por encima de `0.85` del EV y equity value no positivo.
+- `TM-05`: una claim faltante nunca vale cero. `declared_absent` vale cero **con
+  motivo registrado** y `missing` bloquea la corrida; `computeFcff` vuelve a
+  fallar si un `missing` llega hasta él.
+- `TM-06`: la corrida hereda el contrato point-in-time. El mismo modelo con corte
+  `as_known(2025-03-01)` usa revenue `100000000` y da
+  `14.170553285286043351982391522819`; con corte `as_known(2025-06-01)` usa el
+  revenue enmendado `96000000`. Son dos corridas con dos hashes, no un recálculo.
+- `TM-16`: `valuation_runs` es append-only con snapshot, resultado, política
+  decimal, versiones, provenance y error seguro. Una corrida rechazada también se
+  persiste. El índice único `valuation_runs_replay_uidx` hace que un replay exacto
+  devuelva la corrida existente en vez de duplicarla, y los checks
+  `valuation_runs_outcome_check` y `valuation_runs_hash_check` quedan verificados
+  en PostgreSQL.
+- Sensibilidad: grilla WACC × `g` de 5 × 5 con unidad, rango y step declarados;
+  las dos celdas donde `WACC <= g + buffer` quedan `rejected` con su motivo en vez
+  de vaciarse. El caso base es exactamente la celda `(0.09, 0.02)`, el valor cae
+  al subir el WACC y sube al subir `g`.
+
+Verificación: `format:check`, `lint`, `typecheck`, 252 unit tests, 24 integration
+tests contra PostgreSQL 17.11 local y `build` pasan. `vi.spyOn(globalThis, "fetch")`
+confirma que calcular, persistir y replayar una valuación no abre red, y el
+orquestador recibe reloj e ID por inyección en vez de leerlos.
+
+Diferido con motivo: escenarios bear/base/bull como conjuntos coherentes de
+supuestos, normalización reported/adjusted, selector automático de método y WACC
+que converge entre etapas corresponden a Fase 4 (`F4-01` a `F4-03`). La superficie
+que muestre este resultado corresponde a `F1-06`.
+
 #### `F1-06` — Resultado demo y trazabilidad
 
 Criterios de aceptación:
@@ -366,28 +422,28 @@ Esta matriz evita que una amenaza o deuda visual quede mencionada sin un issue q
 la cierre. La columna “primer cierre” indica el primer slice que debe implementar o
 probar el control; fases posteriores pueden volver a verificarlo.
 
-| Deuda   | Primer cierre                                           | Seguimiento posterior                      | Estado actual                                                                      |
-| ------- | ------------------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------- |
-| `TM-01` | `F1-02`                                                 | `F1-07`, `F7-01`, `F9-06`                  | `done`: composición y tests cruzados demo/personal verificados                     |
-| `TM-02` | `F1-02`                                                 | cada frontera, `F8-03`, `F9-06`            | `done`: DB server-only y URLs pooled/direct separadas probadas                     |
-| `TM-03` | primer slice con frontera; gate en `F1-07`              | `F4-04`, `F7-01`, `F8-06`                  | contracted                                                                         |
-| `TM-04` | `F1-02`                                                 | `F1-07`, `F7-01`, `F8-04`                  | `done`: repository y cache namespaced por modo, integración verificada             |
-| `TM-05` | `F1-03`                                                 | `F2-03`, `F3-05`, cada parser/modelo       | `done` de ingesta a publicación: vacío y parser roto no publican ni reemplazan     |
-| `TM-06` | `F1-04`                                                 | `F2-02`, `F3-05`, cada consulta histórica  | `done` sobre la empresa fixture: `as_known` sin look-ahead y revisiones probadas   |
-| `TM-07` | `F1-02`                                                 | `F1-07`, `F2-06`, `F8-05`                  | `done`: Drizzle parametrizado y límite de consulta verificados en PostgreSQL       |
-| `TM-08` | `F2-01` antes del primer provider                       | `F6-01`, `F7-04`, `F8-05`                  | required; no hay egress aún                                                        |
-| `TM-09` | `F7-04`                                                 | `F7-06`, `F8-05`, `F8-06`                  | required; no hay IA aún                                                            |
-| `TM-10` | `F2-01`                                                 | `F2-05`, `F7-02`, `F9-02`                  | contracted; no hay gasto live aún                                                  |
-| `TM-11` | `F2-05`                                                 | `F6-01`, `F9-01`, `F9-05`                  | idempotencia y replay probados en `F1-03`; lease, `429` y crash siguen abiertos    |
-| `TM-12` | `F1-01`                                                 | cada UI externa, `F9-03`                   | headers base y render seguro verificados                                           |
-| `TM-13` | `F9-06`                                                 | cada actualización de dependencia/skill    | baseline implementada; scans pendientes                                            |
-| `TM-14` | antes del primer preview personal (`F7-01` como máximo) | `F8-03`, `F9-06`                           | contracted; no hay deployment personal                                             |
-| `TM-15` | `F1-03` para fixtures                                   | cada proveedor/export/IA, `F8-02`, `F9-04` | `done`: gate de derechos ejecutable antes del provider y fixtures sintéticas       |
-| `TM-16` | `F1-03`                                                 | cada operación y gate                      | `done` sobre ingesta: corridas append-only con estado, counts, hash y error seguro |
-| `UI-01` | Fase `0B.7`                                             | revisar copy al cambiar roadmap            | `done`: registro de home alineado con Fases 2, 3, 4 y 6                            |
-| `UI-02` | `F1-07`                                                 | `F1-08`, `F9-03`                           | pendiente                                                                          |
-| `UI-03` | `F1-01`                                                 | cada feedback stateful, `F9-03`            | `done`: estados y reduced motion conservan feedback                                |
-| `UI-04` | `F1-01`                                                 | cada extracción visual, `F9-03`            | `done`: escala reusable y token de contraste registrados                           |
+| Deuda   | Primer cierre                                           | Seguimiento posterior                      | Estado actual                                                                           |
+| ------- | ------------------------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------- |
+| `TM-01` | `F1-02`                                                 | `F1-07`, `F7-01`, `F9-06`                  | `done`: composición y tests cruzados demo/personal verificados                          |
+| `TM-02` | `F1-02`                                                 | cada frontera, `F8-03`, `F9-06`            | `done`: DB server-only y URLs pooled/direct separadas probadas                          |
+| `TM-03` | primer slice con frontera; gate en `F1-07`              | `F4-04`, `F7-01`, `F8-06`                  | contracted                                                                              |
+| `TM-04` | `F1-02`                                                 | `F1-07`, `F7-01`, `F8-04`                  | `done`: repository y cache namespaced por modo, integración verificada                  |
+| `TM-05` | `F1-03`                                                 | `F2-03`, `F3-05`, cada parser/modelo       | `done` de ingesta a publicación: vacío y parser roto no publican ni reemplazan          |
+| `TM-06` | `F1-04`                                                 | `F2-02`, `F3-05`, cada consulta histórica  | `done` de la consulta a la valuación: dos cortes producen dos corridas distintas        |
+| `TM-07` | `F1-02`                                                 | `F1-07`, `F2-06`, `F8-05`                  | `done`: Drizzle parametrizado y límite de consulta verificados en PostgreSQL            |
+| `TM-08` | `F2-01` antes del primer provider                       | `F6-01`, `F7-04`, `F8-05`                  | required; no hay egress aún                                                             |
+| `TM-09` | `F7-04`                                                 | `F7-06`, `F8-05`, `F8-06`                  | required; no hay IA aún                                                                 |
+| `TM-10` | `F2-01`                                                 | `F2-05`, `F7-02`, `F9-02`                  | contracted; no hay gasto live aún                                                       |
+| `TM-11` | `F2-05`                                                 | `F6-01`, `F9-01`, `F9-05`                  | idempotencia y replay probados en `F1-03`; lease, `429` y crash siguen abiertos         |
+| `TM-12` | `F1-01`                                                 | cada UI externa, `F9-03`                   | headers base y render seguro verificados                                                |
+| `TM-13` | `F9-06`                                                 | cada actualización de dependencia/skill    | baseline implementada; scans pendientes                                                 |
+| `TM-14` | antes del primer preview personal (`F7-01` como máximo) | `F8-03`, `F9-06`                           | contracted; no hay deployment personal                                                  |
+| `TM-15` | `F1-03` para fixtures                                   | cada proveedor/export/IA, `F8-02`, `F9-04` | `done`: gate de derechos ejecutable antes del provider y fixtures sintéticas            |
+| `TM-16` | `F1-03`                                                 | cada operación y gate                      | `done` sobre ingesta y valuación: corridas append-only con hash, versión y error seguro |
+| `UI-01` | Fase `0B.7`                                             | revisar copy al cambiar roadmap            | `done`: registro de home alineado con Fases 2, 3, 4 y 6                                 |
+| `UI-02` | `F1-07`                                                 | `F1-08`, `F9-03`                           | pendiente                                                                               |
+| `UI-03` | `F1-01`                                                 | cada feedback stateful, `F9-03`            | `done`: estados y reduced motion conservan feedback                                     |
+| `UI-04` | `F1-01`                                                 | cada extracción visual, `F9-03`            | `done`: escala reusable y token de contraste registrados                                |
 
 ## Plantilla para nuevos issues
 

@@ -19,21 +19,24 @@ La aplicación está diseñada para responder preguntas como:
 
 ## Estado actual
 
-La **Fase 0 — Fundación** está terminada y la Fase 1 está en curso. `F1-02` cerró la base PostgreSQL/Drizzle y el aislamiento de repositorios contra PostgreSQL real. El próximo slice es `F1-03`: source registry, ingestion runs y fake provider determinista; todavía no hay proveedores reales ni datos financieros.
+La **Fase 0 — Fundación** está terminada y la Fase 1 está en curso. `F1-05` cerró el motor FCFF base determinista sobre una empresa sintética, con política decimal explícita, hash reproducible y corridas persistidas. El próximo slice es `F1-06`: la superficie que muestre ese resultado con sus fuentes, freshness, supuestos y sensibilidad. Todavía no hay proveedores reales ni datos financieros: todo lo implementado corre sobre fixtures versionadas.
 
 Disponible hoy:
 
 - Next.js con App Router, React y TypeScript estricto.
 - Shell responsive con navegación sólo a superficies implementadas.
 - Health seguro de configuración para los modos `demo` y `personal`, con estados honestos y headers base.
-- Schema y migración Drizzle iniciales, con repositorios separados para fixture demo y storage personal.
+- Schema y migraciones Drizzle con rollback pareado, y repositorios separados para fixture demo y storage personal.
+- Registro de fuentes fail-closed por derecho, corridas de ingesta append-only y un provider sintético determinista.
+- Identidad separada en entidad legal, security, listing y símbolo, con programas depositarios y consultas `as_known` sin look-ahead.
+- Motor FCFF base en dominio puro con política decimal, policy checks, sensibilidad WACC/g y corridas reproducibles por hash.
 - Variables de entorno documentadas sin credenciales reales.
 - Tests unitarios, lint, typecheck, formato, build y CI mínima.
 - Límites de módulos preparados para crecer sin mezclar dominio, framework y proveedores.
 - PRD, arquitectura ejecutable, registro inicial de fuentes y metodología de valuación derivados del masterplan.
 - Backlog ejecutable con dependencias, criterios de aceptación y trazabilidad de riesgos y deuda visual.
 
-Todavía no están implementados los datos financieros, el screener, las valuaciones, el tablero argentino ni las funciones de IA. Esas capacidades se incorporarán por slices verificables; la interfaz no las presenta como disponibles antes de tiempo.
+Todavía no están implementados los datos financieros reales, el screener, el tablero argentino ni las funciones de IA, y ninguna superficie de la interfaz expone aún la ingesta, la identidad ni la valuación: esos módulos existen como dominio y persistencia, no como pantallas. Esas capacidades se incorporarán por slices verificables; la interfaz no las presenta como disponibles antes de tiempo.
 
 ## Experiencia objetivo
 
@@ -259,12 +262,13 @@ Documentos ejecutables actuales:
 - [Inventario auditado de skills](docs/agent/skills-inventory.md)
 - [ADR 0001: stack, cache y PostgreSQL](docs/architecture/adr/0001-stack-cache-postgres.md)
 - [ADR 0002: modos, persistencia y exposición](docs/architecture/adr/0002-runtime-modes-persistence-exposure.md)
+- [ADR 0003: aritmética decimal del motor de valuación](docs/architecture/adr/0003-decimal-arithmetic-valuation-engine.md)
 - [Runbook de migraciones PostgreSQL](docs/runbooks/database-migrations.md)
 
 Los contratos de fuentes, modos, exposición y amenazas ya están registrados sin
 aprobar ni conectar proveedores reales. La home es el único wireframe ejecutable;
 sus tokens, autoridad y deuda abierta están reconciliados sin simular rutas futuras.
-El backlog marca `F1-02` como terminado y `F1-03` como único próximo slice autorizado.
+El backlog marca `F1-05` como terminado y `F1-06` como único próximo slice autorizado.
 
 ## Desarrollo y colaboración
 

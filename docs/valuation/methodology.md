@@ -1,9 +1,12 @@
 # Metodología de valuación
 
-- Estado: metodología objetivo; motor aún no implementado
+- Estado: metodología objetivo; motor FCFF base implementado en `src/modules/valuation/`
 - Versión metodológica: 0.1.0
-- Fecha: 2026-08-21
+- Versión de engine implementada: `fcff-1.0.0` (método `fcff_base`)
+- Fecha: 2026-08-21; motor base entregado el 2026-08-24
 - Alcance inicial: FCFF para no financieras maduras o en transición
+- Decisión de aritmética:
+  [`../architecture/adr/0003-decimal-arithmetic-valuation-engine.md`](../architecture/adr/0003-decimal-arithmetic-valuation-engine.md)
 
 ## Propósito y límite
 
@@ -23,7 +26,7 @@ DCF, WACC, terminal value ni valor por acción en texto libre.
 
 | Etapa    | Cobertura                                                             | Estado inicial |
 | -------- | --------------------------------------------------------------------- | -------------- |
-| Fase 1   | FCFF base sobre una empresa fixture para probar el flujo reproducible | `planned`      |
+| Fase 1   | FCFF base sobre una empresa fixture para probar el flujo reproducible | `done`         |
 | Fase 4   | FCFF multi-etapa para no financieras maduras y high growth            | `planned`      |
 | Fase 5.1 | bancos y aseguradoras mediante excess return/residual income o DDM    | `planned`      |
 | Fase 5.2 | cíclicas y commodities con normalización de ciclo                     | `planned`      |
@@ -34,13 +37,42 @@ DCF, WACC, terminal value ni valor por acción en texto libre.
 Un método inexistente devuelve `unsupported_method`, inputs requeridos y motivo.
 Nunca cae silenciosamente a FCFF.
 
+## Motor implementado: `fcff-1.0.0`
+
+El método `fcff_base` cubre `non_financial_mature` con N períodos explícitos
+—hasta 20— más un valor terminal. Cualquier otro `assetProfile` devuelve
+`unsupported_method`; el motor no lo valúa con el método equivocado.
+
+| Umbral versionado               | Valor   | Modo             | Efecto                                               |
+| ------------------------------- | ------- | ---------------- | ---------------------------------------------------- |
+| buffer WACC contra `g` terminal | `0.005` | `reject`         | también decide qué celda de sensibilidad es inválida |
+| peso del terminal sobre el EV   | `0.85`  | `require_review` | diagnóstico visible, no bloqueo                      |
+| techo de tax rate sin motivo    | `0.5`   | `require_review` | por período y en el terminal                         |
+| techo de margen terminal        | `0.6`   | `require_review` | sin evidencia sectorial                              |
+| puntos por eje de sensibilidad  | `11`    | `reject`         | acota la grilla a 121 celdas                         |
+
+Estos umbrales forman parte de `engine_version`. Cambiarlos incrementa la versión
+y no reescribe corridas históricas.
+
+Una corrida rechazada **también** se persiste en `valuation_runs` con su código de
+falla y las rutas de campo afectadas: explicar por qué un valor no se calculó es
+parte del audit trail (`TM-16`). El índice único sobre `input_hash` más engine y
+metodología hace que un replay exacto sea la misma corrida, no una fila nueva.
+
+Fuera del alcance de esta versión y diferido a Fase 4: escenarios bear/base/bull
+como conjuntos coherentes de supuestos, normalización reported/adjusted, selector
+automático de método y WACC que converge entre etapas.
+
 ## Política numérica
 
 - Inputs, supuestos y outputs financieros cruzan fronteras como strings decimales.
-- El motor usará aritmética decimal explícita; la implementación prevista es
-  Decimal.js con `precision=34` y `ROUND_HALF_EVEN`, equivalentes a la precisión
-  decimal128 para los fines del motor.
-- La dependencia se incorpora recién con el motor; este documento no la instala.
+- El motor usa aritmética decimal explícita: `decimal.js` con `precision=34` y
+  `ROUND_HALF_EVEN`, equivalentes a la precisión decimal128 para los fines del
+  motor. La decisión, su configuración y sus alternativas descartadas están en
+  [ADR 0003](../architecture/adr/0003-decimal-arithmetic-valuation-engine.md).
+- `src/modules/valuation/domain/decimal-policy.ts` es el único módulo que importa
+  la librería. Una instancia de `Decimal` no se serializa, no entra en un hash y
+  no cruza una frontera; sólo lo hacen strings canónicos.
 - Porcentajes se representan internamente como fracciones: `0.08` equivale a 8%.
 - Montos conservan moneda y unidad base. No se suman monedas diferentes sin una
   conversión identificada y fechada.
@@ -227,6 +259,12 @@ La sensitivity WACC/g:
 - rechaza celdas donde WACC no supera `g + buffer`;
 - muestra unidad, rango y step;
 - no se interpreta como distribución de probabilidad.
+
+El eje de WACC reemplaza el costo de capital de todos los períodos explícitos y
+del terminal: es un único costo de capital, no un shock a una sola etapa. Un
+snapshot con WACC no plano tendría un caso base que no coincide con ninguna
+celda, así que el snapshot demo lo mantiene plano y un test verifica que el
+número principal sea exactamente una celda de su propia tabla.
 
 Monte Carlo queda fuera del motor inicial. Sólo se habilita con distribuciones,
 correlaciones, seed persistido y tests.

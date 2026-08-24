@@ -4,12 +4,14 @@
 - Versión: 0.2
 - Fecha: 2026-08-21
 - Decisiones base:
-  [`adr/0001-stack-cache-postgres.md`](adr/0001-stack-cache-postgres.md) y
+  [`adr/0001-stack-cache-postgres.md`](adr/0001-stack-cache-postgres.md),
   [`adr/0002-runtime-modes-persistence-exposure.md`](adr/0002-runtime-modes-persistence-exposure.md)
+  y
+  [`adr/0003-decimal-arithmetic-valuation-engine.md`](adr/0003-decimal-arithmetic-valuation-engine.md)
 - Contratos transversales:
   [`../security/threat-model.md`](../security/threat-model.md) y
   [`../design/interface-foundations.md`](../design/interface-foundations.md)
-- Alcance activo: Fase 1, `F1-02`; no describe capacidades futuras como implementadas
+- Alcance activo: Fase 1, `F1-05`; no describe capacidades futuras como implementadas
 
 ## Objetivo
 
