@@ -30,8 +30,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |     2 | `F1-02`    | `done`   | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.      | `F1-01`       |
 |     3 | `F1-UI-01` | `done`   | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.               | `F1-02`       |
 |     4 | `F1-03`    | `done`   | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.               | `F1-UI-01`    |
-|     5 | `F1-04`    | `ready`  | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.          | `F1-03`       |
-|     6 | `F1-05`    | `queued` | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                      | `F1-04`       |
+|     5 | `F1-04`    | `done`   | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.          | `F1-03`       |
+|     6 | `F1-05`    | `ready`  | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                      | `F1-04`       |
 |     7 | `F1-06`    | `queued` | Resultado demo muestra fuentes, freshness, supuestos, escenarios y sensibilidad accesibles.                  | `F1-05`       |
 |     8 | `F1-07`    | `queued` | Unit, contract y E2E prueban el flujo demo, degradación, aislamiento, teclado y mobile.                      | `F1-06`       |
 |     9 | `F1-08`    | `queued` | Walkthrough reproducible del owner registra hallazgos y cierra el gate de Fase 1.                            | `F1-07`       |
@@ -41,8 +41,11 @@ aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
 revisión desktop/mobile ejecutada sobre el build de producción y las capturas de
 `.impeccable/review/` regeneradas. `F1-03` cerró el 2026-08-23 con el módulo
 `src/modules/ingestion/`, la migración `0001` y su rollback pareado, y contract e
-integration tests sin red. `F1-04` es el próximo slice autorizado; no expone
-todavía ninguna superficie de UI, que corresponde a `F1-06`.
+integration tests sin red. `F1-04` cerró el 2026-08-24 con los módulos
+`src/modules/temporal/`, `src/modules/identity/` y `src/modules/observations/`, la
+migración `0002` y su rollback pareado. `F1-05` es el próximo slice autorizado;
+ninguno de estos módulos expone todavía una superficie de UI, que corresponde a
+`F1-06`.
 
 ## Issues por fase
 
@@ -172,6 +175,52 @@ Criterios de aceptación:
 - fixtures golden cubren ticker ambiguo, cambio de vigencia y restatement.
 
 Controles: `TM-05`, `TM-06`, `TM-16`.
+
+Evidencia (2026-08-24): `src/modules/temporal/domain/` con el envelope versionado,
+los predicados de vigencia y conocimiento, el query point-in-time y los códigos de
+error obligatorios; `src/modules/identity/` con los cinco niveles separados, la
+resolución determinista y la fixture sintética de `FixtureCo`;
+`src/modules/observations/` con la observación publicada, la cadena de revisión y
+la publicación atómica; `observations` en `src/server/db/schema.ts` con la
+migración `drizzle/0002_fresh_redwing.sql` y su rollback pareado.
+
+- Identidad no colapsada: `resolveIdentity` devuelve `legalEntityId`,
+  `securityId`, `listingId` y `depositaryProgramId` por separado. El CEDEAR
+  `ARFIXTURE001` conserva su propio emisor, moneda y listing, y su programa
+  vincula —sin fusionar— la security depositaria con la subyacente.
+- Ticker ambiguo: `FIXA` sin MIC alcanza XNAS y XBUE y devuelve `ambiguous` con
+  ambos candidatos. Con MIC resuelve, y en 2025 el mismo ticker pertenece a otro
+  emisor: el símbolo nunca es la identidad.
+- Cambio de vigencia: `FIXA → FXCO` es efectivo el 2024-06-01 y conocible desde el
+  2024-05-10; una consulta con corte anterior al anuncio no lo resuelve. El ratio
+  depositario anunciado el 2024-07-15 y efectivo el 2024-09-01 conserva 10:1 antes
+  de esa fecha y 20:1 después, y una consulta anterior al anuncio devuelve la
+  versión abierta previa.
+- `TM-06`: el restatement del revenue FY2024 crea la revisión 2 y cierra la 1 con
+  `superseded_at`; `as_known(2025-03-01)` devuelve `100000000`,
+  `as_known(2025-06-01)` devuelve `96000000` y `latest_restated` se etiqueta como
+  vista actual. `system_recorded` distingue lo público de lo registrado: con corte
+  en 2025 no devuelve nada porque la instalación registró en 2026.
+- `TM-05`: una corrida `quarantined` no publica ni reemplaza el último lote válido
+  —`publishObservations` la rechaza antes de tocar el repositorio— y el check
+  `observations_raw_value_status_check` rechaza un cero en lugar de un valor no
+  publicado. `capital_expenditure` conserva `not_provided` y
+  `shares_outstanding` conserva `license_restricted`.
+- `TM-16`: cada observación conserva `as_of`, período, unidad, moneda,
+  `available_at`, `superseded_at`, `fetched_at`, `recorded_at`, source, dataset,
+  parser version, documento, content hash, quality flags e `ingestion_run_id` con
+  foreign key a la corrida. El vintage solicitado entra en la clave de
+  idempotencia para que una enmienda no se confunda con un replay.
+
+Verificación: `format:check`, `lint`, `typecheck`, 167 unit tests, 16 integration
+tests contra PostgreSQL 17.11 local y `build` pasan. `vi.spyOn(globalThis, "fetch")`
+confirma que publicar una observación no abre red.
+
+Diferido con motivo: persistir el grafo de identidad y sus corporate actions
+corresponde a `F2-02`; el constraint de exclusión temporal por rango exige la
+extensión `btree_gist` y por lo tanto un ADR propio, así que hoy el no solapamiento
+se prueba en dominio y en PostgreSQL sólo se impide el caso peligroso de dos
+revisiones vigentes simultáneas.
 
 #### `F1-05` — FCFF demo determinista
 
@@ -323,8 +372,8 @@ probar el control; fases posteriores pueden volver a verificarlo.
 | `TM-02` | `F1-02`                                                 | cada frontera, `F8-03`, `F9-06`            | `done`: DB server-only y URLs pooled/direct separadas probadas                     |
 | `TM-03` | primer slice con frontera; gate en `F1-07`              | `F4-04`, `F7-01`, `F8-06`                  | contracted                                                                         |
 | `TM-04` | `F1-02`                                                 | `F1-07`, `F7-01`, `F8-04`                  | `done`: repository y cache namespaced por modo, integración verificada             |
-| `TM-05` | `F1-03`                                                 | `F2-03`, `F3-05`, cada parser/modelo       | `done` sobre la ruta de ingesta: vacío y parser roto no publican ni reemplazan     |
-| `TM-06` | `F1-04`                                                 | `F2-02`, `F3-05`, cada consulta histórica  | contratos implementados; persistencia pendiente                                    |
+| `TM-05` | `F1-03`                                                 | `F2-03`, `F3-05`, cada parser/modelo       | `done` de ingesta a publicación: vacío y parser roto no publican ni reemplazan     |
+| `TM-06` | `F1-04`                                                 | `F2-02`, `F3-05`, cada consulta histórica  | `done` sobre la empresa fixture: `as_known` sin look-ahead y revisiones probadas   |
 | `TM-07` | `F1-02`                                                 | `F1-07`, `F2-06`, `F8-05`                  | `done`: Drizzle parametrizado y límite de consulta verificados en PostgreSQL       |
 | `TM-08` | `F2-01` antes del primer provider                       | `F6-01`, `F7-04`, `F8-05`                  | required; no hay egress aún                                                        |
 | `TM-09` | `F7-04`                                                 | `F7-06`, `F8-05`, `F8-06`                  | required; no hay IA aún                                                            |

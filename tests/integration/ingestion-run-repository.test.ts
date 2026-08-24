@@ -228,6 +228,7 @@ describe("PostgreSQL ingestion persistence", () => {
       parserVersion: DEMO_PARSER_VERSION,
       idempotencyKey,
       requestedAsOf: null,
+      requestedVintage: null,
       cursor: null,
       nextCursor: null,
       startedAt: FIXED_NOW,

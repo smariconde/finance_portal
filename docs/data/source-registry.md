@@ -228,7 +228,9 @@ según el metric catalog. Nunca se repara con cero o una estimación silenciosa.
 El envelope mínimo que valida staging ya existe en
 [`staged-record.ts`](../../src/modules/ingestion/domain/staged-record.ts). Los
 campos que se asignan en la publicación —identidad interna, revisión,
-`recorded_at` y `ingestion_run_id` del dato— siguen pendientes de `F1-04`.
+`recorded_at` e `ingestion_run_id` del dato— los agrega `F1-04` en
+[`publish-observations.ts`](../../src/modules/observations/application/publish-observations.ts)
+y quedan persistidos en la tabla `observations`.
 
 ## Fixtures y modo demo
 

@@ -362,12 +362,23 @@ válido.
 
 Los pasos 1 a 4 están implementados en
 [`execute-ingestion-run.ts`](../../src/modules/ingestion/application/execute-ingestion-run.ts):
-la corrida guarda source, dataset, as-of, cursor y parser; el adaptador registra
-`fetched_at`; staging valida con `stagedRecordSchema`; y la dedupe compara el
-content hash del lote contra la última corrida publicable. Los estados `empty`,
+la corrida guarda source, dataset, as-of, vintage, cursor y parser; el adaptador
+registra `fetched_at`; staging valida con `stagedRecordSchema`; y la dedupe compara
+el content hash del lote contra la última corrida publicable. Los estados `empty`,
 `quarantined` y `failed` son terminales pero no publicables, de modo que ninguno
-cierra el último intervalo válido. La publicación atómica, `recorded_at` y la
-invalidación de lecturas derivadas —pasos 5 a 7— pertenecen a `F1-04`.
+cierra el último intervalo válido.
+
+Los pasos 5 a 7 están implementados en
+[`publish-observations.ts`](../../src/modules/observations/application/publish-observations.ts):
+resuelve el sujeto interno con el corte de conocimiento del propio registro, arma
+la cadena de revisión, publica supersesión y revisión nueva en una sola
+transacción, asigna `recorded_at` en ese commit y recién después devuelve las
+identidades de cache a invalidar. Una corrida no publicable nunca llega a
+publicar: `publishObservations` la rechaza antes de tocar el repositorio.
+
+El vintage solicitado forma parte de la clave de idempotencia. Sin él, una
+enmienda publicada más tarde sobre el mismo `as_of` se confundiría con un replay
+exacto y no podría descubrirse nunca.
 
 ## Fallbacks y conflictos
 
@@ -438,15 +449,36 @@ El ejemplo es ficticio y existe únicamente para probar la semántica.
 - serie macro revisada y cambio metodológico;
 - valuación reproducida desde IDs exactos después de existir datos más nuevos.
 
-## Implementación diferida
+## Estado de implementación
 
-La futura migración debe materializar indexes y constraints para las consultas
-anteriores, pero no se diseña desde nombres de columnas aislados. Primero se
-crearán fixtures que demuestren cada caso temporal; luego schema Drizzle,
-repositories y contract/integration tests.
+`F1-04` implementó el contrato sobre una sola empresa fixture:
+
+- [`src/modules/temporal/domain/`](../../src/modules/temporal/domain/): envelope
+  versionado, predicados de vigencia y conocimiento, query point-in-time y los
+  códigos de error obligatorios;
+- [`src/modules/observations/domain/`](../../src/modules/observations/domain/):
+  observación publicada, clave lógica, `revision_group_id`, content hash y
+  selección de revisión bajo ambas knowledge bases;
+- [`observations`](../../src/server/db/schema.ts) en PostgreSQL, con índice único
+  de revisión, índice parcial de una sola revisión vigente por cadena, checks de
+  valor faltante, período, cadena de revisión y supersesión, y foreign key hacia
+  la corrida que publicó cada fila.
+
+Queda deferido y no debe presentarse como disponible:
+
+- persistir el grafo de identidad —hoy vive como fixture sintética en
+  [`demo-identity-fixtures.ts`](../../src/modules/identity/infrastructure/demo-identity-fixtures.ts)—
+  y sus corporate actions, que corresponden a `F2-02`;
+- el constraint de exclusión temporal por rango: exige la extensión `btree_gist`
+  y por lo tanto un ADR propio. Hoy el no solapamiento se prueba en dominio con
+  `assertNoOverlappingVersions` y en PostgreSQL sólo para el caso peligroso —dos
+  revisiones vigentes simultáneas—;
+- el push-down de la selección temporal a SQL: hoy el repositorio devuelve las
+  revisiones acotadas del sujeto y la selección corre en el dominio, para que
+  exista una sola implementación del contrato.
 
 Este documento no autoriza una ingesta real ni marca disponible un historial
-point-in-time que todavía no existe.
+point-in-time de datos reales: la única empresa cubierta es sintética.
 
 ## Fuentes primarias
 

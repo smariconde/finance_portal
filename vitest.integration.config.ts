@@ -13,6 +13,9 @@ export default defineConfig({
   },
   test: {
     include: ["tests/integration/**/*.test.ts"],
+    // Una sola base compartida: dos archivos en paralelo verían las corridas y
+    // observaciones del otro y probarían interferencia en vez de contrato.
+    fileParallelism: false,
     globalSetup: ["./tests/integration/global-setup.ts"],
     setupFiles: ["./tests/integration/setup.ts"],
     testTimeout: 20_000,

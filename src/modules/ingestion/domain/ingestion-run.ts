@@ -77,6 +77,12 @@ export const ingestionRunSchema = z
     parserVersion: parserVersionSchema,
     idempotencyKey: contentHashSchema,
     requestedAsOf: z.iso.date().nullable(),
+    /**
+     * Vintage solicitado: qué publicación de la fuente se fue a buscar. Dos
+     * corridas del mismo `as_of` en vintages distintos son corridas distintas,
+     * porque una enmienda posterior es contenido nuevo y no un replay.
+     */
+    requestedVintage: z.iso.date().nullable().default(null),
     cursor: z.string().trim().min(1).max(512).nullable(),
     nextCursor: z.string().trim().min(1).max(512).nullable(),
     status: ingestionRunStatusSchema,
@@ -177,14 +183,16 @@ export const ingestionRunKeySchema = z.object({
   datasetId: datasetIdSchema,
   parserVersion: parserVersionSchema,
   requestedAsOf: z.iso.date().nullable(),
+  requestedVintage: z.iso.date().nullable().default(null),
   cursor: z.string().trim().min(1).max(512).nullable(),
 });
 
-export type IngestionRunKey = z.infer<typeof ingestionRunKeySchema>;
+export type IngestionRunKey = z.input<typeof ingestionRunKeySchema>;
 
 /**
  * Clave de idempotencia determinista (`TM-11`): repetir el mismo dataset, as-of,
- * cursor y parser produce la misma clave y por lo tanto no duplica una corrida.
+ * vintage, cursor y parser produce la misma clave y por lo tanto no duplica una
+ * corrida.
  */
 export function computeIdempotencyKey(key: IngestionRunKey): string {
   return computeContentHash(ingestionRunKeySchema.parse(key));

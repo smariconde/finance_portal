@@ -40,6 +40,8 @@ export const executeIngestionRunCommandSchema = z.object({
   datasetId: datasetIdSchema,
   parserVersion: parserVersionSchema,
   requestedAsOf: z.iso.date().nullable().default(null),
+  /** Publicación de la fuente que se va a buscar; `null` es "la vigente". */
+  requestedVintage: z.iso.date().nullable().default(null),
   cursor: z.string().trim().min(1).max(512).nullable().default(null),
   maxRecords: z
     .number()
@@ -73,6 +75,12 @@ export type IngestionRunOutcome = {
   publishable: boolean;
   providerCalled: boolean;
   replayedFrom: string | null;
+  /**
+   * Instante de descarga informado por el adaptador. Viaja hasta la observación
+   * publicada porque `fetched_at` es parte de la provenance, no un detalle de la
+   * corrida.
+   */
+  fetchedAt: string | null;
 };
 
 export type ExecuteIngestionRunDependencies = {
@@ -91,6 +99,7 @@ type RunDraft = {
   parserVersion: string;
   idempotencyKey: string;
   requestedAsOf: string | null;
+  requestedVintage: string | null;
   cursor: string | null;
   startedAt: string;
 };
@@ -134,6 +143,7 @@ export async function executeIngestionRun(
     datasetId: parsedCommand.datasetId,
     parserVersion: parsedCommand.parserVersion,
     requestedAsOf: parsedCommand.requestedAsOf,
+    requestedVintage: parsedCommand.requestedVintage,
     cursor: parsedCommand.cursor,
   });
 
@@ -149,6 +159,7 @@ export async function executeIngestionRun(
       publishable: false,
       providerCalled: false,
       replayedFrom: previousRun.runId,
+      fetchedAt: null,
     };
   }
 
@@ -160,6 +171,7 @@ export async function executeIngestionRun(
     parserVersion: parsedCommand.parserVersion,
     idempotencyKey,
     requestedAsOf: parsedCommand.requestedAsOf,
+    requestedVintage: parsedCommand.requestedVintage,
     cursor: parsedCommand.cursor,
     startedAt,
   };
@@ -186,6 +198,7 @@ export async function executeIngestionRun(
       publishable: false,
       providerCalled: false,
       replayedFrom: null,
+      fetchedAt: null,
     };
   };
 
@@ -261,6 +274,7 @@ export async function executeIngestionRun(
       publishable,
       providerCalled: true,
       replayedFrom,
+      fetchedAt: response.fetchedAt,
     };
   };
 

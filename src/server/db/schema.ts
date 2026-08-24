@@ -6,6 +6,7 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgEnum,
   pgTable,
   text,
@@ -253,6 +254,9 @@ export const ingestionRuns = pgTable(
     idempotencyKey: text("idempotency_key").notNull(),
     // Fecha calendaria sin hora: no se convierte a medianoche UTC.
     requestedAsOf: date("requested_as_of", { mode: "string" }),
+    // Publicación de la fuente solicitada: distingue una enmienda posterior de
+    // un replay exacto del mismo `as_of`.
+    requestedVintage: date("requested_vintage", { mode: "string" }),
     cursor: varchar("cursor", { length: 512 }),
     nextCursor: varchar("next_cursor", { length: 512 }),
     status: ingestionRunStatus("status").notNull(),
@@ -317,6 +321,143 @@ export const ingestionRuns = pgTable(
     check(
       "ingestion_runs_idempotency_key_check",
       sql`${table.idempotencyKey} ~ '^[a-f0-9]{64}$'`,
+    ),
+  ],
+);
+
+export const observationSubjectType = pgEnum("observation_subject_type", [
+  "legal_entity",
+  "security",
+  "listing",
+  "macro_series",
+]);
+
+export const observationPeriodType = pgEnum("observation_period_type", [
+  "instant",
+  "daily",
+  "monthly",
+  "quarter",
+  "annual",
+  "ttm",
+]);
+
+export const rawValueStatus = pgEnum("raw_value_status", [
+  "stored",
+  "not_provided",
+  "license_restricted",
+]);
+
+export const observationValueBasis = pgEnum("observation_value_basis", [
+  "reported",
+  "normalized",
+]);
+
+/**
+ * Observaciones publicadas: la forma persistida del contrato point-in-time.
+ *
+ * El sujeto es un ID interno opaco, nunca un ticker. Cada fila conserva tiempo
+ * efectivo (`as_of`, período), tiempo de conocimiento público (`available_at`,
+ * `superseded_at`), tiempo de sistema (`fetched_at`, `recorded_at`) y su
+ * lineage hasta la corrida que la publicó (`TM-06`, `TM-16`). Los valores
+ * viajan como `numeric` para no perder exactitud y un faltante queda `null` con
+ * su motivo en `raw_value_status` (`TM-05`).
+ */
+export const observations = pgTable(
+  "observations",
+  {
+    observationId: uuid("observation_id").primaryKey(),
+    subjectType: observationSubjectType("subject_type").notNull(),
+    subjectId: uuid("subject_id").notNull(),
+    metricId: varchar("metric_id", { length: 128 }).notNull(),
+    concept: varchar("concept", { length: 128 }).notNull(),
+    // Fechas calendarias: conservan el calendario de la fuente.
+    asOf: date("as_of", { mode: "string" }).notNull(),
+    periodStart: date("period_start", { mode: "string" }),
+    periodEnd: date("period_end", { mode: "string" }),
+    periodType: observationPeriodType("period_type").notNull(),
+    unit: varchar("unit", { length: 32 }).notNull(),
+    currency: varchar("currency", { length: 3 }),
+    rawValue: numeric("raw_value", { mode: "string" }),
+    rawValueStatus: rawValueStatus("raw_value_status").notNull(),
+    normalizedValue: numeric("normalized_value", { mode: "string" }),
+    transformationId: varchar("transformation_id", { length: 128 }),
+    valueBasis: observationValueBasis("value_basis").notNull(),
+    availableAt: timestamp("available_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+    supersededAt: timestamp("superseded_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    fetchedAt: timestamp("fetched_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+    recordedAt: timestamp("recorded_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+    revisionGroupId: text("revision_group_id").notNull(),
+    revisionNumber: integer("revision_number").notNull(),
+    restatementOfId: uuid("restatement_of_id"),
+    contentHash: text("content_hash").notNull(),
+    qualityFlags: jsonb("quality_flags")
+      .$type<string[]>()
+      .notNull()
+      .default(emptyJsonArray),
+    sourceId: varchar("source_id", { length: 64 }).notNull(),
+    datasetId: varchar("dataset_id", { length: 128 }).notNull(),
+    parserVersion: varchar("parser_version", { length: 32 }).notNull(),
+    sourceDocumentId: varchar("source_document_id", { length: 256 }),
+    externalId: varchar("external_id", { length: 256 }).notNull(),
+    ingestionRunId: uuid("ingestion_run_id")
+      .notNull()
+      .references(() => ingestionRuns.runId),
+  },
+  (table) => [
+    uniqueIndex("observations_revision_uidx").on(
+      table.revisionGroupId,
+      table.revisionNumber,
+    ),
+    // A lo sumo una revisión vigente por cadena: dos vigentes serían dos
+    // respuestas simultáneas para el mismo hecho.
+    uniqueIndex("observations_current_revision_uidx")
+      .on(table.revisionGroupId)
+      .where(sql`${table.supersededAt} is null`),
+    index("observations_subject_idx").on(
+      table.subjectType,
+      table.subjectId,
+      table.metricId,
+      table.asOf,
+    ),
+    index("observations_knowledge_idx").on(table.availableAt, table.recordedAt),
+    check(
+      "observations_raw_value_status_check",
+      sql`(${table.rawValueStatus} = 'stored' and ${table.rawValue} is not null) or (${table.rawValueStatus} <> 'stored' and ${table.rawValue} is null)`,
+    ),
+    check(
+      "observations_normalized_value_check",
+      sql`${table.normalizedValue} is null or ${table.transformationId} is not null`,
+    ),
+    check(
+      "observations_period_check",
+      sql`case when ${table.periodType} = 'instant' then ${table.periodStart} is null and ${table.periodEnd} is null else ${table.periodStart} is not null and ${table.periodEnd} is not null and ${table.periodStart} <= ${table.periodEnd} end`,
+    ),
+    check(
+      "observations_revision_chain_check",
+      sql`(${table.revisionNumber} = 1) = (${table.restatementOfId} is null) and ${table.revisionNumber} >= 1`,
+    ),
+    check(
+      "observations_superseded_after_available_check",
+      sql`${table.supersededAt} is null or ${table.supersededAt} > ${table.availableAt}`,
+    ),
+    check(
+      "observations_content_hash_check",
+      sql`${table.contentHash} ~ '^[a-f0-9]{64}$' and ${table.revisionGroupId} ~ '^[a-f0-9]{64}$'`,
+    ),
+    check(
+      "observations_currency_check",
+      sql`${table.currency} is null or ${table.currency} ~ '^[A-Z]{3}$'`,
     ),
   ],
 );

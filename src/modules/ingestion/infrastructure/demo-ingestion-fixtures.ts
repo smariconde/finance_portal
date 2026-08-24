@@ -8,7 +8,7 @@
  * `DEMO_INGESTION_FIXTURE_VERSION`: cambiar un registro obliga a subir la
  * versión y a regenerar los hashes esperados.
  */
-export const DEMO_INGESTION_FIXTURE_VERSION = "2026-08-23.1";
+export const DEMO_INGESTION_FIXTURE_VERSION = "2026-08-24.1";
 
 export const DEMO_SOURCE_ID = "fixture-demo-fundamentals";
 export const DEMO_PARSER_VERSION = "fixture-1.0.0";
@@ -29,6 +29,10 @@ const FY2024 = {
 
 const FY2024_AVAILABLE_AT = "2025-02-20T21:00:00.000Z";
 const FY2024_DOCUMENT = "fixtureco-fy2024-annual-report";
+
+/** Enmienda publicada dos meses y medio después del reporte original. */
+export const FY2024_AMENDMENT_AVAILABLE_AT = "2025-05-01T14:00:00.000Z";
+const FY2024_AMENDMENT_DOCUMENT = "fixtureco-fy2024-annual-report-amendment";
 
 /** Lote válido completo: happy path del contrato de staging. */
 export const DEMO_ANNUAL_RECORDS: readonly unknown[] = Object.freeze([
@@ -114,6 +118,34 @@ export const DEMO_ANNUAL_RECORDS: readonly unknown[] = Object.freeze([
     sourceDocumentId: FY2024_DOCUMENT,
     qualityFlags: ["raw_withheld_by_license"],
   },
+]);
+
+/**
+ * El mismo lote anual tal como la fuente lo publica después del amendment del
+ * 2025-05-01: sólo cambia el revenue FY2024. Los otros cuatro registros son
+ * idénticos, de modo que una segunda corrida ejercita a la vez la revisión y la
+ * idempotencia por content hash.
+ */
+export const DEMO_RESTATED_RECORDS: readonly unknown[] = Object.freeze([
+  DEMO_ANNUAL_RECORDS[0],
+  {
+    externalId: "fixtureco-2024-revenue",
+    concept: "Revenues",
+    subjectKey: "fixtureco",
+    metricId: "revenue",
+    asOf: "2024-12-31",
+    ...FY2024,
+    unit: "monetary",
+    currency: "USD",
+    rawValue: "96000000",
+    rawValueStatus: "stored",
+    availableAt: FY2024_AMENDMENT_AVAILABLE_AT,
+    sourceDocumentId: FY2024_AMENDMENT_DOCUMENT,
+    qualityFlags: ["restated_by_source"],
+  },
+  DEMO_ANNUAL_RECORDS[2],
+  DEMO_ANNUAL_RECORDS[3],
+  DEMO_ANNUAL_RECORDS[4],
 ]);
 
 /** Un registro corrupto entre válidos: el lote se acepta parcialmente. */

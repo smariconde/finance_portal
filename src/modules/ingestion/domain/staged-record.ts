@@ -32,7 +32,7 @@ const calendarDateSchema = z.iso.date();
  * representar todos los importes reportados sin pérdida y el hash canónico debe
  * reflejar exactamente lo publicado por la fuente.
  */
-const decimalStringSchema = z
+export const decimalStringSchema = z
   .string()
   .trim()
   .min(1)

@@ -5,6 +5,7 @@ import {
   DEMO_BROKEN_RECORDS,
   DEMO_DATASETS,
   DEMO_PARTIAL_RECORDS,
+  DEMO_RESTATED_RECORDS,
   DEMO_SOURCE_ID,
 } from "./demo-ingestion-fixtures";
 import {
@@ -39,6 +40,31 @@ export function createDemoDatasetProvider(
   return createFakeDatasetProvider({
     providerId: "demo-fixture-provider",
     catalog: DEMO_DATASET_CATALOG,
+    now,
+  });
+}
+
+/**
+ * La misma fuente sintética después del amendment del 2025-05-01. No es otro
+ * dataset: es el estado posterior del mismo endpoint, así que una corrida con
+ * otro vintage descubre la revisión sin inventar un identificador nuevo.
+ */
+export const DEMO_RESTATED_DATASET_CATALOG: FakeDatasetCatalog = Object.freeze({
+  [DEMO_SOURCE_ID]: Object.freeze({
+    [DEMO_DATASETS.annual]: {
+      kind: "records",
+      records: DEMO_RESTATED_RECORDS,
+      sourceDocumentId: "fixtureco-fy2024-annual-report-amendment",
+    },
+  }),
+} satisfies FakeDatasetCatalog);
+
+export function createDemoRestatedDatasetProvider(
+  now: () => string = () => new Date().toISOString(),
+): DatasetProvider {
+  return createFakeDatasetProvider({
+    providerId: "demo-fixture-provider",
+    catalog: DEMO_RESTATED_DATASET_CATALOG,
     now,
   });
 }

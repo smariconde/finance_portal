@@ -1,10 +1,16 @@
 # Modelo de identidad financiera
 
-- Estado: contrato aceptado para implementación posterior
+- Estado: contrato implementado en dominio y fixture; persistencia diferida
 - Versión: 0.1
 - Fecha: 2026-08-21
 - Alcance: entity, security, listing, identifiers y programas depositarios
-- Persistencia: diferida al slice de PostgreSQL/Drizzle de Fase 1
+- Implementación (`F1-04`):
+  [`identity-graph.ts`](../../src/modules/identity/domain/identity-graph.ts),
+  [`resolve-identity.ts`](../../src/modules/identity/domain/resolve-identity.ts) y
+  la fixture sintética
+  [`demo-identity-fixtures.ts`](../../src/modules/identity/infrastructure/demo-identity-fixtures.ts)
+- Persistencia: las tablas de identidad siguen diferidas a `F2-02`; hoy el grafo
+  es una fixture versionada y sólo `observations` está persistida
 
 ## Propósito
 
@@ -403,16 +409,22 @@ la migración. Este documento fija semántica; no simula un schema aplicado.
 
 ## Tests requeridos
 
-- cambio de ticker con consulta antes y después del corte;
+Los casos marcados con ✔ están cubiertos por
+[`resolve-identity.test.ts`](../../src/modules/identity/domain/resolve-identity.test.ts)
+sobre la fixture de `FixtureCo`; el resto espera a las fuentes reales de Fase 2.
+
+- ✔ cambio de ticker con consulta antes y después del corte;
 - dos listings de la misma security en MIC/monedas distintos;
-- ticker reutilizado por otra security en un intervalo posterior;
+- ✔ ticker reutilizado por otra security en un intervalo posterior;
 - dos share classes del mismo issuer;
 - ADR cuyo subyacente no es el listing primario esperado;
-- CEDEAR sobre acción, ADR y ETF;
-- cambio de ratio depositario anunciado antes de su vigencia;
+- ✔ CEDEAR sobre acción (ADR y ETF siguen pendientes);
+- ✔ cambio de ratio depositario anunciado antes de su vigencia;
 - split, reverse split, merger, spin-off y delisting;
-- identificador ambiguo, conflicto de fuentes y override manual;
-- intervalos que se tocan sin solaparse y rechazo de solapamientos reales.
+- ✔ identificador ambiguo y conflicto de fuentes; el override manual sigue
+  pendiente;
+- ✔ intervalos que se tocan sin solaparse y rechazo de solapamientos reales
+  ([`temporal-version.test.ts`](../../src/modules/temporal/domain/temporal-version.test.ts)).
 
 ## Fuentes primarias
 

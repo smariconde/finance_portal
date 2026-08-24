@@ -84,6 +84,8 @@ revertir:
 3. verificar backup/restore;
 4. revisar dependencias creadas después de la migración;
 5. ejecutar manualmente el SQL pareado, en orden inverso al de aplicación:
+   - `drizzle/rollback/0002_fresh_redwing.down.sql` (`observations`, sus enums y
+     la columna `ingestion_runs.requested_vintage`);
    - `drizzle/rollback/0001_workable_lethal_legion.down.sql`
      (`ingestion_runs`, `source_registry` y sus enums);
    - `drizzle/rollback/0000_jittery_nextwave.down.sql` (`dataset_snapshots`);
@@ -92,7 +94,10 @@ revertir:
 El rollback elimina las tablas y sus datos. No se ejecuta como script genérico para
 evitar apuntar accidentalmente a la base personal. Revertir `0001` descarta el
 audit trail completo de ingesta: si el incidente que se está revirtiendo tiene que
-seguir siendo explicable, exportar `ingestion_runs` antes (`TM-16`).
+seguir siendo explicable, exportar `ingestion_runs` antes (`TM-16`). Revertir `0002`
+descarta además cada revisión point-in-time publicada y su lineage hacia la corrida
+que la produjo; `observations` referencia `ingestion_runs`, así que se elimina
+primero (`TM-06`).
 
 ## Fallas seguras
 

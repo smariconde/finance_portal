@@ -15,6 +15,13 @@
       "when": 1787534401101,
       "tag": "0001_workable_lethal_legion",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787566997319,
+      "tag": "0002_fresh_redwing",
+      "breakpoints": true
     }
   ]
 }
