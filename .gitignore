@@ -18,6 +18,8 @@ test-results/
 # Logs and local tooling
 *.log
 .vercel/
+# Agent runtime: skills and settings are versioned, per-machine overrides are not.
+.claude/settings.local.json
 .impeccable/config.local.json
 .impeccable/direction-options.json
 .impeccable/questions/

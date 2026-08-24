@@ -13,6 +13,29 @@ dependencies, and must not be presented as available to every contributor.
 | `impeccable`                     | Create and review distinctive production-grade web interfaces; typography, layout, responsive behavior, accessibility and anti-pattern detection. | `pbakaus/impeccable` at `.agents/skills/impeccable`                 | `4.1.1` / `f88b2837a7d7c3182e46307bbbb091a1ed547571` | Apache-2.0 | 2026-08-21 |
 | `financial-visualization-review` | Review financial charts, metric tables, screeners and dashboards for semantics, provenance, accessibility, responsive behavior and performance.   | repository-local at `.agents/skills/financial-visualization-review` | `1.0` / repository-local                             | Repository | 2026-08-21 |
 
+## Registro por runtime
+
+`.agents/skills/` es la única copia vendorizada de cada skill. Un runtime que no lee
+ese directorio se registra con un pointer, nunca con una copia ni con un fork.
+
+| Runtime     | Mecanismo                                    | Estado                                                        |
+| ----------- | -------------------------------------------- | ------------------------------------------------------------- |
+| Codex       | lectura directa de `.agents/skills/`         | activo desde 2026-08-21                                       |
+| Claude Code | pointer en `.claude/skills/<skill>/SKILL.md` | activo desde 2026-08-23; verificado con Claude Code `2.1.200` |
+
+Claude Code sólo descubre skills en `.claude/skills/`, `~/.claude/skills/`, plugins y
+directorios pasados con `--add-dir`; no existe una opción de configuración que agregue
+`.agents/skills/` como origen. Se descartó el symlink porque este repositorio se trabaja
+en Windows con `core.symlinks=false`, y se descartó copiar `impeccable` porque son 153
+archivos y 3,5 MB que quedarían duplicados y desincronizados.
+
+Cada pointer replica el `name` y la `description` originales para que el disparo
+automático coincida, redirige `<skill-base-dir>` y toda ruta relativa a
+`.agents/skills/<skill>/`, advierte que `${CLAUDE_SKILL_DIR}` apunta al pointer y no
+sirve, y repite los límites del repositorio: scripts aprobados, sin red, sin hooks, sin
+autoescritura. Actualizar una skill vendorizada obliga a revisar su pointer en el mismo
+cambio.
+
 ## Audit notes: `impeccable`
 
 - Source reviewed: official repository `https://github.com/pbakaus/impeccable`.

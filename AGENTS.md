@@ -48,6 +48,8 @@ Avoid generic AI-interface defaults: decorative purple/blue gradients, gratuitou
 
 Persist approved visual decisions in `DESIGN.md` when that system is established. Do not enable Impeccable hooks, live editing, concept network calls, image generation, or automatic updates unless the user explicitly requests that workflow and its scripts have been reviewed for the action.
 
+Skills are vendored once in `.agents/skills/` and registered per agent runtime. Codex reads `.agents/skills/` directly; Claude Code loads the pointer skills in `.claude/skills/`, which forward to the same vendored directory and carry the repository limits. Registering a skill for a new runtime adds a pointer and an inventory note; it never forks or duplicates the vendored skill.
+
 ## Testing, Data, and Security
 
 Every formula change requires unit tests plus edge cases for nulls, zero, negatives, currency mismatch, and non-finite results. Provider changes require sanitized fixtures, provenance, license review, schema validation, and failure-path contract tests. Keep secrets server-only, never use `NEXT_PUBLIC_` for keys, and never commit real credentials or licensed payloads.
@@ -59,4 +61,4 @@ Before reusing or expanding the visual system, read
 
 ## Commits & Pull Requests
 
-Git history is unavailable, so use short imperative subjects, for example `docs(architecture): clarify provider boundary`. Pull requests should summarize changes, link issues or ADRs, state validation, and include screenshots only for UI changes.
+History follows Conventional Commits with a short imperative subject and an optional scope, for example `docs(architecture): clarify provider boundary` or `feat: implement PostgreSQL dataset snapshot repository`. Match that pattern. Pull requests should summarize changes, link issues or ADRs, state validation, and include screenshots only for UI changes.

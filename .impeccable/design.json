@@ -8,78 +8,203 @@
         "role": "neutral",
         "displayName": "Fondo de workspace",
         "canonical": "oklch(0.985 0.002 247.84)",
-        "tonalRamp": ["oklch(0.15 0.002 247.84)", "oklch(0.27 0.002 247.84)", "oklch(0.39 0.002 247.84)", "oklch(0.51 0.002 247.84)", "oklch(0.63 0.002 247.84)", "oklch(0.75 0.002 247.84)", "oklch(0.87 0.002 247.84)", "oklch(0.95 0.002 247.84)"]
+        "tonalRamp": [
+          "oklch(0.15 0.002 247.84)",
+          "oklch(0.27 0.002 247.84)",
+          "oklch(0.39 0.002 247.84)",
+          "oklch(0.51 0.002 247.84)",
+          "oklch(0.63 0.002 247.84)",
+          "oklch(0.75 0.002 247.84)",
+          "oklch(0.87 0.002 247.84)",
+          "oklch(0.95 0.002 247.84)"
+        ]
       },
       "foreground": {
         "role": "neutral",
         "displayName": "Texto principal",
         "canonical": "oklch(0.205 0.012 258.34)",
-        "tonalRamp": ["oklch(0.15 0.012 258.34)", "oklch(0.27 0.012 258.34)", "oklch(0.39 0.012 258.34)", "oklch(0.51 0.012 258.34)", "oklch(0.63 0.012 258.34)", "oklch(0.75 0.012 258.34)", "oklch(0.87 0.012 258.34)", "oklch(0.95 0.012 258.34)"]
+        "tonalRamp": [
+          "oklch(0.15 0.012 258.34)",
+          "oklch(0.27 0.012 258.34)",
+          "oklch(0.39 0.012 258.34)",
+          "oklch(0.51 0.012 258.34)",
+          "oklch(0.63 0.012 258.34)",
+          "oklch(0.75 0.012 258.34)",
+          "oklch(0.87 0.012 258.34)",
+          "oklch(0.95 0.012 258.34)"
+        ]
       },
       "card": {
         "role": "neutral",
         "displayName": "Superficie de card",
         "canonical": "oklch(1 0 0)",
-        "tonalRamp": ["oklch(0.15 0 0)", "oklch(0.27 0 0)", "oklch(0.39 0 0)", "oklch(0.51 0 0)", "oklch(0.63 0 0)", "oklch(0.75 0 0)", "oklch(0.87 0 0)", "oklch(0.95 0 0)"]
+        "tonalRamp": [
+          "oklch(0.15 0 0)",
+          "oklch(0.27 0 0)",
+          "oklch(0.39 0 0)",
+          "oklch(0.51 0 0)",
+          "oklch(0.63 0 0)",
+          "oklch(0.75 0 0)",
+          "oklch(0.87 0 0)",
+          "oklch(0.95 0 0)"
+        ]
       },
       "primary": {
         "role": "primary",
         "displayName": "Azul funcional",
         "canonical": "oklch(0.488 0.177 255.73)",
-        "tonalRamp": ["oklch(0.15 0.177 255.73)", "oklch(0.27 0.177 255.73)", "oklch(0.39 0.177 255.73)", "oklch(0.51 0.177 255.73)", "oklch(0.63 0.177 255.73)", "oklch(0.75 0.177 255.73)", "oklch(0.87 0.177 255.73)", "oklch(0.95 0.177 255.73)"]
+        "tonalRamp": [
+          "oklch(0.15 0.177 255.73)",
+          "oklch(0.27 0.177 255.73)",
+          "oklch(0.39 0.177 255.73)",
+          "oklch(0.51 0.177 255.73)",
+          "oklch(0.63 0.177 255.73)",
+          "oklch(0.75 0.177 255.73)",
+          "oklch(0.87 0.177 255.73)",
+          "oklch(0.95 0.177 255.73)"
+        ]
       },
       "muted": {
         "role": "neutral",
         "displayName": "Superficie secundaria",
         "canonical": "oklch(0.961 0.006 247.86)",
-        "tonalRamp": ["oklch(0.15 0.006 247.86)", "oklch(0.27 0.006 247.86)", "oklch(0.39 0.006 247.86)", "oklch(0.51 0.006 247.86)", "oklch(0.63 0.006 247.86)", "oklch(0.75 0.006 247.86)", "oklch(0.87 0.006 247.86)", "oklch(0.95 0.006 247.86)"]
+        "tonalRamp": [
+          "oklch(0.15 0.006 247.86)",
+          "oklch(0.27 0.006 247.86)",
+          "oklch(0.39 0.006 247.86)",
+          "oklch(0.51 0.006 247.86)",
+          "oklch(0.63 0.006 247.86)",
+          "oklch(0.75 0.006 247.86)",
+          "oklch(0.87 0.006 247.86)",
+          "oklch(0.95 0.006 247.86)"
+        ]
       },
       "muted-foreground": {
         "role": "neutral",
         "displayName": "Texto secundario",
         "canonical": "oklch(0.52 0.024 257.42)",
-        "tonalRamp": ["oklch(0.15 0.024 257.42)", "oklch(0.27 0.024 257.42)", "oklch(0.39 0.024 257.42)", "oklch(0.51 0.024 257.42)", "oklch(0.63 0.024 257.42)", "oklch(0.75 0.024 257.42)", "oklch(0.87 0.024 257.42)", "oklch(0.95 0.024 257.42)"]
+        "tonalRamp": [
+          "oklch(0.15 0.024 257.42)",
+          "oklch(0.27 0.024 257.42)",
+          "oklch(0.39 0.024 257.42)",
+          "oklch(0.51 0.024 257.42)",
+          "oklch(0.63 0.024 257.42)",
+          "oklch(0.75 0.024 257.42)",
+          "oklch(0.87 0.024 257.42)",
+          "oklch(0.95 0.024 257.42)"
+        ]
       },
       "accent": {
         "role": "primary",
         "displayName": "Azul de selección",
         "canonical": "oklch(0.94 0.025 252.57)",
-        "tonalRamp": ["oklch(0.15 0.025 252.57)", "oklch(0.27 0.025 252.57)", "oklch(0.39 0.025 252.57)", "oklch(0.51 0.025 252.57)", "oklch(0.63 0.025 252.57)", "oklch(0.75 0.025 252.57)", "oklch(0.87 0.025 252.57)", "oklch(0.95 0.025 252.57)"]
+        "tonalRamp": [
+          "oklch(0.15 0.025 252.57)",
+          "oklch(0.27 0.025 252.57)",
+          "oklch(0.39 0.025 252.57)",
+          "oklch(0.51 0.025 252.57)",
+          "oklch(0.63 0.025 252.57)",
+          "oklch(0.75 0.025 252.57)",
+          "oklch(0.87 0.025 252.57)",
+          "oklch(0.95 0.025 252.57)"
+        ]
       },
       "destructive": {
         "role": "tertiary",
         "displayName": "Destructivo",
         "canonical": "oklch(0.577 0.245 27.325)",
-        "tonalRamp": ["oklch(0.15 0.245 27.325)", "oklch(0.27 0.245 27.325)", "oklch(0.39 0.245 27.325)", "oklch(0.51 0.245 27.325)", "oklch(0.63 0.245 27.325)", "oklch(0.75 0.245 27.325)", "oklch(0.87 0.245 27.325)", "oklch(0.95 0.245 27.325)"]
+        "tonalRamp": [
+          "oklch(0.15 0.245 27.325)",
+          "oklch(0.27 0.245 27.325)",
+          "oklch(0.39 0.245 27.325)",
+          "oklch(0.51 0.245 27.325)",
+          "oklch(0.63 0.245 27.325)",
+          "oklch(0.75 0.245 27.325)",
+          "oklch(0.87 0.245 27.325)",
+          "oklch(0.95 0.245 27.325)"
+        ]
       },
       "border": {
         "role": "neutral",
         "displayName": "Borde suave",
         "canonical": "oklch(0.91 0.012 255.51)",
-        "tonalRamp": ["oklch(0.15 0.012 255.51)", "oklch(0.27 0.012 255.51)", "oklch(0.39 0.012 255.51)", "oklch(0.51 0.012 255.51)", "oklch(0.63 0.012 255.51)", "oklch(0.75 0.012 255.51)", "oklch(0.87 0.012 255.51)", "oklch(0.95 0.012 255.51)"]
+        "tonalRamp": [
+          "oklch(0.15 0.012 255.51)",
+          "oklch(0.27 0.012 255.51)",
+          "oklch(0.39 0.012 255.51)",
+          "oklch(0.51 0.012 255.51)",
+          "oklch(0.63 0.012 255.51)",
+          "oklch(0.75 0.012 255.51)",
+          "oklch(0.87 0.012 255.51)",
+          "oklch(0.95 0.012 255.51)"
+        ]
       },
       "sidebar": {
         "role": "neutral",
         "displayName": "Sidebar neutral",
         "canonical": "oklch(0.972 0.004 252.89)",
-        "tonalRamp": ["oklch(0.15 0.004 252.89)", "oklch(0.27 0.004 252.89)", "oklch(0.39 0.004 252.89)", "oklch(0.51 0.004 252.89)", "oklch(0.63 0.004 252.89)", "oklch(0.75 0.004 252.89)", "oklch(0.87 0.004 252.89)", "oklch(0.95 0.004 252.89)"]
+        "tonalRamp": [
+          "oklch(0.15 0.004 252.89)",
+          "oklch(0.27 0.004 252.89)",
+          "oklch(0.39 0.004 252.89)",
+          "oklch(0.51 0.004 252.89)",
+          "oklch(0.63 0.004 252.89)",
+          "oklch(0.75 0.004 252.89)",
+          "oklch(0.87 0.004 252.89)",
+          "oklch(0.95 0.004 252.89)"
+        ]
       }
     },
     "typographyMeta": {
-      "headline": { "displayName": "Headline", "purpose": "Título único de página, con escala responsive contenida." },
-      "title": { "displayName": "Title", "purpose": "Títulos de cards y secciones operativas." },
-      "body": { "displayName": "Body", "purpose": "Lectura principal, controles y tablas densas." },
-      "body-large": { "displayName": "Body Large", "purpose": "Introducción de página desde pantallas medianas." },
-      "label": { "displayName": "Label", "purpose": "Metadata, estados y rótulos compactos." }
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Título único de página, con escala responsive contenida."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Títulos de cards y secciones operativas."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Lectura principal, controles y tablas densas."
+      },
+      "body-large": {
+        "displayName": "Body Large",
+        "purpose": "Introducción de página desde pantallas medianas."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Metadata, estados y rótulos compactos."
+      }
     },
     "shadows": [
-      { "name": "drawer", "value": "var(--shadow-lg)", "purpose": "Separar el Sheet mobile del contenido cubierto; las cards permanecen sin sombra." }
+      {
+        "name": "drawer",
+        "value": "var(--shadow-lg)",
+        "purpose": "Separar el Sheet mobile del contenido cubierto; las cards permanecen sin sombra."
+      }
     ],
     "motion": [
-      { "name": "sidebar", "value": "200ms linear", "purpose": "Cambio de ancho y posición de la sidebar." },
-      { "name": "sheet-overlay", "value": "150ms", "purpose": "Entrada y salida de opacidad del overlay mobile." },
-      { "name": "sheet-content", "value": "200ms ease-in-out", "purpose": "Entrada y salida del drawer mobile." },
-      { "name": "reduced-motion", "value": "0.01ms", "purpose": "Duración efectiva de sidebar y Sheet bajo prefers-reduced-motion." }
+      {
+        "name": "sidebar",
+        "value": "200ms linear",
+        "purpose": "Cambio de ancho y posición de la sidebar."
+      },
+      {
+        "name": "sheet-overlay",
+        "value": "150ms",
+        "purpose": "Entrada y salida de opacidad del overlay mobile."
+      },
+      {
+        "name": "sheet-content",
+        "value": "200ms ease-in-out",
+        "purpose": "Entrada y salida del drawer mobile."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "0.01ms",
+        "purpose": "Duración efectiva de sidebar y Sheet bajo prefers-reduced-motion."
+      }
     ],
     "breakpoints": [
       { "name": "md", "value": "48rem" },
@@ -165,17 +290,61 @@
       "Densidad legible en escritorio y reflow directo en mobile."
     ],
     "rules": [
-      { "name": "The Functional Blue Rule", "body": "El azul señala acción, selección o información planificada; no se distribuye como decoración.", "section": "colors" },
-      { "name": "The State Is Never Color Alone Rule", "body": "Cada estado combina color con icono y etiqueta legible.", "section": "colors" },
-      { "name": "The Numbers Align Rule", "body": "Los valores comparables usan numerales tabulares antes de recibir cualquier énfasis cromático.", "section": "typography" },
-      { "name": "The Short Hierarchy Rule", "body": "Una página usa un único `h1`, títulos de card sobrios y texto secundario; no introduce titulares de landing dentro del workspace.", "section": "typography" },
-      { "name": "The Familiar First Rule", "body": "Sidebar, header, cards, tablas y formularios siguen convenciones shadcn/Base UI antes de crear un patrón propio.", "section": "layout" },
-      { "name": "The Wide Content Scrolls Rule", "body": "Una tabla ancha conserva columnas, encabezados y desplazamiento horizontal; no reduce texto y cifras hasta perder legibilidad.", "section": "layout" },
-      { "name": "The Containment Before Elevation Rule", "body": "Borde, ring y superficie resuelven la agrupación cotidiana; la sombra se reserva para overlays y paneles modales.", "section": "elevation" },
-      { "name": "The Moderate Radius Rule", "body": "El sistema usa esquinas suaves y consistentes: ni radios cero como identidad ni contenedores excesivamente redondeados.", "section": "shapes" },
-      { "name": "The Pill Has a Role Rule", "body": "Las cápsulas pertenecen a badges y estados breves; botones, campos, cards y bloques de contenido conservan radios moderados.", "section": "shapes" },
-      { "name": "The Evidence Travels With the Result Rule", "body": "Fuente, fecha, unidad, moneda, transformación y estado permanecen junto al resultado que explican.", "section": "components" },
-      { "name": "The Card Has a Job Rule", "body": "Una card agrupa una decisión o bloque real; no envuelve cada línea, etiqueta o gráfico por decoración.", "section": "components" }
+      {
+        "name": "The Functional Blue Rule",
+        "body": "El azul señala acción, selección o información planificada; no se distribuye como decoración.",
+        "section": "colors"
+      },
+      {
+        "name": "The State Is Never Color Alone Rule",
+        "body": "Cada estado combina color con icono y etiqueta legible.",
+        "section": "colors"
+      },
+      {
+        "name": "The Numbers Align Rule",
+        "body": "Los valores comparables usan numerales tabulares antes de recibir cualquier énfasis cromático.",
+        "section": "typography"
+      },
+      {
+        "name": "The Short Hierarchy Rule",
+        "body": "Una página usa un único `h1`, títulos de card sobrios y texto secundario; no introduce titulares de landing dentro del workspace.",
+        "section": "typography"
+      },
+      {
+        "name": "The Familiar First Rule",
+        "body": "Sidebar, header, cards, tablas y formularios siguen convenciones shadcn/Base UI antes de crear un patrón propio.",
+        "section": "layout"
+      },
+      {
+        "name": "The Wide Content Scrolls Rule",
+        "body": "Una tabla ancha conserva columnas, encabezados y desplazamiento horizontal; no reduce texto y cifras hasta perder legibilidad.",
+        "section": "layout"
+      },
+      {
+        "name": "The Containment Before Elevation Rule",
+        "body": "Borde, ring y superficie resuelven la agrupación cotidiana; la sombra se reserva para overlays y paneles modales.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Moderate Radius Rule",
+        "body": "El sistema usa esquinas suaves y consistentes: ni radios cero como identidad ni contenedores excesivamente redondeados.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Pill Has a Role Rule",
+        "body": "Las cápsulas pertenecen a badges y estados breves; botones, campos, cards y bloques de contenido conservan radios moderados.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Evidence Travels With the Result Rule",
+        "body": "Fuente, fecha, unidad, moneda, transformación y estado permanecen junto al resultado que explican.",
+        "section": "components"
+      },
+      {
+        "name": "The Card Has a Job Rule",
+        "body": "Una card agrupa una decisión o bloque real; no envuelve cada línea, etiqueta o gráfico por decoración.",
+        "section": "components"
+      }
     ],
     "dos": [
       "**Do** empezar con primitivas shadcn/Base UI existentes y sus variantes implementadas.",
