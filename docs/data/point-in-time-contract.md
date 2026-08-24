@@ -360,6 +360,15 @@ Una corrida repetida con el mismo dataset, as-of, parser y hash no duplica filas
 Una respuesta vacía, parser roto o fuente stale no cierra el último intervalo
 válido.
 
+Los pasos 1 a 4 están implementados en
+[`execute-ingestion-run.ts`](../../src/modules/ingestion/application/execute-ingestion-run.ts):
+la corrida guarda source, dataset, as-of, cursor y parser; el adaptador registra
+`fetched_at`; staging valida con `stagedRecordSchema`; y la dedupe compara el
+content hash del lote contra la última corrida publicable. Los estados `empty`,
+`quarantined` y `failed` son terminales pero no publicables, de modo que ninguno
+cierra el último intervalo válido. La publicación atómica, `recorded_at` y la
+invalidación de lecturas derivadas —pasos 5 a 7— pertenecen a `F1-04`.
+
 ## Fallbacks y conflictos
 
 - Un fallback conserva su propio source ID y `fallback_source` flag.

@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 
 import { eq } from "drizzle-orm";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres, { type Sql } from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -24,7 +23,6 @@ describe("PostgresDatasetSnapshotRepository", () => {
       idle_timeout: 20,
     });
     database = drizzle(client, { schema });
-    await migrate(database, { migrationsFolder: "drizzle" });
   });
 
   afterAll(async () => {

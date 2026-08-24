@@ -69,6 +69,11 @@ $env:DATABASE_TEST_URL = "postgres://finance_portal_test:<local-password>@127.0.
 pnpm test:integration
 ```
 
+Las migraciones se aplican una sola vez por corrida desde
+`tests/integration/global-setup.ts`. Ningún archivo de test debe volver a llamar
+`migrate`: dos workers en paralelo compiten por crear el mismo tipo o tabla y la
+corrida falla por la carrera, no por el código bajo prueba.
+
 ## Rollback
 
 Drizzle registra migraciones ascendentes y no ejecuta un `down` automático. Antes de
@@ -78,12 +83,16 @@ revertir:
 2. confirmar el deployment y la base exactos;
 3. verificar backup/restore;
 4. revisar dependencias creadas después de la migración;
-5. ejecutar manualmente el SQL pareado en
-   `drizzle/rollback/0000_jittery_nextwave.down.sql`;
+5. ejecutar manualmente el SQL pareado, en orden inverso al de aplicación:
+   - `drizzle/rollback/0001_workable_lethal_legion.down.sql`
+     (`ingestion_runs`, `source_registry` y sus enums);
+   - `drizzle/rollback/0000_jittery_nextwave.down.sql` (`dataset_snapshots`);
 6. desplegar el código compatible y comprobar health.
 
-El rollback elimina la tabla y sus datos. No se ejecuta como script genérico para
-evitar apuntar accidentalmente a la base personal.
+El rollback elimina las tablas y sus datos. No se ejecuta como script genérico para
+evitar apuntar accidentalmente a la base personal. Revertir `0001` descarta el
+audit trail completo de ingesta: si el incidente que se está revirtiendo tiene que
+seguir siendo explicable, exportar `ingestion_runs` antes (`TM-16`).
 
 ## Fallas seguras
 

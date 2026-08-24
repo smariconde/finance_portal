@@ -1,8 +1,10 @@
 # Registro de fuentes
 
-- Estado: contrato documental inicial; ningún proveedor real está integrado
-- Versión: 0.2
+- Estado: contrato implementado; ningún proveedor real está integrado
+- Versión: 0.3
 - Fecha de revisión técnica: 2026-08-21
+- Implementación: [`src/modules/ingestion/domain/source-registry-entry.ts`](../../src/modules/ingestion/domain/source-registry-entry.ts)
+  y la tabla `source_registry` de [`src/server/db/schema.ts`](../../src/server/db/schema.ts)
 - Política operativa: [`provider-use-matrix.md`](provider-use-matrix.md)
 - Próximo gate relacionado: ADR de modos `personal | demo` y exposición de datos
 
@@ -45,7 +47,14 @@ El estado técnico no eleva el estado de aprobación automáticamente.
 
 ## Schema requerido
 
-Cada entrada ejecutable del futuro `source_registry` debe contener como mínimo:
+`sourceRegistryEntrySchema` es la frontera runtime y la tabla `source_registry`
+espeja sus invariantes: cada derecho es una columna con default `unknown`, un
+estado `approved_*` exige `rights_reviewed_at`, y `approved_public_demo` exige
+`public_display_right = 'allowed'`. `evaluateIngestionRights` aplica el gate
+**antes** de contactar al proveedor, de modo que una fuente sin revisión no
+genera tráfico, no sólo deja de persistir.
+
+Cada entrada ejecutable del `source_registry` contiene como mínimo:
 
 ```ts
 type SourceRegistryEntry = {
@@ -216,7 +225,19 @@ Toda observación persistida incluye:
 La ausencia de un campo obligatorio produce rechazo, quarantine o quality flag
 según el metric catalog. Nunca se repara con cero o una estimación silenciosa.
 
+El envelope mínimo que valida staging ya existe en
+[`staged-record.ts`](../../src/modules/ingestion/domain/staged-record.ts). Los
+campos que se asignan en la publicación —identidad interna, revisión,
+`recorded_at` y `ingestion_run_id` del dato— siguen pendientes de `F1-04`.
+
 ## Fixtures y modo demo
+
+La fixture vigente vive en
+[`demo-ingestion-fixtures.ts`](../../src/modules/ingestion/infrastructure/demo-ingestion-fixtures.ts)
+y describe a `FixtureCo`, una empresa inexistente. Sus datasets ejercitan lote
+completo, parcial, vacío, parser roto y fuente caída; el proveedor que los sirve
+es [`fake-dataset-provider.ts`](../../src/modules/ingestion/infrastructure/fake-dataset-provider.ts),
+que no importa cliente HTTP alguno.
 
 - Fixtures de demo son sintéticas, deterministas, sanitizadas y versionadas.
 - No son recordings ni copias de payloads del modo personal.
