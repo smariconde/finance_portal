@@ -269,12 +269,31 @@ Las primitivas son componentes shadcn editables construidos sobre Base UI. Se re
 - **State:** divisores horizontales y hover muted al `50%`; filas seleccionadas usan muted.
 - **Financial data:** valores comparables usan `.numeric`; estado y provenance viajan en columnas explícitas.
 
+### Data marks
+
+Implementadas en `src/app/valuacion/demo/_components/data-marks.tsx`.
+
+- **Purpose:** `StatusMark` califica la disponibilidad de una capacidad; las data marks califican la naturaleza de un dato. Son dimensiones distintas y no se mezclan: si no, “listo” significa dos cosas en la misma página.
+- **Families:** estado de corrida (`Calculada`, `Requiere revisión`, `Rechazada`), naturaleza del dato (`Hecho reportado`, `Supuesto`, `Ausencia declarada`), estado de claim y antigüedad (`Vigente`, `Envejecido`, `Vencido`, `Posterior a la valuación`).
+- **Anatomy:** icono Lucide, etiqueta legible y prefijo `sr-only` que nombra la dimensión calificada. La antigüedad agrega su distancia en días como cifra tabular.
+- **Color:** verde, ámbar, rosa, azul y neutral sólo acompañan al icono y al texto; nunca son el único canal.
+
+### Sensitivity matrix
+
+Implementada en `src/app/valuacion/demo/_components/sensitivity-matrix.tsx`.
+
+- **Structure:** tabla semántica con `th scope="col"` por parámetro horizontal y `th scope="row"` por parámetro vertical; `caption` declara unidad, moneda, rango y paso de ambos ejes.
+- **Encoding:** el importe se escribe en la celda. El tinte —`color-mix(in oklab, var(--chart-1) N%, var(--card))`— ordena las celdas de menor a mayor y no comunica nada por sí solo.
+- **Ramp:** intensidades `0 / 6 / 11 / 16 / 22 %`, asignadas por **posición en el orden** y no por rango lineal, para que un escenario extremo no aplaste al resto. El tope de `22 %` es un valor medido: más tinte baja el texto de delta por debajo de 4.5:1 en tema claro. Cambiarlo obliga a volver a medir.
+- **Undefined cells:** una celda fuera del modelo declara `No definido` con su motivo; no queda vacía, no cae a cero y no hereda el valor vecino.
+- **Base case:** la celda que reproduce el caso base se marca con `ring` y etiqueta. Cuando el snapshot no la contiene, no se marca ninguna y la página lo explica.
+
 ### Navigation
 
 - **Desktop:** sidebar de `16rem`, colapsable a iconos de `3rem`; shortcut `Ctrl/Cmd+B` y tooltips cuando está colapsada.
 - **Mobile:** drawer lateral de `18rem`; al elegir una ruta se cierra.
 - **Items:** altura base de `2rem`, radio `md`, icono de `1rem`; activo y hover usan sidebar-accent.
-- **Information architecture:** sólo Inicio y Configuración enlazan. Las herramientas futuras aparecen deshabilitadas con la etiqueta `Plan`.
+- **Information architecture:** Inicio, Valuación y Configuración enlazan. Valuación lleva el badge `Demo` porque su ruta muestra una corrida real del motor sobre una empresa fixture. Las herramientas sin datos aparecen deshabilitadas con la etiqueta `Plan`.
 
 ### Shell
 
@@ -286,6 +305,10 @@ Las primitivas son componentes shadcn editables construidos sobre Base UI. Se re
 **The Evidence Travels With the Result Rule.** Fuente, fecha, unidad, moneda, transformación y estado permanecen junto al resultado que explican.
 
 **The Card Has a Job Rule.** Una card agrupa una decisión o bloque real; no envuelve cada línea, etiqueta o gráfico por decoración.
+
+**The Fact and the Assumption Are Never Interchangeable Rule.** Un hecho reportado, un supuesto del modelo y una ausencia declarada llevan marcas distintas y no comparten tabla. Un valor faltante nunca aparece como un cero.
+
+**The Tint Is Measured Rule.** Un fondo teñido que sostiene texto declara su contraste medido sobre los tokens de ambos temas. El valor va escrito; el color sólo lo refuerza.
 
 ## Do's and Don'ts
 

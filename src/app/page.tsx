@@ -114,7 +114,7 @@ export default function HomePage() {
           <Card size="sm">
             <CardHeader>
               <CardDescription>Próximo slice autorizado</CardDescription>
-              <CardTitle className="numeric text-xl">F1-03</CardTitle>
+              <CardTitle className="numeric text-xl">F1-07</CardTitle>
             </CardHeader>
           </Card>
         </section>
@@ -148,33 +148,57 @@ export default function HomePage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle as="h2">Salud de configuración</CardTitle>
-              <CardDescription>
-                Estado seguro del runtime, sin exponer credenciales.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex items-center justify-between gap-4">
-              <StatusMark
-                status={attentionCount > 0 ? "degraded" : "ready"}
-                label={
-                  attentionCount > 0
-                    ? `${attentionCount} pendiente${attentionCount === 1 ? "" : "s"}`
-                    : "Base lista"
-                }
-              />
-              <Link
-                href="/configuracion"
-                className={cn(
-                  buttonVariants({ variant: "outline", size: "sm" }),
-                )}
-              >
-                Ver diagnóstico
-                <ArrowRight data-icon="inline-end" />
-              </Link>
-            </CardContent>
-          </Card>
+          <div className="flex flex-col gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle as="h2">Corrida de valuación demo</CardTitle>
+                <CardDescription>
+                  Una empresa fixture recorre el motor FCFF con fuentes,
+                  freshness, supuestos y sensibilidad visibles.
+                </CardDescription>
+                <CardAction>
+                  <StatusMark status="ready" label="Disponible" />
+                </CardAction>
+              </CardHeader>
+              <CardContent>
+                <Link
+                  href="/valuacion/demo"
+                  className={cn(buttonVariants({ size: "sm" }))}
+                >
+                  Abrir la corrida
+                  <ArrowRight data-icon="inline-end" />
+                </Link>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle as="h2">Salud de configuración</CardTitle>
+                <CardDescription>
+                  Estado seguro del runtime, sin exponer credenciales.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex items-center justify-between gap-4">
+                <StatusMark
+                  status={attentionCount > 0 ? "degraded" : "ready"}
+                  label={
+                    attentionCount > 0
+                      ? `${attentionCount} pendiente${attentionCount === 1 ? "" : "s"}`
+                      : "Base lista"
+                  }
+                />
+                <Link
+                  href="/configuracion"
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "sm" }),
+                  )}
+                >
+                  Ver diagnóstico
+                  <ArrowRight data-icon="inline-end" />
+                </Link>
+              </CardContent>
+            </Card>
+          </div>
         </section>
 
         <Card>

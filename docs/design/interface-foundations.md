@@ -1,8 +1,8 @@
 # Interface foundations and evidence
 
-- Estado: implementado para `F1-UI-01`; revisión visual automatizada pendiente por limitación del navegador integrado
-- Fecha: 2026-08-21
-- Superficies implementadas: home `/`, configuración `/configuracion` y shell compartido
+- Estado: implementado para `F1-UI-01` y extendido por `F1-06`; revisión visual renderizada pendiente por falta de navegador disponible
+- Fecha: 2026-08-21, extendido el 2026-08-25
+- Superficies implementadas: home `/`, configuración `/configuracion`, valuación demo `/valuacion/demo` y shell compartido
 - Modo de interacción: `Operate`
 - Dirección: `Workspace financiero estándar`
 - Canon: `shadcn-finance-20260821`
@@ -26,8 +26,9 @@ inventar controles o geometrías propias.
 2. [`../../PRODUCT.md`](../../PRODUCT.md) fija los compromisos de marca y el uso
    `shadcn-first` solicitado por el usuario.
 3. [`../../DESIGN.md`](../../DESIGN.md) define tokens, componentes y reglas durables.
-4. Los briefs de [home](../../.impeccable/surfaces/src-app-page-tsx.md) y
-   [configuración](../../.impeccable/surfaces/src-app-configuracion-page-tsx.md)
+4. Los briefs de [home](../../.impeccable/surfaces/src-app-page-tsx.md),
+   [configuración](../../.impeccable/surfaces/src-app-configuracion-page-tsx.md) y
+   [valuación demo](../../.impeccable/surfaces/src-app-valuacion-demo-page-tsx.md)
    definen la composición de cada superficie.
 5. [`../../src/app/globals.css`](../../src/app/globals.css), `src/components/ui/` y
    las páginas son la evidencia ejecutable.
@@ -106,6 +107,30 @@ Un sidecar o screenshot ayuda a revisar, pero no reemplaza estos niveles de auto
 La ausencia de captura no se presenta como evidencia positiva. La inspección manual
 desktop/mobile sigue siendo el follow-up de `UI-02`; cualquier hallazgo visual reabre
 `F1-UI-01` antes de ampliar el sistema.
+
+## Extensión de `F1-06`
+
+`/valuacion/demo` es la primera superficie con datos financieros reales del motor.
+Hereda el shell, los tokens y las primitivas sin introducir un mundo visual nuevo,
+y agrega dos patrones durables ya registrados en [`DESIGN.md`](../../DESIGN.md):
+las **data marks** —que califican la naturaleza de un dato y no la disponibilidad
+de una capacidad— y la **sensitivity matrix**, cuya rampa de tinte está medida en
+vez de elegida a ojo.
+
+| Gate                            | Resultado                                                                                                                                                                                         |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `format:check`, `lint`          | pasan sin warnings                                                                                                                                                                                |
+| `typecheck`                     | pasa                                                                                                                                                                                              |
+| `test`                          | 282/282 unit tests, sin red                                                                                                                                                                       |
+| `test:integration`              | 24/24 contra PostgreSQL `17.11`; el slice no toca schema ni repositorios                                                                                                                          |
+| `build`                         | pasa; `/valuacion/demo` prerenderiza estáticamente, lo que confirma que el render no lee reloj, red ni base                                                                                       |
+| Detector Impeccable             | `[]` sobre la página, sus componentes, la sidebar y la home                                                                                                                                       |
+| Contraste medido                | rampa de tinte y textos sobre celda calculados en oklab para ambos temas: peor caso 4.68:1 (delta) y 4.77:1 (caso base), sobre un floor de 4.5:1                                                  |
+| Semántica verificada en el HTML | un solo `h1`, 10 `h2` y 8 `h3` sin salto de nivel; 7 tablas con 42 `th scope="col"` y 38 `th scope="row"`; 18 `<time datetime>`; 72 alternativas `sr-only`; celdas rechazadas legibles como texto |
+| Revisión renderizada            | **no ejecutada**: no hay navegador disponible en la sesión y los scripts `live` de Impeccable no están aprobados por `AGENTS.md`. No se sustituyó por automatización externa                      |
+
+El chequeo estático no reemplaza a la inspección renderizada a 1440×900 y 390×844.
+Esa medición sigue siendo el follow-up de `UI-02` y se ejecuta en `F1-07`.
 
 ## Reglas para el siguiente cambio visual
 

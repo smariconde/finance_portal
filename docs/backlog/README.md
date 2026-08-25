@@ -24,17 +24,17 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 
 ## Tracker activo
 
-| Orden | Issue      | Estado   | Resultado verificable                                                                                        | Dependencias  |
-| ----: | ---------- | -------- | ------------------------------------------------------------------------------------------------------------ | ------------- |
-|     1 | `F1-01`    | `done`   | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos. | Fase 0 `done` |
-|     2 | `F1-02`    | `done`   | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.      | `F1-01`       |
-|     3 | `F1-UI-01` | `done`   | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.               | `F1-02`       |
-|     4 | `F1-03`    | `done`   | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.               | `F1-UI-01`    |
-|     5 | `F1-04`    | `done`   | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.          | `F1-03`       |
-|     6 | `F1-05`    | `done`   | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                      | `F1-04`       |
-|     7 | `F1-06`    | `ready`  | Resultado demo muestra fuentes, freshness, supuestos, escenarios y sensibilidad accesibles.                  | `F1-05`       |
-|     8 | `F1-07`    | `queued` | Unit, contract y E2E prueban el flujo demo, degradación, aislamiento, teclado y mobile.                      | `F1-06`       |
-|     9 | `F1-08`    | `queued` | Walkthrough reproducible del owner registra hallazgos y cierra el gate de Fase 1.                            | `F1-07`       |
+| Orden | Issue      | Estado        | Resultado verificable                                                                                        | Dependencias  |
+| ----: | ---------- | ------------- | ------------------------------------------------------------------------------------------------------------ | ------------- |
+|     1 | `F1-01`    | `done`        | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos. | Fase 0 `done` |
+|     2 | `F1-02`    | `done`        | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.      | `F1-01`       |
+|     3 | `F1-UI-01` | `done`        | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.               | `F1-02`       |
+|     4 | `F1-03`    | `done`        | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.               | `F1-UI-01`    |
+|     5 | `F1-04`    | `done`        | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.          | `F1-03`       |
+|     6 | `F1-05`    | `done`        | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                      | `F1-04`       |
+|     7 | `F1-06`    | `in_progress` | Resultado demo muestra fuentes, freshness, supuestos, escenarios y sensibilidad accesibles.                  | `F1-05`       |
+|     8 | `F1-07`    | `queued`      | Unit, contract y E2E prueban el flujo demo, degradación, aislamiento, teclado y mobile.                      | `F1-06`       |
+|     9 | `F1-08`    | `queued`      | Walkthrough reproducible del owner registra hallazgos y cierra el gate de Fase 1.                            | `F1-07`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -45,8 +45,10 @@ integration tests sin red. `F1-04` cerró el 2026-08-24 con los módulos
 `src/modules/temporal/`, `src/modules/identity/` y `src/modules/observations/`, la
 migración `0002` y su rollback pareado. `F1-05` cerró el 2026-08-24 con
 `src/modules/valuation/`, la ADR 0003 que incorpora `decimal.js` y la migración
-`0003` con su rollback pareado. `F1-06` es el próximo slice autorizado; ninguno de
-estos módulos expone todavía una superficie de UI.
+`0003` con su rollback pareado. `F1-06` está `in_progress` desde el 2026-08-25 con
+`/valuacion/demo` entregada y todos sus criterios cerrados **salvo** la revisión
+renderizada desktop/mobile, que no pudo ejecutarse en la sesión; el detalle y la
+condición de cierre están en el issue.
 
 ## Issues por fase
 
@@ -302,6 +304,74 @@ Criterios de aceptación:
 
 Controles: `TM-02`, `TM-12`, `TM-15`, `UI-02`, `UI-03`, `UI-04`.
 
+Evidencia (2026-08-25): la ruta `/valuacion/demo` en `src/app/valuacion/demo/` con
+su brief en `.impeccable/surfaces/src-app-valuacion-demo-page-tsx.md`; el dominio
+puro `src/modules/valuation/domain/display-format.ts` —formato `es-AR`
+determinista sin `Intl`, para que el mismo número salga igual del servidor y del
+navegador— y `valuation-report.ts` —freshness versionada, evidencia, ausencias,
+transformaciones aplicadas y sensibilidad anotada—;
+`src/modules/valuation/infrastructure/demo-valuation-run.ts` con reloj e
+identificador inyectados; `toFixedScale` en `decimal-policy.ts` como única
+serialización de presentación. `DESIGN.md` registra las data marks y la
+sensitivity matrix; `docs/design/interface-foundations.md` registra la extensión.
+
+- Provenance visible: cada hecho muestra valor, unidad, moneda, cierre,
+  `available_at`, antigüedad, `source_id`, documento y quality flags. El revenue
+  base expone `restated_by_source`, y las acciones diluidas viajan sin moneda en
+  vez de recibir una inventada.
+- Freshness: `classifyFreshness` es una convención de lectura versionada
+  (`valuation-freshness-1.0.0`, umbrales 180 y 365 días) y no un juicio de calidad
+  de la fuente. Los bordes se prueban: 180 días es `current`, 181 es `aging`, 365
+  sigue `aging` y 366 es `stale`; un hecho fechado después de la valuación es
+  `posterior` en vez de “vigente”. En la corrida demo el revenue FY2024 aparece
+  `Envejecido` a 181 días y las acciones diluidas `Vigente` a 0 días.
+- `TM-05`: hechos reportados, supuestos y ausencias declaradas llevan marcas
+  distintas y no comparten tabla. Las tres ausencias se muestran con su motivo
+  registrado, nunca como una fila de valor cero, y el test verifica que ninguna
+  fila de hechos vale `0`.
+- `TM-06`: la card “El mismo modelo bajo otro corte de conocimiento” muestra que
+  `as_known(2025-03-01)` da `14,17` y `as_known(2025-06-01)` da `13,55`, con dos
+  `result_hash` distintos. Son dos corridas, no una corrección de la primera.
+- Escenarios: bear/base/bull se declaran `planned` con su fase, y la superficie
+  explica que la grilla es una sensibilidad mecánica, no una distribución de
+  probabilidad. No se fabrica un escenario que el motor no calcula.
+- Sensibilidad accesible: tabla semántica con `caption` que declara unidad,
+  moneda, rango y paso de ambos ejes; `th scope="col"` y `th scope="row"` asocian
+  cada celda; cada celda lleva su importe escrito más una lectura `sr-only`
+  completa. Las 2 celdas donde `WACC <= g + buffer` muestran `No definido` con su
+  motivo. La celda base se marca sólo cuando el WACC del snapshot es plano; con un
+  WACC que varía no se marca ninguna y la página lo dice.
+- `UI-03`: el tinte de la grilla ordena las celdas de menor a mayor y nunca es el
+  único canal. La rampa se asigna por posición en el orden y no por rango lineal,
+  porque una perpetuidad con denominador cerca de cero produce `105,05` en una
+  esquina y aplastaría el resto de la grilla contra un solo color; con rangos la
+  distribución medida en el HTML es `10 / 8 / 10 / 8 / 10`.
+- `TM-02` y `TM-12`: la página no expone valores de configuración ni secretos; el
+  motivo de un rechazo muestra código y rutas de campo, nunca el valor recibido.
+- `TM-15`: la fixture es sintética y se declara como tal en la alerta de alcance,
+  en el badge `Demo` de la sidebar y en la card de límites. No hay recomendación,
+  precio objetivo ni comparación contra un precio de mercado.
+- Aislamiento: el render calcula la corrida en el proceso desde la fixture, sin
+  repositorio, red ni persistencia, así que su contenido es idéntico en demo y en
+  personal y no simula una persistencia personal. `build` lo confirma al
+  prerenderizar la ruta como estática.
+
+Verificación: `format:check`, `lint`, `typecheck`, 282 unit tests, 24 integration
+tests contra PostgreSQL 17.11 y `build` pasan. El detector de Impeccable devuelve
+`[]` sobre la página, sus componentes, la sidebar y la home. El contraste de la
+rampa y de los textos sobre celda teñida se calculó en oklab sobre los tokens de
+ambos temas: peor caso `4.68:1` para el delta y `4.77:1` para la etiqueta del caso
+base, sobre un floor de `4.5:1`. Sobre el HTML prerenderizado se verificó un solo
+`h1`, 10 `h2` y 8 `h3` sin salto de nivel, 7 tablas con 42 `th scope="col"` y 38
+`th scope="row"`, 18 `<time datetime>` y 72 alternativas `sr-only`.
+
+Bloqueo y condición de salida: la revisión **renderizada** desktop/mobile a
+1440×900 y 390×844 en tema claro y oscuro no se ejecutó. No hay navegador
+disponible en la sesión y los scripts `live` de Impeccable no están aprobados por
+`AGENTS.md`; el chequeo estático sobre el HTML no se presenta como su sustituto.
+`F1-06` pasa a `done` cuando esa medición se ejecuta y sus capturas quedan en
+`.impeccable/review/`.
+
 #### `F1-07` — Gate automatizado del flujo demo
 
 Criterios de aceptación:
@@ -422,28 +492,28 @@ Esta matriz evita que una amenaza o deuda visual quede mencionada sin un issue q
 la cierre. La columna “primer cierre” indica el primer slice que debe implementar o
 probar el control; fases posteriores pueden volver a verificarlo.
 
-| Deuda   | Primer cierre                                           | Seguimiento posterior                      | Estado actual                                                                           |
-| ------- | ------------------------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------- |
-| `TM-01` | `F1-02`                                                 | `F1-07`, `F7-01`, `F9-06`                  | `done`: composición y tests cruzados demo/personal verificados                          |
-| `TM-02` | `F1-02`                                                 | cada frontera, `F8-03`, `F9-06`            | `done`: DB server-only y URLs pooled/direct separadas probadas                          |
-| `TM-03` | primer slice con frontera; gate en `F1-07`              | `F4-04`, `F7-01`, `F8-06`                  | contracted                                                                              |
-| `TM-04` | `F1-02`                                                 | `F1-07`, `F7-01`, `F8-04`                  | `done`: repository y cache namespaced por modo, integración verificada                  |
-| `TM-05` | `F1-03`                                                 | `F2-03`, `F3-05`, cada parser/modelo       | `done` de ingesta a publicación: vacío y parser roto no publican ni reemplazan          |
-| `TM-06` | `F1-04`                                                 | `F2-02`, `F3-05`, cada consulta histórica  | `done` de la consulta a la valuación: dos cortes producen dos corridas distintas        |
-| `TM-07` | `F1-02`                                                 | `F1-07`, `F2-06`, `F8-05`                  | `done`: Drizzle parametrizado y límite de consulta verificados en PostgreSQL            |
-| `TM-08` | `F2-01` antes del primer provider                       | `F6-01`, `F7-04`, `F8-05`                  | required; no hay egress aún                                                             |
-| `TM-09` | `F7-04`                                                 | `F7-06`, `F8-05`, `F8-06`                  | required; no hay IA aún                                                                 |
-| `TM-10` | `F2-01`                                                 | `F2-05`, `F7-02`, `F9-02`                  | contracted; no hay gasto live aún                                                       |
-| `TM-11` | `F2-05`                                                 | `F6-01`, `F9-01`, `F9-05`                  | idempotencia y replay probados en `F1-03`; lease, `429` y crash siguen abiertos         |
-| `TM-12` | `F1-01`                                                 | cada UI externa, `F9-03`                   | headers base y render seguro verificados                                                |
-| `TM-13` | `F9-06`                                                 | cada actualización de dependencia/skill    | baseline implementada; scans pendientes                                                 |
-| `TM-14` | antes del primer preview personal (`F7-01` como máximo) | `F8-03`, `F9-06`                           | contracted; no hay deployment personal                                                  |
-| `TM-15` | `F1-03` para fixtures                                   | cada proveedor/export/IA, `F8-02`, `F9-04` | `done`: gate de derechos ejecutable antes del provider y fixtures sintéticas            |
-| `TM-16` | `F1-03`                                                 | cada operación y gate                      | `done` sobre ingesta y valuación: corridas append-only con hash, versión y error seguro |
-| `UI-01` | Fase `0B.7`                                             | revisar copy al cambiar roadmap            | `done`: registro de home alineado con Fases 2, 3, 4 y 6                                 |
-| `UI-02` | `F1-07`                                                 | `F1-08`, `F9-03`                           | pendiente                                                                               |
-| `UI-03` | `F1-01`                                                 | cada feedback stateful, `F9-03`            | `done`: estados y reduced motion conservan feedback                                     |
-| `UI-04` | `F1-01`                                                 | cada extracción visual, `F9-03`            | `done`: escala reusable y token de contraste registrados                                |
+| Deuda   | Primer cierre                                           | Seguimiento posterior                      | Estado actual                                                                             |
+| ------- | ------------------------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| `TM-01` | `F1-02`                                                 | `F1-07`, `F7-01`, `F9-06`                  | `done`: composición y tests cruzados demo/personal verificados                            |
+| `TM-02` | `F1-02`                                                 | cada frontera, `F8-03`, `F9-06`            | `done`: DB server-only y URLs pooled/direct separadas probadas                            |
+| `TM-03` | primer slice con frontera; gate en `F1-07`              | `F4-04`, `F7-01`, `F8-06`                  | contracted                                                                                |
+| `TM-04` | `F1-02`                                                 | `F1-07`, `F7-01`, `F8-04`                  | `done`: repository y cache namespaced por modo, integración verificada                    |
+| `TM-05` | `F1-03`                                                 | `F2-03`, `F3-05`, cada parser/modelo       | `done` de ingesta a publicación: vacío y parser roto no publican ni reemplazan            |
+| `TM-06` | `F1-04`                                                 | `F2-02`, `F3-05`, cada consulta histórica  | `done` de la consulta a la valuación: dos cortes producen dos corridas distintas          |
+| `TM-07` | `F1-02`                                                 | `F1-07`, `F2-06`, `F8-05`                  | `done`: Drizzle parametrizado y límite de consulta verificados en PostgreSQL              |
+| `TM-08` | `F2-01` antes del primer provider                       | `F6-01`, `F7-04`, `F8-05`                  | required; no hay egress aún                                                               |
+| `TM-09` | `F7-04`                                                 | `F7-06`, `F8-05`, `F8-06`                  | required; no hay IA aún                                                                   |
+| `TM-10` | `F2-01`                                                 | `F2-05`, `F7-02`, `F9-02`                  | contracted; no hay gasto live aún                                                         |
+| `TM-11` | `F2-05`                                                 | `F6-01`, `F9-01`, `F9-05`                  | idempotencia y replay probados en `F1-03`; lease, `429` y crash siguen abiertos           |
+| `TM-12` | `F1-01`                                                 | cada UI externa, `F9-03`                   | headers base y render seguro verificados                                                  |
+| `TM-13` | `F9-06`                                                 | cada actualización de dependencia/skill    | baseline implementada; scans pendientes                                                   |
+| `TM-14` | antes del primer preview personal (`F7-01` como máximo) | `F8-03`, `F9-06`                           | contracted; no hay deployment personal                                                    |
+| `TM-15` | `F1-03` para fixtures                                   | cada proveedor/export/IA, `F8-02`, `F9-04` | `done`: gate de derechos ejecutable antes del provider y fixtures sintéticas              |
+| `TM-16` | `F1-03`                                                 | cada operación y gate                      | `done` sobre ingesta y valuación: corridas append-only con hash, versión y error seguro   |
+| `UI-01` | Fase `0B.7`                                             | revisar copy al cambiar roadmap            | `done`: registro de home alineado con Fases 2, 3, 4 y 6                                   |
+| `UI-02` | `F1-07`                                                 | `F1-08`, `F9-03`                           | pendiente: chequeo estático y contraste medidos en `F1-06`; falta la revisión renderizada |
+| `UI-03` | `F1-01`                                                 | cada feedback stateful, `F9-03`            | `done`: estados y reduced motion conservan feedback                                       |
+| `UI-04` | `F1-01`                                                 | cada extracción visual, `F9-03`            | `done`: escala reusable y token de contraste registrados                                  |
 
 ## Plantilla para nuevos issues
 

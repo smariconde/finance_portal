@@ -31,14 +31,26 @@ import {
 import type { AppMode } from "@/modules/configuration/domain/config-health";
 
 const activeItems = [
-  { href: "/", label: "Inicio", icon: Home },
-  { href: "/configuracion", label: "Configuración", icon: Settings2 },
+  { href: "/", label: "Inicio", icon: Home, badge: null },
+  {
+    href: "/valuacion/demo",
+    label: "Valuación",
+    icon: Calculator,
+    // La ruta existe y muestra una corrida real del motor, pero sobre una
+    // empresa fixture: el badge lo dice en la navegación, no sólo en la página.
+    badge: "Demo",
+  },
+  {
+    href: "/configuracion",
+    label: "Configuración",
+    icon: Settings2,
+    badge: null,
+  },
 ] as const;
 
 const plannedItems = [
   { label: "Empresas", icon: Building2 },
   { label: "Matrices", icon: BarChart3 },
-  { label: "Valuación", icon: Calculator },
   { label: "Argentina", icon: Landmark },
   { label: "Agro", icon: Wheat },
 ] as const;
@@ -114,6 +126,9 @@ export function AppSidebar({ mode }: AppSidebarProps) {
                     <item.icon />
                     <span>{item.label}</span>
                   </SidebarMenuButton>
+                  {item.badge === null ? null : (
+                    <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>
+                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>

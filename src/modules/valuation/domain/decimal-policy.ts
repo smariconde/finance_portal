@@ -120,8 +120,34 @@ export function formatDecimal(value: Dec, path: string): string {
   return finite.isZero() ? "0" : finite.toFixed();
 }
 
+/**
+ * Serialización de **presentación**: escala fija bajo la misma política de
+ * redondeo del motor. No reemplaza a `formatDecimal`, que es la única forma en
+ * que un valor entra en un hash o en la persistencia: acá el valor ya se
+ * redondeó para leerse, así que nunca vuelve al cálculo.
+ *
+ * El cero con signo se normaliza porque `-0,00` sugiere una magnitud negativa
+ * que la escala mostrada no puede sostener.
+ */
+export const MAX_DISPLAY_SCALE = 12;
+
+export function toFixedScale(value: Dec, scale: number, path: string): string {
+  if (!Number.isInteger(scale) || scale < 0 || scale > MAX_DISPLAY_SCALE) {
+    throw new ValuationPolicyError(
+      "invalid_decimal",
+      `A display scale must be an integer between 0 and ${MAX_DISPLAY_SCALE}.`,
+      [path],
+    );
+  }
+
+  const fixed = assertFinite(value, path).toFixed(scale);
+
+  return /^-0(?:\.0+)?$/u.test(fixed) ? fixed.slice(1) : fixed;
+}
+
 export const ZERO: Dec = new Engine(0);
 export const ONE: Dec = new Engine(1);
+export const HUNDRED: Dec = new Engine(100);
 
 export function sum(values: readonly Dec[]): Dec {
   return values.reduce<Dec>((total, value) => total.plus(value), ZERO);
