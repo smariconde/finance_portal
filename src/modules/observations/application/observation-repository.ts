@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { AppMode } from "@/modules/configuration/domain/config-health";
+import { selectPersonalDependency } from "@/modules/configuration/domain/runtime-lock";
 import { contentHashSchema } from "@/modules/temporal/domain/temporal-version";
 
 import {
@@ -45,7 +46,7 @@ export type ObservationPublication = {
 };
 
 export interface ObservationRepository {
-  readonly storage: "demo-fixture" | "personal-postgres";
+  readonly storage: "in-memory-fixture" | "personal-postgres";
   findLatestRevision(revisionGroupId: string): Promise<Observation | null>;
   listByRevisionGroup(revisionGroupId: string): Promise<Observation[]>;
   list(query: ObservationListQuery): Promise<Observation[]>;
@@ -55,7 +56,6 @@ export interface ObservationRepository {
 export const revisionGroupIdSchema = contentHashSchema;
 
 type RepositoryFactories = {
-  demo: () => ObservationRepository;
   personal: () => ObservationRepository;
 };
 
@@ -63,7 +63,7 @@ export function selectObservationRepository(
   mode: AppMode,
   factories: RepositoryFactories,
 ): ObservationRepository {
-  return mode === "personal" ? factories.personal() : factories.demo();
+  return selectPersonalDependency(mode, "observation", factories.personal);
 }
 
 /**

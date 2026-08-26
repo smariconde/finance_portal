@@ -42,7 +42,8 @@ const stateGuide: Array<{
   },
   {
     status: "disabled",
-    meaning: "La capacidad existe como contrato, pero está bloqueada por modo.",
+    meaning:
+      "La capacidad existe como contrato, pero el runtime no la habilita.",
   },
   {
     status: "planned",
@@ -64,9 +65,10 @@ export default function ConfigurationPage() {
             Configuración
           </h1>
           <p className="max-w-3xl text-sm text-muted-foreground md:text-base">
-            Diagnóstico seguro de runtime y capacidades. Sólo se muestran
-            nombres y presencia de configuración server-only, nunca valores
-            secretos.
+            Diagnóstico seguro de runtime y capacidades. Es la única superficie
+            que sigue disponible con el runtime trabado, para poder ver qué
+            falta declarar. Sólo muestra nombres de configuración, nunca
+            valores.
           </p>
         </section>
 
@@ -172,14 +174,17 @@ export default function ConfigurationPage() {
           <CardHeader>
             <CardTitle as="h2">Límite actual del sistema</CardTitle>
             <CardDescription>
-              F1-02 incorpora el contrato de persistencia. Postgres sólo se abre
-              en modo personal; la demo permanece aislada en fixtures.
+              El runtime sirve datos únicamente en modo personal. Un entorno que
+              no puede probar que es privado queda trabado y no abre PostgreSQL.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
               <li className="rounded-md border bg-muted/30 px-3 py-2">
                 Postgres requiere modo personal y una conexión pooled.
+              </li>
+              <li className="rounded-md border bg-muted/30 px-3 py-2">
+                Un runtime trabado no sirve datos ni ofrece un reemplazo.
               </li>
               <li className="rounded-md border bg-muted/30 px-3 py-2">
                 Sin proveedores ni tráfico externo.

@@ -59,8 +59,12 @@ export const publishObservationsCommandSchema = z.object({
     .min(1)
     .max(64)
     .default(DEFAULT_SOURCE_POLICY_VERSION),
-  /** Modo efectivo: forma parte de la identidad de cache invalidada. */
-  mode: z.enum(["demo", "personal"]).default("demo"),
+  /**
+   * Modo efectivo: forma parte de la identidad de cache invalidada. Sólo
+   * `personal` publica, así que no lleva default: quien publica declara bajo
+   * qué runtime lo hace en vez de heredarlo.
+   */
+  mode: z.literal("personal"),
 });
 
 export type PublishObservationsCommand = z.input<

@@ -5,7 +5,6 @@ import {
   selectDatasetSnapshotRepository,
   type DatasetSnapshotRepository,
 } from "@/modules/persistence/application/dataset-snapshot-repository";
-import { createDemoDatasetSnapshotRepository } from "@/modules/persistence/infrastructure/demo-dataset-snapshot-repository";
 import { getRuntimeDatabase } from "@/server/db/runtime-client";
 import { createPostgresDatasetSnapshotRepository } from "@/server/db/postgres-dataset-snapshot-repository";
 
@@ -18,7 +17,6 @@ export function getDatasetSnapshotRepository(): DatasetSnapshotRepository {
 
   const effectiveMode = getConfigHealth(process.env).mode;
   repository = selectDatasetSnapshotRepository(effectiveMode, {
-    demo: createDemoDatasetSnapshotRepository,
     personal: () =>
       createPostgresDatasetSnapshotRepository(getRuntimeDatabase()),
   });

@@ -1,6 +1,8 @@
 # ADR 0002: modos de runtime, persistencia durable y exposición de datos
 
-- Estado: aceptado
+- Estado: parcialmente reemplazado por la [ADR 0004](0004-personal-first-runtime.md)
+- Vigente: persistencia durable, separación pooled/directa y límites de exposición
+- Reemplazado: el eje `demo | personal` y el fallback a fixtures, hoy `locked | personal` con fallo cerrado
 - Fecha: 2026-08-21
 - Alcance: Fase 0B.5
 - Decisiones relacionadas: [ADR 0001](0001-stack-cache-postgres.md) y

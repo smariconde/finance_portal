@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { AppMode } from "@/modules/configuration/domain/config-health";
+import { selectPersonalDependency } from "@/modules/configuration/domain/runtime-lock";
 import type { IngestionRun } from "@/modules/ingestion/domain/ingestion-run";
 import {
   datasetIdSchema,
@@ -16,7 +17,7 @@ export const ingestionRunListQuerySchema = z.object({
 export type IngestionRunListQuery = z.input<typeof ingestionRunListQuerySchema>;
 
 export interface IngestionRunRepository {
-  readonly storage: "demo-fixture" | "personal-postgres";
+  readonly storage: "in-memory-fixture" | "personal-postgres";
   /** Corrida más reciente registrada para esa clave, publicable o no. */
   findByIdempotencyKey(idempotencyKey: string): Promise<IngestionRun | null>;
   /** Última corrida publicable, usada para deduplicar por content hash. */
@@ -30,7 +31,6 @@ export interface IngestionRunRepository {
 }
 
 type RepositoryFactories = {
-  demo: () => IngestionRunRepository;
   personal: () => IngestionRunRepository;
 };
 
@@ -38,7 +38,7 @@ export function selectIngestionRunRepository(
   mode: AppMode,
   factories: RepositoryFactories,
 ): IngestionRunRepository {
-  return mode === "personal" ? factories.personal() : factories.demo();
+  return selectPersonalDependency(mode, "ingestion-run", factories.personal);
 }
 
 export function createIngestionRunCacheIdentity(

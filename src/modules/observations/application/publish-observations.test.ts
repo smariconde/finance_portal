@@ -18,8 +18,8 @@ import {
   DEMO_PARSER_VERSION,
   DEMO_SOURCE_ID,
 } from "@/modules/ingestion/infrastructure/demo-ingestion-fixtures";
-import { createDemoIngestionRunRepository } from "@/modules/ingestion/infrastructure/demo-ingestion-run-repository";
-import { createDemoSourceRegistryRepository } from "@/modules/ingestion/infrastructure/demo-source-registry-repository";
+import { createInMemoryIngestionRunRepository } from "@/modules/ingestion/infrastructure/in-memory-ingestion-run-repository";
+import { createInMemorySourceRegistryRepository } from "@/modules/ingestion/infrastructure/in-memory-source-registry-repository";
 import type { ObservationRepository } from "@/modules/observations/application/observation-repository";
 import {
   PublicationNotAllowedError,
@@ -27,7 +27,7 @@ import {
 } from "@/modules/observations/application/publish-observations";
 import { LATE_INGESTION_FLAG } from "@/modules/observations/domain/observation";
 import { queryObservations } from "@/modules/observations/domain/select-observations";
-import { createDemoObservationRepository } from "@/modules/observations/infrastructure/demo-observation-repository";
+import { createInMemoryObservationRepository } from "@/modules/observations/infrastructure/in-memory-observation-repository";
 import {
   pointInTimeQuerySchema,
   type PointInTimeQueryInput,
@@ -51,8 +51,8 @@ function createIds(prefix: string) {
 }
 
 function createHarness() {
-  const ingestionRuns = createDemoIngestionRunRepository();
-  const observations = createDemoObservationRepository();
+  const ingestionRuns = createInMemoryIngestionRunRepository();
+  const observations = createInMemoryObservationRepository();
   const identity = createGraphIdentityResolver(() => DEMO_IDENTITY_GRAPH);
 
   async function ingest(
@@ -68,7 +68,7 @@ function createHarness() {
         ...overrides,
       },
       {
-        sourceRegistry: createDemoSourceRegistryRepository(),
+        sourceRegistry: createInMemorySourceRegistryRepository(),
         ingestionRuns,
         provider,
         now: () => RUN_CLOCK,
@@ -85,7 +85,7 @@ function createHarness() {
     return publishObservations(
       outcome.run,
       outcome.records,
-      { fetchedAt: outcome.fetchedAt!, mode: "demo" },
+      { fetchedAt: outcome.fetchedAt!, mode: "personal" },
       {
         identity,
         observations: repository,
@@ -197,7 +197,7 @@ describe("publishObservations", () => {
     expect(publication.invalidations).toStrictEqual([
       [
         "observation",
-        "demo",
+        "personal",
         "legal_entity",
         DEMO_IDENTITY_IDS.fixtureCoEntity,
       ],
@@ -362,13 +362,13 @@ describe("publishObservations", () => {
       depositaryRatios: [],
       identifierAssignments: [],
     });
-    const observations = createDemoObservationRepository();
+    const observations = createInMemoryObservationRepository();
     const publishSpy = vi.spyOn(observations, "publish");
 
     const publication = await publishObservations(
       outcome.run,
       outcome.records,
-      { fetchedAt: outcome.fetchedAt!, mode: "demo" },
+      { fetchedAt: outcome.fetchedAt!, mode: "personal" },
       {
         identity: {
           ruleVersion: "identity-resolution-1.0.0",

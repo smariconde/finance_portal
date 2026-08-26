@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { AppMode } from "@/modules/configuration/domain/config-health";
+import { selectPersonalDependency } from "@/modules/configuration/domain/runtime-lock";
 import {
   approvalStatusSchema,
   sourceIdSchema,
@@ -22,7 +23,7 @@ type ParsedSourceRegistryListQuery = z.output<
 >;
 
 export interface SourceRegistryRepository {
-  readonly storage: "demo-fixture" | "personal-postgres";
+  readonly storage: "in-memory-fixture" | "personal-postgres";
   findBySourceId(sourceId: string): Promise<SourceRegistryEntry | null>;
   list(query?: SourceRegistryListQuery): Promise<SourceRegistryEntry[]>;
   /**
@@ -33,7 +34,6 @@ export interface SourceRegistryRepository {
 }
 
 type RepositoryFactories = {
-  demo: () => SourceRegistryRepository;
   personal: () => SourceRegistryRepository;
 };
 
@@ -41,7 +41,7 @@ export function selectSourceRegistryRepository(
   mode: AppMode,
   factories: RepositoryFactories,
 ): SourceRegistryRepository {
-  return mode === "personal" ? factories.personal() : factories.demo();
+  return selectPersonalDependency(mode, "source-registry", factories.personal);
 }
 
 export function createSourceRegistryCacheIdentity(

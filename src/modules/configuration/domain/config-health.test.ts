@@ -1,68 +1,78 @@
 import { describe, expect, it } from "vitest";
 
-import { getConfigHealth } from "@/modules/configuration/domain/config-health";
+import {
+  getConfigHealth,
+  servesRealData,
+} from "@/modules/configuration/domain/config-health";
+
+const PRIVATE_LOCAL = {
+  APP_MODE: "personal",
+  APP_RUNTIME_ACCESS: "local",
+  DATABASE_URL: "postgres://pooled",
+} as const;
 
 describe("getConfigHealth", () => {
-  it("starts safely in demo mode without optional configuration", () => {
+  it("locks a runtime that declares nothing", () => {
     const health = getConfigHealth({});
 
-    expect(health.mode).toBe("demo");
+    expect(health.mode).toBe("locked");
     expect(health.access).toBe("public");
+    expect(servesRealData(health)).toBe(false);
     expect(health.items).toEqual([
       expect.objectContaining({ id: "core", status: "ready" }),
       expect.objectContaining({ id: "database", status: "disabled" }),
-      expect.objectContaining({
-        id: "liveIntegrations",
-        status: "disabled",
-      }),
+      expect.objectContaining({ id: "liveIntegrations", status: "disabled" }),
     ]);
   });
 
-  it("reports missing database variables in personal mode", () => {
+  it("serves data on a private local runtime with a pooled URL", () => {
+    const health = getConfigHealth(PRIVATE_LOCAL);
+
+    expect(health.mode).toBe("personal");
+    expect(servesRealData(health)).toBe(true);
+    expect(health.items.find((item) => item.id === "core")).toMatchObject({
+      status: "ready",
+      missingVariables: [],
+    });
+    expect(health.items.find((item) => item.id === "database")).toMatchObject({
+      status: "ready",
+      missingVariables: [],
+    });
+  });
+
+  it("locks personal mode when the pooled database is missing", () => {
     const health = getConfigHealth({
       APP_MODE: "personal",
       APP_RUNTIME_ACCESS: "local",
     });
-    const database = health.items.find((item) => item.id === "database");
 
-    expect(database).toMatchObject({
+    // Un personal sin base no es un personal degradado: no sirve nada, así que
+    // se traba en vez de prometer datos y devolver vacío.
+    expect(health.mode).toBe("locked");
+    expect(servesRealData(health)).toBe(false);
+    expect(health.items.find((item) => item.id === "core")).toMatchObject({
       status: "degraded",
       missingVariables: ["DATABASE_URL"],
     });
   });
 
-  it("reports personal persistence ready with a pooled runtime URL", () => {
-    const health = getConfigHealth({
-      APP_MODE: "personal",
-      APP_RUNTIME_ACCESS: "local",
-      DATABASE_URL: "postgres://pooled",
-    });
-
-    expect(health.items.find((item) => item.id === "database")).toMatchObject({
-      status: "ready",
-      message:
-        "Configurada para runtime pooled; este health no prueba conectividad.",
-      missingVariables: [],
-    });
-  });
-
-  it("falls back to demo when APP_MODE is invalid", () => {
+  it("locks an invalid APP_MODE instead of guessing one", () => {
     const health = getConfigHealth({ APP_MODE: "public-live" });
 
-    expect(health.mode).toBe("demo");
+    expect(health.mode).toBe("locked");
     expect(health.items.find((item) => item.id === "core")).toMatchObject({
       status: "degraded",
       missingVariables: ["APP_MODE"],
     });
   });
 
-  it("falls back to demo when personal mode has no private runtime boundary", () => {
+  it("locks personal mode with no private runtime boundary", () => {
     const health = getConfigHealth({
       APP_MODE: "personal",
       DATABASE_URL: "postgres://pooled",
     });
 
-    expect(health.mode).toBe("demo");
+    expect(health.mode).toBe("locked");
     expect(health.items.find((item) => item.id === "core")).toMatchObject({
       status: "degraded",
       missingVariables: ["APP_RUNTIME_ACCESS"],
@@ -72,14 +82,14 @@ describe("getConfigHealth", () => {
     });
   });
 
-  it("falls back to demo when APP_RUNTIME_ACCESS is invalid", () => {
+  it("locks an invalid APP_RUNTIME_ACCESS", () => {
     const health = getConfigHealth({
       APP_MODE: "personal",
       APP_RUNTIME_ACCESS: "private-network",
       DATABASE_URL: "postgres://pooled",
     });
 
-    expect(health.mode).toBe("demo");
+    expect(health.mode).toBe("locked");
     expect(health.access).toBe("public");
     expect(health.items.find((item) => item.id === "core")).toMatchObject({
       status: "degraded",
@@ -89,14 +99,12 @@ describe("getConfigHealth", () => {
 
   it("rejects a local access declaration inside Vercel", () => {
     const health = getConfigHealth({
-      APP_MODE: "personal",
-      APP_RUNTIME_ACCESS: "local",
-      DATABASE_URL: "postgres://pooled",
+      ...PRIVATE_LOCAL,
       VERCEL: "1",
       VERCEL_ENV: "preview",
     });
 
-    expect(health.mode).toBe("demo");
+    expect(health.mode).toBe("locked");
     expect(health.items.find((item) => item.id === "core")).toMatchObject({
       status: "degraded",
       missingVariables: ["APP_RUNTIME_ACCESS"],
@@ -112,17 +120,11 @@ describe("getConfigHealth", () => {
       VERCEL_ENV: "preview",
     });
 
-    expect(health).toMatchObject({
-      mode: "personal",
-      access: "protected",
-    });
-    expect(health.items.find((item) => item.id === "core")).toMatchObject({
-      status: "ready",
-      missingVariables: [],
-    });
+    expect(health).toMatchObject({ mode: "personal", access: "protected" });
+    expect(servesRealData(health)).toBe(true);
   });
 
-  it("forces a Vercel production deployment back to demo", () => {
+  it("locks a Vercel production deployment even when it declares protection", () => {
     const health = getConfigHealth({
       APP_MODE: "personal",
       APP_RUNTIME_ACCESS: "protected",
@@ -131,7 +133,10 @@ describe("getConfigHealth", () => {
       VERCEL_ENV: "production",
     });
 
-    expect(health.mode).toBe("demo");
+    // El repositorio es público y sus datos no. Un deployment de producción no
+    // puede probar que es privado, así que no recibe datos.
+    expect(health.mode).toBe("locked");
+    expect(servesRealData(health)).toBe(false);
     expect(health.items.find((item) => item.id === "core")).toMatchObject({
       status: "degraded",
       missingVariables: ["VERCEL_ENV"],
@@ -141,7 +146,7 @@ describe("getConfigHealth", () => {
   it("never exposes configured secret values", () => {
     const secret = "do-not-leak-this-value";
     const health = getConfigHealth({
-      APP_MODE: "demo",
+      APP_MODE: "locked",
       ALPACA_API_SECRET_KEY: secret,
     });
 

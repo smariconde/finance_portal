@@ -1,8 +1,30 @@
 import { z } from "zod";
 
-const appModeSchema = z.enum(["demo", "personal"]);
+/**
+ * Resolución del modo efectivo del runtime
+ * ([ADR 0004](../../../../docs/architecture/adr/0004-personal-first-runtime.md),
+ * que reemplaza el fallback a fixtures de la ADR 0002).
+ *
+ * El portal es de un solo owner y sirve datos reales. Sólo existen dos estados:
+ *
+ * - `personal`: el entorno probó ser privado —local fuera de Vercel o Preview
+ *   protegido— y tiene una conexión pooled. Es el único que sirve datos.
+ * - `locked`: **cualquier** otra situación. No sirve datos, no abre PostgreSQL y
+ *   no consulta proveedores. No es una demo: es una negativa.
+ *
+ * El estado inseguro falla cerrado en vez de degradar a datos sintéticos. El
+ * código de este repositorio es público y sus datos no: si un deployment no
+ * puede probar que es privado, la respuesta correcta es no responder, no
+ * inventar una versión publicable de la base del owner.
+ */
+const appModeSchema = z.enum(["locked", "personal"]);
 const appRuntimeAccessSchema = z.enum(["public", "local", "protected"]);
 
+/**
+ * Variables de integraciones que el runtime todavía no consume. Se listan para
+ * poder avisar que están configuradas y se ignoran, no porque su proveedor esté
+ * adoptado: elegir el stack real es `F2-01`.
+ */
 const liveConfigurationVariables = [
   "ALPACA_API_KEY_ID",
   "ALPACA_API_SECRET_KEY",
@@ -41,16 +63,19 @@ type RuntimeResolution = {
   mode: AppMode;
   access: AppRuntimeAccess;
   problems: string[];
-  usedSafeFallback: boolean;
+  /** `true` cuando se pidió `personal` y el entorno no pudo sostenerlo. */
+  lockedByPolicy: boolean;
 };
 
 function resolveRuntime(environment: Environment): RuntimeResolution {
-  const parsedMode = appModeSchema.safeParse(environment.APP_MODE ?? "demo");
+  // Sin `APP_MODE` declarado el runtime queda trabado. No hay default útil:
+  // un entorno que no dice qué es no puede recibir datos del owner.
+  const parsedMode = appModeSchema.safeParse(environment.APP_MODE ?? "locked");
   const hasExplicitAccess = hasValue(environment.APP_RUNTIME_ACCESS);
   const parsedAccess = appRuntimeAccessSchema.safeParse(
     environment.APP_RUNTIME_ACCESS ?? "public",
   );
-  const requestedMode = parsedMode.success ? parsedMode.data : "demo";
+  const requestedMode = parsedMode.success ? parsedMode.data : "locked";
   const access = parsedAccess.success ? parsedAccess.data : "public";
   const problems = new Set<string>();
 
@@ -79,16 +104,25 @@ function resolveRuntime(environment: Environment): RuntimeResolution {
     if (access === "protected" && !isProtectedPreview) {
       problems.add("VERCEL_ENV");
     }
+
+    // La conexión pooled es parte de la definición de `personal`: sin ella el
+    // modo no puede servir nada y quedaría en un estado intermedio que promete
+    // datos y devuelve vacío.
+    for (const name of personalRuntimeDatabaseVariables) {
+      if (!hasValue(environment[name])) {
+        problems.add(name);
+      }
+    }
   }
 
-  const usedSafeFallback =
+  const lockedByPolicy =
     !parsedMode.success || (requestedMode === "personal" && problems.size > 0);
 
   return {
-    mode: usedSafeFallback ? "demo" : requestedMode,
+    mode: lockedByPolicy ? "locked" : requestedMode,
     access,
     problems: [...problems],
-    usedSafeFallback,
+    lockedByPolicy,
   };
 }
 
@@ -105,10 +139,21 @@ function inspectCore(
     ...(hasInvalidUrl ? ["NEXT_PUBLIC_APP_URL"] : []),
   ];
 
+  if (runtime.lockedByPolicy) {
+    return {
+      id: "core",
+      label: "Configuración base",
+      status: "degraded",
+      message:
+        "El runtime no pudo probar que es privado; quedó trabado y no sirve datos.",
+      missingVariables: problems,
+    };
+  }
+
   const healthyMessage =
     runtime.mode === "personal"
       ? "El modo personal está limitado al runtime local o protegido declarado."
-      : "El modo demo y su límite de exposición son seguros.";
+      : "El runtime está trabado por declaración y no sirve datos.";
 
   return {
     id: "core",
@@ -117,40 +162,38 @@ function inspectCore(
     message:
       problems.length === 0
         ? healthyMessage
-        : runtime.usedSafeFallback
-          ? "La configuración solicitada no es segura; se aplicó el modo demo."
-          : "Hay valores de configuración inválidos que requieren revisión.",
+        : "Hay valores de configuración inválidos que requieren revisión.",
     missingVariables: problems,
   };
 }
 
 function inspectDatabase(
   environment: Environment,
-  mode: AppMode,
+  runtime: RuntimeResolution,
 ): ConfigHealthItem {
-  if (mode === "demo") {
+  if (runtime.mode === "locked") {
+    const missingVariables = personalRuntimeDatabaseVariables.filter(
+      (name) => !hasValue(environment[name]),
+    );
+
     return {
       id: "database",
       label: "Postgres",
       status: "disabled",
-      message: "La demo usa fixtures y no abre una conexión PostgreSQL.",
-      missingVariables: [],
+      message: runtime.lockedByPolicy
+        ? "No se abre ninguna conexión mientras el runtime esté trabado."
+        : "El runtime está trabado por declaración y no abre PostgreSQL.",
+      missingVariables: [...missingVariables],
     };
   }
-
-  const missingVariables = personalRuntimeDatabaseVariables.filter(
-    (name) => !hasValue(environment[name]),
-  );
 
   return {
     id: "database",
     label: "Postgres",
-    status: missingVariables.length === 0 ? "ready" : "degraded",
+    status: "ready",
     message:
-      missingVariables.length === 0
-        ? "Configurada para runtime pooled; este health no prueba conectividad."
-        : "El modo personal requiere una conexión pooled server-only.",
-    missingVariables: [...missingVariables],
+      "Configurada para runtime pooled; este health no prueba conectividad.",
+    missingVariables: [],
   };
 }
 
@@ -162,14 +205,14 @@ function inspectLiveIntegrations(
     hasValue(environment[name]),
   );
 
-  if (mode === "demo") {
+  if (mode === "locked") {
     return {
       id: "liveIntegrations",
       label: "Integraciones live",
       status: hasLiveConfiguration ? "degraded" : "disabled",
       message: hasLiveConfiguration
-        ? "Se detectó configuración live, pero el modo demo la ignora."
-        : "Bloqueadas por el modo demo y por el roadmap.",
+        ? "Se detectó configuración live, pero un runtime trabado la ignora."
+        : "Bloqueadas mientras el runtime esté trabado.",
       missingVariables: [],
     };
   }
@@ -178,7 +221,7 @@ function inspectLiveIntegrations(
     id: "liveIntegrations",
     label: "Integraciones live",
     status: "disabled",
-    message: "Planificadas para fases posteriores; ninguna API está conectada.",
+    message: "Ninguna fuente está conectada todavía; se habilitan en Fase 2.",
     missingVariables: [],
   };
 }
@@ -191,8 +234,17 @@ export function getConfigHealth(environment: Environment): ConfigHealth {
     access: runtime.access,
     items: [
       inspectCore(environment, runtime),
-      inspectDatabase(environment, runtime.mode),
+      inspectDatabase(environment, runtime),
       inspectLiveIntegrations(environment, runtime.mode),
     ],
   };
+}
+
+/**
+ * Único predicado que autoriza leer datos. Las superficies preguntan por acá en
+ * vez de comparar el modo a mano, para que agregar un estado futuro no deje una
+ * ruta sirviendo datos por omisión.
+ */
+export function servesRealData(health: ConfigHealth): boolean {
+  return health.mode === "personal";
 }

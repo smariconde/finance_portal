@@ -28,7 +28,7 @@ export class ConcurrentRevisionError extends Error {
  * publicación atómica— para que el aislamiento de modos no cambie la semántica
  * observada (`TM-04`).
  */
-export function createDemoObservationRepository(
+export function createInMemoryObservationRepository(
   seed: readonly Observation[] = [],
 ): ObservationRepository {
   const stored: Observation[] = seed.map((observation) =>
@@ -42,7 +42,7 @@ export function createDemoObservationRepository(
   }
 
   return {
-    storage: "demo-fixture",
+    storage: "in-memory-fixture",
     async findLatestRevision(revisionGroupId) {
       return groupOf(revisionGroupId).at(-1) ?? null;
     },

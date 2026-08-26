@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { AppMode } from "@/modules/configuration/domain/config-health";
+import { selectPersonalDependency } from "@/modules/configuration/domain/runtime-lock";
 import { contentHashSchema } from "@/modules/temporal/domain/temporal-version";
 
 import { ENGINE_VERSION, METHODOLOGY_VERSION } from "../domain/valuation-input";
@@ -40,7 +41,7 @@ export const valuationRunListQuerySchema = z.object({
 export type ValuationRunListQuery = z.input<typeof valuationRunListQuerySchema>;
 
 export interface ValuationRunRepository {
-  readonly storage: "demo-fixture" | "personal-postgres";
+  readonly storage: "in-memory-fixture" | "personal-postgres";
   /**
    * Registra la corrida. Es idempotente por clave de replay: si ya existe una
    * corrida para el mismo snapshot y motor devuelve **esa**, sin sobrescribirla
@@ -52,7 +53,6 @@ export interface ValuationRunRepository {
 }
 
 type RepositoryFactories = {
-  demo: () => ValuationRunRepository;
   personal: () => ValuationRunRepository;
 };
 
@@ -60,7 +60,7 @@ export function selectValuationRunRepository(
   mode: AppMode,
   factories: RepositoryFactories,
 ): ValuationRunRepository {
-  return mode === "personal" ? factories.personal() : factories.demo();
+  return selectPersonalDependency(mode, "valuation-run", factories.personal);
 }
 
 /**

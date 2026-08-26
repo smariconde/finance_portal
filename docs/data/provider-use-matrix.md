@@ -7,6 +7,28 @@
 - Registro relacionado: [`source-registry.md`](source-registry.md)
 - Alcance: instancia de un solo owner en `personal`; `demo` usa únicamente fixtures
 
+## Decisión del owner del 2026-08-25
+
+El owner declaró que la aplicación **no tendrá deployment público** y que todo el
+uso es particular ([ADR 0004](../architecture/adr/0004-personal-first-runtime.md)).
+Eso cambia qué preguntas siguen abiertas en esta matriz:
+
+- Las columnas de **demo pública** y **redistribución** dejan de aplicar: no existe
+  una superficie anónima que pueda publicar un dato de tercero. Lo que se conserva
+  es la columna de uso e ingesta personal.
+- El owner aprueba el **scraping de Comafi** para obtener programas y ratios de
+  CEDEAR, y el uso de **Yahoo Finance** para precios, tipo de cambio y granos, ambos
+  para consumo personal. Ninguno de los dos cobra ni requiere cuenta.
+- Lo que **sigue vigente** es todo lo que protege al propio proyecto: no commitear
+  payloads capturados ni credenciales al repositorio público, respetar cuotas y
+  backoff para no hacerse bloquear, y conservar provenance y versión de parser para
+  poder auditar de dónde salió cada número.
+- El presupuesto sigue siendo **cero**: ninguna fuente elegida cobra. Si una fuente
+  futura exige pago, es una decisión nueva y explícita.
+
+Las filas de abajo conservan su revisión de términos como registro histórico. Su
+columna de resultado se relee bajo esta decisión.
+
 ## Propósito
 
 Esta matriz convierte términos, avisos legales y límites técnicos en restricciones

@@ -4,7 +4,7 @@
 
 This repository contains an active Next.js application plus its masterplan. Read `docs/finance-portal-masterplan/` in numeric order before implementation and update its `README.md` when adding or renaming documents.
 
-The target is a single-owner portal with a public codebase. Do not add application auth, accounts, multi-tenancy, or BYOK unless scope changes explicitly. Real providers run only in personal mode; anonymous demo mode uses deterministic fixtures.
+The target is a single-owner portal with a public codebase and private data. Do not add application auth, accounts, multi-tenancy, or BYOK unless scope changes explicitly. The runtime is personal-first: `personal` serves real data from a private runtime and `locked` refuses to serve anything. There is no public demo deployment and no fallback dataset ([ADR 0004](docs/architecture/adr/0004-personal-first-runtime.md)).
 
 Generated code uses `src/app/` for routes, `src/modules/<domain>/` for domains, `src/server/` for infrastructure, `tests/` for tests, and `drizzle/` for migrations. Domain code must not import frameworks or provider SDKs.
 
@@ -52,7 +52,7 @@ Skills are vendored once in `.agents/skills/` and registered per agent runtime. 
 
 ## Testing, Data, and Security
 
-Every formula change requires unit tests plus edge cases for nulls, zero, negatives, currency mismatch, and non-finite results. Provider changes require sanitized fixtures, provenance, license review, schema validation, and failure-path contract tests. Keep secrets server-only, never use `NEXT_PUBLIC_` for keys, and never commit real credentials or licensed payloads.
+Every formula change requires unit tests plus edge cases for nulls, zero, negatives, currency mismatch, and non-finite results. Provider changes require recorded fixtures, provenance, schema validation, and failure-path contract tests; unit and contract tests never open the network, so every provider needs a fixture. Keep secrets server-only, never use `NEXT_PUBLIC_` for keys, and never commit real credentials or captured payloads to this public repository.
 
 Before adding a Route Handler, Server Action, provider, export, job, or AI capability,
 read `docs/security/threat-model.md` and close the controls assigned to that surface.

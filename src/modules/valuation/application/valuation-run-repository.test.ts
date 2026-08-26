@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { createDemoValuationRunRepository } from "../infrastructure/demo-valuation-run-repository";
+import { isRuntimeLockedError } from "@/modules/configuration/domain/runtime-lock";
+
+import { createInMemoryValuationRunRepository } from "../infrastructure/in-memory-valuation-run-repository";
 import {
   DEMO_VALUATION_INPUT,
   DEMO_VALUATION_INPUT_BEFORE_AMENDMENT,
@@ -22,7 +24,7 @@ const RUN_B = "99999999-8888-4777-8666-555555555555";
 
 describe("valuation run repository contract", () => {
   it("keeps a rerun of the same snapshot as one append-only run", async () => {
-    const repository = createDemoValuationRunRepository();
+    const repository = createInMemoryValuationRunRepository();
     const first = await repository.record(
       runValuation(DEMO_VALUATION_INPUT, dependencies(RUN_A)),
     );
@@ -44,7 +46,7 @@ describe("valuation run repository contract", () => {
   });
 
   it("treats another knowledge cutoff as another run", async () => {
-    const repository = createDemoValuationRunRepository();
+    const repository = createInMemoryValuationRunRepository();
 
     await repository.record(
       runValuation(DEMO_VALUATION_INPUT, dependencies(RUN_A)),
@@ -61,7 +63,7 @@ describe("valuation run repository contract", () => {
   });
 
   it("finds a run by its replay key", async () => {
-    const repository = createDemoValuationRunRepository();
+    const repository = createInMemoryValuationRunRepository();
     const stored = await repository.record(
       runValuation(DEMO_VALUATION_INPUT, dependencies(RUN_A)),
     );
@@ -79,7 +81,7 @@ describe("valuation run repository contract", () => {
   });
 
   it("records a rejected run as well", async () => {
-    const repository = createDemoValuationRunRepository();
+    const repository = createInMemoryValuationRunRepository();
     const rejected = await repository.record(
       runValuation(
         {
@@ -99,7 +101,7 @@ describe("valuation run repository contract", () => {
   });
 
   it("bounds a listing and filters by security", async () => {
-    const repository = createDemoValuationRunRepository();
+    const repository = createInMemoryValuationRunRepository();
 
     await repository.record(
       runValuation(DEMO_VALUATION_INPUT, dependencies(RUN_A)),
@@ -126,25 +128,37 @@ describe("valuation run repository contract", () => {
   });
 
   it("selects the repository in composition, never from a request", () => {
-    const demo = createDemoValuationRunRepository();
-    const personal = createDemoValuationRunRepository();
-    const factories = { demo: () => demo, personal: () => personal };
+    const personal = createInMemoryValuationRunRepository();
 
-    expect(selectValuationRunRepository("demo", factories)).toBe(demo);
-    expect(selectValuationRunRepository("personal", factories)).toBe(personal);
+    expect(
+      selectValuationRunRepository("personal", { personal: () => personal }),
+    ).toBe(personal);
+  });
+
+  it("refuses to build a repository while the runtime is locked", () => {
+    const personal = vi.fn(createInMemoryValuationRunRepository);
+
+    try {
+      selectValuationRunRepository("locked", { personal });
+      throw new Error("Expected a locked runtime rejection.");
+    } catch (error) {
+      expect(isRuntimeLockedError(error)).toBe(true);
+    }
+
+    expect(personal).not.toHaveBeenCalled();
   });
 
   it("namespaces the cache identity by effective mode", () => {
     const inputHash = "b".repeat(64);
 
-    expect(createValuationCacheIdentity("demo", inputHash)).toStrictEqual([
+    expect(createValuationCacheIdentity("locked", inputHash)).toStrictEqual([
       "valuation",
-      "demo",
+      "locked",
       "fcff-1.0.0",
       inputHash,
     ]);
     expect(
       createValuationCacheIdentity("personal", inputHash),
-    ).not.toStrictEqual(createValuationCacheIdentity("demo", inputHash));
+    ).not.toStrictEqual(createValuationCacheIdentity("locked", inputHash));
   });
 });

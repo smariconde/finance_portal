@@ -10,7 +10,7 @@ import {
 
 import { DEMO_SOURCE_REGISTRY } from "./demo-source-registry";
 
-export function createDemoSourceRegistryRepository(
+export function createInMemorySourceRegistryRepository(
   fixtureEntries: readonly SourceRegistryEntry[] = DEMO_SOURCE_REGISTRY,
 ): SourceRegistryRepository {
   const entries = fixtureEntries.map((entry) =>
@@ -18,7 +18,7 @@ export function createDemoSourceRegistryRepository(
   );
 
   return {
-    storage: "demo-fixture",
+    storage: "in-memory-fixture",
     async findBySourceId(sourceId) {
       return entries.find((entry) => entry.sourceId === sourceId) ?? null;
     },

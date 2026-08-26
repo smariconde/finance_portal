@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { AppMode } from "@/modules/configuration/domain/config-health";
+import { selectPersonalDependency } from "@/modules/configuration/domain/runtime-lock";
 import type { DatasetSnapshot } from "@/modules/persistence/domain/dataset-snapshot";
 
 export const datasetSnapshotListQuerySchema = z.object({
@@ -13,13 +14,12 @@ export type DatasetSnapshotListQuery = z.input<
 >;
 
 export interface DatasetSnapshotRepository {
-  readonly storage: "demo-fixture" | "personal-postgres";
+  readonly storage: "in-memory-fixture" | "personal-postgres";
   findById(snapshotId: string): Promise<DatasetSnapshot | null>;
   list(query: DatasetSnapshotListQuery): Promise<DatasetSnapshot[]>;
 }
 
 type RepositoryFactories = {
-  demo: () => DatasetSnapshotRepository;
   personal: () => DatasetSnapshotRepository;
 };
 
@@ -27,7 +27,7 @@ export function selectDatasetSnapshotRepository(
   mode: AppMode,
   factories: RepositoryFactories,
 ): DatasetSnapshotRepository {
-  return mode === "personal" ? factories.personal() : factories.demo();
+  return selectPersonalDependency(mode, "dataset-snapshot", factories.personal);
 }
 
 export function createDatasetSnapshotCacheIdentity(

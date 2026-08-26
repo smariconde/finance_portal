@@ -13,7 +13,7 @@ import { valuationRunSchema, type ValuationRun } from "../domain/valuation-run";
  * repositorio personal —append-only e idempotencia por clave de replay— para
  * que el aislamiento de modos no cambie la semántica observada (`TM-04`).
  */
-export function createDemoValuationRunRepository(
+export function createInMemoryValuationRunRepository(
   seed: readonly ValuationRun[] = [],
 ): ValuationRunRepository {
   const stored: ValuationRun[] = seed.map((run) =>
@@ -32,7 +32,7 @@ export function createDemoValuationRunRepository(
   }
 
   return {
-    storage: "demo-fixture",
+    storage: "in-memory-fixture",
     async record(candidate) {
       const run = valuationRunSchema.parse(candidate);
       const existing = findStored(toReplayKey(run));

@@ -7,7 +7,7 @@ import {
   type DatasetSnapshot,
 } from "@/modules/persistence/domain/dataset-snapshot";
 
-export function createDemoDatasetSnapshotRepository(
+export function createInMemoryDatasetSnapshotRepository(
   fixtureSnapshots: readonly DatasetSnapshot[] = [],
 ): DatasetSnapshotRepository {
   const snapshots = fixtureSnapshots.map((snapshot) =>
@@ -15,7 +15,7 @@ export function createDemoDatasetSnapshotRepository(
   );
 
   return {
-    storage: "demo-fixture",
+    storage: "in-memory-fixture",
     async findById(snapshotId) {
       return (
         snapshots.find((snapshot) => snapshot.snapshotId === snapshotId) ?? null

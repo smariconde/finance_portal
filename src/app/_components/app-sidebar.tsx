@@ -33,12 +33,12 @@ import type { AppMode } from "@/modules/configuration/domain/config-health";
 const activeItems = [
   { href: "/", label: "Inicio", icon: Home, badge: null },
   {
-    href: "/valuacion/demo",
+    href: "/valuacion/referencia",
     label: "Valuación",
     icon: Calculator,
-    // La ruta existe y muestra una corrida real del motor, pero sobre una
-    // empresa fixture: el badge lo dice en la navegación, no sólo en la página.
-    badge: "Demo",
+    // La ruta corre el motor real sobre un snapshot fijo: sirve para verificar
+    // que el cálculo es reproducible, no para mostrar datos de una empresa.
+    badge: "Ref",
   },
   {
     href: "/configuracion",
@@ -162,8 +162,8 @@ export function AppSidebar({ mode }: AppSidebarProps) {
           <SidebarMenuItem>
             <div className="flex h-11 items-center gap-2 rounded-md px-2 text-sm text-sidebar-foreground group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-2">
               <Database className="size-4 shrink-0" aria-hidden="true" />
-              <span className="capitalize group-data-[collapsible=icon]:hidden">
-                Modo {mode}
+              <span className="group-data-[collapsible=icon]:hidden">
+                {mode === "personal" ? "Modo personal" : "Runtime trabado"}
               </span>
             </div>
           </SidebarMenuItem>

@@ -1,6 +1,7 @@
 import { FlaskConical, Info } from "lucide-react";
 import type { Metadata } from "next";
 
+import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
 import { StatusMark } from "@/app/_components/status-mark";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -18,10 +19,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { servesRealData } from "@/modules/configuration/domain/config-health";
 import {
   DEMO_CURRENT_SYMBOL,
   DEMO_IDENTITY_GRAPH,
 } from "@/modules/identity/infrastructure/demo-identity-fixtures";
+import { getAppConfigHealth } from "@/server/config/app-environment";
 import {
   formatAmount,
   formatUtcTimestamp,
@@ -47,21 +50,37 @@ import { RunHeadline } from "./_components/run-headline";
 import { SensitivityMatrix } from "./_components/sensitivity-matrix";
 
 export const metadata: Metadata = {
-  title: "Valuación demo | Portal Financiero",
+  title: "Corrida de referencia | Portal Financiero",
   description:
-    "Corrida FCFF determinista sobre una empresa fixture, con fuentes, freshness, supuestos y sensibilidad visibles.",
+    "Corrida FCFF determinista sobre un snapshot fijo, con fuentes, freshness, supuestos y sensibilidad visibles.",
 };
 
 /**
- * Superficie de resultado y trazabilidad (`F1-06`).
+ * Corrida de referencia del motor (`F1-06`).
  *
- * Renderiza la corrida demo y su evidencia. No abre PostgreSQL, no consulta un
- * proveedor y no persiste nada: la corrida se calcula en el proceso a partir de
- * la fixture sintética con reloj e identificador inyectados, así que el
- * contenido de esta página es idéntico en modo demo y en modo personal y no
- * puede simular una persistencia que no ocurrió.
+ * No es una demo del producto: es la verificación de que el motor reproduce el
+ * mismo resultado y el mismo hash en esta instalación, y la superficie donde se
+ * lee toda la evidencia que una valuación debe mostrar. Cuando `F2-*` conecte
+ * fuentes reales, las corridas sobre empresas reales usan estos mismos
+ * componentes.
+ *
+ * No abre PostgreSQL, no consulta un proveedor y no persiste nada: se calcula
+ * en el proceso desde un snapshot fijo con reloj e identificador inyectados.
+ * Aun así queda detrás del guard de runtime, porque un entorno trabado no sirve
+ * ninguna superficie de datos (ADR 0004).
  */
-export default function ValuationDemoPage() {
+export default function ValuationReferencePage() {
+  const health = getAppConfigHealth();
+
+  if (!servesRealData(health)) {
+    return (
+      <RuntimeLockedNotice
+        health={health}
+        surface="La corrida de referencia del motor"
+      />
+    );
+  }
+
   const run = buildDemoValuationRun();
   const earlierRun = buildDemoValuationRunBeforeAmendment();
 
@@ -94,7 +113,7 @@ export default function ValuationDemoPage() {
           aria-labelledby="valuation-demo-title"
         >
           <div className="flex flex-wrap items-center gap-2">
-            <StatusMark status="ready" label="Corrida demo disponible" />
+            <StatusMark status="ready" label="Motor verificado" />
             <span className="text-xs text-muted-foreground">
               Fase 1 · slice F1-06
             </span>
@@ -103,12 +122,14 @@ export default function ValuationDemoPage() {
             id="valuation-demo-title"
             className="text-2xl font-semibold tracking-tight md:text-3xl"
           >
-            Valuación demo de {entity?.legalName ?? "la empresa fixture"}
+            Corrida de referencia del motor
           </h1>
           <p className="max-w-3xl text-sm text-muted-foreground md:text-base">
-            Una corrida FCFF completa, con la evidencia que la sostiene y los
-            supuestos que la explican. El objetivo de esta página es que el
-            resultado pueda auditarse sin abrir otra herramienta.
+            Una corrida FCFF completa sobre un snapshot fijo, con la evidencia
+            que la sostiene y los supuestos que la explican. Sirve para dos
+            cosas: verificar que el motor reproduce el mismo hash en esta
+            instalación, y fijar cómo se muestra la evidencia de cualquier
+            valuación futura.
           </p>
         </section>
 
@@ -116,11 +137,11 @@ export default function ValuationDemoPage() {
           <FlaskConical aria-hidden="true" />
           <AlertTitle>Empresa sintética, no una empresa real</AlertTitle>
           <AlertDescription>
-            {entity?.legalName ?? "La empresa fixture"} no existe. Sus datos son
-            una fixture determinista creada para este portal; no derivan de
-            ningún proveedor ni de una captura de datos reales. El resultado no
-            es una recomendación, un precio objetivo ni una señal de compra o
-            venta.
+            {entity?.legalName ?? "El sujeto de esta corrida"} no existe. Sus
+            datos son un snapshot determinista creado para verificar el motor;
+            no derivan de ningún proveedor ni de una captura de datos reales. El
+            resultado no es una recomendación ni un precio objetivo, y esta
+            página no se conecta a ninguna fuente.
           </AlertDescription>
         </Alert>
 
@@ -398,7 +419,8 @@ export default function ValuationDemoPage() {
           <ul className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
             <li>
               No hay proveedores reales, red ni ingesta: la corrida se calcula
-              en el proceso desde una fixture sintética.
+              en el proceso desde un snapshot fijo. Las fuentes reales entran en
+              Fase 2.
             </li>
             <li>
               Renderizar esta página no abre PostgreSQL ni persiste una corrida,

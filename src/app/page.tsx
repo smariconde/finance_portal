@@ -85,9 +85,9 @@ export default function HomePage() {
           <Info aria-hidden="true" />
           <AlertTitle>Alcance actual del portal</AlertTitle>
           <AlertDescription>
-            La navegación y el diagnóstico de configuración son funcionales. Las
-            herramientas de análisis permanecen identificadas como planificadas
-            hasta contar con datos auditables.
+            El portal sirve datos reales sólo en modo personal, sobre un runtime
+            local o protegido. Las fuentes todavía no están conectadas: eso
+            arranca en Fase 2.
           </AlertDescription>
         </Alert>
 
@@ -151,10 +151,10 @@ export default function HomePage() {
           <div className="flex flex-col gap-6">
             <Card>
               <CardHeader>
-                <CardTitle as="h2">Corrida de valuación demo</CardTitle>
+                <CardTitle as="h2">Corrida de referencia del motor</CardTitle>
                 <CardDescription>
-                  Una empresa fixture recorre el motor FCFF con fuentes,
-                  freshness, supuestos y sensibilidad visibles.
+                  Un snapshot fijo recorre el motor FCFF y debe reproducir
+                  siempre el mismo hash. Verifica el cálculo, no una empresa.
                 </CardDescription>
                 <CardAction>
                   <StatusMark status="ready" label="Disponible" />
@@ -162,7 +162,7 @@ export default function HomePage() {
               </CardHeader>
               <CardContent>
                 <Link
-                  href="/valuacion/demo"
+                  href="/valuacion/referencia"
                   className={cn(buttonVariants({ size: "sm" }))}
                 >
                   Abrir la corrida

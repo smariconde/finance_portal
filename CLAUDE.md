@@ -6,7 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Portal Financiero: a single-owner Next.js 16 portal for researching global companies, CEDEAR access, fundamentals comparison, and reproducible valuations with visible provenance. Spanish-language UI and documentation; English code identifiers and `AGENTS.md`.
 
-The application is early: shell, config health, security headers, and the PostgreSQL/Drizzle persistence base exist. Financial data, screener, valuations, the Argentina dashboard, and AI features are **not** implemented and must not be presented in the UI as if they were.
+The code is public; the data is not. The app is **personal-first**: it serves real data only from a private runtime, and there is no public demo deployment. See [ADR 0004](docs/architecture/adr/0004-personal-first-runtime.md).
+
+The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, and a deterministic FCFF engine with its reference run exist. Real providers, screener, the Argentina dashboard, and AI features are **not** implemented and must not be presented in the UI as if they were.
 
 `AGENTS.md` holds the full contributor contract and takes precedence over this file where they overlap.
 
@@ -58,7 +60,7 @@ src/components/ui/                shadcn/Base UI primitives, added only when use
 src/modules/<domain>/
   domain/                         pure, testable, framework-free (Zod schemas + logic)
   application/                    ports, repository interfaces, mode selection
-  infrastructure/                 demo fixture implementations
+  infrastructure/                 fixtures and in-memory test doubles
 src/server/
   config/                         server-only environment reads
   db/                             Drizzle schema, pooled runtime client, PG repositories
@@ -72,12 +74,14 @@ Server Components call application services directly — no internal HTTP fetch.
 
 ### Modes are a security boundary, not a feature flag
 
-`getConfigHealth()` in [src/modules/configuration/domain/config-health.ts](src/modules/configuration/domain/config-health.ts) resolves the **effective** mode from `APP_MODE` × `APP_RUNTIME_ACCESS` × Vercel env, and falls back to `demo` whenever a `personal` request is not provably safe. Everything downstream keys off that resolved mode, not off the raw env var:
+`getConfigHealth()` in [src/modules/configuration/domain/config-health.ts](src/modules/configuration/domain/config-health.ts) resolves the **effective** mode from `APP_MODE` × `APP_RUNTIME_ACCESS` × `DATABASE_URL` × Vercel env. Everything downstream keys off that resolved mode, not off the raw env var:
 
-- `demo` → fixtures only, no DB connection, live configuration ignored. The only mode valid for a public anonymous URL, including Vercel Production.
-- `personal` → requires `local` (outside Vercel) or `protected` (Vercel Preview) access plus a pooled `DATABASE_URL`.
+- `personal` → requires `local` (outside Vercel) or `protected` (Vercel Preview) access **plus** a pooled `DATABASE_URL`. The only mode that serves data.
+- `locked` → everything else. Serves no data, opens no DB connection, calls no provider. It is a refusal, not a demo: there is no fallback dataset.
 
-`getDatasetSnapshotRepository()` ([src/server/persistence/](src/server/persistence/get-dataset-snapshot-repository.ts)) is the composition root that picks `demo-fixture` vs `personal-postgres`. Cache identities include the mode so demo and personal data can never share a cache entry. Setting a key in `.env.local` does not enable an unimplemented integration.
+Surfaces gate on `servesRealData(health)` and render `RuntimeLockedNotice` otherwise; they never compare the mode by hand. Composition roots build dependencies through `selectPersonalDependency()`, which throws `RuntimeLockedError` rather than substituting a fixture. Cache identities include the mode. Setting a key in `.env.local` does not enable an unimplemented integration.
+
+The in-memory repositories (`in-memory-*`) are **test doubles**, not a runtime mode. No composition root builds them.
 
 `DATABASE_URL` is pooled runtime; `DATABASE_DIRECT_URL` is migration-job only and is never read at runtime.
 
@@ -93,7 +97,7 @@ Read [docs/data/identity-model.md](docs/data/identity-model.md) and [docs/data/p
 
 Before adding a Route Handler, Server Action, provider, export, job, or AI capability, read [docs/security/threat-model.md](docs/security/threat-model.md) and close the `TM-*` controls assigned to that surface.
 
-Scope guardrails: no application auth, accounts, roles, multi-tenancy, or BYOK. Real providers run only in personal mode. Never reuse live-captured data as public demo fixtures. Never put secrets in `NEXT_PUBLIC_*`.
+Scope guardrails: no application auth, accounts, roles, multi-tenancy, or BYOK. Real providers run only in personal mode. Never put secrets in `NEXT_PUBLIC_*`, and never commit captured payloads or credentials to this public repository.
 
 ## Working rhythm
 

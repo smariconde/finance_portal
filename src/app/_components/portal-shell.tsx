@@ -45,8 +45,18 @@ export function PortalShell({ children, health }: PortalShellProps) {
               </div>
             </div>
             <StatusMark
-              status={needsAttention ? "degraded" : "ready"}
-              label={`Modo ${health.mode}${needsAttention ? " · atención" : " · estable"}`}
+              status={
+                health.mode === "personal"
+                  ? needsAttention
+                    ? "degraded"
+                    : "ready"
+                  : "disabled"
+              }
+              label={
+                health.mode === "personal"
+                  ? `Personal${needsAttention ? " · atención" : " · estable"}`
+                  : "Trabado"
+              }
             />
           </header>
 
@@ -57,7 +67,7 @@ export function PortalShell({ children, health }: PortalShellProps) {
             <p>
               {health.mode === "personal"
                 ? "Portal personal · código público · datos reales protegidos"
-                : "Demo pública · fixtures determinísticos · sin datos live"}
+                : "Runtime trabado · no se sirven datos"}
             </p>
           </footer>
         </SidebarInset>

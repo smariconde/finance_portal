@@ -5,7 +5,6 @@ import {
   selectSourceRegistryRepository,
   type SourceRegistryRepository,
 } from "@/modules/ingestion/application/source-registry-repository";
-import { createDemoSourceRegistryRepository } from "@/modules/ingestion/infrastructure/demo-source-registry-repository";
 import { createPostgresSourceRegistryRepository } from "@/server/db/postgres-source-registry-repository";
 import { getRuntimeDatabase } from "@/server/db/runtime-client";
 
@@ -18,7 +17,6 @@ export function getSourceRegistryRepository(): SourceRegistryRepository {
 
   const effectiveMode = getConfigHealth(process.env).mode;
   repository = selectSourceRegistryRepository(effectiveMode, {
-    demo: createDemoSourceRegistryRepository,
     personal: () =>
       createPostgresSourceRegistryRepository(getRuntimeDatabase()),
   });

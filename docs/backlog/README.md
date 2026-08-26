@@ -24,17 +24,17 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 
 ## Tracker activo
 
-| Orden | Issue      | Estado        | Resultado verificable                                                                                        | Dependencias  |
-| ----: | ---------- | ------------- | ------------------------------------------------------------------------------------------------------------ | ------------- |
-|     1 | `F1-01`    | `done`        | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos. | Fase 0 `done` |
-|     2 | `F1-02`    | `done`        | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.      | `F1-01`       |
-|     3 | `F1-UI-01` | `done`        | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.               | `F1-02`       |
-|     4 | `F1-03`    | `done`        | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.               | `F1-UI-01`    |
-|     5 | `F1-04`    | `done`        | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.          | `F1-03`       |
-|     6 | `F1-05`    | `done`        | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                      | `F1-04`       |
-|     7 | `F1-06`    | `in_progress` | Resultado demo muestra fuentes, freshness, supuestos, escenarios y sensibilidad accesibles.                  | `F1-05`       |
-|     8 | `F1-07`    | `queued`      | Unit, contract y E2E prueban el flujo demo, degradación, aislamiento, teclado y mobile.                      | `F1-06`       |
-|     9 | `F1-08`    | `queued`      | Walkthrough reproducible del owner registra hallazgos y cierra el gate de Fase 1.                            | `F1-07`       |
+| Orden | Issue      | Estado   | Resultado verificable                                                                                        | Dependencias  |
+| ----: | ---------- | -------- | ------------------------------------------------------------------------------------------------------------ | ------------- |
+|     1 | `F1-01`    | `done`   | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos. | Fase 0 `done` |
+|     2 | `F1-02`    | `done`   | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.      | `F1-01`       |
+|     3 | `F1-UI-01` | `done`   | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.               | `F1-02`       |
+|     4 | `F1-03`    | `done`   | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.               | `F1-UI-01`    |
+|     5 | `F1-04`    | `done`   | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.          | `F1-03`       |
+|     6 | `F1-05`    | `done`   | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                      | `F1-04`       |
+|     7 | `F1-06`    | `done`   | Superficie de resultado y trazabilidad con fuentes, freshness, supuestos y sensibilidad accesibles.          | `F1-05`       |
+|     8 | `F1-07`    | `ready`  | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                           | `F1-06`       |
+|     9 | `F1-08`    | `queued` | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.               | `F1-07`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -45,10 +45,16 @@ integration tests sin red. `F1-04` cerró el 2026-08-24 con los módulos
 `src/modules/temporal/`, `src/modules/identity/` y `src/modules/observations/`, la
 migración `0002` y su rollback pareado. `F1-05` cerró el 2026-08-24 con
 `src/modules/valuation/`, la ADR 0003 que incorpora `decimal.js` y la migración
-`0003` con su rollback pareado. `F1-06` está `in_progress` desde el 2026-08-25 con
-`/valuacion/demo` entregada y todos sus criterios cerrados **salvo** la revisión
-renderizada desktop/mobile, que no pudo ejecutarse en la sesión; el detalle y la
-condición de cierre están en el issue.
+`0003` con su rollback pareado. `F1-06` cerró el 2026-08-25 con
+`/valuacion/referencia`; la revisión renderizada la ejecutó el owner manualmente y
+queda como evidencia del criterio de revisión.
+
+**Pivote del 2026-08-25.** El owner decidió que la aplicación no tendrá deployment
+público y que los datos son de uso particular. La [ADR 0004](../architecture/adr/0004-personal-first-runtime.md)
+reemplaza el eje `demo | personal` por `locked | personal` con fallo cerrado: no
+existe una demo pública ni un conjunto de datos de reemplazo, y ningún slice futuro
+invierte en datos ficticios como superficie de producto. Las fixtures quedan como
+dobles de test. `F1-07` y `F1-08` se rescopearon al flujo personal.
 
 ## Issues por fase
 
@@ -292,7 +298,7 @@ supuestos, normalización reported/adjusted, selector automático de método y W
 que converge entre etapas corresponden a Fase 4 (`F4-01` a `F4-03`). La superficie
 que muestre este resultado corresponde a `F1-06`.
 
-#### `F1-06` — Resultado demo y trazabilidad
+#### `F1-06` — Resultado y trazabilidad de una corrida
 
 Criterios de aceptación:
 
@@ -365,23 +371,33 @@ base, sobre un floor de `4.5:1`. Sobre el HTML prerenderizado se verificó un so
 `h1`, 10 `h2` y 8 `h3` sin salto de nivel, 7 tablas con 42 `th scope="col"` y 38
 `th scope="row"`, 18 `<time datetime>` y 72 alternativas `sr-only`.
 
-Bloqueo y condición de salida: la revisión **renderizada** desktop/mobile a
-1440×900 y 390×844 en tema claro y oscuro no se ejecutó. No hay navegador
-disponible en la sesión y los scripts `live` de Impeccable no están aprobados por
-`AGENTS.md`; el chequeo estático sobre el HTML no se presenta como su sustituto.
-`F1-06` pasa a `done` cuando esa medición se ejecuta y sus capturas quedan en
-`.impeccable/review/`.
+Revisión renderizada: la ejecutó el owner manualmente el 2026-08-25 sobre la ruta
+servida y no reportó hallazgos. No se automatizó ni se capturaron screenshots: no
+hay navegador disponible en la sesión del agente y los scripts `live` de Impeccable
+no están aprobados por `AGENTS.md`. Automatizarla es criterio de `F1-07` y sigue
+siendo el follow-up de `UI-02`.
 
-#### `F1-07` — Gate automatizado del flujo demo
+Renombrado el 2026-08-25: la ruta pasó de `/valuacion/demo` a
+`/valuacion/referencia` y dejó de presentarse como demo del producto
+([ADR 0004](../architecture/adr/0004-personal-first-runtime.md)). Los paths de esta
+evidencia siguen esa ruta.
+
+#### `F1-07` — Gate automatizado del flujo personal
+
+Rescopeado el 2026-08-25 por la [ADR 0004](../architecture/adr/0004-personal-first-runtime.md):
+lo que se prueba ya no es el aislamiento entre dos modos con datos, sino que el
+runtime trabado no sirve nada y que el runtime personal sirve su superficie.
 
 Criterios de aceptación:
 
 - unit y contract tests corren sin red;
-- un E2E recorre shell, empresa fixture, valuación y proveedor degradado;
-- se prueban invocación directa de fronteras existentes, aislamiento de modos y no
-  exposición de secretos;
+- un E2E recorre shell, corrida de referencia y runtime trabado, y verifica que el
+  estado trabado no expone datos ni nombres de valores de configuración;
+- se prueban invocación directa de fronteras existentes, fallo cerrado de la
+  composición y no exposición de secretos;
 - teclado, foco, mobile, reduced motion y chequeo automatizado de accesibilidad
-  generan evidencia reproducible;
+  generan evidencia reproducible, incluida la revisión renderizada que `F1-06`
+  dejó como follow-up de `UI-02`;
 - los scripts `test:integration` o `test:e2e` sólo se anuncian si existen.
 
 Controles: `TM-01`, `TM-02`, `TM-03`, `TM-04`, `TM-07`, `TM-12`, `UI-02`.
@@ -390,7 +406,8 @@ Controles: `TM-01`, `TM-02`, `TM-03`, `TM-04`, `TM-07`, `TM-12`, `UI-02`.
 
 Criterios de aceptación:
 
-- el owner completa una tarea desktop y una mobile desde una sesión limpia;
+- el owner completa una tarea desktop y una mobile desde una sesión limpia sobre el
+  runtime personal, y confirma que un entorno sin declarar queda trabado;
 - tiempo, bloqueos, confusiones y hallazgos quedan anexados como evidencia;
 - los hallazgos se convierten en issues o se difieren con motivo;
 - el gate de Fase 1 y el próximo slice quedan actualizados sin iniciar Fase 2.
@@ -399,16 +416,16 @@ Controles: `UI-02`.
 
 ### Fase 2 — empresas, CEDEAR y screener
 
-| Issue   | Resultado y aceptación mínima                                                                                             | Depende de       | Controles                 |
-| ------- | ------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------------- |
-| `F2-01` | Aprobar derechos y ADR del stack SEC/Caja/snapshot S&P/Alpaca, con plan, cache, retención, cuota y salida documentados.   | Fase 1           | `TM-08`, `TM-10`, `TM-15` |
-| `F2-02` | Persistir issuer/security/listing/identifier/corporate actions con vigencia, candidatos ambiguos y decisiones trazadas.   | `F2-01`          | `TM-06`, `TM-16`          |
-| `F2-03` | Integrar SEC con CIK, filings/lineage, cuarentena y muestra validada mediante Arelle/EFM/DQC.                             | `F2-02`          | `TM-05`, `TM-06`, `TM-08` |
-| `F2-04` | Ingerir CEDEARs y ratios exactos historizados sin sobrescribir programas ni confundir ADR/subyacente.                     | `F2-02`          | `TM-05`, `TM-06`          |
-| `F2-05` | Ejecutar backfill/refresh durable con presupuesto, cursor, lease, replay, `429`, crash y recuperación manual probados.    | `F2-03`, `F2-04` | `TM-10`, `TM-11`, `TM-16` |
-| `F2-06` | Publicar metric catalog versionado y screener 2Y/5Y con límites, filtros allowlisted, nulos y métricas sectoriales.       | `F2-05`          | `TM-05`, `TM-07`, `TM-12` |
-| `F2-07` | Exportar sólo campos autorizados, con definiciones, fecha, source y atribución; bloquear fuentes sin derechos de salida.  | `F2-06`          | `TM-02`, `TM-15`, `TM-16` |
-| `F2-08` | Cerrar reconciliación, quality score explicable y gate sobre 30 empresas, splits, delistings, ADRs y provenance completa. | `F2-07`          | `TM-05`, `TM-06`, `TM-16` |
+| Issue   | Resultado y aceptación mínima                                                                                                                        | Depende de       | Controles                 |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------------- |
+| `F2-01` | ADR del stack gratuito de uso personal —SEC, snapshot S&P PDDL, Comafi y Yahoo Finance— con cuota, cache, retención y política de roll documentadas. | Fase 1           | `TM-08`, `TM-10`, `TM-15` |
+| `F2-02` | Persistir issuer/security/listing/identifier/corporate actions con vigencia, candidatos ambiguos y decisiones trazadas.                              | `F2-01`          | `TM-06`, `TM-16`          |
+| `F2-03` | Integrar SEC con CIK, filings/lineage, cuarentena y muestra validada mediante Arelle/EFM/DQC.                                                        | `F2-02`          | `TM-05`, `TM-06`, `TM-08` |
+| `F2-04` | Ingerir CEDEARs y ratios exactos historizados sin sobrescribir programas ni confundir ADR/subyacente.                                                | `F2-02`          | `TM-05`, `TM-06`          |
+| `F2-05` | Ejecutar backfill/refresh durable con presupuesto, cursor, lease, replay, `429`, crash y recuperación manual probados.                               | `F2-03`, `F2-04` | `TM-10`, `TM-11`, `TM-16` |
+| `F2-06` | Publicar metric catalog versionado y screener 2Y/5Y con límites, filtros allowlisted, nulos y métricas sectoriales.                                  | `F2-05`          | `TM-05`, `TM-07`, `TM-12` |
+| `F2-07` | Exportar sólo campos autorizados, con definiciones, fecha, source y atribución; bloquear fuentes sin derechos de salida.                             | `F2-06`          | `TM-02`, `TM-15`, `TM-16` |
+| `F2-08` | Cerrar reconciliación, quality score explicable y gate sobre 30 empresas, splits, delistings, ADRs y provenance completa.                            | `F2-07`          | `TM-05`, `TM-06`, `TM-16` |
 
 ### Fase 3 — divergencias fundamentales
 
@@ -492,28 +509,28 @@ Esta matriz evita que una amenaza o deuda visual quede mencionada sin un issue q
 la cierre. La columna “primer cierre” indica el primer slice que debe implementar o
 probar el control; fases posteriores pueden volver a verificarlo.
 
-| Deuda   | Primer cierre                                           | Seguimiento posterior                      | Estado actual                                                                             |
-| ------- | ------------------------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| `TM-01` | `F1-02`                                                 | `F1-07`, `F7-01`, `F9-06`                  | `done`: composición y tests cruzados demo/personal verificados                            |
-| `TM-02` | `F1-02`                                                 | cada frontera, `F8-03`, `F9-06`            | `done`: DB server-only y URLs pooled/direct separadas probadas                            |
-| `TM-03` | primer slice con frontera; gate en `F1-07`              | `F4-04`, `F7-01`, `F8-06`                  | contracted                                                                                |
-| `TM-04` | `F1-02`                                                 | `F1-07`, `F7-01`, `F8-04`                  | `done`: repository y cache namespaced por modo, integración verificada                    |
-| `TM-05` | `F1-03`                                                 | `F2-03`, `F3-05`, cada parser/modelo       | `done` de ingesta a publicación: vacío y parser roto no publican ni reemplazan            |
-| `TM-06` | `F1-04`                                                 | `F2-02`, `F3-05`, cada consulta histórica  | `done` de la consulta a la valuación: dos cortes producen dos corridas distintas          |
-| `TM-07` | `F1-02`                                                 | `F1-07`, `F2-06`, `F8-05`                  | `done`: Drizzle parametrizado y límite de consulta verificados en PostgreSQL              |
-| `TM-08` | `F2-01` antes del primer provider                       | `F6-01`, `F7-04`, `F8-05`                  | required; no hay egress aún                                                               |
-| `TM-09` | `F7-04`                                                 | `F7-06`, `F8-05`, `F8-06`                  | required; no hay IA aún                                                                   |
-| `TM-10` | `F2-01`                                                 | `F2-05`, `F7-02`, `F9-02`                  | contracted; no hay gasto live aún                                                         |
-| `TM-11` | `F2-05`                                                 | `F6-01`, `F9-01`, `F9-05`                  | idempotencia y replay probados en `F1-03`; lease, `429` y crash siguen abiertos           |
-| `TM-12` | `F1-01`                                                 | cada UI externa, `F9-03`                   | headers base y render seguro verificados                                                  |
-| `TM-13` | `F9-06`                                                 | cada actualización de dependencia/skill    | baseline implementada; scans pendientes                                                   |
-| `TM-14` | antes del primer preview personal (`F7-01` como máximo) | `F8-03`, `F9-06`                           | contracted; no hay deployment personal                                                    |
-| `TM-15` | `F1-03` para fixtures                                   | cada proveedor/export/IA, `F8-02`, `F9-04` | `done`: gate de derechos ejecutable antes del provider y fixtures sintéticas              |
-| `TM-16` | `F1-03`                                                 | cada operación y gate                      | `done` sobre ingesta y valuación: corridas append-only con hash, versión y error seguro   |
-| `UI-01` | Fase `0B.7`                                             | revisar copy al cambiar roadmap            | `done`: registro de home alineado con Fases 2, 3, 4 y 6                                   |
-| `UI-02` | `F1-07`                                                 | `F1-08`, `F9-03`                           | pendiente: chequeo estático y contraste medidos en `F1-06`; falta la revisión renderizada |
-| `UI-03` | `F1-01`                                                 | cada feedback stateful, `F9-03`            | `done`: estados y reduced motion conservan feedback                                       |
-| `UI-04` | `F1-01`                                                 | cada extracción visual, `F9-03`            | `done`: escala reusable y token de contraste registrados                                  |
+| Deuda   | Primer cierre                                           | Seguimiento posterior                      | Estado actual                                                                                             |
+| ------- | ------------------------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| `TM-01` | `F1-02`                                                 | `F1-07`, `F7-01`, `F9-06`                  | `done`: composición falla cerrada; un runtime trabado no construye repositorio                            |
+| `TM-02` | `F1-02`                                                 | cada frontera, `F8-03`, `F9-06`            | `done`: DB server-only y URLs pooled/direct separadas probadas                                            |
+| `TM-03` | primer slice con frontera; gate en `F1-07`              | `F4-04`, `F7-01`, `F8-06`                  | contracted                                                                                                |
+| `TM-04` | `F1-02`                                                 | `F1-07`, `F7-01`, `F8-04`                  | `done`: cache namespaced por modo; sólo `personal` construye almacenamiento                               |
+| `TM-05` | `F1-03`                                                 | `F2-03`, `F3-05`, cada parser/modelo       | `done` de ingesta a publicación: vacío y parser roto no publican ni reemplazan                            |
+| `TM-06` | `F1-04`                                                 | `F2-02`, `F3-05`, cada consulta histórica  | `done` de la consulta a la valuación: dos cortes producen dos corridas distintas                          |
+| `TM-07` | `F1-02`                                                 | `F1-07`, `F2-06`, `F8-05`                  | `done`: Drizzle parametrizado y límite de consulta verificados en PostgreSQL                              |
+| `TM-08` | `F2-01` antes del primer provider                       | `F6-01`, `F7-04`, `F8-05`                  | required; no hay egress aún                                                                               |
+| `TM-09` | `F7-04`                                                 | `F7-06`, `F8-05`, `F8-06`                  | required; no hay IA aún                                                                                   |
+| `TM-10` | `F2-01`                                                 | `F2-05`, `F7-02`, `F9-02`                  | contracted; no hay gasto live aún                                                                         |
+| `TM-11` | `F2-05`                                                 | `F6-01`, `F9-01`, `F9-05`                  | idempotencia y replay probados en `F1-03`; lease, `429` y crash siguen abiertos                           |
+| `TM-12` | `F1-01`                                                 | cada UI externa, `F9-03`                   | headers base y render seguro verificados                                                                  |
+| `TM-13` | `F9-06`                                                 | cada actualización de dependencia/skill    | baseline implementada; scans pendientes                                                                   |
+| `TM-14` | antes del primer preview personal (`F7-01` como máximo) | `F8-03`, `F9-06`                           | contracted; no hay deployment personal                                                                    |
+| `TM-15` | `F1-03` para fixtures                                   | cada proveedor/export/IA, `F8-02`, `F9-04` | `done`: gate de derechos ejecutable antes del provider y fixtures sintéticas                              |
+| `TM-16` | `F1-03`                                                 | cada operación y gate                      | `done` sobre ingesta y valuación: corridas append-only con hash, versión y error seguro                   |
+| `UI-01` | Fase `0B.7`                                             | revisar copy al cambiar roadmap            | `done`: registro de home alineado con Fases 2, 3, 4 y 6                                                   |
+| `UI-02` | `F1-07`                                                 | `F1-08`, `F9-03`                           | parcial: chequeo estático y contraste medidos en `F1-06` y revisión manual del owner; falta automatizarla |
+| `UI-03` | `F1-01`                                                 | cada feedback stateful, `F9-03`            | `done`: estados y reduced motion conservan feedback                                                       |
+| `UI-04` | `F1-01`                                                 | cada extracción visual, `F9-03`            | `done`: escala reusable y token de contraste registrados                                                  |
 
 ## Plantilla para nuevos issues
 

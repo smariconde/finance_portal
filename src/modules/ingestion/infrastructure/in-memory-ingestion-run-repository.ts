@@ -23,13 +23,13 @@ export class DuplicateIngestionRunError extends Error {
  * invariantes append-only que el repositorio personal para que el aislamiento de
  * modos no cambie la semántica observada.
  */
-export function createDemoIngestionRunRepository(
+export function createInMemoryIngestionRunRepository(
   seed: readonly IngestionRun[] = [],
 ): IngestionRunRepository {
   const runs: IngestionRun[] = seed.map((run) => ingestionRunSchema.parse(run));
 
   return {
-    storage: "demo-fixture",
+    storage: "in-memory-fixture",
     async findByIdempotencyKey(idempotencyKey) {
       return (
         runs

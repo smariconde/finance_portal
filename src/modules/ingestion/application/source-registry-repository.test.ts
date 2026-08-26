@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { isRuntimeLockedError } from "@/modules/configuration/domain/runtime-lock";
+
 import {
   createIngestionRunCacheIdentity,
   selectIngestionRunRepository,
@@ -35,50 +37,55 @@ function ingestionRuns(
 }
 
 describe("selectSourceRegistryRepository", () => {
-  it("does not construct personal storage for demo mode", () => {
-    const demo = vi.fn(() => sourceRegistry("demo-fixture"));
+  it("constructs personal storage only for personal mode", () => {
     const personal = vi.fn(() => sourceRegistry("personal-postgres"));
 
     expect(
-      selectSourceRegistryRepository("demo", { demo, personal }).storage,
-    ).toBe("demo-fixture");
-    expect(personal).not.toHaveBeenCalled();
+      selectSourceRegistryRepository("personal", { personal }).storage,
+    ).toBe("personal-postgres");
+    expect(personal).toHaveBeenCalledOnce();
   });
 
-  it("does not construct fixture storage for personal mode", () => {
-    const demo = vi.fn(() => sourceRegistry("demo-fixture"));
+  it("refuses to build a registry while the runtime is locked", () => {
     const personal = vi.fn(() => sourceRegistry("personal-postgres"));
 
-    expect(
-      selectSourceRegistryRepository("personal", { demo, personal }).storage,
-    ).toBe("personal-postgres");
-    expect(demo).not.toHaveBeenCalled();
+    try {
+      selectSourceRegistryRepository("locked", { personal });
+      throw new Error("Expected a locked runtime rejection.");
+    } catch (error) {
+      expect(isRuntimeLockedError(error)).toBe(true);
+    }
+
+    expect(personal).not.toHaveBeenCalled();
   });
 });
 
 describe("selectIngestionRunRepository", () => {
-  it("keeps demo runs out of personal storage", () => {
-    const demo = vi.fn(() => ingestionRuns("demo-fixture"));
+  it("refuses to record a run while the runtime is locked", () => {
     const personal = vi.fn(() => ingestionRuns("personal-postgres"));
 
-    expect(
-      selectIngestionRunRepository("demo", { demo, personal }).storage,
-    ).toBe("demo-fixture");
+    try {
+      selectIngestionRunRepository("locked", { personal });
+      throw new Error("Expected a locked runtime rejection.");
+    } catch (error) {
+      expect(isRuntimeLockedError(error)).toBe(true);
+    }
+
     expect(personal).not.toHaveBeenCalled();
   });
 });
 
 describe("cache identities", () => {
   it("namespaces the source registry by effective mode", () => {
-    expect(createSourceRegistryCacheIdentity("demo", "sec-edgar")).not.toEqual(
-      createSourceRegistryCacheIdentity("personal", "sec-edgar"),
-    );
+    expect(
+      createSourceRegistryCacheIdentity("locked", "sec-edgar"),
+    ).not.toEqual(createSourceRegistryCacheIdentity("personal", "sec-edgar"));
   });
 
   it("namespaces ingestion runs by effective mode", () => {
     expect(
       createIngestionRunCacheIdentity(
-        "demo",
+        "locked",
         "fixture-demo-fundamentals",
         "demo.fundamentals.annual",
       ),

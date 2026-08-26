@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DatasetProvider } from "@/modules/ingestion/application/dataset-provider";
 import { executeIngestionRun } from "@/modules/ingestion/application/execute-ingestion-run";
 import { createDemoDatasetProvider } from "@/modules/ingestion/infrastructure/demo-dataset-provider";
-import { createDemoIngestionRunRepository } from "@/modules/ingestion/infrastructure/demo-ingestion-run-repository";
-import { createDemoSourceRegistryRepository } from "@/modules/ingestion/infrastructure/demo-source-registry-repository";
+import { createInMemoryIngestionRunRepository } from "@/modules/ingestion/infrastructure/in-memory-ingestion-run-repository";
+import { createInMemorySourceRegistryRepository } from "@/modules/ingestion/infrastructure/in-memory-source-registry-repository";
 import {
   DEMO_DATASETS,
   DEMO_PARSER_VERSION,
@@ -24,12 +24,12 @@ function createRunIds() {
 function createHarness(
   provider: DatasetProvider = createDemoDatasetProvider(() => FIXED_NOW),
 ) {
-  const ingestionRuns = createDemoIngestionRunRepository();
+  const ingestionRuns = createInMemoryIngestionRunRepository();
 
   return {
     ingestionRuns,
     dependencies: {
-      sourceRegistry: createDemoSourceRegistryRepository(),
+      sourceRegistry: createInMemorySourceRegistryRepository(),
       ingestionRuns,
       provider,
       now: () => FIXED_NOW,
