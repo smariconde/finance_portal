@@ -19,6 +19,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:e2e": "tsx scripts/run-e2e.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:test:up": "docker compose --env-file .env.docker.local -f compose.test.yaml up -d --wait",
@@ -43,10 +44,13 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "22.19.7",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
+    "axe-core": "^4.13.0",
     "drizzle-kit": "0.31.10",
     "eslint": "9.39.5",
     "eslint-config-next": "16.3.2",

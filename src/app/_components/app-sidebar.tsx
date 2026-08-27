@@ -141,9 +141,18 @@ export function AppSidebar({ mode }: AppSidebarProps) {
             <SidebarMenu>
               {plannedItems.map((item) => (
                 <SidebarMenuItem key={item.label}>
+                  {/*
+                   * `aria-disabled` y no `disabled`: cuando hay tooltip, el
+                   * `TooltipTrigger` de Base UI consume la prop `disabled` como
+                   * propia y no la reenvía al botón, así que el control
+                   * terminaba anunciándose como accionable y además perdía su
+                   * tooltip —que con la sidebar colapsada es su única etiqueta—.
+                   * Lo detectó el gate de `F1-07`. La clase
+                   * `aria-disabled:pointer-events-none` ya corta la interacción.
+                   */}
                   <SidebarMenuButton
                     className="max-md:h-11"
-                    disabled
+                    aria-disabled="true"
                     tooltip={`${item.label}: planificado`}
                   >
                     <item.icon />

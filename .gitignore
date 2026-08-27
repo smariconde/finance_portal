@@ -8,6 +8,10 @@ out/
 # Test output
 coverage/
 test-results/
+# Trazas y capturas de fallos de Playwright: evidencia local de una corrida, no
+# un artefacto del repositorio.
+tests/e2e/.output/
+playwright-report/
 
 # Environment files (the example is intentionally versioned)
 .env

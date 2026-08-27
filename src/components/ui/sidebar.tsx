@@ -286,7 +286,15 @@ function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
     <button
       data-sidebar="rail"
       data-slot="sidebar-rail"
-      aria-label="Abrir o cerrar navegación"
+      /*
+       * El rail es una franja de 4 px que duplica con el puntero lo que hace el
+       * trigger del header. Exponerlo al árbol de accesibilidad daba dos
+       * controles con el mismo nombre —lo detectó el gate de `F1-07`— sin
+       * agregar ninguna capacidad: ya está fuera del orden de tabulación, así
+       * que para teclado y lector de pantalla el trigger es el único control.
+       * El `title` se conserva porque sí sirve al puntero.
+       */
+      aria-hidden="true"
       tabIndex={-1}
       onClick={toggleSidebar}
       title="Abrir o cerrar navegación"
@@ -512,6 +520,14 @@ function SidebarMenuButton({
     tooltip?: string | React.ComponentProps<typeof TooltipContent>;
   } & VariantProps<typeof sidebarMenuButtonVariants>) {
   const { isMobile, state } = useSidebar();
+  /*
+   * En mobile la navegación es un drawer y el tooltip no aporta nada: es una
+   * afordancia de puntero y su contenido ya se renderiza oculto. Peor, el
+   * trigger seguía capturando `Escape` para cerrar su propio popup, así que la
+   * tecla nunca llegaba al drawer y el único modo de cerrarlo por teclado era
+   * tabular hasta la X. Lo detectó el gate de `F1-07`.
+   */
+  const showsTooltip = Boolean(tooltip) && !isMobile;
   const comp = useRender({
     defaultTagName: "button",
     props: mergeProps<"button">(
@@ -520,7 +536,7 @@ function SidebarMenuButton({
       },
       props,
     ),
-    render: !tooltip ? render : <TooltipTrigger render={render} />,
+    render: !showsTooltip ? render : <TooltipTrigger render={render} />,
     state: {
       slot: "sidebar-menu-button",
       sidebar: "menu-button",
@@ -529,7 +545,7 @@ function SidebarMenuButton({
     },
   });
 
-  if (!tooltip) {
+  if (!showsTooltip) {
     return comp;
   }
 
@@ -545,7 +561,7 @@ function SidebarMenuButton({
       <TooltipContent
         side="right"
         align="center"
-        hidden={state !== "collapsed" || isMobile}
+        hidden={state !== "collapsed"}
         {...tooltip}
       />
     </Tooltip>

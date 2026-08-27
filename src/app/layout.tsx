@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 import { PortalShell } from "@/app/_components/portal-shell";
-import { getAppConfigHealth } from "@/server/config/app-environment";
+import { getRequestConfigHealth } from "@/server/config/app-environment";
 
 import "./globals.css";
 
@@ -21,10 +21,10 @@ FORM: Category-standard financial dashboard elegido por el usuario; canon shadcn
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 `.trim();
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: ReactNode }>) {
-  const health = getAppConfigHealth();
+  const health = await getRequestConfigHealth();
 
   return (
     <html lang="es-AR">

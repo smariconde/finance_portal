@@ -157,7 +157,13 @@ export function FreshnessMark({
       <Icon aria-hidden="true" />
       <span className="sr-only">Antigüedad del dato: </span>
       {config.label}
-      <span className="numeric font-normal opacity-80">
+      {/*
+       * La distancia se distingue por peso y no por opacidad. `opacity-80`
+       * sobre las superficies teñidas de ámbar y esmeralda bajaba el texto por
+       * debajo de 4.5:1 —lo detectó el gate de `F1-07`—, y atenuar es
+       * justamente el canal que el contrato visual no permite gastar acá.
+       */}
+      <span className="numeric font-normal">
         <span className="sr-only">, distancia a la fecha de valuación: </span>
         {coverageGapDays} d
       </span>

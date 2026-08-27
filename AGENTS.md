@@ -16,13 +16,14 @@ The current application command contract is:
 - `pnpm lint && pnpm typecheck`: run static checks.
 - `pnpm test`: run unit and property tests without network access.
 - `pnpm test:integration`: run PostgreSQL integration tests with a dedicated `DATABASE_TEST_URL`.
+- `pnpm test:e2e`: build once, then serve that artifact under a personal and a locked environment and run the Playwright and `axe-core` gate. No network, no PostgreSQL.
 - `pnpm build`: verify the production build.
 - `pnpm db:generate`: generate reviewed SQL migrations from the Drizzle schema.
 - `pnpm db:migrate`: apply migrations through the direct administrative connection.
 - `pnpm db:test:up`: start the dedicated local PostgreSQL integration database.
 - `pnpm db:test:down`: stop the local PostgreSQL integration database without deleting its volume.
 
-`test:e2e` remains planned and must not be claimed until its script exists. Review documentation changes with `pnpm format:check`, `git diff --check`, and searches for stale references.
+Review documentation changes with `pnpm format:check`, `git diff --check`, and searches for stale references.
 
 ## Incremental Delivery
 
@@ -52,7 +53,7 @@ Skills are vendored once in `.agents/skills/` and registered per agent runtime. 
 
 ## Testing, Data, and Security
 
-Every formula change requires unit tests plus edge cases for nulls, zero, negatives, currency mismatch, and non-finite results. Provider changes require recorded fixtures, provenance, schema validation, and failure-path contract tests; unit and contract tests never open the network, so every provider needs a fixture. Keep secrets server-only, never use `NEXT_PUBLIC_` for keys, and never commit real credentials or captured payloads to this public repository.
+Every formula change requires unit tests plus edge cases for nulls, zero, negatives, currency mismatch, and non-finite results. Provider changes require recorded fixtures, provenance, schema validation, and failure-path contract tests; unit and contract tests never open the network, so every provider needs a fixture. That contract is enforced by `tests/setup/no-network.ts`, which fails any `fetch`, `http`, `https`, or raw TCP call from the unit suite — do not weaken it to let a test reach a real service. Keep secrets server-only, never use `NEXT_PUBLIC_` for keys, and never commit real credentials or captured payloads to this public repository.
 
 Before adding a Route Handler, Server Action, provider, export, job, or AI capability,
 read `docs/security/threat-model.md` and close the controls assigned to that surface.

@@ -46,3 +46,46 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  e2e:
+    name: E2E and accessibility gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          version: 10.33.2
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Sólo Chromium: la ADR 0006 acota el gate a un motor mientras el
+      # consumidor sea un único owner sobre un navegador conocido.
+      - name: Install Chromium for Playwright
+        run: pnpm exec playwright install --with-deps chromium
+
+      # Compila una vez y sirve ese mismo artefacto con dos entornos, personal y
+      # trabado. No necesita PostgreSQL: ninguna superficie de este slice abre la
+      # base, y el gate lo verifica apuntando a un puerto donde no escucha nada.
+      - name: E2E and accessibility gate
+        run: pnpm test:e2e
+
+      - name: Upload failure traces
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-traces
+          path: tests/e2e/.output/
+          retention-days: 7

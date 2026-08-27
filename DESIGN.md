@@ -271,16 +271,17 @@ Las primitivas son componentes shadcn editables construidos sobre Base UI. Se re
 
 ### Data marks
 
-Implementadas en `src/app/valuacion/demo/_components/data-marks.tsx`.
+Implementadas en `src/app/valuacion/referencia/_components/data-marks.tsx`.
 
 - **Purpose:** `StatusMark` califica la disponibilidad de una capacidad; las data marks califican la naturaleza de un dato. Son dimensiones distintas y no se mezclan: si no, “listo” significa dos cosas en la misma página.
 - **Families:** estado de corrida (`Calculada`, `Requiere revisión`, `Rechazada`), naturaleza del dato (`Hecho reportado`, `Supuesto`, `Ausencia declarada`), estado de claim y antigüedad (`Vigente`, `Envejecido`, `Vencido`, `Posterior a la valuación`).
 - **Anatomy:** icono Lucide, etiqueta legible y prefijo `sr-only` que nombra la dimensión calificada. La antigüedad agrega su distancia en días como cifra tabular.
 - **Color:** verde, ámbar, rosa, azul y neutral sólo acompañan al icono y al texto; nunca son el único canal.
+- **Secondary text on a tinted badge:** la distancia en días se distingue por **peso**, nunca por opacidad. Un `opacity-80` sobre las superficies ámbar y esmeralda bajaba ese texto por debajo de 4.5:1 y lo detectó el gate de `F1-07`. Sobre una superficie teñida, atenuar no es un canal disponible.
 
 ### Sensitivity matrix
 
-Implementada en `src/app/valuacion/demo/_components/sensitivity-matrix.tsx`.
+Implementada en `src/app/valuacion/referencia/_components/sensitivity-matrix.tsx`.
 
 - **Structure:** tabla semántica con `th scope="col"` por parámetro horizontal y `th scope="row"` por parámetro vertical; `caption` declara unidad, moneda, rango y paso de ambos ejes.
 - **Encoding:** el importe se escribe en la celda. El tinte —`color-mix(in oklab, var(--chart-1) N%, var(--card))`— ordena las celdas de menor a mayor y no comunica nada por sí solo.
@@ -290,10 +291,10 @@ Implementada en `src/app/valuacion/demo/_components/sensitivity-matrix.tsx`.
 
 ### Navigation
 
-- **Desktop:** sidebar de `16rem`, colapsable a iconos de `3rem`; shortcut `Ctrl/Cmd+B` y tooltips cuando está colapsada.
-- **Mobile:** drawer lateral de `18rem`; al elegir una ruta se cierra.
-- **Items:** altura base de `2rem`, radio `md`, icono de `1rem`; activo y hover usan sidebar-accent.
-- **Information architecture:** Inicio, Valuación y Configuración enlazan. Valuación lleva el badge `Demo` porque su ruta muestra una corrida real del motor sobre una empresa fixture. Las herramientas sin datos aparecen deshabilitadas con la etiqueta `Plan`.
+- **Desktop:** sidebar de `16rem`, colapsable a iconos de `3rem`; shortcut `Ctrl/Cmd+B` y tooltips cuando está colapsada. El rail de arrastre queda fuera del árbol de accesibilidad: duplicaba el nombre del trigger sin agregar ninguna capacidad para teclado o lector de pantalla.
+- **Mobile:** drawer lateral de `18rem`; al elegir una ruta se cierra, y `Escape` lo cierra. Los tooltips **no** existen en este ancho: son una afordancia de puntero, y su trigger capturaba `Escape` antes de que llegara al drawer.
+- **Items:** altura base de `2rem`, radio `md`, icono de `1rem`; activo y hover usan sidebar-accent. Un ítem no disponible usa `aria-disabled`, no `disabled`, para conservar su tooltip —única etiqueta cuando la sidebar está colapsada— y seguir anunciándose como no accionable.
+- **Information architecture:** Inicio, Valuación y Configuración enlazan. Valuación lleva el badge `Ref` porque su ruta corre el motor sobre un snapshot fijo para verificar que el cálculo es reproducible, no para mostrar datos de una empresa. Las herramientas sin datos aparecen deshabilitadas con la etiqueta `Plan`.
 
 ### Shell
 
@@ -301,6 +302,14 @@ Implementada en `src/app/valuacion/demo/_components/sensitivity-matrix.tsx`.
 - **Skip link:** oculto fuera de foco y visible al navegar por teclado.
 - **Footer:** advertencia educativa y descripción del modo sin competir con el contenido.
 - **Motion:** sidebar y drawer usan transiciones cortas; `prefers-reduced-motion` reduce sus duraciones a `0.01ms` y desactiva smooth scroll.
+
+### Refusal surfaces
+
+Dos superficies dicen que no: `RuntimeLockedNotice`, cuando el entorno no probó ser privado, y la 404 en `src/app/not-found.tsx`. Comparten forma a propósito, para que una negativa se reconozca como tal.
+
+- **Shape:** una sola card dentro de `max-w-3xl`, con `h1` en el título e icono Lucide inline.
+- **Content:** qué pasó, por qué, y la única acción que saca del estado. La negativa nombra la configuración faltante por nombre y nunca por valor; la 404 no adivina un destino ni ofrece una búsqueda que el portal todavía no puede resolver.
+- **Not a reduced product.** Ninguna de las dos muestra una versión recortada de lo que habría detrás. Un estado de error que parece funcionar es cómo se pasa por alto una configuración equivocada.
 
 **The Evidence Travels With the Result Rule.** Fuente, fecha, unidad, moneda, transformación y estado permanecen junto al resultado que explican.
 

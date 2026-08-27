@@ -1,8 +1,8 @@
 # Interface foundations and evidence
 
-- Estado: implementado para `F1-UI-01` y extendido por `F1-06`; revisión visual renderizada pendiente por falta de navegador disponible
-- Fecha: 2026-08-21, extendido el 2026-08-25
-- Superficies implementadas: home `/`, configuración `/configuracion`, valuación demo `/valuacion/demo` y shell compartido
+- Estado: implementado para `F1-UI-01`, extendido por `F1-06` y con la revisión renderizada automatizada en `F1-07`
+- Fecha: 2026-08-21, extendido el 2026-08-25, automatizado el 2026-08-26
+- Superficies implementadas: home `/`, configuración `/configuracion`, corrida de referencia `/valuacion/referencia`, 404 `not-found`, negativa del runtime trabado y shell compartido
 - Modo de interacción: `Operate`
 - Dirección: `Workspace financiero estándar`
 - Canon: `shadcn-finance-20260821`
@@ -27,8 +27,9 @@ inventar controles o geometrías propias.
    `shadcn-first` solicitado por el usuario.
 3. [`../../DESIGN.md`](../../DESIGN.md) define tokens, componentes y reglas durables.
 4. Los briefs de [home](../../.impeccable/surfaces/src-app-page-tsx.md),
-   [configuración](../../.impeccable/surfaces/src-app-configuracion-page-tsx.md) y
-   [valuación demo](../../.impeccable/surfaces/src-app-valuacion-demo-page-tsx.md)
+   [configuración](../../.impeccable/surfaces/src-app-configuracion-page-tsx.md),
+   [corrida de referencia](../../.impeccable/surfaces/src-app-valuacion-referencia-page-tsx.md)
+   y [404](../../.impeccable/surfaces/src-app-not-found-tsx.md)
    definen la composición de cada superficie.
 5. [`../../src/app/globals.css`](../../src/app/globals.css), `src/components/ui/` y
    las páginas son la evidencia ejecutable.
@@ -110,7 +111,7 @@ desktop/mobile sigue siendo el follow-up de `UI-02`; cualquier hallazgo visual r
 
 ## Extensión de `F1-06`
 
-`/valuacion/demo` es la primera superficie con datos financieros reales del motor.
+`/valuacion/referencia` es la primera superficie con datos financieros reales del motor.
 Hereda el shell, los tokens y las primitivas sin introducir un mundo visual nuevo,
 y agrega dos patrones durables ya registrados en [`DESIGN.md`](../../DESIGN.md):
 las **data marks** —que califican la naturaleza de un dato y no la disponibilidad
@@ -123,14 +124,51 @@ vez de elegida a ojo.
 | `typecheck`                     | pasa                                                                                                                                                                                              |
 | `test`                          | 282/282 unit tests, sin red                                                                                                                                                                       |
 | `test:integration`              | 24/24 contra PostgreSQL `17.11`; el slice no toca schema ni repositorios                                                                                                                          |
-| `build`                         | pasa; `/valuacion/demo` prerenderiza estáticamente, lo que confirma que el render no lee reloj, red ni base                                                                                       |
+| `build`                         | pasaba prerenderizando la ruta; desde la [ADR 0005](../architecture/adr/0005-request-time-runtime-boundary.md) se sirve en el request y esa fila queda corregida ahí                              |
 | Detector Impeccable             | `[]` sobre la página, sus componentes, la sidebar y la home                                                                                                                                       |
 | Contraste medido                | rampa de tinte y textos sobre celda calculados en oklab para ambos temas: peor caso 4.68:1 (delta) y 4.77:1 (caso base), sobre un floor de 4.5:1                                                  |
 | Semántica verificada en el HTML | un solo `h1`, 10 `h2` y 8 `h3` sin salto de nivel; 7 tablas con 42 `th scope="col"` y 38 `th scope="row"`; 18 `<time datetime>`; 72 alternativas `sr-only`; celdas rechazadas legibles como texto |
 | Revisión renderizada            | **no ejecutada**: no hay navegador disponible en la sesión y los scripts `live` de Impeccable no están aprobados por `AGENTS.md`. No se sustituyó por automatización externa                      |
 
 El chequeo estático no reemplaza a la inspección renderizada a 1440×900 y 390×844.
-Esa medición sigue siendo el follow-up de `UI-02` y se ejecuta en `F1-07`.
+Esa medición era el follow-up de `UI-02` y se ejecutó en `F1-07`.
+
+## Cierre de `UI-02` en `F1-07`
+
+La revisión renderizada dejó de depender de que alguien la ejecute: `pnpm test:e2e`
+sirve un mismo build en modo personal y trabado, y recorre cada ruta en escritorio
+1440×900 claro y oscuro, ancho de teléfono 390×844 y con `prefers-reduced-motion`.
+Procedimiento en [`../runbooks/e2e-accessibility-gate.md`](../runbooks/e2e-accessibility-gate.md).
+
+| Gate                 | Resultado                                                                                                            |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `axe-core`           | 0 findings `serious` o `critical` en las 4 rutas × 6 proyectos, en ambos modos                                       |
+| Teclado y foco       | skip link como primer destino, foco visible, sin trampas; el drawer mobile contiene el foco y lo devuelve al trigger |
+| Reflow               | sin overflow horizontal del body en 1440×900 y 390×844 sobre las 4 rutas                                             |
+| Movimiento reducido  | transición de la sidebar por debajo de 50 ms, sin smooth scroll, y el cambio de estado sigue siendo legible          |
+| Capturas             | `.impeccable/review/<proyecto>-<ruta>.png`, regeneradas por el gate; sólo runtimes sintéticos o la negativa          |
+| Revisión renderizada | **ejecutada y automatizada**; los scripts `live` de Impeccable siguen sin aprobarse                                  |
+
+Tres hallazgos reales salieron de esta automatización y se corrigieron en el mismo
+slice; los tres habían sobrevivido a la revisión manual de `F1-06`:
+
+1. **Contraste.** La distancia en días de una data mark usaba `opacity-80` sobre
+   ámbar y esmeralda y quedaba por debajo de 4.5:1. Ahora se distingue por peso.
+2. **Estado no anunciado.** Las herramientas planificadas pasaban `disabled` a un
+   `SidebarMenuButton` con tooltip, y el `TooltipTrigger` de Base UI consumía la
+   prop sin reenviarla: el control se anunciaba como accionable y además perdía su
+   tooltip. Ahora usan `aria-disabled`.
+3. **`Escape` capturado.** En mobile cada ítem seguía siendo un tooltip trigger y su
+   popup se quedaba con la tecla, así que el drawer no se podía cerrar por teclado
+   más que tabulando hasta la X. Los tooltips ya no se montan en ese ancho.
+
+Un cuarto ajuste salió del mismo recorrido: el rail de arrastre de la sidebar
+duplicaba el nombre accesible del trigger sin agregar capacidad, y quedó fuera del
+árbol de accesibilidad.
+
+`axe-core` es un piso mecánico, no un certificado: no evalúa jerarquía de lectura,
+calidad del copy ni si una tabla dice algo verdadero. El walkthrough del owner
+(`F1-08`) y la auditoría WCAG 2.2 AA de `F9-03` siguen siendo necesarios.
 
 ## Reglas para el siguiente cambio visual
 

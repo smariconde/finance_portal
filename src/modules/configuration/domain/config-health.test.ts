@@ -155,4 +155,75 @@ describe("getConfigHealth", () => {
     ).toMatchObject({ status: "degraded" });
     expect(JSON.stringify(health)).not.toContain(secret);
   });
+
+  /**
+   * `TM-02` no se cierra probando la variable que uno se acordó de probar. Acá
+   * cada variable declarada en `.env.example` recibe un valor centinela único y
+   * ninguno puede aparecer en la salida, en ningún modo. Si mañana el health
+   * empieza a citar un valor para "ayudar a diagnosticar", este test lo nombra.
+   */
+  describe("no exposición de valores (TM-02)", () => {
+    const DECLARED_VARIABLES = [
+      "NEXT_PUBLIC_APP_URL",
+      "NEXT_PUBLIC_APP_NAME",
+      "APP_ENV",
+      "LOG_LEVEL",
+      "DATABASE_URL",
+      "DATABASE_DIRECT_URL",
+      "DATABASE_TEST_URL",
+      "CRON_SECRET",
+      "MARKET_DATA_PROVIDER",
+      "ALPACA_API_KEY_ID",
+      "ALPACA_API_SECRET_KEY",
+      "ALPACA_DATA_FEED",
+      "SEC_USER_AGENT",
+      "OPENROUTER_API_KEY",
+      "OPENROUTER_MODEL_FAST",
+      "OPENROUTER_MODEL_REASONING",
+      "OPENROUTER_PROVIDER_ALLOWLIST",
+      "TAVILY_API_KEY",
+      "SENTRY_DSN",
+    ] as const;
+
+    function sentinelEnvironment(mode: string, access: string) {
+      const environment: Record<string, string> = {
+        APP_MODE: mode,
+        APP_RUNTIME_ACCESS: access,
+      };
+
+      for (const name of DECLARED_VARIABLES) {
+        environment[name] = `sentinel-${name.toLowerCase()}-value`;
+      }
+
+      return environment;
+    }
+
+    it.each([
+      ["locked", "public"],
+      ["personal", "local"],
+      ["personal", "public"],
+    ])("no filtra ningún valor con APP_MODE=%s y acceso %s", (mode, access) => {
+      const environment = sentinelEnvironment(mode, access);
+      const serialized = JSON.stringify(getConfigHealth(environment));
+
+      for (const name of DECLARED_VARIABLES) {
+        expect(serialized).not.toContain(environment[name]);
+      }
+    });
+
+    it("nombra la variable faltante sin citar ninguna presente", () => {
+      const health = getConfigHealth({
+        APP_MODE: "personal",
+        APP_RUNTIME_ACCESS: "local",
+        ALPACA_API_SECRET_KEY: "sentinel-alpaca-secret",
+      });
+
+      const serialized = JSON.stringify(health);
+
+      // El nombre de lo que falta es accionable; el valor de lo que está nunca
+      // lo es.
+      expect(serialized).toContain("DATABASE_URL");
+      expect(serialized).not.toContain("sentinel-alpaca-secret");
+    });
+  });
 });

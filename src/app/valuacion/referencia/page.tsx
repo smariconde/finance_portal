@@ -24,7 +24,7 @@ import {
   DEMO_CURRENT_SYMBOL,
   DEMO_IDENTITY_GRAPH,
 } from "@/modules/identity/infrastructure/demo-identity-fixtures";
-import { getAppConfigHealth } from "@/server/config/app-environment";
+import { getRequestConfigHealth } from "@/server/config/app-environment";
 import {
   formatAmount,
   formatUtcTimestamp,
@@ -69,8 +69,11 @@ export const metadata: Metadata = {
  * Aun así queda detrás del guard de runtime, porque un entorno trabado no sirve
  * ninguna superficie de datos (ADR 0004).
  */
-export default function ValuationReferencePage() {
-  const health = getAppConfigHealth();
+/** Ver [ADR 0005](../../../../docs/architecture/adr/0005-request-time-runtime-boundary.md). */
+export const instant = false;
+
+export default async function ValuationReferencePage() {
+  const health = await getRequestConfigHealth();
 
   if (!servesRealData(health)) {
     return (

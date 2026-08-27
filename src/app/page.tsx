@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { getAppConfigHealth } from "@/server/config/app-environment";
+import { getRequestConfigHealth } from "@/server/config/app-environment";
 
 const tools = [
   {
@@ -59,8 +59,18 @@ const tools = [
   },
 ] as const;
 
-export default function HomePage() {
-  const health = getAppConfigHealth();
+/**
+ * La resolución del modo efectivo ocurre en el request
+ * ([ADR 0005](../../docs/architecture/adr/0005-request-time-runtime-boundary.md)),
+ * así que la ruta se sirve entera cuando llega. No se usa un `Suspense` con
+ * cáscara prerenderizada: la única pregunta pendiente es si este runtime puede
+ * servir algo, y mostrar el marco antes de responderla anticipa justamente lo que
+ * todavía no está decidido.
+ */
+export const instant = false;
+
+export default async function HomePage() {
+  const health = await getRequestConfigHealth();
   const attentionCount = health.items.filter(
     (item) => item.status === "degraded",
   ).length;

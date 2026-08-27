@@ -22,6 +22,7 @@ pnpm typecheck           # tsc --noEmit
 pnpm test                # vitest run, src/**/*.test.ts
 pnpm test:watch
 pnpm test:integration    # tests/integration/**, requires DATABASE_TEST_URL
+pnpm test:e2e            # Playwright + axe over one build served as personal and locked
 pnpm format:check
 ```
 
@@ -33,9 +34,16 @@ pnpm vitest run -t "partial name of the test"
 ```
 
 Before handing off a change, run the same sequence CI runs (`.github/workflows/quality.yml`):
-`pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build`.
+`pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build`, plus
+`pnpm test:e2e` for the separate gate job.
 
-`test:e2e` does not exist yet — do not claim it.
+The unit suite runs behind a network guard (`tests/setup/no-network.ts`): `fetch`,
+`http`, `https`, and raw TCP all throw. A test that needs a provider needs a fixture.
+
+`pnpm test:e2e` builds once and serves that same artifact under two environments —
+personal and locked — then runs Playwright and `axe-core` across desktop, mobile,
+dark theme, and reduced motion. It needs no PostgreSQL and opens no network. Full
+workflow: [docs/runbooks/e2e-accessibility-gate.md](docs/runbooks/e2e-accessibility-gate.md).
 
 ### Database
 
@@ -80,6 +88,8 @@ Server Components call application services directly — no internal HTTP fetch.
 - `locked` → everything else. Serves no data, opens no DB connection, calls no provider. It is a refusal, not a demo: there is no fallback dataset.
 
 Surfaces gate on `servesRealData(health)` and render `RuntimeLockedNotice` otherwise; they never compare the mode by hand. Composition roots build dependencies through `selectPersonalDependency()`, which throws `RuntimeLockedError` rather than substituting a fixture. Cache identities include the mode. Setting a key in `.env.local` does not enable an unimplemented integration.
+
+The mode is resolved **during the request**, never at build time. Surfaces read it only through `getRequestConfigHealth()`, which awaits `connection()` first, and each such route declares `export const instant = false` ([ADR 0005](docs/architecture/adr/0005-request-time-runtime-boundary.md)). Without that, Cache Components prerenders the route and bakes the building machine's mode into the HTML, so the artifact would serve data regardless of the runtime that serves it. Do not add a synchronous way to read the mode.
 
 The in-memory repositories (`in-memory-*`) are **test doubles**, not a runtime mode. No composition root builds them.
 

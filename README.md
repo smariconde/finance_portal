@@ -19,17 +19,19 @@ La aplicación está diseñada para responder preguntas como:
 
 ## Estado actual
 
-La **Fase 0 — Fundación** está terminada y la Fase 1 está en curso. `F1-05` cerró el motor FCFF base determinista sobre una empresa sintética, con política decimal explícita, hash reproducible y corridas persistidas. El próximo slice es `F1-06`: la superficie que muestre ese resultado con sus fuentes, freshness, supuestos y sensibilidad. Todavía no hay proveedores reales ni datos financieros: todo lo implementado corre sobre fixtures versionadas.
+La **Fase 0 — Fundación** está terminada y la Fase 1 está en curso. `F1-07` cerró el gate automatizado de extremo a extremo: un mismo build se sirve con entorno personal y con entorno trabado para verificar que el runtime que no prueba ser privado no sirve nada, más accesibilidad, teclado, mobile y movimiento reducido. El próximo slice es `F1-08`: el walkthrough del owner que cierra la fase. Todavía no hay proveedores reales ni datos financieros: todo lo implementado corre sobre fixtures versionadas.
 
 Disponible hoy:
 
 - Next.js con App Router, React y TypeScript estricto.
 - Shell responsive con navegación sólo a superficies implementadas.
-- Health seguro de configuración para los modos `demo` y `personal`, con estados honestos y headers base.
-- Schema y migraciones Drizzle con rollback pareado, y repositorios separados para fixture demo y storage personal.
+- Health seguro de configuración para los modos `locked` y `personal`, con estados honestos y headers base.
+- Schema y migraciones Drizzle con rollback pareado, y composición que falla cerrada cuando el runtime no puede servir datos.
 - Registro de fuentes fail-closed por derecho, corridas de ingesta append-only y un provider sintético determinista.
 - Identidad separada en entidad legal, security, listing y símbolo, con programas depositarios y consultas `as_known` sin look-ahead.
 - Motor FCFF base en dominio puro con política decimal, policy checks, sensibilidad WACC/g y corridas reproducibles por hash.
+- Corrida de referencia navegable en `/valuacion/referencia`, con provenance, freshness, supuestos, sensibilidad accesible y policy checks.
+- Gate E2E y de accesibilidad sobre el artefacto servido, en escritorio, mobile, tema oscuro y movimiento reducido.
 - Variables de entorno documentadas sin credenciales reales.
 - Tests unitarios, lint, typecheck, formato, build y CI mínima.
 - Límites de módulos preparados para crecer sin mezclar dominio, framework y proveedores.
@@ -57,7 +59,7 @@ Todavía no están implementados los datos financieros reales, el screener, el t
 4. Empresa, entidad legal, instrumento, listing, ticker y programa depositario son identidades distintas.
 5. Las consultas históricas respetan `available_at`, vintages y restatements para evitar look-ahead.
 6. Una falla de proveedor degrada un módulo sin reemplazar el último snapshot válido.
-7. La demo pública usa fixtures; los datos y claves reales pertenecen únicamente al owner.
+7. No hay demo pública: un runtime que no prueba ser privado se traba en vez de servir datos de reemplazo. Los datos y claves reales pertenecen únicamente al owner.
 
 ## Stack
 
@@ -112,7 +114,7 @@ src/
   modules/
     configuration/
       domain/                   # health puro y testeable
-    persistence/                # contrato, port y repository demo
+    persistence/                # contrato, port y dobles de test en memoria
   server/
     config/                     # lectura server-only del entorno
     db/                         # schema, cliente pooled y adapter Drizzle
@@ -149,20 +151,23 @@ Copy-Item .env.example .env.local
 
 Abrir [http://localhost:3000](http://localhost:3000).
 
-La configuración incluida inicia en `APP_MODE=demo` y
-`APP_RUNTIME_ACCESS=public`; no necesita claves de proveedores.
+La configuración incluida inicia en `APP_MODE=locked` y
+`APP_RUNTIME_ACCESS=public`: no necesita claves ni base, y no sirve datos. Es
+una negativa deliberada, no una demo.
 
 ## Modos de ejecución
 
-### `demo`
+### `locked`
 
-Es el modo seguro por defecto y el único apropiado para una URL pública anónima.
+Es el estado por defecto y el único posible para cualquier entorno que no pueda
+probar que es privado ([ADR 0004](docs/architecture/adr/0004-personal-first-runtime.md)).
 
-- Usa `APP_RUNTIME_ACCESS=public`.
-- No necesita API keys.
+- No necesita API keys ni base de datos.
+- No abre PostgreSQL, no consulta proveedores y no sirve ningún dato.
 - Ignora cualquier configuración live cargada por error.
-- No habilita ingestas, IA ni mutaciones persistentes.
-- Usará exclusivamente fixtures deterministas cuando se incorporen en la siguiente fase.
+- **No es una demo.** No existe un conjunto de datos de reemplazo ni una versión
+  reducida del producto: la respuesta es no responder. Sólo queda disponible el
+  diagnóstico de `/configuracion`, que es lo que permite salir del estado.
 
 ### `personal`
 
@@ -187,6 +192,7 @@ Definir variables en `.env.local` no habilita por sí solo una integración toda
 | `pnpm typecheck`        | Verifica TypeScript sin emitir archivos.                            |
 | `pnpm test`             | Ejecuta la suite unitaria una vez.                                  |
 | `pnpm test:integration` | Prueba migración y repositorio contra una base PostgreSQL dedicada. |
+| `pnpm test:e2e`         | Gate E2E y de accesibilidad sobre un build servido en ambos modos.  |
 | `pnpm test:watch`       | Ejecuta tests en modo interactivo.                                  |
 | `pnpm db:generate`      | Genera SQL versionado desde el schema Drizzle.                      |
 | `pnpm db:migrate`       | Aplica migraciones con `DATABASE_DIRECT_URL`.                       |
@@ -203,18 +209,22 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
+pnpm test:e2e
 ```
 
-La misma secuencia se ejecuta en GitHub Actions para pushes a `main` y pull requests.
+La misma secuencia se ejecuta en GitHub Actions para pushes a `main` y pull
+requests. El gate E2E corre en un job aparte porque necesita compilar y levantar
+dos servidores; su procedimiento está en
+[`docs/runbooks/e2e-accessibility-gate.md`](docs/runbooks/e2e-accessibility-gate.md).
 
 ## Configuración y seguridad
 
 - Nunca guardar credenciales reales en Git ni en variables `NEXT_PUBLIC_*`.
 - Mantener `.env.local` fuera del repositorio.
-- Producción pública debe permanecer en modo `demo` mientras no exista protección confirmada.
+- Producción pública debe permanecer `locked` mientras no exista protección confirmada.
 - No enviar payloads financieros, prompts ni documentos privados a terceros sin una política explícita.
 - No integrar una fuente antes de revisar uso personal, caché, retención, atribución y exportación.
-- No reutilizar datos live capturados como fixtures de la demo pública.
+- No reutilizar datos live capturados como fixtures ni como capturas de pantalla versionadas.
 
 Si una clave se expone, debe revocarse en el proveedor; eliminarla del último commit no borra su historial.
 
@@ -234,12 +244,15 @@ Cada observación persistida deberá conservar provenance, fecha efectiva, fecha
 
 El destino previsto es Vercel, pero el repositorio todavía no publica una URL de producción.
 
-- Una demo pública deberá ejecutarse con `APP_MODE=demo`,
-  `APP_RUNTIME_ACCESS=public` y fixtures.
+- No hay ni habrá una URL pública anónima con datos: cualquier entorno que no
+  pruebe ser privado queda `locked`.
 - La instancia personal con datos reales deberá ejecutarse localmente o en un
   Vercel Preview cuya protección se haya verificado fuera de la aplicación.
-- Vercel Production permanece en `demo`; no se configura cron live mientras esa
+- Vercel Production permanece `locked`; no se configura cron live mientras esa
   frontera siga vigente.
+- El modo se resuelve en cada request, no al compilar
+  ([ADR 0005](docs/architecture/adr/0005-request-time-runtime-boundary.md)): un
+  build hecho en la máquina del owner no sirve datos al desplegarse en otro lado.
 - PostgreSQL se provisionará con pooling para runtime y una conexión directa separada para migraciones.
 - Las migraciones se ejecutarán como un job controlado, nunca automáticamente desde cada Function.
 
@@ -278,7 +291,7 @@ Antes de proponer cambios, leer [AGENTS.md](AGENTS.md) y el estado actual del ro
 - Mantener una versión ejecutable al cerrar cada cambio.
 - Agregar tests de bordes a toda fórmula financiera.
 - Documentar cualquier dependencia estructural o proveedor mediante ADR.
-- Preservar el alcance single-owner y la separación estricta entre `demo` y `personal`.
+- Preservar el alcance single-owner y la separación estricta entre `locked` y `personal`.
 
 ## Licencia y derechos de datos
 

@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getAppConfigHealth } from "@/server/config/app-environment";
+import { getRequestConfigHealth } from "@/server/config/app-environment";
 
 export const metadata: Metadata = {
   title: "Configuración | Portal Financiero",
@@ -51,8 +51,11 @@ const stateGuide: Array<{
   },
 ];
 
-export default function ConfigurationPage() {
-  const health = getAppConfigHealth();
+/** Ver [ADR 0005](../../../docs/architecture/adr/0005-request-time-runtime-boundary.md). */
+export const instant = false;
+
+export default async function ConfigurationPage() {
+  const health = await getRequestConfigHealth();
 
   return (
     <div id="contenido" className="flex-1">

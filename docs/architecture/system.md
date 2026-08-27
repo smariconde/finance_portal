@@ -111,10 +111,14 @@ que implementa su primer contrato ejecutable.
 
 ### Lectura de página
 
-1. Un Server Component valida parámetros de ruta o búsqueda.
+1. Un Server Component resuelve el modo efectivo del request y valida parámetros
+   de ruta o búsqueda. Si el runtime está `locked`, renderiza la negativa y no
+   sigue.
 2. Invoca un servicio de aplicación directamente, sin `fetch` HTTP interno.
 3. El servicio consulta un repository port.
-4. El repositorio lee fixtures versionados en `demo` o PostgreSQL en `personal`.
+4. El repositorio lee PostgreSQL. Sólo existe en `personal`: un runtime trabado
+   no llega hasta acá, y si llegara, la composición lanza `RuntimeLockedError`
+   en vez de sustituir una fixture.
 5. El servicio devuelve un DTO sin secretos, raw restringido ni detalles del
    proveedor.
 6. La UI muestra valor, unidad, fecha, freshness y calidad.
@@ -122,7 +126,8 @@ que implementa su primer contrato ejecutable.
 ### Mutación del owner
 
 1. Una Server Action o Route Handler valida modo, payload y tamaño.
-2. En `demo`, la operación persistente o costosa falla con un error seguro.
+2. Con el runtime `locked`, la operación persistente o costosa falla con un error
+   seguro antes de tocar nada.
 3. En `personal`, el servicio aplica invariantes y persiste una transacción corta.
 4. La invalidación ocurre después del commit exitoso.
 5. El resultado registra actor operativo único, versión y trazabilidad; no agrega
@@ -219,33 +224,44 @@ Reglas comunes:
 
 ## Modos y configuración
 
-El runtime se resuelve exclusivamente en servidor con dos ejes:
+El runtime se resuelve exclusivamente en servidor con dos ejes
+([ADR 0004](adr/0004-personal-first-runtime.md), que reemplaza el eje
+`demo | personal` de la ADR 0002):
 
-- `APP_MODE=demo | personal` expresa las capacidades solicitadas;
+- `APP_MODE=locked | personal` expresa las capacidades solicitadas;
 - `APP_RUNTIME_ACCESS=public | local | protected` declara el límite de acceso.
 
 La declaración no prueba por sí sola que un deployment esté protegido. El
 despliegue debe verificar esa protección fuera de la aplicación. Una combinación
-inválida o insegura degrada al modo efectivo `demo`; nunca amplía capacidades.
+inválida o insegura queda en el modo efectivo `locked`; nunca amplía capacidades.
 
-### `demo`
+**La resolución ocurre durante el request, no durante el build**
+([ADR 0005](adr/0005-request-time-runtime-boundary.md)). Las superficies leen el
+modo sólo por `getRequestConfigHealth()`, que espera `connection()` antes de
+tocar el entorno, y cada ruta que lo consulta declara `export const instant =
+false`. Sin eso, Cache Components prerenderiza la ruta y hornea en el HTML el
+modo de la máquina que compiló, con lo cual el artefacto serviría datos sin
+importar el runtime que lo sirve. No debe existir una variante síncrona.
 
-- arranca sin DB ni credenciales;
-- usa fixtures creados para el repositorio;
-- rechaza ingesta live, IA y mutaciones persistentes;
-- no sirve payloads capturados de la instancia personal.
+### `locked`
+
+- no abre PostgreSQL, no consulta proveedores y no sirve datos;
+- no tiene repositorio alternativo ni conjunto de datos de reemplazo: es una
+  negativa, no una demo;
+- deja disponible sólo el diagnóstico de `/configuracion`, que es lo que permite
+  salir del estado.
 
 ### `personal`
 
 - exige PostgreSQL pooled;
 - sólo es efectivo con `APP_RUNTIME_ACCESS=local` fuera de Vercel o con
   `APP_RUNTIME_ACCESS=protected` en un Vercel Preview protegido;
-- Vercel Production permanece en `demo`, aunque se solicite `personal`;
+- Vercel Production permanece `locked`, aunque se solicite `personal`;
 - sólo habilita un módulo cuando sus variables y gate están completos;
 - mantiene keys server-owned y no introduce cuentas o BYOK.
 
 El modo personal desplegado comienza con refresh manual. No se configura cron
-live mientras Production permanezca en `demo`, porque el cron gestionado de
+live mientras Production permanezca `locked`, porque el cron gestionado de
 Vercel invoca el deployment de Production y no el Preview protegido.
 
 `getConfigHealth()` informa `ready | degraded | disabled`, variables faltantes y
@@ -312,8 +328,13 @@ un cambio por una caída externa sin diagnóstico.
 ## Decisiones y trabajo diferido
 
 - ADR 0001 fija stack, Cache Components y conexiones PostgreSQL.
-- ADR 0002 fija los modos efectivos, la persistencia durable y el límite de
-  exposición de datos.
+- ADR 0002 fija la persistencia durable y el límite de exposición de datos; su
+  eje `demo | personal` fue reemplazado por la ADR 0004.
+- ADR 0004 fija los modos efectivos `locked | personal` y el fallo cerrado.
+- ADR 0005 mueve la resolución del modo al request, para que la frontera no
+  quede horneada en el artefacto de build.
+- ADR 0006 incorpora el harness E2E y de accesibilidad que verifica ese límite
+  sobre el artefacto servido.
 - El modelo de identidad y el contrato point-in-time fijan semántica; `F1-02`
   implementa su envelope base y los slices siguientes amplían tablas y queries.
 - La matriz contractual de fuentes registra derechos, cache, retención y cuotas;

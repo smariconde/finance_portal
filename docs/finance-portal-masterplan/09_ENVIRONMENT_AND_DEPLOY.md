@@ -2,7 +2,7 @@
 
 ## Filosofia de configuracion
 
-La app debe arrancar con modulos opcionales deshabilitados y mostrar un setup health claro. El codigo es publico, pero las variables y la base pertenecen al owner. `APP_MODE=demo` nunca necesita keys; `APP_MODE=personal` solo es efectivo junto con un limite de acceso valido: local fuera de Vercel o Preview protegido.
+La app debe arrancar con modulos opcionales deshabilitados y mostrar un setup health claro. El codigo es publico, pero las variables y la base pertenecen al owner. `APP_MODE=locked` no necesita keys ni base: no sirve nada. `APP_MODE=personal` solo es efectivo junto con un limite de acceso valido —local fuera de Vercel o Preview protegido— y una `DATABASE_URL` pooled. Ver [ADR 0004](../architecture/adr/0004-personal-first-runtime.md).
 
 ## Variables
 
@@ -18,7 +18,7 @@ DATABASE_URL=
 DATABASE_DIRECT_URL=
 CRON_SECRET=
 APP_ENV=development
-APP_MODE=demo
+APP_MODE=locked
 APP_RUNTIME_ACCESS=public
 LOG_LEVEL=info
 
@@ -58,7 +58,7 @@ Crear grupos:
 - `research`: Tavily;
 - `observability`: opcional por fase.
 
-`demo` rechaza cualquier configuracion de ingesta live aunque existan keys por error. `personal` exige Postgres y habilita modulos solo si sus variables estan completas. Tambien exige `APP_RUNTIME_ACCESS=local` fuera de Vercel o `APP_RUNTIME_ACCESS=protected` en un Vercel Preview. Una combinacion ausente, invalida o insegura cae al modo efectivo `demo`; Vercel Production siempre queda en `demo` en esta etapa. `DATABASE_URL` usa pooling compatible con Functions; `DATABASE_DIRECT_URL` nunca se importa desde rutas normales y se reserva al job controlado de migracion. Si una cola/workflow se aprueba por ADR, agregar sus variables en ese cambio.
+`locked` rechaza cualquier configuracion de ingesta live aunque existan keys por error, y no abre PostgreSQL. `personal` exige Postgres y habilita modulos solo si sus variables estan completas. Tambien exige `APP_RUNTIME_ACCESS=local` fuera de Vercel o `APP_RUNTIME_ACCESS=protected` en un Vercel Preview. Una combinacion ausente, invalida o insegura queda en el modo efectivo `locked`; Vercel Production siempre queda `locked`. El modo se resuelve en cada request y no se hornea en el build ([ADR 0005](../architecture/adr/0005-request-time-runtime-boundary.md)), asi que un artefacto compilado en la maquina del owner no sirve datos al desplegarse en otro lado. `DATABASE_URL` usa pooling compatible con Functions; `DATABASE_DIRECT_URL` nunca se importa desde rutas normales y se reserva al job controlado de migracion. Si una cola/workflow se aprueba por ADR, agregar sus variables en ese cambio.
 
 `getConfigHealth()` retorna `ready | degraded | disabled`, missing vars y mensaje seguro. Nunca incluye valores.
 
@@ -68,7 +68,6 @@ Crear grupos:
 pnpm install
 cp .env.example .env.local
 pnpm db:migrate
-pnpm db:seed:demo
 pnpm dev
 ```
 
@@ -89,22 +88,22 @@ pnpm build
 
 - Opcion mas simple: `APP_MODE=personal` y `APP_RUNTIME_ACCESS=local` fuera de Vercel, con Postgres remoto o local y refresh manual.
 - Opcion desplegada: `APP_MODE=personal` y `APP_RUNTIME_ACCESS=protected` en una Preview URL protegida con Vercel Authentication. La variable es una declaracion operativa; el checklist debe confirmar la proteccion real. No requiere construir login, sesiones ni tablas de usuarios.
-- En Hobby, Standard Protection no protege el production domain. Por eso production queda en `demo`; los datos reales se usan en localhost o en una URL que la plataforma confirme como protegida.
+- En Hobby, Standard Protection no protege el production domain. Por eso production queda `locked`; los datos reales se usan en localhost o en una URL que la plataforma confirme como protegida.
 - No se programa Vercel Cron para este modo: el servicio invoca Production, no Preview. El refresh inicial es manual.
 
-### Demo publica
+### Trabado
 
-- `APP_MODE=demo`, `APP_RUNTIME_ACCESS=public`, fixtures deterministas y ninguna key financiera/IA.
-- Sin refresh live, cron de proveedores, mutaciones persistentes ni historial personal.
-- Sirve para mostrar UI, formulas y arquitectura desde el repositorio publico.
+- `APP_MODE=locked`, `APP_RUNTIME_ACCESS=public`, sin base, sin keys y sin datos de ningun tipo.
+- No es una demo: no hay conjunto de datos de reemplazo ni version reducida del producto. La ADR 0004 elimino esa rama a proposito, porque hacia que un entorno mal declarado pareciera funcionar.
+- Solo queda disponible el diagnostico de `/configuracion`, que es lo que permite salir del estado.
 
 ## Vercel
 
 1. Importar repo en Vercel.
 2. Provisionar Postgres (Neon/Supabase/otro) desde Marketplace en region compatible.
-3. Configurar Production con `APP_MODE=demo` y `APP_RUNTIME_ACCESS=public`; agregar keys solo al entorno Preview personal/protegido y marcarlas como sensibles.
+3. Configurar Production con `APP_MODE=locked` y `APP_RUNTIME_ACCESS=public`; agregar keys solo al entorno Preview personal/protegido y marcarlas como sensibles.
 4. Ejecutar migraciones mediante job controlado, no implicitamente desde cada Function.
-5. No configurar cron live mientras Production sea demo. Vercel Cron invoca Production, no Preview; el modo personal comienza con refresh manual. Una automatizacion posterior exige un nuevo ADR, un destino protegido y autenticacion verificable.
+5. No configurar cron live mientras Production este `locked`. Vercel Cron invoca Production, no Preview; el modo personal comienza con refresh manual. Una automatizacion posterior exige un nuevo ADR, un destino protegido y autenticacion verificable.
 6. Configurar `maxDuration` solo en rutas que lo necesiten; no subirlo globalmente como parche.
 7. Desplegar preview, correr E2E smoke y promover.
 8. Registrar modelo de cache de la version Next.js instalada y probar invalidacion/freshness; no mezclar Cache Components y convenciones anteriores accidentalmente.
@@ -127,17 +126,17 @@ Los cron usan UTC. En Hobby solo pueden ejecutarse diariamente y dentro de la ho
 
 - env health sin exponer secretos;
 - migracion aplicada y rollback conocido;
-- guard `personal | demo` y `public | local | protected` verificados;
-- Preview personal confirmada como protegida fuera de la aplicacion; Production confirmada en `demo`;
+- guard `personal | locked` y `public | local | protected` verificados;
+- Preview personal confirmada como protegida fuera de la aplicacion; Production confirmada `locked`;
 - region DB/Functions documentada;
 - provider live smoke de bajo costo solo en `personal`;
 - source registry/licencia vigente;
 - no `NEXT_PUBLIC_*KEY*`;
 - logs redacted y presupuesto de proveedor activo;
 - disclaimer/metodologia/freshness visibles.
-- uso personal/cache/export confirmado para el plan; demo publica sin datos live;
+- uso personal/cache/export confirmado para el plan; ninguna URL anonima sirve datos;
 - data map minimo revisado para IA/telemetria habilitadas;
-- endpoints IA ausentes en demo y con budget/kill switch en personal;
+- endpoints IA ausentes con el runtime trabado y con budget/kill switch en personal;
 - pooling verificado y la URL directa ausente del runtime normal.
 
 ## Persistencia entre sesiones
