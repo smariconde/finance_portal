@@ -23,6 +23,7 @@ pnpm test                # vitest run, src/**/*.test.ts
 pnpm test:watch
 pnpm test:integration    # tests/integration/**, requires DATABASE_TEST_URL
 pnpm test:e2e            # Playwright + axe over one build served as personal and locked
+pnpm walkthrough         # serves one build as personal and undeclared for the owner's manual session
 pnpm format:check
 ```
 
@@ -44,6 +45,12 @@ The unit suite runs behind a network guard (`tests/setup/no-network.ts`): `fetch
 personal and locked — then runs Playwright and `axe-core` across desktop, mobile,
 dark theme, and reduced motion. It needs no PostgreSQL and opens no network. Full
 workflow: [docs/runbooks/e2e-accessibility-gate.md](docs/runbooks/e2e-accessibility-gate.md).
+
+`pnpm walkthrough` is not a gate: it prepares the owner's manual session for `F1-08`
+by serving one build on `127.0.0.1:3120` with the real `.env.local` and on
+`127.0.0.1:3121` with the mode variables blanked. It measures nothing on its own —
+the output is a written record. Protocol and template:
+[docs/runbooks/owner-walkthrough.md](docs/runbooks/owner-walkthrough.md).
 
 ### Database
 

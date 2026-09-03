@@ -20,6 +20,7 @@
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "tsx scripts/run-e2e.ts",
+    "walkthrough": "tsx scripts/run-walkthrough.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:test:up": "docker compose --env-file .env.docker.local -f compose.test.yaml up -d --wait",

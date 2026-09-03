@@ -17,6 +17,7 @@ The current application command contract is:
 - `pnpm test`: run unit and property tests without network access.
 - `pnpm test:integration`: run PostgreSQL integration tests with a dedicated `DATABASE_TEST_URL`.
 - `pnpm test:e2e`: build once, then serve that artifact under a personal and a locked environment and run the Playwright and `axe-core` gate. No network, no PostgreSQL.
+- `pnpm walkthrough`: serve one build under the owner's real personal environment and under an undeclared one, for the manual walkthrough session. Not a gate; its output is a written record.
 - `pnpm build`: verify the production build.
 - `pnpm db:generate`: generate reviewed SQL migrations from the Drizzle schema.
 - `pnpm db:migrate`: apply migrations through the direct administrative connection.

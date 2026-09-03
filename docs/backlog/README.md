@@ -24,17 +24,17 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 
 ## Tracker activo
 
-| Orden | Issue      | Estado  | Resultado verificable                                                                                        | Dependencias  |
-| ----: | ---------- | ------- | ------------------------------------------------------------------------------------------------------------ | ------------- |
-|     1 | `F1-01`    | `done`  | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos. | Fase 0 `done` |
-|     2 | `F1-02`    | `done`  | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.      | `F1-01`       |
-|     3 | `F1-UI-01` | `done`  | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.               | `F1-02`       |
-|     4 | `F1-03`    | `done`  | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.               | `F1-UI-01`    |
-|     5 | `F1-04`    | `done`  | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.          | `F1-03`       |
-|     6 | `F1-05`    | `done`  | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                      | `F1-04`       |
-|     7 | `F1-06`    | `done`  | Superficie de resultado y trazabilidad con fuentes, freshness, supuestos y sensibilidad accesibles.          | `F1-05`       |
-|     8 | `F1-07`    | `done`  | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                           | `F1-06`       |
-|     9 | `F1-08`    | `ready` | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.               | `F1-07`       |
+| Orden | Issue      | Estado        | Resultado verificable                                                                                        | Dependencias  |
+| ----: | ---------- | ------------- | ------------------------------------------------------------------------------------------------------------ | ------------- |
+|     1 | `F1-01`    | `done`        | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos. | Fase 0 `done` |
+|     2 | `F1-02`    | `done`        | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.      | `F1-01`       |
+|     3 | `F1-UI-01` | `done`        | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.               | `F1-02`       |
+|     4 | `F1-03`    | `done`        | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.               | `F1-UI-01`    |
+|     5 | `F1-04`    | `done`        | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.          | `F1-03`       |
+|     6 | `F1-05`    | `done`        | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                      | `F1-04`       |
+|     7 | `F1-06`    | `done`        | Superficie de resultado y trazabilidad con fuentes, freshness, supuestos y sensibilidad accesibles.          | `F1-05`       |
+|     8 | `F1-07`    | `done`        | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                           | `F1-06`       |
+|     9 | `F1-08`    | `in_progress` | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.               | `F1-07`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -482,6 +482,45 @@ Criterios de aceptación:
 - el gate de Fase 1 y el próximo slice quedan actualizados sin iniciar Fase 2.
 
 Controles: `UI-02`.
+
+Harness y protocolo (2026-09-03): `scripts/run-walkthrough.ts` con el script
+`pnpm walkthrough`, [el runbook del walkthrough](../runbooks/owner-walkthrough.md)
+y [la plantilla de registro](../walkthroughs/TEMPLATE.md).
+
+- El slice no se automatiza: lo que falta medir —tiempo hasta la respuesta, dónde
+  duda el owner, qué término no se entiende— no lo produce un test. Lo que sí se
+  hace reproducible es la **sesión**, para que dos corridas del walkthrough se
+  puedan comparar y para que el resultado no dependa de cómo estaba configurada la
+  máquina ese día.
+- Un solo build servido en dos puertos, igual que el gate: `3120` con el
+  `.env.local` real del owner y `3121` con modo, acceso y `DATABASE_URL` vaciados.
+  A diferencia del gate, el servidor personal **no** se fabrica con centinelas ni
+  con una base inalcanzable: la sesión tiene que correr sobre el runtime que el
+  owner realmente tiene, y si ese entorno no alcanza para `personal`, eso ya es el
+  primer hallazgo.
+- Los dos servidores escuchan sólo en `127.0.0.1`. La tarea mobile se hace con
+  emulación a 390×844 en vez de exponer a la red local un runtime que sirve datos
+  reales, que es exactamente lo que la ADR 0004 evita. El límite queda declarado:
+  la emulación no reproduce teclado virtual, gesto de volver ni rendimiento del
+  dispositivo, y eso corresponde a `F9-03`.
+- El entorno "sin declarar" vacía las variables en lugar de borrarlas del archivo
+  del owner; una variable declarada vacía recorre la misma rama de fallo cerrado.
+  El caso verdaderamente ausente ya está cubierto por
+  `src/server/persistence/runtime-composition.test.ts`.
+
+Verificación (2026-09-03): `format:check`, `lint` y `typecheck` pasan.
+`getConfigHealth` recibiendo el entorno exacto que arma el script para el
+servidor sin declarar —partiendo del peor caso, un shell que ya exporta
+`APP_MODE=personal`, `APP_RUNTIME_ACCESS=local` y una `DATABASE_URL` con
+credenciales— devuelve `mode = locked`, `servesRealData = false`, el mensaje
+"El runtime no pudo probar que es privado" y `missingVariables = [APP_MODE,
+APP_RUNTIME_ACCESS]`: nombra lo que falta sin exponer ningún valor (`TM-02`).
+
+Pendiente para cerrar el slice: `pnpm test`, `pnpm build` y una corrida real del
+harness, que no se pudieron ejecutar en la sesión del agente porque este checkout
+tiene `node_modules` instalado para Windows y faltan los binarios nativos de
+Linux; después, la sesión del owner y su registro en
+`docs/walkthroughs/<fecha>-f1-08.md`.
 
 ### Fase 2 — empresas, CEDEAR y screener
 
