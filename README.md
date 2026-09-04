@@ -132,6 +132,20 @@ drizzle/                        # migración SQL y metadata versionada
 
 ### Instalación
 
+`corepack` hay que instalarlo aparte, porque en el rango de Node soportado falla
+de dos maneras distintas y ninguna de las dos es evidente:
+
+- Node 25 y 26 **no lo incluyen**: fue removido del runtime, así que
+  `corepack enable` corta con `command not found`.
+- El que trae Node `22.11.0` (0.29.4) sí existe pero tiene vencidas las claves de
+  firma del registry, y `corepack prepare` corta con `Cannot find matching keyid`.
+
+En ambos casos se resuelve igual:
+
+```bash
+npm install -g corepack@latest
+```
+
 Después de clonar el repositorio:
 
 ```bash
@@ -141,14 +155,6 @@ corepack prepare pnpm@10.33.2 --activate
 pnpm install --frozen-lockfile
 cp .env.example .env.local
 pnpm dev
-```
-
-El corepack que trae Node `22.11.0` (0.29.4) tiene vencidas las claves de firma
-del registry y `corepack prepare` falla con `Cannot find matching keyid`. Se
-resuelve actualizándolo antes de activar pnpm:
-
-```bash
-npm install -g corepack@latest
 ```
 
 Abrir [http://localhost:3000](http://localhost:3000).
