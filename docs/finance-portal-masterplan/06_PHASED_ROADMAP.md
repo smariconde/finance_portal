@@ -20,15 +20,18 @@ Solo una fase puede estar `in_progress`. No marcar `done` por porcentaje, esfuer
 |---|---|---|
 | Masterplan y auditoria | done | Replanteo single-owner, datos y persistencia revisado el 2026-08-20 |
 | Fase 0 - Fundacion | done | Fase 0A y contratos 0B.1-0B.7 validados el 2026-08-21; gate completo sin integrar proveedores reales |
-| Fase 1 - Vertical slice personal | in_progress | `F1-08` en curso desde el 2026-09-03: harness y protocolo del walkthrough listos (`pnpm walkthrough`); falta la sesion del owner y su registro |
-| Fase 2 - Empresas y CEDEAR | not_started | - |
-| Fase 3 - Divergencias | not_started | - |
-| Fase 4 - Valuacion no financiera V1 | not_started | - |
-| Fase 5 - Arquetipos deterministas | not_started | - |
-| Fase 6 - Argentina y soja | not_started | - |
-| Fase 7 - IA personal acotada | not_started | - |
-| Fase 8 - Persistencia personal y asistente | not_started | - |
-| Fase 9 - Hardening y publicacion del proyecto | not_started | - |
+| Fase 1 - Vertical slice personal | done | Gate verificado end-to-end en Arch el 2026-09-04. `F1-08` queda `deferred` por la ADR 0007, con reingreso en `F6-06` |
+| Fase 2 - Datos reales SEC y universo S&P 500 | not_started | proximo slice `F2-01`: acceso personal remoto |
+| Fase 3 - Arquetipo, admisibilidad y costo de capital | not_started | - |
+| Fase 4 - Motor Damodaran y arquetipos | not_started | - |
+| Fase 5 - Capa IA acotada bajo policy engine | not_started | - |
+| Fase 6 - Corrida por ticker y acceso CEDEAR | not_started | - |
+| Fase 7 - Screener y catalogo de metricas | not_started | - |
+| Fase 8 - Divergencias fundamentales | not_started | - |
+| Fase 9 - Argentina, BCRA y soja | not_started | - |
+| Fase 10 - Persistencia, asistente y hardening | not_started | - |
+
+**Reordenamiento del 2026-09-04.** La [ADR 0007](../architecture/adr/0007-ticker-driven-valuation-pivot.md) reordena las fases alrededor del objetivo real del owner: escribir un ticker y obtener una valuacion rigurosa, persistida y refrescable. El orden anterior —capas de capacidad— dejaba ese resultado despues de la Fase 5 y la capa IA en la Fase 7, detras del bloque de Argentina. Nada se elimina: screener, divergencias, macro y soja conservan su alcance y sus gates, corridos hacia abajo. La [ADR 0008](../architecture/adr/0008-remote-personal-access.md) habilita el acceso remoto en produccion, que hoy el codigo niega.
 
 **Slice excepcional cerrado:** `F1-UI-01`, fundación shadcn/Base UI y migración del shell, home y configuración conforme a [`docs/backlog/README.md`](../backlog/README.md#f1-ui-01). No agregó datos ni capacidades.
 
@@ -38,7 +41,7 @@ Solo una fase puede estar `in_progress`. No marcar `done` por porcentaje, esfuer
 
 **Alcance de `F1-07`:** el gate `pnpm test:e2e` compila una vez y sirve ese mismo artefacto desde dos servidores locales —uno personal y uno trabado— para probar que el modo decide en el request y no en el build. Al construirlo se corrigio un defecto de fondo: hasta este slice el modo efectivo quedaba horneado en el HTML prerenderizado, asi que un build hecho en la maquina del owner servia datos sin importar el entorno del runtime ([ADR 0005](../architecture/adr/0005-request-time-runtime-boundary.md)). El harness entro por [ADR 0006](../architecture/adr/0006-e2e-accessibility-harness.md) y cierra `UI-02`: la revision renderizada dejo de ejecutarse a mano.
 
-**Alcance de `F1-08`:** `pnpm walkthrough` no es un gate y no mide nada por si mismo. Prepara la sesion manual del owner —un mismo build servido con su `.env.local` real y con las variables de modo vaciadas, ambos solo en `127.0.0.1`— para que tres tareas fijas y cronometradas produzcan un registro escrito con hallazgos. Lo que falta medir en Fase 1 es cuanto tarda el owner en obtener una respuesta y donde duda, y eso no lo produce un test; lo reproducible es la sesion, no el resultado. El protocolo esta en [el runbook](../runbooks/owner-walkthrough.md) y el registro en `docs/walkthroughs/`. La tarea mobile es emulacion a 390x844: exponer a la red local un runtime que sirve datos reales contradiria la ADR 0004, y ese limite queda declarado para `F9-03`.
+**Alcance de `F1-08`:** `pnpm walkthrough` no es un gate y no mide nada por si mismo. Prepara la sesion manual del owner —un mismo build servido con su `.env.local` real y con las variables de modo vaciadas, ambos solo en `127.0.0.1`— para que tres tareas fijas y cronometradas produzcan un registro escrito con hallazgos. Lo que falta medir en Fase 1 es cuanto tarda el owner en obtener una respuesta y donde duda, y eso no lo produce un test; lo reproducible es la sesion, no el resultado. El protocolo esta en [el runbook](../runbooks/owner-walkthrough.md) y el registro en `docs/walkthroughs/`. La tarea mobile es emulacion a 390x844: exponer a la red local un runtime que sirve datos reales contradiria la ADR 0004, y ese limite queda declarado para `F10-06`.
 
 **Bloqueos actuales:** ninguno. `F1-08` depende de una sesion manual del owner, que es parte de su definicion y no un bloqueo.
 
@@ -90,104 +93,114 @@ Implementar en sesiones separadas: shell/health, persistencia base, fake provide
 
 **Gate:** el mismo snapshot produce el mismo hash/resultado; un runtime que no prueba ser privado no sirve datos; no hay llamada LLM ni proveedor real; feedback de uso queda en backlog.
 
-## Fase 2 - Empresas, CEDEAR y screener
+## Fase 2 - Datos reales SEC y universo S&P 500
 
-- [ ] Registrar terminos del plan personal y aprobar SEC + Caja + snapshot S&P + Alpaca Basic como stack inicial, o documentar su reemplazo.
-- [ ] Implementar issuer/security/listing/identifier/corporate-action mapping.
-- [ ] Integrar SEC identity/audit y validacion de muestra Arelle/DQC.
-- [ ] Ingesta historica de CEDEAR, ratios y vigencia.
-- [ ] Cache Postgres durable, refresh manual/EOD, batching, presupuesto de cuota, cursor/checkpoint, reintentos y poison policy.
-- [ ] Metric catalog versionado y screener 2Y/5Y.
-- [ ] Export personal con metadata y atribucion dentro de los terminos aplicables.
+Primera fase con datos reales. El objetivo es que una empresa real del indice llegue al motor con su identidad resuelta y su historia point-in-time intacta.
+
+- [ ] Constituir el universo S&P 500 con identidad completa: issuer, security, listing, simbolo vigente y CIK.
+- [ ] Integrar SEC XBRL como fuente de fundamentals, con `available_at` del filing y no la fecha de descarga.
+- [ ] Reconstruir la serie por concepto contable preservando vintages, restatements y unidades.
+- [ ] Corporate actions con vigencia: splits, cambios de simbolo, delistings y fusiones.
+- [ ] Cache durable en Postgres con cursor, checkpoint, reintentos y poison policy; ningun page view llama al proveedor.
+- [ ] Golden fixtures a partir de extractos reales congelados, en reemplazo de `FixtureCo` como oraculo de regresion.
+
+**Gate:** 30 empresas de arquetipos distintos reconciliadas contra su filing; 100% de filas con source/as-of/available-at; splits, restatements y un cambio de simbolo probados; una consulta `as_known` anterior a un restatement no devuelve el valor enmendado.
+
+## Fase 3 - Arquetipo, admisibilidad y costo de capital
+
+Lo que decide si una empresa se puede valuar y con que rigor. Va antes del motor porque el motor sin esto solo sabe tratar a una empresa como si fuera todas.
+
+- [ ] Selector determinista de arquetipo con reglas, inputs requeridos, confianza y `unsupported_method`.
+- [ ] Perfil de completitud medido por empresa sobre los datos que existen de verdad.
+- [ ] Nivel de rigor declarado —`full`, `standard`, `screening`, `unsupported`— derivado de la completitud, nunca elegido.
+- [ ] Datasets de parametros Damodaran versionados y fechados: ERP implicita, betas desapalancadas por industria y country risk premium.
+- [ ] Mapeo de la empresa a la industria del dataset, con el caso ambiguo declarado y no adivinado.
+- [ ] Costo de capital bottom-up: beta desapalancada reapalancada a estructura objetivo, costo de deuda por spread, convergencia terminal.
+
+**Gate:** cada empresa del universo recibe arquetipo y nivel de rigor, o un `unsupported_method` con el input que falta nombrado; el WACC deja de ser un input crudo y se construye con componentes fechados; una empresa sin mix geografico cae a `standard` y lo declara.
+
+## Fase 4 - Motor Damodaran y arquetipos
+
+Extiende el motor `fcff-1.0.0` hasta cubrir la metodologia escrita, y agrega un arquetipo por slice llevandolo a gate antes del siguiente.
+
+- [ ] Capitalizacion de leases e I+D con puente auditable sobre EBIT, capital invertido y deuda.
+- [ ] Regla terminal `g <= risk_free_rate` ademas del buffer aritmetico; incrementa `engine_version`.
+- [ ] Normalizador reported/adjusted con evidencia y regla por ajuste.
+- [ ] Escenarios bear/base/bull como conjuntos coherentes de supuestos.
+- [ ] Probabilidad de fracaso y overhang de opciones en la dilucion.
+- [ ] Arquetipos por slice: 4.1 bancos y aseguradoras (excess return/DDM); 4.2 ciclicas y commodities (normalizacion de ciclo); 4.3 perdidas y high growth (revenue-to-margin y supervivencia); 4.4 REIT (AFFO/NAV); 4.5 holdings/SOTP y distress solo con demanda observada.
+
+**Gate por arquetipo:** selector, inputs, formulas, fixtures independientes, diagnosticos y estado `experimental | reviewed | production`; comparacion documentada contra la spreadsheet publica correspondiente; metodos no soportados devuelven `unsupported_method`. Recalcular no requiere IA.
+
+## Fase 5 - Capa IA acotada bajo policy engine
+
+Primero el limite de costo y datos, despues la propuesta. La IA decide solo las filas de la tabla cualitativa de la metodologia.
+
+- [ ] Budget por corrida y por dia, limite global, timeout, breaker, kill switch y metricas antes de la primera llamada.
+- [ ] Extraccion cualitativa con schema cerrado, evidence IDs obligatorios y disciplina de contexto: secciones dirigidas, no documentos completos.
+- [ ] Busqueda web sobre dominios primarios allowlisted, con defensa SSRF y contenido tratado como no confiable.
+- [ ] Propuesta estructurada de supuestos que respeta locks y siempre pasa por el policy engine.
+- [ ] Persistencia de la propuesta dentro del snapshot de entrada; el replay no vuelve a llamar al modelo.
+- [ ] Evals de injection, citas, abstencion, schema, costo y correccion.
+
+**Gate:** ninguna cifra del resultado se origina en texto libre del modelo; un replay reproduce `input_hash` y `result_hash` sin red; una propuesta sin evidencia citada es rechazada por el policy engine; costo por corrida y tasa de rechazo son visibles.
+
+## Fase 6 - Corrida por ticker y acceso CEDEAR
+
+La espina del producto, ya con todas sus piezas construidas.
+
+- [ ] Corrida por ticker como job encolado con estado, no como request; primera Route Handler o Server Action del proyecto (`TM-03`).
+- [ ] Persistencia de la corrida y su historial: volver a verla, refrescar lo que cambio y comparar contra la anterior.
+- [ ] Superficie de resultado sobre una empresa real, con nivel de rigor declarado, provenance y supuestos propuestos distinguidos de los hechos.
+- [ ] Anotacion de acceso CEDEAR: si la empresa tiene programa, su ratio vigente y su precio.
+- [ ] Corrida por lote sobre el universo, con presupuesto y reanudacion.
+- [ ] Despliegue remoto: Postgres hosteada, proteccion del deployment y `personal` en produccion segun la [ADR 0008](../architecture/adr/0008-remote-personal-access.md).
+
+**Gate:** un ticker escrito produce una valuacion completa, persistida y reproducible; el resultado declara su nivel de rigor; una empresa sin datos suficientes se niega nombrando el faltante; ninguna URL sin proteccion sirve datos.
+
+## Fase 7 - Screener y catalogo de metricas
+
+- [ ] Metric catalog versionado con definiciones y unidades.
+- [ ] Screener 2Y/5Y con limites, filtros allowlisted, nulos honestos y metricas sectoriales.
+- [ ] Export personal con definiciones, fecha, source y atribucion.
 - [ ] Degradacion, reconciliacion y quality score explicable.
 
-**Gate:** 30 empresas representativas reconciliadas; 100% de filas con source/as-of/available-at; delistings/splits/ADRs probados; ningun page view llama proveedores; uso/cache personal y presupuesto de cuota quedan verificados.
+**Gate:** un filtro sobre un campo nulo no lo trata como cero; el export declara de donde salio cada columna.
 
-## Fase 3 - Divergencias fundamentales
+## Fase 8 - Divergencias fundamentales
 
 - [ ] Pipeline fiscal-aligned de precio, market cap, EPS, net income y shares.
-- [ ] Vista agregada `net income vs market cap`.
-- [ ] Vista por accion `EPS vs price` y puente de dilucion/recompras.
+- [ ] Vista agregada `net income vs market cap` y vista por accion `EPS vs price` con puente de dilucion.
 - [ ] Categorias de EPS no comparable y ventanas con tolerancia.
 - [ ] Scatter, tabla, filtros y detail drawer accesibles.
 - [ ] Tests de splits, restatements, negativos, outliers y look-ahead.
 
 **Gate:** golden dataset revisado manualmente; formulas y limitaciones publicadas; ninguna UI presenta un gap aislado como senal de compra.
 
-## Fase 4 - Valuacion no financiera V1
+## Fase 9 - Argentina, BCRA y soja
 
-- [ ] Normalizador reported/adjusted con puentes auditables.
-- [ ] Selector madura/high-growth inicial.
-- [ ] FCFF multi-etapa, bear/base/bull y sensitivity.
-- [ ] Assumptions workbench con locks y audit trace.
-- [ ] Snapshots de parametros Damodaran con version.
-- [ ] Fixtures independientes y revision contra spreadsheets.
-- [ ] Labels de escenarios, limitaciones y ausencia de recomendacion revisados para uso personal.
+Un bloque por sesion, empezando por catalogo/vintages.
 
-**Gate:** invariantes con precondiciones y tolerancias pasan; replay de snapshot es deterministico; recalcular no requiere IA; output muestra rango e incertidumbre.
-
-Un MVP util termina aqui. Validar uso antes de ampliar profundidad.
-
-## Fase 5 - Arquetipos deterministas
-
-Implementar un arquetipo por slice y llevarlo a gate antes del siguiente:
-
-1. bancos/aseguradoras: excess return/DDM;
-2. ciclicas/commodities: normalizacion de ciclo;
-3. perdidas/high growth: revenue-to-margin y supervivencia;
-4. REIT: AFFO/NAV;
-5. holding/SOTP y distress solo con demanda observada.
-
-Cada slice exige selector, inputs, formulas, fixtures, diagnosticos y estado `experimental | reviewed | production`. No agregar IA en esta fase.
-
-**Gate:** casos por arquetipo, revision independiente y limites visibles; metodos no soportados devuelven `unsupported_method`.
-
-## Fase 6 - Argentina y soja
-
-Construir un bloque por sesion, empezando por catalogo/vintages y luego nominal, monetario, cambiario, actividad, fiscal/externo y agro.
-
-- [ ] BCRA Estadisticas Monetarias v4 con catalogo dinamico.
+- [ ] BCRA Estadisticas Monetarias v4 con catalogo dinamico y fallo seguro ante cambio de schema.
 - [ ] Datos.gob.ar/INDEC/BNA con metadata, revisions y quiebres.
 - [ ] Transformaciones nominal/real y seasonal-adjustment auditables.
-- [ ] Rosario/Chicago con licencia, contrato, conversion y roll policy.
+- [ ] Cambiario con fuentes oficiales y fechas propias por serie.
+- [ ] Rosario/Chicago con contrato, conversion, FX y roll policy antes de calcular basis.
 - [ ] Graficos, tabla accesible, freshness y lectura sin causalidad inventada.
 
-**Gate por bloque:** ultima publicacion oficial reconciliada, cambio de schema falla seguro y metodologia visible. La fase termina cuando todos los bloques priorizados estan `done`; los restantes pueden quedar `deferred` explicitamente.
+**Gate por bloque:** ultima publicacion oficial reconciliada, cambio de schema falla seguro y metodologia visible. La fase termina cuando los bloques priorizados estan `done`; los restantes pueden quedar `deferred` explicitamente.
 
-## Fase 7 - IA personal acotada
+## Fase 10 - Persistencia, asistente y hardening
 
-Primero proteger costo y datos; despues habilitar una sola feature IA. No se implementa identidad de usuario: el limite de acceso es localhost o la proteccion del deployment.
-
-- [ ] Guard de modo: IA disponible en `personal` y deshabilitada en `demo`.
-- [ ] Budget por request/dia, limite global, kill switch y observabilidad.
-- [ ] Data map/transferencias y politica OpenRouter ZDR/data collection verificadas.
-- [ ] Research sobre documentos primarios con evidence IDs y allowlist.
-- [ ] Propuesta estructurada de supuestos para un metodo ya validado.
-- [ ] Policy engine, abstencion, prompt-injection tests y evals.
-
-**Gate:** no hay endpoint IA en modo demo; proveedor/routing/politica quedan trazados; replay usa output persistido; costo y tasa de rechazo/correccion son visibles.
-
-## Fase 8 - Persistencia personal y asistente
-
-- [ ] Saved views, watchlists, preferencias y valuaciones del unico owner sin `user_id`.
-- [ ] Historial, exportacion, backup y borrado manual de datos locales.
-- [ ] Claves server-owned por entorno con health, rotacion manual y redaccion de logs.
-- [ ] Restauracion de preferencias y borradores entre sesiones desde Postgres; `localStorage` solo para UX no sensible.
-- [ ] Asistente con acciones acotadas: explicar, comparar y navegar evidencia.
-- [ ] Tool calls tipadas sin URL/SQL arbitrario y aprobacion humana para acciones sensibles.
-
-**Gate:** una key nunca llega al browser; backup/restore personal probado; assistant eval suite factual/financiera pasa; el modo demo no accede a datos live.
-
-## Fase 9 - Hardening y publicacion del proyecto
-
-- [ ] SLOs, alertas, backups y restore drill.
-- [ ] Load/cost tests, rate limits y circuit breakers.
-- [ ] Auditoria WCAG 2.2 AA y performance budgets.
-- [ ] Terminos de uso personal, atribuciones, secretos y copy metodologico revisados.
+- [ ] Saved views, watchlists y preferencias del unico owner sin `user_id`.
+- [ ] Historial, exportacion, backup, restore drill y borrado manual.
+- [ ] Claves server-owned con health, rotacion manual y redaccion de logs.
+- [ ] Asistente con acciones acotadas y tool calls tipadas sin URL/SQL arbitrario.
+- [ ] SLOs, alertas, load/cost tests, rate limits y circuit breakers.
+- [ ] Auditoria WCAG 2.2 AA y performance budgets, incluida la cobertura multi-motor diferida en la [ADR 0006](../architecture/adr/0006-e2e-accessibility-harness.md).
 - [ ] Runbooks, rollback y changelog de metodologia.
-- [ ] README publico con setup seguro; demo fixture opcional y runtime live local/protegido verificados.
 
-**Gate:** checklist firmado, presupuesto/alertas activos, incident drill completado, secretos ausentes del repo y ninguna URL anonima sirve datos live.
+**Gate:** una key nunca llega al browser; backup/restore probado; incident drill completado; secretos ausentes del repo; ninguna URL sin proteccion sirve datos.
 
 ## Definicion global de terminado
 
@@ -223,3 +236,4 @@ Agregar una fila al cerrar cada sesion. No borrar historia; corregir con una fil
 | 2026-08-25 | Fase 1 / `F1-06` + ADR 0004 | Superficie de resultado y trazabilidad cerrada, y pivote a runtime personal-first: el eje `demo | personal` pasa a `locked | personal` con fallo cerrado, las fixtures dejan de ser producto y quedan como dobles de test, y `/valuacion/demo` pasa a `/valuacion/referencia` como verificacion del motor | done | `docs/architecture/adr/0004-personal-first-runtime.md`, `src/modules/configuration/domain/{config-health,runtime-lock}.ts`, `src/app/_components/runtime-locked-notice.tsx`, `src/app/valuacion/referencia/`, los cinco selectores de repositorio y sus raices de composicion, `in-memory-*` reemplazando a `demo-*`, CLAUDE.md, AGENTS.md, backlog y este roadmap; un runtime sin declarar o que no prueba ser privado queda `locked`, no construye repositorio y no abre la conexion personal ni para averiguarlo; `personal` exige ademas `DATABASE_URL` pooled; format, lint, typecheck, 283 unit tests y build pasan | `F1-07`: gate automatizado del flujo personal y del runtime trabado |
 | 2026-08-26 | Fase 1 / `F1-07` + ADR 0005 y 0006 | Gate automatizado del flujo personal y del runtime trabado, y correccion de la frontera de modo: hasta ahora se resolvia en `next build` y quedaba horneada en el HTML, asi que el artefacto servia datos sin importar el entorno del runtime. Ahora se resuelve en el request y **un mismo build** sirve o niega segun su entorno | done | `docs/architecture/adr/000{5,6}-*.md`, `playwright.config.ts`, `scripts/run-e2e.ts`, `tests/e2e/`, `tests/setup/no-network.ts` y su test, `src/server/persistence/runtime-composition.test.ts`, `src/server/config/app-environment.ts`, `src/app/not-found.tsx`, `docs/runbooks/e2e-accessibility-gate.md`, job `e2e` en `.github/workflows/quality.yml`; las cuatro rutas pasan a `f (Dynamic)` y los `.html` prerenderizados quedan en 0 bytes; el servidor trabado no expone `FixtureCo`, `13,55`, el valor exacto ni ninguno de los dos hashes, tampoco en el payload RSC; los cinco selectores de composicion lanzan `RuntimeLockedError` en seis entornos trabados sin llegar a pedir la base; un centinela por variable de `.env.example` no aparece en health, body, headers ni RSC en ningun modo; guard de red que hace fallar `fetch`, `http`, `https` y socket TCP en toda la suite unitaria, con su propio test; `DATABASE_URL` del servidor personal apunta a un puerto sin escucha, asi que abrir la base rompe el gate; 131 tests E2E en 6 proyectos con `axe-core` sin findings `serious` ni `critical`; tres defectos reales corregidos —contraste de la cifra de antiguedad por `opacity-80`, `disabled` consumido por el `TooltipTrigger` de Base UI en los items planificados, y `Escape` capturado por el tooltip en mobile que impedia cerrar el drawer por teclado— mas el rail de la sidebar fuera del arbol de accesibilidad; format, lint, typecheck, 338 unit tests, 24 integration tests contra PostgreSQL `17.11` y build pasan | `F1-08`: walkthrough del owner sobre el runtime personal y cierre del gate de Fase 1 |
 | 2026-09-03 | Fase 1 / `F1-08` | Harness y protocolo del walkthrough del owner: `pnpm walkthrough` sirve un mismo build en `127.0.0.1:3120` con el `.env.local` real del owner y en `127.0.0.1:3121` con modo, acceso y `DATABASE_URL` vaciados, con tres tareas fijas y cronometradas —desktop, mobile y entorno sin declarar— y plantilla de registro. Falta la sesion del owner | in_progress | `scripts/run-walkthrough.ts`, script `walkthrough` en `package.json`, `docs/runbooks/owner-walkthrough.md`, `docs/walkthroughs/TEMPLATE.md`, `CLAUDE.md` y `AGENTS.md`; a diferencia del gate E2E el servidor personal no se fabrica con centinelas ni base inalcanzable, porque lo que se mide es el producto y no la frontera; ambos servidores escuchan solo en `127.0.0.1` y la tarea mobile es emulacion a 390x844 en vez de exponer a la red local un runtime con datos reales (ADR 0004); format, lint y typecheck pasan; `test`, `build` y la corrida del harness no se pudieron ejecutar en la sesion del agente porque `node_modules` esta instalado para Windows y faltan los binarios nativos de Linux | Correr `pnpm walkthrough` en el host del owner, registrar la sesion en `docs/walkthroughs/2026-09-03-f1-08.md` y cerrar el gate de Fase 1; no iniciar Fase 2 |
+| 2026-09-04 | Fase 1 / pivote | Checkout Arch verificado end-to-end y reordenamiento del roadmap alrededor de la corrida por ticker | done | `docs/architecture/adr/0007-ticker-driven-valuation-pivot.md`, `0008-remote-personal-access.md`, `docs/valuation/methodology.md` v0.2.0, este roadmap y `docs/backlog/README.md`; format, lint, typecheck, 338 unit, 24 integration, build y 131 E2E pasan en Arch Linux | `F2-01`: habilitar acceso personal remoto en produccion |

@@ -94,7 +94,7 @@ pnpm exec playwright show-trace tests/e2e/.output/<carpeta>/trace.zip
 
 ## Qué no cubre
 
-- Un solo motor. Firefox y WebKit quedan para `F9-03`.
+- Un solo motor. Firefox y WebKit quedan para `F10-06`.
 - Ninguna comparación de imágenes: las capturas se leen, no se afirman.
 - `axe-core` es un piso mecánico. No evalúa jerarquía de lectura, calidad del copy
   ni si una tabla dice algo verdadero; la revisión de Impeccable y el walkthrough

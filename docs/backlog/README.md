@@ -24,17 +24,18 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 
 ## Tracker activo
 
-| Orden | Issue      | Estado        | Resultado verificable                                                                                        | Dependencias  |
-| ----: | ---------- | ------------- | ------------------------------------------------------------------------------------------------------------ | ------------- |
-|     1 | `F1-01`    | `done`        | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos. | Fase 0 `done` |
-|     2 | `F1-02`    | `done`        | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.      | `F1-01`       |
-|     3 | `F1-UI-01` | `done`        | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.               | `F1-02`       |
-|     4 | `F1-03`    | `done`        | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.               | `F1-UI-01`    |
-|     5 | `F1-04`    | `done`        | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.          | `F1-03`       |
-|     6 | `F1-05`    | `done`        | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                      | `F1-04`       |
-|     7 | `F1-06`    | `done`        | Superficie de resultado y trazabilidad con fuentes, freshness, supuestos y sensibilidad accesibles.          | `F1-05`       |
-|     8 | `F1-07`    | `done`        | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                           | `F1-06`       |
-|     9 | `F1-08`    | `in_progress` | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.               | `F1-07`       |
+| Orden | Issue      | Estado     | Resultado verificable                                                                                        | Dependencias  |
+| ----: | ---------- | ---------- | ------------------------------------------------------------------------------------------------------------ | ------------- |
+|     1 | `F1-01`    | `done`     | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos. | Fase 0 `done` |
+|     2 | `F1-02`    | `done`     | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.      | `F1-01`       |
+|     3 | `F1-UI-01` | `done`     | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.               | `F1-02`       |
+|     4 | `F1-03`    | `done`     | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.               | `F1-UI-01`    |
+|     5 | `F1-04`    | `done`     | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.          | `F1-03`       |
+|     6 | `F1-05`    | `done`     | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                      | `F1-04`       |
+|     7 | `F1-06`    | `done`     | Superficie de resultado y trazabilidad con fuentes, freshness, supuestos y sensibilidad accesibles.          | `F1-05`       |
+|     8 | `F1-07`    | `done`     | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                           | `F1-06`       |
+|     9 | `F1-08`    | `deferred` | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.               | `F1-07`       |
+|    10 | `F2-01`    | `ready`    | Acceso personal remoto habilitado en produccion, con los tests de frontera invertidos a proposito.           | ADR 0008      |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -55,6 +56,25 @@ reemplaza el eje `demo | personal` por `locked | personal` con fallo cerrado: no
 existe una demo pública ni un conjunto de datos de reemplazo, y ningún slice futuro
 invierte en datos ficticios como superficie de producto. Las fixtures quedan como
 dobles de test. `F1-07` y `F1-08` se rescopearon al flujo personal.
+
+**Pivote del 2026-09-04.** El owner declaró el objetivo real del producto: escribir
+un ticker y obtener una valuación rigurosa según Damodaran, persistida y
+refrescable, con una IA que decide lo cualitativo —tipo de empresa, riesgo,
+exposición— que mueve parámetros como la tasa de descuento. Universo inicial: el
+S&P 500. La [ADR 0007](../architecture/adr/0007-ticker-driven-valuation-pivot.md)
+reordena las fases alrededor de ese resultado, fija la frontera «la IA propone, el
+motor calcula», convierte la completitud de datos en nivel de rigor declarado y
+degrada el gate de derechos de fuente a procedencia informativa. La
+[ADR 0008](../architecture/adr/0008-remote-personal-access.md) habilita el acceso
+personal remoto en producción, que el código hoy niega. Nada del alcance anterior se
+elimina: screener, divergencias, macro argentina y soja bajan de prioridad
+conservando sus criterios.
+
+`F1-08` queda `deferred` por ese pivote: mide la comprensión de una superficie
+construida sobre una fixture sintética que deja de ser el producto. Condición de
+reingreso: la medición se rehace en Fase 6 sobre la primera valuación de una empresa
+real, con el mismo protocolo del
+[runbook](../runbooks/owner-walkthrough.md), que sigue siendo válido.
 
 ## Issues por fase
 
@@ -466,7 +486,7 @@ tests contra PostgreSQL `17.11`, `build` y 131 tests E2E pasan. El detector de
 Impeccable devuelve `[]` sobre la UI modificada.
 
 Diferido con motivo: cobertura en Firefox y WebKit y los presupuestos de performance
-corresponden a `F9-03`; el harness usa un solo motor por decisión registrada en la
+corresponden a `F10-06`; el harness usa un solo motor por decisión registrada en la
 ADR 0006. No se adoptan snapshots de imagen como aserción: producirían fallos por
 diferencias de renderizado de fuentes entre máquinas sin expresar ningún contrato del
 producto.
@@ -502,7 +522,7 @@ y [la plantilla de registro](../walkthroughs/TEMPLATE.md).
   emulación a 390×844 en vez de exponer a la red local un runtime que sirve datos
   reales, que es exactamente lo que la ADR 0004 evita. El límite queda declarado:
   la emulación no reproduce teclado virtual, gesto de volver ni rendimiento del
-  dispositivo, y eso corresponde a `F9-03`.
+  dispositivo, y eso corresponde a `F10-06`.
 - El entorno "sin declarar" vacía las variables en lugar de borrarlas del archivo
   del owner; una variable declarada vacía recorre la misma rama de fallo cerrado.
   El caso verdaderamente ausente ya está cubierto por
@@ -516,100 +536,156 @@ credenciales— devuelve `mode = locked`, `servesRealData = false`, el mensaje
 "El runtime no pudo probar que es privado" y `missingVariables = [APP_MODE,
 APP_RUNTIME_ACCESS]`: nombra lo que falta sin exponer ningún valor (`TM-02`).
 
-Pendiente para cerrar el slice: `pnpm test`, `pnpm build` y una corrida real del
-harness, que no se pudieron ejecutar en la sesión del agente porque este checkout
-tiene `node_modules` instalado para Windows y faltan los binarios nativos de
-Linux; después, la sesión del owner y su registro en
-`docs/walkthroughs/<fecha>-f1-08.md`.
+Verificación en Arch Linux (2026-09-04): el checkout nativo desbloqueó lo que
+faltaba correr. `format:check`, `lint`, `typecheck`, 338 unit tests, 24 integration
+tests contra PostgreSQL local, `build` con las cuatro rutas en `ƒ (Dynamic)` y 131
+tests E2E pasan, reproduciendo exactamente los números registrados en `F1-07`. El
+harness levanta ambos servidores: `3120` sirve la corrida y `3121` la niega sin
+filtrar el sujeto, el valor ni las secciones de datos.
 
-### Fase 2 — empresas, CEDEAR y screener
+`deferred` desde el 2026-09-04 por la
+[ADR 0007](../architecture/adr/0007-ticker-driven-valuation-pivot.md). Lo único que
+quedaba era la sesión cronometrada del owner, y esa sesión mediría la comprensión de
+una superficie construida sobre `FixtureCo`, que el pivote saca del producto. La
+parte mecánica de las tres tareas ya está cubierta por los 131 tests de `F1-07`; lo
+que la sesión aportaba —tiempo hasta la respuesta, dónde duda el owner, qué término
+no se entiende— tiene valor sobre una empresa real, no sobre una fixture.
 
-| Issue   | Resultado y aceptación mínima                                                                                                                        | Depende de       | Controles                 |
-| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------------- |
-| `F2-01` | ADR del stack gratuito de uso personal —SEC, snapshot S&P PDDL, Comafi y Yahoo Finance— con cuota, cache, retención y política de roll documentadas. | Fase 1           | `TM-08`, `TM-10`, `TM-15` |
-| `F2-02` | Persistir issuer/security/listing/identifier/corporate actions con vigencia, candidatos ambiguos y decisiones trazadas.                              | `F2-01`          | `TM-06`, `TM-16`          |
-| `F2-03` | Integrar SEC con CIK, filings/lineage, cuarentena y muestra validada mediante Arelle/EFM/DQC.                                                        | `F2-02`          | `TM-05`, `TM-06`, `TM-08` |
-| `F2-04` | Ingerir CEDEARs y ratios exactos historizados sin sobrescribir programas ni confundir ADR/subyacente.                                                | `F2-02`          | `TM-05`, `TM-06`          |
-| `F2-05` | Ejecutar backfill/refresh durable con presupuesto, cursor, lease, replay, `429`, crash y recuperación manual probados.                               | `F2-03`, `F2-04` | `TM-10`, `TM-11`, `TM-16` |
-| `F2-06` | Publicar metric catalog versionado y screener 2Y/5Y con límites, filtros allowlisted, nulos y métricas sectoriales.                                  | `F2-05`          | `TM-05`, `TM-07`, `TM-12` |
-| `F2-07` | Exportar sólo campos autorizados, con definiciones, fecha, source y atribución; bloquear fuentes sin derechos de salida.                             | `F2-06`          | `TM-02`, `TM-15`, `TM-16` |
-| `F2-08` | Cerrar reconciliación, quality score explicable y gate sobre 30 empresas, splits, delistings, ADRs y provenance completa.                            | `F2-07`          | `TM-05`, `TM-06`, `TM-16` |
+Condición de reingreso: `F6-06` ejecuta el mismo protocolo del
+[runbook](../runbooks/owner-walkthrough.md) sobre la primera valuación real. El
+harness `pnpm walkthrough`, la plantilla y el runbook se conservan sin cambios.
 
-### Fase 3 — divergencias fundamentales
+### Fase 2 — datos reales SEC y universo S&P 500
 
-| Issue   | Resultado y aceptación mínima                                                                                         | Depende de | Controles                 |
-| ------- | --------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
-| `F3-01` | Pipeline fiscal-aligned point-in-time de precio, market cap, net income, EPS y acciones, con tolerancias versionadas. | Fase 2     | `TM-05`, `TM-06`, `TM-16` |
-| `F3-02` | Vista agregada calcula CAGRs válidos y clasifica extremos no positivos sin fabricar porcentajes.                      | `F3-01`    | `TM-05`                   |
-| `F3-03` | Vista por acción y puente de shares separan precio/EPS de market cap/net income.                                      | `F3-02`    | `TM-05`, `TM-06`          |
-| `F3-04` | Scatter, tabla, filtros y detalle conservan raw de outliers y equivalente accesible.                                  | `F3-03`    | `TM-07`, `TM-12`          |
-| `F3-05` | Golden/property tests cubren splits, restatements, negativos, outliers, tolerancias y look-ahead.                     | `F3-04`    | `TM-05`, `TM-06`          |
-| `F3-06` | Gate manual confirma metodología publicada y ausencia de un gap presentado como señal de compra.                      | `F3-05`    | `TM-15`, `TM-16`          |
+Los IDs `F2-*` a `F9-*` se reasignaron el 2026-09-04 al nuevo orden de fases de la
+[ADR 0007](../architecture/adr/0007-ticker-driven-valuation-pivot.md). Los IDs
+`F1-*` conservan su significado y su evidencia.
 
-### Fase 4 — valuación no financiera V1
+<a id="f2-01"></a>
 
-| Issue   | Resultado y aceptación mínima                                                                                | Depende de | Controles                          |
-| ------- | ------------------------------------------------------------------------------------------------------------ | ---------- | ---------------------------------- |
-| `F4-01` | Normalizador reported/adjusted conserva puente, motivo, evidencia y versión de cada ajuste.                  | Fase 3     | `TM-05`, `TM-06`, `TM-16`          |
-| `F4-02` | Selector determinista madura/high-growth devuelve método, reglas, inputs faltantes y `unsupported_method`.   | `F4-01`    | `TM-05`                            |
-| `F4-03` | FCFF multi-etapa produce bear/base/bull, sensitivity y puente EV-equity bajo política decimal.               | `F4-02`    | `TM-16`                            |
-| `F4-04` | Workbench permite editar/bloquear supuestos con rangos y audit trace, sin IA.                                | `F4-03`    | `TM-03`, `TM-07`, `TM-12`, `TM-16` |
-| `F4-05` | Snapshots Damodaran registran fuente, versión, fecha y derechos antes de ser consumidos.                     | `F4-03`    | `TM-05`, `TM-15`                   |
-| `F4-06` | Fixtures independientes, properties y comparación contra spreadsheets documentan convenciones y tolerancias. | `F4-05`    | `TM-05`, `TM-06`                   |
-| `F4-07` | Gate confirma replay determinista, rango/incertidumbre visibles y lenguaje educativo sin recomendación.      | `F4-06`    | `TM-12`, `TM-15`, `TM-16`          |
+#### `F2-01` — Acceso personal remoto en producción
 
-### Fase 5 — arquetipos deterministas
+- Estado: `ready`
+- Fase y dependencia: Fase 2; habilitado por la [ADR 0008](../architecture/adr/0008-remote-personal-access.md)
+- Alcance incluido: eliminar la rama `isProtectedPreview` de `getConfigHealth()`;
+  invertir a propósito los tests que hoy afirman que producción de Vercel queda
+  trabada; documentar en el runbook que Deployment Protection se activa **antes** de
+  declarar `protected`.
+- Fuera de alcance: contratar la base hosteada, desplegar, autenticación de
+  aplicación.
 
-Cada arquetipo es un issue secuencial: `F5-01` bancos/aseguradoras, `F5-02`
-cíclicas/commodities, `F5-03` pérdidas/high growth, `F5-04` REIT y `F5-05`
-holding/SOTP/distress sólo con demanda observada. Cada issue exige selector, inputs,
-fórmulas, fixtures independientes, diagnósticos, estado de revisión y
-`unsupported_method` para lo no cubierto. Dependen del gate de Fase 4 y cierran
-`TM-05`, `TM-06`, `TM-15` y `TM-16` sobre su superficie.
+Criterios de aceptación:
 
-### Fase 6 — Argentina y soja
+- `personal` resuelve en Vercel producción con `APP_RUNTIME_ACCESS=protected` más
+  `DATABASE_URL` pooled;
+- producción **sin** acceso declarado, y `public` en cualquier entorno, siguen
+  trabados; los cinco selectores de `src/server/persistence/` siguen lanzando
+  `RuntimeLockedError` en esos casos;
+- `runtime-composition.test.ts` y `config-health.test.ts` expresan el cambio de
+  sentido de forma explícita, no por omisión;
+- el E2E sigue probando que un mismo artefacto sirve o niega según su entorno;
+- ningún valor de configuración aparece en el health serializado (`TM-02`).
+
+Controles: `TM-01`, `TM-02`, `TM-04`, `TM-14`.
+
+Este slice es primero porque es la única pieza del pivote que ya está bloqueando algo
+concreto: hoy el owner no puede llegar a la aplicación desde fuera de su máquina.
+
+<a id="f2-02"></a>
+
+### Fase 3 — arquetipo, admisibilidad y costo de capital
+
+| Issue   | Resultado y aceptación mínima                                                                                       | Depende de | Controles        |
+| ------- | ------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------- |
+| `F3-01` | Selector determinista de arquetipo con reglas activadas, inputs requeridos, confianza y `unsupported_method`.       | Fase 2     | `TM-05`          |
+| `F3-02` | Perfil de completitud medido por empresa sobre los datos que existen, sin estimar lo ausente.                       | `F3-01`    | `TM-05`, `TM-16` |
+| `F3-03` | Nivel de rigor `full \| standard \| screening \| unsupported` derivado de la completitud y declarado en la corrida. | `F3-02`    | `TM-05`, `TM-15` |
+| `F3-04` | Datasets Damodaran versionados y fechados: ERP implícita, betas por industria y country risk premium.               | Fase 2     | `TM-05`, `TM-16` |
+| `F3-05` | Mapeo empresa → industria del dataset, con el caso ambiguo declarado y no adivinado.                                | `F3-04`    | `TM-05`, `TM-06` |
+| `F3-06` | Costo de capital bottom-up: beta desapalancada reapalancada, costo de deuda por spread y convergencia terminal.     | `F3-05`    | `TM-06`, `TM-16` |
+
+### Fase 4 — motor Damodaran y arquetipos
+
+| Issue   | Resultado y aceptación mínima                                                                                | Depende de | Controles                 |
+| ------- | ------------------------------------------------------------------------------------------------------------ | ---------- | ------------------------- |
+| `F4-01` | Capitalización de leases e I+D con puente auditable sobre EBIT, capital invertido y deuda.                   | Fase 3     | `TM-05`, `TM-06`, `TM-16` |
+| `F4-02` | Regla terminal `g <= risk_free_rate` además del buffer; incrementa `engine_version` sin reescribir corridas. | Fase 3     | `TM-16`                   |
+| `F4-03` | Normalizador reported/adjusted con evidencia, regla y transformación versionada por ajuste.                  | `F4-01`    | `TM-05`, `TM-06`, `TM-16` |
+| `F4-04` | Escenarios bear/base/bull como conjuntos coherentes de supuestos, no multiplicadores sobre el resultado.     | `F4-03`    | `TM-16`                   |
+| `F4-05` | Probabilidad de fracaso y overhang de opciones incorporados a la dilución y al puente EV-equity.             | `F4-03`    | `TM-05`, `TM-16`          |
+| `F4-06` | Arquetipos por slice: bancos/aseguradoras, cíclicas, pérdidas/high growth, REIT, holdings/SOTP.              | `F4-04`    | `TM-05`, `TM-06`, `TM-15` |
+
+Cada arquetipo de `F4-06` es un slice propio con selector, inputs, fórmulas,
+fixtures independientes, diagnósticos y estado `experimental | reviewed | production`,
+llevado a gate antes del siguiente. Ninguno agrega IA.
+
+### Fase 5 — capa IA acotada bajo policy engine
+
+| Issue   | Resultado y aceptación mínima                                                                                          | Depende de | Controles                          |
+| ------- | ---------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------- |
+| `F5-01` | Budget por corrida y por día, límite global, timeout, breaker, kill switch y métricas **antes** de la primera llamada. | Fase 4     | `TM-10`, `TM-16`                   |
+| `F5-02` | Guard server-side: la IA sólo existe en `personal`; ninguna clave llega al browser.                                    | `F5-01`    | `TM-01`, `TM-02`, `TM-03`, `TM-14` |
+| `F5-03` | Extracción cualitativa con schema cerrado, evidence IDs obligatorios y secciones dirigidas, no documentos completos.   | `F5-02`    | `TM-09`, `TM-15`                   |
+| `F5-04` | Búsqueda web sobre dominios primarios allowlisted, con defensa SSRF y contenido tratado como no confiable.             | `F5-03`    | `TM-08`, `TM-09`, `TM-12`          |
+| `F5-05` | Propuesta de supuestos que respeta locks, cita evidencia y siempre pasa por el policy engine antes del motor.          | `F5-04`    | `TM-09`, `TM-16`                   |
+| `F5-06` | La propuesta se persiste en el snapshot; el replay reproduce ambos hashes sin volver a llamar al modelo.               | `F5-05`    | `TM-16`                            |
+| `F5-07` | Evals de injection, citas, abstención, schema, costo y corrección.                                                     | `F5-06`    | `TM-09`, `TM-10`, `TM-15`          |
+
+### Fase 6 — corrida por ticker y acceso CEDEAR
+
+| Issue   | Resultado y aceptación mínima                                                                                          | Depende de | Controles                          |
+| ------- | ---------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------- |
+| `F6-01` | Corrida por ticker como job encolado con estado; primera Route Handler o Server Action con sus controles cerrados.     | Fase 5     | `TM-03`, `TM-07`, `TM-10`, `TM-12` |
+| `F6-02` | Historial de corridas: volver a ver, refrescar lo que cambió y comparar contra la anterior sin sobrescribirla.         | `F6-01`    | `TM-06`, `TM-16`                   |
+| `F6-03` | Superficie de resultado sobre empresa real con nivel de rigor, provenance y supuestos distinguidos de los hechos.      | `F6-02`    | `TM-12`, `TM-15`, `UI-02`, `UI-03` |
+| `F6-04` | Anotación de acceso CEDEAR: si existe programa, su ratio vigente y su precio, sin fusionar los dos instrumentos.       | `F6-02`    | `TM-05`, `TM-06`                   |
+| `F6-05` | Corrida por lote sobre el universo, con presupuesto, reanudación y recuperación de fallos parciales.                   | `F6-03`    | `TM-10`, `TM-11`, `TM-16`          |
+| `F6-06` | Despliegue remoto: Postgres hosteada, protección del deployment verificada y walkthrough del owner sobre datos reales. | `F6-03`    | `TM-14`, `UI-02`                   |
+
+`F6-06` es la condición de reingreso de `F1-08`: la sesión cronometrada del owner se
+ejecuta sobre la primera valuación real, con el protocolo del
+[runbook](../runbooks/owner-walkthrough.md).
+
+### Fase 7 — screener y catálogo de métricas
+
+| Issue   | Resultado y aceptación mínima                                                           | Depende de | Controles                 |
+| ------- | --------------------------------------------------------------------------------------- | ---------- | ------------------------- |
+| `F7-01` | Metric catalog versionado con definiciones, unidades y método de cálculo.               | Fase 6     | `TM-05`, `TM-16`          |
+| `F7-02` | Screener 2Y/5Y con límites, filtros allowlisted, nulos honestos y métricas sectoriales. | `F7-01`    | `TM-05`, `TM-07`, `TM-12` |
+| `F7-03` | Export personal con definiciones, fecha, source y atribución.                           | `F7-02`    | `TM-02`, `TM-16`          |
+| `F7-04` | Degradación, reconciliación y quality score explicable.                                 | `F7-02`    | `TM-05`, `TM-16`          |
+
+### Fase 8 — divergencias fundamentales
+
+| Issue   | Resultado y aceptación mínima                                                                     | Depende de | Controles                 |
+| ------- | ------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
+| `F8-01` | Pipeline fiscal-aligned point-in-time de precio, market cap, net income, EPS y acciones.          | Fase 7     | `TM-05`, `TM-06`, `TM-16` |
+| `F8-02` | Vista agregada y vista por acción con puente de dilución, sin fabricar porcentajes en extremos.   | `F8-01`    | `TM-05`, `TM-06`          |
+| `F8-03` | Scatter, tabla, filtros y detalle conservan raw de outliers y equivalente accesible.              | `F8-02`    | `TM-07`, `TM-12`          |
+| `F8-04` | Golden/property tests cubren splits, restatements, negativos, outliers, tolerancias y look-ahead. | `F8-03`    | `TM-05`, `TM-06`          |
+
+### Fase 9 — Argentina, BCRA y soja
 
 | Issue   | Resultado y aceptación mínima                                                                                    | Depende de | Controles                          |
 | ------- | ---------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------- |
-| `F6-01` | Catálogo/vintages BCRA v4 falla seguro ante cambios de schema y conserva release, unidad, frecuencia y revisión. | Fase 5     | `TM-05`, `TM-08`, `TM-10`, `TM-11` |
-| `F6-02` | Nominal y monetario publican transformaciones auditables y fechas propias por serie.                             | `F6-01`    | `TM-05`, `TM-06`                   |
-| `F6-03` | Cambiario usa fuentes oficiales/licenciadas y no introduce MEP/CCL sin rights row aprobada.                      | `F6-02`    | `TM-05`, `TM-15`                   |
-| `F6-04` | Actividad, fiscal y externo preservan revisiones, quiebres, base, estacionalidad y denominadores compatibles.    | `F6-03`    | `TM-05`, `TM-06`                   |
-| `F6-05` | Rosario/Chicago identifica feed, contrato, roll, FX, conversión y licencia antes de calcular basis.              | `F6-04`    | `TM-05`, `TM-08`, `TM-15`          |
-| `F6-06` | Cada bloque cierra con gráfico, tabla accesible, freshness, metodología y lectura sin causalidad inventada.      | `F6-05`    | `TM-12`, `TM-16`                   |
+| `F9-01` | Catálogo/vintages BCRA v4 falla seguro ante cambios de schema y conserva release, unidad, frecuencia y revisión. | Fase 8     | `TM-05`, `TM-08`, `TM-10`, `TM-11` |
+| `F9-02` | Nominal y monetario publican transformaciones auditables y fechas propias por serie.                             | `F9-01`    | `TM-05`, `TM-06`                   |
+| `F9-03` | Cambiario usa fuentes oficiales con fecha propia por serie.                                                      | `F9-02`    | `TM-05`                            |
+| `F9-04` | Actividad, fiscal y externo preservan revisiones, quiebres, base, estacionalidad y denominadores compatibles.    | `F9-03`    | `TM-05`, `TM-06`                   |
+| `F9-05` | Rosario/Chicago identifica contrato, roll, FX y conversión antes de calcular basis.                              | `F9-04`    | `TM-05`, `TM-08`                   |
+| `F9-06` | Cada bloque cierra con gráfico, tabla accesible, freshness, metodología y lectura sin causalidad inventada.      | `F9-05`    | `TM-12`, `TM-16`                   |
 
-### Fase 7 — IA personal acotada
+### Fase 10 — persistencia, asistente y hardening
 
-| Issue   | Resultado y aceptación mínima                                                                                              | Depende de | Controles                                   |
-| ------- | -------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------------------------- |
-| `F7-01` | Guard server-side mantiene IA ausente en demo y habilitable sólo en personal protegido.                                    | Fase 6     | `TM-01`, `TM-02`, `TM-03`, `TM-04`, `TM-14` |
-| `F7-02` | Presupuesto por request/día, límite global, timeout, breaker, kill switch y métricas bloquean costo antes del modelo.      | `F7-01`    | `TM-10`, `TM-16`                            |
-| `F7-03` | Data map y política OpenRouter verifican ZDR, collection, provider/routing y retención efectivos por corrida.              | `F7-02`    | `TM-02`, `TM-15`, `TM-16`                   |
-| `F7-04` | Research sólo acepta evidence IDs y dominios primarios allowlisted con defensa SSRF y contenido tratado como no confiable. | `F7-03`    | `TM-08`, `TM-09`, `TM-12`                   |
-| `F7-05` | Propuesta estructurada de supuestos opera sobre un método validado, respeta locks y siempre pasa por policy engine.        | `F7-04`    | `TM-09`, `TM-16`                            |
-| `F7-06` | Evals prueban injection, citas, abstención, schema, costo y corrección; replay usa el output persistido.                   | `F7-05`    | `TM-09`, `TM-10`, `TM-15`, `TM-16`          |
-
-### Fase 8 — persistencia personal y asistente
-
-| Issue   | Resultado y aceptación mínima                                                                               | Depende de | Controles                          |
-| ------- | ----------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------- |
-| `F8-01` | Saved views, watchlists, preferencias y valuaciones persisten sin `user_id` ni multi-tenancy.               | Fase 7     | `TM-04`, `TM-07`, `TM-16`          |
-| `F8-02` | Historial, export, backup, restore y borrado respetan clasificación, licencia y audit trail.                | `F8-01`    | `TM-02`, `TM-15`, `TM-16`          |
-| `F8-03` | Claves server-owned tienen health, redacción y runbook de rotación sin llegar al browser.                   | `F8-02`    | `TM-02`, `TM-14`                   |
-| `F8-04` | Preferencias y borradores se restauran desde Postgres; storage del browser queda limitado a UX no sensible. | `F8-03`    | `TM-04`, `TM-15`                   |
-| `F8-05` | Asistente explica, compara y navega evidencia mediante tools tipadas sin URL/SQL arbitrario.                | `F8-04`    | `TM-07`, `TM-08`, `TM-09`          |
-| `F8-06` | Aprobación humana, evals y aislamiento demo cierran el gate del asistente personal.                         | `F8-05`    | `TM-01`, `TM-03`, `TM-09`, `TM-10` |
-
-### Fase 9 — hardening y publicación
-
-| Issue   | Resultado y aceptación mínima                                                                                              | Depende de | Controles                                            |
-| ------- | -------------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------- |
-| `F9-01` | SLOs, alertas, backups y restore drill tienen owners, umbrales y evidencia.                                                | Fase 8     | `TM-10`, `TM-11`, `TM-16`                            |
-| `F9-02` | Load/cost tests prueban límites, rate limits, circuit breakers y recuperación.                                             | `F9-01`    | `TM-07`, `TM-10`, `TM-11`                            |
-| `F9-03` | Auditoría WCAG 2.2 AA y budgets de performance cierran desktop, mobile, teclado, zoom, contraste y alternativas tabulares. | `F9-02`    | `TM-12`, `UI-02`, `UI-03`, `UI-04`                   |
-| `F9-04` | Revisión legal/editorial cubre términos, atribuciones, secretos, datos live y lenguaje metodológico.                       | `F9-03`    | `TM-02`, `TM-14`, `TM-15`                            |
-| `F9-05` | Runbooks y drills cubren rollback, key leak, parser roto, exposición, gasto y valuación incorrecta.                        | `F9-04`    | `TM-02`, `TM-05`, `TM-10`, `TM-11`, `TM-14`, `TM-16` |
-| `F9-06` | README/setup seguro, scans y checklist firmado prueban que ninguna URL anónima sirve live data.                            | `F9-05`    | `TM-01`, `TM-02`, `TM-12`, `TM-13`, `TM-14`, `TM-15` |
+| Issue    | Resultado y aceptación mínima                                                                       | Depende de | Controles                          |
+| -------- | --------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------- |
+| `F10-01` | Saved views, watchlists, preferencias y valuaciones persisten sin `user_id` ni multi-tenancy.       | Fase 9     | `TM-04`, `TM-07`, `TM-16`          |
+| `F10-02` | Historial, export, backup, restore drill y borrado con audit trail.                                 | `F10-01`   | `TM-02`, `TM-16`                   |
+| `F10-03` | Claves server-owned con health, redacción y runbook de rotación sin llegar al browser.              | `F10-02`   | `TM-02`, `TM-14`                   |
+| `F10-04` | Asistente explica, compara y navega evidencia mediante tools tipadas sin URL/SQL arbitrario.        | `F10-03`   | `TM-07`, `TM-08`, `TM-09`          |
+| `F10-05` | SLOs, alertas, load/cost tests, rate limits, circuit breakers y recuperación probados.              | `F10-04`   | `TM-10`, `TM-11`, `TM-16`          |
+| `F10-06` | Auditoría WCAG 2.2 AA, budgets de performance y cobertura multi-motor diferida en la ADR 0006.      | `F10-05`   | `TM-12`, `UI-02`, `UI-03`, `UI-04` |
+| `F10-07` | Runbooks y drills cubren rollback, key leak, parser roto, exposición, gasto y valuación incorrecta. | `F10-06`   | `TM-02`, `TM-05`, `TM-11`, `TM-14` |
 
 ## Cobertura de deuda transversal
 
@@ -617,28 +693,28 @@ Esta matriz evita que una amenaza o deuda visual quede mencionada sin un issue q
 la cierre. La columna “primer cierre” indica el primer slice que debe implementar o
 probar el control; fases posteriores pueden volver a verificarlo.
 
-| Deuda   | Primer cierre                                           | Seguimiento posterior                      | Estado actual                                                                                                        |
-| ------- | ------------------------------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| `TM-01` | `F1-02`                                                 | `F1-07`, `F7-01`, `F9-06`                  | `done`: composición falla cerrada y el modo se resuelve en el request; el mismo build niega o sirve según su entorno |
-| `TM-02` | `F1-02`                                                 | cada frontera, `F8-03`, `F9-06`            | `done`: DB server-only y URLs pooled/direct separadas probadas                                                       |
-| `TM-03` | primer slice con frontera; gate en `F1-07`              | `F4-04`, `F7-01`, `F8-06`                  | contracted: no hay Route Handler ni Server Action; `F1-07` probó las fronteras existentes y su fallo cerrado         |
-| `TM-04` | `F1-02`                                                 | `F1-07`, `F7-01`, `F8-04`                  | `done`: cache namespaced por modo; sólo `personal` construye almacenamiento, verificado sobre el artefacto servido   |
-| `TM-05` | `F1-03`                                                 | `F2-03`, `F3-05`, cada parser/modelo       | `done` de ingesta a publicación: vacío y parser roto no publican ni reemplazan                                       |
-| `TM-06` | `F1-04`                                                 | `F2-02`, `F3-05`, cada consulta histórica  | `done` de la consulta a la valuación: dos cortes producen dos corridas distintas                                     |
-| `TM-07` | `F1-02`                                                 | `F1-07`, `F2-06`, `F8-05`                  | `done`: Drizzle parametrizado y límite de consulta verificados en PostgreSQL                                         |
-| `TM-08` | `F2-01` antes del primer provider                       | `F6-01`, `F7-04`, `F8-05`                  | required; no hay egress aún                                                                                          |
-| `TM-09` | `F7-04`                                                 | `F7-06`, `F8-05`, `F8-06`                  | required; no hay IA aún                                                                                              |
-| `TM-10` | `F2-01`                                                 | `F2-05`, `F7-02`, `F9-02`                  | contracted; no hay gasto live aún                                                                                    |
-| `TM-11` | `F2-05`                                                 | `F6-01`, `F9-01`, `F9-05`                  | idempotencia y replay probados en `F1-03`; lease, `429` y crash siguen abiertos                                      |
-| `TM-12` | `F1-01`                                                 | cada UI externa, `F9-03`                   | headers base y render seguro verificados                                                                             |
-| `TM-13` | `F9-06`                                                 | cada actualización de dependencia/skill    | baseline implementada; scans pendientes                                                                              |
-| `TM-14` | antes del primer preview personal (`F7-01` como máximo) | `F8-03`, `F9-06`                           | contracted; no hay deployment personal                                                                               |
-| `TM-15` | `F1-03` para fixtures                                   | cada proveedor/export/IA, `F8-02`, `F9-04` | `done`: gate de derechos ejecutable antes del provider y fixtures sintéticas                                         |
-| `TM-16` | `F1-03`                                                 | cada operación y gate                      | `done` sobre ingesta y valuación: corridas append-only con hash, versión y error seguro                              |
-| `UI-01` | Fase `0B.7`                                             | revisar copy al cambiar roadmap            | `done`: registro de home alineado con Fases 2, 3, 4 y 6                                                              |
-| `UI-02` | `F1-07`                                                 | `F1-08`, `F9-03`                           | `done`: revisión renderizada automatizada en 6 proyectos con `axe-core`, teclado, reflow y movimiento reducido       |
-| `UI-03` | `F1-01`                                                 | cada feedback stateful, `F9-03`            | `done`: estados y reduced motion conservan feedback                                                                  |
-| `UI-04` | `F1-01`                                                 | cada extracción visual, `F9-03`            | `done`: escala reusable y token de contraste registrados                                                             |
+| Deuda   | Primer cierre                           | Seguimiento posterior                | Estado actual                                                                                                        |
+| ------- | --------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| `TM-01` | `F1-02`                                 | `F1-07`, `F2-01`, `F5-02`, `F6-06`   | `done`: composición falla cerrada y el modo se resuelve en el request; el mismo build niega o sirve según su entorno |
+| `TM-02` | `F1-02`                                 | cada frontera, `F10-03`              | `done`: DB server-only y URLs pooled/direct separadas probadas                                                       |
+| `TM-03` | `F6-01`, primera Route Handler real     | `F5-02`, `F10-04`                    | required: la corrida por ticker es la primera frontera real; `F1-07` probó las de composición                        |
+| `TM-04` | `F1-02`                                 | `F1-07`, `F2-01`, `F10-01`           | `done`: cache namespaced por modo; sólo `personal` construye almacenamiento, verificado sobre el artefacto servido   |
+| `TM-05` | `F1-03`                                 | `F2-03`, `F3-03`, cada parser/modelo | `done` de ingesta a publicación: vacío y parser roto no publican ni reemplazan                                       |
+| `TM-06` | `F1-04`                                 | `F2-02`, `F4-01`, cada consulta      | `done` de la consulta a la valuación: dos cortes producen dos corridas distintas                                     |
+| `TM-07` | `F1-02`                                 | `F1-07`, `F6-01`, `F7-02`            | `done`: Drizzle parametrizado y límite de consulta verificados en PostgreSQL                                         |
+| `TM-08` | `F2-03`, primer provider real           | `F5-04`, `F9-01`                     | required; no hay egress aún                                                                                          |
+| `TM-09` | `F5-03`                                 | `F5-04`, `F5-07`, `F10-04`           | required; no hay IA aún                                                                                              |
+| `TM-10` | `F2-05`                                 | `F5-01`, `F6-05`, `F10-05`           | contracted; no hay gasto live aún                                                                                    |
+| `TM-11` | `F2-05`                                 | `F6-05`, `F9-01`, `F10-05`           | idempotencia y replay probados en `F1-03`; lease, `429` y crash siguen abiertos                                      |
+| `TM-12` | `F1-01`                                 | cada UI externa, `F10-06`            | headers base y render seguro verificados                                                                             |
+| `TM-13` | `F10-07`                                | cada actualización de dependencia    | baseline implementada; scans pendientes                                                                              |
+| `TM-14` | `F2-01`, antes del primer deploy remoto | `F6-06`, `F10-03`                    | required: `F2-01` habilita produccion; la proteccion del deployment es su precondicion                               |
+| `TM-15` | `F3-03`, nivel de rigor declarado       | cada IA/export, `F5-03`, `F6-03`     | rescopeado por ADR 0007: derechos pasan a procedencia informativa; el control ahora es el nivel de rigor declarado   |
+| `TM-16` | `F1-03`                                 | cada operación y gate                | `done` sobre ingesta y valuación: corridas append-only con hash, versión y error seguro                              |
+| `UI-01` | Fase `0B.7`                             | revisar copy al cambiar roadmap      | revisar: el copy de la home cita el orden de fases anterior al pivote                                                |
+| `UI-02` | `F1-07`                                 | `F6-03`, `F6-06`, `F10-06`           | `done`: revisión renderizada automatizada en 6 proyectos con `axe-core`, teclado, reflow y movimiento reducido       |
+| `UI-03` | `F1-01`                                 | cada feedback stateful, `F10-06`     | `done`: estados y reduced motion conservan feedback                                                                  |
+| `UI-04` | `F1-01`                                 | cada extracción visual, `F10-06`     | `done`: escala reusable y token de contraste registrados                                                             |
 
 ## Plantilla para nuevos issues
 

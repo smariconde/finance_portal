@@ -61,7 +61,7 @@ puerta. La tarea mobile se hace con emulación de dispositivo a 390×844.
 
 Límite declarado: la emulación no reproduce el teclado virtual, el gesto de
 volver del sistema operativo ni el rendimiento real del dispositivo. Lo que ese
-límite deje afuera queda para `F9-03`.
+límite deje afuera queda para `F10-06`.
 
 ### Qué cuenta como sesión limpia
 
