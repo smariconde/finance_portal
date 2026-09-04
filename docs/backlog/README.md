@@ -35,7 +35,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |     7 | `F1-06`    | `done`     | Superficie de resultado y trazabilidad con fuentes, freshness, supuestos y sensibilidad accesibles.          | `F1-05`       |
 |     8 | `F1-07`    | `done`     | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                           | `F1-06`       |
 |     9 | `F1-08`    | `deferred` | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.               | `F1-07`       |
-|    10 | `F2-01`    | `ready`    | Acceso personal remoto habilitado en produccion, con los tests de frontera invertidos a proposito.           | ADR 0008      |
+|    10 | `F2-01`    | `done`     | Acceso personal remoto habilitado en produccion, con los tests de frontera invertidos a proposito.           | ADR 0008      |
+|    11 | `F2-02`    | `ready`    | Universo S&P 500 con identidad completa: issuer, security, listing, simbolo vigente y CIK.                   | `F2-01`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -565,7 +566,7 @@ Los IDs `F2-*` a `F9-*` se reasignaron el 2026-09-04 al nuevo orden de fases de 
 
 #### `F2-01` — Acceso personal remoto en producción
 
-- Estado: `ready`
+- Estado: `done` (2026-09-04)
 - Fase y dependencia: Fase 2; habilitado por la [ADR 0008](../architecture/adr/0008-remote-personal-access.md)
 - Alcance incluido: eliminar la rama `isProtectedPreview` de `getConfigHealth()`;
   invertir a propósito los tests que hoy afirman que producción de Vercel queda
@@ -588,10 +589,43 @@ Criterios de aceptación:
 
 Controles: `TM-01`, `TM-02`, `TM-04`, `TM-14`.
 
-Este slice es primero porque es la única pieza del pivote que ya está bloqueando algo
-concreto: hoy el owner no puede llegar a la aplicación desde fuera de su máquina.
+Este slice fue primero porque era la única pieza del pivote que ya estaba bloqueando
+algo concreto: el owner no podía llegar a la aplicación desde fuera de su máquina.
+
+Evidencia (2026-09-04): `src/modules/configuration/domain/config-health.ts` pierde la
+rama `isProtectedPreview`; `protected` deja de estar acoplado a Vercel y nombra la
+propiedad —la URL está detrás de la protección de la plataforma— en vez del
+proveedor. `local` dentro de una plataforma de hosting sigue siendo un rechazo.
+
+- Inversión explícita, no por omisión: el test que afirmaba que producción quedaba
+  trabada «aunque declare protección» ahora afirma que sirve, con el motivo del
+  cambio escrito al lado. Se sumaron los dos casos que sostienen la frontera:
+  producción **sin** acceso declarado sigue trabada, y `protected` fuera de Vercel
+  resuelve `personal`.
+- `runtime-composition.test.ts` cambia el entorno trabado «una producción de Vercel
+  que dice estar protegida» por «una producción de Vercel sin acceso declarado», y
+  suma un caso positivo: los cinco selectores construyen sobre PostgreSQL en una
+  producción con protección declarada. 45 → 50 tests.
+- `TM-02`: el health sigue nombrando la variable que falta —`APP_RUNTIME_ACCESS` en
+  la producción sin declarar— y nunca su valor.
+- El hecho que motivaba la regla eliminada no desaparece y quedó registrado donde se
+  declara la variable: en Vercel Hobby, Standard Protection no cubre el dominio de
+  producción. `.env.example`, el README, el doc de despliegue y la ADR 0008 dicen que
+  la protección se confirma **antes** de declarar `protected`.
+
+Verificación: `format:check`, `lint`, `typecheck`, 345 unit tests (338 + 7), `build`
+con las cuatro rutas en `ƒ (Dynamic)` y 131 tests E2E pasan. El gate E2E sigue
+probando sobre el artefacto servido que el runtime trabado no filtra datos.
 
 <a id="f2-02"></a>
+
+| Issue   | Resultado y aceptación mínima                                                                                       | Depende de | Controles                 |
+| ------- | ------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
+| `F2-02` | Universo S&P 500 con identidad completa: issuer, security, listing, símbolo vigente y CIK, sin colapsar niveles.    | `F2-01`    | `TM-06`, `TM-16`          |
+| `F2-03` | SEC XBRL integrada con `available_at` del filing, vintages y restatements preservados; cuarentena ante schema roto. | `F2-02`    | `TM-05`, `TM-06`, `TM-08` |
+| `F2-04` | Corporate actions con vigencia: splits, cambios de símbolo, delistings y fusiones sin sobrescribir historia.        | `F2-03`    | `TM-05`, `TM-06`          |
+| `F2-05` | Backfill y refresh durable con presupuesto, cursor, lease, replay, `429`, crash y recuperación manual probados.     | `F2-04`    | `TM-10`, `TM-11`, `TM-16` |
+| `F2-06` | Golden fixtures desde extractos reales congelados, en reemplazo de `FixtureCo` como oráculo de regresión.           | `F2-03`    | `TM-05`, `TM-16`          |
 
 ### Fase 3 — arquetipo, admisibilidad y costo de capital
 

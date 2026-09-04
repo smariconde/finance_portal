@@ -181,8 +181,9 @@ probar que es privado ([ADR 0004](docs/architecture/adr/0004-personal-first-runt
 
 Está reservado al owner y se ejecutará en localhost o detrás de protección de plataforma.
 
-- Usa `APP_RUNTIME_ACCESS=local` fuera de Vercel o
-  `APP_RUNTIME_ACCESS=protected` en un Vercel Preview protegido.
+- Usa `APP_RUNTIME_ACCESS=local` fuera de una plataforma de hosting o
+  `APP_RUNTIME_ACCESS=protected` en cualquier entorno detrás de la protección de
+  la plataforma, producción incluida.
 - Requiere una conexión PostgreSQL pooled para el runtime.
 - Las integraciones live permanecen deshabilitadas hasta superar sus gates técnicos y de licencia.
 - No agrega login, cuentas, roles, multi-tenancy ni claves aportadas por usuarios.
@@ -254,10 +255,12 @@ El destino previsto es Vercel, pero el repositorio todavía no publica una URL d
 
 - No hay ni habrá una URL pública anónima con datos: cualquier entorno que no
   pruebe ser privado queda `locked`.
-- La instancia personal con datos reales deberá ejecutarse localmente o en un
-  Vercel Preview cuya protección se haya verificado fuera de la aplicación.
-- Vercel Production permanece `locked`; no se configura cron live mientras esa
-  frontera siga vigente.
+- La instancia personal con datos reales corre localmente o en un despliegue cuya
+  protección se haya verificado fuera de la aplicación: `protected` es una
+  declaración del owner, no algo que el runtime pueda comprobar.
+- Un despliegue sin acceso declarado queda `locked`. En Vercel Hobby, Standard
+  Protection no cubre el dominio de producción, así que ahí la declaración sólo es
+  cierta con una protección adicional confirmada.
 - El modo se resuelve en cada request, no al compilar
   ([ADR 0005](docs/architecture/adr/0005-request-time-runtime-boundary.md)): un
   build hecho en la máquina del owner no sirve datos al desplegarse en otro lado.

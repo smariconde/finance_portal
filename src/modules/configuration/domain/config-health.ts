@@ -7,8 +7,10 @@ import { z } from "zod";
  *
  * El portal es de un solo owner y sirve datos reales. Sólo existen dos estados:
  *
- * - `personal`: el entorno probó ser privado —local fuera de Vercel o Preview
- *   protegido— y tiene una conexión pooled. Es el único que sirve datos.
+ * - `personal`: el entorno declaró ser privado —local fuera de una plataforma de
+ *   hosting, o `protected` en cualquier entorno detrás de la protección de la
+ *   plataforma ([ADR 0008](../../../../docs/architecture/adr/0008-remote-personal-access.md))—
+ *   y tiene una conexión pooled. Es el único que sirve datos.
  * - `locked`: **cualquier** otra situación. No sirve datos, no abre PostgreSQL y
  *   no consulta proveedores. No es una demo: es una negativa.
  *
@@ -96,14 +98,13 @@ function resolveRuntime(environment: Environment): RuntimeResolution {
       problems.add("APP_RUNTIME_ACCESS");
     }
 
-    const isProtectedPreview =
-      access === "protected" &&
-      environment.VERCEL === "1" &&
-      environment.VERCEL_ENV === "preview";
-
-    if (access === "protected" && !isProtectedPreview) {
-      problems.add("VERCEL_ENV");
-    }
+    // `protected` es una declaración del owner de que la URL está detrás de la
+    // protección de la plataforma, y vale en cualquier entorno de hosting. La
+    // aplicación no puede verificarla desde adentro y no la simula: aproximarla
+    // con heurísticas de headers daría una garantía falsa (ADR 0008). El caso del
+    // despliegue accidental —el repositorio es público— lo cubre la exigencia de
+    // declaración explícita: sin `APP_MODE` el modo es `locked` y sin
+    // `APP_RUNTIME_ACCESS` el acceso es `public`, que también traba.
 
     // La conexión pooled es parte de la definición de `personal`: sin ella el
     // modo no puede servir nada y quedaría en un estado intermedio que promete

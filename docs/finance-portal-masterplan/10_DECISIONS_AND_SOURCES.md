@@ -60,7 +60,7 @@ No copiar automaticamente esos modulos Python. Usarlos como inventario de requis
 - Sensitive environment variables: https://vercel.com/docs/environment-variables/sensitive-environment-variables
 - Vercel Deployment Protection: https://vercel.com/docs/deployment-protection
 
-Hechos relevantes: Route Handlers son endpoints alcanzables aunque no haya links; Functions no deben asumir filesystem persistente ni memoria compartida; cron llama un endpoint HTTP, usa UTC, no reintenta una falla y comparte limites de Function. Postgres se provisiona mediante Marketplace y el runtime serverless requiere pooling. Vercel Authentication protege previews/deployment URLs en Hobby, pero Standard Protection no cubre el production domain: production permanece en modo demo salvo proteccion confirmada. Para Next.js 16 se adopta Cache Components y no se mezclan convenciones del modelo anterior.
+Hechos relevantes: Route Handlers son endpoints alcanzables aunque no haya links; Functions no deben asumir filesystem persistente ni memoria compartida; cron llama un endpoint HTTP, usa UTC, no reintenta una falla y comparte limites de Function. Postgres se provisiona mediante Marketplace y el runtime serverless requiere pooling. Vercel Authentication protege previews/deployment URLs en Hobby, pero Standard Protection no cubre el production domain. Desde la [ADR 0008](../architecture/adr/0008-remote-personal-access.md) el codigo admite `personal` en Production con acceso declarado; el hecho sigue siendo el mismo y se traslada al checklist de despliegue: sin proteccion confirmada del dominio, no se declara `protected`. Para Next.js 16 se adopta Cache Components y no se mezclan convenciones del modelo anterior.
 
 ## IA e investigacion
 
