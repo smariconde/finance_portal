@@ -63,7 +63,7 @@ pnpm db:migrate      # controlled job; reads DATABASE_DIRECT_URL only
 
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 
-Node `>=22.11.0 <27`, pnpm `10.33.2` via corepack. Windows dev host — prefer PowerShell syntax for env-var examples in docs.
+Node `>=22.11.0 <27`, pnpm `10.33.2` via corepack. Arch Linux dev host — use POSIX shell syntax for env-var examples in docs, matching the `ubuntu-latest` runners CI validates on.
 
 ## Architecture
 

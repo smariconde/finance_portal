@@ -22,7 +22,7 @@ sobre una sesión limpia.
 
 ## Cómo se levanta la sesión
 
-```powershell
+```bash
 pnpm walkthrough
 ```
 
@@ -36,7 +36,7 @@ diferencian en su entorno:
 
 Para iterar sin recompilar, cuando el build ya está hecho:
 
-```powershell
+```bash
 pnpm walkthrough --no-build
 ```
 

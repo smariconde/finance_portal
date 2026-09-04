@@ -143,10 +143,12 @@ cp .env.example .env.local
 pnpm dev
 ```
 
-En PowerShell, copiar el entorno con:
+El corepack que trae Node `22.11.0` (0.29.4) tiene vencidas las claves de firma
+del registry y `corepack prepare` falla con `Cannot find matching keyid`. Se
+resuelve actualizándolo antes de activar pnpm:
 
-```powershell
-Copy-Item .env.example .env.local
+```bash
+npm install -g corepack@latest
 ```
 
 Abrir [http://localhost:3000](http://localhost:3000).

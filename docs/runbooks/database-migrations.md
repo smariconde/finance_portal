@@ -13,28 +13,28 @@
 No reutilizar la base personal como `DATABASE_TEST_URL`. Los tests de integración
 insertan y eliminan filas con un namespace aleatorio y aplican migraciones pendientes.
 
-## PostgreSQL local con Docker Desktop
+## PostgreSQL local con Docker
 
 La configuración versionada usa la imagen oficial `postgres:17.11-alpine3.23`,
 publica sólo en `127.0.0.1:55432` y conserva sus datos en un volumen Docker separado.
 
 Crear la configuración local una sola vez:
 
-```powershell
-Copy-Item .env.docker.example .env.docker.local
+```bash
+cp .env.docker.example .env.docker.local
 ```
 
 Reemplazar el password de ejemplo en `.env.docker.local`. Ese archivo está ignorado
 por Git. Luego iniciar y comprobar el servicio:
 
-```powershell
+```bash
 pnpm db:test:up
 docker compose --env-file .env.docker.local -f compose.test.yaml ps
 ```
 
 Para detenerlo sin perder el volumen:
 
-```powershell
+```bash
 pnpm db:test:down
 ```
 
@@ -54,9 +54,8 @@ SQL versionado para que los cambios sean revisables y reproducibles.
 
 Configurar la conexión directa sólo en el proceso administrativo y ejecutar:
 
-```powershell
-$env:DATABASE_DIRECT_URL = "<direct-test-or-admin-url>"
-pnpm db:migrate
+```bash
+DATABASE_DIRECT_URL="<direct-test-or-admin-url>" pnpm db:migrate
 ```
 
 El job abre una única conexión, aplica `drizzle/` y la cierra. Next.js no ejecuta
@@ -64,9 +63,8 @@ migraciones al iniciar y el runtime no lee `DATABASE_DIRECT_URL`.
 
 Para verificar el repositorio contra PostgreSQL real:
 
-```powershell
-$env:DATABASE_TEST_URL = "postgres://finance_portal_test:<local-password>@127.0.0.1:55432/finance_portal_test"
-pnpm test:integration
+```bash
+DATABASE_TEST_URL="postgres://finance_portal_test:<local-password>@127.0.0.1:55432/finance_portal_test" pnpm test:integration
 ```
 
 Las migraciones se aplican una sola vez por corrida desde
