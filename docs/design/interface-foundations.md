@@ -168,7 +168,7 @@ duplicaba el nombre accesible del trigger sin agregar capacidad, y quedó fuera 
 
 `axe-core` es un piso mecánico, no un certificado: no evalúa jerarquía de lectura,
 calidad del copy ni si una tabla dice algo verdadero. El walkthrough del owner
-(`F1-08`) y la auditoría WCAG 2.2 AA de `F9-03` siguen siendo necesarios.
+(`F6-06`) y la auditoría WCAG 2.2 AA de `F10-06` siguen siendo necesarios.
 
 ## Reglas para el siguiente cambio visual
 

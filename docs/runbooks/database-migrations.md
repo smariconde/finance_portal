@@ -13,30 +13,40 @@
 No reutilizar la base personal como `DATABASE_TEST_URL`. Los tests de integración
 insertan y eliminan filas con un namespace aleatorio y aplican migraciones pendientes.
 
-## PostgreSQL local con Docker Desktop
+## PostgreSQL local con Docker
 
-La configuración versionada usa la imagen oficial `postgres:17.11-alpine3.23`,
-publica sólo en `127.0.0.1:55432` y conserva sus datos en un volumen Docker separado.
+Un solo contenedor, con **dos bases** sobre el mismo servidor. La imagen es
+`postgres:17.11-alpine3.23`, publica sólo en `127.0.0.1:55432` y conserva sus datos en
+un volumen Docker.
 
-Crear la configuración local una sola vez:
+| Base                      | Para qué                              | Vida                                |
+| ------------------------- | ------------------------------------- | ----------------------------------- |
+| `finance_portal_personal` | runtime personal: universo y corridas | persistente; es el dato del owner   |
+| `finance_portal_test`     | `pnpm test:integration`               | desechable; la suite le borra filas |
 
-```powershell
-Copy-Item .env.docker.example .env.docker.local
+La división existe por una razón concreta y no por simetría: la suite de integración
+borra **todas** las filas de las tablas que toca —`universe-repository.test.ts` vacía
+las nueve del grafo de identidad sin filtrar— así que no puede compartir base con el
+universo constituido. No necesita un servidor propio: dos contenedores para eso era
+duplicación, y la diferencia se resuelve con un `CREATE DATABASE`.
+
+Crear la configuración local una sola vez, reemplazando el password de ejemplo:
+
+```bash
+cp .env.docker.example .env.docker.local
+pnpm db:up
 ```
 
-Reemplazar el password de ejemplo en `.env.docker.local`. Ese archivo está ignorado
-por Git. Luego iniciar y comprobar el servicio:
+`scripts/init-test-db.sh` crea `finance_portal_test` cuando el volumen se inicializa
+por primera vez. Comprobar y detener sin perder el volumen:
 
-```powershell
-pnpm db:test:up
-docker compose --env-file .env.docker.local -f compose.test.yaml ps
+```bash
+docker compose --env-file .env.docker.local ps
+pnpm db:down
 ```
 
-Para detenerlo sin perder el volumen:
-
-```powershell
-pnpm db:test:down
-```
+`.env.local` apunta `DATABASE_URL` y `DATABASE_DIRECT_URL` a la base personal y
+`DATABASE_TEST_URL` a la de integración, las tres sobre el mismo puerto.
 
 ## Generar una migración
 
@@ -52,21 +62,21 @@ SQL versionado para que los cambios sean revisables y reproducibles.
 
 ## Aplicar
 
-Configurar la conexión directa sólo en el proceso administrativo y ejecutar:
+`db:migrate` lee `.env.local`, así que basta con:
 
-```powershell
-$env:DATABASE_DIRECT_URL = "<direct-test-or-admin-url>"
+```bash
 pnpm db:migrate
 ```
+
+Contra otra base, exportar `DATABASE_DIRECT_URL` antes de invocarlo.
 
 El job abre una única conexión, aplica `drizzle/` y la cierra. Next.js no ejecuta
 migraciones al iniciar y el runtime no lee `DATABASE_DIRECT_URL`.
 
 Para verificar el repositorio contra PostgreSQL real:
 
-```powershell
-$env:DATABASE_TEST_URL = "postgres://finance_portal_test:<local-password>@127.0.0.1:55432/finance_portal_test"
-pnpm test:integration
+```bash
+DATABASE_TEST_URL="postgres://finance_portal:<local-password>@127.0.0.1:55432/finance_portal_test" pnpm test:integration
 ```
 
 Las migraciones se aplican una sola vez por corrida desde
@@ -84,6 +94,10 @@ revertir:
 3. verificar backup/restore;
 4. revisar dependencias creadas después de la migración;
 5. ejecutar manualmente el SQL pareado, en orden inverso al de aplicación:
+   - `drizzle/rollback/0004_common_proteus.down.sql` (el grafo de identidad
+     completo: `legal_entities`, `securities`, `listings`, `listing_symbols`,
+     `index_memberships`, `identifier_assignments`, sus tablas de versiones y sus
+     enums);
    - `drizzle/rollback/0003_typical_maximus.down.sql` (`valuation_runs` y sus
      enums);
    - `drizzle/rollback/0002_fresh_redwing.down.sql` (`observations`, sus enums y
@@ -102,7 +116,12 @@ que la produjo; `observations` referencia `ingestion_runs`, así que se elimina
 primero (`TM-06`). Revertir `0003` descarta cada corrida de valuación, incluidas
 las rechazadas que explican por qué un valor nunca se produjo, y con ellas los
 snapshots de entrada: el motor es determinista, pero sin su snapshot un resultado
-publicado deja de ser reproducible (`TM-16`).
+publicado deja de ser reproducible (`TM-16`). Revertir `0004` descarta el universo
+constituido entero: identidades, versiones históricas y membresías de índice. Es
+reconstruible —`pnpm universe:constitute --apply` sobre el mismo pin produce el mismo
+grafo— pero **sólo el corte de ese pin**: los renombres y las salidas del índice que
+se hubieran historizado desde entonces no vuelven, porque la fuente publica el estado
+vigente y no su historia (`TM-06`).
 
 ## Fallas seguras
 

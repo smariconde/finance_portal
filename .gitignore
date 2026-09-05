@@ -18,6 +18,7 @@ playwright-report/
 .env.*
 !.env.example
 !.env.docker.example
+!.env.docker.personal.example
 
 # Logs and local tooling
 *.log

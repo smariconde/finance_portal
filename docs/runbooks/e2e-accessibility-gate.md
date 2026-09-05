@@ -26,26 +26,26 @@ en `serious` y `critical`, y la captura de evidencia.
 
 ## Cómo se corre
 
-```powershell
+```bash
 pnpm test:e2e
 ```
 
 Compila una vez y después ejecuta Playwright. Acepta los argumentos del runner:
 
-```powershell
+```bash
 pnpm test:e2e --project=locked-desktop
 pnpm test:e2e --grep "runtime trabado"
 ```
 
 Para iterar sin recompilar, cuando el cambio es sólo del test:
 
-```powershell
+```bash
 pnpm exec playwright test --project=personal-mobile
 ```
 
 La primera vez hay que instalar el navegador. Es lo único que el gate descarga:
 
-```powershell
+```bash
 pnpm exec playwright install chromium
 ```
 
@@ -75,7 +75,7 @@ reales, esas superficies se describen por escrito o se capturan sobre fixtures.
 
 Ante un fallo, Playwright guarda traza y captura en `tests/e2e/.output/`:
 
-```powershell
+```bash
 pnpm exec playwright show-trace tests/e2e/.output/<carpeta>/trace.zip
 ```
 
@@ -94,7 +94,7 @@ pnpm exec playwright show-trace tests/e2e/.output/<carpeta>/trace.zip
 
 ## Qué no cubre
 
-- Un solo motor. Firefox y WebKit quedan para `F9-03`.
+- Un solo motor. Firefox y WebKit quedan para `F10-06`.
 - Ninguna comparación de imágenes: las capturas se leen, no se afirman.
 - `axe-core` es un piso mecánico. No evalúa jerarquía de lectura, calidad del copy
   ni si una tabla dice algo verdadero; la revisión de Impeccable y el walkthrough

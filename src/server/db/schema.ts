@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  char,
   check,
   date,
   index,
@@ -9,11 +10,13 @@ import {
   numeric,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
   uuid,
   varchar,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 export const snapshotManifestStatus = pgEnum("snapshot_manifest_status", [
@@ -570,6 +573,375 @@ export const valuationRuns = pgTable(
     check(
       "valuation_runs_decimal_policy_check",
       sql`${table.decimalPrecision} > 0 and ${table.decimalRounding} <> ''`,
+    ),
+  ],
+);
+
+/**
+ * Grafo de identidad persistido (`F2-02`).
+ *
+ * Cada nivel se guarda en dos tablas y no en una: un **registro** que sólo
+ * declara que el ID existe, y una tabla de **versiones** con los atributos y su
+ * vigencia. La separación no es ceremonia: es lo que permite que una foreign key
+ * apunte a la identidad —que es inmutable— y no a una fila que cambia cada vez
+ * que la empresa se renombra. Sin ella, `securities.issuer_legal_entity_id` no
+ * tendría a qué referenciar, porque en la tabla versionada el mismo emisor
+ * aparece muchas veces.
+ *
+ * La clave primaria de cada versión es `(id, valid_from)`, que es exactamente su
+ * clave natural: un sujeto y el instante desde el que esa versión aplica. No hay
+ * un surrogate inventado, y cerrar una versión es un update dirigido a esa clave.
+ *
+ * Los índices únicos parciales espejan en PostgreSQL las invariantes que el
+ * dominio ya prueba: una sola versión abierta por sujeto, un solo símbolo
+ * vigente por listing y tipo, un identificador autoritativo que no puede quedar
+ * abierto para dos sujetos, y una security que no está dos veces en el mismo
+ * índice a la vez (`TM-06`).
+ */
+const temporalVersionColumns = () => ({
+  validFrom: timestamp("valid_from", {
+    withTimezone: true,
+    mode: "date",
+  }).notNull(),
+  validTo: timestamp("valid_to", { withTimezone: true, mode: "date" }),
+  availableAt: timestamp("available_at", {
+    withTimezone: true,
+    mode: "date",
+  }).notNull(),
+  supersededAt: timestamp("superseded_at", {
+    withTimezone: true,
+    mode: "date",
+  }),
+  sourceId: varchar("source_id", { length: 64 }).notNull(),
+  sourceDocumentId: varchar("source_document_id", { length: 256 }),
+  contentHash: text("content_hash").notNull(),
+  recordedAt: timestamp("recorded_at", { withTimezone: true, mode: "date" })
+    .defaultNow()
+    .notNull(),
+});
+
+type TemporalColumns = {
+  validFrom: AnyPgColumn;
+  validTo: AnyPgColumn;
+  availableAt: AnyPgColumn;
+  supersededAt: AnyPgColumn;
+  contentHash: AnyPgColumn;
+};
+
+function temporalVersionChecks(prefix: string, table: TemporalColumns) {
+  return [
+    // `valid_to` igual a `valid_from` sería un intervalo vacío, no un instante.
+    check(
+      `${prefix}_valid_interval_check`,
+      sql`${table.validTo} is null or ${table.validFrom} < ${table.validTo}`,
+    ),
+    check(
+      `${prefix}_superseded_after_available_check`,
+      sql`${table.supersededAt} is null or ${table.supersededAt} > ${table.availableAt}`,
+    ),
+    check(
+      `${prefix}_content_hash_check`,
+      sql`${table.contentHash} ~ '^[a-f0-9]{64}$'`,
+    ),
+  ];
+}
+
+const openVersion = (table: TemporalColumns) =>
+  sql`${table.validTo} is null and ${table.supersededAt} is null`;
+
+export const legalEntityType = pgEnum("legal_entity_type", [
+  "operating_company",
+  "holding_company",
+  "bank",
+  "insurer",
+  "fund",
+  "trust",
+  "depositary",
+  "other",
+]);
+
+export const legalEntityStatus = pgEnum("legal_entity_status", [
+  "active",
+  "inactive",
+  "merged",
+  "dissolved",
+  "unknown",
+]);
+
+export const securityType = pgEnum("security_type", [
+  "common_equity",
+  "preferred_equity",
+  "depositary_receipt",
+  "fund_unit",
+  "etf_share",
+  "debt",
+  "other",
+]);
+
+export const securityStatus = pgEnum("security_status", [
+  "active",
+  "inactive",
+  "converted",
+  "cancelled",
+  "unknown",
+]);
+
+export const listingStatus = pgEnum("listing_status", [
+  "active",
+  "suspended",
+  "delisted",
+  "unknown",
+]);
+
+export const listingSymbolType = pgEnum("listing_symbol_type", [
+  "ticker",
+  "local_code",
+  "vendor_symbol",
+]);
+
+export const identifierSubjectType = pgEnum("identifier_subject_type", [
+  "legal_entity",
+  "security",
+  "listing",
+]);
+
+export const identifierConfidence = pgEnum("identifier_confidence", [
+  "authoritative",
+  "confirmed",
+  "candidate",
+  "rejected",
+]);
+
+/** Identidad opaca e inmutable del emisor: no contiene CIK, nombre ni ticker. */
+export const legalEntities = pgTable("legal_entities", {
+  legalEntityId: uuid("legal_entity_id").primaryKey(),
+  recordedAt: timestamp("recorded_at", { withTimezone: true, mode: "date" })
+    .defaultNow()
+    .notNull(),
+});
+
+export const legalEntityVersions = pgTable(
+  "legal_entity_versions",
+  {
+    legalEntityId: uuid("legal_entity_id")
+      .notNull()
+      .references(() => legalEntities.legalEntityId),
+    legalName: varchar("legal_name", { length: 256 }).notNull(),
+    entityType: legalEntityType("entity_type").notNull(),
+    jurisdiction: char("jurisdiction", { length: 2 }),
+    status: legalEntityStatus("status").notNull(),
+    ...temporalVersionColumns(),
+  },
+  (table) => [
+    primaryKey({
+      name: "legal_entity_versions_pkey",
+      columns: [table.legalEntityId, table.validFrom],
+    }),
+    uniqueIndex("legal_entity_versions_open_uidx")
+      .on(table.legalEntityId)
+      .where(openVersion(table)),
+    ...temporalVersionChecks("legal_entity_versions", table),
+    check(
+      "legal_entity_versions_jurisdiction_check",
+      sql`${table.jurisdiction} is null or ${table.jurisdiction} ~ '^[A-Z]{2}$'`,
+    ),
+  ],
+);
+
+export const securities = pgTable("securities", {
+  securityId: uuid("security_id").primaryKey(),
+  recordedAt: timestamp("recorded_at", { withTimezone: true, mode: "date" })
+    .defaultNow()
+    .notNull(),
+});
+
+export const securityVersions = pgTable(
+  "security_versions",
+  {
+    securityId: uuid("security_id")
+      .notNull()
+      .references(() => securities.securityId),
+    // El emisor viaja en la versión, no en el registro: una reorganización lo
+    // cambia sin que el instrumento deje de ser el mismo.
+    issuerLegalEntityId: uuid("issuer_legal_entity_id")
+      .notNull()
+      .references(() => legalEntities.legalEntityId),
+    securityType: securityType("security_type").notNull(),
+    shareClass: varchar("share_class", { length: 256 }),
+    economicCurrency: char("economic_currency", { length: 3 }),
+    status: securityStatus("status").notNull(),
+    ...temporalVersionColumns(),
+  },
+  (table) => [
+    primaryKey({
+      name: "security_versions_pkey",
+      columns: [table.securityId, table.validFrom],
+    }),
+    uniqueIndex("security_versions_open_uidx")
+      .on(table.securityId)
+      .where(openVersion(table)),
+    index("security_versions_issuer_idx").on(table.issuerLegalEntityId),
+    ...temporalVersionChecks("security_versions", table),
+    check(
+      "security_versions_currency_check",
+      sql`${table.economicCurrency} is null or ${table.economicCurrency} ~ '^[A-Z]{3}$'`,
+    ),
+  ],
+);
+
+export const listings = pgTable("listings", {
+  listingId: uuid("listing_id").primaryKey(),
+  recordedAt: timestamp("recorded_at", { withTimezone: true, mode: "date" })
+    .defaultNow()
+    .notNull(),
+});
+
+export const listingVersions = pgTable(
+  "listing_versions",
+  {
+    listingId: uuid("listing_id")
+      .notNull()
+      .references(() => listings.listingId),
+    securityId: uuid("security_id")
+      .notNull()
+      .references(() => securities.securityId),
+    mic: char("mic", { length: 4 }).notNull(),
+    quoteCurrency: char("quote_currency", { length: 3 }).notNull(),
+    country: char("country", { length: 2 }).notNull(),
+    status: listingStatus("status").notNull(),
+    primaryListing: boolean("primary_listing").notNull(),
+    ...temporalVersionColumns(),
+  },
+  (table) => [
+    primaryKey({
+      name: "listing_versions_pkey",
+      columns: [table.listingId, table.validFrom],
+    }),
+    uniqueIndex("listing_versions_open_uidx")
+      .on(table.listingId)
+      .where(openVersion(table)),
+    index("listing_versions_venue_idx").on(table.mic, table.securityId),
+    ...temporalVersionChecks("listing_versions", table),
+    check(
+      "listing_versions_codes_check",
+      sql`${table.mic} ~ '^[A-Z0-9]{4}$' and ${table.quoteCurrency} ~ '^[A-Z]{3}$' and ${table.country} ~ '^[A-Z]{2}$'`,
+    ),
+  ],
+);
+
+/**
+ * Símbolo asignado a un listing durante un intervalo. `normalized_symbol` es una
+ * clave de búsqueda derivada, no una identidad: un ticker sin MIC y sin fecha
+ * sigue siendo una consulta, no una empresa.
+ */
+export const listingSymbols = pgTable(
+  "listing_symbols",
+  {
+    listingSymbolId: uuid("listing_symbol_id").notNull(),
+    listingId: uuid("listing_id")
+      .notNull()
+      .references(() => listings.listingId),
+    symbol: varchar("symbol", { length: 32 }).notNull(),
+    normalizedSymbol: varchar("normalized_symbol", { length: 32 }).notNull(),
+    symbolType: listingSymbolType("symbol_type").notNull(),
+    ...temporalVersionColumns(),
+  },
+  (table) => [
+    primaryKey({
+      name: "listing_symbols_pkey",
+      columns: [table.listingSymbolId, table.validFrom],
+    }),
+    // Un listing puede tener a la vez un ticker y un código local, pero no dos
+    // tickers vigentes: eso sería un cambio de símbolo sin cerrar el anterior.
+    uniqueIndex("listing_symbols_open_uidx")
+      .on(table.listingId, table.symbolType)
+      .where(openVersion(table)),
+    index("listing_symbols_lookup_idx").on(
+      table.normalizedSymbol,
+      table.validFrom,
+    ),
+    ...temporalVersionChecks("listing_symbols", table),
+  ],
+);
+
+/**
+ * Asignaciones de identificadores externos. El sujeto es polimórfico por diseño:
+ * un CIK identifica a la entidad legal y un ISIN al instrumento, y guardarlos en
+ * la misma tabla con `subject_type` explícito evita la tentación de copiar el
+ * CIK a la security "para que el join sea más cómodo".
+ */
+export const identifierAssignments = pgTable(
+  "identifier_assignments",
+  {
+    identifierAssignmentId: uuid("identifier_assignment_id").notNull(),
+    subjectType: identifierSubjectType("subject_type").notNull(),
+    subjectId: uuid("subject_id").notNull(),
+    identifierType: varchar("identifier_type", { length: 64 }).notNull(),
+    identifierValue: varchar("identifier_value", { length: 128 }).notNull(),
+    normalizedValue: varchar("normalized_value", { length: 128 }).notNull(),
+    scope: varchar("scope", { length: 256 }).notNull(),
+    issuingAuthority: varchar("issuing_authority", { length: 256 }),
+    confidence: identifierConfidence("confidence").notNull(),
+    ...temporalVersionColumns(),
+  },
+  (table) => [
+    primaryKey({
+      name: "identifier_assignments_pkey",
+      columns: [table.identifierAssignmentId, table.validFrom],
+    }),
+    // Un identificador autoritativo no puede estar abierto para dos sujetos: eso
+    // es el conflicto que el resolver manda a revisión manual, no un estado
+    // válido de la base.
+    uniqueIndex("identifier_assignments_authoritative_uidx")
+      .on(table.identifierType, table.normalizedValue, table.scope)
+      .where(
+        sql`${table.confidence} = 'authoritative' and ${table.validTo} is null and ${table.supersededAt} is null`,
+      ),
+    index("identifier_assignments_lookup_idx").on(
+      table.identifierType,
+      table.normalizedValue,
+      table.scope,
+    ),
+    index("identifier_assignments_subject_idx").on(
+      table.subjectType,
+      table.subjectId,
+    ),
+    ...temporalVersionChecks("identifier_assignments", table),
+    check(
+      "identifier_assignments_type_check",
+      sql`${table.identifierType} ~ '^[a-z0-9]+(_[a-z0-9]+)*$'`,
+    ),
+  ],
+);
+
+/**
+ * Pertenencia a un índice, colgada de la security. Una salida cierra el
+ * intervalo: preguntar por el universo de una fecha pasada sigue siendo
+ * respondible después de cada rebalanceo (`TM-06`).
+ */
+export const indexMemberships = pgTable(
+  "index_memberships",
+  {
+    indexMembershipId: uuid("index_membership_id").notNull(),
+    indexId: varchar("index_id", { length: 64 }).notNull(),
+    securityId: uuid("security_id")
+      .notNull()
+      .references(() => securities.securityId),
+    ...temporalVersionColumns(),
+  },
+  (table) => [
+    primaryKey({
+      name: "index_memberships_pkey",
+      columns: [table.indexMembershipId, table.validFrom],
+    }),
+    uniqueIndex("index_memberships_open_uidx")
+      .on(table.indexId, table.securityId)
+      .where(openVersion(table)),
+    index("index_memberships_index_idx").on(table.indexId, table.validFrom),
+    ...temporalVersionChecks("index_memberships", table),
+    check(
+      "index_memberships_index_id_check",
+      sql`${table.indexId} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`,
     ),
   ],
 );

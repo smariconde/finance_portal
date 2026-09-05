@@ -46,8 +46,15 @@ async function expectConstraintViolation(
 const fixtureEntry = DEMO_SOURCE_REGISTRY.find(
   (entry) => entry.sourceId === DEMO_SOURCE_ID,
 )!;
+/**
+ * Una fuente real **sin** derechos revisados. Era `sec-edgar` hasta que el owner la
+ * aprobó el 2026-09-05; se apunta a otra en vez de aflojar la aserción, porque lo que
+ * el test cuida es que `unknown` sobreviva al round-trip por PostgreSQL y siga
+ * bloqueando. Si algún día no queda ninguna fuente sin revisar, este test se queda
+ * sin sujeto y hay que fabricarle uno, no borrarlo.
+ */
 const blockedEntry = DEMO_SOURCE_REGISTRY.find(
-  (entry) => entry.sourceId === "sec-edgar",
+  (entry) => entry.sourceId === "caja-valores-cedear",
 )!;
 
 describe("PostgreSQL ingestion persistence", () => {
@@ -198,8 +205,11 @@ describe("PostgreSQL ingestion persistence", () => {
     const outcome = await executeIngestionRun(
       {
         sourceId: blockedEntry.sourceId,
-        datasetId: "sec.companyfacts",
-        parserVersion: "sec-1.0.0",
+        // El dataset tiene que ser uno que la fuente **sí** declara: de lo
+        // contrario la corrida corta antes por `dataset_not_registered` y el test
+        // dejaría de probar el gate de derechos sin dejar de estar en verde.
+        datasetId: blockedEntry.datasets[0],
+        parserVersion: "cedear-1.0.0",
       },
       dependencies,
     );

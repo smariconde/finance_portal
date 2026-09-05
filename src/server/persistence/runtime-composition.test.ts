@@ -55,6 +55,11 @@ const SELECTORS = [
     () => import("@/server/persistence/get-valuation-run-repository"),
     "getValuationRunRepository",
   ],
+  [
+    "universe",
+    () => import("@/server/persistence/get-universe-repository"),
+    "getUniverseRepository",
+  ],
 ] as const;
 
 type SelectorImporter = () => Promise<Record<string, unknown>>;
@@ -104,10 +109,12 @@ const LOCKED_ENVIRONMENTS: ReadonlyArray<
     },
   ],
   [
-    "una producción de Vercel que dice estar protegida",
+    // Invertido por la ADR 0008: producción de Vercel **con** protección
+    // declarada ahora sirve. Lo que sigue trabado es producción sin declararla,
+    // que es el caso del despliegue accidental del repositorio público.
+    "una producción de Vercel sin acceso declarado",
     {
       APP_MODE: "personal",
-      APP_RUNTIME_ACCESS: "protected",
       DATABASE_URL: "postgres://pooled",
       VERCEL: "1",
       VERCEL_ENV: "production",
@@ -184,6 +191,22 @@ describe("composición de repositorios personales", () => {
         APP_MODE: "personal",
         APP_RUNTIME_ACCESS: "local",
         DATABASE_URL: "postgres://pooled",
+      });
+      const { getRepository } = await loadSelector(importer, exportName);
+
+      expect(getRepository()).toBeDefined();
+      expect(runtimeDatabase).toHaveBeenCalledTimes(1);
+    });
+
+    it("construye en una producción de Vercel con protección declarada", async () => {
+      // El punto del slice: sin esto el owner no llega a la aplicación desde
+      // fuera de su máquina, porque producción caía a `locked` (ADR 0008).
+      applyEnvironment({
+        APP_MODE: "personal",
+        APP_RUNTIME_ACCESS: "protected",
+        DATABASE_URL: "postgres://pooled",
+        VERCEL: "1",
+        VERCEL_ENV: "production",
       });
       const { getRepository } = await loadSelector(importer, exportName);
 

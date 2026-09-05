@@ -20,15 +20,18 @@ Solo una fase puede estar `in_progress`. No marcar `done` por porcentaje, esfuer
 |---|---|---|
 | Masterplan y auditoria | done | Replanteo single-owner, datos y persistencia revisado el 2026-08-20 |
 | Fase 0 - Fundacion | done | Fase 0A y contratos 0B.1-0B.7 validados el 2026-08-21; gate completo sin integrar proveedores reales |
-| Fase 1 - Vertical slice personal | in_progress | `F1-08` en curso desde el 2026-09-03: harness y protocolo del walkthrough listos (`pnpm walkthrough`); falta la sesion del owner y su registro |
-| Fase 2 - Empresas y CEDEAR | not_started | - |
-| Fase 3 - Divergencias | not_started | - |
-| Fase 4 - Valuacion no financiera V1 | not_started | - |
-| Fase 5 - Arquetipos deterministas | not_started | - |
-| Fase 6 - Argentina y soja | not_started | - |
-| Fase 7 - IA personal acotada | not_started | - |
-| Fase 8 - Persistencia personal y asistente | not_started | - |
-| Fase 9 - Hardening y publicacion del proyecto | not_started | - |
+| Fase 1 - Vertical slice personal | done | Gate verificado end-to-end en Arch el 2026-09-04: 338 unit, 24 integration, build dinamico y 131 E2E. `F1-08` queda `deferred` por la ADR 0007, con reingreso en `F6-06` |
+| Fase 2 - Datos reales SEC y universo S&P 500 | in_progress | `F2-01` cerrado el 2026-09-04. `F2-02` entrego el motor de constitucion y el grafo de identidad persistido (migracion `0004`, 380 unit, 31 integration); falta constituir el universo real, que necesita el egress de `F2-03` |
+| Fase 3 - Arquetipo, admisibilidad y costo de capital | not_started | - |
+| Fase 4 - Motor Damodaran y arquetipos | not_started | - |
+| Fase 5 - Capa IA acotada bajo policy engine | not_started | - |
+| Fase 6 - Corrida por ticker y acceso CEDEAR | not_started | - |
+| Fase 7 - Screener y catalogo de metricas | not_started | - |
+| Fase 8 - Divergencias fundamentales | not_started | - |
+| Fase 9 - Argentina, BCRA y soja | not_started | - |
+| Fase 10 - Persistencia, asistente y hardening | not_started | - |
+
+**Reordenamiento del 2026-09-04.** La [ADR 0007](../architecture/adr/0007-ticker-driven-valuation-pivot.md) reordena las fases alrededor del objetivo real del owner: escribir un ticker y obtener una valuacion rigurosa, persistida y refrescable. El orden anterior —capas de capacidad— dejaba ese resultado despues de la Fase 5 y la capa IA en la Fase 7, detras del bloque de Argentina. Nada se elimina: screener, divergencias, macro y soja conservan su alcance y sus gates, corridos hacia abajo. La [ADR 0008](../architecture/adr/0008-remote-personal-access.md) habilita el acceso remoto en produccion, que hoy el codigo niega.
 
 **Slice excepcional cerrado:** `F1-UI-01`, fundación shadcn/Base UI y migración del shell, home y configuración conforme a [`docs/backlog/README.md`](../backlog/README.md#f1-ui-01). No agregó datos ni capacidades.
 
@@ -38,9 +41,11 @@ Solo una fase puede estar `in_progress`. No marcar `done` por porcentaje, esfuer
 
 **Alcance de `F1-07`:** el gate `pnpm test:e2e` compila una vez y sirve ese mismo artefacto desde dos servidores locales —uno personal y uno trabado— para probar que el modo decide en el request y no en el build. Al construirlo se corrigio un defecto de fondo: hasta este slice el modo efectivo quedaba horneado en el HTML prerenderizado, asi que un build hecho en la maquina del owner servia datos sin importar el entorno del runtime ([ADR 0005](../architecture/adr/0005-request-time-runtime-boundary.md)). El harness entro por [ADR 0006](../architecture/adr/0006-e2e-accessibility-harness.md) y cierra `UI-02`: la revision renderizada dejo de ejecutarse a mano.
 
-**Alcance de `F1-08`:** `pnpm walkthrough` no es un gate y no mide nada por si mismo. Prepara la sesion manual del owner —un mismo build servido con su `.env.local` real y con las variables de modo vaciadas, ambos solo en `127.0.0.1`— para que tres tareas fijas y cronometradas produzcan un registro escrito con hallazgos. Lo que falta medir en Fase 1 es cuanto tarda el owner en obtener una respuesta y donde duda, y eso no lo produce un test; lo reproducible es la sesion, no el resultado. El protocolo esta en [el runbook](../runbooks/owner-walkthrough.md) y el registro en `docs/walkthroughs/`. La tarea mobile es emulacion a 390x844: exponer a la red local un runtime que sirve datos reales contradiria la ADR 0004, y ese limite queda declarado para `F9-03`.
+**Alcance de `F1-08`:** `pnpm walkthrough` no es un gate y no mide nada por si mismo. Prepara la sesion manual del owner —un mismo build servido con su `.env.local` real y con las variables de modo vaciadas, ambos solo en `127.0.0.1`— para que tres tareas fijas y cronometradas produzcan un registro escrito con hallazgos. Lo que falta medir en Fase 1 es cuanto tarda el owner en obtener una respuesta y donde duda, y eso no lo produce un test; lo reproducible es la sesion, no el resultado. El protocolo esta en [el runbook](../runbooks/owner-walkthrough.md) y el registro en `docs/walkthroughs/`. La tarea mobile es emulacion a 390x844: exponer a la red local un runtime que sirve datos reales contradiria la ADR 0004, y ese limite queda declarado para `F10-06`.
 
-**Bloqueos actuales:** ninguno. `F1-08` depende de una sesion manual del owner, que es parte de su definicion y no un bloqueo.
+**Alcance de `F2-02`:** el modulo `src/modules/universe/` decide, en dominio puro, que versiones abre y cuales cierra una constitucion de universo, y la migracion `0004` persiste el grafo de identidad que `F1-04` habia dejado diferido: registro y versiones separados por nivel, clave primaria `(id, valid_from)` e indices unicos parciales que espejan las invariantes. Constituir dos veces no duplica identidades; un renombre y una salida del indice se historizan sin reescribir la fila anterior. Lo que las dos fuentes no alcanzan a decidir —un simbolo nuevo de un emisor conocido, un ticker asignado a dos CIK, un mercado sin MIC unico— queda rechazado y nombrado en vez de adivinado. Falta la mitad que necesita red: constituir el universo real del S&P 500, que se cierra con el provider de `F2-03`.
+
+**Bloqueos actuales:** ninguno. `F1-08` depende de una sesion manual del owner, que es parte de su definicion y no un bloqueo. `F2-02` depende del egress de `F2-03` para su ultimo criterio, que es una secuencia decidida y no un bloqueo.
 
 ## Protocolo por sesion
 
@@ -90,104 +95,114 @@ Implementar en sesiones separadas: shell/health, persistencia base, fake provide
 
 **Gate:** el mismo snapshot produce el mismo hash/resultado; un runtime que no prueba ser privado no sirve datos; no hay llamada LLM ni proveedor real; feedback de uso queda en backlog.
 
-## Fase 2 - Empresas, CEDEAR y screener
+## Fase 2 - Datos reales SEC y universo S&P 500
 
-- [ ] Registrar terminos del plan personal y aprobar SEC + Caja + snapshot S&P + Alpaca Basic como stack inicial, o documentar su reemplazo.
-- [ ] Implementar issuer/security/listing/identifier/corporate-action mapping.
-- [ ] Integrar SEC identity/audit y validacion de muestra Arelle/DQC.
-- [ ] Ingesta historica de CEDEAR, ratios y vigencia.
-- [ ] Cache Postgres durable, refresh manual/EOD, batching, presupuesto de cuota, cursor/checkpoint, reintentos y poison policy.
-- [ ] Metric catalog versionado y screener 2Y/5Y.
-- [ ] Export personal con metadata y atribucion dentro de los terminos aplicables.
+Primera fase con datos reales. El objetivo es que una empresa real del indice llegue al motor con su identidad resuelta y su historia point-in-time intacta.
+
+- [ ] Constituir el universo S&P 500 con identidad completa: issuer, security, listing, simbolo vigente y CIK.
+- [ ] Integrar SEC XBRL como fuente de fundamentals, con `available_at` del filing y no la fecha de descarga.
+- [ ] Reconstruir la serie por concepto contable preservando vintages, restatements y unidades.
+- [ ] Corporate actions con vigencia: splits, cambios de simbolo, delistings y fusiones.
+- [ ] Cache durable en Postgres con cursor, checkpoint, reintentos y poison policy; ningun page view llama al proveedor.
+- [ ] Golden fixtures a partir de extractos reales congelados, en reemplazo de `FixtureCo` como oraculo de regresion.
+
+**Gate:** 30 empresas de arquetipos distintos reconciliadas contra su filing; 100% de filas con source/as-of/available-at; splits, restatements y un cambio de simbolo probados; una consulta `as_known` anterior a un restatement no devuelve el valor enmendado.
+
+## Fase 3 - Arquetipo, admisibilidad y costo de capital
+
+Lo que decide si una empresa se puede valuar y con que rigor. Va antes del motor porque el motor sin esto solo sabe tratar a una empresa como si fuera todas.
+
+- [ ] Selector determinista de arquetipo con reglas, inputs requeridos, confianza y `unsupported_method`.
+- [ ] Perfil de completitud medido por empresa sobre los datos que existen de verdad.
+- [ ] Nivel de rigor declarado —`full`, `standard`, `screening`, `unsupported`— derivado de la completitud, nunca elegido.
+- [ ] Datasets de parametros Damodaran versionados y fechados: ERP implicita, betas desapalancadas por industria y country risk premium.
+- [ ] Mapeo de la empresa a la industria del dataset, con el caso ambiguo declarado y no adivinado.
+- [ ] Costo de capital bottom-up: beta desapalancada reapalancada a estructura objetivo, costo de deuda por spread, convergencia terminal.
+
+**Gate:** cada empresa del universo recibe arquetipo y nivel de rigor, o un `unsupported_method` con el input que falta nombrado; el WACC deja de ser un input crudo y se construye con componentes fechados; una empresa sin mix geografico cae a `standard` y lo declara.
+
+## Fase 4 - Motor Damodaran y arquetipos
+
+Extiende el motor `fcff-1.0.0` hasta cubrir la metodologia escrita, y agrega un arquetipo por slice llevandolo a gate antes del siguiente.
+
+- [ ] Capitalizacion de leases e I+D con puente auditable sobre EBIT, capital invertido y deuda.
+- [ ] Regla terminal `g <= risk_free_rate` ademas del buffer aritmetico; incrementa `engine_version`.
+- [ ] Normalizador reported/adjusted con evidencia y regla por ajuste.
+- [ ] Escenarios bear/base/bull como conjuntos coherentes de supuestos.
+- [ ] Probabilidad de fracaso y overhang de opciones en la dilucion.
+- [ ] Arquetipos por slice: 4.1 bancos y aseguradoras (excess return/DDM); 4.2 ciclicas y commodities (normalizacion de ciclo); 4.3 perdidas y high growth (revenue-to-margin y supervivencia); 4.4 REIT (AFFO/NAV); 4.5 holdings/SOTP y distress solo con demanda observada.
+
+**Gate por arquetipo:** selector, inputs, formulas, fixtures independientes, diagnosticos y estado `experimental | reviewed | production`; comparacion documentada contra la spreadsheet publica correspondiente; metodos no soportados devuelven `unsupported_method`. Recalcular no requiere IA.
+
+## Fase 5 - Capa IA acotada bajo policy engine
+
+Primero el limite de costo y datos, despues la propuesta. La IA decide solo las filas de la tabla cualitativa de la metodologia.
+
+- [ ] Budget por corrida y por dia, limite global, timeout, breaker, kill switch y metricas antes de la primera llamada.
+- [ ] Extraccion cualitativa con schema cerrado, evidence IDs obligatorios y disciplina de contexto: secciones dirigidas, no documentos completos.
+- [ ] Busqueda web sobre dominios primarios allowlisted, con defensa SSRF y contenido tratado como no confiable.
+- [ ] Propuesta estructurada de supuestos que respeta locks y siempre pasa por el policy engine.
+- [ ] Persistencia de la propuesta dentro del snapshot de entrada; el replay no vuelve a llamar al modelo.
+- [ ] Evals de injection, citas, abstencion, schema, costo y correccion.
+
+**Gate:** ninguna cifra del resultado se origina en texto libre del modelo; un replay reproduce `input_hash` y `result_hash` sin red; una propuesta sin evidencia citada es rechazada por el policy engine; costo por corrida y tasa de rechazo son visibles.
+
+## Fase 6 - Corrida por ticker y acceso CEDEAR
+
+La espina del producto, ya con todas sus piezas construidas.
+
+- [ ] Corrida por ticker como job encolado con estado, no como request; primera Route Handler o Server Action del proyecto (`TM-03`).
+- [ ] Persistencia de la corrida y su historial: volver a verla, refrescar lo que cambio y comparar contra la anterior.
+- [ ] Superficie de resultado sobre una empresa real, con nivel de rigor declarado, provenance y supuestos propuestos distinguidos de los hechos.
+- [ ] Anotacion de acceso CEDEAR: si la empresa tiene programa, su ratio vigente y su precio.
+- [ ] Corrida por lote sobre el universo, con presupuesto y reanudacion.
+- [ ] Despliegue remoto: Postgres hosteada, proteccion del deployment y `personal` en produccion segun la [ADR 0008](../architecture/adr/0008-remote-personal-access.md).
+
+**Gate:** un ticker escrito produce una valuacion completa, persistida y reproducible; el resultado declara su nivel de rigor; una empresa sin datos suficientes se niega nombrando el faltante; ninguna URL sin proteccion sirve datos.
+
+## Fase 7 - Screener y catalogo de metricas
+
+- [ ] Metric catalog versionado con definiciones y unidades.
+- [ ] Screener 2Y/5Y con limites, filtros allowlisted, nulos honestos y metricas sectoriales.
+- [ ] Export personal con definiciones, fecha, source y atribucion.
 - [ ] Degradacion, reconciliacion y quality score explicable.
 
-**Gate:** 30 empresas representativas reconciliadas; 100% de filas con source/as-of/available-at; delistings/splits/ADRs probados; ningun page view llama proveedores; uso/cache personal y presupuesto de cuota quedan verificados.
+**Gate:** un filtro sobre un campo nulo no lo trata como cero; el export declara de donde salio cada columna.
 
-## Fase 3 - Divergencias fundamentales
+## Fase 8 - Divergencias fundamentales
 
 - [ ] Pipeline fiscal-aligned de precio, market cap, EPS, net income y shares.
-- [ ] Vista agregada `net income vs market cap`.
-- [ ] Vista por accion `EPS vs price` y puente de dilucion/recompras.
+- [ ] Vista agregada `net income vs market cap` y vista por accion `EPS vs price` con puente de dilucion.
 - [ ] Categorias de EPS no comparable y ventanas con tolerancia.
 - [ ] Scatter, tabla, filtros y detail drawer accesibles.
 - [ ] Tests de splits, restatements, negativos, outliers y look-ahead.
 
 **Gate:** golden dataset revisado manualmente; formulas y limitaciones publicadas; ninguna UI presenta un gap aislado como senal de compra.
 
-## Fase 4 - Valuacion no financiera V1
+## Fase 9 - Argentina, BCRA y soja
 
-- [ ] Normalizador reported/adjusted con puentes auditables.
-- [ ] Selector madura/high-growth inicial.
-- [ ] FCFF multi-etapa, bear/base/bull y sensitivity.
-- [ ] Assumptions workbench con locks y audit trace.
-- [ ] Snapshots de parametros Damodaran con version.
-- [ ] Fixtures independientes y revision contra spreadsheets.
-- [ ] Labels de escenarios, limitaciones y ausencia de recomendacion revisados para uso personal.
+Un bloque por sesion, empezando por catalogo/vintages.
 
-**Gate:** invariantes con precondiciones y tolerancias pasan; replay de snapshot es deterministico; recalcular no requiere IA; output muestra rango e incertidumbre.
-
-Un MVP util termina aqui. Validar uso antes de ampliar profundidad.
-
-## Fase 5 - Arquetipos deterministas
-
-Implementar un arquetipo por slice y llevarlo a gate antes del siguiente:
-
-1. bancos/aseguradoras: excess return/DDM;
-2. ciclicas/commodities: normalizacion de ciclo;
-3. perdidas/high growth: revenue-to-margin y supervivencia;
-4. REIT: AFFO/NAV;
-5. holding/SOTP y distress solo con demanda observada.
-
-Cada slice exige selector, inputs, formulas, fixtures, diagnosticos y estado `experimental | reviewed | production`. No agregar IA en esta fase.
-
-**Gate:** casos por arquetipo, revision independiente y limites visibles; metodos no soportados devuelven `unsupported_method`.
-
-## Fase 6 - Argentina y soja
-
-Construir un bloque por sesion, empezando por catalogo/vintages y luego nominal, monetario, cambiario, actividad, fiscal/externo y agro.
-
-- [ ] BCRA Estadisticas Monetarias v4 con catalogo dinamico.
+- [ ] BCRA Estadisticas Monetarias v4 con catalogo dinamico y fallo seguro ante cambio de schema.
 - [ ] Datos.gob.ar/INDEC/BNA con metadata, revisions y quiebres.
 - [ ] Transformaciones nominal/real y seasonal-adjustment auditables.
-- [ ] Rosario/Chicago con licencia, contrato, conversion y roll policy.
+- [ ] Cambiario con fuentes oficiales y fechas propias por serie.
+- [ ] Rosario/Chicago con contrato, conversion, FX y roll policy antes de calcular basis.
 - [ ] Graficos, tabla accesible, freshness y lectura sin causalidad inventada.
 
-**Gate por bloque:** ultima publicacion oficial reconciliada, cambio de schema falla seguro y metodologia visible. La fase termina cuando todos los bloques priorizados estan `done`; los restantes pueden quedar `deferred` explicitamente.
+**Gate por bloque:** ultima publicacion oficial reconciliada, cambio de schema falla seguro y metodologia visible. La fase termina cuando los bloques priorizados estan `done`; los restantes pueden quedar `deferred` explicitamente.
 
-## Fase 7 - IA personal acotada
+## Fase 10 - Persistencia, asistente y hardening
 
-Primero proteger costo y datos; despues habilitar una sola feature IA. No se implementa identidad de usuario: el limite de acceso es localhost o la proteccion del deployment.
-
-- [ ] Guard de modo: IA disponible en `personal` y deshabilitada en `demo`.
-- [ ] Budget por request/dia, limite global, kill switch y observabilidad.
-- [ ] Data map/transferencias y politica OpenRouter ZDR/data collection verificadas.
-- [ ] Research sobre documentos primarios con evidence IDs y allowlist.
-- [ ] Propuesta estructurada de supuestos para un metodo ya validado.
-- [ ] Policy engine, abstencion, prompt-injection tests y evals.
-
-**Gate:** no hay endpoint IA en modo demo; proveedor/routing/politica quedan trazados; replay usa output persistido; costo y tasa de rechazo/correccion son visibles.
-
-## Fase 8 - Persistencia personal y asistente
-
-- [ ] Saved views, watchlists, preferencias y valuaciones del unico owner sin `user_id`.
-- [ ] Historial, exportacion, backup y borrado manual de datos locales.
-- [ ] Claves server-owned por entorno con health, rotacion manual y redaccion de logs.
-- [ ] Restauracion de preferencias y borradores entre sesiones desde Postgres; `localStorage` solo para UX no sensible.
-- [ ] Asistente con acciones acotadas: explicar, comparar y navegar evidencia.
-- [ ] Tool calls tipadas sin URL/SQL arbitrario y aprobacion humana para acciones sensibles.
-
-**Gate:** una key nunca llega al browser; backup/restore personal probado; assistant eval suite factual/financiera pasa; el modo demo no accede a datos live.
-
-## Fase 9 - Hardening y publicacion del proyecto
-
-- [ ] SLOs, alertas, backups y restore drill.
-- [ ] Load/cost tests, rate limits y circuit breakers.
-- [ ] Auditoria WCAG 2.2 AA y performance budgets.
-- [ ] Terminos de uso personal, atribuciones, secretos y copy metodologico revisados.
+- [ ] Saved views, watchlists y preferencias del unico owner sin `user_id`.
+- [ ] Historial, exportacion, backup, restore drill y borrado manual.
+- [ ] Claves server-owned con health, rotacion manual y redaccion de logs.
+- [ ] Asistente con acciones acotadas y tool calls tipadas sin URL/SQL arbitrario.
+- [ ] SLOs, alertas, load/cost tests, rate limits y circuit breakers.
+- [ ] Auditoria WCAG 2.2 AA y performance budgets, incluida la cobertura multi-motor diferida en la [ADR 0006](../architecture/adr/0006-e2e-accessibility-harness.md).
 - [ ] Runbooks, rollback y changelog de metodologia.
-- [ ] README publico con setup seguro; demo fixture opcional y runtime live local/protegido verificados.
 
-**Gate:** checklist firmado, presupuesto/alertas activos, incident drill completado, secretos ausentes del repo y ninguna URL anonima sirve datos live.
+**Gate:** una key nunca llega al browser; backup/restore probado; incident drill completado; secretos ausentes del repo; ninguna URL sin proteccion sirve datos.
 
 ## Definicion global de terminado
 
@@ -223,3 +238,9 @@ Agregar una fila al cerrar cada sesion. No borrar historia; corregir con una fil
 | 2026-08-25 | Fase 1 / `F1-06` + ADR 0004 | Superficie de resultado y trazabilidad cerrada, y pivote a runtime personal-first: el eje `demo | personal` pasa a `locked | personal` con fallo cerrado, las fixtures dejan de ser producto y quedan como dobles de test, y `/valuacion/demo` pasa a `/valuacion/referencia` como verificacion del motor | done | `docs/architecture/adr/0004-personal-first-runtime.md`, `src/modules/configuration/domain/{config-health,runtime-lock}.ts`, `src/app/_components/runtime-locked-notice.tsx`, `src/app/valuacion/referencia/`, los cinco selectores de repositorio y sus raices de composicion, `in-memory-*` reemplazando a `demo-*`, CLAUDE.md, AGENTS.md, backlog y este roadmap; un runtime sin declarar o que no prueba ser privado queda `locked`, no construye repositorio y no abre la conexion personal ni para averiguarlo; `personal` exige ademas `DATABASE_URL` pooled; format, lint, typecheck, 283 unit tests y build pasan | `F1-07`: gate automatizado del flujo personal y del runtime trabado |
 | 2026-08-26 | Fase 1 / `F1-07` + ADR 0005 y 0006 | Gate automatizado del flujo personal y del runtime trabado, y correccion de la frontera de modo: hasta ahora se resolvia en `next build` y quedaba horneada en el HTML, asi que el artefacto servia datos sin importar el entorno del runtime. Ahora se resuelve en el request y **un mismo build** sirve o niega segun su entorno | done | `docs/architecture/adr/000{5,6}-*.md`, `playwright.config.ts`, `scripts/run-e2e.ts`, `tests/e2e/`, `tests/setup/no-network.ts` y su test, `src/server/persistence/runtime-composition.test.ts`, `src/server/config/app-environment.ts`, `src/app/not-found.tsx`, `docs/runbooks/e2e-accessibility-gate.md`, job `e2e` en `.github/workflows/quality.yml`; las cuatro rutas pasan a `f (Dynamic)` y los `.html` prerenderizados quedan en 0 bytes; el servidor trabado no expone `FixtureCo`, `13,55`, el valor exacto ni ninguno de los dos hashes, tampoco en el payload RSC; los cinco selectores de composicion lanzan `RuntimeLockedError` en seis entornos trabados sin llegar a pedir la base; un centinela por variable de `.env.example` no aparece en health, body, headers ni RSC en ningun modo; guard de red que hace fallar `fetch`, `http`, `https` y socket TCP en toda la suite unitaria, con su propio test; `DATABASE_URL` del servidor personal apunta a un puerto sin escucha, asi que abrir la base rompe el gate; 131 tests E2E en 6 proyectos con `axe-core` sin findings `serious` ni `critical`; tres defectos reales corregidos —contraste de la cifra de antiguedad por `opacity-80`, `disabled` consumido por el `TooltipTrigger` de Base UI en los items planificados, y `Escape` capturado por el tooltip en mobile que impedia cerrar el drawer por teclado— mas el rail de la sidebar fuera del arbol de accesibilidad; format, lint, typecheck, 338 unit tests, 24 integration tests contra PostgreSQL `17.11` y build pasan | `F1-08`: walkthrough del owner sobre el runtime personal y cierre del gate de Fase 1 |
 | 2026-09-03 | Fase 1 / `F1-08` | Harness y protocolo del walkthrough del owner: `pnpm walkthrough` sirve un mismo build en `127.0.0.1:3120` con el `.env.local` real del owner y en `127.0.0.1:3121` con modo, acceso y `DATABASE_URL` vaciados, con tres tareas fijas y cronometradas —desktop, mobile y entorno sin declarar— y plantilla de registro. Falta la sesion del owner | in_progress | `scripts/run-walkthrough.ts`, script `walkthrough` en `package.json`, `docs/runbooks/owner-walkthrough.md`, `docs/walkthroughs/TEMPLATE.md`, `CLAUDE.md` y `AGENTS.md`; a diferencia del gate E2E el servidor personal no se fabrica con centinelas ni base inalcanzable, porque lo que se mide es el producto y no la frontera; ambos servidores escuchan solo en `127.0.0.1` y la tarea mobile es emulacion a 390x844 en vez de exponer a la red local un runtime con datos reales (ADR 0004); format, lint y typecheck pasan; `test`, `build` y la corrida del harness no se pudieron ejecutar en la sesion del agente porque `node_modules` esta instalado para Windows y faltan los binarios nativos de Linux | Correr `pnpm walkthrough` en el host del owner, registrar la sesion en `docs/walkthroughs/2026-09-03-f1-08.md` y cerrar el gate de Fase 1; no iniciar Fase 2 |
+| 2026-09-04 | Fase 1 / pivote | Checkout Arch verificado end-to-end y reordenamiento del roadmap alrededor de la corrida por ticker | done | `docs/architecture/adr/0007-ticker-driven-valuation-pivot.md`, `0008-remote-personal-access.md`, `docs/valuation/methodology.md` v0.2.0, este roadmap y `docs/backlog/README.md`; format, lint, typecheck, 338 unit, 24 integration, build y 131 E2E pasan en Arch Linux | `F2-01`: habilitar acceso personal remoto en produccion |
+| 2026-09-04 | Fase 2 / `F2-01` | Acceso personal remoto en produccion; frontera invertida a proposito y caveat de Hobby documentado donde se declara la variable | done | `src/modules/configuration/domain/config-health.ts`, sus tests, `runtime-composition.test.ts`, `.env.example`, `README.md`, `09_ENVIRONMENT_AND_DEPLOY.md`, `10_DECISIONS_AND_SOURCES.md`; format, lint, typecheck, 345 unit, build y 131 E2E pasan | `F2-02`: universo S&P 500 con identidad completa |
+| 2026-09-04 | Fase 2 / `F2-02` | Motor de constitucion del universo y grafo de identidad persistido: issuer, security, listing, simbolo vigente y CIK separados, con membresia de indice versionada. Falta constituir el universo real | in_progress | `src/modules/universe/{domain,application,infrastructure}`, ocho tablas nuevas en `src/server/db/schema.ts`, `drizzle/0004_common_proteus.sql` y su rollback pareado, `src/server/db/postgres-universe-repository.ts`, `src/server/persistence/get-universe-repository.ts`, `tests/integration/universe-repository.test.ts`, `docs/data/identity-model.md` v0.2; registro y versiones separados por nivel para que la foreign key apunte a la identidad y no a una fila que cambia con cada renombre, con clave primaria `(id, valid_from)`; tres emisores producen cuatro instrumentos y dos clases del mismo CIK son dos securities con el mismo issuer, con el CIK como unica asignacion de `subject_type = legal_entity`; repetir la constitucion no escribe una fila mas y el conteo de tablas no cambia; un renombre cierra la version anterior en el mismo instante en que abre la nueva y la fila historica conserva su nombre; una salida del indice cierra la membresia sin borrarla y sin deslistar el instrumento; un lote sin miembros resueltos no se aplica, para que una lista rota no vacie el universo por omision; ocho codigos de rechazo nombrados, incluido `unresolved_share_class` porque estas dos fuentes no distinguen un cambio de ticker de una clase nueva; convencion `constituent-match-1.0.0` para `BRK.B` frente a `BRK-B`, aceptada solo si es univoca y declarada en el resultado; `legal_entity_versions_open_uidx`, `identifier_assignments_authoritative_uidx` e `index_memberships_content_hash_check` verificados en PostgreSQL; el hash cubre el contenido y no el instante de registro; seis selectores de composicion en vez de cinco, todos fallando cerrado; format, lint, typecheck, 380 unit tests, 31 integration tests contra PostgreSQL `17.11`, build con las cuatro rutas en `f (Dynamic)` y 131 E2E pasan | Cierre de `F2-02`: constituir el universo real del S&P 500 con el provider de `F2-03` y sus controles `TM-08` |
+| 2026-09-05 | Fase 2 / `F2-03` | Base de egress y defensa SSRF: la primera salida a red del proyecto, con `TM-08` cerrado en su parte de red. Falta el provider de la SEC | in_progress | `src/server/egress/` (`ip-address-policy`, `egress-policy`, `egress-allowlist`, `egress-user-agent`, `guarded-lookup`, `https-transport`, `fetch-approved-resource`, `get-egress-client`), `docs/architecture/adr/0009-egress-boundary.md`, `docs/security/threat-model.md`, `CLAUDE.md`, `.env.example`; no existe una funcion que acepte una URL sola: el destino se autoriza contra la allowlist de una fuente, que empareja host con prefijos de path, asi que `/submissions/` en `www.sec.gov` se rechaza aunque los dos hosts esten aprobados; la allowlist da alcanzabilidad y no permiso, y un test afirma que `sec-edgar` sigue en `rights_review_pending` para que aprobar una cosa no apruebe la otra; contra DNS rebinding la comprobacion **es** la resolucion —el `lookup` validado se le pasa a `https.request`, por eso se usa `node:https` y no `fetch`, que no expone ese hook—, con agente propio y `keepAlive: false` porque una conexion reusada no vuelve a resolver el nombre; una sola direccion no publica rechaza la conexion entera en vez de filtrarse; las formas heredadas de IPv4 se rechazan en vez de interpretarse y los tres prefijos IPv6 que embeben una IPv4 —mapped, NAT64 y 6to4— se clasifican por la direccion embebida; cada redirect se re-autoriza completo y el presupuesto de tiempo es uno para la operacion, no uno por salto; un runtime trabado no construye transporte ni resuelve un nombre, y un runtime personal sin `SEC_USER_AGENT` con contacto real se niega a salir; el guard de red de la suite unitaria no se relajo: la politica se prueba con resolver y transporte inyectados y ningun test abre un socket; format, lint, typecheck, 488 unit tests (380 + 108), build con las cuatro rutas en `f (Dynamic)` y 131 E2E pasan; verificado ademas contra el DNS real del host: `localtest.me` se rechaza como `address_not_publicly_routable` nombrando `loopback`, `www.sec.gov` y `data.sec.gov` aprueban sus tres direcciones cada uno y un nombre inexistente cae en `address_unresolvable`; primer egress real del proyecto: `company_tickers_exchange.json` devuelve `200` y 522.452 bytes en un solo salto, y en la misma corrida los tres destinos vecinos cortan antes del socket; contrato de cable confirmado sin conservar el payload —`cik` llega como numero y no como string con ceros, `exchange` es `string | null` con valores `CBOE`, `NYSE`, `Nasdaq`, `OTC` y `null`—, lo que confirma contra datos reales dos hipotesis de `F2-02`: el `missing_exchange` existe de verdad y las cuatro etiquetas caen exactamente donde `venue-map-1.0.0` las esperaba, con `OTC` ausente a proposito | Provider de la SEC y parsers de los dos formatos de cable; con eso `F2-02` sale de `blocked` y se constituye el universo real. El ritmo de llamadas (`TM-10`, `TM-11`) queda para `F2-05` |
+| 2026-09-05 | Fase 2 / `F2-02` + `F2-03` | Parsers de los dos formatos de cable, adaptador vivo detras del gate de derechos, y **universo real del S&P 500 constituido**. `F2-02` cierra | done (`F2-02`) / in_progress (`F2-03`) | `src/modules/universe/domain/parse-{company-tickers-exchange,sp500-constituents}.ts`, `application/{universe-source-provider,live-universe-source}.ts`, `src/modules/ingestion/application/sync-source-registry.ts`, `scripts/constitute-universe.ts`, `compose.personal.yaml`, filas aprobadas en `demo-source-registry.ts`; los dos parsers leen su encabezado en vez de fijar indices, porque un indice hardcodeado seguiria funcionando tras un reordenamiento y asignaria nombres como tickers; el CSV real trae comillas con comas adentro en 503 de sus 505 lineas, asi que el lector implementa RFC 4180 y no un `split(",")`; la columna CIK que publica la lista **no se lee**: deriva de Wikipedia y tomarla crearia un join irreversible sobre una fuente declarada universo de desarrollo; el adaptador evalua primero derechos y despues red, con un test que verifica que el espia de egress no se llamo, y pide `normalizedStorage` y no `rawStorage` porque el payload no se conserva; el pin por commit es obligatorio y se comprueba antes que todo lo demas, porque una lista servida desde `main` cambia bajo los pies; pieza no prevista: el registro de fuentes se declaraba en codigo y nunca se proyectaba a PostgreSQL, asi que el gate habria consultado una tabla vacia —`syncDeclaredSourceRegistry` la sincroniza en un solo sentido para que un derecho no pueda concederse con un `UPDATE`—; base personal en su propio proyecto compose y volumen (55433), separada de la de integracion que es desechable por contrato; **resultado sobre datos reales: 503 de 503 constituyentes resueltos con cero rechazos**, 501 exactos y 2 por separador relajado (`BRK.B→BRK-B`, `BF.B→BF-B`, los dos casos para los que se escribio la regla); 500 emisores producen 503 instrumentos y los tres de mas son Alphabet, Fox y News Corp, dos securities bajo un mismo issuer con una sola asignacion de CIK; idempotencia verificada contra la base real: la segunda corrida deja los siete contadores en cero; consultable por ticker con CIK normalizado a diez digitos y simbolo en la forma autoritativa; format, lint, typecheck, 535 unit tests y build pasan | `F2-03`: provider XBRL con `available_at` del filing, vintages y restatements; el ritmo de llamadas (`TM-10`) sigue para `F2-05` |
+| 2026-09-05 | Fase 2 / infraestructura | Correccion de la fila anterior: la base personal **no** queda en un proyecto compose propio | done | `compose.yaml` unico (proyecto `finance-portal`, puerto 55432), `scripts/init-test-db.sh`, `.env.docker.example`, `package.json` (`db:up`/`db:down`), `CLAUDE.md`, runbook; dos contenedores para dos bases era duplicacion —dos compose, dos volumenes, dos puertos y dos archivos de configuracion— y la unica diferencia que se sostiene se resuelve con un `CREATE DATABASE`; la separacion se mantiene porque `universe-repository.test.ts` borra las nueve tablas del grafo sin filtrar, asi que la suite de integracion no puede compartir base con el universo constituido; `db:migrate` pasa a leer `--env-file=.env.local` en vez de depender de que las variables esten exportadas a mano; `describeTransportFailure` emite el `errno` cuando el mensaje viene vacio: un corte de conexion llegaba como `transport_error` sin causa y ahora dice `ETIMEDOUT` (`TM-16`); universo reconstituido desde cero sobre el volumen nuevo: 503 miembros, cero rechazos y los mismos hashes de contenido, que es la prueba de reproducibilidad del pin | `F2-03`: provider XBRL con `available_at` del filing, vintages y restatements |

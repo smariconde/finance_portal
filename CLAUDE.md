@@ -8,7 +8,7 @@ Portal Financiero: a single-owner Next.js 16 portal for researching global compa
 
 The code is public; the data is not. The app is **personal-first**: it serves real data only from a private runtime, and there is no public demo deployment. See [ADR 0004](docs/architecture/adr/0004-personal-first-runtime.md).
 
-The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, and a deterministic FCFF engine with its reference run exist. Real providers, screener, the Argentina dashboard, and AI features are **not** implemented and must not be presented in the UI as if they were.
+The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, and a deterministic FCFF engine with its reference run exist. Real providers, screener, the Argentina dashboard, and AI features are **not** implemented and must not be presented in the UI as if they were.
 
 `AGENTS.md` holds the full contributor contract and takes precedence over this file where they overlap.
 
@@ -56,14 +56,30 @@ the output is a written record. Protocol and template:
 
 ```bash
 pnpm db:generate     # emit versioned SQL from src/server/db/schema.ts; never drizzle-kit push
-pnpm db:test:up      # local PostgreSQL 17 on 127.0.0.1:55432 (needs .env.docker.local)
-pnpm db:test:down
+pnpm db:up           # the project's PostgreSQL 17 on 127.0.0.1:55432 (needs .env.docker.local)
+pnpm db:down
 pnpm db:migrate      # controlled job; reads DATABASE_DIRECT_URL only
 ```
 
+One container, two databases on it. `finance_portal_personal` holds the owner's data;
+`finance_portal_test` exists only because the integration suite deletes every row of the
+tables it touches — `universe-repository.test.ts` empties all nine identity tables
+unfiltered — so it cannot share a database with the constituted universe. It does not
+need its own server: `scripts/init-test-db.sh` creates it when the volume is first
+initialised.
+
+```bash
+pnpm universe:constitute            # dry run: fetches, parses and reports, writes nothing
+pnpm universe:constitute --apply    # constitutes the S&P 500 into the personal database
+```
+
+Constituting is a hand-run job, never a gate: a rebalance **closes memberships**. The
+constituents list is pinned to a commit in `live-universe-source.ts`; changing that pin
+is a reviewable diff, and the runtime never resolves "latest" on its own.
+
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 
-Node `>=22.11.0 <27`, pnpm `10.33.2` via corepack. Windows dev host — prefer PowerShell syntax for env-var examples in docs.
+Node `>=22.11.0 <27`, pnpm `10.33.2` via corepack. Arch Linux dev host — use POSIX shell syntax for env-var examples in docs, matching the `ubuntu-latest` runners CI validates on.
 
 ## Architecture
 
@@ -79,6 +95,7 @@ src/modules/<domain>/
 src/server/
   config/                         server-only environment reads
   db/                             Drizzle schema, pooled runtime client, PG repositories
+  egress/                         the only way out to the network (allowlist + SSRF guard)
   persistence/                    composition root per effective mode
   security/                       security headers used by next.config.ts
 drizzle/                          versioned SQL + rollback/ pairs
@@ -113,6 +130,8 @@ Read [docs/data/identity-model.md](docs/data/identity-model.md) and [docs/data/p
 - Zod schemas are the runtime source of truth at boundaries; DB check constraints mirror the schema invariants (e.g. manifest present iff `manifest_status = 'stored'`).
 
 Before adding a Route Handler, Server Action, provider, export, job, or AI capability, read [docs/security/threat-model.md](docs/security/threat-model.md) and close the `TM-*` controls assigned to that surface.
+
+Network egress has exactly one door: `getEgressClient()` in [src/server/egress/](src/server/egress/). It takes a `sourceId` plus a URL that must match that source's allowlisted host **and** path prefix — there is no function that accepts a bare URL, and adding one reopens `TM-08` ([ADR 0009](docs/architecture/adr/0009-egress-boundary.md)). Being on the egress allowlist grants reachability, never the right to ingest: the source registry's rights gate is a separate control. Do not import `node:https`, `fetch`, or an HTTP SDK anywhere else.
 
 Scope guardrails: no application auth, accounts, roles, multi-tenancy, or BYOK. Real providers run only in personal mode. Never put secrets in `NEXT_PUBLIC_*`, and never commit captured payloads or credentials to this public repository.
 

@@ -22,9 +22,10 @@
     "test:e2e": "tsx scripts/run-e2e.ts",
     "walkthrough": "tsx scripts/run-walkthrough.ts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx scripts/migrate.ts",
-    "db:test:up": "docker compose --env-file .env.docker.local -f compose.test.yaml up -d --wait",
-    "db:test:down": "docker compose --env-file .env.docker.local -f compose.test.yaml down"
+    "db:migrate": "tsx --env-file=.env.local scripts/migrate.ts",
+    "universe:constitute": "tsx --conditions=react-server --env-file=.env.local scripts/constitute-universe.ts",
+    "db:up": "docker compose --env-file .env.docker.local up -d --wait",
+    "db:down": "docker compose --env-file .env.docker.local down"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

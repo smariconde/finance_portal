@@ -1,16 +1,20 @@
 # Modelo de identidad financiera
 
-- Estado: contrato implementado en dominio y fixture; persistencia diferida
-- Versión: 0.1
-- Fecha: 2026-08-21
+- Estado: contrato implementado en dominio y persistido en PostgreSQL
+- Versión: 0.2
+- Fecha: 2026-09-04
 - Alcance: entity, security, listing, identifiers y programas depositarios
 - Implementación (`F1-04`):
   [`identity-graph.ts`](../../src/modules/identity/domain/identity-graph.ts),
   [`resolve-identity.ts`](../../src/modules/identity/domain/resolve-identity.ts) y
   la fixture sintética
   [`demo-identity-fixtures.ts`](../../src/modules/identity/infrastructure/demo-identity-fixtures.ts)
-- Persistencia: las tablas de identidad siguen diferidas a `F2-02`; hoy el grafo
-  es una fixture versionada y sólo `observations` está persistida
+- Persistencia (`F2-02`): migración
+  [`0004_common_proteus.sql`](../../drizzle/0004_common_proteus.sql) con su
+  rollback pareado; repositorio
+  [`postgres-universe-repository.ts`](../../src/server/db/postgres-universe-repository.ts).
+  Los programas depositarios y sus ratios siguen viviendo sólo en dominio y
+  fixture: su fuente es el acceso CEDEAR y su tabla llega en `F6-04`
 
 ## Propósito
 
@@ -392,31 +396,62 @@ DepositaryProgram:
 El ejemplo es ficticio. Demuestra que símbolo, listing y programa pueden cambiar
 sin alterar la identidad histórica de la acción subyacente.
 
-## Persistencia objetivo
+## Persistencia
 
-La migración futura separará al menos:
+La migración `0004` separa cada nivel en dos tablas: un **registro** que sólo
+declara que el ID existe y una tabla de **versiones** con atributos y vigencia.
+Sin esa separación, `security_versions.issuer_legal_entity_id` no tendría a qué
+apuntar: en una tabla versionada el mismo emisor aparece una vez por versión.
 
-- `legal_entities`, `entity_names`, `entity_identifiers`;
-- `securities`, `security_identifiers`, `security_descriptions`;
-- `listings`, `listing_symbols`, `listing_venue_names`;
-- `depositary_programs`, `depositary_ratios`;
-- `corporate_actions`, `security_relationships`;
-- `identity_resolution_runs`, `identity_candidates`, `identity_decisions`;
-- `source_documents` y referencias de provenance.
+| Nivel                 | Registro         | Versiones                |
+| --------------------- | ---------------- | ------------------------ |
+| entidad legal         | `legal_entities` | `legal_entity_versions`  |
+| security              | `securities`     | `security_versions`      |
+| listing               | `listings`       | `listing_versions`       |
+| símbolo               | —                | `listing_symbols`        |
+| identificador externo | —                | `identifier_assignments` |
+| pertenencia a índice  | —                | `index_memberships`      |
 
-Constraints de exclusión temporal, uniques parciales y foreign keys se diseñan en
-la migración. Este documento fija semántica; no simula un schema aplicado.
+La clave primaria de cada versión es `(id, valid_from)`: su clave natural, sin
+surrogate inventado. Cerrar una versión es un update dirigido a esa clave y nunca
+un borrado.
+
+Índices únicos parciales que espejan las invariantes en PostgreSQL:
+
+- una sola versión abierta por sujeto (`*_open_uidx` en los tres niveles);
+- un solo símbolo vigente por listing **y tipo**: un listing puede tener a la vez
+  un ticker y un código local, pero no dos tickers;
+- un identificador autoritativo no puede quedar abierto para dos sujetos
+  (`identifier_assignments_authoritative_uidx`);
+- una security no está dos veces en el mismo índice a la vez.
+
+Todavía no tienen tabla, con su motivo: `depositary_programs` y
+`depositary_ratios` esperan a su fuente (`F6-04`); `corporate_actions` y
+`security_relationships` esperan a `F2-04`; `identity_resolution_runs`,
+`identity_candidates` e `identity_decisions` esperan a la primera decisión manual
+real. Los nombres, descripciones y clasificaciones tampoco se persisten: mezclar
+una taxonomía sin registrar cuál es y en qué versión es exactamente lo que este
+documento prohíbe, y el mapeo a industria es `F3-05`.
+
+El constraint de exclusión temporal por rango sigue diferido: exige la extensión
+`btree_gist` y por lo tanto un ADR propio. Hoy el no solapamiento se prueba en
+dominio y en PostgreSQL se impide el caso peligroso —dos versiones vigentes
+simultáneas para el mismo sujeto—.
 
 ## Tests requeridos
 
 Los casos marcados con ✔ están cubiertos por
 [`resolve-identity.test.ts`](../../src/modules/identity/domain/resolve-identity.test.ts)
-sobre la fixture de `FixtureCo`; el resto espera a las fuentes reales de Fase 2.
+sobre la fixture de `FixtureCo`, salvo donde se indique otro archivo; el resto
+espera a las fuentes reales de Fase 2. A eso se suma, desde `F2-02`, lo que la
+constitución del universo prueba sobre el grafo persistido: identidad no
+colapsada, idempotencia, renombre historizado y salida del índice sin borrado.
 
 - ✔ cambio de ticker con consulta antes y después del corte;
 - dos listings de la misma security en MIC/monedas distintos;
 - ✔ ticker reutilizado por otra security en un intervalo posterior;
-- dos share classes del mismo issuer;
+- ✔ dos share classes del mismo issuer, con un solo CIK y dos securities
+  ([`plan-universe-constitution.test.ts`](../../src/modules/universe/domain/plan-universe-constitution.test.ts));
 - ADR cuyo subyacente no es el listing primario esperado;
 - ✔ CEDEAR sobre acción (ADR y ETF siguen pendientes);
 - ✔ cambio de ratio depositario anunciado antes de su vigencia;

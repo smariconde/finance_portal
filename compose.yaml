@@ -1,0 +1,38 @@
+## PostgreSQL local del proyecto: un solo contenedor.
+##
+## Adentro viven dos bases sobre el mismo servidor, y esa es la única división que
+## se sostiene: la suite de integración borra **todas** las filas de las tablas que
+## toca —`universe-repository.test.ts` vacía las nueve del grafo de identidad sin
+## filtrar— así que no puede compartir base con el universo constituido. No necesita
+## un servidor propio, y tenerlo era duplicación: dos compose, dos volúmenes, dos
+## puertos y dos archivos de configuración para una diferencia que se resuelve con
+## un `CREATE DATABASE`.
+##
+## `POSTGRES_DB` es la base del owner. `finance_portal_test` la crea
+## `scripts/init-test-db.sh` cuando el volumen se inicializa por primera vez.
+
+name: finance-portal
+
+services:
+  postgres:
+    image: postgres:17.11-alpine3.23
+    restart: unless-stopped
+    shm_size: 128mb
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env.docker.local}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.docker.local}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env.docker.local}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-55432}:5432"
+    volumes:
+      - finance_portal_postgres:/var/lib/postgresql/data
+      - ./scripts/init-test-db.sh:/docker-entrypoint-initdb.d/init-test-db.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+volumes:
+  finance_portal_postgres:

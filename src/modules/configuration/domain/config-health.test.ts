@@ -124,7 +124,7 @@ describe("getConfigHealth", () => {
     expect(servesRealData(health)).toBe(true);
   });
 
-  it("locks a Vercel production deployment even when it declares protection", () => {
+  it("allows personal mode on a declared protected Vercel production", () => {
     const health = getConfigHealth({
       APP_MODE: "personal",
       APP_RUNTIME_ACCESS: "protected",
@@ -133,14 +133,43 @@ describe("getConfigHealth", () => {
       VERCEL_ENV: "production",
     });
 
-    // El repositorio es público y sus datos no. Un deployment de producción no
-    // puede probar que es privado, así que no recibe datos.
+    // Invertido a propósito por la ADR 0008. Antes producción quedaba trabada
+    // aunque declarara protección, así que el único acceso remoto posible era
+    // una URL de preview, que cambia con cada deployment. `protected` es una
+    // declaración del owner y vale en producción.
+    expect(health).toMatchObject({ mode: "personal", access: "protected" });
+    expect(servesRealData(health)).toBe(true);
+  });
+
+  it("locks a Vercel production deployment that declares no access", () => {
+    const health = getConfigHealth({
+      APP_MODE: "personal",
+      DATABASE_URL: "postgres://pooled",
+      VERCEL: "1",
+      VERCEL_ENV: "production",
+    });
+
+    // Este es el caso que protege al owner de sí mismo y a un tercero que
+    // despliegue el repositorio público: sin acceso declarado no hay datos.
     expect(health.mode).toBe("locked");
     expect(servesRealData(health)).toBe(false);
     expect(health.items.find((item) => item.id === "core")).toMatchObject({
       status: "degraded",
-      missingVariables: ["VERCEL_ENV"],
+      missingVariables: ["APP_RUNTIME_ACCESS"],
     });
+  });
+
+  it("allows personal mode on a declared protected host outside Vercel", () => {
+    const health = getConfigHealth({
+      APP_MODE: "personal",
+      APP_RUNTIME_ACCESS: "protected",
+      DATABASE_URL: "postgres://pooled",
+    });
+
+    // `protected` dejó de estar acoplado a Vercel: nombra la propiedad —la URL
+    // está detrás de la protección de la plataforma— y no al proveedor.
+    expect(health).toMatchObject({ mode: "personal", access: "protected" });
+    expect(servesRealData(health)).toBe(true);
   });
 
   it("never exposes configured secret values", () => {
