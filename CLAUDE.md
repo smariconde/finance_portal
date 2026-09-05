@@ -79,6 +79,7 @@ src/modules/<domain>/
 src/server/
   config/                         server-only environment reads
   db/                             Drizzle schema, pooled runtime client, PG repositories
+  egress/                         the only way out to the network (allowlist + SSRF guard)
   persistence/                    composition root per effective mode
   security/                       security headers used by next.config.ts
 drizzle/                          versioned SQL + rollback/ pairs
@@ -113,6 +114,8 @@ Read [docs/data/identity-model.md](docs/data/identity-model.md) and [docs/data/p
 - Zod schemas are the runtime source of truth at boundaries; DB check constraints mirror the schema invariants (e.g. manifest present iff `manifest_status = 'stored'`).
 
 Before adding a Route Handler, Server Action, provider, export, job, or AI capability, read [docs/security/threat-model.md](docs/security/threat-model.md) and close the `TM-*` controls assigned to that surface.
+
+Network egress has exactly one door: `getEgressClient()` in [src/server/egress/](src/server/egress/). It takes a `sourceId` plus a URL that must match that source's allowlisted host **and** path prefix — there is no function that accepts a bare URL, and adding one reopens `TM-08` ([ADR 0009](docs/architecture/adr/0009-egress-boundary.md)). Being on the egress allowlist grants reachability, never the right to ingest: the source registry's rights gate is a separate control. Do not import `node:https`, `fetch`, or an HTTP SDK anywhere else.
 
 Scope guardrails: no application auth, accounts, roles, multi-tenancy, or BYOK. Real providers run only in personal mode. Never put secrets in `NEXT_PUBLIC_*`, and never commit captured payloads or credentials to this public repository.
 

@@ -36,7 +36,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |     8 | `F1-07`    | `done`        | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                           | `F1-06`       |
 |     9 | `F1-08`    | `deferred`    | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.               | `F1-07`       |
 |    10 | `F2-01`    | `done`        | Acceso personal remoto habilitado en produccion, con los tests de frontera invertidos a proposito.           | ADR 0008      |
-|    11 | `F2-02`    | `in_progress` | Universo S&P 500 con identidad completa: issuer, security, listing, simbolo vigente y CIK.                   | `F2-01`       |
+|    11 | `F2-02`    | `blocked`     | Universo S&P 500 con identidad completa: issuer, security, listing, simbolo vigente y CIK.                   | `F2-01`       |
+|    12 | `F2-03`    | `in_progress` | SEC EDGAR integrada; base de egress entregada, provider y parsers pendientes.                                | `F2-02`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -621,8 +622,12 @@ probando sobre el artefacto servido que el runtime trabado no filtra datos.
 
 #### `F2-02` — Universo con identidad completa
 
-- Estado: `in_progress` (motor y persistencia entregados el 2026-09-04; falta la
-  constitución sobre el universo real)
+- Estado: `blocked` (motor y persistencia entregados el 2026-09-04)
+  - Causa: el último criterio —constituir el universo real— exige egress y los
+    parsers de los dos formatos de cable, que son entregables de `F2-03`.
+  - Condición de salida: `F2-03` entrega el provider de la SEC y el parser de la
+    lista de constituyentes; entonces `F2-02` vuelve a `in_progress` sólo para
+    correr la constitución real y registrar su evidencia.
 - Fase y dependencia: Fase 2; `F2-01`
 - Alcance incluido: persistir el grafo de identidad que `F1-04` dejó diferido;
   regla determinista que constituye un universo a partir de una lista de
@@ -705,6 +710,105 @@ Falta para cerrar: constituir el universo real. Necesita el primer egress del
 proyecto y por lo tanto los controles de `TM-08`, que se cierran en `F2-03` junto
 al provider de la SEC. El owner decidió el 2026-09-04 no adelantarlos acá para no
 cerrar el control a medias sobre dos archivos estáticos.
+
+Actualización 2026-09-05: `TM-08` quedó cerrado en su parte de red con la base de
+egress de `F2-03`, así que el bloqueo se redujo a los parsers de los dos formatos
+de cable. La constitución real sigue esperando esa mitad.
+
+<a id="f2-03"></a>
+
+#### `F2-03` — SEC EDGAR integrada
+
+- Estado: `in_progress` (base de egress entregada el 2026-09-05; faltan provider,
+  parsers y golden fixtures)
+- Fase y dependencia: Fase 2; `F2-02`
+- Alcance incluido: la primera salida a red del proyecto y sus controles `TM-08`;
+  el adaptador de la SEC con `available_at` del filing, vintages y restatements
+  preservados; cuarentena ante schema roto; los parsers de los dos formatos de
+  cable que `F2-02` dejó diferidos.
+- Fuera de alcance: backfill durable con cursor y lease (`F2-05`), corporate
+  actions (`F2-04`), golden fixtures congeladas (`F2-06`).
+
+Criterios de aceptación:
+
+- ninguna salida acepta una URL arbitraria: el destino se autoriza contra la
+  allowlist de una fuente, por host y prefijo de path;
+- un nombre aprobado que resuelve a loopback, red privada o metadata no abre el
+  socket, y la validación es la misma resolución que usa la conexión;
+- cada redirect vuelve a autorizarse completo y la cadena tiene techo;
+- un runtime trabado no genera tráfico ni resuelve un nombre;
+- la SEC recibe una identificación con contacto real o no se la contacta;
+- `available_at` del filing, vintages y restatements se preservan y un schema roto
+  se cuarentena sin reemplazar el último lote válido.
+
+Controles: `TM-05`, `TM-06`, `TM-08`.
+
+Entregado (2026-09-05) — base de egress: `src/server/egress/` con la política pura
+(`ip-address-policy`, `egress-policy`, `egress-allowlist`, `egress-user-agent`), el
+guard de resolución (`guarded-lookup`), el transporte (`https-transport`), el
+orquestador (`fetch-approved-resource`) y la raíz de composición
+(`get-egress-client`), más la [ADR 0009](../architecture/adr/0009-egress-boundary.md).
+
+- Estructural, no por convención: no existe una función que acepte una URL sola. La
+  allowlist empareja host con prefijos de path, así que `/submissions/` en
+  `www.sec.gov` y `/files/…` en `data.sec.gov` se rechazan aunque los dos hosts
+  estén aprobados.
+- Dos controles que no se cubren entre sí: `sec-edgar` es alcanzable y **no** es
+  ingerible. Su rights row sigue en `rights_review_pending`, y un test lo afirma
+  para que aprobar una cosa no apruebe la otra por descuido.
+- `TM-08` sobre rebinding: la comprobación **es** la resolución. El `lookup`
+  validado se le pasa a `https.request`, así que no queda una segunda resolución sin
+  vigilar. Se usa `node:https` y no `fetch` justamente porque `fetch` no expone ese
+  hook, y el agente es propio con `keepAlive: false` porque una conexión reusada no
+  vuelve a resolver el nombre.
+- Una dirección no pública rechaza la conexión entera en vez de filtrarse: un host
+  aprobado que empezó a resolver a `127.0.0.1` dejó de ser el que se aprobó.
+- Las formas heredadas de IPv4 se rechazan en vez de interpretarse —`0177.0.0.1`,
+  `2130706433`, `0x7f.0.0.1`—, y los tres prefijos IPv6 que embeben una IPv4 real
+  —mapped, NAT64 y 6to4— se clasifican por la dirección embebida.
+- El presupuesto de tiempo es uno para la operación completa: un timeout por salto
+  dejaría que una cadena de redirects lo multiplique.
+- `TM-02`: el error nombra un código cerrado y el destino sin query; la
+  identificación rechazada se reporta por su problema y nunca por su valor.
+- `TM-01`: `getEgressClient()` lanza `RuntimeLockedError` en los seis entornos
+  trabados, antes de construir el transporte.
+
+Verificación: `format:check`, `lint`, `typecheck`, 488 unit tests (380 + 108),
+`build` con las cuatro rutas en `ƒ (Dynamic)` y 131 tests E2E pasan. El guard de red
+de la suite unitaria **no** se relajó: la política se prueba con un resolver y un
+transporte inyectados y ningún test abre un socket.
+
+Verificación fuera de la suite, contra el DNS real del host: `localtest.me` —un
+nombre del DNS público que resuelve a `127.0.0.1`— se rechaza como
+`address_not_publicly_routable` nombrando `loopback`; `www.sec.gov` y `data.sec.gov`
+aprueban sus tres direcciones cada uno; un nombre inexistente cae en
+`address_unresolvable`. Es la mitad del control que no se puede probar con un
+resolver inyectado: que la clasificación se comporte igual sobre respuestas reales.
+
+Primer egress real del proyecto (2026-09-05): `GET`
+`https://www.sec.gov/files/company_tickers_exchange.json` devuelve `200`,
+`application/json`, 522.452 bytes en un solo salto y sin redirect. En la misma
+corrida, los tres destinos vecinos cortan **antes** del socket: otro path del mismo
+host (`path_not_allowlisted`), otro host (`host_not_allowlisted`) y un nombre que
+resuelve a loopback (`host_not_allowlisted`, porque la allowlist corre antes que la
+resolución, que es el orden correcto).
+
+Contrato de cable confirmado, sin conservar el payload: `fields` es
+`["cik","name","ticker","exchange"]`, 10.412 filas, todas de aridad 4; `cik` llega
+como **número**, no como string con ceros a la izquierda; `exchange` es
+`string | null` y sus valores reales son `CBOE`, `NYSE`, `Nasdaq`, `OTC` y `null`.
+
+Dos hipótesis de `F2-02` quedan confirmadas contra datos reales en vez de asumidas:
+el `missing_exchange` que el resolver ya declara existe de verdad —hay filas con
+`exchange: null`—, y las cuatro etiquetas reales caen exactamente donde
+`venue-map-1.0.0` las esperaba: `CBOE`, `NYSE` y `Nasdaq` están mapeadas y `OTC`
+está ausente **a propósito**, así que rechaza en vez de adivinar un MIC.
+
+Diferido con motivo: el ritmo de las llamadas —espaciado, concurrencia y
+presupuesto por corrida que la matriz de cuotas fija en 2 requests/s, concurrencia 1
+y 1.000 requests/run— es `TM-10` y `TM-11`, y se cierra junto al job que las
+necesita (`F2-05`). Este cliente no espacia ni cuenta llamadas, así que hasta
+entonces el egress es para llamadas puntuales y verificables, no para un job.
 
 | Issue   | Resultado y aceptación mínima                                                                                       | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
