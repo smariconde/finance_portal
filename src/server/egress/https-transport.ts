@@ -38,6 +38,30 @@ export type EgressTransport = (
   request: EgressHopRequest,
 ) => Promise<EgressHopResponse>;
 
+/**
+ * Un corte de conexión suele llegar como un `Error` con `message` vacío y toda la
+ * información en `code` (`ECONNRESET`, `ETIMEDOUT`, `EAI_AGAIN`). Reportar sólo el
+ * mensaje deja un fallo indistinguible de cualquier otro, que es exactamente lo que
+ * `TM-16` pide evitar: la corrida tiene que poder explicarse después.
+ *
+ * Se emite el código de `errno` y nada más. No es contenido de la respuesta ni
+ * configuración, así que es seguro de registrar.
+ */
+function describeTransportFailure(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return "request failed";
+  }
+
+  const code = (error as NodeJS.ErrnoException).code;
+  const message = error.message.trim();
+
+  if (code && message) {
+    return `${code}: ${message}`;
+  }
+
+  return code ?? (message || "request failed");
+}
+
 function firstHeader(value: string | string[] | undefined): string | null {
   if (value === undefined) {
     return null;
@@ -71,7 +95,7 @@ export function createHttpsTransport(
             : new EgressBlockedError(
                 "transport_error",
                 target,
-                error instanceof Error ? error.message : "request failed",
+                describeTransportFailure(error),
               ),
         );
       };

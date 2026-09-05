@@ -56,16 +56,17 @@ the output is a written record. Protocol and template:
 
 ```bash
 pnpm db:generate     # emit versioned SQL from src/server/db/schema.ts; never drizzle-kit push
-pnpm db:test:up      # disposable PostgreSQL 17 on 127.0.0.1:55432 (needs .env.docker.local)
-pnpm db:test:down
-pnpm db:personal:up  # the owner's PostgreSQL on 127.0.0.1:55433 (needs .env.docker.personal.local)
-pnpm db:personal:down
+pnpm db:up           # the project's PostgreSQL 17 on 127.0.0.1:55432 (needs .env.docker.local)
+pnpm db:down
 pnpm db:migrate      # controlled job; reads DATABASE_DIRECT_URL only
 ```
 
-The two databases are separate compose projects with separate volumes on purpose. The
-integration database is disposable by contract — the tests truncate it and its teardown
-has a `-v` form — so the owner's data must not sit one flag away from that command.
+One container, two databases on it. `finance_portal_personal` holds the owner's data;
+`finance_portal_test` exists only because the integration suite deletes every row of the
+tables it touches — `universe-repository.test.ts` empties all nine identity tables
+unfiltered — so it cannot share a database with the constituted universe. It does not
+need its own server: `scripts/init-test-db.sh` creates it when the volume is first
+initialised.
 
 ```bash
 pnpm universe:constitute            # dry run: fetches, parses and reports, writes nothing

@@ -15,57 +15,38 @@ insertan y eliminan filas con un namespace aleatorio y aplican migraciones pendi
 
 ## PostgreSQL local con Docker
 
-La configuración versionada usa la imagen oficial `postgres:17.11-alpine3.23`,
-publica sólo en `127.0.0.1:55432` y conserva sus datos en un volumen Docker separado.
+Un solo contenedor, con **dos bases** sobre el mismo servidor. La imagen es
+`postgres:17.11-alpine3.23`, publica sólo en `127.0.0.1:55432` y conserva sus datos en
+un volumen Docker.
 
-Crear la configuración local una sola vez:
+| Base                      | Para qué                              | Vida                                |
+| ------------------------- | ------------------------------------- | ----------------------------------- |
+| `finance_portal_personal` | runtime personal: universo y corridas | persistente; es el dato del owner   |
+| `finance_portal_test`     | `pnpm test:integration`               | desechable; la suite le borra filas |
+
+La división existe por una razón concreta y no por simetría: la suite de integración
+borra **todas** las filas de las tablas que toca —`universe-repository.test.ts` vacía
+las nueve del grafo de identidad sin filtrar— así que no puede compartir base con el
+universo constituido. No necesita un servidor propio: dos contenedores para eso era
+duplicación, y la diferencia se resuelve con un `CREATE DATABASE`.
+
+Crear la configuración local una sola vez, reemplazando el password de ejemplo:
 
 ```bash
 cp .env.docker.example .env.docker.local
+pnpm db:up
 ```
 
-Reemplazar el password de ejemplo en `.env.docker.local`. Ese archivo está ignorado
-por Git. Luego iniciar y comprobar el servicio:
+`scripts/init-test-db.sh` crea `finance_portal_test` cuando el volumen se inicializa
+por primera vez. Comprobar y detener sin perder el volumen:
 
 ```bash
-pnpm db:test:up
-docker compose --env-file .env.docker.local -f compose.test.yaml ps
+docker compose --env-file .env.docker.local ps
+pnpm db:down
 ```
 
-Para detenerlo sin perder el volumen:
-
-```bash
-pnpm db:test:down
-```
-
-## PostgreSQL personal, separada de la de integración
-
-Son **dos** bases con dos proyectos compose, dos volúmenes y dos puertos, y esa
-separación es el punto: la base de integración es desechable por contrato —los tests
-la truncan y su teardown tiene forma con `-v`— así que los datos del owner no pueden
-vivir a un flag de distancia de ese comando.
-
-| Base        | Compose                 | Puerto  | Config                       | Vida                                |
-| ----------- | ----------------------- | ------- | ---------------------------- | ----------------------------------- |
-| integración | `compose.test.yaml`     | `55432` | `.env.docker.local`          | desechable; los tests la truncan    |
-| personal    | `compose.personal.yaml` | `55433` | `.env.docker.personal.local` | conserva el universo y las corridas |
-
-Crear la configuración personal una sola vez, reemplazando el password de ejemplo:
-
-```bash
-cp .env.docker.personal.example .env.docker.personal.local
-pnpm db:personal:up
-```
-
-`DATABASE_URL` y `DATABASE_DIRECT_URL` de `.env.local` apuntan a esta base, no a la de
-integración. Aplicar el schema es el mismo job controlado de siempre:
-
-```bash
-pnpm db:migrate
-```
-
-Las dos pueden estar arriba al mismo tiempo, que es el caso normal mientras se
-desarrolla.
+`.env.local` apunta `DATABASE_URL` y `DATABASE_DIRECT_URL` a la base personal y
+`DATABASE_TEST_URL` a la de integración, las tres sobre el mismo puerto.
 
 ## Generar una migración
 
@@ -81,11 +62,13 @@ SQL versionado para que los cambios sean revisables y reproducibles.
 
 ## Aplicar
 
-Configurar la conexión directa sólo en el proceso administrativo y ejecutar:
+`db:migrate` lee `.env.local`, así que basta con:
 
 ```bash
-DATABASE_DIRECT_URL="<direct-test-or-admin-url>" pnpm db:migrate
+pnpm db:migrate
 ```
+
+Contra otra base, exportar `DATABASE_DIRECT_URL` antes de invocarlo.
 
 El job abre una única conexión, aplica `drizzle/` y la cierra. Next.js no ejecuta
 migraciones al iniciar y el runtime no lee `DATABASE_DIRECT_URL`.
@@ -93,7 +76,7 @@ migraciones al iniciar y el runtime no lee `DATABASE_DIRECT_URL`.
 Para verificar el repositorio contra PostgreSQL real:
 
 ```bash
-DATABASE_TEST_URL="postgres://finance_portal_test:<local-password>@127.0.0.1:55432/finance_portal_test" pnpm test:integration
+DATABASE_TEST_URL="postgres://finance_portal:<local-password>@127.0.0.1:55432/finance_portal_test" pnpm test:integration
 ```
 
 Las migraciones se aplican una sola vez por corrida desde
