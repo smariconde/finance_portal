@@ -12,13 +12,25 @@ import {
 
 const RECORDED_AT = "2026-08-23T00:00:00.000Z";
 
+/** Fecha en que el owner revisó y aprobó las rights rows de Fase 2. */
+const RIGHTS_REVIEWED_AT = "2026-09-05T00:00:00.000Z";
+
 /**
  * Registro de fuentes del modo demo.
  *
- * La única fuente ingerible es sintética. Los candidatos reales aparecen con su
- * estado honesto —revisados técnicamente, sin derechos aprobados— porque el
- * registro existe justamente para que una fuente sin revisión falle cerrada en
- * vez de ingerirse por descuido (`TM-15`). Ninguna fila real habilita egress.
+ * Cada fila lleva su estado honesto, porque el registro existe justamente para que
+ * una fuente sin revisión falle cerrada en vez de ingerirse por descuido
+ * (`TM-15`).
+ *
+ * Desde el 2026-09-05 hay dos filas aprobadas por el owner —`sec-edgar` y
+ * `datahub-sp500-pddl`, las que constituyen el universo— y el resto sigue sin
+ * derechos revisados. Aprobar una fila **no** la vuelve alcanzable: el destino lo
+ * decide por separado la allowlist de egress
+ * ([ADR 0009](../../../../docs/architecture/adr/0009-egress-boundary.md)), y
+ * `alpaca-market-data` es el caso que lo muestra en el otro sentido.
+ *
+ * Cada aprobación concede sólo los derechos que su adaptador usa: el payload
+ * descargado no se conserva, así que `rawStorage` sigue en `unknown` a propósito.
  */
 export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
   Object.freeze([
@@ -90,19 +102,84 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
       currencies: [],
       parserVersion: null,
       fixturePolicy:
-        "Sin fixture: no se captura payload hasta que exista rights row aprobada.",
+        "Sin fixture: los extractos reales congelados llegan en `F2-06`; el payload descargado no se conserva.",
       fallbackSourceIds: [],
-      rights: {},
-      technicalStatus: "technical_reviewed",
-      approvalStatus: "rights_review_pending",
+      rights: {
+        personalUse: "allowed",
+        automatedAccess: "allowed",
+        // El universo se persiste normalizado y derivado; el payload descargado
+        // no se conserva, así que `rawStorage` sigue sin revisar a propósito.
+        rawStorage: "unknown",
+        normalizedStorage: "allowed",
+        derivedStorage: "allowed",
+        publicDisplay: "unknown",
+        export: "unknown",
+        aiTransfer: "unknown",
+      },
+      technicalStatus: "spike_ready",
+      approvalStatus: "approved_personal",
       reviewedAt: "2026-08-21T00:00:00.000Z",
-      rightsReviewedAt: null,
+      rightsReviewedAt: RIGHTS_REVIEWED_AT,
       rightsReviewDueAt: null,
-      reviewEvidence: ["docs/data/source-registry.md#sec-edgar"],
-      retentionClasses: [],
+      reviewEvidence: [
+        "docs/data/source-registry.md#sec-edgar",
+        "docs/data/provider-use-matrix.md",
+        "docs/architecture/adr/0009-egress-boundary.md",
+      ],
+      retentionClasses: ["R2", "R3"],
       quotaPolicyId: null,
       ownerNotes:
-        "Candidata de Fase 2. Revisada técnicamente; ninguna condición de automatización, cache o retención está aprobada.",
+        "Aprobada por el owner el 2026-09-05 para uso personal automatizado: acceso público sin key, sujeto a Fair Access y a un User-Agent con contacto real, que el runtime exige por configuración. El ritmo de las llamadas (2 req/s, concurrencia 1) todavía no está implementado: es `TM-10` y llega con `F2-05`.",
+      recordedAt: RECORDED_AT,
+    }),
+    sourceRegistryEntrySchema.parse({
+      sourceId: "datahub-sp500-pddl",
+      displayName: "DataHub — S&P 500 companies (PDDL)",
+      owner: "Open Knowledge Foundation / datasets",
+      canonicalUrl: "https://github.com/datasets/s-and-p-500-companies",
+      documentationUrls: [
+        "https://github.com/datasets/s-and-p-500-companies",
+        "https://opendatacommons.org/licenses/pddl/",
+      ],
+      datasets: ["sp500.constituents"],
+      endpoints: [],
+      authentication: "none",
+      applicablePlan: null,
+      rateLimit: null,
+      attribution: "PDDL 1.0; upstream operativo es Wikipedia",
+      expectedCadence: "sin cadencia declarada; cambia por commit del paquete",
+      freshnessTarget: "revisión mensual o manual; nunca polling frecuente",
+      timezone: null,
+      units: [],
+      currencies: [],
+      parserVersion: null,
+      fixturePolicy:
+        "Sin fixture: el corpus sintético de `F2-02` cubre el contrato y no deriva de este archivo.",
+      fallbackSourceIds: [],
+      rights: {
+        personalUse: "allowed",
+        automatedAccess: "allowed",
+        rawStorage: "unknown",
+        normalizedStorage: "allowed",
+        derivedStorage: "allowed",
+        publicDisplay: "unknown",
+        export: "unknown",
+        aiTransfer: "unknown",
+      },
+      technicalStatus: "spike_ready",
+      approvalStatus: "approved_personal",
+      reviewedAt: "2026-08-21T00:00:00.000Z",
+      rightsReviewedAt: RIGHTS_REVIEWED_AT,
+      rightsReviewDueAt: null,
+      reviewEvidence: [
+        "docs/data/source-registry.md#identidad-y-mercados",
+        "docs/data/provider-use-matrix.md",
+        "docs/architecture/adr/0009-egress-boundary.md",
+      ],
+      retentionClasses: ["R2", "R3"],
+      quotaPolicyId: null,
+      ownerNotes:
+        "Aprobada por el owner el 2026-09-05 bajo PDDL 1.0 para el paquete publicado. Sigue siendo universo de desarrollo y no prueba de membresía oficial: su fuente operativa es Wikipedia, así que no arbitra identidad y su columna CIK no se lee. Exige pin por commit, que el adaptador hace cumplir.",
       recordedAt: RECORDED_AT,
     }),
     sourceRegistryEntrySchema.parse({

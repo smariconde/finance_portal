@@ -1,0 +1,36 @@
+## PostgreSQL del runtime personal del owner.
+##
+## Está separado de `compose.test.yaml` a propósito, y no es una duplicación por
+## comodidad. La base de integración es **desechable** por contrato: los tests la
+## truncan y el runbook incluye un teardown con `-v`. Los datos del owner no pueden
+## vivir a un flag de distancia de ese comando.
+##
+## Por eso son dos proyectos compose distintos, con volúmenes y puertos distintos:
+## `docker compose -f compose.test.yaml down -v` no puede alcanzar este volumen.
+
+name: finance-portal-personal
+
+services:
+  postgres:
+    image: postgres:17.11-alpine3.23
+    restart: unless-stopped
+    shm_size: 128mb
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env.docker.personal.local}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.docker.personal.local}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env.docker.personal.local}
+    ports:
+      # 55433 para que no compita con el 55432 de la base de tests: las dos pueden
+      # estar arriba al mismo tiempo, que es el caso normal mientras se desarrolla.
+      - "127.0.0.1:${POSTGRES_PORT:-55433}:5432"
+    volumes:
+      - finance_portal_personal_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+volumes:
+  finance_portal_personal_postgres:

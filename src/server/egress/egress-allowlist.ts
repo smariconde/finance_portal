@@ -49,6 +49,33 @@ const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
     // redirige. Dos saltos cubren el caso real y cortan una cadena.
     maxRedirects: 2,
   }),
+  egressAllowlistEntrySchema.parse({
+    sourceId: "datahub-sp500-pddl",
+    origins: [
+      {
+        host: "raw.githubusercontent.com",
+        // Sólo este dataset. `raw.githubusercontent.com` sirve el contenido de
+        // todo GitHub, así que el prefijo es lo único que separa "un archivo
+        // versionado del paquete PDDL" de "cualquier archivo de cualquier repo".
+        pathPrefixes: ["/datasets/s-and-p-500-companies/"],
+      },
+      {
+        // El pin exige resolver a qué commit corresponde la versión vigente, y
+        // eso sólo lo dice la API. Es el mismo paquete y por eso comparte fuente
+        // en vez de inventar una: lo que cambia es el host que sirve su
+        // metadata, que es exactamente lo que esta lista empareja.
+        host: "api.github.com",
+        pathPrefixes: ["/repos/datasets/s-and-p-500-companies/commits"],
+      },
+    ],
+    // El CSV de constituyentes son decenas de KB; el techo deja margen para que
+    // crezca y corta mucho antes de que un archivo equivocado sea un problema.
+    maxResponseBytes: 4 * 1024 * 1024,
+    deadlineMs: 30_000,
+    // El host sirve el archivo directo. Un redirect acá sería una señal, no un
+    // caso a seguir.
+    maxRedirects: 0,
+  }),
 ]);
 
 const BY_SOURCE_ID: ReadonlyMap<string, EgressAllowlistEntry> = new Map(

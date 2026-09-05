@@ -36,8 +36,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |     8 | `F1-07`    | `done`        | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                           | `F1-06`       |
 |     9 | `F1-08`    | `deferred`    | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.               | `F1-07`       |
 |    10 | `F2-01`    | `done`        | Acceso personal remoto habilitado en produccion, con los tests de frontera invertidos a proposito.           | ADR 0008      |
-|    11 | `F2-02`    | `blocked`     | Universo S&P 500 con identidad completa: issuer, security, listing, simbolo vigente y CIK.                   | `F2-01`       |
-|    12 | `F2-03`    | `in_progress` | SEC EDGAR integrada; base de egress entregada, provider y parsers pendientes.                                | `F2-02`       |
+|    11 | `F2-02`    | `done`        | Universo S&P 500 con identidad completa: issuer, security, listing, simbolo vigente y CIK.                   | `F2-01`       |
+|    12 | `F2-03`    | `in_progress` | SEC EDGAR integrada; egress, parsers y adaptador entregados, falta el provider XBRL.                         | `F2-02`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -622,12 +622,7 @@ probando sobre el artefacto servido que el runtime trabado no filtra datos.
 
 #### `F2-02` — Universo con identidad completa
 
-- Estado: `blocked` (motor y persistencia entregados el 2026-09-04)
-  - Causa: el último criterio —constituir el universo real— exige egress y los
-    parsers de los dos formatos de cable, que son entregables de `F2-03`.
-  - Condición de salida: `F2-03` entrega el provider de la SEC y el parser de la
-    lista de constituyentes; entonces `F2-02` vuelve a `in_progress` sólo para
-    correr la constitución real y registrar su evidencia.
+- Estado: `done` (2026-09-05; motor y persistencia el 2026-09-04, universo real el 2026-09-05)
 - Fase y dependencia: Fase 2; `F2-01`
 - Alcance incluido: persistir el grafo de identidad que `F1-04` dejó diferido;
   regla determinista que constituye un universo a partir de una lista de
@@ -711,9 +706,24 @@ proyecto y por lo tanto los controles de `TM-08`, que se cierran en `F2-03` junt
 al provider de la SEC. El owner decidió el 2026-09-04 no adelantarlos acá para no
 cerrar el control a medias sobre dos archivos estáticos.
 
-Actualización 2026-09-05: `TM-08` quedó cerrado en su parte de red con la base de
-egress de `F2-03`, así que el bloqueo se redujo a los parsers de los dos formatos
-de cable. La constitución real sigue esperando esa mitad.
+Cierre (2026-09-05): con la base de egress y los parsers de `F2-03`, el universo real
+quedó constituido sobre PostgreSQL personal. Evidencia:
+
+- **503 miembros, cero rechazos.** El plan aplicó 500 entidades legales, 503
+  securities, 503 listings, 503 símbolos, 500 asignaciones de CIK y 503 membresías,
+  con 0 cierres.
+- **La identidad no se colapsa, y el número lo prueba:** 500 emisores producen 503
+  instrumentos. Los tres de más son Alphabet (`GOOG`, `GOOGL`), Fox (`FOX`, `FOXA`) y
+  News Corp (`NWS`, `NWSA`): dos securities bajo un mismo `issuer_legal_entity_id`, con
+  una sola asignación de CIK colgando de la entidad legal y no del instrumento.
+- **Idempotencia verificada sobre la base real:** la segunda corrida del mismo pin deja
+  los siete contadores en cero y no agrega una fila.
+- **Consultable por ticker:** `AAPL → Apple Inc. / XNAS / 0000320193`,
+  `BRK-B → BERKSHIRE HATHAWAY INC / XNYS / 0001067983`,
+  `GOOG` y `GOOGL → Alphabet Inc. / XNAS / 0001652044`. El CIK se persiste normalizado a
+  diez dígitos y el símbolo en la forma de la fuente autoritativa, no en la de la lista.
+- El corte del índice es el commit del paquete, no el instante de la corrida: dos
+  corridas del mismo pin describen el mismo estado del índice.
 
 <a id="f2-03"></a>
 
@@ -803,6 +813,63 @@ el `missing_exchange` que el resolver ya declara existe de verdad —hay filas c
 `exchange: null`—, y las cuatro etiquetas reales caen exactamente donde
 `venue-map-1.0.0` las esperaba: `CBOE`, `NYSE` y `Nasdaq` están mapeadas y `OTC`
 está ausente **a propósito**, así que rechaza en vez de adivinar un MIC.
+
+Entregado (2026-09-05) — parsers y adaptador vivo:
+`src/modules/universe/domain/parse-company-tickers-exchange.ts` y
+`parse-sp500-constituents.ts`, el puerto
+`application/universe-source-provider.ts` y su implementación
+`application/live-universe-source.ts`; fila de `datahub-sp500-pddl` en el registro
+de fuentes y en la allowlist de egress.
+
+- Los dos parsers leen su **encabezado** en vez de fijar índices de columna. Un
+  índice hardcodeado seguiría "funcionando" después de un reordenamiento de la
+  fuente y asignaría nombres como tickers: es el modo de falla silencioso que
+  importa, y hay un test por parser que lo fija.
+- El CSV real trae comillas —`"Saint Paul, Minnesota"` es un campo con una coma
+  adentro, en 503 de sus 505 líneas—, así que el lector implementa las reglas de la
+  RFC 4180 y no un `split(",")`, que correría las columnas siguientes.
+- El CSV publica **su propio CIK y no se lee**. La lista deriva de Wikipedia; tomar
+  su CIK crearía un join irreversible sobre una fuente que el registro declara
+  universo de desarrollo. Reconciliar ambos y reportar discrepancias es otro slice:
+  exige decidir qué significa el desacuerdo, no sólo detectarlo.
+- Ninguno de los dos deduplica ni desempata: dos clases del mismo CIK y dos
+  emisores que reclaman el mismo ticker pasan enteros, porque resolverlos o
+  rechazarlos es de `constituent-match-1.0.0`.
+- Fallo de forma del payload y fila inválida están separados: lo primero cuarentena
+  el lote entero (`TM-05`), lo segundo se rechaza nombrado —fila y columna, nunca el
+  valor (`TM-02`)— mientras el resto sigue.
+- El adaptador vivo evalúa **primero los derechos y después la red**: una fuente sin
+  rights row aprobada no genera tráfico (`TM-15`), y hay un test que verifica que el
+  espía de egress no se llamó. Pide `normalizedStorage` y no `rawStorage`, porque el
+  payload no se conserva: pedir de más volvería el gate una formalidad.
+- El pin es obligatorio y se comprueba antes que todo lo demás: una URL de
+  constituyentes que no fije un SHA completo se rechaza como `source_not_pinned`,
+  porque una lista servida desde `main` cambia bajo los pies y la corrida deja de ser
+  reproducible.
+
+Validación contra los payloads reales (2026-09-05), que es el motivo por el que
+estos parsers estaban diferidos: la tabla de la SEC produce 10.412 asignaciones con
+**cero** rechazos y la lista 503 claims con cero rechazos. `resolveConstituents`
+resuelve **503 de 503, sin un solo rechazo**: 501 matches exactos y 2 por separador
+relajado, que resultan ser exactamente `BRK.B → BRK-B` y `BF.B → BF-B`, los dos
+casos para los que se escribió `constituent-match-1.0.0`. Los venues se reparten en
+`XNYS` 342, `XNAS` 160 y `BATS` 1, las tres etiquetas que el mapa ya cubría.
+
+Aprobación de derechos (2026-09-05): el owner aprobó `sec-edgar` y
+`datahub-sp500-pddl` como `approved_personal` / `spike_ready`, con `personalUse`,
+`automatedAccess`, `normalizedStorage` y `derivedStorage` en `allowed`. `rawStorage`
+sigue en `unknown` **a propósito**: el payload descargado no se conserva, y el
+adaptador pide sólo lo que usa. Base documental: acceso público de la SEC bajo Fair
+Access y PDDL 1.0 para el paquete, ambos ya confirmados en la matriz de uso.
+
+Pieza que faltaba y no estaba prevista: el registro de fuentes se declaraba en código
+pero nunca se proyectaba a PostgreSQL, así que el gate de derechos habría consultado
+una tabla vacía. `syncDeclaredSourceRegistry` la sincroniza en **un solo sentido** —la
+declaración revisada es la que vale— de modo que un derecho concedido con un `UPDATE`
+a mano vuelve a su valor declarado en la próxima corrida.
+
+Falta para cerrar `F2-03`: el provider XBRL con `available_at` del filing, vintages y
+restatements, y las golden fixtures de `F2-06`.
 
 Diferido con motivo: el ritmo de las llamadas —espaciado, concurrencia y
 presupuesto por corrida que la matriz de cuotas fija en 2 requests/s, concurrencia 1

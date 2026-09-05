@@ -38,6 +38,35 @@ Para detenerlo sin perder el volumen:
 pnpm db:test:down
 ```
 
+## PostgreSQL personal, separada de la de integración
+
+Son **dos** bases con dos proyectos compose, dos volúmenes y dos puertos, y esa
+separación es el punto: la base de integración es desechable por contrato —los tests
+la truncan y su teardown tiene forma con `-v`— así que los datos del owner no pueden
+vivir a un flag de distancia de ese comando.
+
+| Base        | Compose                 | Puerto  | Config                       | Vida                                |
+| ----------- | ----------------------- | ------- | ---------------------------- | ----------------------------------- |
+| integración | `compose.test.yaml`     | `55432` | `.env.docker.local`          | desechable; los tests la truncan    |
+| personal    | `compose.personal.yaml` | `55433` | `.env.docker.personal.local` | conserva el universo y las corridas |
+
+Crear la configuración personal una sola vez, reemplazando el password de ejemplo:
+
+```bash
+cp .env.docker.personal.example .env.docker.personal.local
+pnpm db:personal:up
+```
+
+`DATABASE_URL` y `DATABASE_DIRECT_URL` de `.env.local` apuntan a esta base, no a la de
+integración. Aplicar el schema es el mismo job controlado de siempre:
+
+```bash
+pnpm db:migrate
+```
+
+Las dos pueden estar arriba al mismo tiempo, que es el caso normal mientras se
+desarrolla.
+
 ## Generar una migración
 
 1. Modificar `src/server/db/schema.ts`.
@@ -82,6 +111,10 @@ revertir:
 3. verificar backup/restore;
 4. revisar dependencias creadas después de la migración;
 5. ejecutar manualmente el SQL pareado, en orden inverso al de aplicación:
+   - `drizzle/rollback/0004_common_proteus.down.sql` (el grafo de identidad
+     completo: `legal_entities`, `securities`, `listings`, `listing_symbols`,
+     `index_memberships`, `identifier_assignments`, sus tablas de versiones y sus
+     enums);
    - `drizzle/rollback/0003_typical_maximus.down.sql` (`valuation_runs` y sus
      enums);
    - `drizzle/rollback/0002_fresh_redwing.down.sql` (`observations`, sus enums y
@@ -100,7 +133,12 @@ que la produjo; `observations` referencia `ingestion_runs`, así que se elimina
 primero (`TM-06`). Revertir `0003` descarta cada corrida de valuación, incluidas
 las rechazadas que explican por qué un valor nunca se produjo, y con ellas los
 snapshots de entrada: el motor es determinista, pero sin su snapshot un resultado
-publicado deja de ser reproducible (`TM-16`).
+publicado deja de ser reproducible (`TM-16`). Revertir `0004` descarta el universo
+constituido entero: identidades, versiones históricas y membresías de índice. Es
+reconstruible —`pnpm universe:constitute --apply` sobre el mismo pin produce el mismo
+grafo— pero **sólo el corte de ese pin**: los renombres y las salidas del índice que
+se hubieran historizado desde entonces no vuelven, porque la fuente publica el estado
+vigente y no su historia (`TM-06`).
 
 ## Fallas seguras
 

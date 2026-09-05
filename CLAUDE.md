@@ -56,10 +56,25 @@ the output is a written record. Protocol and template:
 
 ```bash
 pnpm db:generate     # emit versioned SQL from src/server/db/schema.ts; never drizzle-kit push
-pnpm db:test:up      # local PostgreSQL 17 on 127.0.0.1:55432 (needs .env.docker.local)
+pnpm db:test:up      # disposable PostgreSQL 17 on 127.0.0.1:55432 (needs .env.docker.local)
 pnpm db:test:down
+pnpm db:personal:up  # the owner's PostgreSQL on 127.0.0.1:55433 (needs .env.docker.personal.local)
+pnpm db:personal:down
 pnpm db:migrate      # controlled job; reads DATABASE_DIRECT_URL only
 ```
+
+The two databases are separate compose projects with separate volumes on purpose. The
+integration database is disposable by contract — the tests truncate it and its teardown
+has a `-v` form — so the owner's data must not sit one flag away from that command.
+
+```bash
+pnpm universe:constitute            # dry run: fetches, parses and reports, writes nothing
+pnpm universe:constitute --apply    # constitutes the S&P 500 into the personal database
+```
+
+Constituting is a hand-run job, never a gate: a rebalance **closes memberships**. The
+constituents list is pinned to a commit in `live-universe-source.ts`; changing that pin
+is a reviewable diff, and the runtime never resolves "latest" on its own.
 
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 

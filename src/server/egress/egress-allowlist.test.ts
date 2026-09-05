@@ -12,7 +12,7 @@ describe("egress allowlist", () => {
     // La allowlist no se escribe por adelantado. Cada fila de más es un destino
     // alcanzable que ningún test ejercita.
     expect(listEgressAllowlistEntries().map((entry) => entry.sourceId)).toEqual(
-      ["sec-edgar"],
+      ["sec-edgar", "datahub-sp500-pddl"],
     );
   });
 
@@ -35,16 +35,45 @@ describe("egress allowlist", () => {
     }
   });
 
-  it("does not grant permission: SEC egress is still blocked by its rights row", () => {
-    // El punto de tener dos controles es que ninguno cubra al otro. `sec-edgar`
-    // es alcanzable y **no** es ingerible: sus derechos siguen sin revisarse.
-    const sec = DEMO_SOURCE_REGISTRY.find(
-      (entry) => entry.sourceId === "sec-edgar",
-    );
+  it("carries no rights information, so being listed cannot express permission", () => {
+    // El punto de tener dos controles es que ninguno pueda cubrir al otro, y acá
+    // eso es estructural: una entrada de allowlist no tiene dónde escribir un
+    // derecho. Responde "¿a dónde se puede abrir un socket?" y nada más.
+    for (const entry of listEgressAllowlistEntries()) {
+      expect(Object.keys(entry).sort()).toEqual([
+        "deadlineMs",
+        "maxRedirects",
+        "maxResponseBytes",
+        "origins",
+        "sourceId",
+      ]);
+    }
+  });
 
-    expect(findEgressAllowlistEntry("sec-edgar")).not.toBeNull();
-    expect(sec?.approvalStatus).toBe("rights_review_pending");
-    expect(sec?.rights.automatedAccess).toBe("unknown");
+  it("leaves an approved source unreachable when it is not listed", () => {
+    // El recíproco del caso anterior: `alpaca-market-data` está registrada y aun
+    // así no se alcanza, porque la aprobación de derechos no agrega destinos.
+    const registered = DEMO_SOURCE_REGISTRY.map((entry) => entry.sourceId);
+
+    expect(registered).toContain("alpaca-market-data");
+    expect(findEgressAllowlistEntry("alpaca-market-data")).toBeNull();
+  });
+
+  it("records that both allowlisted sources passed the owner's rights review", () => {
+    // Aprobadas el 2026-09-05. Se afirma acá para que quitarle los derechos a una
+    // fuente y dejarla alcanzable sea un cambio visible y no una omisión.
+    for (const sourceId of ["sec-edgar", "datahub-sp500-pddl"]) {
+      const entry = DEMO_SOURCE_REGISTRY.find(
+        (candidate) => candidate.sourceId === sourceId,
+      );
+
+      expect(entry?.approvalStatus).toBe("approved_personal");
+      expect(entry?.rights.automatedAccess).toBe("allowed");
+      // El payload descargado no se conserva, así que el derecho a guardarlo
+      // sigue sin revisarse: el gate pide sólo lo que el adaptador usa.
+      expect(entry?.rights.rawStorage).toBe("unknown");
+      expect(entry?.rightsReviewedAt).not.toBeNull();
+    }
   });
 
   it("authorizes the SEC endpoints that Phase 2 needs", () => {
