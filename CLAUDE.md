@@ -8,7 +8,7 @@ Portal Financiero: a single-owner Next.js 16 portal for researching global compa
 
 The code is public; the data is not. The app is **personal-first**: it serves real data only from a private runtime, and there is no public demo deployment. See [ADR 0004](docs/architecture/adr/0004-personal-first-runtime.md).
 
-The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, and a deterministic FCFF engine with its reference run exist. Real providers, screener, the Argentina dashboard, and AI features are **not** implemented and must not be presented in the UI as if they were.
+The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, and a deterministic FCFF engine with its reference run exist. Real providers, screener, the Argentina dashboard, and AI features are **not** implemented and must not be presented in the UI as if they were.
 
 `AGENTS.md` holds the full contributor contract and takes precedence over this file where they overlap.
 

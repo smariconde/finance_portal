@@ -24,19 +24,19 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 
 ## Tracker activo
 
-| Orden | Issue      | Estado     | Resultado verificable                                                                                        | Dependencias  |
-| ----: | ---------- | ---------- | ------------------------------------------------------------------------------------------------------------ | ------------- |
-|     1 | `F1-01`    | `done`     | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos. | Fase 0 `done` |
-|     2 | `F1-02`    | `done`     | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.      | `F1-01`       |
-|     3 | `F1-UI-01` | `done`     | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.               | `F1-02`       |
-|     4 | `F1-03`    | `done`     | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.               | `F1-UI-01`    |
-|     5 | `F1-04`    | `done`     | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.          | `F1-03`       |
-|     6 | `F1-05`    | `done`     | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                      | `F1-04`       |
-|     7 | `F1-06`    | `done`     | Superficie de resultado y trazabilidad con fuentes, freshness, supuestos y sensibilidad accesibles.          | `F1-05`       |
-|     8 | `F1-07`    | `done`     | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                           | `F1-06`       |
-|     9 | `F1-08`    | `deferred` | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.               | `F1-07`       |
-|    10 | `F2-01`    | `done`     | Acceso personal remoto habilitado en produccion, con los tests de frontera invertidos a proposito.           | ADR 0008      |
-|    11 | `F2-02`    | `ready`    | Universo S&P 500 con identidad completa: issuer, security, listing, simbolo vigente y CIK.                   | `F2-01`       |
+| Orden | Issue      | Estado        | Resultado verificable                                                                                        | Dependencias  |
+| ----: | ---------- | ------------- | ------------------------------------------------------------------------------------------------------------ | ------------- |
+|     1 | `F1-01`    | `done`        | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos. | Fase 0 `done` |
+|     2 | `F1-02`    | `done`        | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.      | `F1-01`       |
+|     3 | `F1-UI-01` | `done`        | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.               | `F1-02`       |
+|     4 | `F1-03`    | `done`        | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.               | `F1-UI-01`    |
+|     5 | `F1-04`    | `done`        | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.          | `F1-03`       |
+|     6 | `F1-05`    | `done`        | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                      | `F1-04`       |
+|     7 | `F1-06`    | `done`        | Superficie de resultado y trazabilidad con fuentes, freshness, supuestos y sensibilidad accesibles.          | `F1-05`       |
+|     8 | `F1-07`    | `done`        | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                           | `F1-06`       |
+|     9 | `F1-08`    | `deferred`    | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.               | `F1-07`       |
+|    10 | `F2-01`    | `done`        | Acceso personal remoto habilitado en produccion, con los tests de frontera invertidos a proposito.           | ADR 0008      |
+|    11 | `F2-02`    | `in_progress` | Universo S&P 500 con identidad completa: issuer, security, listing, simbolo vigente y CIK.                   | `F2-01`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -619,9 +619,95 @@ probando sobre el artefacto servido que el runtime trabado no filtra datos.
 
 <a id="f2-02"></a>
 
+#### `F2-02` — Universo con identidad completa
+
+- Estado: `in_progress` (motor y persistencia entregados el 2026-09-04; falta la
+  constitución sobre el universo real)
+- Fase y dependencia: Fase 2; `F2-01`
+- Alcance incluido: persistir el grafo de identidad que `F1-04` dejó diferido;
+  regla determinista que constituye un universo a partir de una lista de
+  constituyentes y de las asignaciones autoritativas ticker→CIK; membresía de
+  índice versionada.
+- Fuera de alcance: egress real, corporate actions con vigencia (`F2-04`),
+  clasificación de industria (`F3-05`), programas depositarios (`F6-04`).
+
+Criterios de aceptación:
+
+- issuer, security, listing, símbolo vigente y CIK quedan separados y el CIK
+  cuelga de la entidad legal;
+- constituir dos veces el mismo universo no duplica identidades;
+- un renombre y una salida del índice se historizan sin reescribir la fila
+  anterior;
+- lo que las fuentes no alcanzan a decidir queda rechazado y nombrado, no
+  adivinado;
+- el universo del S&P 500 real queda constituido y consultable por ticker.
+
+Controles: `TM-06`, `TM-16`.
+
+Entregado (2026-09-04): `src/modules/universe/` con el dominio
+(`index-membership`, `universe-source-records`, `venue-map`,
+`resolve-constituents`, `plan-universe-constitution`), el puerto y el orquestador
+en `application/`, y el corpus sintético más el doble en memoria en
+`infrastructure/`; las ocho tablas del grafo de identidad en
+[`src/server/db/schema.ts`](../../src/server/db/schema.ts) con la migración
+`drizzle/0004_common_proteus.sql` y su rollback pareado;
+`src/server/db/postgres-universe-repository.ts` y
+`src/server/persistence/get-universe-repository.ts`.
+
+- Identidad no colapsada: tres emisores producen cuatro instrumentos. Dos clases
+  del mismo CIK son dos securities con el mismo `issuer_legal_entity_id`, y el
+  CIK se persiste como una única `identifier_assignment` de `subject_type =
+legal_entity`. Un ticker sólo alcanza al listing.
+- Registro y versiones separados por nivel: la foreign key apunta a la identidad,
+  que es inmutable, y no a una fila que cambia con cada renombre. La clave
+  primaria de cada versión es `(id, valid_from)`.
+- `TM-06`: repetir la constitución no escribe una fila más —los seis contadores
+  quedan en cero y el conteo de tablas no cambia—. Un renombre abre una versión y
+  cierra la anterior en el mismo instante, y la fila histórica conserva su nombre.
+  Una salida del índice cierra la membresía sin borrarla y **sin** deslistar el
+  instrumento. Un snapshot que no es posterior a la versión vigente se rechaza
+  como `stale_effective_date` en vez de crear un intervalo vacío.
+- `TM-05`: un lote sin miembros resueltos no se aplica. La lista descargada rota
+  resolvería cero constituyentes y el rebalanceo "vaciaría" el índice cerrando
+  cada membresía vigente; el orquestador corta antes.
+- Lo irresuelto se nombra: `issuer_not_assigned`, `ambiguous_issuer`,
+  `ambiguous_venue`, `missing_exchange`, `unmapped_venue`,
+  `duplicate_claim_symbol`, `issuer_conflict` y `unresolved_share_class`. El
+  último es deliberado: con estas dos fuentes no se puede distinguir un cambio de
+  ticker de una clase nueva, y esa evidencia llega en `F2-04`.
+- Convención de separadores `constituent-match-1.0.0`: `BRK.B` y `BRK-B` son el
+  mismo ticker escrito por dos fuentes distintas. El match relajado es un segundo
+  intento, sólo se acepta si es unívoco, se declara en el resultado y conserva las
+  dos formas originales. Se persiste la de la fuente autoritativa.
+- Invariantes espejadas en PostgreSQL y verificadas: una sola versión abierta por
+  sujeto (`legal_entity_versions_open_uidx`), un identificador autoritativo que no
+  puede quedar abierto para dos sujetos
+  (`identifier_assignments_authoritative_uidx`) y el hash de contenido obligatorio
+  (`index_memberships_content_hash_check`).
+- `TM-16`: cada versión conserva `valid_from`, `valid_to`, `available_at`,
+  `superseded_at`, `source_id`, `source_document_id`, `content_hash` y
+  `recorded_at`. El hash cubre el contenido y **no** el instante de registro, así
+  que la misma versión escrita en otra corrida hashea igual.
+
+Verificación: `format:check`, `lint`, `typecheck`, 380 unit tests (345 + 35), 31
+integration tests contra PostgreSQL 17.11 local (24 + 7) y `build` con las cuatro
+rutas en `ƒ (Dynamic)` pasan. La composición del universo se suma a
+`runtime-composition.test.ts`: son seis selectores en vez de cinco, y el nuevo
+lanza `RuntimeLockedError` en los seis entornos trabados sin pedir la base.
+
+Diferido con motivo: los parsers de los formatos de cable —CSV del paquete PDDL y
+el JSON de `company_tickers_exchange`— llegan con el provider en `F2-03`.
+Escribirlos hoy sería fijar una forma de archivo que este slice no puede verificar
+contra un payload real, y el contrato que sí se puede fijar sin red es el de los
+dos registros de dominio.
+
+Falta para cerrar: constituir el universo real. Necesita el primer egress del
+proyecto y por lo tanto los controles de `TM-08`, que se cierran en `F2-03` junto
+al provider de la SEC. El owner decidió el 2026-09-04 no adelantarlos acá para no
+cerrar el control a medias sobre dos archivos estáticos.
+
 | Issue   | Resultado y aceptación mínima                                                                                       | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
-| `F2-02` | Universo S&P 500 con identidad completa: issuer, security, listing, símbolo vigente y CIK, sin colapsar niveles.    | `F2-01`    | `TM-06`, `TM-16`          |
 | `F2-03` | SEC XBRL integrada con `available_at` del filing, vintages y restatements preservados; cuarentena ante schema roto. | `F2-02`    | `TM-05`, `TM-06`, `TM-08` |
 | `F2-04` | Corporate actions con vigencia: splits, cambios de símbolo, delistings y fusiones sin sobrescribir historia.        | `F2-03`    | `TM-05`, `TM-06`          |
 | `F2-05` | Backfill y refresh durable con presupuesto, cursor, lease, replay, `429`, crash y recuperación manual probados.     | `F2-04`    | `TM-10`, `TM-11`, `TM-16` |
