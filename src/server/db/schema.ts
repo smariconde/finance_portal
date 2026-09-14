@@ -262,6 +262,12 @@ export const ingestionRuns = pgTable(
     requestedVintage: date("requested_vintage", { mode: "string" }),
     cursor: varchar("cursor", { length: 512 }),
     nextCursor: varchar("next_cursor", { length: 512 }),
+    // Sujeto en el esquema de la fuente (un CIK): una corrida por documento de
+    // empresa no se explica sin él. `null` en fuentes paginadas por dataset.
+    subjectKey: varchar("subject_key", { length: 128 }),
+    // Qué parte del documento se ingirió. Distingue «la empresa no lo reporta»
+    // de «esta corrida no fue a buscarlo».
+    selectionVersion: varchar("selection_version", { length: 64 }),
     status: ingestionRunStatus("status").notNull(),
     startedAt: timestamp("started_at", {
       withTimezone: true,
@@ -292,6 +298,12 @@ export const ingestionRuns = pgTable(
       table.startedAt,
     ),
     index("ingestion_runs_idempotency_idx").on(table.idempotencyKey),
+    index("ingestion_runs_subject_idx").on(
+      table.sourceId,
+      table.datasetId,
+      table.subjectKey,
+      table.startedAt,
+    ),
     // A lo sumo una corrida publicable por clave: un replay exacto no vuelve a
     // publicar, pero los reintentos no publicables sí quedan registrados.
     uniqueIndex("ingestion_runs_publishable_idempotency_uidx")
@@ -340,6 +352,7 @@ export const observationPeriodType = pgEnum("observation_period_type", [
   "daily",
   "monthly",
   "quarter",
+  "year_to_date",
   "annual",
   "ttm",
 ]);
@@ -461,6 +474,72 @@ export const observations = pgTable(
     check(
       "observations_currency_check",
       sql`${table.currency} is null or ${table.currency} ~ '^[A-Z]{3}$'`,
+    ),
+  ],
+);
+
+/**
+ * Documentos de fuente: el evento inmutable que publicó observaciones. Para la
+ * SEC, una presentación con su accession, formulario, fecha de filing, instante
+ * de aceptación y foco fiscal (`docs/data/point-in-time-contract.md`, "Eventos").
+ *
+ * La observación referencia el documento por `source_document_id` sin foreign
+ * key compuesta, igual que antes de que esta tabla existiera: las observaciones
+ * de la fixture sintética no tienen documento, y exigirlo reescribiría historia.
+ *
+ * Inmutable: la clave primaria es la identidad del documento en su fuente y el
+ * repositorio no actualiza. Una descripción distinta de la misma accession es un
+ * conflicto que se reporta (`TM-05`).
+ */
+export const sourceDocuments = pgTable(
+  "source_documents",
+  {
+    sourceId: varchar("source_id", { length: 64 }).notNull(),
+    sourceDocumentId: varchar("source_document_id", { length: 256 }).notNull(),
+    documentType: varchar("document_type", { length: 32 }).notNull(),
+    subjectType: observationSubjectType("subject_type").notNull(),
+    subjectId: uuid("subject_id").notNull(),
+    // Fechas calendarias de la fuente: no se convierten a medianoche UTC.
+    publishedOn: date("published_on", { mode: "string" }),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true, mode: "date" }),
+    availableAt: timestamp("available_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+    availabilityRule: varchar("availability_rule", { length: 64 }).notNull(),
+    periodEndOn: date("period_end_on", { mode: "string" }),
+    fiscalYear: integer("fiscal_year"),
+    fiscalPeriod: varchar("fiscal_period", { length: 4 }),
+    contentHash: text("content_hash").notNull(),
+    ingestionRunId: uuid("ingestion_run_id")
+      .notNull()
+      .references(() => ingestionRuns.runId),
+    recordedAt: timestamp("recorded_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({
+      name: "source_documents_pkey",
+      columns: [table.sourceId, table.sourceDocumentId],
+    }),
+    index("source_documents_subject_idx").on(
+      table.subjectType,
+      table.subjectId,
+      table.availableAt,
+    ),
+    check(
+      "source_documents_content_hash_check",
+      sql`${table.contentHash} ~ '^[a-f0-9]{64}$'`,
+    ),
+    // Un documento no puede ser conocible antes de su aceptación.
+    check(
+      "source_documents_available_after_accepted_check",
+      sql`${table.acceptedAt} is null or ${table.availableAt} >= ${table.acceptedAt}`,
+    ),
+    check(
+      "source_documents_fiscal_year_check",
+      sql`${table.fiscalYear} is null or ${table.fiscalYear} between 1900 and 2200`,
     ),
   ],
 );

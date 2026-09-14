@@ -98,11 +98,13 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
       expectedCadence: "diaria con bulk nocturno",
       freshnessTarget: "pendiente de definir junto al gate de Fase 2",
       timezone: "America/New_York",
-      units: [],
+      units: ["monetary", "monetary_per_share", "shares", "pure"],
       currencies: [],
+      // Tres parsers leen esta fuente —tickers, submissions y companyfacts— y
+      // cada corrida registra el suyo; una sola versión acá mentiría.
       parserVersion: null,
       fixturePolicy:
-        "Sin fixture: los extractos reales congelados llegan en `F2-06`; el payload descargado no se conserva.",
+        "Fixtures sintéticas con la forma del cable (`fixture-sec-filer.ts`), sin valores descargados; los extractos reales congelados llegan en `F2-06`. El payload descargado no se conserva.",
       fallbackSourceIds: [],
       rights: {
         personalUse: "allowed",
@@ -116,20 +118,22 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         export: "unknown",
         aiTransfer: "unknown",
       },
-      technicalStatus: "spike_ready",
+      technicalStatus: "integrated",
       approvalStatus: "approved_personal",
-      reviewedAt: "2026-08-21T00:00:00.000Z",
+      reviewedAt: "2026-09-14T00:00:00.000Z",
       rightsReviewedAt: RIGHTS_REVIEWED_AT,
       rightsReviewDueAt: null,
       reviewEvidence: [
         "docs/data/source-registry.md#sec-edgar",
         "docs/data/provider-use-matrix.md",
         "docs/architecture/adr/0009-egress-boundary.md",
+        "docs/architecture/adr/0010-sec-xbrl-ingestion.md",
+        "src/modules/fundamentals/",
       ],
       retentionClasses: ["R2", "R3"],
       quotaPolicyId: null,
       ownerNotes:
-        "Aprobada por el owner el 2026-09-05 para uso personal automatizado: acceso público sin key, sujeto a Fair Access y a un User-Agent con contacto real, que el runtime exige por configuración. El ritmo de las llamadas (2 req/s, concurrencia 1) todavía no está implementado: es `TM-10` y llega con `F2-05`.",
+        "Aprobada por el owner el 2026-09-05 para uso personal automatizado: acceso público sin key, sujeto a Fair Access y a un User-Agent con contacto real, que el runtime exige por configuración. Desde el 2026-09-14 las llamadas salen de a una, a 2 req/s y con presupuesto de 1.000 por corrida; lease, reanudación y refresh por CIK cambiado siguen siendo `F2-05`.",
       recordedAt: RECORDED_AT,
     }),
     sourceRegistryEntrySchema.parse({

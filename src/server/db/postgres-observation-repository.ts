@@ -4,6 +4,7 @@ import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 
 import {
+  MAX_REVISION_GROUPS_PER_LOOKUP,
   observationListQuerySchema,
   observationSupersessionSchema,
   revisionGroupIdSchema,
@@ -19,6 +20,9 @@ import * as schema from "./schema";
 
 type Database = PostgresJsDatabase<typeof schema>;
 type ObservationRow = typeof schema.observations.$inferSelect;
+
+/** 500 filas × 29 columnas = 14.500 parámetros, lejos del techo de PostgreSQL. */
+const INSERT_CHUNK_SIZE = 500;
 
 function toDomainObservation(row: ObservationRow): Observation {
   return observationSchema.parse({
@@ -123,6 +127,33 @@ export function createPostgresObservationRepository(
     async listByRevisionGroup(revisionGroupId) {
       return listGroup(revisionGroupId);
     },
+    async listRevisionGroups(revisionGroupIds) {
+      if (revisionGroupIds.length === 0) {
+        return [];
+      }
+
+      if (revisionGroupIds.length > MAX_REVISION_GROUPS_PER_LOOKUP) {
+        throw new RangeError(
+          `At most ${MAX_REVISION_GROUPS_PER_LOOKUP} revision groups per lookup.`,
+        );
+      }
+
+      const rows = await database
+        .select()
+        .from(schema.observations)
+        .where(
+          inArray(
+            schema.observations.revisionGroupId,
+            revisionGroupIds.map((id) => revisionGroupIdSchema.parse(id)),
+          ),
+        )
+        .orderBy(
+          asc(schema.observations.revisionGroupId),
+          asc(schema.observations.revisionNumber),
+        );
+
+      return rows.map(toDomainObservation);
+    },
     async list(query) {
       const parsedQuery = observationListQuerySchema.parse(query);
       const rows = await database
@@ -174,16 +205,28 @@ export function createPostgresObservationRepository(
             );
         }
 
-        if (observations.length === 0) {
-          return [];
+        const inserted: Observation[] = [];
+
+        // Un statement admite 65.535 parámetros y cada fila usa 29: un
+        // documento de la SEC con miles de hechos no entra en un solo INSERT.
+        // Los tramos siguen dentro de la misma transacción, así que la
+        // publicación sigue siendo todo o nada.
+        for (
+          let offset = 0;
+          offset < observations.length;
+          offset += INSERT_CHUNK_SIZE
+        ) {
+          const rows = await transaction
+            .insert(schema.observations)
+            .values(
+              observations.slice(offset, offset + INSERT_CHUNK_SIZE).map(toRow),
+            )
+            .returning();
+
+          inserted.push(...rows.map(toDomainObservation));
         }
 
-        const rows = await transaction
-          .insert(schema.observations)
-          .values(observations.map(toRow))
-          .returning();
-
-        return rows.map(toDomainObservation);
+        return inserted;
       });
     },
   };

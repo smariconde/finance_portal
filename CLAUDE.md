@@ -8,7 +8,7 @@ Portal Financiero: a single-owner Next.js 16 portal for researching global compa
 
 The code is public; the data is not. The app is **personal-first**: it serves real data only from a private runtime, and there is no public demo deployment. See [ADR 0004](docs/architecture/adr/0004-personal-first-runtime.md).
 
-The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, and a deterministic FCFF engine with its reference run exist. Real providers, screener, the Argentina dashboard, and AI features are **not** implemented and must not be presented in the UI as if they were.
+The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations, and a deterministic FCFF engine with its reference run exist. Universe backfill, corporate actions, market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads real observations yet; nothing may be presented in the UI as if it were.
 
 `AGENTS.md` holds the full contributor contract and takes precedence over this file where they overlap.
 
@@ -76,6 +76,17 @@ pnpm universe:constitute --apply    # constitutes the S&P 500 into the personal 
 Constituting is a hand-run job, never a gate: a rebalance **closes memberships**. The
 constituents list is pinned to a commit in `live-universe-source.ts`; changing that pin
 is a reviewable diff, and the runtime never resolves "latest" on its own.
+
+```bash
+pnpm fundamentals:ingest --ticker AAPL             # dry run: downloads and builds vintages, writes nothing
+pnpm fundamentals:ingest --ticker AAPL --apply     # records the run, filings and observations
+```
+
+Also hand-run: it needs the constituted universe (the ticker resolves to a CIK
+through the persisted graph) and `SEC_USER_AGENT`. Calls go out one at a time at
+2 requests/s with a per-run budget. Semantics —acceptance as `available_at`,
+vintages, subject resolved by CIK at download time, `year_to_date`— are in
+[ADR 0010](docs/architecture/adr/0010-sec-xbrl-ingestion.md).
 
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 

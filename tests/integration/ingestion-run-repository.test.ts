@@ -241,6 +241,8 @@ describe("PostgreSQL ingestion persistence", () => {
       requestedVintage: null,
       cursor: null,
       nextCursor: null,
+      subjectKey: null,
+      selectionVersion: null,
       startedAt: FIXED_NOW,
       finishedAt: FIXED_NOW,
       qualityFlags: [],

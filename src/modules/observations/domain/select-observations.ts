@@ -3,6 +3,8 @@ import { z } from "zod";
 import type { PointInTimeQuery } from "@/modules/temporal/domain/point-in-time-query";
 import { TemporalContractError } from "@/modules/temporal/domain/temporal-error";
 
+import { periodTypeSchema } from "@/modules/ingestion/domain/staged-record";
+
 import { observationSubjectTypeSchema, type Observation } from "./observation";
 
 /**
@@ -17,9 +19,7 @@ export const observationSelectorSchema = z.object({
   subjectType: observationSubjectTypeSchema,
   subjectId: z.uuid(),
   metricIds: z.array(z.string().trim().min(1).max(128)).max(64).optional(),
-  periodType: z
-    .enum(["instant", "daily", "monthly", "quarter", "annual", "ttm"])
-    .optional(),
+  periodType: periodTypeSchema.optional(),
   currency: z
     .string()
     .trim()

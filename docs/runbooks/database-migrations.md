@@ -94,6 +94,10 @@ revertir:
 3. verificar backup/restore;
 4. revisar dependencias creadas después de la migración;
 5. ejecutar manualmente el SQL pareado, en orden inverso al de aplicación:
+   - `drizzle/rollback/0005_fancy_lord_hawal.down.sql` (`source_documents`, las
+     columnas `ingestion_runs.subject_key` y `selection_version`, y el valor
+     `year_to_date` de `observation_period_type`, que PostgreSQL no puede quitar y
+     por eso se reconstruye el tipo);
    - `drizzle/rollback/0004_common_proteus.down.sql` (el grafo de identidad
      completo: `legal_entities`, `securities`, `listings`, `listing_symbols`,
      `index_memberships`, `identifier_assignments`, sus tablas de versiones y sus
@@ -121,7 +125,12 @@ constituido entero: identidades, versiones históricas y membresías de índice.
 reconstruible —`pnpm universe:constitute --apply` sobre el mismo pin produce el mismo
 grafo— pero **sólo el corte de ese pin**: los renombres y las salidas del índice que
 se hubieran historizado desde entonces no vuelven, porque la fuente publica el estado
-vigente y no su historia (`TM-06`).
+vigente y no su historia (`TM-06`). Revertir `0005` descarta los documentos de fuente
+—para la SEC, cada presentación con su instante de aceptación—: las observaciones
+conservan su `available_at` y su accession, pero ya no la evidencia de por qué valen
+eso. Si alguna observación usa `year_to_date`, el rollback **falla a propósito** en
+la reconstrucción del tipo y la transacción entera se deshace; hay que exportar o
+borrar esas filas antes, como decisión explícita (`TM-06`, `TM-16`).
 
 ## Fallas seguras
 

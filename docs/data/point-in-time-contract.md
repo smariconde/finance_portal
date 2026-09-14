@@ -1,8 +1,8 @@
 # Contrato point-in-time
 
 - Estado: contrato aceptado para implementación posterior
-- Versión: 0.1
-- Fecha: 2026-08-21
+- Versión: 0.2
+- Fecha: 2026-08-21; SEC y documentos de fuente el 2026-09-14
 - Alcance: identidad, fundamentales, mercado, macro, CEDEAR y valuaciones
 - Persistencia: diferida al slice de PostgreSQL/Drizzle de Fase 1
 
@@ -96,7 +96,14 @@ type PointInTimeObservation = {
   asOf: string;
   periodStart: string | null;
   periodEnd: string | null;
-  periodType: "instant" | "quarter" | "annual" | "ttm" | "daily" | "monthly";
+  periodType:
+    | "instant"
+    | "quarter"
+    | "year_to_date"
+    | "annual"
+    | "ttm"
+    | "daily"
+    | "monthly";
   unit: string;
   currency: string | null;
   rawValue: string | null;
@@ -266,8 +273,10 @@ El orden por `fetched_at DESC` nunca sustituye estas reglas.
 ### SEC y fundamentales
 
 - El sujeto es legal entity/security interna, no ticker.
-- Se conservan accession, form, filed, accepted, fy, fp, start, end, frame, unit,
-  taxonomy y tag original.
+- Se conservan accession, form, filed, accepted, fy, fp, start, end, unit,
+  taxonomy y tag original. `frame` **no** se conserva: la SEC lo asigna al hecho
+  más reciente de cada período calendario y lo mueve con cada presentación nueva,
+  así que no describe lo reportado.
 - `available_at` usa `accepted_at` cuando está disponible; de lo contrario aplica
   la regla documentada de la fuente y un quality flag.
 - Un amendment/restatement crea otra revisión.
@@ -275,6 +284,29 @@ El orden por `fetched_at DESC` nunca sustituye estas reglas.
 
 La API de frames puede ser útil para agregados, pero su alineación calendaria no
 reemplaza el período fiscal exacto de un filing.
+
+Reglas implementadas en `F2-03` ([ADR 0010](../architecture/adr/0010-sec-xbrl-ingestion.md)):
+
+- **Aceptación.** `acceptanceDateTime` de `submissions` es UTC real: sobre 1.000
+  presentaciones del filer 320193, leído como UTC cae dentro del horario operativo
+  de EDGAR el 99,8%; leído como hora de Nueva York, el 33,9%. Sin aceptación, y
+  sólo para formularios periódicos o corrientes, `available_at` es el primer
+  instante del día siguiente al filing en Nueva York con offset EST (`05:00Z`) más
+  `availability_inferred`: puede llegar tarde, nunca antes.
+- **Vintages.** Un hecho es `(taxonomía, concepto, unidad, inicio, fin)`. Un
+  re-reporte del mismo valor no crea revisión; un valor distinto en una
+  presentación posterior sí, con el `available_at` de la primera presentación que
+  lo mostró.
+- **Sujeto.** El CIK se resuelve una vez, al corte de la descarga, contra el grafo
+  vigente. Resolverlo al corte de cada hecho rechazaría toda la historia anterior a
+  la constitución del universo; hacerlo al corte de la descarga no adelanta el
+  conocimiento del hecho, porque el CIK no se reasigna.
+- **Período.** El acumulado desde el inicio del ejercicio que no llega a un año es
+  `year_to_date`, clasificado por duración medida; inicio y fin exactos siguen en la
+  clave lógica.
+- **Documento.** Cada presentación es un evento inmutable en `source_documents`,
+  con su foco fiscal: `fy`/`fp` describen a la presentación, no al período del
+  hecho.
 
 ### Mercado
 
@@ -464,11 +496,26 @@ El ejemplo es ficticio y existe únicamente para probar la semántica.
   valor faltante, período, cadena de revisión y supersesión, y foreign key hacia
   la corrida que publicó cada fila.
 
+`F2-02` persistió el grafo de identidad y constituyó el universo real del S&P 500.
+
+`F2-03` llevó el contrato a datos reales de la SEC:
+
+- [`src/modules/fundamentals/`](../../src/modules/fundamentals/): parsers de
+  `submissions` y `companyfacts`, reglas de período, unidad y disponibilidad, y la
+  construcción de vintages;
+- [`source_documents`](../../src/server/db/schema.ts): el evento inmutable de cada
+  presentación;
+- [`publish-observations.ts`](../../src/modules/observations/application/publish-observations.ts):
+  sujeto de documento, varias revisiones de un hecho en un lote y duplicados
+  reconocidos contra toda la cadena;
+- verificado sobre Apple en PostgreSQL personal: `as_known` un segundo antes de la
+  aceptación de la 10-K/A del 2010-01-25 devuelve `Assets` FY2008 = 39.572 M; en la
+  aceptación, 36.171 M.
+
 Queda deferido y no debe presentarse como disponible:
 
-- persistir el grafo de identidad —hoy vive como fixture sintética en
-  [`demo-identity-fixtures.ts`](../../src/modules/identity/infrastructure/demo-identity-fixtures.ts)—
-  y sus corporate actions, que corresponden a `F2-02`;
+- corporate actions con vigencia —splits, cambios de símbolo, sucesiones de CIK—,
+  que corresponden a `F2-04`;
 - el constraint de exclusión temporal por rango: exige la extensión `btree_gist`
   y por lo tanto un ADR propio. Hoy el no solapamiento se prueba en dominio con
   `assertNoOverlappingVersions` y en PostgreSQL sólo para el caso peligroso —dos
@@ -477,8 +524,8 @@ Queda deferido y no debe presentarse como disponible:
   revisiones acotadas del sujeto y la selección corre en el dominio, para que
   exista una sola implementación del contrato.
 
-Este documento no autoriza una ingesta real ni marca disponible un historial
-point-in-time de datos reales: la única empresa cubierta es sintética.
+La ingesta real es un job manual (`pnpm fundamentals:ingest`) y no un refresh: no
+hay backfill del universo, lease ni reanudación hasta `F2-05`.
 
 ## Fuentes primarias
 

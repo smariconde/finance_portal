@@ -1,3 +1,4 @@
+import type { EgressFetch } from "@/modules/ingestion/application/egress-fetch";
 import { computeContentHash } from "@/modules/ingestion/domain/content-hash";
 import {
   evaluateIngestionRights,
@@ -77,16 +78,7 @@ const RIGHTS_REQUEST: IngestionRightsRequest = {
   publicDisplay: false,
 };
 
-export type EgressFetch = (request: {
-  sourceId: string;
-  url: string;
-  accept?: string;
-}) => Promise<{
-  status: number;
-  body: Uint8Array;
-  byteLength: number;
-  fetchedAt: string;
-}>;
+export type { EgressFetch };
 
 export type LiveUniverseSourceDependencies = {
   readonly sourceRegistry: SourceRegistryRepository;

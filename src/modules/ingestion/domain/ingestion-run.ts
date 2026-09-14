@@ -68,6 +68,13 @@ export const EMPTY_COUNTS: IngestionRunCounts = Object.freeze({
 
 const utcTimestampSchema = z.iso.datetime({ offset: true });
 const contentHashSchema = z.string().regex(/^[a-f0-9]{64}$/u);
+const subjectKeySchema = z.string().trim().min(1).max(128);
+const selectionVersionSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(64)
+  .regex(/^[a-z0-9]+(?:[.\-_][a-z0-9]+)*$/u);
 
 export const ingestionRunSchema = z
   .object({
@@ -85,6 +92,18 @@ export const ingestionRunSchema = z
     requestedVintage: z.iso.date().nullable().default(null),
     cursor: z.string().trim().min(1).max(512).nullable(),
     nextCursor: z.string().trim().min(1).max(512).nullable(),
+    /**
+     * Sujeto que la solicitud nombró ante la fuente, en el esquema de la fuente
+     * (un CIK para la SEC). Un documento por empresa no se explica sin él
+     * (`TM-16`); una fuente paginada por dataset lo deja en `null`.
+     */
+    subjectKey: subjectKeySchema.nullable().default(null),
+    /**
+     * Versión de la selección aplicada al documento: qué parte se ingirió. Es
+     * lo que permite distinguir un concepto que la empresa no reporta de uno que
+     * esta corrida no fue a buscar.
+     */
+    selectionVersion: selectionVersionSchema.nullable().default(null),
     status: ingestionRunStatusSchema,
     startedAt: utcTimestampSchema,
     finishedAt: utcTimestampSchema.nullable(),
@@ -164,7 +183,10 @@ export const ingestionRunSchema = z
       partial: accepted > 0 && rejected > 0,
       empty: fetched === 0,
       duplicate: fetched > 0 && duplicate === fetched,
-      quarantined: fetched > 0 && accepted === 0 && rejected === fetched,
+      // Un documento cuyo envelope no se entiende no deja registros que contar:
+      // se cuarentena igual, con cero leídos, y el flag de la corrida dice por
+      // qué. Lo que nunca puede es haber aceptado algo.
+      quarantined: accepted === 0 && rejected === fetched,
     };
 
     if (!expectation[run.status]) {
@@ -185,6 +207,16 @@ export const ingestionRunKeySchema = z.object({
   requestedAsOf: z.iso.date().nullable(),
   requestedVintage: z.iso.date().nullable().default(null),
   cursor: z.string().trim().min(1).max(512).nullable(),
+  subjectKey: subjectKeySchema.nullable().default(null),
+  selectionVersion: selectionVersionSchema.nullable().default(null),
+  /**
+   * Versión del contenido de un documento vivo. Una solicitud de «el documento
+   * vigente de este sujeto» no es inmutable: la misma pregunta una semana
+   * después puede traer una presentación nueva. Para esas fuentes la versión que
+   * se ingirió **es** su contenido, así que entra a la clave y el índice único de
+   * corridas publicables pasa a significar «a lo sumo una por contenido».
+   */
+  documentVersion: contentHashSchema.nullable().default(null),
 });
 
 export type IngestionRunKey = z.input<typeof ingestionRunKeySchema>;
@@ -193,7 +225,19 @@ export type IngestionRunKey = z.input<typeof ingestionRunKeySchema>;
  * Clave de idempotencia determinista (`TM-11`): repetir el mismo dataset, as-of,
  * vintage, cursor y parser produce la misma clave y por lo tanto no duplica una
  * corrida.
+ *
+ * Sujeto, selección y versión de documento sólo entran al hash cuando existen:
+ * una solicitud que no los usa conserva exactamente la clave que tenía antes de
+ * que existieran, y ninguna corrida ya registrada cambia de identidad.
  */
 export function computeIdempotencyKey(key: IngestionRunKey): string {
-  return computeContentHash(ingestionRunKeySchema.parse(key));
+  const { subjectKey, selectionVersion, documentVersion, ...base } =
+    ingestionRunKeySchema.parse(key);
+
+  return computeContentHash({
+    ...base,
+    ...(subjectKey === null ? {} : { subjectKey }),
+    ...(selectionVersion === null ? {} : { selectionVersion }),
+    ...(documentVersion === null ? {} : { documentVersion }),
+  });
 }

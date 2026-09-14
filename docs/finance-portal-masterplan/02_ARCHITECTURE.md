@@ -74,7 +74,14 @@ type Provenance = {
   fetchedAt: string;
   unit: string;
   currency?: string;
-  period?: "instant" | "quarter" | "annual" | "ttm" | "daily" | "monthly";
+  period?:
+    | "instant"
+    | "quarter"
+    | "year_to_date"
+    | "annual"
+    | "ttm"
+    | "daily"
+    | "monthly";
   vintage?: string;
   restatementOf?: string;
   originalConcept?: string;

@@ -24,20 +24,21 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 
 ## Tracker activo
 
-| Orden | Issue      | Estado        | Resultado verificable                                                                                        | Dependencias  |
-| ----: | ---------- | ------------- | ------------------------------------------------------------------------------------------------------------ | ------------- |
-|     1 | `F1-01`    | `done`        | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos. | Fase 0 `done` |
-|     2 | `F1-02`    | `done`        | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.      | `F1-01`       |
-|     3 | `F1-UI-01` | `done`        | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.               | `F1-02`       |
-|     4 | `F1-03`    | `done`        | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.               | `F1-UI-01`    |
-|     5 | `F1-04`    | `done`        | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.          | `F1-03`       |
-|     6 | `F1-05`    | `done`        | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                      | `F1-04`       |
-|     7 | `F1-06`    | `done`        | Superficie de resultado y trazabilidad con fuentes, freshness, supuestos y sensibilidad accesibles.          | `F1-05`       |
-|     8 | `F1-07`    | `done`        | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                           | `F1-06`       |
-|     9 | `F1-08`    | `deferred`    | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.               | `F1-07`       |
-|    10 | `F2-01`    | `done`        | Acceso personal remoto habilitado en produccion, con los tests de frontera invertidos a proposito.           | ADR 0008      |
-|    11 | `F2-02`    | `done`        | Universo S&P 500 con identidad completa: issuer, security, listing, simbolo vigente y CIK.                   | `F2-01`       |
-|    12 | `F2-03`    | `in_progress` | SEC EDGAR integrada; egress, parsers y adaptador entregados, falta el provider XBRL.                         | `F2-02`       |
+| Orden | Issue      | Estado     | Resultado verificable                                                                                                | Dependencias  |
+| ----: | ---------- | ---------- | -------------------------------------------------------------------------------------------------------------------- | ------------- |
+|     1 | `F1-01`    | `done`     | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos.         | Fase 0 `done` |
+|     2 | `F1-02`    | `done`     | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.              | `F1-01`       |
+|     3 | `F1-UI-01` | `done`     | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.                       | `F1-02`       |
+|     4 | `F1-03`    | `done`     | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.                       | `F1-UI-01`    |
+|     5 | `F1-04`    | `done`     | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.                  | `F1-03`       |
+|     6 | `F1-05`    | `done`     | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                              | `F1-04`       |
+|     7 | `F1-06`    | `done`     | Superficie de resultado y trazabilidad con fuentes, freshness, supuestos y sensibilidad accesibles.                  | `F1-05`       |
+|     8 | `F1-07`    | `done`     | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                                   | `F1-06`       |
+|     9 | `F1-08`    | `deferred` | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.                       | `F1-07`       |
+|    10 | `F2-01`    | `done`     | Acceso personal remoto habilitado en produccion, con los tests de frontera invertidos a proposito.                   | ADR 0008      |
+|    11 | `F2-02`    | `done`     | Universo S&P 500 con identidad completa: issuer, security, listing, simbolo vigente y CIK.                           | `F2-01`       |
+|    12 | `F2-03`    | `done`     | SEC EDGAR integrada: companyfacts publicado como observaciones point-in-time, con aceptación, vintages y cuarentena. | `F2-02`       |
+|    13 | `F2-04`    | `ready`    | Corporate actions con vigencia: splits, cambios de símbolo, sucesiones de CIK, delistings y fusiones.                | `F2-03`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -729,8 +730,8 @@ quedó constituido sobre PostgreSQL personal. Evidencia:
 
 #### `F2-03` — SEC EDGAR integrada
 
-- Estado: `in_progress` (base de egress entregada el 2026-09-05; faltan provider,
-  parsers y golden fixtures)
+- Estado: `done` (2026-09-14; base de egress y parsers del universo el 2026-09-05,
+  provider XBRL el 2026-09-14)
 - Fase y dependencia: Fase 2; `F2-02`
 - Alcance incluido: la primera salida a red del proyecto y sus controles `TM-08`;
   el adaptador de la SEC con `available_at` del filing, vintages y restatements
@@ -876,6 +877,85 @@ presupuesto por corrida que la matriz de cuotas fija en 2 requests/s, concurrenc
 y 1.000 requests/run— es `TM-10` y `TM-11`, y se cierra junto al job que las
 necesita (`F2-05`). Este cliente no espacia ni cuenta llamadas, así que hasta
 entonces el egress es para llamadas puntuales y verificables, no para un job.
+
+Cierre (2026-09-14) — provider XBRL: `src/modules/fundamentals/` (parsers de
+`submissions` y `companyfacts`, reglas de período, unidad y disponibilidad, selección
+versionada de conceptos, construcción de vintages, adaptador vivo y orquestador),
+`source_documents` y las columnas `ingestion_runs.subject_key` y `selection_version`
+en la migración `0005` con su rollback pareado, el espaciador de egress y el comando
+`pnpm fundamentals:ingest`. Decisiones en la
+[ADR 0010](../architecture/adr/0010-sec-xbrl-ingestion.md).
+
+- **`available_at` del filing, medido y no supuesto.** `acceptanceDateTime` es UTC
+  real: leído así, 998 de 1.000 aceptaciones del filer 320193 caen dentro del
+  horario de EDGAR; leyendo los dígitos como hora de Nueva York caerían 339, y cada
+  hecho habría quedado conocible cuatro horas antes de tiempo. Sin aceptación, sólo
+  para formularios periódicos, se infiere el fin del día de filing con offset EST y se
+  marca `availability_inferred`.
+- **Vintages y restatements.** Un re-reporte del mismo valor no crea revisión; un
+  valor distinto sí, con la disponibilidad de la primera presentación que lo mostró.
+  Lo que no tiene desempate —dos valores en una presentación, dos presentaciones en el
+  mismo instante— se rechaza con nombre.
+- **Sujeto.** El CIK se resuelve una vez, al corte de la descarga: el universo existe
+  desde el 2026-09-05 y resolver al corte de cada hecho rechazaba toda la historia. Un
+  test fija el contraste.
+- **Cuarentena (`TM-05`).** Un envelope que no se entiende —en cualquier concepto,
+  también en uno no seleccionado— deja una corrida `quarantined` con el documento y el
+  motivo en el flag, y lo publicado queda idéntico. Una fila de submissions ilegible no
+  cae en la disponibilidad inferida: sus hechos se rechazan.
+- **Exactitud.** El importe sale del texto fuente del JSON (`context.source`), no de un
+  `double`; `12345678901234567890` sobrevive entero.
+- **Idempotencia de un documento vivo (`TM-11`).** La clave suma sujeto, selección y
+  versión del contenido, sólo cuando existen, así que ninguna clave registrada cambió.
+  El mismo contenido deja una corrida `duplicate` que apunta a la original y, si la
+  publicación anterior se cortó, la completa bajo la corrida original.
+- **Ritmo (`TM-10`).** De a una, 2 requests/s, 1.000 por corrida y hasta 64 archivos
+  históricos por empresa; el presupuesto corta antes de abrir la conexión.
+- Tres defectos encontrados y corregidos en el camino. El test del orquestador mostró
+  que republicar una cadena comparaba sólo contra su punta y rechazaba la vintage
+  original como `ambiguous_revision`: la idempotencia ahora mira la cadena entera. Los
+  datos reales mostraron los otros dos: el techo de 6 archivos históricos bloqueaba a
+  los bancos que emiten notas estructuradas —JPMorgan necesita 41, Goldman Sachs y
+  Morgan Stanley 34, Citigroup 30, Bank of America 17—, y los rangos declarados en
+  `filings.files` dejan huecos de un día (CIK 19617: el archivo 015 termina el
+  2024-04-30 y el 014 empieza el 2024-05-02), así que dos 10-Q caían en disponibilidad
+  inferida; ahora se piden los dos vecinos del hueco.
+
+Verificación: `format:check`, `lint`, `typecheck`, 715 unit tests (535 + 180), 36
+integration tests contra PostgreSQL 17.11 (31 + 5), `build` con las cuatro rutas en
+`ƒ (Dynamic)` y 131 tests E2E pasan. El guard de red de la suite unitaria no se
+relajó: el adaptador se prueba con un `EgressFetch` inyectado y fixtures sintéticas con
+la forma del cable, sin valores descargados. El rollback de `0005` se verificó sobre
+una base descartable: con una fila `year_to_date` falla y deshace todo, sin ella
+revierte tipo, columnas y tabla, y `0005` vuelve a aplicarse.
+
+Evidencia sobre datos reales (2026-09-14), en PostgreSQL personal:
+
+- **Apple (CIK 320193), `--apply`:** 3 requests y 3,9 s. De 25.135 puntos en 505
+  conceptos, la selección toma 7.000 en 48; salen 3.254 vintages con 150
+  re-expresiones, 3.746 re-reportes colapsados, 0 rechazos y 0 disponibilidades
+  inferidas; 2.247 presentaciones indexadas y 70 registradas como documentos. Por tipo
+  de período: 1.041 `instant`, 1.038 `quarter`, 745 `year_to_date` y 430 `annual`.
+- **Idempotencia:** la segunda corrida queda `duplicate`, con 3.254 duplicadas, 0
+  rechazos, 70 documentos sin cambios y ninguna fila nueva.
+- **`as_known` contra un restatement real.** `us-gaap:Assets` al 2008-09-27: la
+  revisión 1 vale 39.572 M, conocible desde la aceptación del 10-Q del 2009-07-22
+  20:41:33Z —el 10-K de octubre repitió el valor y se colapsó—; la revisión 2 vale
+  36.171 M, desde la aceptación de la 10-K/A del 2010-01-25 21:25:58Z. Un segundo antes
+  de esa aceptación `as_known` devuelve 39.572 M; en la aceptación, 36.171 M;
+  `latest_restated`, 36.171 M. Es el criterio del gate de Fase 2 sobre una empresa
+  real.
+- **Dry run sobre otros arquetipos:** Berkshire Hathaway 1.793 vintages y 0 rechazos;
+  NVIDIA, con ejercicio no calendario, 3.541 y 0; Realty Income 2.034 con 8 duraciones
+  fuera de bucket rechazadas por nombre; Wells Fargo 2.174; JPMorgan 2.078, 47
+  requests, 117.525 presentaciones indexadas y 0 inferidas. ExxonMobil muestra el
+  límite que sigue: el universo le asigna el CIK de la holding nueva (0002115436), con
+  89 puntos, y la historia vive en el CIK anterior.
+
+Límites que quedan declarados en la ADR: un cambio de parser sobre contenido idéntico
+se rechaza como `ambiguous_revision` porque la versión del parser está en el hash de la
+observación desde `F1-04`; la sucesión de CIK es `F2-04`; lease, reanudación y refresh
+por CIK cambiado son `F2-05`; las golden fixtures reales son `F2-06`.
 
 | Issue   | Resultado y aceptación mínima                                                                                       | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |

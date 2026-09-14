@@ -21,8 +21,10 @@ The current application command contract is:
 - `pnpm build`: verify the production build.
 - `pnpm db:generate`: generate reviewed SQL migrations from the Drizzle schema.
 - `pnpm db:migrate`: apply migrations through the direct administrative connection.
-- `pnpm db:test:up`: start the dedicated local PostgreSQL integration database.
-- `pnpm db:test:down`: stop the local PostgreSQL integration database without deleting its volume.
+- `pnpm db:up`: start the local PostgreSQL container that hosts the personal and the disposable test database.
+- `pnpm db:down`: stop the local PostgreSQL container without deleting its volume.
+- `pnpm universe:constitute`: constitute the S&P 500 universe; dry run unless `--apply`.
+- `pnpm fundamentals:ingest --ticker <T>`: ingest SEC companyfacts for a universe issuer; dry run unless `--apply`.
 
 Review documentation changes with `pnpm format:check`, `git diff --check`, and searches for stale references.
 

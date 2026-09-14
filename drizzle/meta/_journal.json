@@ -36,6 +36,13 @@
       "when": 1788566695913,
       "tag": "0004_common_proteus",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789413225040,
+      "tag": "0005_fancy_lord_hawal",
+      "breakpoints": true
     }
   ]
 }

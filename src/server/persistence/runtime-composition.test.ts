@@ -60,6 +60,11 @@ const SELECTORS = [
     () => import("@/server/persistence/get-universe-repository"),
     "getUniverseRepository",
   ],
+  [
+    "source document",
+    () => import("@/server/persistence/get-source-document-repository"),
+    "getSourceDocumentRepository",
+  ],
 ] as const;
 
 type SelectorImporter = () => Promise<Record<string, unknown>>;
