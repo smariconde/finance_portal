@@ -86,6 +86,12 @@ export type SecSubmissionsParseResult =
       readonly ok: true;
       readonly parserVersion: string;
       readonly cik: string;
+      /**
+       * Nombre del filer tal como lo publica la SEC, o `null` si no llega como
+       * texto usable. No invalida el documento: los hechos no dependen de él, y
+       * quien lo necesite —la sucesión de emisor— rechaza su ausencia con nombre.
+       */
+      readonly entityName: string | null;
       readonly filings: readonly SecFiling[];
       readonly historyFiles: readonly SecSubmissionsHistoryFile[];
       readonly rejections: readonly SecFilingRowRejection[];
@@ -297,10 +303,18 @@ export function parseSecSubmissions(
     });
   }
 
+  const entityName =
+    typeof payload.name === "string" &&
+    payload.name.trim().length > 0 &&
+    payload.name.trim().length <= 256
+      ? payload.name.trim()
+      : null;
+
   return {
     ok: true,
     parserVersion,
     cik,
+    entityName,
     filings: recent.filings,
     historyFiles,
     rejections: recent.rejections,

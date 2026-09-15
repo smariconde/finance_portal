@@ -19,7 +19,7 @@ La aplicación está diseñada para responder preguntas como:
 
 ## Estado actual
 
-Las fases 0 y 1 están cerradas y la **Fase 2 — datos reales SEC y universo S&P 500** está en curso. El universo del S&P 500 está constituido con identidad completa y los hechos XBRL de la SEC se ingieren como observaciones point-in-time: `available_at` desde la aceptación de cada presentación, vintages y re-expresiones preservadas, y cuarentena ante un documento que no se entiende. La ingesta es un job manual; el backfill del universo, las corporate actions y las golden fixtures reales son los próximos slices.
+Las fases 0 y 1 están cerradas y la **Fase 2 — datos reales SEC y universo S&P 500** está en curso. El universo del S&P 500 está constituido con identidad completa y los hechos XBRL de la SEC se ingieren como observaciones point-in-time: `available_at` desde la aceptación de cada presentación, vintages y re-expresiones preservadas, y cuarentena ante un documento que no se entiende. Una reorganización que cambia el CIK del filer —ExxonMobil en 2026— se declara, se verifica contra la SEC y une las dos historias en la lectura sin reasignar hechos ([ADR 0011](docs/architecture/adr/0011-issuer-succession-reporting-lineage.md)). La ingesta es un job manual; los splits y el resto de las corporate actions, el backfill del universo y las golden fixtures reales son los próximos slices.
 
 Disponible hoy:
 
@@ -41,7 +41,7 @@ Disponible hoy:
 - PRD, arquitectura ejecutable, registro inicial de fuentes y metodología de valuación derivados del masterplan.
 - Backlog ejecutable con dependencias, criterios de aceptación y trazabilidad de riesgos y deuda visual.
 
-Todavía no están implementados el backfill del universo, las corporate actions, el screener, el tablero argentino ni las funciones de IA, y ninguna superficie de la interfaz expone aún la ingesta, la identidad ni la valuación: esos módulos existen como dominio y persistencia, no como pantallas. Esas capacidades se incorporarán por slices verificables; la interfaz no las presenta como disponibles antes de tiempo.
+Todavía no están implementados el backfill del universo, los splits y el resto de las corporate actions, el screener, el tablero argentino ni las funciones de IA, y ninguna superficie de la interfaz expone aún la ingesta, la identidad ni la valuación: esos módulos existen como dominio y persistencia, no como pantallas. Esas capacidades se incorporarán por slices verificables; la interfaz no las presenta como disponibles antes de tiempo.
 
 ## Experiencia objetivo
 
@@ -195,25 +195,26 @@ Definir variables en `.env.local` no habilita por sí solo una integración toda
 
 ## Comandos
 
-| Comando                    | Uso                                                                 |
-| -------------------------- | ------------------------------------------------------------------- |
-| `pnpm dev`                 | Inicia el servidor local con recarga en desarrollo.                 |
-| `pnpm build`               | Genera y valida el build de producción.                             |
-| `pnpm start`               | Sirve un build de producción ya generado.                           |
-| `pnpm lint`                | Ejecuta ESLint sin permitir warnings.                               |
-| `pnpm typecheck`           | Verifica TypeScript sin emitir archivos.                            |
-| `pnpm test`                | Ejecuta la suite unitaria una vez.                                  |
-| `pnpm test:integration`    | Prueba migración y repositorio contra una base PostgreSQL dedicada. |
-| `pnpm test:e2e`            | Gate E2E y de accesibilidad sobre un build servido en ambos modos.  |
-| `pnpm test:watch`          | Ejecuta tests en modo interactivo.                                  |
-| `pnpm db:generate`         | Genera SQL versionado desde el schema Drizzle.                      |
-| `pnpm db:migrate`          | Aplica migraciones con `DATABASE_DIRECT_URL`.                       |
-| `pnpm db:up`               | Inicia el PostgreSQL local con la base personal y la de tests.      |
-| `pnpm db:down`             | Detiene PostgreSQL local sin borrar su volumen.                     |
-| `pnpm universe:constitute` | Constituye el universo S&P 500; dry run salvo `--apply`.            |
-| `pnpm fundamentals:ingest` | Ingiere companyfacts de la SEC por ticker; dry run salvo `--apply`. |
-| `pnpm format:check`        | Comprueba el formato del repositorio.                               |
-| `pnpm format`              | Aplica Prettier a los archivos permitidos.                          |
+| Comando                         | Uso                                                                               |
+| ------------------------------- | --------------------------------------------------------------------------------- |
+| `pnpm dev`                      | Inicia el servidor local con recarga en desarrollo.                               |
+| `pnpm build`                    | Genera y valida el build de producción.                                           |
+| `pnpm start`                    | Sirve un build de producción ya generado.                                         |
+| `pnpm lint`                     | Ejecuta ESLint sin permitir warnings.                                             |
+| `pnpm typecheck`                | Verifica TypeScript sin emitir archivos.                                          |
+| `pnpm test`                     | Ejecuta la suite unitaria una vez.                                                |
+| `pnpm test:integration`         | Prueba migración y repositorio contra una base PostgreSQL dedicada.               |
+| `pnpm test:e2e`                 | Gate E2E y de accesibilidad sobre un build servido en ambos modos.                |
+| `pnpm test:watch`               | Ejecuta tests en modo interactivo.                                                |
+| `pnpm db:generate`              | Genera SQL versionado desde el schema Drizzle.                                    |
+| `pnpm db:migrate`               | Aplica migraciones con `DATABASE_DIRECT_URL`.                                     |
+| `pnpm db:up`                    | Inicia el PostgreSQL local con la base personal y la de tests.                    |
+| `pnpm db:down`                  | Detiene PostgreSQL local sin borrar su volumen.                                   |
+| `pnpm universe:constitute`      | Constituye el universo S&P 500; dry run salvo `--apply`.                          |
+| `pnpm fundamentals:ingest`      | Ingiere companyfacts de la SEC por ticker; dry run salvo `--apply`.               |
+| `pnpm corporate-actions:record` | Verifica y registra las sucesiones de emisor declaradas; dry run salvo `--apply`. |
+| `pnpm format:check`             | Comprueba el formato del repositorio.                                             |
+| `pnpm format`                   | Aplica Prettier a los archivos permitidos.                                        |
 
 Antes de entregar un cambio:
 

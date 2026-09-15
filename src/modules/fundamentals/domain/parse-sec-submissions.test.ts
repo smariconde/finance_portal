@@ -41,6 +41,17 @@ function payload(overrides: Record<string, unknown> = {}) {
 }
 
 describe("parseSecSubmissions", () => {
+  it("carries the filer name without making the document depend on it", () => {
+    const named = parseSecSubmissions(payload({ name: "  Filer sintético  " }));
+    const unnamed = parseSecSubmissions(payload({ name: 42 }));
+    const blank = parseSecSubmissions(payload({ name: "   " }));
+
+    expect(named.ok && named.entityName).toBe("Filer sintético");
+    // Un nombre ilegible no cuarentena el índice: los hechos no dependen de él.
+    expect(unnamed.ok && unnamed.entityName).toBeNull();
+    expect(blank.ok && blank.entityName).toBeNull();
+  });
+
   it("reads parallel columns into filings with their acceptance instant", () => {
     const result = parseSecSubmissions(payload());
 

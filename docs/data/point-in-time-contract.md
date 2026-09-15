@@ -1,8 +1,9 @@
 # Contrato point-in-time
 
 - Estado: contrato aceptado para implementación posterior
-- Versión: 0.2
-- Fecha: 2026-08-21; SEC y documentos de fuente el 2026-09-14
+- Versión: 0.3
+- Fecha: 2026-08-21; SEC y documentos de fuente el 2026-09-14; linaje de reporte
+  el 2026-09-14
 - Alcance: identidad, fundamentales, mercado, macro, CEDEAR y valuaciones
 - Persistencia: diferida al slice de PostgreSQL/Drizzle de Fase 1
 
@@ -259,6 +260,29 @@ recorded_at <= :known_at
 
 El orden por `fetched_at DESC` nunca sustituye estas reglas.
 
+### Linaje de reporte
+
+Cuando una reorganización cambia el filer que presenta los estados del mismo grupo,
+la historia del antecesor se lee junto a la del sucesor sin reasignar sujetos
+(`reporting-lineage-1.0.0`,
+[ADR 0011](../architecture/adr/0011-issuer-succession-reporting-lineage.md)):
+
+1. el vínculo `reporting_successor` se selecciona con la regla de dimensión de
+   arriba: efectivo en `effective_at`, `available_at <= known_at` —la aceptación de
+   la presentación de sucesión— y `recorded_at <= known_at` bajo `system_recorded`;
+2. cada segmento se selecciona por su propio sujeto con las reglas de observación;
+3. el antecesor aporta sólo hechos con `as_of` anterior a la fecha efectiva de la
+   sucesión, y un antecesor lejano el borde más temprano de la cadena;
+4. un hecho —la clave lógica sin sujeto— reportado por más de un segmento se
+   resuelve por la revisión con `available_at` más reciente. El mismo instante con
+   valores distintos es `ambiguous_revision`; con el mismo valor gana el segmento
+   más cercano al sujeto consultado;
+5. cada fila devuelta conserva su `subject_id`: la provenance sigue nombrando al
+   filer que reportó el valor.
+
+Un `as_known` anterior a la aceptación de la sucesión devuelve la historia del
+sucesor sola, aunque el antecesor ya haya presentado todo lo que presentó.
+
 ## Semántica por dominio
 
 ### Identidad y CEDEAR
@@ -512,10 +536,21 @@ El ejemplo es ficticio y existe únicamente para probar la semántica.
   aceptación de la 10-K/A del 2010-01-25 devuelve `Assets` FY2008 = 39.572 M; en la
   aceptación, 36.171 M.
 
+`F2-04` sumó la sucesión de emisor y el linaje de reporte:
+
+- [`src/modules/corporate-actions/`](../../src/modules/corporate-actions/):
+  verificación de la sucesión declarada, vínculo versionado y lectura del linaje;
+- [`corporate_actions` y `legal_entity_relationships`](../../src/server/db/schema.ts);
+- verificado sobre ExxonMobil en PostgreSQL personal: la historia de `us-gaap:Revenues`
+  anual pasa de 0 a 17 ejercicios (FY2009 a FY2025) y el vínculo no existe un segundo
+  antes de la aceptación del `8-K12B` del 2026-07-01 16:36:49Z. Los ingresos del
+  segundo trimestre de 2025 salen del antecesor antes del 10-Q conjunto y del sucesor
+  después, con el mismo valor.
+
 Queda deferido y no debe presentarse como disponible:
 
-- corporate actions con vigencia —splits, cambios de símbolo, sucesiones de CIK—,
-  que corresponden a `F2-04`;
+- splits, cambios de símbolo, traspasos de mercado, delistings y fusiones, que son
+  los incrementos 2 y 3 de `F2-04`;
 - el constraint de exclusión temporal por rango: exige la extensión `btree_gist`
   y por lo tanto un ADR propio. Hoy el no solapamiento se prueba en dominio con
   `assertNoOverlappingVersions` y en PostgreSQL sólo para el caso peligroso —dos

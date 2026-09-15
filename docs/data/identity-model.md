@@ -1,8 +1,8 @@
 # Modelo de identidad financiera
 
 - Estado: contrato implementado en dominio y persistido en PostgreSQL
-- Versión: 0.2
-- Fecha: 2026-09-04
+- Versión: 0.3
+- Fecha: 2026-09-04; sucesión de emisor el 2026-09-14
 - Alcance: entity, security, listing, identifiers y programas depositarios
 - Implementación (`F1-04`):
   [`identity-graph.ts`](../../src/modules/identity/domain/identity-graph.ts),
@@ -15,6 +15,11 @@
   [`postgres-universe-repository.ts`](../../src/server/db/postgres-universe-repository.ts).
   Los programas depositarios y sus ratios siguen viviendo sólo en dominio y
   fixture: su fuente es el acceso CEDEAR y su tabla llega en `F6-04`
+- Corporate actions (`F2-04`): migración
+  [`0006_lonely_zeigeist.sql`](../../drizzle/0006_lonely_zeigeist.sql) con su
+  rollback pareado; módulo
+  [`src/modules/corporate-actions/`](../../src/modules/corporate-actions/) y
+  [ADR 0011](../architecture/adr/0011-issuer-succession-reporting-lineage.md)
 
 ## Propósito
 
@@ -280,6 +285,37 @@ Un cambio de ticker crea otro `ListingSymbol`. Una merger o spin-off crea edges
 explícitos entre entidades/securities. Un split ajusta series mediante una
 transformación versionada; no cambia el ID de la security.
 
+### Sucesión de emisor (implementada)
+
+Una reorganización en holding cambia el CIK del filer sin cambiar el grupo que
+reporta. Se guarda como evento `successor_issuer` sobre la entidad del sucesor y
+como vínculo versionado `reporting_successor` entre dos entidades legales que
+conservan sus IDs ([ADR 0011](../architecture/adr/0011-issuer-succession-reporting-lineage.md)):
+
+```ts
+type LegalEntityRelationship = TemporalIdentityVersion & {
+  relationshipId: string;
+  relationshipType: "reporting_successor";
+  predecessorLegalEntityId: string;
+  successorLegalEntityId: string;
+  corporateActionId: string;
+  effectiveOn: string; // fecha del evento en el calendario de la fuente
+  decidedBy: "rule" | "owner";
+  decisionRuleVersion: string;
+};
+```
+
+- La sucesión no se detecta: el owner la declara con el accession que la prueba y el
+  job la verifica contra los índices de la SEC de los dos filers.
+- `availableAt` es la aceptación de la presentación y `validFrom` es `effectiveOn`
+  a las 00:00 de Nueva York.
+- Es el único vínculo que **une historias de reporte**, y lo hace en la lectura: los
+  hechos del antecesor conservan su sujeto y el linaje los combina con la regla
+  versionada `reporting-lineage-1.0.0` del
+  [contrato point-in-time](point-in-time-contract.md#linaje-de-reporte).
+- Adquisiciones y spin-offs serán otros tipos de vínculo que nunca entran al linaje:
+  el adquirente no reporta la historia del adquirido.
+
 ## Reglas de vigencia
 
 - Todos los intervalos son semiabiertos: `[validFrom, validTo)`.
@@ -403,14 +439,16 @@ declara que el ID existe y una tabla de **versiones** con atributos y vigencia.
 Sin esa separación, `security_versions.issuer_legal_entity_id` no tendría a qué
 apuntar: en una tabla versionada el mismo emisor aparece una vez por versión.
 
-| Nivel                 | Registro         | Versiones                |
-| --------------------- | ---------------- | ------------------------ |
-| entidad legal         | `legal_entities` | `legal_entity_versions`  |
-| security              | `securities`     | `security_versions`      |
-| listing               | `listings`       | `listing_versions`       |
-| símbolo               | —                | `listing_symbols`        |
-| identificador externo | —                | `identifier_assignments` |
-| pertenencia a índice  | —                | `index_memberships`      |
+| Nivel                  | Registro         | Versiones                    |
+| ---------------------- | ---------------- | ---------------------------- |
+| entidad legal          | `legal_entities` | `legal_entity_versions`      |
+| security               | `securities`     | `security_versions`          |
+| listing                | `listings`       | `listing_versions`           |
+| símbolo                | —                | `listing_symbols`            |
+| identificador externo  | —                | `identifier_assignments`     |
+| pertenencia a índice   | —                | `index_memberships`          |
+| corporate action       | —                | `corporate_actions`          |
+| vínculo entre emisores | —                | `legal_entity_relationships` |
 
 La clave primaria de cada versión es `(id, valid_from)`: su clave natural, sin
 surrogate inventado. Cerrar una versión es un update dirigido a esa clave y nunca
@@ -425,11 +463,20 @@ un borrado.
   (`identifier_assignments_authoritative_uidx`);
 - una security no está dos veces en el mismo índice a la vez.
 
+Desde `0006`, `corporate_actions` guarda el evento inmutable —una accession
+describe a lo sumo un evento de cada tipo— y `legal_entity_relationships` el vínculo
+versionado. Sus invariantes en PostgreSQL: antecesor distinto del sucesor, un solo
+antecesor de reporte abierto por sucesor y un solo sucesor por antecesor, y
+`valid_from` igual a `effective_on` a las 00:00 de Nueva York
+(`legal_entity_relationships_valid_from_check`).
+
 Todavía no tienen tabla, con su motivo: `depositary_programs` y
-`depositary_ratios` esperan a su fuente (`F6-04`); `corporate_actions` y
-`security_relationships` esperan a `F2-04`; `identity_resolution_runs`,
-`identity_candidates` e `identity_decisions` esperan a la primera decisión manual
-real. Los nombres, descripciones y clasificaciones tampoco se persisten: mezclar
+`depositary_ratios` esperan a su fuente (`F6-04`); `security_relationships` espera a
+las fusiones y spin-offs del incremento 3 de `F2-04`. La primera decisión manual
+real —la sucesión de ExxonMobil— se registró sin `identity_decisions`: la decisión
+vive en la declaración versionada del repositorio y el vínculo guarda `decided_by` y
+la versión de la regla que la verificó. `identity_resolution_runs` e
+`identity_candidates` siguen esperando a un caso con candidatos que elegir. Los nombres, descripciones y clasificaciones tampoco se persisten: mezclar
 una taxonomía sin registrar cuál es y en qué versión es exactamente lo que este
 documento prohíbe, y el mapeo a industria es `F3-05`.
 
@@ -455,6 +502,11 @@ colapsada, idempotencia, renombre historizado y salida del índice sin borrado.
 - ADR cuyo subyacente no es el listing primario esperado;
 - ✔ CEDEAR sobre acción (ADR y ETF siguen pendientes);
 - ✔ cambio de ratio depositario anunciado antes de su vigencia;
+- ✔ sucesión de emisor con cambio de CIK: vínculo invisible antes de la aceptación,
+  partición por vigencia, comparativos repetidos por los dos filers y ciclos
+  rechazados
+  ([`reporting-lineage.test.ts`](../../src/modules/corporate-actions/domain/reporting-lineage.test.ts),
+  [`plan-succession-recording.test.ts`](../../src/modules/corporate-actions/domain/plan-succession-recording.test.ts));
 - split, reverse split, merger, spin-off y delisting;
 - ✔ identificador ambiguo y conflicto de fuentes; el override manual sigue
   pendiente;

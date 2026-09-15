@@ -1024,3 +1024,142 @@ export const indexMemberships = pgTable(
     ),
   ],
 );
+
+export const corporateActionType = pgEnum("corporate_action_type", [
+  "successor_issuer",
+]);
+
+export const legalEntityRelationshipType = pgEnum(
+  "legal_entity_relationship_type",
+  ["reporting_successor"],
+);
+
+export const identityDecisionMaker = pgEnum("identity_decision_maker", [
+  "rule",
+  "owner",
+]);
+
+/**
+ * Corporate actions (`F2-04`): el evento inmutable que cambia una relación o una
+ * serie, con la presentación que lo hizo público.
+ *
+ * El sujeto es polimórfico como en `identifier_assignments` —una sucesión es de
+ * la entidad legal, un split será de la security— y reusa ese mismo tipo. La
+ * fecha efectiva es calendaria, la de la fuente; el instante de vigencia vive en
+ * la relación que el evento abre. Una accession describe a lo sumo un evento de
+ * cada tipo: una segunda descripción es un conflicto, no una fila más.
+ */
+export const corporateActions = pgTable(
+  "corporate_actions",
+  {
+    corporateActionId: uuid("corporate_action_id").primaryKey(),
+    actionType: corporateActionType("action_type").notNull(),
+    subjectType: identifierSubjectType("subject_type").notNull(),
+    subjectId: uuid("subject_id").notNull(),
+    announcedAt: timestamp("announced_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    effectiveOn: date("effective_on", { mode: "string" }).notNull(),
+    availableAt: timestamp("available_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+    sourceId: varchar("source_id", { length: 64 }).notNull(),
+    sourceDocumentId: varchar("source_document_id", { length: 256 }).notNull(),
+    terms: jsonb("terms")
+      .$type<Record<string, string>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    contentHash: text("content_hash").notNull(),
+    recordedAt: timestamp("recorded_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("corporate_actions_source_document_uidx").on(
+      table.sourceId,
+      table.sourceDocumentId,
+      table.actionType,
+    ),
+    index("corporate_actions_subject_idx").on(
+      table.subjectType,
+      table.subjectId,
+      table.effectiveOn,
+    ),
+    check(
+      "corporate_actions_content_hash_check",
+      sql`${table.contentHash} ~ '^[a-f0-9]{64}$'`,
+    ),
+    check(
+      "corporate_actions_announced_before_available_check",
+      sql`${table.announcedAt} is null or ${table.announcedAt} <= ${table.availableAt}`,
+    ),
+    check(
+      "corporate_actions_terms_object_check",
+      sql`jsonb_typeof(${table.terms}) = 'object'`,
+    ),
+  ],
+);
+
+/**
+ * Vínculos versionados entre entidades legales. Las dos puntas referencian el
+ * registro de la identidad, que es inmutable: un antecesor y un sucesor
+ * conservan sus IDs y nunca se funden (invariante 9 del modelo de identidad).
+ *
+ * `reporting_successor` es el único tipo que une historias de reporte. Los
+ * índices únicos parciales espejan lo que el linaje necesita para no tener que
+ * elegir: un solo antecesor abierto por sucesor y un solo sucesor abierto por
+ * antecesor. Los ciclos se rechazan en el dominio.
+ *
+ * `valid_from` es `effective_on` a las 00:00 de Nueva York: el check lo calcula
+ * con la base de zonas de PostgreSQL y rechaza cualquier otra lectura de la fecha,
+ * incluida medianoche UTC.
+ */
+export const legalEntityRelationships = pgTable(
+  "legal_entity_relationships",
+  {
+    relationshipId: uuid("relationship_id").notNull(),
+    relationshipType:
+      legalEntityRelationshipType("relationship_type").notNull(),
+    predecessorLegalEntityId: uuid("predecessor_legal_entity_id")
+      .notNull()
+      .references(() => legalEntities.legalEntityId),
+    successorLegalEntityId: uuid("successor_legal_entity_id")
+      .notNull()
+      .references(() => legalEntities.legalEntityId),
+    corporateActionId: uuid("corporate_action_id")
+      .notNull()
+      .references(() => corporateActions.corporateActionId),
+    effectiveOn: date("effective_on", { mode: "string" }).notNull(),
+    decidedBy: identityDecisionMaker("decided_by").notNull(),
+    decisionRuleVersion: varchar("decision_rule_version", {
+      length: 64,
+    }).notNull(),
+    ...temporalVersionColumns(),
+  },
+  (table) => [
+    primaryKey({
+      name: "legal_entity_relationships_pkey",
+      columns: [table.relationshipId, table.validFrom],
+    }),
+    uniqueIndex("legal_entity_relationships_successor_open_uidx")
+      .on(table.relationshipType, table.successorLegalEntityId)
+      .where(openVersion(table)),
+    uniqueIndex("legal_entity_relationships_predecessor_open_uidx")
+      .on(table.relationshipType, table.predecessorLegalEntityId)
+      .where(openVersion(table)),
+    index("legal_entity_relationships_predecessor_idx").on(
+      table.predecessorLegalEntityId,
+    ),
+    ...temporalVersionChecks("legal_entity_relationships", table),
+    check(
+      "legal_entity_relationships_distinct_entities_check",
+      sql`${table.predecessorLegalEntityId} <> ${table.successorLegalEntityId}`,
+    ),
+    check(
+      "legal_entity_relationships_valid_from_check",
+      sql`${table.validFrom} = (${table.effectiveOn}::timestamp at time zone 'America/New_York')`,
+    ),
+  ],
+);

@@ -25,6 +25,7 @@
     "db:migrate": "tsx --env-file=.env.local scripts/migrate.ts",
     "universe:constitute": "tsx --conditions=react-server --env-file=.env.local scripts/constitute-universe.ts",
     "fundamentals:ingest": "tsx --conditions=react-server --env-file=.env.local scripts/ingest-company-facts.ts",
+    "corporate-actions:record": "tsx --conditions=react-server --env-file=.env.local scripts/record-successions.ts",
     "db:up": "docker compose --env-file .env.docker.local up -d --wait",
     "db:down": "docker compose --env-file .env.docker.local down"
   },

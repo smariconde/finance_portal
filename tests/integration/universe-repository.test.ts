@@ -111,7 +111,10 @@ describe("universo S&P 500 sobre PostgreSQL", () => {
     database = drizzle(client, { schema });
     repository = createPostgresUniverseRepository(database);
 
-    // Estado conocido: el archivo constituye su propio universo desde cero.
+    // Estado conocido: el archivo constituye su propio universo desde cero. Los
+    // vínculos de sucesión referencian entidades legales, así que salen primero.
+    await database.delete(schema.legalEntityRelationships);
+    await database.delete(schema.corporateActions);
     await database.delete(schema.indexMemberships);
     await database.delete(schema.identifierAssignments);
     await database.delete(schema.listingSymbols);

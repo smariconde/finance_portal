@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
 import { parseArgs } from "node:util";
 
+import { resolveReportingLineage } from "@/modules/corporate-actions/domain/reporting-lineage";
 import { ingestCompanyFacts } from "@/modules/fundamentals/application/ingest-company-facts";
 import { createLiveCompanyFactsSource } from "@/modules/fundamentals/application/live-company-facts-source";
 import { SEC_CONCEPT_SELECTION_VERSION } from "@/modules/fundamentals/domain/sec-concept-selection";
@@ -16,6 +17,7 @@ import { DEMO_SOURCE_REGISTRY } from "@/modules/ingestion/infrastructure/demo-so
 import { pointInTimeQuerySchema } from "@/modules/temporal/domain/point-in-time-query";
 import { SP500_INDEX_ID } from "@/modules/universe/application/live-universe-source";
 import { getEgressClient } from "@/server/egress/get-egress-client";
+import { getCorporateActionRepository } from "@/server/persistence/get-corporate-action-repository";
 import { getIngestionRunRepository } from "@/server/persistence/get-ingestion-run-repository";
 import { getObservationRepository } from "@/server/persistence/get-observation-repository";
 import { getSourceDocumentRepository } from "@/server/persistence/get-source-document-repository";
@@ -34,8 +36,11 @@ import { getUniverseRepository } from "@/server/persistence/get-universe-reposit
  *   pnpm fundamentals:ingest --cik 320193 --apply
  *
  * El ticker se resuelve contra el grafo persistido y nunca se manda a la SEC: lo
- * que sale por la red es el CIK que el universo ya asignó. Todas las llamadas de
- * la corrida comparten un mismo ritmo —2 requests/s, de a una— y un presupuesto.
+ * que sale por la red es el CIK que el universo ya asignó. Si el emisor tiene
+ * antecesores de reporte registrados (`pnpm corporate-actions:record`), sus CIK se
+ * ingieren también, cada uno en su propia corrida y con su propio sujeto: la
+ * historia se une en la lectura, no acá. Todas las llamadas de la corrida
+ * comparten un mismo ritmo —2 requests/s, de a una— y un presupuesto.
  */
 const { values } = parseArgs({
   options: {
@@ -76,6 +81,16 @@ const cutoff = pointInTimeQuerySchema.parse({
 
 type Target = { readonly label: string; readonly cik: string };
 const targets: Target[] = [];
+const relationships = await getCorporateActionRepository().listRelationships();
+const cikByEntity = new Map(
+  state.graph.identifierAssignments
+    .filter(
+      (candidate) =>
+        candidate.identifierType === "cik" &&
+        candidate.subjectType === "legal_entity",
+    )
+    .map((candidate) => [candidate.subjectId, candidate.normalizedValue]),
+);
 
 for (const ticker of values.ticker) {
   const resolution = await identity.resolve({ symbol: ticker }, cutoff);
@@ -97,6 +112,28 @@ for (const ticker of values.ticker) {
   }
 
   targets.push({ label: ticker, cik: assignment.normalizedValue });
+
+  const lineage = resolveReportingLineage(
+    relationships,
+    assignment.subjectId,
+    cutoff,
+  );
+
+  for (const segment of lineage.segments.slice(1)) {
+    const predecessorCik = cikByEntity.get(segment.legalEntityId);
+
+    if (predecessorCik === undefined) {
+      console.error(
+        `${ticker}: el antecesor ${segment.legalEntityId} no tiene CIK en el grafo.`,
+      );
+      process.exit(2);
+    }
+
+    targets.push({
+      label: `${ticker} antecesor (hasta ${segment.reportsBefore})`,
+      cik: predecessorCik,
+    });
+  }
 }
 
 for (const cik of values.cik) {

@@ -8,7 +8,7 @@ Portal Financiero: a single-owner Next.js 16 portal for researching global compa
 
 The code is public; the data is not. The app is **personal-first**: it serves real data only from a private runtime, and there is no public demo deployment. See [ADR 0004](docs/architecture/adr/0004-personal-first-runtime.md).
 
-The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations, and a deterministic FCFF engine with its reference run exist. Universe backfill, corporate actions, market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads real observations yet; nothing may be presented in the UI as if it were.
+The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations, issuer succession with a read-time reporting lineage, and a deterministic FCFF engine with its reference run exist. Universe backfill, splits and the remaining corporate actions, market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads real observations yet; nothing may be presented in the UI as if it were.
 
 `AGENTS.md` holds the full contributor contract and takes precedence over this file where they overlap.
 
@@ -87,6 +87,18 @@ through the persisted graph) and `SEC_USER_AGENT`. Calls go out one at a time at
 2 requests/s with a per-run budget. Semantics —acceptance as `available_at`,
 vintages, subject resolved by CIK at download time, `year_to_date`— are in
 [ADR 0010](docs/architecture/adr/0010-sec-xbrl-ingestion.md).
+
+```bash
+pnpm corporate-actions:record           # dry run: verifies declared successions against SEC submissions
+pnpm corporate-actions:record --apply   # records predecessor entity, event and relationship
+```
+
+Also hand-run. A succession is **declared**, never detected: the owner adds the
+predecessor CIK, successor CIK and the `8-K12B`/`8-K12G3` accession to
+`declared-successions.ts`, and the job rejects by name whatever the filing index does
+not confirm. Predecessor facts keep their own subject; the history is joined at read
+time by `reporting-lineage-1.0.0`, and `fundamentals:ingest --ticker` also ingests the
+known predecessors' CIKs ([ADR 0011](docs/architecture/adr/0011-issuer-succession-reporting-lineage.md)).
 
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 

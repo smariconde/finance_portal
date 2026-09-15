@@ -24,21 +24,21 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 
 ## Tracker activo
 
-| Orden | Issue      | Estado     | Resultado verificable                                                                                                | Dependencias  |
-| ----: | ---------- | ---------- | -------------------------------------------------------------------------------------------------------------------- | ------------- |
-|     1 | `F1-01`    | `done`     | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos.         | Fase 0 `done` |
-|     2 | `F1-02`    | `done`     | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.              | `F1-01`       |
-|     3 | `F1-UI-01` | `done`     | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.                       | `F1-02`       |
-|     4 | `F1-03`    | `done`     | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.                       | `F1-UI-01`    |
-|     5 | `F1-04`    | `done`     | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.                  | `F1-03`       |
-|     6 | `F1-05`    | `done`     | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                              | `F1-04`       |
-|     7 | `F1-06`    | `done`     | Superficie de resultado y trazabilidad con fuentes, freshness, supuestos y sensibilidad accesibles.                  | `F1-05`       |
-|     8 | `F1-07`    | `done`     | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                                   | `F1-06`       |
-|     9 | `F1-08`    | `deferred` | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.                       | `F1-07`       |
-|    10 | `F2-01`    | `done`     | Acceso personal remoto habilitado en produccion, con los tests de frontera invertidos a proposito.                   | ADR 0008      |
-|    11 | `F2-02`    | `done`     | Universo S&P 500 con identidad completa: issuer, security, listing, simbolo vigente y CIK.                           | `F2-01`       |
-|    12 | `F2-03`    | `done`     | SEC EDGAR integrada: companyfacts publicado como observaciones point-in-time, con aceptación, vintages y cuarentena. | `F2-02`       |
-|    13 | `F2-04`    | `ready`    | Corporate actions con vigencia: splits, cambios de símbolo, sucesiones de CIK, delistings y fusiones.                | `F2-03`       |
+| Orden | Issue      | Estado        | Resultado verificable                                                                                                | Dependencias  |
+| ----: | ---------- | ------------- | -------------------------------------------------------------------------------------------------------------------- | ------------- |
+|     1 | `F1-01`    | `done`        | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos.         | Fase 0 `done` |
+|     2 | `F1-02`    | `done`        | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.              | `F1-01`       |
+|     3 | `F1-UI-01` | `done`        | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.                       | `F1-02`       |
+|     4 | `F1-03`    | `done`        | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.                       | `F1-UI-01`    |
+|     5 | `F1-04`    | `done`        | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.                  | `F1-03`       |
+|     6 | `F1-05`    | `done`        | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                              | `F1-04`       |
+|     7 | `F1-06`    | `done`        | Superficie de resultado y trazabilidad con fuentes, freshness, supuestos y sensibilidad accesibles.                  | `F1-05`       |
+|     8 | `F1-07`    | `done`        | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                                   | `F1-06`       |
+|     9 | `F1-08`    | `deferred`    | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.                       | `F1-07`       |
+|    10 | `F2-01`    | `done`        | Acceso personal remoto habilitado en produccion, con los tests de frontera invertidos a proposito.                   | ADR 0008      |
+|    11 | `F2-02`    | `done`        | Universo S&P 500 con identidad completa: issuer, security, listing, simbolo vigente y CIK.                           | `F2-01`       |
+|    12 | `F2-03`    | `done`        | SEC EDGAR integrada: companyfacts publicado como observaciones point-in-time, con aceptación, vintages y cuarentena. | `F2-02`       |
+|    13 | `F2-04`    | `in_progress` | Corporate actions con vigencia: splits, cambios de símbolo, sucesiones de CIK, delistings y fusiones.                | `F2-03`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -956,6 +956,173 @@ Límites que quedan declarados en la ADR: un cambio de parser sobre contenido id
 se rechaza como `ambiguous_revision` porque la versión del parser está en el hash de la
 observación desde `F1-04`; la sucesión de CIK es `F2-04`; lease, reanudación y refresh
 por CIK cambiado son `F2-05`; las golden fixtures reales son `F2-06`.
+
+<a id="f2-04"></a>
+
+#### `F2-04` — Corporate actions con vigencia
+
+- Estado: `in_progress` (desde 2026-09-14)
+- Fase y dependencia: Fase 2; `F2-03`
+- Alcance incluido, en tres incrementos que se cierran en este orden:
+  1. **sucesión de emisor**: una reorganización que cambia el CIK del filer une la
+     historia de reporte del antecesor con la del sucesor, sin reasignar hechos ni
+     adelantar conocimiento;
+  2. **splits**: una re-expresión por split se distingue de un restatement y las
+     series por acción se leen en una sola base (`latest_adjusted`);
+  3. **símbolos, delistings y fusiones**: la reconstitución del universo historiza
+     un cambio de ticker, una salida del mercado y una adquisición con evidencia
+     fechada.
+- Fuera de alcance: barrido del universo buscando sucesiones no declaradas
+  (`F2-05`, que ya recorre todos los `submissions`), versión de linaje dentro del
+  snapshot de valuación (Fase 6), comando permanente de inspección (`F2-06`),
+  programas depositarios (`F6-04`).
+
+Criterios de aceptación del incremento 1:
+
+- la sucesión se **declara** con el accession de su presentación y se **verifica**
+  contra `submissions` de los dos CIK; lo que no cierra se rechaza con nombre y no
+  se infiere un antecesor por nombre;
+- `available_at` del vínculo es la aceptación de la presentación de sucesión y su
+  vigencia es la fecha del evento que esa presentación declara;
+- los hechos del antecesor conservan su sujeto: la historia se une en la lectura,
+  y un `as_known` anterior a la aceptación no ve al antecesor;
+- el antecesor sólo aporta hechos de períodos anteriores a la vigencia, y ante un
+  mismo hecho reportado por los dos gana la vintage conocible más reciente;
+- registrar dos veces la misma sucesión no escribe una fila más, y reconstituir el
+  universo no abre ni cierra nada por ella;
+- ExxonMobil queda con su historia real unida sobre PostgreSQL personal.
+
+Criterios del incremento 3: se fijan al cerrar el incremento 2, con el cable
+medido, igual que la regla de verificación del incremento 1. Los del incremento 2
+están abajo, después de la evidencia del 1.
+
+Controles: `TM-05`, `TM-06`, `TM-16`.
+
+Sondeo del cable (2026-09-14), sin conservar payload, 4 requests: el sucesor
+`ExxonMobil Holdings Corp` (CIK 2115436) presenta un `8-K12B` con evento el
+2026-07-01 y aceptación 16:36:49Z; el antecesor `EXXON MOBIL CORP` (CIK 34088)
+presenta el mismo día un 8-K con ítem 3.01 y al siguiente un `25-NSE`. El 10-Q del
+segundo trimestre de 2026 es una **presentación conjunta** que figura en los dos
+índices, pero sus hechos XBRL están sólo en el `companyfacts` del sucesor: 269
+puntos, de los cuales 138 repiten un hecho del antecesor —los 138 con el mismo valor
+que su última vintage— y 131 son del trimestre nuevo. La historia del antecesor
+cubre de FY2009 a Q1 2026. Esto corrigió una regla antes de escribirla: el sucesor
+**sí** reporta períodos anteriores a la vigencia, así que lo verificable es que no
+tenga reportes periódicos aceptados antes de la presentación de sucesión.
+
+Entregado (2026-09-14) — incremento 1, sucesión de emisor:
+`src/modules/corporate-actions/` (declaración, verificación de evidencia, planner de
+registro, linaje de reporte, adaptador vivo, orquestador y lectura con linaje),
+`corporate_actions` y `legal_entity_relationships` en la migración `0006` con su
+rollback pareado, `src/server/db/postgres-corporate-action-repository.ts`, el
+selector `get-corporate-action-repository.ts` y el comando
+`pnpm corporate-actions:record`. Decisiones en la
+[ADR 0011](../architecture/adr/0011-issuer-succession-reporting-lineage.md).
+
+- **Declarada y verificada, no detectada.** `declared-successions.ts` cita los dos
+  CIK y el accession; `sec-succession-evidence-1.0.0` la contrasta con los índices de
+  los dos filers y rechaza con diez códigos nombrados. Lo que no cierra deja una
+  corrida `quarantined` con el código en el flag y no toca el grafo.
+- **Tiempo.** `available_at` del vínculo es la aceptación del `8-K12B`; `valid_from`
+  es la fecha del evento a las 00:00 de Nueva York, verificada en PostgreSQL por
+  `legal_entity_relationships_valid_from_check` con su base de zonas. Los días de
+  cambio de horario y la regla anterior a 2007 salen de esa base, no de una regla
+  escrita a mano.
+- **Identidad (`TM-06`).** El antecesor entra al grafo como entidad legal propia con
+  su CIK autoritativo; el sucesor conserva su ID. Un antecesor abierto por sucesor,
+  un sucesor por antecesor y ningún ciclo, en índices únicos parciales y en dominio.
+- **Linaje en la lectura.** `reporting-lineage-1.0.0` une segmentos que conservan su
+  `subject_id`: el antecesor aporta hechos anteriores a la vigencia y un hecho de dos
+  filers se resuelve por la revisión conocible más reciente. La ingesta por ticker
+  suma los CIK de los antecesores, cada uno en su corrida.
+- **Idempotencia y recuperación (`TM-11`, `TM-16`).** Registrar dos veces la misma
+  sucesión deja una corrida `duplicate` y ninguna fila de grafo; un registro cortado
+  después de anotar su corrida se completa bajo la corrida original.
+- **Pieza no prevista:** `parseSecSubmissions` devuelve el nombre del filer, sin
+  cuarentenar el índice si falta, porque el nombre legal del antecesor sale de la SEC
+  y no de la declaración.
+
+Verificación: `format:check`, `lint`, `typecheck`, 802 unit tests (715 + 87), 43
+integration tests contra PostgreSQL 17.11 (36 + 7), `build` con las cuatro rutas en
+`ƒ (Dynamic)` y 131 tests E2E pasan. El rollback de `0006` se verificó sobre una base
+descartable: quita tablas y tipos, y `0006` vuelve a aplicarse.
+
+Evidencia sobre datos reales (2026-09-14), en PostgreSQL personal:
+
+- **Registro:** 2 requests; antecesor `EXXON MOBIL CORP`, vigencia 2026-07-01,
+  `8-K12B` aceptada 16:36:49Z, último reporte previo el 10-Q al 2026-03-31. Escribió 1
+  entidad, 1 CIK, 1 evento, 1 vínculo y 1 documento. La segunda corrida quedó
+  `duplicate` y sólo sumó su propia fila de auditoría.
+- **Ingesta:** `--ticker XOM --apply` con 5 requests publicó 89 vintages del sucesor y
+  2.510 del antecesor, con 28 re-expresiones, 0 rechazos y 0 disponibilidades
+  inferidas.
+- **Linaje:** `us-gaap:Revenues` anual pasa de 0 ejercicios con el sucesor solo a 17
+  (FY2009 a FY2025), y `us-gaap:NetIncomeLoss` a 19. Sobre la selección completa se
+  ven 2.522 hechos, 2.433 del antecesor; los 49 que reportaron los dos filers tienen
+  el mismo valor y ninguno difiere. Un segundo antes de la aceptación del `8-K12B` el
+  linaje tiene un segmento; en la aceptación, dos. Los ingresos del segundo
+  trimestre de 2025 salen del antecesor consultados al 2026-08-01 y del sucesor hoy,
+  con el mismo valor y la disponibilidad de cada presentación.
+- **Universo:** planificar la constitución en memoria con el antecesor ya en el grafo
+  no abre ni cierra nada por la sucesión.
+
+Material para el incremento 3, encontrado al replanificar el universo contra la tabla
+viva de la SEC: el pin de la lista no cambió, pero la tabla sí. `BEN` pasó de
+`FRANKLIN RESOURCES INC` a `FRANKLIN TEMPLETON INC` —un renombre, que con el mismo pin
+se rechaza como `stale_effective_date` en vez de inventarle vigencia— y `KHC` pasó de
+`Nasdaq` a `NYSE`, un traspaso de mercado que el planner sólo puede nombrar como
+`unresolved_share_class`.
+
+##### Incremento 2 — splits (especificado el 2026-09-14, no iniciado)
+
+Problema medido en PostgreSQL personal: de las 150 re-expresiones de Apple, 71 tienen
+ratio de split (7 por el de 2014, 4 por el de 2020, 28 por los dos) y la cadena de
+revisión las trata igual que la 10-K/A de 2010. Bajo `latest_restated` el EPS básico
+anual mezcla tres bases: FY2008 6,94 (antes de los dos splits), FY2012 6,38 (sólo el
+7:1) y FY2019 2,99 (los dos). Cualquier cálculo por acción sobre esa serie da mal.
+
+Idea central a validar: la base de un valor por acción la decide **la presentación
+que lo reportó**, no el período. Por ASC 260 la primera presentación posterior al
+split ya viene ajustada, así que no hace falta la fecha efectiva exacta del split:
+alcanza con saber cuál fue la primera presentación en base nueva.
+
+Antes de escribir código:
+
+1. **Sondeo del cable** sobre Apple (7:1 en 2014, 4:1 en 2020) y NVIDIA (4:1 en 2021,
+   10:1 en 2024), con el patrón de siempre: qué presentaciones traen
+   `us-gaap:StockholdersEquityNoteStockSplitConversionRatio1`, con qué período y
+   valor, y si esa misma presentación re-expresa EPS y acciones con el mismo ratio.
+   Buscar también un reverse split real en el universo.
+2. **Enmienda de la ADR 0003:** `decimal.js` sólo se importa desde
+   `decimal-policy.ts` dentro de `src/modules/valuation/`, y ajustar por un ratio
+   exige aritmética decimal fuera de la valuación. Mover la política a un módulo
+   compartido es la primera pieza del incremento.
+3. **Decidir el sujeto del split.** Los hechos XBRL cuelgan de la entidad legal, pero
+   un split es de la security. Con una sola security por emisor el vínculo es
+   unívoco; Alphabet, Fox y News Corp tienen dos y hay que declarar qué pasa ahí en
+   vez de adivinarlo.
+
+Criterios de aceptación (borrador; se ajustan con lo que muestre el sondeo, como se
+corrigió la regla del incremento 1):
+
+- un split se registra como `corporate_action` `split` o `reverse_split` con ratio
+  exacto en dos decimales —nunca un `number` binario— y la presentación que lo prueba;
+  su `available_at` es la aceptación de la primera presentación en base nueva;
+- dos evidencias independientes —el concepto de ratio y la re-expresión coherente de
+  EPS y acciones en la misma presentación— lo confirman por regla; con una sola queda
+  `candidate` y no ajusta nada;
+- las filas publicadas no se reescriben: una re-expresión por split se clasifica en la
+  lectura, y de las 150 de Apple las 71 con ratio de split quedan marcadas y las 79
+  restantes no;
+- `latest_adjusted` devuelve el EPS de Apple FY2008, FY2012 y FY2019 en una sola base,
+  con la transformación versionada nombrada en cada fila; FY2012 vale 44,64 ÷ 28 =
+  1,594;
+- `as_known` no cambia: al 2014-05-01 el EPS básico de FY2012 sigue siendo 44,64;
+- un valor reportado por una presentación posterior a todos los splits conocidos sale
+  igual en `latest_adjusted` que en `latest_restated`.
+
+Fuera del incremento 2: precios y market cap (no hay datos de mercado), dividendos en
+acciones y spin-offs (incremento 3).
 
 | Issue   | Resultado y aceptación mínima                                                                                       | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |

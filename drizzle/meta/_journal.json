@@ -43,6 +43,13 @@
       "when": 1789413225040,
       "tag": "0005_fancy_lord_hawal",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789425211580,
+      "tag": "0006_lonely_zeigeist",
+      "breakpoints": true
     }
   ]
 }
