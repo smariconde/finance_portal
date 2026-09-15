@@ -99,16 +99,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-type PointResult =
+export type SecFactPointResult =
   | { readonly ok: true; readonly fact: SecReportedFact }
   | { readonly ok: false; readonly field: SecFactField };
 
-function readPoint(
+/**
+ * Un punto del cable XBRL de la SEC. `companyconcept` publica exactamente los
+ * mismos puntos que `companyfacts` —verificado el 2026-09-15 sobre los filers
+ * 320193 y 1045810—, así que los dos parsers comparten esta lectura.
+ */
+export function readSecFactPoint(
   taxonomy: string,
   concept: string,
   unit: string,
   point: unknown,
-): PointResult {
+): SecFactPointResult {
   if (!isRecord(point)) {
     return { ok: false, field: "point" };
   }
@@ -272,7 +277,7 @@ export function parseSecCompanyFacts(
         selectedPoints += unitPoints.length;
 
         unitPoints.forEach((point, index) => {
-          const result = readPoint(taxonomy, concept, unit, point);
+          const result = readSecFactPoint(taxonomy, concept, unit, point);
 
           if (result.ok) {
             facts.push(result.fact);

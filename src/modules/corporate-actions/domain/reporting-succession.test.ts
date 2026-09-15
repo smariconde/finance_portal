@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  corporateActionSchema,
   declaredSuccessionSchema,
   legalEntityRelationshipSchema,
   startOfNewYorkDay,
@@ -128,5 +129,71 @@ describe("legalEntityRelationshipSchema", () => {
         relationship({ successorLegalEntityId: ENTITY_A }),
       ).success,
     ).toBe(false);
+  });
+});
+
+describe("corporateActionSchema para splits", () => {
+  function action(overrides: Record<string, unknown> = {}) {
+    return {
+      corporateActionId: "00000000-0000-4000-8000-0000000000c2",
+      actionType: "split",
+      subjectType: "legal_entity",
+      subjectId: ENTITY_A,
+      announcedAt: null,
+      effectiveOn: "2024-12-31",
+      availableAt: "2025-02-20T21:00:00.000Z",
+      sourceId: "sec-edgar",
+      sourceDocumentId: "0000000073-25-000010",
+      terms: { ratio: "4" },
+      contentHash: "a".repeat(64),
+      recordedAt: "2025-09-15T12:00:00.000Z",
+      ...overrides,
+    };
+  }
+
+  it.each([
+    ["split", "4"],
+    ["split", "1.5"],
+    ["split", "1.0001"],
+    ["reverse_split", "0.1"],
+    ["reverse_split", "0.3333"],
+  ])("acepta un %s con ratio %s", (actionType, ratio) => {
+    expect(
+      corporateActionSchema.safeParse(action({ actionType, terms: { ratio } }))
+        .success,
+    ).toBe(true);
+  });
+
+  it.each([
+    ["split", "1", "un split de uno no cambia nada"],
+    ["split", "1.000", "tampoco escrito con ceros"],
+    ["split", "0.5", "un ratio menor que uno es reverse"],
+    ["reverse_split", "2", "un ratio mayor que uno es split"],
+    ["reverse_split", "0", "cero no es un ratio"],
+    ["split", "1e1", "notación exponencial"],
+    ["split", "-4", "negativo"],
+  ])("rechaza un %s con ratio %s (%s)", (actionType, ratio) => {
+    expect(
+      corporateActionSchema.safeParse(action({ actionType, terms: { ratio } }))
+        .success,
+    ).toBe(false);
+  });
+
+  it("exige el ratio y la entidad legal como sujeto", () => {
+    expect(corporateActionSchema.safeParse(action({ terms: {} })).success).toBe(
+      false,
+    );
+    expect(
+      corporateActionSchema.safeParse(action({ subjectType: "security" }))
+        .success,
+    ).toBe(false);
+  });
+
+  it("una sucesión no necesita ratio", () => {
+    expect(
+      corporateActionSchema.safeParse(
+        action({ actionType: "successor_issuer", terms: { form: "8-K12B" } }),
+      ).success,
+    ).toBe(true);
   });
 });

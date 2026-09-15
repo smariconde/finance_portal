@@ -228,7 +228,8 @@ Reglas:
 - `latest_restated` es una vista actual explícita; no puede etiquetarse como
   point-in-time histórico.
 - `latest_adjusted` puede aplicar splits/corporate actions conocidos hoy a una
-  serie histórica, pero debe mostrar la base y transformación.
+  serie histórica, pero debe mostrar la base y transformación. «Hoy» es el corte de
+  la consulta: ver [Base accionaria](#base-accionaria).
 - Una valuación o screening guarda el query completo, no sólo `as_of`.
 - No hay defaults silenciosos entre vista original y restated.
 
@@ -282,6 +283,35 @@ la historia del antecesor se lee junto a la del sucesor sin reasignar sujetos
 
 Un `as_known` anterior a la aceptación de la sucesión devuelve la historia del
 sucesor sola, aunque el antecesor ya haya presentado todo lo que presentó.
+
+### Base accionaria
+
+`adjustmentPolicy` decide en qué base se expresa un valor en acciones o por acción
+(`split-adjustment-1.0.0`,
+[ADR 0012](../architecture/adr/0012-stock-splits-share-basis.md)):
+
+1. las revisiones se eligen siempre con la base reportada; `queryObservations`
+   rechaza `latest_adjusted` con `unsupported_revision_policy` porque no conoce los
+   splits, y la lectura ajustada pasa por el linaje;
+2. con `as_known` cada valor queda en la base de la presentación que lo publicó;
+3. con `latest_adjusted` cada valor sensible se multiplica —acciones— o divide —por
+   acción— por el producto de los ratios de los splits confirmados cuya presentación
+   es posterior a la de su vintage y conocible en el corte: `available_at <= known_at`
+   y, bajo `system_recorded`, `recorded_at <= known_at`. La presentación del split ya
+   está en base nueva; otra del mismo instante es `ambiguous_share_basis`;
+4. la base es la del corte de conocimiento, no la de `effective_at`: la fecha efectiva
+   filtra hechos y no deshace splits;
+5. cada fila sensible nombra la transformación y su factor —`1` si ya estaba en
+   base—, conserva la observación publicada y un valor faltante sigue faltando;
+6. cada revisión se clasifica `original`, `restatement` o `split_reexpression`: es de
+   split si difiere de la anterior exactamente por los splits publicados entre las dos,
+   dentro del redondeo del filer;
+7. una fila sensible de un antecesor del linaje no se lleva a la base del sucesor sin
+   la conversión de acciones de la sucesión (`adjustment_across_succession`).
+
+Un `as_known` anterior a la presentación del split lo ignora aunque el split ya haya
+ocurrido: al 2014-05-01 el EPS básico FY2012 de Apple vale 44,64 con las dos
+políticas.
 
 ## Semántica por dominio
 
@@ -547,10 +577,25 @@ El ejemplo es ficticio y existe únicamente para probar la semántica.
   segundo trimestre de 2025 salen del antecesor antes del 10-Q conjunto y del sucesor
   después, con el mismo valor.
 
+El incremento 2 de `F2-04` sumó los splits y la base accionaria:
+
+- [`share-basis`, `verify-split-evidence`, `plan-split-recording` y `split-adjustment`](../../src/modules/corporate-actions/domain/):
+  conceptos sensibles, coherencia, confirmación con dos evidencias de la misma
+  presentación y lectura `latest_adjusted`;
+- `split` y `reverse_split` en [`corporate_actions`](../../src/server/db/schema.ts),
+  con `corporate_actions_split_terms_check`;
+- verificado sobre Apple en PostgreSQL personal: de 150 re-expresiones, 71 son de split
+  y 79 no; un segundo antes de la aceptación del 10-Q del 2014-07-23 el promedio de
+  acciones FY2012 vale 934.818.000 y en la aceptación, con el 7:1 aplicado,
+  6.543.726.000, el mismo valor que Apple re-expresó después.
+
 Queda deferido y no debe presentarse como disponible:
 
-- splits, cambios de símbolo, traspasos de mercado, delistings y fusiones, que son
-  los incrementos 2 y 3 de `F2-04`;
+- cambios de símbolo, traspasos de mercado, delistings y fusiones, que son el
+  incremento 3 de `F2-04`;
+- la confirmación declarada de un split que la regla deja candidato —Duke Energy y
+  Citigroup declaran su reverse split años después de re-expresar—: hasta entonces su
+  serie por acción anterior al split sigue en la base vieja bajo `latest_adjusted`;
 - el constraint de exclusión temporal por rango: exige la extensión `btree_gist`
   y por lo tanto un ADR propio. Hoy el no solapamiento se prueba en dominio con
   `assertNoOverlappingVersions` y en PostgreSQL sólo para el caso peligroso —dos

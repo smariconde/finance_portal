@@ -8,7 +8,7 @@ Portal Financiero: a single-owner Next.js 16 portal for researching global compa
 
 The code is public; the data is not. The app is **personal-first**: it serves real data only from a private runtime, and there is no public demo deployment. See [ADR 0004](docs/architecture/adr/0004-personal-first-runtime.md).
 
-The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations, issuer succession with a read-time reporting lineage, and a deterministic FCFF engine with its reference run exist. Universe backfill, splits and the remaining corporate actions, market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads real observations yet; nothing may be presented in the UI as if it were.
+The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, and a deterministic FCFF engine with its reference run exist. Universe backfill, symbol changes, venue transfers, delistings and mergers, market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads real observations yet; nothing may be presented in the UI as if it were.
 
 `AGENTS.md` holds the full contributor contract and takes precedence over this file where they overlap.
 
@@ -99,6 +99,22 @@ predecessor CIK, successor CIK and the `8-K12B`/`8-K12G3` accession to
 not confirm. Predecessor facts keep their own subject; the history is joined at read
 time by `reporting-lineage-1.0.0`, and `fundamentals:ingest --ticker` also ingests the
 known predecessors' CIKs ([ADR 0011](docs/architecture/adr/0011-issuer-succession-reporting-lineage.md)).
+
+```bash
+pnpm corporate-actions:splits --ticker AAPL           # dry run: one companyconcept request, evaluates and plans
+pnpm corporate-actions:splits --ticker AAPL --apply   # records confirmed splits and the run
+```
+
+Also hand-run, **after** `fundamentals:ingest --apply`: the second piece of evidence is
+the filer's already-published facts, and without them the job does not reach the
+network. A split is **confirmed by rule**, never declared: the same filing must state
+the ratio and re-express at least one EPS and one share count by it; anything with a
+single piece of evidence stays a named candidate and adjusts nothing. Splits hang off
+the legal entity, and `latest_adjusted` reads restate per-share values into the latest
+basis known at the cutoff without rewriting rows; `queryObservations` rejects that
+policy, so adjusted reads go through `readLineageObservations`
+([ADR 0012](docs/architecture/adr/0012-stock-splits-share-basis.md)). `decimal.js` is
+imported only by `src/modules/numeric/domain/decimal-policy.ts`, enforced by ESLint.
 
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 

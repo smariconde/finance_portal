@@ -128,6 +128,18 @@ export function queryObservations(
   selector: ObservationSelector,
   query: PointInTimeQuery,
 ): Observation[] {
+  // Este dominio no conoce corporate actions. Devolver valores sin ajustar bajo
+  // `latest_adjusted` sería el default silencioso que el contrato prohíbe: esa
+  // lectura pasa por `src/modules/corporate-actions/`, que elige revisiones con
+  // `as_known` y después aplica los splits (ADR 0012).
+  if (query.adjustmentPolicy !== "as_known") {
+    throw new TemporalContractError(
+      "unsupported_revision_policy",
+      "Observation selection does not apply corporate actions; read latest_adjusted through the corporate-action read.",
+      [query.adjustmentPolicy],
+    );
+  }
+
   const parsedSelector = observationSelectorSchema.parse(selector);
   const metricIds =
     parsedSelector.metricIds === undefined

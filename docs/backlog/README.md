@@ -992,9 +992,8 @@ Criterios de aceptación del incremento 1:
   universo no abre ni cierra nada por ella;
 - ExxonMobil queda con su historia real unida sobre PostgreSQL personal.
 
-Criterios del incremento 3: se fijan al cerrar el incremento 2, con el cable
-medido, igual que la regla de verificación del incremento 1. Los del incremento 2
-están abajo, después de la evidencia del 1.
+Los criterios de los incrementos 2 y 3 están abajo: cada uno se fijó al cerrar el
+anterior, con el cable medido, igual que la regla de verificación del incremento 1.
 
 Controles: `TM-05`, `TM-06`, `TM-16`.
 
@@ -1073,7 +1072,7 @@ se rechaza como `stale_effective_date` en vez de inventarle vigencia— y `KHC` 
 `Nasdaq` a `NYSE`, un traspaso de mercado que el planner sólo puede nombrar como
 `unresolved_share_class`.
 
-##### Incremento 2 — splits (especificado el 2026-09-14, no iniciado)
+##### Incremento 2 — splits (especificado el 2026-09-14, entregado el 2026-09-15)
 
 Problema medido en PostgreSQL personal: de las 150 re-expresiones de Apple, 71 tienen
 ratio de split (7 por el de 2014, 4 por el de 2020, 28 por los dos) y la cadena de
@@ -1123,6 +1122,158 @@ corrigió la regla del incremento 1):
 
 Fuera del incremento 2: precios y market cap (no hay datos de mercado), dividendos en
 acciones y spin-offs (incremento 3).
+
+Entregado (2026-09-15) — incremento 2, splits: `src/modules/numeric/` (la política
+decimal compartida), `share-basis`, `verify-split-evidence`, `plan-split-recording` y
+`split-adjustment` en `src/modules/corporate-actions/domain/`; el puerto, el adaptador
+vivo y el orquestador `record-splits` en `application/`; `parse-sec-company-concept`
+en `src/modules/fundamentals/domain/`; `split` y `reverse_split` con
+`corporate_actions_split_terms_check` en la migración `0007` con su rollback pareado;
+el dataset `sec.companyconcept` en el registro de fuentes y el comando
+`pnpm corporate-actions:splits`. Decisiones en la
+[ADR 0012](../architecture/adr/0012-stock-splits-share-basis.md) y en la enmienda de la
+[ADR 0003](../architecture/adr/0003-decimal-arithmetic-valuation-engine.md).
+
+Lo que el sondeo cambió antes de escribir la regla (2026-09-15, sin conservar
+payload): el ratio **no alcanza solo** —Alphabet lo declara en el 10-Q de abril de
+2022, tres meses antes del split y con los valores en base vieja; Carvana declara
+`0.0556` y Citizens `6` sin ningún split—; su **fecha no es la del split** —NVIDIA
+asocia el 4:1 al 2021-06-03 y después al 2021-07-19—; `companyconcept` publica
+exactamente los mismos puntos que `companyfacts`; y el EPS re-expresado trae el
+redondeo de centavos del filer.
+
+Los tres puntos que la especificación dejaba abiertos:
+
+1. **Sondeo:** hecho arriba. Reverse splits reales del universo: Citigroup `0.1`,
+   Duke Energy `0.3333` y Howmet `0.33`; Motorola Solutions y AIG no etiquetan el
+   concepto.
+2. **Enmienda de la ADR 0003:** la política vive en `src/modules/numeric/` y cada
+   consumidor liga su error con `createDecimalOperations`; la valuación no cambió un
+   import, y una regla de ESLint hace estructural que un solo archivo importe
+   `decimal.js`.
+3. **Sujeto:** la entidad legal, con `terms.scope = filer_reported_shares`. El
+   concepto llega sin dimensiones y afirma que cambió la base que ese filer reporta,
+   no qué clase se dividió; así Alphabet no queda afuera por una decisión que el cable
+   no permite tomar.
+
+Criterios, contra lo que se entregó:
+
+- **Registro con ratio exacto y presentación que lo prueba.** `split` o
+  `reverse_split` sobre la entidad legal, ratio como texto exacto en `terms` y la
+  accession confirmante como `source_document_id`; `available_at` es su aceptación y
+  `effective_on` el cierre del primer período en base nueva. PostgreSQL rechaza un
+  ratio uno, un ratio que no es decimal canónico —sin romper el cast—, un reverse split
+  mayor que uno y un split sobre una security.
+- **Dos evidencias; con una sola, `candidate` que no ajusta nada.** El ratio y la
+  re-expresión de al menos un EPS y al menos un conteo de acciones en la **misma**
+  presentación. Lo que no cierra queda con diez motivos nombrados; lo que repite el
+  ratio corrobora al split vecino con el mismo ratio.
+- **Las filas publicadas no se reescriben y la re-expresión se clasifica en la
+  lectura.** Sobre Apple en PostgreSQL personal: **150 re-expresiones, 71
+  `split_reexpression` y 79 no**; sin splits registrados, las 150 parecen
+  restatements.
+- **`latest_adjusted` en una sola base, con la transformación nombrada.** EPS básico
+  FY2008 0,2479 (×28), FY2012 1,595 (×4), FY2019 2,99 (×1), cada fila con
+  `split-adjustment-1.0.0` y su factor. **Corrección del borrador:** FY2012 no es
+  44,64 ÷ 28 = 1,594 sino 6,38 ÷ 4 = 1,595. `latest_restated` elige la revisión más
+  reciente, que es la re-expresión que Apple publicó en el 10-K de 2014 ya redondeada a
+  centavos; partir del 44,64 original ignoraría la política de revisión.
+- **`as_known` no cambia.** Al 2014-05-01 el EPS básico FY2012 es 44,64 con la base
+  reportada y también con `latest_adjusted`, porque el split todavía no era
+  conocible.
+- **Un valor posterior a todos los splits sale igual en las dos políticas.** FY2023
+  6,16 con factor 1.
+
+Verificación: `format:check`, `lint`, `typecheck`, 924 unit tests (802 + 122), 51
+integration tests contra PostgreSQL 17.11 (43 + 8), `build` con las cuatro rutas en
+`ƒ (Dynamic)` y 131 tests E2E pasan. El rollback de `0007` se verificó sobre una base
+descartable: con un split registrado falla y deshace todo, sin él reconstruye el tipo y
+quita el check, y `0007` vuelve a aplicarse. `queryObservations` ahora rechaza
+`latest_adjusted` con `unsupported_revision_policy` en vez de devolver la base
+reportada en silencio, y la corrida de referencia conserva sus dos hashes con la
+política compartida.
+
+Evidencia sobre datos reales (2026-09-15), en PostgreSQL personal, con `0007` aplicada:
+
+- **Apple:** 1 request. 7:1 confirmado en el 10-Q aceptado el 2014-07-23 20:32:48Z
+  —4 EPS y 4 acciones, 1 outlier: la corrección de escala de 899.213 a 6.294.494.000—
+  y 4:1 en el 10-K del 2020-10-29 22:06:25Z —18 EPS, 5 acciones, 0 outliers—; las
+  otras cinco presentaciones corroboran. La segunda corrida queda `duplicate` y no
+  escribe nada. Un segundo antes de la aceptación del 10-Q de 2014 el promedio de
+  acciones FY2012 vale 934.818.000; en la aceptación, ×7 = 6.543.726.000, el mismo
+  valor que Apple re-expresó después.
+- **NVIDIA** (ingerida en esta sesión, 3.541 vintages): 4:1 en el 10-Q del 2021-08-20 y
+  10:1 en el del 2024-08-28, 4 EPS y 4 acciones cada uno. De sus 107 re-expresiones
+  sensibles, 58 son del split; las 49 restantes son restatements reales —correcciones
+  de escala ×0,001 y ×1.000 en 2009–2012, redondeo a millones, la adopción de
+  ASU 2016-09 y un acumulado de 2017 mal etiquetado que va y vuelve—. El EPS diluido
+  anual queda ×40 antes de 2021, ×10 entre los splits y ×1 después.
+- **Alphabet** (ingerida en esta sesión): 20:1 confirmado en el 10-Q del 2022-07-27, no
+  en el de abril, que corrobora como anuncio; los dos ratios `2` de 2016 —el dividendo
+  en acciones de Google de 2014, reportado por otro CIK— quedan candidatos. 15 de sus
+  15 re-expresiones sensibles son del split.
+- **Duke Energy** (ingerida en esta sesión): el reverse split 1:3 de 2012 queda
+  `candidate` con `ratio_declared_after_reexpression`. El `0.3333` aparece recién en el
+  10-K de 2014 y el job nombra la primera presentación en base nueva, el 10-Q del
+  2012-08-08, que publicó las acciones divididas por tres sin re-expresar el EPS; la
+  primera con EPS y acciones es la del 2012-11-08, y nombrarla habría ajustado dos
+  veces las acciones de agosto.
+
+Límites declarados en la ADR: un split que la regla no confirma no ajusta nada y la
+lectura no lo advierte fila por fila (Duke y Citigroup necesitan una confirmación
+declarada que hoy no existe); un ratio redondeado se aplica como se declaró; la lectura
+no sabe si el job corrió para el emisor, así que va después de cada ingesta hasta
+`F2-05`; una fila sensible de un antecesor falla bajo `latest_adjusted` porque la
+conversión de acciones de la sucesión no está registrada.
+
+##### Incremento 3 — símbolos, traspasos, delistings y fusiones (especificado el 2026-09-15, no iniciado)
+
+Material medido al cerrar el incremento 2, 3 requests de `submissions` sin conservar
+payload:
+
+- **Renombre:** BEN publica `formerNames` con `FRANKLIN RESOURCES INC` hasta
+  2026-08-14T04:00Z y un 8-K con ítem 5.03 el 2026-07-31. Con el mismo pin de la lista,
+  la reconstitución ya lo rechaza como `stale_effective_date` en vez de inventarle
+  vigencia (incremento 1).
+- **Traspaso de mercado:** KHC presenta un 8-K con ítem 3.01 el 2026-08-26 y un Form
+  `25` el 2026-09-08, pero `submissions.exchanges` **todavía dice Nasdaq** mientras la
+  tabla de tickers de la SEC ya dice NYSE: las dos fuentes no cambian el mismo día.
+- **Cambio de ticker sin rastro en `submissions`:** META trae `Facebook Inc` hasta
+  2021-10-27 en `formerNames`, pero el paso de FB a META de 2022 no figura: `tickers`
+  sólo publica el vigente.
+
+Antes de escribir código:
+
+1. **Sondeo de la historia de símbolos:** qué fuente fechada prueba un cambio de
+   ticker que `submissions` no guarda —el historial del paquete de constituyentes por
+   commit, el Form 25 del listing viejo, el 8-K— sobre META, BEN y un delisting por
+   adquisición real del universo.
+2. **Decidir el evento de un traspaso:** si el Form 25 del mercado viejo y el primer
+   día en el nuevo alcanzan para cerrar un listing y abrir otro sin inventar la fecha
+   intermedia, y qué pasa mientras las dos fuentes de la SEC no coinciden.
+3. **Decidir cuándo una fusión une historias:** una adquisición no entra al linaje de
+   reporte (ADR 0011); hay que declarar qué vínculo registra y qué lectura lo usa.
+
+Criterios de aceptación (borrador; se ajustan con lo que muestre el sondeo):
+
+- un renombre abre una versión nueva de la entidad legal con la fecha de `formerNames`
+  y la presentación que lo acompaña; la versión anterior conserva su nombre y un
+  `as_known` anterior no ve el nuevo;
+- un cambio de ticker abre un `listing_symbol` nuevo y cierra el anterior en el mismo
+  instante, con evidencia fechada; sin evidencia fechada se rechaza con nombre en vez
+  de tomar la fecha de la corrida;
+- un traspaso de mercado cierra el listing en el MIC viejo y abre otro en el nuevo sin
+  reciclar el ID de la security; mientras la tabla de tickers y `submissions`
+  discrepan, la reconstitución no decide y lo nombra;
+- un delisting cierra el listing con la fecha del Form 25 o `25-NSE` y no deslista la
+  security de otros mercados ni borra su membresía histórica;
+- una adquisición registra un vínculo que **no** une historias de reporte, y la lectura
+  del adquirente no ve los hechos del adquirido;
+- reconstituir dos veces el mismo estado no abre ni cierra nada.
+
+Fuera del incremento 3: dividendos en acciones y spin-offs con reparto de base
+(evaluar contra el cable antes de sumarlos), confirmación declarada de splits
+candidatos, precios y market cap.
 
 | Issue   | Resultado y aceptación mínima                                                                                       | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |

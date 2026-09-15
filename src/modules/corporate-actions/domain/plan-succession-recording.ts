@@ -8,6 +8,7 @@ import {
 import { computeContentHash } from "@/modules/ingestion/domain/content-hash";
 
 import {
+  computeCorporateActionContentHash,
   corporateActionSchema,
   legalEntityRelationshipSchema,
   startOfNewYorkDay,
@@ -107,25 +108,6 @@ function hashRelationshipContent(
     sourceDocumentId: relationship.sourceDocumentId,
     decidedBy: relationship.decidedBy,
     decisionRuleVersion: relationship.decisionRuleVersion,
-  });
-}
-
-function hashCorporateActionContent(
-  action: Omit<
-    CorporateAction,
-    "corporateActionId" | "contentHash" | "recordedAt"
-  >,
-): string {
-  return computeContentHash({
-    actionType: action.actionType,
-    subjectType: action.subjectType,
-    subjectId: action.subjectId,
-    announcedAt: action.announcedAt,
-    effectiveOn: action.effectiveOn,
-    availableAt: action.availableAt,
-    sourceId: action.sourceId,
-    sourceDocumentId: action.sourceDocumentId,
-    terms: action.terms,
   });
 }
 
@@ -349,7 +331,7 @@ export function planSuccessionRecording(
       successorCik: declaration.successorCik,
     },
   };
-  const actionHash = hashCorporateActionContent(actionBase);
+  const actionHash = computeCorporateActionContentHash(actionBase);
   const existingAction = corporateActions.find(
     (action) =>
       action.actionType === actionBase.actionType &&

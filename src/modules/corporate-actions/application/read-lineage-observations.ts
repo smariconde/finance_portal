@@ -12,7 +12,8 @@ import {
 import type { CorporateActionRepository } from "./corporate-action-repository";
 
 /**
- * Lectura de observaciones de un emisor con su linaje de reporte.
+ * Lectura de observaciones de un emisor con su linaje de reporte y, si la consulta
+ * lo pide, en la última base accionaria conocible (`latest_adjusted`).
  *
  * Las métricas son obligatorias: el repositorio lee por sujeto con techo y un
  * linaje multiplica las filas por segmento. Si un segmento llena el techo, la
@@ -58,6 +59,12 @@ export async function readLineageObservations(
     lineageReadRequestSchema.parse(request);
   const relationships = await dependencies.corporateActions.listRelationships();
   const lineage = resolveReportingLineage(relationships, legalEntityId, query);
+  // Los splits se leen siempre, también con `as_known`: la clasificación de cada
+  // revisión los usa aunque ningún valor se ajuste.
+  const splits = await dependencies.corporateActions.listCorporateActions({
+    subjectIds: lineage.segments.map((segment) => segment.legalEntityId),
+    actionTypes: ["split", "reverse_split"],
+  });
 
   const rows = [];
 
@@ -81,5 +88,6 @@ export async function readLineageObservations(
     lineage,
     { metricIds, periodType, currency },
     query,
+    splits,
   );
 }

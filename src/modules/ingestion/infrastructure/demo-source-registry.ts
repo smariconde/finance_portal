@@ -89,7 +89,12 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         "https://www.sec.gov/search-filings/edgar-application-programming-interfaces",
         "https://www.sec.gov/search-filings/edgar-search-assistance/accessing-edgar-data",
       ],
-      datasets: ["sec.submissions", "sec.companyfacts", "sec.frames"],
+      datasets: [
+        "sec.submissions",
+        "sec.companyfacts",
+        "sec.companyconcept",
+        "sec.frames",
+      ],
       endpoints: [],
       authentication: "none",
       applicablePlan: null,

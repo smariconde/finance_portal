@@ -1,6 +1,6 @@
 import "server-only";
 
-import { asc } from "drizzle-orm";
+import { and, asc, inArray, or } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 
 import {
@@ -9,10 +9,12 @@ import {
   summarizeSuccessionPlan,
   type CorporateActionRepository,
 } from "@/modules/corporate-actions/application/corporate-action-repository";
+import type { SplitRecordingPlan } from "@/modules/corporate-actions/domain/plan-split-recording";
 import type { SuccessionRecordingPlan } from "@/modules/corporate-actions/domain/plan-succession-recording";
 import {
   corporateActionSchema,
   legalEntityRelationshipSchema,
+  type CorporateAction,
 } from "@/modules/corporate-actions/domain/reporting-succession";
 import {
   identifierAssignmentSchema,
@@ -70,10 +72,30 @@ export function createPostgresCorporateActionRepository(
       );
     },
     async listCorporateActions(query) {
-      const { limit } = corporateActionListQuerySchema.parse(query ?? {});
+      const { limit, subjectIds, sourceDocumentIds, actionTypes } =
+        corporateActionListQuerySchema.parse(query ?? {});
+      const scope = [
+        subjectIds === undefined
+          ? undefined
+          : inArray(schema.corporateActions.subjectId, subjectIds),
+        sourceDocumentIds === undefined
+          ? undefined
+          : inArray(
+              schema.corporateActions.sourceDocumentId,
+              sourceDocumentIds,
+            ),
+      ].filter((condition) => condition !== undefined);
       const rows = await database
         .select()
         .from(schema.corporateActions)
+        .where(
+          and(
+            actionTypes === undefined
+              ? undefined
+              : inArray(schema.corporateActions.actionType, actionTypes),
+            scope.length === 0 ? undefined : or(...scope),
+          ),
+        )
         .orderBy(asc(schema.corporateActions.corporateActionId))
         .limit(limit + 1);
 
@@ -164,25 +186,9 @@ export function createPostgresCorporateActionRepository(
         }
 
         if (actions.length > 0) {
-          await transaction.insert(schema.corporateActions).values(
-            actions.map((action) => ({
-              corporateActionId: action.corporateActionId,
-              actionType: action.actionType,
-              subjectType: action.subjectType,
-              subjectId: action.subjectId,
-              announcedAt:
-                action.announcedAt === null
-                  ? null
-                  : new Date(action.announcedAt),
-              effectiveOn: action.effectiveOn,
-              availableAt: new Date(action.availableAt),
-              sourceId: action.sourceId,
-              sourceDocumentId: action.sourceDocumentId,
-              terms: action.terms,
-              contentHash: action.contentHash,
-              recordedAt: new Date(action.recordedAt),
-            })),
-          );
+          await transaction
+            .insert(schema.corporateActions)
+            .values(actions.map(toCorporateActionRow));
         }
 
         if (relationships.length > 0) {
@@ -204,5 +210,40 @@ export function createPostgresCorporateActionRepository(
 
       return summarizeSuccessionPlan(plan);
     },
+    async applySplitPlan(plan: SplitRecordingPlan) {
+      const actions = plan.corporateActions.map((action) =>
+        corporateActionSchema.parse(action),
+      );
+
+      if (plan.status !== "planned" || actions.length === 0) {
+        return { corporateActions: 0 };
+      }
+
+      await database.transaction(async (transaction) => {
+        await transaction
+          .insert(schema.corporateActions)
+          .values(actions.map(toCorporateActionRow));
+      });
+
+      return { corporateActions: actions.length };
+    },
+  };
+}
+
+function toCorporateActionRow(action: CorporateAction) {
+  return {
+    corporateActionId: action.corporateActionId,
+    actionType: action.actionType,
+    subjectType: action.subjectType,
+    subjectId: action.subjectId,
+    announcedAt:
+      action.announcedAt === null ? null : new Date(action.announcedAt),
+    effectiveOn: action.effectiveOn,
+    availableAt: new Date(action.availableAt),
+    sourceId: action.sourceId,
+    sourceDocumentId: action.sourceDocumentId,
+    terms: action.terms,
+    contentHash: action.contentHash,
+    recordedAt: new Date(action.recordedAt),
   };
 }

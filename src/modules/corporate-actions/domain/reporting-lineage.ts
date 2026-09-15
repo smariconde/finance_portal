@@ -11,7 +11,15 @@ import {
   isKnownAt,
 } from "@/modules/temporal/domain/temporal-version";
 
-import type { LegalEntityRelationship } from "./reporting-succession";
+import type {
+  CorporateAction,
+  LegalEntityRelationship,
+} from "./reporting-succession";
+import {
+  buildBasisRows,
+  SPLIT_ADJUSTMENT_VERSION,
+  type BasisRow,
+} from "./split-adjustment";
 
 /**
  * Linaje de reporte: la historia de un emisor unida a la de sus antecesores de
@@ -133,7 +141,17 @@ export type LineageSelector = Omit<
 
 export type LineageObservationSelection = {
   readonly lineage: ReportingLineage;
+  /** Filas publicadas elegidas, intactas. */
   readonly observations: readonly Observation[];
+  /**
+   * Las mismas filas con su valor en la base pedida por `adjustmentPolicy`, la
+   * transformación aplicada y el tipo de revisión. Es lo que consume un cálculo.
+   */
+  readonly rows: readonly BasisRow[];
+  readonly adjustment: {
+    readonly policy: PointInTimeQuery["adjustmentPolicy"];
+    readonly ruleVersion: string | null;
+  };
   /** Hechos que reportó más de un segmento y cómo se resolvieron. */
   readonly overlaps: {
     readonly sameValue: number;
@@ -173,14 +191,26 @@ function factKey(observation: Observation): string {
   ].join("|");
 }
 
+/**
+ * `corporateActions` es obligatorio y no tiene default: una lectura
+ * `latest_adjusted` sin los splits del linaje devolvería valores sin ajustar
+ * etiquetados como ajustados.
+ */
 export function queryLineageObservations(
   observations: readonly Observation[],
   lineage: ReportingLineage,
   selector: LineageSelector,
   query: PointInTimeQuery,
+  corporateActions: readonly CorporateAction[],
 ): LineageObservationSelection {
   type Candidate = { observation: Observation; segment: number };
   const byFact = new Map<string, Candidate[]>();
+  // Las revisiones se eligen con la base reportada; el ajuste se aplica después,
+  // sobre la fila ya elegida.
+  const revisionQuery: PointInTimeQuery = {
+    ...query,
+    adjustmentPolicy: "as_known",
+  };
 
   lineage.segments.forEach((segment, index) => {
     const selected = queryObservations(
@@ -190,7 +220,7 @@ export function queryLineageObservations(
         subjectType: "legal_entity",
         subjectId: segment.legalEntityId,
       },
-      query,
+      revisionQuery,
     );
 
     for (const observation of selected) {
@@ -264,14 +294,30 @@ export function queryLineageObservations(
     chosen.push(first);
   }
 
+  const ordered = chosen.sort(
+    (left, right) =>
+      left.metricId.localeCompare(right.metricId) ||
+      left.asOf.localeCompare(right.asOf) ||
+      factKey(left).localeCompare(factKey(right)),
+  );
+
   return {
     lineage,
-    observations: chosen.sort(
-      (left, right) =>
-        left.metricId.localeCompare(right.metricId) ||
-        left.asOf.localeCompare(right.asOf) ||
-        factKey(left).localeCompare(factKey(right)),
-    ),
+    observations: ordered,
+    rows: buildBasisRows({
+      selected: ordered,
+      revisions: observations,
+      corporateActions,
+      query,
+      subjectId: lineage.legalEntityId,
+    }),
+    adjustment: {
+      policy: query.adjustmentPolicy,
+      ruleVersion:
+        query.adjustmentPolicy === "latest_adjusted"
+          ? SPLIT_ADJUSTMENT_VERSION
+          : null,
+    },
     overlaps: {
       sameValue: sameValueOverlaps,
       differentValue: differentValueOverlaps,

@@ -94,6 +94,12 @@ revertir:
 3. verificar backup/restore;
 4. revisar dependencias creadas después de la migración;
 5. ejecutar manualmente el SQL pareado, en orden inverso al de aplicación:
+   - `drizzle/rollback/0007_amazing_captain_marvel.down.sql` (los valores `split`
+     y `reverse_split` de `corporate_action_type`, que se reconstruye sin ellos, y
+     `corporate_actions_split_terms_check`);
+   - `drizzle/rollback/0006_lonely_zeigeist.down.sql` (`corporate_actions`,
+     `legal_entity_relationships` y sus tres enums; las entidades que una sucesión
+     trajo al grafo quedan, porque las observaciones ya las referencian);
    - `drizzle/rollback/0005_fancy_lord_hawal.down.sql` (`source_documents`, las
      columnas `ingestion_runs.subject_key` y `selection_version`, y el valor
      `year_to_date` de `observation_period_type`, que PostgreSQL no puede quitar y
@@ -130,7 +136,12 @@ vigente y no su historia (`TM-06`). Revertir `0005` descarta los documentos de f
 conservan su `available_at` y su accession, pero ya no la evidencia de por qué valen
 eso. Si alguna observación usa `year_to_date`, el rollback **falla a propósito** en
 la reconstrucción del tipo y la transacción entera se deshace; hay que exportar o
-borrar esas filas antes, como decisión explícita (`TM-06`, `TM-16`).
+borrar esas filas antes, como decisión explícita (`TM-06`, `TM-16`). Revertir `0006`
+descarta cada sucesión declarada: un sucesor deja de ver la historia de su antecesor.
+Revertir `0007` descarta cada split confirmado, y una lectura `latest_adjusted` vuelve
+a mezclar bases en una serie por acción que cruzó un split; si algún evento usa
+`split` o `reverse_split` la reconstrucción del tipo falla a propósito, igual que
+`0005` (`TM-06`, `TM-16`).
 
 ## Fallas seguras
 

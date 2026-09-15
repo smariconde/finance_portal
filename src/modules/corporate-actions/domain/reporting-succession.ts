@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { computeContentHash } from "@/modules/ingestion/domain/content-hash";
 import { sourceIdSchema } from "@/modules/ingestion/domain/source-registry-entry";
 import {
   calendarDateSchema,
@@ -67,35 +68,112 @@ export const declaredSuccessionSchema = z
 export type DeclaredSuccession = z.infer<typeof declaredSuccessionSchema>;
 export type DeclaredSuccessionInput = z.input<typeof declaredSuccessionSchema>;
 
-export const corporateActionTypeSchema = z.enum(["successor_issuer"]);
+export const corporateActionTypeSchema = z.enum([
+  "successor_issuer",
+  "split",
+  "reverse_split",
+]);
 
 export type CorporateActionType = z.infer<typeof corporateActionTypeSchema>;
+
+const CANONICAL_RATIO = /^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/u;
 
 /**
  * Evento inmutable (`docs/data/point-in-time-contract.md`, "Eventos"). La fecha
  * efectiva es calendaria —la que declara la fuente— y no se convierte a medianoche
  * UTC; el vínculo que el evento abre lleva su propio instante de vigencia.
+ *
+ * Un split (ADR 0012) es un cambio de la **base accionaria reportada por el
+ * filer**: su sujeto es la entidad legal cuyos hechos sin dimensiones re-expresó,
+ * y `terms.ratio` son las acciones nuevas por cada anterior, como texto exacto.
+ * Mayor que uno es `split`; entre cero y uno, `reverse_split`. PostgreSQL espeja
+ * las tres condiciones.
  */
-export const corporateActionSchema = z.object({
-  corporateActionId: z.uuid(),
-  actionType: corporateActionTypeSchema,
-  subjectType: z.enum(["legal_entity", "security", "listing"]),
-  subjectId: z.uuid(),
-  announcedAt: utcTimestampSchema.nullable(),
-  effectiveOn: calendarDateSchema,
-  availableAt: utcTimestampSchema,
-  sourceId: sourceIdSchema,
-  sourceDocumentId: z.string().trim().min(1).max(256),
-  /** Términos del evento como texto exacto: nunca un `number` binario. */
-  terms: z.record(
-    z.string().regex(/^[a-z][a-zA-Z0-9]*$/u),
-    z.string().trim().min(1).max(256),
-  ),
-  contentHash: contentHashSchema,
-  recordedAt: utcTimestampSchema,
-});
+export const corporateActionSchema = z
+  .object({
+    corporateActionId: z.uuid(),
+    actionType: corporateActionTypeSchema,
+    subjectType: z.enum(["legal_entity", "security", "listing"]),
+    subjectId: z.uuid(),
+    announcedAt: utcTimestampSchema.nullable(),
+    effectiveOn: calendarDateSchema,
+    availableAt: utcTimestampSchema,
+    sourceId: sourceIdSchema,
+    sourceDocumentId: z.string().trim().min(1).max(256),
+    /** Términos del evento como texto exacto: nunca un `number` binario. */
+    terms: z.record(
+      z.string().regex(/^[a-z][a-zA-Z0-9]*$/u),
+      z.string().trim().min(1).max(256),
+    ),
+    contentHash: contentHashSchema,
+    recordedAt: utcTimestampSchema,
+  })
+  .superRefine((action, context) => {
+    if (action.actionType === "successor_issuer") {
+      return;
+    }
+
+    if (action.subjectType !== "legal_entity") {
+      context.addIssue({
+        code: "custom",
+        path: ["subjectType"],
+        message: "A split changes the share basis a legal entity reports.",
+      });
+    }
+
+    const ratio = action.terms.ratio;
+
+    if (ratio === undefined || !CANONICAL_RATIO.test(ratio)) {
+      context.addIssue({
+        code: "custom",
+        path: ["terms", "ratio"],
+        message: "A split requires its ratio as a canonical decimal string.",
+      });
+      return;
+    }
+
+    // Comparar el texto contra «1» sin aritmética binaria: la parte entera decide,
+    // y con parte entera 1 decide si queda algún dígito decimal distinto de cero.
+    const [integer, fraction = ""] = ratio.split(".");
+    const aboveOne =
+      integer !== "0" && (integer !== "1" || /[1-9]/u.test(fraction));
+    const belowOne = integer === "0" && /[1-9]/u.test(fraction);
+
+    if (action.actionType === "split" ? !aboveOne : !belowOne) {
+      context.addIssue({
+        code: "custom",
+        path: ["terms", "ratio"],
+        message:
+          "A split ratio must exceed one and a reverse split ratio must lie between zero and one.",
+      });
+    }
+  });
 
 export type CorporateAction = z.infer<typeof corporateActionSchema>;
+
+/**
+ * Hash del contenido de un evento. Cubre lo que el evento afirma, nunca el ID
+ * generado ni el instante local: la misma evidencia registrada en otra corrida
+ * hashea igual, y una descripción distinta de la misma accession es un conflicto.
+ */
+export function computeCorporateActionContentHash(
+  action: Omit<
+    CorporateAction,
+    "corporateActionId" | "contentHash" | "recordedAt"
+  >,
+): string {
+  return computeContentHash({
+    actionType: action.actionType,
+    subjectType: action.subjectType,
+    subjectId: action.subjectId,
+    announcedAt: action.announcedAt,
+    effectiveOn: action.effectiveOn,
+    availableAt: action.availableAt,
+    sourceId: action.sourceId,
+    sourceDocumentId: action.sourceDocumentId,
+    terms: action.terms,
+  });
+}
 
 export const relationshipTypeSchema = z.enum(["reporting_successor"]);
 

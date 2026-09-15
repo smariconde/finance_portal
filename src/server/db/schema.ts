@@ -1027,6 +1027,8 @@ export const indexMemberships = pgTable(
 
 export const corporateActionType = pgEnum("corporate_action_type", [
   "successor_issuer",
+  "split",
+  "reverse_split",
 ]);
 
 export const legalEntityRelationshipType = pgEnum(
@@ -1043,11 +1045,19 @@ export const identityDecisionMaker = pgEnum("identity_decision_maker", [
  * Corporate actions (`F2-04`): el evento inmutable que cambia una relación o una
  * serie, con la presentación que lo hizo público.
  *
- * El sujeto es polimórfico como en `identifier_assignments` —una sucesión es de
- * la entidad legal, un split será de la security— y reusa ese mismo tipo. La
- * fecha efectiva es calendaria, la de la fuente; el instante de vigencia vive en
- * la relación que el evento abre. Una accession describe a lo sumo un evento de
- * cada tipo: una segunda descripción es un conflicto, no una fila más.
+ * El sujeto es polimórfico como en `identifier_assignments` y reusa ese mismo
+ * tipo. La fecha efectiva es calendaria, la de la fuente; el instante de vigencia
+ * vive en la relación que el evento abre. Una accession describe a lo sumo un
+ * evento de cada tipo: una segunda descripción es un conflicto, no una fila más.
+ *
+ * Un split (ADR 0012) es de la entidad legal: cambia la base accionaria de los
+ * hechos que ese filer reporta, y no dice qué clase de acciones se dividió.
+ * `corporate_actions_split_terms_check` espeja el schema de dominio: sujeto
+ * entidad legal, ratio decimal canónico en `terms`, mayor que uno para `split` y
+ * entre cero y uno para `reverse_split`. El `CASE` fija el orden de evaluación
+ * para que el cast a `numeric` sólo corra sobre un texto que ya pasó el patrón, y
+ * el tipo se compara como texto porque un valor de enum agregado en la misma
+ * transacción no puede usarse como literal.
  */
 export const corporateActions = pgTable(
   "corporate_actions",
@@ -1098,6 +1108,16 @@ export const corporateActions = pgTable(
     check(
       "corporate_actions_terms_object_check",
       sql`jsonb_typeof(${table.terms}) = 'object'`,
+    ),
+    check(
+      "corporate_actions_split_terms_check",
+      sql`case
+        when ${table.actionType}::text not in ('split', 'reverse_split') then true
+        when ${table.subjectType}::text <> 'legal_entity' then false
+        when coalesce(${table.terms}->>'ratio', '') !~ '^(0|[1-9][0-9]*)([.][0-9]+)?$' then false
+        when ${table.actionType}::text = 'split' then (${table.terms}->>'ratio')::numeric > 1
+        else (${table.terms}->>'ratio')::numeric > 0 and (${table.terms}->>'ratio')::numeric < 1
+      end`,
     ),
   ],
 );

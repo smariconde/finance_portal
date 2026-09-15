@@ -6,6 +6,7 @@ import {
 import {
   CorporateActionListLimitError,
   corporateActionListQuerySchema,
+  matchesCorporateActionQuery,
   summarizeSuccessionPlan,
   type CorporateActionRepository,
 } from "../application/corporate-action-repository";
@@ -78,13 +79,48 @@ export function createInMemoryCorporateActionRepository(initial?: {
       return [...state.relationships];
     },
     async listCorporateActions(query) {
-      const { limit } = corporateActionListQuerySchema.parse(query ?? {});
+      const parsed = corporateActionListQuerySchema.parse(query ?? {});
+      const matching = state.corporateActions.filter((action) =>
+        matchesCorporateActionQuery(action, parsed),
+      );
 
-      if (state.corporateActions.length > limit) {
-        throw new CorporateActionListLimitError("corporate action", limit);
+      if (matching.length > parsed.limit) {
+        throw new CorporateActionListLimitError(
+          "corporate action",
+          parsed.limit,
+        );
       }
 
-      return [...state.corporateActions];
+      return matching;
+    },
+    async applySplitPlan(plan) {
+      if (failApply) {
+        failApply = false;
+        throw new Error("simulated transaction failure");
+      }
+
+      if (plan.status !== "planned") {
+        return { corporateActions: 0 };
+      }
+
+      // Espeja `corporate_actions_source_document_uidx`: el doble no puede aceptar
+      // lo que PostgreSQL rechazaría.
+      for (const action of plan.corporateActions) {
+        if (
+          state.corporateActions.some(
+            (existing) =>
+              existing.sourceId === action.sourceId &&
+              existing.sourceDocumentId === action.sourceDocumentId &&
+              existing.actionType === action.actionType,
+          )
+        ) {
+          throw new Error("duplicate key value violates unique constraint");
+        }
+      }
+
+      state.corporateActions.push(...plan.corporateActions);
+
+      return { corporateActions: plan.corporateActions.length };
     },
     async applySuccessionPlan(plan) {
       if (failApply) {

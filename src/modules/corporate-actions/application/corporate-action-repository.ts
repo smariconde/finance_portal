@@ -3,10 +3,12 @@ import { z } from "zod";
 import type { AppMode } from "@/modules/configuration/domain/config-health";
 import { selectPersonalDependency } from "@/modules/configuration/domain/runtime-lock";
 
+import type { SplitRecordingPlan } from "../domain/plan-split-recording";
 import type { SuccessionRecordingPlan } from "../domain/plan-succession-recording";
-import type {
-  CorporateAction,
-  LegalEntityRelationship,
+import {
+  corporateActionTypeSchema,
+  type CorporateAction,
+  type LegalEntityRelationship,
 } from "../domain/reporting-succession";
 
 /**
@@ -17,6 +19,19 @@ import type {
  */
 export const corporateActionListQuerySchema = z.object({
   limit: z.number().int().min(1).max(10_000).default(2_000),
+  /**
+   * Sólo eventos de estos sujetos o de estas presentaciones. Los splits son uno o
+   * dos por empresa, pero sobre el universo entero son cientos: una lectura por
+   * emisor no tiene por qué traerlos todos. Los dos filtros se combinan con `o`,
+   * porque el conflicto de una presentación puede venir de otro sujeto.
+   */
+  subjectIds: z.array(z.uuid()).min(1).max(64).optional(),
+  sourceDocumentIds: z
+    .array(z.string().trim().min(1).max(256))
+    .min(1)
+    .max(512)
+    .optional(),
+  actionTypes: z.array(corporateActionTypeSchema).min(1).optional(),
 });
 
 export type CorporateActionListQuery = z.input<
@@ -32,6 +47,10 @@ export class CorporateActionListLimitError extends Error {
     this.limit = limit;
   }
 }
+
+export type SplitRecordingSummary = {
+  readonly corporateActions: number;
+};
 
 export type SuccessionRecordingSummary = {
   readonly legalEntities: number;
@@ -57,6 +76,33 @@ export interface CorporateActionRepository {
   applySuccessionPlan(
     plan: SuccessionRecordingPlan,
   ): Promise<SuccessionRecordingSummary>;
+  /** Inserta los splits planificados en una transacción; nunca reescribe uno. */
+  applySplitPlan(plan: SplitRecordingPlan): Promise<SplitRecordingSummary>;
+}
+
+/**
+ * Filtro compartido por memoria y PostgreSQL, para que las dos implementaciones
+ * decidan igual qué evento entra en una lectura filtrada.
+ */
+export function matchesCorporateActionQuery(
+  action: CorporateAction,
+  query: z.infer<typeof corporateActionListQuerySchema>,
+): boolean {
+  if (
+    query.actionTypes !== undefined &&
+    !query.actionTypes.includes(action.actionType)
+  ) {
+    return false;
+  }
+
+  if (query.subjectIds === undefined && query.sourceDocumentIds === undefined) {
+    return true;
+  }
+
+  return (
+    (query.subjectIds?.includes(action.subjectId) ?? false) ||
+    (query.sourceDocumentIds?.includes(action.sourceDocumentId) ?? false)
+  );
 }
 
 type RepositoryFactories = {

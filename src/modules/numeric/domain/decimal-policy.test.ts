@@ -1,20 +1,51 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createDecimalOperations,
   DECIMAL_POLICY,
-  divide,
-  formatDecimal,
   ONE,
-  parseDecimal,
   sum,
   ZERO,
+  type DecimalErrorCode,
 } from "./decimal-policy";
-import { isValuationPolicyError } from "./valuation-error";
+
+/** Error propio del test: la política no conoce a sus consumidores. */
+class TestDecimalError extends Error {
+  readonly code: DecimalErrorCode;
+  readonly subjects: readonly string[];
+
+  constructor(
+    code: DecimalErrorCode,
+    message: string,
+    subjects: readonly string[],
+  ) {
+    super(message);
+    this.code = code;
+    this.subjects = subjects;
+  }
+}
+
+const { parseDecimal, divide, formatDecimal, toFixedScale } =
+  createDecimalOperations(
+    (code, message, subjects) => new TestDecimalError(code, message, subjects),
+  );
 
 const path = "test";
 
 function value(input: string) {
   return parseDecimal(input, path);
+}
+
+function captured(action: () => unknown): TestDecimalError {
+  try {
+    action();
+  } catch (error) {
+    if (error instanceof TestDecimalError) {
+      return error;
+    }
+    throw error;
+  }
+  throw new Error("expected the operation to fail");
 }
 
 describe("decimal policy", () => {
@@ -72,18 +103,11 @@ describe("decimal policy", () => {
   });
 
   it("rejects a divisor of zero instead of returning Infinity", () => {
-    expect(() => divide(ONE, ZERO, "dilutedShares")).toThrowError(
-      /Division by zero/u,
-    );
+    const error = captured(() => divide(ONE, ZERO, "dilutedShares"));
 
-    try {
-      divide(ONE, ZERO, "dilutedShares");
-    } catch (error) {
-      expect(isValuationPolicyError(error, "division_by_zero")).toBe(true);
-      expect((error as { subjects: string[] }).subjects).toStrictEqual([
-        "dilutedShares",
-      ]);
-    }
+    expect(error.message).toMatch(/Division by zero/u);
+    expect(error.code).toBe("division_by_zero");
+    expect(error.subjects).toStrictEqual(["dilutedShares"]);
   });
 
   it("refuses to serialize a non finite value", () => {
@@ -91,12 +115,9 @@ describe("decimal policy", () => {
     // un hash o a una superficie.
     const infinite = ONE.div(0);
 
-    expect(() => formatDecimal(infinite, "enterpriseValue")).toThrowError();
-    try {
-      formatDecimal(infinite, "enterpriseValue");
-    } catch (error) {
-      expect(isValuationPolicyError(error, "non_finite_value")).toBe(true);
-    }
+    expect(
+      captured(() => formatDecimal(infinite, "enterpriseValue")).code,
+    ).toBe("non_finite_value");
   });
 
   it.each([
@@ -109,21 +130,36 @@ describe("decimal policy", () => {
     ["NaN", "no numérico"],
     ["Infinity", "no finito escrito"],
   ])("rejects %s as a canonical decimal (%s)", (input) => {
-    expect(() => parseDecimal(input, "baseRevenue.value")).toThrowError();
+    const error = captured(() => parseDecimal(input, "baseRevenue.value"));
 
-    try {
-      parseDecimal(input, "baseRevenue.value");
-    } catch (error) {
-      expect(isValuationPolicyError(error, "invalid_decimal")).toBe(true);
-      expect((error as { subjects: string[] }).subjects).toStrictEqual([
-        "baseRevenue.value",
-      ]);
-    }
+    expect(error.code).toBe("invalid_decimal");
+    expect(error.subjects).toStrictEqual(["baseRevenue.value"]);
   });
 
   it("divides at the declared precision", () => {
     expect(formatDecimal(divide(ONE, value("3"), path), path)).toBe(
       "0.3333333333333333333333333333333333",
     );
+  });
+
+  it("rejects a display scale outside the declared range", () => {
+    expect(captured(() => toFixedScale(ONE, 13, "display")).code).toBe(
+      "invalid_decimal",
+    );
+    expect(toFixedScale(value("-0.001"), 2, "display")).toBe("0.00");
+  });
+
+  it("binds every consumer to the same arithmetic and its own error", () => {
+    // Dos consumidores con errores distintos calculan exactamente lo mismo: la
+    // configuración vive en un solo constructor, no en cada fábrica.
+    class OtherError extends Error {}
+    const other = createDecimalOperations(
+      (_code, message) => new OtherError(message),
+    );
+
+    expect(other.formatDecimal(other.divide(ONE, value("7"), path), path)).toBe(
+      formatDecimal(divide(ONE, value("7"), path), path),
+    );
+    expect(() => other.divide(ONE, ZERO, path)).toThrowError(OtherError);
   });
 });

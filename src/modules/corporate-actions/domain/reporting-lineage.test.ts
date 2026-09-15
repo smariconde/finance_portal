@@ -283,7 +283,7 @@ describe("queryLineageObservations", () => {
   const all = [OLD_2023, OLD_2024, NEW_2024_COMPARATIVE, NEW_2025];
 
   it("une la historia del antecesor sin reasignar el sujeto de sus hechos", () => {
-    const selection = queryLineageObservations(all, lineage, {}, query());
+    const selection = queryLineageObservations(all, lineage, {}, query(), []);
 
     expect(
       selection.observations.map((observation) => [
@@ -314,6 +314,7 @@ describe("queryLineageObservations", () => {
       resolveReportingLineage([relationship()], NEW, at),
       {},
       at,
+      [],
     );
 
     expect(
@@ -334,6 +335,7 @@ describe("queryLineageObservations", () => {
       lineage,
       {},
       query(),
+      [],
     );
 
     expect(
@@ -356,6 +358,7 @@ describe("queryLineageObservations", () => {
       lineage,
       {},
       query(),
+      [],
     );
 
     expect(selection.observations.map((row) => row.rawValue)).toStrictEqual([
@@ -368,13 +371,16 @@ describe("queryLineageObservations", () => {
   });
 
   it("respeta la revisión vigente dentro de la cadena de cada segmento", () => {
-    const amended = fact({
-      subjectId: OLD,
-      asOf: "2023-12-31",
-      rawValue: "880",
-      availableAt: "2024-06-01T20:00:00.000Z",
-      revisionNumber: 2,
-    });
+    const amended = {
+      ...fact({
+        subjectId: OLD,
+        asOf: "2023-12-31",
+        rawValue: "880",
+        availableAt: "2024-06-01T20:00:00.000Z",
+        revisionNumber: 2,
+      }),
+      restatementOfId: OLD_2023.observationId,
+    };
     const original = { ...OLD_2023, supersededAt: "2024-06-01T20:00:00.000Z" };
     const early = query({
       knownAt: "2025-08-01T00:00:00.000Z",
@@ -391,6 +397,7 @@ describe("queryLineageObservations", () => {
         resolveReportingLineage([relationship()], NEW, early),
         {},
         at,
+        [],
       ).observations.map((row) => row.rawValue);
 
     expect(values(early)).toStrictEqual(["880"]);
@@ -406,7 +413,13 @@ describe("queryLineageObservations", () => {
     });
 
     try {
-      queryLineageObservations([OLD_2024, sameInstant], lineage, {}, query());
+      queryLineageObservations(
+        [OLD_2024, sameInstant],
+        lineage,
+        {},
+        query(),
+        [],
+      );
       expect.unreachable("el mismo instante con dos valores es ambiguo");
     } catch (error) {
       expect(isTemporalContractError(error, "ambiguous_revision")).toBe(true);
@@ -425,6 +438,7 @@ describe("queryLineageObservations", () => {
       lineage,
       {},
       query(),
+      [],
     );
 
     expect(selection.overlaps.sameValue).toBe(1);
@@ -432,11 +446,44 @@ describe("queryLineageObservations", () => {
     expect(selection.observations[0]!.subjectId).toBe(NEW);
   });
 
+  it("declara la política de ajuste y deja la base reportada con as_known", () => {
+    const selection = queryLineageObservations(all, lineage, {}, query(), []);
+
+    expect(selection.adjustment).toStrictEqual({
+      policy: "as_known",
+      ruleVersion: null,
+    });
+    expect(
+      selection.rows.map((row) => [row.value, row.basis, row.revisionKind]),
+    ).toStrictEqual([
+      ["900", "as_reported", "original"],
+      ["1000", "as_reported", "original"],
+      ["1200", "as_reported", "original"],
+    ]);
+  });
+
+  it("con latest_adjusted un importe del antecesor se lee igual: no está en acciones", () => {
+    const selection = queryLineageObservations(
+      all,
+      lineage,
+      {},
+      query({ adjustmentPolicy: "latest_adjusted" }),
+      [],
+    );
+
+    expect(selection.rows.map((row) => row.value)).toStrictEqual([
+      "900",
+      "1000",
+      "1200",
+    ]);
+    expect(selection.adjustment.ruleVersion).toBe("split-adjustment-1.0.0");
+  });
+
   it("sin vínculo coincide exactamente con la selección por sujeto", () => {
     const alone = resolveReportingLineage([], NEW, query());
 
     expect(
-      queryLineageObservations(all, alone, {}, query()).observations,
+      queryLineageObservations(all, alone, {}, query(), []).observations,
     ).toStrictEqual(
       queryObservations(
         all,

@@ -26,6 +26,7 @@ The current application command contract is:
 - `pnpm universe:constitute`: constitute the S&P 500 universe; dry run unless `--apply`.
 - `pnpm fundamentals:ingest --ticker <T>`: ingest SEC companyfacts for a universe issuer; dry run unless `--apply`.
 - `pnpm corporate-actions:record`: verify and record the declared issuer successions; dry run unless `--apply`.
+- `pnpm corporate-actions:splits`: verify and record the stock splits of an already ingested ticker; dry run unless `--apply`.
 
 Review documentation changes with `pnpm format:check`, `git diff --check`, and searches for stale references.
 

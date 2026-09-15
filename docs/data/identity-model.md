@@ -316,6 +316,26 @@ type LegalEntityRelationship = TemporalIdentityVersion & {
 - Adquisiciones y spin-offs serán otros tipos de vínculo que nunca entran al linaje:
   el adquirente no reporta la historia del adquirido.
 
+### Split y reverse split (implementados)
+
+Un split se registra como `corporate_action` `split` o `reverse_split` sobre la
+**entidad legal**, no sobre la security ([ADR 0012](../architecture/adr/0012-stock-splits-share-basis.md)):
+
+- la evidencia es del filer: el ratio llega sin dimensiones y los hechos que se
+  re-expresan cuelgan de la entidad legal, así que lo que prueba es que cambió la base
+  de las acciones comunes **que ese filer reporta** (`terms.scope =
+filer_reported_shares`), no qué clase se dividió. Alphabet tiene dos securities en el
+  grafo y su 20:1 se registra igual;
+- no se detecta por el ratio solo: se confirma cuando la misma presentación declara el
+  ratio y re-expresa EPS y acciones ya publicados por él. Lo demás queda candidato y
+  no ajusta nada;
+- `availableAt` es la aceptación de esa presentación y `effectiveOn` el cierre del
+  primer período presentado en base nueva, no la fecha de distribución;
+- `terms.ratio` son las acciones nuevas por cada anterior, como texto exacto: mayor
+  que uno es `split`, entre cero y uno `reverse_split`;
+- no cambia el ID de ninguna security ni reescribe una observación: la base se aplica
+  en la lectura. La proyección a cada clase de acciones espera a los datos de mercado.
+
 ## Reglas de vigencia
 
 - Todos los intervalos son semiabiertos: `[validFrom, validTo)`.
@@ -468,7 +488,10 @@ describe a lo sumo un evento de cada tipo— y `legal_entity_relationships` el v
 versionado. Sus invariantes en PostgreSQL: antecesor distinto del sucesor, un solo
 antecesor de reporte abierto por sucesor y un solo sucesor por antecesor, y
 `valid_from` igual a `effective_on` a las 00:00 de Nueva York
-(`legal_entity_relationships_valid_from_check`).
+(`legal_entity_relationships_valid_from_check`). Desde `0007` el tipo suma `split` y
+`reverse_split`, y `corporate_actions_split_terms_check` exige para ellos sujeto
+entidad legal y un ratio decimal canónico mayor que uno o entre cero y uno según el
+tipo.
 
 Todavía no tienen tabla, con su motivo: `depositary_programs` y
 `depositary_ratios` esperan a su fuente (`F6-04`); `security_relationships` espera a
@@ -507,7 +530,12 @@ colapsada, idempotencia, renombre historizado y salida del índice sin borrado.
   rechazados
   ([`reporting-lineage.test.ts`](../../src/modules/corporate-actions/domain/reporting-lineage.test.ts),
   [`plan-succession-recording.test.ts`](../../src/modules/corporate-actions/domain/plan-succession-recording.test.ts));
-- split, reverse split, merger, spin-off y delisting;
+- ✔ split y reverse split: confirmación con dos evidencias de la misma presentación,
+  anuncio previo que corrobora, ratio declarado después de re-expresar, lectura en la
+  última base conocible y re-expresión clasificada
+  ([`verify-split-evidence.test.ts`](../../src/modules/corporate-actions/domain/verify-split-evidence.test.ts),
+  [`split-adjustment.test.ts`](../../src/modules/corporate-actions/domain/split-adjustment.test.ts));
+- merger, spin-off y delisting;
 - ✔ identificador ambiguo y conflicto de fuentes; el override manual sigue
   pendiente;
 - ✔ intervalos que se tocan sin solaparse y rechazo de solapamientos reales

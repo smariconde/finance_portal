@@ -132,6 +132,30 @@ Antes de ampliar el motor:
 - comparar una corrida contra un cálculo independiente documentado;
 - medir la grilla de sensibilidad antes de subir su límite de celdas.
 
+## Enmienda (2026-09-15): política compartida
+
+`F2-04` necesitó la misma aritmética fuera del motor: ajustar una serie por un split
+divide y multiplica importes por un ratio exacto ([ADR 0012](0012-stock-splits-share-basis.md)).
+Copiar el constructor habría dejado dos configuraciones que pueden divergir en
+silencio, y un ajuste que redondea distinto que el motor produciría dos valores para
+el mismo hecho.
+
+- El único archivo que importa `decimal.js` pasa a ser
+  `src/modules/numeric/domain/decimal-policy.ts`. La configuración —`precision=34`,
+  `ROUND_HALF_EVEN`, sin notación exponencial— no cambia, y por lo tanto no cambia
+  `engine_version` ni ningún hash registrado.
+- Lo que cada consumidor conserva es su error. `createDecimalOperations` recibe una
+  fábrica y devuelve `parseDecimal`, `divide`, `formatDecimal`, `toFixedScale` y
+  `assertFinite` ligadas a ella; `src/modules/valuation/domain/decimal-policy.ts`
+  queda como la ligadura del motor, así que un `division_by_zero` sigue siendo un
+  `ValuationPolicyError` y ningún import del motor cambió.
+- La mitigación que esta ADR dejaba «por revisión» pasa a ser estructural: una regla
+  `no-restricted-imports` de ESLint rechaza `decimal.js` en cualquier otro archivo.
+
+Verificación: los tests de la política se mudaron con ella y suman la ligadura a otro
+error; la valuación prueba que su ligadura falla con los tres códigos; los 131 tests
+E2E y el hash de la corrida de referencia no cambian.
+
 ## Fuentes primarias
 
 - [decimal.js: documentación de la API](https://mikemcl.github.io/decimal.js/)
