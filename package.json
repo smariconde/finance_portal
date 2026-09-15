@@ -27,6 +27,7 @@
     "fundamentals:ingest": "tsx --conditions=react-server --env-file=.env.local scripts/ingest-company-facts.ts",
     "corporate-actions:record": "tsx --conditions=react-server --env-file=.env.local scripts/record-successions.ts",
     "corporate-actions:splits": "tsx --conditions=react-server --env-file=.env.local scripts/record-splits.ts",
+    "corporate-actions:listings": "tsx --conditions=react-server --env-file=.env.local scripts/reconcile-listings.ts",
     "db:up": "docker compose --env-file .env.docker.local up -d --wait",
     "db:down": "docker compose --env-file .env.docker.local down"
   },

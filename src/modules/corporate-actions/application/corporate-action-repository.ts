@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { AppMode } from "@/modules/configuration/domain/config-health";
 import { selectPersonalDependency } from "@/modules/configuration/domain/runtime-lock";
 
+import type { ListingReconciliationPlan } from "../domain/plan-listing-reconciliation";
 import type { SplitRecordingPlan } from "../domain/plan-split-recording";
 import type { SuccessionRecordingPlan } from "../domain/plan-succession-recording";
 import {
@@ -52,6 +53,31 @@ export type SplitRecordingSummary = {
   readonly corporateActions: number;
 };
 
+export type ListingReconciliationSummary = {
+  readonly closures: number;
+  readonly supersessions: number;
+  readonly legalEntities: number;
+  readonly listings: number;
+  readonly listingSymbols: number;
+  readonly corporateActions: number;
+};
+
+/**
+ * La versión a cerrar o superseder ya no está vigente: el plan se construyó sobre
+ * un grafo que cambió. La transacción se deshace entera.
+ */
+export class StaleListingPlanError extends Error {
+  readonly level: string;
+  readonly subjectId: string;
+
+  constructor(level: string, subjectId: string) {
+    super(`The ${level} version ${subjectId} is no longer open.`);
+    this.name = "StaleListingPlanError";
+    this.level = level;
+    this.subjectId = subjectId;
+  }
+}
+
 export type SuccessionRecordingSummary = {
   readonly legalEntities: number;
   readonly identifierAssignments: number;
@@ -78,6 +104,27 @@ export interface CorporateActionRepository {
   ): Promise<SuccessionRecordingSummary>;
   /** Inserta los splits planificados en una transacción; nunca reescribe uno. */
   applySplitPlan(plan: SplitRecordingPlan): Promise<SplitRecordingSummary>;
+  /**
+   * Cierra, supersede y abre en una transacción. Cerrar el listing viejo sin abrir
+   * el nuevo dejaría a la security sin mercado; abrir sin cerrar, con dos tickers
+   * vigentes. Una versión que ya no está abierta lanza `StaleListingPlanError`.
+   */
+  applyListingPlan(
+    plan: ListingReconciliationPlan,
+  ): Promise<ListingReconciliationSummary>;
+}
+
+export function summarizeListingPlan(
+  plan: ListingReconciliationPlan,
+): ListingReconciliationSummary {
+  return {
+    closures: plan.closures.length,
+    supersessions: plan.supersessions.length,
+    legalEntities: plan.legalEntities.length,
+    listings: plan.listings.length,
+    listingSymbols: plan.listingSymbols.length,
+    corporateActions: plan.corporateActions.length,
+  };
 }
 
 /**

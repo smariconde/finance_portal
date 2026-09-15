@@ -1,9 +1,9 @@
 # Contrato point-in-time
 
 - Estado: contrato aceptado para implementación posterior
-- Versión: 0.3
+- Versión: 0.4
 - Fecha: 2026-08-21; SEC y documentos de fuente el 2026-09-14; linaje de reporte
-  el 2026-09-14
+  el 2026-09-14; corrección de una dimensión el 2026-09-15
 - Alcance: identidad, fundamentales, mercado, macro, CEDEAR y valuaciones
 - Persistencia: diferida al slice de PostgreSQL/Drizzle de Fase 1
 
@@ -83,6 +83,15 @@ type VersionedDimension = {
 Ejemplo: un cambio de ticker anunciado el 10 de mayo y efectivo el 1 de junio
 tiene `available_at=10 de mayo` y `valid_from=1 de junio`. Antes del 1 de junio se
 conoce el cambio, pero el símbolo anterior sigue siendo el válido.
+
+Una versión registrada puede nacer desactualizada: el grafo abrió a Franklin Templeton
+el 2026-09-05 con un nombre que EDGAR había dejado de usar el 14 de agosto. Cerrarla en
+el pasado le haría decir a un corte anterior algo que la instalación no sabía. Se
+**supersede**: `superseded_at` es el instante en que se conoció la corrección y la
+versión nueva vale desde el borde publicado, con ese mismo `available_at`. Un
+`as_known` anterior sigue viendo el nombre viejo; uno posterior, el nuevo también para
+fechas efectivas anteriores a la versión superseded
+([ADR 0013](../architecture/adr/0013-listing-events-dated-evidence.md)).
 
 ### Observaciones
 
@@ -591,8 +600,9 @@ El incremento 2 de `F2-04` sumó los splits y la base accionaria:
 
 Queda deferido y no debe presentarse como disponible:
 
-- cambios de símbolo, traspasos de mercado, delistings y fusiones, que son el
-  incremento 3 de `F2-04`;
+- los cambios de ticker que la SEC no fecha y los vínculos de adquisición, que son el
+  incremento 3b de `F2-04`. Traspasos de mercado, delistings y renombres ya se
+  reconcilian con evidencia fechada (ADR 0013);
 - la confirmación declarada de un split que la regla deja candidato —Duke Energy y
   Citigroup declaran su reverse split años después de re-expresar—: hasta entonces su
   serie por acción anterior al split sigue en la base vieja bajo `latest_adjusted`;

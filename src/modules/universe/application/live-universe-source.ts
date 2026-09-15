@@ -45,7 +45,7 @@ export const ASSIGNMENTS_SOURCE_ID = "sec-edgar";
 const PINNED_CONSTITUENTS_URL =
   /^https:\/\/raw\.githubusercontent\.com\/datasets\/s-and-p-500-companies\/[0-9a-f]{40}\/data\/constituents\.csv$/u;
 
-const ASSIGNMENTS_URL =
+export const ASSIGNMENTS_URL =
   "https://www.sec.gov/files/company_tickers_exchange.json";
 
 /**

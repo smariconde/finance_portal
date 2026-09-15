@@ -72,11 +72,14 @@ export const corporateActionTypeSchema = z.enum([
   "successor_issuer",
   "split",
   "reverse_split",
+  "listing_transfer",
+  "delisting",
 ]);
 
 export type CorporateActionType = z.infer<typeof corporateActionTypeSchema>;
 
 const CANONICAL_RATIO = /^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/u;
+const MIC = /^[A-Z0-9]{4}$/u;
 
 /**
  * Evento inmutable (`docs/data/point-in-time-contract.md`, "Eventos"). La fecha
@@ -88,6 +91,11 @@ const CANONICAL_RATIO = /^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/u;
  * y `terms.ratio` son las acciones nuevas por cada anterior, como texto exacto.
  * Mayor que uno es `split`; entre cero y uno, `reverse_split`. PostgreSQL espeja
  * las tres condiciones.
+ *
+ * Un traspaso de mercado y un delisting (ADR 0013) cambian dónde cotiza un
+ * instrumento, no la base de nada: el traspaso es de la **security** —el mismo
+ * instrumento abre un listing en otro MIC— y el delisting del **listing** que se
+ * cierra. Los dos llevan en `terms` los MIC que afirman.
  */
 export const corporateActionSchema = z
   .object({
@@ -110,6 +118,54 @@ export const corporateActionSchema = z
   })
   .superRefine((action, context) => {
     if (action.actionType === "successor_issuer") {
+      return;
+    }
+
+    if (action.actionType === "listing_transfer") {
+      if (action.subjectType !== "security") {
+        context.addIssue({
+          code: "custom",
+          path: ["subjectType"],
+          message: "A listing transfer moves a security between venues.",
+        });
+      }
+
+      const { fromMic, toMic } = action.terms;
+
+      if (
+        fromMic === undefined ||
+        toMic === undefined ||
+        !MIC.test(fromMic) ||
+        !MIC.test(toMic) ||
+        fromMic === toMic
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["terms"],
+          message: "A listing transfer requires two distinct MICs.",
+        });
+      }
+
+      return;
+    }
+
+    if (action.actionType === "delisting") {
+      if (action.subjectType !== "listing") {
+        context.addIssue({
+          code: "custom",
+          path: ["subjectType"],
+          message: "A delisting closes a listing.",
+        });
+      }
+
+      if (action.terms.mic === undefined || !MIC.test(action.terms.mic)) {
+        context.addIssue({
+          code: "custom",
+          path: ["terms", "mic"],
+          message: "A delisting requires the MIC it leaves.",
+        });
+      }
+
       return;
     }
 

@@ -969,9 +969,12 @@ por CIK cambiado son `F2-05`; las golden fixtures reales son `F2-06`.
      adelantar conocimiento;
   2. **splits**: una re-expresión por split se distingue de un restatement y las
      series por acción se leen en una sola base (`latest_adjusted`);
-  3. **símbolos, delistings y fusiones**: la reconstitución del universo historiza
-     un cambio de ticker, una salida del mercado y una adquisición con evidencia
-     fechada.
+  3. **símbolos, delistings y fusiones**, partido por el sondeo en dos:
+     - **3a — traspasos, delistings y renombres**: la evidencia fechada del índice de
+       la SEC lleva al grafo un cambio de mercado, una salida del mercado y un
+       renombre, y nombra lo que la SEC no fecha;
+     - **3b — vínculos de adquisición y cambios de ticker declarados**: lo que el
+       índice no fecha por sí solo y necesita una regla de declaración.
 - Fuera de alcance: barrido del universo buscando sucesiones no declaradas
   (`F2-05`, que ya recorre todos los `submissions`), versión de linaje dentro del
   snapshot de valuación (Fase 6), comando permanente de inspección (`F2-06`),
@@ -1226,7 +1229,7 @@ no sabe si el job corrió para el emisor, así que va después de cada ingesta h
 `F2-05`; una fila sensible de un antecesor falla bajo `latest_adjusted` porque la
 conversión de acciones de la sucesión no está registrada.
 
-##### Incremento 3 — símbolos, traspasos, delistings y fusiones (especificado el 2026-09-15, no iniciado)
+##### Incremento 3 — símbolos, traspasos, delistings y fusiones (especificado el 2026-09-15; 3a entregado el 2026-09-15, 3b no iniciado)
 
 Material medido al cerrar el incremento 2, 3 requests de `submissions` sin conservar
 payload:
@@ -1274,6 +1277,135 @@ Criterios de aceptación (borrador; se ajustan con lo que muestre el sondeo):
 Fuera del incremento 3: dividendos en acciones y spin-offs con reparto de base
 (evaluar contra el cable antes de sumarlos), confirmación declarada de splits
 candidatos, precios y market cap.
+
+Lo que el sondeo cambió antes de escribir la regla (2026-09-15, sin conservar payload;
+13 requests a la SEC y el historial de 39 commits del CSV de constituyentes desde
+enero de 2025, comparados de a pares para encontrar casos reales):
+
+- **Traspaso** (Kraft Heinz Nasdaq→NYSE; Fiserv NYSE→Nasdaq con FI→FISV): el emisor
+  presenta `8-A12B` y `25` con segundos o minutos de diferencia y el mercado nuevo
+  presenta el `CERT`. Un `8-A12B` con `CERT` y sin `25` es deuda: los dos lo hicieron.
+- **Delisting por adquisición** (Hologic, Electronic Arts, AvalonBay): `25-NSE` del
+  mercado y 8-K con 2.01, 3.01 y 5.01 el mismo día, en cualquier orden. El `25-NSE`
+  de Kraft Heinz de 2025 no tiene 3.01: retiró deuda y las acciones siguieron.
+- **Quién presentó** es el prefijo del accession: `0001354457` es Nasdaq y
+  `0000876661` NYSE según la propia SEC. `submissions` publica además `items` y
+  `formerNames` con borde.
+- **La tabla sí deja de mostrar a quien sale** —Hologic, EA y AvalonBay ya no están—,
+  aunque `submissions.tickers` siga publicando EA y AVB. La discrepancia entre
+  `submissions.exchanges` y la tabla que el borrador pedía nombrar no decide nada: la
+  fecha la ponen las presentaciones.
+- **Un cambio de ticker en el mismo mercado no deja nada fechado**: BK→BNY, MMC→MRSH y
+  SATS→ECHO no tienen `8-A12B`, `CERT` ni `25`. El paso de FB a META tampoco.
+- **Una adquisición entre dos miembros** (AvalonBay por Vivmark, ex Equity
+  Residential) comparte accessions de `425` y `S-4` en los dos índices; en los otros
+  dos casos el adquirente es privado y no está en el grafo.
+- **Defecto encontrado leyendo el planner:** un constituyente rechazado en la etapa de
+  plan quedaba fuera de los miembros y, con un pin nuevo, **se cerraba su membresía
+  como salida del índice**.
+
+Los tres puntos que la especificación dejaba abiertos:
+
+1. **Historia de símbolos:** no hay fuente fechada para un cambio de ticker en el mismo
+   mercado. La lista por commit fecha el scraping, no el cambio. Queda rechazado con
+   nombre y la confirmación declarada pasa a 3b.
+2. **Evento de un traspaso:** alcanza sin inventar fechas. Se escribe en el instante en
+   que la evidencia quedó completa —el `CERT`—, que es cierre, apertura y
+   `available_at` a la vez; no se usa la vigencia legal del `25`, que el cable no
+   publica.
+3. **Fusión:** un delisting registra `change_in_control_completed` sin vínculo; el
+   vínculo que no une historias es 3b, con la pareja de `425` compartidos como
+   evidencia a evaluar.
+
+Entregado (2026-09-15) — incremento 3a, traspasos, delistings y renombres:
+`parse-sec-listing-index`, `detect-listing-divergences`, `verify-listing-evidence` y
+`plan-listing-reconciliation` en `src/modules/corporate-actions/domain/`; puerto,
+adaptador vivo y orquestador `reconcile-listings` en `application/`; `applyListingPlan`
+en los repositorios en memoria y PostgreSQL; `listing_transfer` y `delisting` con
+`corporate_actions_listing_terms_check` en la migración `0008` con su rollback pareado;
+el comando `pnpm corporate-actions:listings`; y `universe-constitution-1.1.0`.
+Decisiones en la [ADR 0013](../architecture/adr/0013-listing-events-dated-evidence.md).
+
+Criterios, contra lo que se entregó:
+
+- **Renombre con la fecha de `formerNames`; la versión anterior conserva su nombre y un
+  `as_known` anterior no ve el nuevo.** Cumplido con una corrección que el borrador no
+  preveía: el renombre de BEN es **anterior** a la versión registrada, así que se
+  supersede en la descarga en vez de cerrarse en el pasado. No hay «presentación que lo
+  acompaña»: el 5.03 también se usa para estatutos, y el documento es
+  `submissions/CIK…json`.
+- **Cambio de ticker con evidencia fechada; sin ella, rechazo con nombre.** Sin
+  evidencia en ningún caso medido: `symbol_change_without_dated_evidence`. Un ticker
+  nuevo que llega con un traspaso (FI→FISV) viaja en el listing nuevo.
+- **Traspaso que cierra el listing viejo y abre otro sin reciclar la security.** Cumplido,
+  con otro `listing_id` sobre la misma security y la membresía intacta.
+- **Delisting con la fecha del `25-NSE` que no deslista la security ni borra la
+  membresía.** Cumplido, con la corrección de que el instante es el de la evidencia
+  completa: AvalonBay cierra con su aviso de las 20:01, no con el `25-NSE` de las 14:53.
+- **Adquisición con vínculo que no une historias.** Pasa a 3b.
+- **Reconstituir dos veces el mismo estado no abre ni cierra nada.** Cumplido sobre la
+  base personal y sobre la réplica, y reforzado: un rechazo ya no cierra membresías.
+
+Verificación: `format:check`, `lint`, `typecheck`, 969 unit tests (924 + 45), 55
+integration tests contra PostgreSQL 17.11 (51 + 4), `build` con las cuatro rutas en
+`ƒ (Dynamic)` y 131 tests E2E pasan. El rollback de `0008` se verificó sobre una base
+descartable: con delistings registrados falla y deshace todo, sin ellos reconstruye el
+tipo y quita el check, y `0008` vuelve a aplicarse.
+
+Evidencia sobre datos reales (2026-09-15):
+
+- **PostgreSQL personal, con `0008` aplicada.** Dry run y `--apply` con 3 requests: dos
+  divergencias y dos corridas `succeeded`. **Kraft Heinz**: `XNAS:KHC` se cierra y
+  `XNYS:KHC` se abre en el `CERT` de NYSE aceptado el 2026-09-09T12:44:23Z, con `25`
+  `0001637459-26-000062`, `8-A12B` `-000061` y aviso 3.01 `-000057`; un segundo antes
+  el grafo resuelve `XNAS`, en el `CERT` `XNYS`. **Franklin Templeton**: la versión
+  `FRANKLIN RESOURCES INC` queda superseded y `FRANKLIN TEMPLETON INC` vale desde el
+  2026-08-14T04:00Z; conocido un segundo antes de la corrección el nombre al
+  2026-09-10 sigue siendo el viejo. La segunda corrida hace 1 request y encuentra 0
+  divergencias. Replanificar el universo con el mismo pin pasa de **2 rechazos a 0**
+  sin abrir ni cerrar nada.
+- **Base descartable constituida con el pin del 2026-07-22** —con las filas de la tabla
+  que EA y AVB tenían antes de salir, declaradas como réplica porque la tabla no tiene
+  historia—: la reconciliación detecta los dos `listing_unassigned` y los deslista con el
+  cable real. **Electronic Arts** en `XNAS` el 2026-08-04T20:57:00Z (`25-NSE` de Nasdaq
+  `0001354457-26-000757` y 8-K `0001140361-26-031157`); **AvalonBay** en `XNYS` el
+  2026-08-17T20:01:44Z. Las dos con `change_in_control_completed`. La segunda pasada
+  no encuentra nada; el pin del 2026-09-05 cierra las dos membresías como salida del
+  índice y abre las tres altas; la tercera constitución no escribe nada.
+
+Límites declarados en la ADR: cambios de ticker sin evidencia rechazados; delistings
+sin vínculo al adquirente; sólo Nasdaq y NYSE en el mapa de mercados; la security de
+un adquirido sigue vigente; corregir un listing se rechaza; un renombre posterior
+cerrado en el lugar tiene el mismo límite que el del planner del universo.
+
+##### Incremento 3b — vínculos de adquisición y cambios de ticker declarados (especificado el 2026-09-15, no iniciado)
+
+Material medido en el sondeo del 3a:
+
+- **AvalonBay → Vivmark (ex Equity Residential)**: los dos índices comparten las
+  accessions de los `425` y del `S-4`; el adquirido presenta `25-NSE`, 8-K 2.01/3.01/5.01
+  y `15-12G`; el adquirente, 8-K con 2.01 y 5.03 el mismo día y `formerNames` con el
+  nombre anterior. El universo real ya tiene a Vivmark (`VMRK`) y no a AvalonBay.
+- **Cambios de ticker sin evidencia**: BK→BNY, MMC→MRSH y SATS→ECHO, todos en el
+  universo real con el ticker nuevo porque se constituyó después.
+
+Antes de escribir código:
+
+1. **Sondeo de los `425` compartidos**: si la pareja de accessions en los dos índices
+   identifica sin ambigüedad adquirente y adquirido —un `425` también lo presentan
+   terceros— y si hay un caso con los dos miembros en el grafo al mismo tiempo.
+2. **Decidir la declaración de un cambio de ticker**: qué verifica el job cuando el
+   owner declara la fecha —que la tabla asigne el ticker nuevo al mismo CIK, que el
+   viejo haya desaparecido— y qué `decided_by` y `available_at` quedan.
+
+Criterios de aceptación (borrador):
+
+- una adquisición entre dos entidades del grafo registra un vínculo `acquired_by` con
+  la aceptación del 8-K 2.01 del adquirido, que **no** entra al linaje de reporte: la
+  lectura del adquirente no ve los hechos del adquirido;
+- un cambio de ticker declarado cierra y abre `listing_symbol` en la fecha declarada,
+  con `decided_by = owner`, y un `as_known` anterior a la declaración no lo ve;
+- lo que la declaración no cierra se rechaza con nombre y no toca el grafo.
 
 | Issue   | Resultado y aceptación mínima                                                                                       | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |

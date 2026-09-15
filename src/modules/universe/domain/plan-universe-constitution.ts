@@ -43,10 +43,16 @@ import type {
  * Lo que el planner **no** hace, por no poder hacerlo con estas dos fuentes: si
  * un emisor conocido aparece con un símbolo que no tiene listing, no se puede
  * distinguir "cambió de ticker" de "agregó una clase de acciones". Ese caso sale
- * como `unresolved_share_class` y espera a las corporate actions con vigencia
- * (`F2-04`), que son la única evidencia que decide entre las dos.
+ * como `unresolved_share_class`; la reconciliación de listings (ADR 0013) es la
+ * que lo pregunta a la evidencia fechada de la SEC.
+ *
+ * Un rechazo **no** es una salida del índice. Desde `universe-constitution-1.1.0`
+ * las securities de un emisor cuyo constituyente se rechazó en la etapa de plan
+ * quedan retenidas: su membresía sigue abierta. La versión anterior las contaba
+ * como ausentes y, con un pin nuevo, cerraba la membresía de Kraft Heinz por un
+ * traspaso de mercado que el índice no registró.
  */
-export const UNIVERSE_CONSTITUTION_RULE_VERSION = "universe-constitution-1.0.0";
+export const UNIVERSE_CONSTITUTION_RULE_VERSION = "universe-constitution-1.1.0";
 
 export type UniverseState = {
   readonly graph: IdentityGraph;
@@ -112,6 +118,8 @@ export type UniverseConstitutionPlan = {
     readonly entitiesOpened: number;
     readonly securitiesOpened: number;
     readonly exits: number;
+    /** Securities con membresía abierta retenidas por un rechazo de su emisor. */
+    readonly held: number;
     readonly rejected: number;
     /** Matches que necesitaron la regla relajada de separadores. */
     readonly relaxedMatches: number;
@@ -171,6 +179,13 @@ export function planUniverseConstitution(
       .map((entity) => [entity.legalEntityId, entity]),
   );
   const openSecurities = state.graph.securities.filter(isOpen);
+  const openSecurityIdsByEntity = new Map<string, string[]>();
+  for (const security of openSecurities) {
+    openSecurityIdsByEntity.set(security.issuerLegalEntityId, [
+      ...(openSecurityIdsByEntity.get(security.issuerLegalEntityId) ?? []),
+      security.securityId,
+    ]);
+  }
   const securityById = new Map(
     openSecurities.map((security) => [security.securityId, security]),
   );
@@ -248,7 +263,16 @@ export function planUniverseConstitution(
 
   const effectiveMs = Date.parse(effectiveAt);
   const memberSecurityIds = new Set<string>();
+  const heldSecurityIds = new Set<string>();
   let relaxedMatches = 0;
+
+  // El emisor está resuelto aunque su constituyente no se pudo planificar: sus
+  // instrumentos siguen en el índice hasta que la lista diga lo contrario.
+  const hold = (legalEntityId: string) => {
+    for (const securityId of openSecurityIdsByEntity.get(legalEntityId) ?? []) {
+      heldSecurityIds.add(securityId);
+    }
+  };
 
   const resolveEntity = (constituent: ResolvedConstituent): EntityDecision => {
     const existingId = entityIdByCik.get(constituent.normalizedCik);
@@ -361,6 +385,7 @@ export function planUniverseConstitution(
 
     if (decision.kind === "rejected") {
       rejections.push(decision.rejection);
+      hold(decision.rejection.candidates[0]!);
       continue;
     }
 
@@ -381,6 +406,7 @@ export function planUniverseConstitution(
           code: "issuer_conflict" satisfies ConstitutionRejectionCode,
           candidates: [existingListing.listingId, legalEntityId],
         });
+        hold(legalEntityId);
         continue;
       }
 
@@ -392,6 +418,7 @@ export function planUniverseConstitution(
         code: "unresolved_share_class" satisfies ConstitutionRejectionCode,
         candidates: [legalEntityId],
       });
+      hold(legalEntityId);
       continue;
     } else {
       securityId = newId();
@@ -479,8 +506,15 @@ export function planUniverseConstitution(
     }
   }
 
+  let held = 0;
+
   for (const [securityId, membership] of openMembershipBySecurity) {
     if (memberSecurityIds.has(securityId)) {
+      continue;
+    }
+
+    if (heldSecurityIds.has(securityId)) {
+      held += 1;
       continue;
     }
 
@@ -525,6 +559,7 @@ export function planUniverseConstitution(
       securitiesOpened: securities.length,
       exits: closures.filter((closure) => closure.reason === "index_exit")
         .length,
+      held,
       rejected: rejections.length,
       relaxedMatches,
     },

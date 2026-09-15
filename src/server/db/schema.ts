@@ -1029,6 +1029,8 @@ export const corporateActionType = pgEnum("corporate_action_type", [
   "successor_issuer",
   "split",
   "reverse_split",
+  "listing_transfer",
+  "delisting",
 ]);
 
 export const legalEntityRelationshipType = pgEnum(
@@ -1058,6 +1060,10 @@ export const identityDecisionMaker = pgEnum("identity_decision_maker", [
  * para que el cast a `numeric` sólo corra sobre un texto que ya pasó el patrón, y
  * el tipo se compara como texto porque un valor de enum agregado en la misma
  * transacción no puede usarse como literal.
+ *
+ * Un traspaso de mercado y un delisting (ADR 0013) cambian listings:
+ * `corporate_actions_listing_terms_check` exige security y dos MIC distintos para
+ * el traspaso, y listing con su MIC para el delisting.
  */
 export const corporateActions = pgTable(
   "corporate_actions",
@@ -1117,6 +1123,18 @@ export const corporateActions = pgTable(
         when coalesce(${table.terms}->>'ratio', '') !~ '^(0|[1-9][0-9]*)([.][0-9]+)?$' then false
         when ${table.actionType}::text = 'split' then (${table.terms}->>'ratio')::numeric > 1
         else (${table.terms}->>'ratio')::numeric > 0 and (${table.terms}->>'ratio')::numeric < 1
+      end`,
+    ),
+    check(
+      "corporate_actions_listing_terms_check",
+      sql`case
+        when ${table.actionType}::text = 'listing_transfer' then ${table.subjectType}::text = 'security'
+          and coalesce(${table.terms}->>'fromMic', '') ~ '^[A-Z0-9]{4}$'
+          and coalesce(${table.terms}->>'toMic', '') ~ '^[A-Z0-9]{4}$'
+          and ${table.terms}->>'fromMic' <> ${table.terms}->>'toMic'
+        when ${table.actionType}::text = 'delisting' then ${table.subjectType}::text = 'listing'
+          and coalesce(${table.terms}->>'mic', '') ~ '^[A-Z0-9]{4}$'
+        else true
       end`,
     ),
   ],

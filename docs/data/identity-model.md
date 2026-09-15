@@ -1,8 +1,9 @@
 # Modelo de identidad financiera
 
 - Estado: contrato implementado en dominio y persistido en PostgreSQL
-- Versión: 0.3
-- Fecha: 2026-09-04; sucesión de emisor el 2026-09-14
+- Versión: 0.4
+- Fecha: 2026-09-04; sucesión de emisor el 2026-09-14; traspasos, delistings y
+  renombres el 2026-09-15
 - Alcance: entity, security, listing, identifiers y programas depositarios
 - Implementación (`F1-04`):
   [`identity-graph.ts`](../../src/modules/identity/domain/identity-graph.ts),
@@ -19,7 +20,9 @@
   [`0006_lonely_zeigeist.sql`](../../drizzle/0006_lonely_zeigeist.sql) con su
   rollback pareado; módulo
   [`src/modules/corporate-actions/`](../../src/modules/corporate-actions/) y
-  [ADR 0011](../architecture/adr/0011-issuer-succession-reporting-lineage.md)
+  [ADR 0011](../architecture/adr/0011-issuer-succession-reporting-lineage.md); eventos de
+  listing en la migración [`0008_grey_ultimo.sql`](../../drizzle/0008_grey_ultimo.sql)
+  y [ADR 0013](../architecture/adr/0013-listing-events-dated-evidence.md)
 
 ## Propósito
 
@@ -336,6 +339,29 @@ filer_reported_shares`), no qué clase se dividió. Alphabet tiene dos securitie
 - no cambia el ID de ninguna security ni reescribe una observación: la base se aplica
   en la lectura. La proyección a cada clase de acciones espera a los datos de mercado.
 
+### Traspaso de mercado, delisting y renombre (implementados)
+
+La tabla vigente de tickers de la SEC no tiene fechas: una diferencia con el grafo es
+una pregunta, y la responde el índice de presentaciones del filer
+([ADR 0013](../architecture/adr/0013-listing-events-dated-evidence.md)):
+
+- **Traspaso de mercado**: `25` y `8-A12B` del emisor más un `CERT` presentado por el
+  mercado de destino. Se cierran el listing y su ticker y se abre **otro listing** —con
+  otro ID— sobre la misma security; la membresía no se toca. Evento `listing_transfer`
+  sobre la security.
+- **Delisting**: `25-NSE` presentado por el mercado del listing más un 8-K con ítem 3.01
+  contemporáneo. Se cierran el listing y su ticker; la security y su membresía siguen.
+  Evento `delisting` sobre el listing.
+- Los dos se escriben en el instante en que la evidencia quedó completa: cierre,
+  apertura y `availableAt` coinciden. El mercado que actuó es el CIK de quien presentó,
+  que publica el accession.
+- **Renombre**: `formerNames` fecha el borde. Si es posterior a la versión registrada
+  se cierra y abre en el borde; si es anterior, la versión registrada nació vencida y se
+  **supersede** en la descarga, con la nueva vigente desde el borde.
+- **Cambio de ticker en el mismo mercado**: la SEC no lo fecha y se rechaza con nombre.
+- Dos clases del mismo emisor en el mismo mercado son `ambiguous_listing`: ni el `25`
+  ni el `25-NSE` dicen cuál.
+
 ## Reglas de vigencia
 
 - Todos los intervalos son semiabiertos: `[validFrom, validTo)`.
@@ -491,11 +517,13 @@ antecesor de reporte abierto por sucesor y un solo sucesor por antecesor, y
 (`legal_entity_relationships_valid_from_check`). Desde `0007` el tipo suma `split` y
 `reverse_split`, y `corporate_actions_split_terms_check` exige para ellos sujeto
 entidad legal y un ratio decimal canónico mayor que uno o entre cero y uno según el
-tipo.
+tipo. Desde `0008` suma `listing_transfer` y `delisting`, y
+`corporate_actions_listing_terms_check` exige security con dos MIC distintos para el
+traspaso y listing con su MIC para el delisting.
 
 Todavía no tienen tabla, con su motivo: `depositary_programs` y
 `depositary_ratios` esperan a su fuente (`F6-04`); `security_relationships` espera a
-las fusiones y spin-offs del incremento 3 de `F2-04`. La primera decisión manual
+las fusiones y spin-offs del incremento 3b de `F2-04`. La primera decisión manual
 real —la sucesión de ExxonMobil— se registró sin `identity_decisions`: la decisión
 vive en la declaración versionada del repositorio y el vínculo guarda `decided_by` y
 la versión de la regla que la verificó. `identity_resolution_runs` e

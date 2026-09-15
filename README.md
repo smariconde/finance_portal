@@ -19,7 +19,7 @@ La aplicación está diseñada para responder preguntas como:
 
 ## Estado actual
 
-Las fases 0 y 1 están cerradas y la **Fase 2 — datos reales SEC y universo S&P 500** está en curso. El universo del S&P 500 está constituido con identidad completa y los hechos XBRL de la SEC se ingieren como observaciones point-in-time: `available_at` desde la aceptación de cada presentación, vintages y re-expresiones preservadas, y cuarentena ante un documento que no se entiende. Una reorganización que cambia el CIK del filer —ExxonMobil en 2026— se declara, se verifica contra la SEC y une las dos historias en la lectura sin reasignar hechos ([ADR 0011](docs/architecture/adr/0011-issuer-succession-reporting-lineage.md)). Un split se confirma con el ratio que declara el filer y la re-expresión de sus propios números en la misma presentación, y la lectura `latest_adjusted` lleva las series por acción a una sola base sin reescribir lo publicado ([ADR 0012](docs/architecture/adr/0012-stock-splits-share-basis.md)). La ingesta es un job manual; los cambios de símbolo, traspasos, delistings y fusiones, el backfill del universo y las golden fixtures reales son los próximos slices.
+Las fases 0 y 1 están cerradas y la **Fase 2 — datos reales SEC y universo S&P 500** está en curso. El universo del S&P 500 está constituido con identidad completa y los hechos XBRL de la SEC se ingieren como observaciones point-in-time: `available_at` desde la aceptación de cada presentación, vintages y re-expresiones preservadas, y cuarentena ante un documento que no se entiende. Una reorganización que cambia el CIK del filer —ExxonMobil en 2026— se declara, se verifica contra la SEC y une las dos historias en la lectura sin reasignar hechos ([ADR 0011](docs/architecture/adr/0011-issuer-succession-reporting-lineage.md)). Un split se confirma con el ratio que declara el filer y la re-expresión de sus propios números en la misma presentación, y la lectura `latest_adjusted` lleva las series por acción a una sola base sin reescribir lo publicado ([ADR 0012](docs/architecture/adr/0012-stock-splits-share-basis.md)). Un traspaso de mercado, un delisting o un renombre se llevan al grafo con la presentación de la SEC que los fecha —Kraft Heinz pasa a NYSE en el instante en que NYSE certifica la admisión— y un cambio de ticker que la SEC no fecha se rechaza con nombre ([ADR 0013](docs/architecture/adr/0013-listing-events-dated-evidence.md)). La ingesta es un job manual; los vínculos de adquisición, los cambios de ticker declarados, el backfill del universo y las golden fixtures reales son los próximos slices.
 
 Disponible hoy:
 
@@ -196,27 +196,28 @@ Definir variables en `.env.local` no habilita por sí solo una integración toda
 
 ## Comandos
 
-| Comando                         | Uso                                                                               |
-| ------------------------------- | --------------------------------------------------------------------------------- |
-| `pnpm dev`                      | Inicia el servidor local con recarga en desarrollo.                               |
-| `pnpm build`                    | Genera y valida el build de producción.                                           |
-| `pnpm start`                    | Sirve un build de producción ya generado.                                         |
-| `pnpm lint`                     | Ejecuta ESLint sin permitir warnings.                                             |
-| `pnpm typecheck`                | Verifica TypeScript sin emitir archivos.                                          |
-| `pnpm test`                     | Ejecuta la suite unitaria una vez.                                                |
-| `pnpm test:integration`         | Prueba migración y repositorio contra una base PostgreSQL dedicada.               |
-| `pnpm test:e2e`                 | Gate E2E y de accesibilidad sobre un build servido en ambos modos.                |
-| `pnpm test:watch`               | Ejecuta tests en modo interactivo.                                                |
-| `pnpm db:generate`              | Genera SQL versionado desde el schema Drizzle.                                    |
-| `pnpm db:migrate`               | Aplica migraciones con `DATABASE_DIRECT_URL`.                                     |
-| `pnpm db:up`                    | Inicia el PostgreSQL local con la base personal y la de tests.                    |
-| `pnpm db:down`                  | Detiene PostgreSQL local sin borrar su volumen.                                   |
-| `pnpm universe:constitute`      | Constituye el universo S&P 500; dry run salvo `--apply`.                          |
-| `pnpm fundamentals:ingest`      | Ingiere companyfacts de la SEC por ticker; dry run salvo `--apply`.               |
-| `pnpm corporate-actions:record` | Verifica y registra las sucesiones de emisor declaradas; dry run salvo `--apply`. |
-| `pnpm corporate-actions:splits` | Verifica y registra los splits de un ticker ya ingerido; dry run salvo `--apply`. |
-| `pnpm format:check`             | Comprueba el formato del repositorio.                                             |
-| `pnpm format`                   | Aplica Prettier a los archivos permitidos.                                        |
+| Comando                           | Uso                                                                                          |
+| --------------------------------- | -------------------------------------------------------------------------------------------- |
+| `pnpm dev`                        | Inicia el servidor local con recarga en desarrollo.                                          |
+| `pnpm build`                      | Genera y valida el build de producción.                                                      |
+| `pnpm start`                      | Sirve un build de producción ya generado.                                                    |
+| `pnpm lint`                       | Ejecuta ESLint sin permitir warnings.                                                        |
+| `pnpm typecheck`                  | Verifica TypeScript sin emitir archivos.                                                     |
+| `pnpm test`                       | Ejecuta la suite unitaria una vez.                                                           |
+| `pnpm test:integration`           | Prueba migración y repositorio contra una base PostgreSQL dedicada.                          |
+| `pnpm test:e2e`                   | Gate E2E y de accesibilidad sobre un build servido en ambos modos.                           |
+| `pnpm test:watch`                 | Ejecuta tests en modo interactivo.                                                           |
+| `pnpm db:generate`                | Genera SQL versionado desde el schema Drizzle.                                               |
+| `pnpm db:migrate`                 | Aplica migraciones con `DATABASE_DIRECT_URL`.                                                |
+| `pnpm db:up`                      | Inicia el PostgreSQL local con la base personal y la de tests.                               |
+| `pnpm db:down`                    | Detiene PostgreSQL local sin borrar su volumen.                                              |
+| `pnpm universe:constitute`        | Constituye el universo S&P 500; dry run salvo `--apply`.                                     |
+| `pnpm fundamentals:ingest`        | Ingiere companyfacts de la SEC por ticker; dry run salvo `--apply`.                          |
+| `pnpm corporate-actions:record`   | Verifica y registra las sucesiones de emisor declaradas; dry run salvo `--apply`.            |
+| `pnpm corporate-actions:splits`   | Verifica y registra los splits de un ticker ya ingerido; dry run salvo `--apply`.            |
+| `pnpm corporate-actions:listings` | Reconcilia traspasos, delistings y renombres con evidencia fechada; dry run salvo `--apply`. |
+| `pnpm format:check`               | Comprueba el formato del repositorio.                                                        |
+| `pnpm format`                     | Aplica Prettier a los archivos permitidos.                                                   |
 
 Antes de entregar un cambio:
 

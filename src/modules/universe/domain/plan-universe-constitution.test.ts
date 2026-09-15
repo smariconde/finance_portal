@@ -332,6 +332,36 @@ describe("planificación de la constitución del universo", () => {
     );
   });
 
+  it("no convierte un rechazo en una salida del índice", async () => {
+    const repository = await applied(plan());
+    const state = await repository.loadState({ indexId: FIXTURE_INDEX_ID });
+
+    // La forma de Kraft Heinz: la tabla ya la muestra en otro mercado y el
+    // planner no puede decidir solo si es un traspaso o una clase nueva.
+    const moved = plan({
+      state,
+      newId: createIdFactory(2),
+      effectiveAt: LATER_EFFECTIVE_AT,
+      availableAt: LATER_AVAILABLE_AT,
+      recordedAt: LATER_RECORDED_AT,
+      assignments: FIXTURE_TICKER_ASSIGNMENTS.map((assignment) =>
+        assignment.ticker === "ANDES"
+          ? { ...assignment, exchange: "NYSE" }
+          : assignment,
+      ),
+    });
+
+    expect(moved.rejections).toContainEqual(
+      expect.objectContaining({
+        claimSymbol: "ANDES",
+        code: "unresolved_share_class",
+      }),
+    );
+    expect(moved.counts.exits).toBe(0);
+    expect(moved.counts.held).toBe(1);
+    expect(moved.closures).toEqual([]);
+  });
+
   it("rechaza un snapshot que no es posterior a la versión que debería cerrar", async () => {
     const repository = await applied(plan());
     const state = await repository.loadState({ indexId: FIXTURE_INDEX_ID });
