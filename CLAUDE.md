@@ -241,6 +241,8 @@ Work one authorized slice at a time. [docs/finance-portal-masterplan/06_PHASED_R
 
 Closing a slice means updating the backlog tracker **and** appending a row to the roadmap session log (date, phase/slice, result, status, evidence, next slice/blocker) in the same delivery. New structural dependencies or providers need an ADR in [docs/architecture/adr/](docs/architecture/adr/) first.
 
+Git follows one branch per major section: a backlog issue or a cross-cutting docs or tooling change, named `<type>/<issue>-<summary>` (`feat/f2-05-history-window`). `main` changes only through a pull request. The PR merges with a merge commit once CI is green, and the branch is then deleted on the remote and locally. Details in `AGENTS.md` → Commits & Pull Requests.
+
 ## UI work
 
 Any task that creates or materially changes a page, component, dashboard, chart, table, empty state, theme, or responsive layout must invoke the `impeccable` skill before editing UI code, plus `financial-visualization-review` for charts, metric tables, screeners, and sensitivities.

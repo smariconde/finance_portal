@@ -72,3 +72,11 @@ Before reusing or expanding the visual system, read
 ## Commits & Pull Requests
 
 History follows Conventional Commits with a short imperative subject and an optional scope, for example `docs(architecture): clarify provider boundary` or `feat: implement PostgreSQL dataset snapshot repository`. Match that pattern. Pull requests should summarize changes, link issues or ADRs, state validation, and include screenshots only for UI changes.
+
+`main` changes only through merged pull requests. Work on one branch per major section:
+
+- A section is a backlog issue (`F2-05`, `F7-01`) or a cross-cutting docs or tooling change. A phase ships as a sequence of section branches, and an issue with long increments may use one branch per increment.
+- Branch from an up-to-date `main` and name it `<type>/<issue>-<short-kebab-summary>`, where the type follows Conventional Commits, for example `feat/f2-05-history-window` or `docs/analysis-scope`.
+- Commit in small Conventional Commits on the branch. Never commit directly to `main` or rewrite history that `main` already has.
+- Merge only after the CI quality and E2E jobs pass and the backlog and roadmap session log are updated. Use a merge commit, not squash or rebase, so the section stays grouped in history.
+- After merging, delete the branch on the remote and locally, update `main`, and start the next section from it.
