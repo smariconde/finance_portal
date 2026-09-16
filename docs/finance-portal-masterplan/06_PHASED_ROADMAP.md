@@ -21,17 +21,19 @@ Solo una fase puede estar `in_progress`. No marcar `done` por porcentaje, esfuer
 | Masterplan y auditoria | done | Replanteo single-owner, datos y persistencia revisado el 2026-08-20 |
 | Fase 0 - Fundacion | done | Fase 0A y contratos 0B.1-0B.7 validados el 2026-08-21; gate completo sin integrar proveedores reales |
 | Fase 1 - Vertical slice personal | done | Gate verificado end-to-end en Arch el 2026-09-04: 338 unit, 24 integration, build dinamico y 131 E2E. `F1-08` queda `deferred` por la ADR 0007, con reingreso en `F6-06` |
-| Fase 2 - Datos reales SEC y universo S&P 500 | in_progress | `F2-01` a `F2-04` cerrados. `F2-05` en curso: el incremento 1 entrega jobs durables en PostgreSQL con lease por fuente, cursor, poison policy y recuperación manual (ADR 0015), probados con `kill -9` y procesos concurrentes sobre la SEC; 1.100 unit, 93 integration, build y 131 E2E aprobados. Sigue el incremento 2: ventana de cinco ejercicios y almacenamiento eficiente, decidido por el owner tras medir 1,2 GB para el universo |
+| Fase 2 - Datos reales SEC y universo S&P 500 | in_progress | `F2-01` a `F2-04` cerrados. `F2-05` en curso: el incremento 1 entrega jobs durables en PostgreSQL con lease por fuente, cursor, poison policy y recuperación manual (ADR 0015), probados con `kill -9` y procesos concurrentes sobre la SEC; 1.100 unit, 93 integration, build y 131 E2E aprobados. Sigue el incremento 2: ventana de cinco ejercicios y almacenamiento eficiente, decidido por el owner tras medir 1,2 GB para el universo. Desde la ADR 0016 el backfill del universo deja de ser objetivo de producto: los fundamentals se bajan por ticker elegido o por sector |
 | Fase 3 - Arquetipo, admisibilidad y costo de capital | not_started | - |
 | Fase 4 - Motor Damodaran y arquetipos | not_started | - |
 | Fase 5 - Capa IA acotada bajo policy engine | not_started | - |
 | Fase 6 - Corrida por ticker y acceso CEDEAR | not_started | - |
-| Fase 7 - Screener y catalogo de metricas | not_started | - |
-| Fase 8 - Divergencias fundamentales | not_started | - |
+| Fase 7 - Matrices sectoriales de riesgo | not_started | - |
+| Fase 8 - Divergencias fundamentales por sector | not_started | - |
 | Fase 9 - Argentina, BCRA y soja | not_started | - |
 | Fase 10 - Persistencia, asistente y hardening | not_started | - |
 
 **Reordenamiento del 2026-09-04.** La [ADR 0007](../architecture/adr/0007-ticker-driven-valuation-pivot.md) reordena las fases alrededor del objetivo real del owner: escribir un ticker y obtener una valuacion rigurosa, persistida y refrescable. El orden anterior —capas de capacidad— dejaba ese resultado despues de la Fase 5 y la capa IA en la Fase 7, detras del bloque de Argentina. Nada se elimina: screener, divergencias, macro y soja conservan su alcance y sus gates, corridos hacia abajo. La [ADR 0008](../architecture/adr/0008-remote-personal-access.md) habilita el acceso remoto en produccion, que hoy el codigo niega.
+
+**Alcance del 2026-09-16.** La [ADR 0016](../architecture/adr/0016-analysis-scope-sector-matrices.md) fija que el portal no es un screener general: el owner filtra el mercado con Finviz gratuito. La valuacion es puntual, sobre las empresas que el owner pide por ticker, y sus fundamentals se bajan al pedirlas. Las comparaciones son matrices por sector. La de riesgo (Sortino 2Y contra 5Y, con referencia S&P 500 y CEDEAR distinguido) usa solo precios; la de divergencias necesita pocos fundamentals por empresa del sector. La Fase 7 pasa a ser la matriz de riesgo, `F6-05` pasa a ser la ingesta bajo demanda y la valuacion por lote sale del alcance. El orden de las fases no cambia: adelantar la matriz de riesgo, que no depende del motor, queda como decision abierta del owner.
 
 **Slice excepcional cerrado:** `F1-UI-01`, fundación shadcn/Base UI y migración del shell, home y configuración conforme a [`docs/backlog/README.md`](../backlog/README.md#f1-ui-01). No agregó datos ni capacidades.
 
@@ -167,23 +169,27 @@ La espina del producto, ya con todas sus piezas construidas.
 - [ ] Persistencia de la corrida y su historial: volver a verla, refrescar lo que cambio y comparar contra la anterior.
 - [ ] Superficie de resultado sobre una empresa real, con nivel de rigor declarado, provenance y supuestos propuestos distinguidos de los hechos.
 - [ ] Anotacion de acceso CEDEAR: si la empresa tiene programa, su ratio vigente y su precio.
-- [ ] Corrida por lote sobre el universo, con presupuesto y reanudacion.
+- [ ] Ingesta bajo demanda: si la empresa pedida no tiene la ventana de fundamentals, la corrida la baja como job con presupuesto y reanudacion. La valuacion por lote del universo queda fuera de alcance (ADR 0016).
 - [ ] Despliegue remoto: Postgres hosteada, proteccion del deployment y `personal` en produccion segun la [ADR 0008](../architecture/adr/0008-remote-personal-access.md).
 
 **Gate:** un ticker escrito produce una valuacion completa, persistida y reproducible; el resultado declara su nivel de rigor; una empresa sin datos suficientes se niega nombrando el faltante; ninguna URL sin proteccion sirve datos.
 
-## Fase 7 - Screener y catalogo de metricas
+## Fase 7 - Matrices sectoriales de riesgo
 
-- [ ] Metric catalog versionado con definiciones y unidades.
-- [ ] Screener 2Y/5Y con limites, filtros allowlisted, nulos honestos y metricas sectoriales.
-- [ ] Export personal con definiciones, fecha, source y atribucion.
+Sin screener general ([ADR 0016](../architecture/adr/0016-analysis-scope-sector-matrices.md)): la fase entrega la matriz Sortino 2Y/5Y por sector.
+
+- [ ] Precios diarios por security desde una fuente aprobada por ADR, en una tabla liviana cuyo tamano se mide antes de ingerir, con splits y dividendos fechados y un job fuera del request.
+- [ ] Sector como clasificacion versionada y poblacion del sector resuelta al `as_of`.
+- [ ] Metric catalog acotado a lo que usan las matrices y la valuacion; `sortino` puro y versionado, con sus parametros decididos por el owner.
+- [ ] Matriz de riesgo por sector: referencia S&P 500 en la misma base, recta de ajuste nombrada, CEDEAR vigente sin depender solo del color, tabla equivalente y nulos con motivo.
+- [ ] Export personal con definiciones, parametros, fecha, source y atribucion.
 - [ ] Degradacion, reconciliacion y quality score explicable.
 
-**Gate:** un filtro sobre un campo nulo no lo trata como cero; el export declara de donde salio cada columna.
+**Gate:** una security sin historia suficiente o sin retornos a la baja no se dibuja con un numero inventado; la referencia y las empresas comparten base de retorno y ventanas; el export declara de donde salio cada columna.
 
 ## Fase 8 - Divergencias fundamentales
 
-- [ ] Pipeline fiscal-aligned de precio, market cap, EPS, net income y shares.
+- [ ] Pipeline fiscal-aligned de precio, market cap, EPS, net income y shares para los filers del sector elegido, sin cargar el universo.
 - [ ] Vista agregada `net income vs market cap` y vista por accion `EPS vs price` con puente de dilucion.
 - [ ] Categorias de EPS no comparable y ventanas con tolerancia.
 - [ ] Scatter, tabla, filtros y detail drawer accesibles.
@@ -263,3 +269,4 @@ Agregar una fila al cerrar cada sesion. No borrar historia; corregir con una fil
 | 2026-09-16 | Fase 2 / `F2-04` incremento 3b | Adquisiciones y tickers declarados con evidencia, auditoría e historia conservada; cierra `F2-04` | done | ADR 0014, `declared-event`, `plan-declared-event`, `record-declared-event`, `applyDeclaredEventPlan`, comando `corporate-actions:declare`, migración `0009` y rollback; 1.004 unit, 62 integration, build dinámico, 131 E2E y checks estáticos aprobados. Sondeo real: 15 comunicaciones compartidas no deciden roles; cierre del adquirente cinco segundos después exige usar la última aceptación. Dry run real con 3 requests sobre réplica técnica admite AvalonBay→Vivmark y EQR→VMRK; sin declaración aplicada al grafo personal. Tabla incompleta o símbolo con venue desconocido no prueban ausencia. Rollback rechaza eventos en uso atómicamente y reaplica; migración personal aplicada | `F2-05`: ADR y base durable de backfill/refresh con presupuesto, cursor, lease y recuperación |
 | 2026-09-16 | Fase 2 / `F2-05` incremento 1 | Jobs durables de ingesta: el universo entero llega a PostgreSQL en corridas manuales que sobreviven a `kill -9`, a procesos concurrentes y a una SEC que frena. `F2-05` sigue en curso | in_progress | ADR 0015, enmienda de la ADR 0009, `ingestion-job`, `ingestion-job-transitions`, `ingestion-job-store` con contrato compartido, `run-ingestion-job`, `postgres-ingestion-job-store`, `plan-company-facts-backfill`, `company-facts-backfill`, comandos `fundamentals:backfill` e `ingestion:jobs`, migración `0010` y rollback, runbook `ingestion-backfill`; lease por fuente con token y vencimiento, cursor recalculado en el commit del checkpoint, intento contado al empezar y envenenado al tercero, `429`/`403`/`503`/red caída difieren sin gastar intentos, reserva de 66 requests por empresa; 1.100 unit, 93 integration (ocho conexiones compiten por el lease y una lo toma; checkpoint tardío y toma forzados en ambos órdenes), build dinámico, 131 E2E; rollback probado; migración aplicada al PostgreSQL personal sin crear jobs. Réplica descartable del grafo personal: `kill -9` con toma al vencer, liberación manual, dos procesos a la vez, pausa y reanudación; universo completo 501/501 en tres corridas, 1.649 requests, 37 min, 1.299.374 observaciones, 0 fallados. Dos defectos previos corregidos: la tercera ingesta del mismo contenido chocaba con el índice único (`findByIdempotencyKey`) y el *happy eyeballs* de Node cortaba conexiones sin IPv6 | `F2-05` incremento 2: presupuesto diario y kill switch por fuente en PostgreSQL, respetados también por los comandos de un ticker |
 | 2026-09-16 | Fase 2 / `F2-05`, replanificación | El owner revisa el tamaño del backfill (1,2 GB para el universo) y decide guardar cinco ejercicios de historia; se mide qué se guarda y se inserta un incremento 2 de ventana y almacenamiento eficiente antes del presupuesto diario | in_progress | Medición sobre la base personal: ~945 bytes por observación con índices; 37 % de las filas anteriores a 2016; la ventana de cinco ejercicios anclada en el último anual conserva el 34 % (~410 MB para el universo); ~260 bytes por fila de procedencia redundante (hashes en texto, `external_id`, `metric_id` = `concept`, fuente y parser repetidos). Diseño registrado en el backlog; sin código nuevo en esta fila | `F2-05` incremento 2: ventana `sec-history-5fy-1.0.0` con ADR 0016, medida sobre datos reales; después, filas más livianas con aprobación del owner |
+| 2026-09-16 | Alcance / ADR 0016 | El owner aclara el alcance analitico: sin screener general (usa Finviz gratuito), valuaciones puntuales por ticker con fundamentals bajados al pedirlos, y matrices por sector: riesgo Sortino 2Y/5Y con referencia S&P 500 y CEDEAR distinguido (solo precios) y divergencias con pocos fundamentals por sector. Fase 7 pasa a matrices sectoriales de riesgo, `F6-05` a ingesta bajo demanda y `F8-01` se acota al sector; el backfill del universo deja de ser objetivo. La ADR de la ventana de cinco ejercicios, anunciada como 0016 en la fila anterior, pasa a ser la 0017 | done | `docs/architecture/adr/0016-analysis-scope-sector-matrices.md`, `01_PRODUCT_AND_SCOPE.md`, `03_DATA_AND_PROVENANCE.md` (especificacion Sortino y parametros abiertos), `05_UX_UI.md`, este roadmap, `docs/backlog/README.md`, `docs/product/prd.md`, `PRODUCT.md`; sin codigo nuevo | `F2-05` incremento 2 con ADR 0017, sin cambios; decisiones abiertas del owner: parametros de Sortino, vista principal de divergencias y si la matriz de riesgo se adelanta |
