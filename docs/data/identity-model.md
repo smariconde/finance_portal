@@ -15,7 +15,8 @@
   rollback pareado; repositorio
   [`postgres-universe-repository.ts`](../../src/server/db/postgres-universe-repository.ts).
   Los programas depositarios y sus ratios siguen viviendo sólo en dominio y
-  fixture: su fuente es el acceso CEDEAR y su tabla llega en `F6-04`
+  fixture: su fuente es el registro CEDEAR y su tabla llega en `F7-03`
+  ([ADR 0016](../architecture/adr/0016-analysis-scope-sector-matrices.md))
 - Corporate actions (`F2-04`): migración
   [`0006_lonely_zeigeist.sql`](../../drizzle/0006_lonely_zeigeist.sql) con su
   rollback pareado; módulo
@@ -545,7 +546,7 @@ decisión y campos propios. El índice único por sucesor se limita a
 `reporting_successor`: varias adquisiciones del mismo comprador son válidas.
 
 Todavía no tienen tabla, con su motivo: `depositary_programs` y
-`depositary_ratios` esperan a su fuente (`F6-04`); `security_relationships` espera
+`depositary_ratios` esperan a su fuente (`F7-03`); `security_relationships` espera
 a evidencia de canje o spin-off: `F2-04` registra la adquisición entre entidades
 legales y no inventa relaciones entre sus instrumentos. La primera decisión manual
 real —la sucesión de ExxonMobil— se registró sin `identity_decisions`: la decisión

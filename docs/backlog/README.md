@@ -90,9 +90,16 @@ Cambios en el backlog:
 - la Fase 7 pasa a ser la matriz de riesgo;
 - `F6-05` pasa a ser la ingesta bajo demanda;
 - `F8-01` se acota al sector;
-- el backfill del universo deja de ser objetivo de producto.
+- el backfill del universo deja de ser objetivo de producto;
+- la Fase 7 se ejecuta después de la Fase 2 y antes de la Fase 3, por decisión
+  del owner del mismo día: no depende del motor de valuación;
+- el registro CEDEAR pasa a `F7-03`, y `F6-04` conserva la anotación de acceso en
+  la valuación;
+- la vista principal de divergencias es market cap contra EPS, con el sesgo de
+  recompras a la vista.
 
-El orden de las fases no cambia.
+Orden de ejecución de las fases: 2 → 7 → 3 → 4 → 5 → 6 → 8 → 9 → 10. Los IDs no
+cambian.
 
 `F1-08` queda `deferred` por ese pivote: mide la comprensión de una superficie
 construida sobre una fixture sintética que deja de ser el producto. Condición de
@@ -1744,10 +1751,10 @@ sobre una réplica ocupa lo estimado.
 
 | Issue   | Resultado y aceptación mínima                                                                                       | Depende de | Controles        |
 | ------- | ------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------- |
-| `F3-01` | Selector determinista de arquetipo con reglas activadas, inputs requeridos, confianza y `unsupported_method`.       | Fase 2     | `TM-05`          |
+| `F3-01` | Selector determinista de arquetipo con reglas activadas, inputs requeridos, confianza y `unsupported_method`.       | Fase 7     | `TM-05`          |
 | `F3-02` | Perfil de completitud medido por empresa sobre los datos que existen, sin estimar lo ausente.                       | `F3-01`    | `TM-05`, `TM-16` |
 | `F3-03` | Nivel de rigor `full \| standard \| screening \| unsupported` derivado de la completitud y declarado en la corrida. | `F3-02`    | `TM-05`, `TM-15` |
-| `F3-04` | Datasets Damodaran versionados y fechados: ERP implícita, betas por industria y country risk premium.               | Fase 2     | `TM-05`, `TM-16` |
+| `F3-04` | Datasets Damodaran versionados y fechados: ERP implícita, betas por industria y country risk premium.               | Fase 7     | `TM-05`, `TM-16` |
 | `F3-05` | Mapeo empresa → industria del dataset, con el caso ambiguo declarado y no adivinado.                                | `F3-04`    | `TM-05`, `TM-06` |
 | `F3-06` | Costo de capital bottom-up: beta desapalancada reapalancada, costo de deuda por spread y convergencia terminal.     | `F3-05`    | `TM-06`, `TM-16` |
 
@@ -1785,7 +1792,7 @@ llevado a gate antes del siguiente. Ninguno agrega IA.
 | `F6-01` | Corrida por ticker como job encolado con estado; primera Route Handler o Server Action con sus controles cerrados.                                                     | Fase 5     | `TM-03`, `TM-07`, `TM-10`, `TM-12` |
 | `F6-02` | Historial de corridas: volver a ver, refrescar lo que cambió y comparar contra la anterior sin sobrescribirla.                                                         | `F6-01`    | `TM-06`, `TM-16`                   |
 | `F6-03` | Superficie de resultado sobre empresa real con nivel de rigor, provenance y supuestos distinguidos de los hechos.                                                      | `F6-02`    | `TM-12`, `TM-15`, `UI-02`, `UI-03` |
-| `F6-04` | Anotación de acceso CEDEAR: si existe programa, su ratio vigente y su precio, sin fusionar los dos instrumentos.                                                       | `F6-02`    | `TM-05`, `TM-06`                   |
+| `F6-04` | Anotación de acceso CEDEAR sobre el registro de `F7-03`: si existe programa, su ratio vigente y su precio, sin fusionar los dos instrumentos.                          | `F6-02`    | `TM-05`, `TM-06`                   |
 | `F6-05` | Ingesta bajo demanda: si el ticker pedido no tiene la ventana de fundamentals, la corrida la baja con presupuesto y reanudación. No hay valuación por lote (ADR 0016). | `F6-01`    | `TM-10`, `TM-11`, `TM-16`          |
 | `F6-06` | Despliegue remoto: Postgres hosteada, protección del deployment verificada y walkthrough del owner sobre datos reales.                                                 | `F6-03`    | `TM-14`, `UI-02`                   |
 
@@ -1796,26 +1803,28 @@ ejecuta sobre la primera valuación real, con el protocolo del
 ### Fase 7 — matrices sectoriales de riesgo
 
 Sin screener general ([ADR 0016](../architecture/adr/0016-analysis-scope-sector-matrices.md)).
+Se ejecuta después de la Fase 2 y antes de la Fase 3.
 La especificación de la matriz y sus parámetros abiertos están en
 [`03_DATA_AND_PROVENANCE.md`](../finance-portal-masterplan/03_DATA_AND_PROVENANCE.md).
 
 | Issue   | Resultado y aceptación mínima                                                                                                                                                                                         | Depende de | Controles                          |
 | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------- |
-| `F7-01` | Precios diarios por security desde una fuente aprobada por ADR (derechos, cuota, retención), en una tabla liviana medida antes de ingerir; splits y dividendos con `available_at`; job fuera del request.             | Fase 6     | `TM-05`, `TM-08`, `TM-10`, `TM-11` |
+| `F7-01` | Precios diarios por security desde una fuente aprobada por ADR (derechos, cuota, retención), en una tabla liviana medida antes de ingerir; splits y dividendos con `available_at`; job fuera del request.             | Fase 2     | `TM-05`, `TM-08`, `TM-10`, `TM-11` |
 | `F7-02` | Sector como clasificación versionada (taxonomía, versión, vigencia) y población del sector resuelta al `as_of`.                                                                                                       | `F7-01`    | `TM-05`, `TM-06`                   |
-| `F7-03` | Catálogo de métricas acotado a las matrices y la valuación; `sortino` puro y versionado, con parámetros decididos por el owner y tests de nulos, sin downside, historia insuficiente, huecos, negativos y no finitos. | `F7-02`    | `TM-05`, `TM-16`                   |
-| `F7-04` | Matriz de riesgo por sector: Sortino 2Y vs 5Y, referencia S&P 500 en la misma base, recta de ajuste nombrada, CEDEAR vigente sin depender sólo del color, tabla equivalente, nulos con motivo y consulta acotada.     | `F7-03`    | `TM-06`, `TM-07`, `TM-12`, `UI-02` |
-| `F7-05` | Export personal con definiciones, parámetros, fecha, source y atribución.                                                                                                                                             | `F7-04`    | `TM-02`, `TM-16`                   |
-| `F7-06` | Degradación, reconciliación y quality score explicable.                                                                                                                                                               | `F7-04`    | `TM-05`, `TM-16`                   |
+| `F7-03` | Registro CEDEAR real: programas y ratios versionados desde la fuente aprobada por el owner, con la security subyacente resuelta y sin fusionar instrumentos.                                                          | `F7-02`    | `TM-05`, `TM-06`, `TM-08`          |
+| `F7-04` | Catálogo de métricas acotado a las matrices y la valuación; `sortino` puro y versionado, con parámetros decididos por el owner y tests de nulos, sin downside, historia insuficiente, huecos, negativos y no finitos. | `F7-03`    | `TM-05`, `TM-16`                   |
+| `F7-05` | Matriz de riesgo por sector: Sortino 2Y vs 5Y, referencia S&P 500 en la misma base, recta de ajuste nombrada, CEDEAR vigente sin depender sólo del color, tabla equivalente, nulos con motivo y consulta acotada.     | `F7-04`    | `TM-06`, `TM-07`, `TM-12`, `UI-02` |
+| `F7-06` | Export personal con definiciones, parámetros, fecha, source y atribución.                                                                                                                                             | `F7-05`    | `TM-02`, `TM-16`                   |
+| `F7-07` | Degradación, reconciliación y quality score explicable.                                                                                                                                                               | `F7-05`    | `TM-05`, `TM-16`                   |
 
 ### Fase 8 — divergencias fundamentales
 
-| Issue   | Resultado y aceptación mínima                                                                                                                       | Depende de | Controles                 |
-| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
-| `F8-01` | Pipeline fiscal-aligned point-in-time de precio, market cap, net income, EPS y acciones para los filers del sector elegido, sin cargar el universo. | Fase 7     | `TM-05`, `TM-06`, `TM-16` |
-| `F8-02` | Vista agregada y vista por acción con puente de dilución, sin fabricar porcentajes en extremos.                                                     | `F8-01`    | `TM-05`, `TM-06`          |
-| `F8-03` | Scatter, tabla, filtros y detalle conservan raw de outliers y equivalente accesible.                                                                | `F8-02`    | `TM-07`, `TM-12`          |
-| `F8-04` | Golden/property tests cubren splits, restatements, negativos, outliers, tolerancias y look-ahead.                                                   | `F8-03`    | `TM-05`, `TM-06`          |
+| Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
+| `F8-01` | Pipeline fiscal-aligned point-in-time de precio, market cap, net income, EPS y acciones para los filers del sector elegido, sin cargar el universo.                                   | Fase 6     | `TM-05`, `TM-06`, `TM-16` |
+| `F8-02` | Vista principal market cap vs EPS con `share_count_bias_pp` visible, y vistas agregada y por acción como alternativas, con puente de dilución y sin fabricar porcentajes en extremos. | `F8-01`    | `TM-05`, `TM-06`          |
+| `F8-03` | Scatter, tabla, filtros y detalle conservan raw de outliers y equivalente accesible.                                                                                                  | `F8-02`    | `TM-07`, `TM-12`          |
+| `F8-04` | Golden/property tests cubren splits, restatements, negativos, outliers, tolerancias y look-ahead.                                                                                     | `F8-03`    | `TM-05`, `TM-06`          |
 
 ### Fase 9 — Argentina, BCRA y soja
 
@@ -1854,7 +1863,7 @@ probar el control; fases posteriores pueden volver a verificarlo.
 | `TM-04` | `F1-02`                                 | `F1-07`, `F2-01`, `F10-01`           | `done`: cache namespaced por modo; sólo `personal` construye almacenamiento, verificado sobre el artefacto servido    |
 | `TM-05` | `F1-03`                                 | `F2-03`, `F3-03`, cada parser/modelo | `done` de ingesta a publicación: vacío y parser roto no publican ni reemplazan                                        |
 | `TM-06` | `F1-04`                                 | `F2-02`, `F4-01`, cada consulta      | `done` de la consulta a la valuación: dos cortes producen dos corridas distintas                                      |
-| `TM-07` | `F1-02`                                 | `F1-07`, `F6-01`, `F7-04`            | `done`: Drizzle parametrizado y límite de consulta verificados en PostgreSQL                                          |
+| `TM-07` | `F1-02`                                 | `F1-07`, `F6-01`, `F7-05`            | `done`: Drizzle parametrizado y límite de consulta verificados en PostgreSQL                                          |
 | `TM-08` | `F2-03`, primer provider real           | `F5-04`, `F9-01`                     | required; no hay egress aún                                                                                           |
 | `TM-09` | `F5-03`                                 | `F5-04`, `F5-07`, `F10-04`           | required; no hay IA aún                                                                                               |
 | `TM-10` | `F2-05`                                 | `F5-01`, `F6-05`, `F10-05`           | presupuesto por corrida con reserva del peor caso y señales de la fuente; límite diario y kill switch: `F2-05` inc. 2 |

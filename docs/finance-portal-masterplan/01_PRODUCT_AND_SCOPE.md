@@ -29,7 +29,7 @@ Todas las secciones siguientes pertenecen a la vision objetivo, pero no se const
 - `/`: preguntas frecuentes, buscador global, estado de datos y accesos rapidos.
 - `/sectores/[sector]`: matriz de riesgo Sortino 2Y/5Y del sector, con referencia S&P 500 y CEDEAR distinguido. No es un screener general.
 - `/empresas/[symbol]`: ficha de una empresa elegida, series fundamentales, filings y trazabilidad.
-- `/divergencias/fundamental-gap`: por sector, vistas market cap/net income y precio/EPS para 2 y 5 anos, mas puente de acciones.
+- `/divergencias/fundamental-gap`: por sector, market cap contra EPS con su sesgo de recompras visible, vistas alternativas market cap/net income y precio/EPS para 2 y 5 anos, mas puente de acciones.
 - `/valuacion`: selector/buscador y valuaciones recientes.
 - `/valuacion/[symbol]`: wizard automatico, supuestos, escenarios y resultados.
 - `/argentina`: tablero por bloques, no una pared de graficos.
@@ -51,7 +51,12 @@ Todas las secciones siguientes pertenecen a la vision objetivo, pero no se const
 
 ### 2. Fundamental gap sectorial
 
-El scatter compara, dentro de un sector, crecimiento anualizado de valor y de ganancias. Es una herramienta de deteccion, no una senal de compra. Las vistas principales comparan magnitudes de la misma base: precio contra EPS, y market cap contra net income. Market cap contra EPS mezcla un total con un valor por accion y queda como diagnostico. El detalle debe exponer recompras/dilucion, punto de partida ciclico, extraordinarios y EPS no comparable.
+El scatter compara, dentro de un sector, crecimiento anualizado de valor y de ganancias, para detectar donde las ganancias crecieron mucho mas que el valor y el multiplo pudo quedar mas atractivo. Es una herramienta de deteccion, no una senal de compra.
+
+- Vista principal, elegida por el owner: X = crecimiento del market cap, Y = crecimiento del EPS diluido.
+- Esa vista mezcla un total con un valor por accion: las recompras hacen que una empresa parezca mas barata de lo que se volvio su multiplo, y la dilucion, mas cara. La matriz lo aclara junto al titulo, muestra en tooltip y tabla cuantos puntos del gap vienen del cambio de acciones y marca los puntos donde ese sesgo es grande.
+- Vistas alternativas de la misma base: precio contra EPS, y market cap contra net income.
+- El detalle debe exponer recompras/dilucion, punto de partida ciclico, extraordinarios y EPS no comparable.
 
 Necesita pocos fundamentals: EPS diluido, net income y acciones diluidas en dos cierres fiscales por empresa del sector. Se bajan por sector, nunca para todo el universo.
 

@@ -116,8 +116,10 @@ frontera de red debe verificar el modo efectivo en servidor.
 ### Divergencias fundamentales
 
 - Tomar como población un sector; los fundamentals se bajan sólo para sus filers.
-- Separar la vista agregada `net income vs market cap` de la vista por acción
-  `EPS vs price`.
+- Mostrar como vista principal `market cap vs EPS`, elegida por el owner, con su
+  sesgo a la vista: cuántos puntos del gap vienen de recompras o dilución.
+- Ofrecer como alternativas la vista agregada `net income vs market cap` y la
+  vista por acción `EPS vs price`.
 - Mostrar el cambio de acciones diluidas como puente explicativo.
 - Clasificar extremos no positivos sin inventar un CAGR comparable.
 - Mantener valores reales de outliers aunque la escala visual se recorte.

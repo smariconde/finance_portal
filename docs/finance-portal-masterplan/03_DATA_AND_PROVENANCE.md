@@ -178,11 +178,13 @@ Para horizonte `h`:
    - `price_cagr_pct = ((price1 / price0)^(1/years)-1)*100`
    - `eps_cagr_pct = ((eps1 / eps0)^(1/years)-1)*100`
    - `per_share_gap_pp = eps_cagr_pct - price_cagr_pct`
-   - conservar `fundamental_gap_pp = eps_cagr_pct - market_cap_cagr_pct` solo como diagnostico historico, no ranking aislado.
+   - `fundamental_gap_pp = eps_cagr_pct - market_cap_cagr_pct`: vista principal elegida por el owner ([ADR 0016](../architecture/adr/0016-analysis-scope-sector-matrices.md)). Mezcla un total con un valor por accion, asi que nunca se muestra sin su sesgo:
+   - `share_count_bias_pp = price_cagr_pct - market_cap_cagr_pct`, la parte del gap que viene del cambio de acciones: positiva con recompras, negativa con dilucion. Se cumple exactamente `fundamental_gap_pp - share_count_bias_pp = per_share_gap_pp`.
+   - Un punto cuyo `share_count_bias_pp` supere en valor absoluto la tolerancia documentada lleva una marca de sesgo.
 6. EPS o net income no positivo produce categoria especial por vista, no CAGR artificial.
 7. Calcular `diluted_shares_cagr_pct`, reconciliar basic/diluted shares con corporate actions y explicar la diferencia entre las vistas.
 
-Interpretacion: `aggregate_gap_pp` aproxima compresion/expansion entre beneficio total y equity value; `per_share_gap_pp` hace lo propio entre EPS y precio. Ninguna prueba infravaloracion: recompras, dilucion, picos ciclicos, riesgo, one-offs y expectativas requieren el puente explicativo.
+Interpretacion: `fundamental_gap_pp` es la lectura que eligio el owner y `share_count_bias_pp` dice cuanto de ella son recompras o dilucion. `aggregate_gap_pp` aproxima compresion/expansion entre beneficio total y equity value; `per_share_gap_pp` hace lo propio entre EPS y precio. Ninguna prueba infravaloracion: recompras, dilucion, picos ciclicos, riesgo, one-offs y expectativas requieren el puente explicativo.
 
 ## Argentina
 

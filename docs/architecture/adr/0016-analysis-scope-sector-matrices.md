@@ -6,7 +6,7 @@
   [ADR 0007](0007-ticker-driven-valuation-pivot.md) y de
   [`01_PRODUCT_AND_SCOPE.md`](../../finance-portal-masterplan/01_PRODUCT_AND_SCOPE.md).
   Redefine la Fase 7, acota las Fases 6 y 8 y cambia el objetivo del backfill de
-  `F2-05`. No cambia el orden de las fases.
+  `F2-05`. Adelanta la Fase 7, que se ejecuta después de la Fase 2.
 - Decisiones relacionadas: [ADR 0010](0010-sec-xbrl-ingestion.md) (qué se ingiere
   de la SEC), [ADR 0015](0015-durable-ingestion-jobs.md) (jobs durables),
   [matriz de uso de proveedores](../../data/provider-use-matrix.md)
@@ -153,16 +153,24 @@ aplicada a un sector. Lo que esta ADR agrega:
 - **Necesita fundamentals, aunque pocos:** EPS diluido, net income y acciones
   diluidas en los dos cierres fiscales de cada horizonte. La fuente es la SEC con
   la ventana de cinco ejercicios, y la ingesta se acota a los filers del sector.
-- **Vistas.** La descripción del owner —crecimiento del valor de mercado contra
-  crecimiento del EPS— es la vista `fundamental_gap_pp`. La especificación la
-  conserva como diagnóstico y no como vista principal, porque compara un total
-  con un valor por acción. En efecto,
+- **Vista principal, elegida por el owner.** X es el crecimiento anualizado del
+  market cap e Y el del EPS diluido; la distancia a la diagonal es
+  `fundamental_gap_pp`.
+- **El sesgo está a la vista, no escondido.** La vista compara un total con un
+  valor por acción:
   `(1 + mc_growth) / (1 + eps_growth) = (cambio del P/E) × (acciones_1 / acciones_0)`.
   Una empresa que recompra acciones aparece más barata de lo que se volvió su
-  múltiplo, en la proporción exacta de las acciones recompradas.
-- **Pares por defecto:** precio contra EPS, y valor de mercado contra net income.
-  El puente de acciones explica la diferencia entre las dos vistas.
-- **Pendiente con el owner:** confirmar cuál de las vistas se muestra primero.
+  múltiplo, en la proporción exacta de las acciones recompradas; una que diluye,
+  más cara. Por eso la matriz:
+  - explica el sesgo en una frase junto al título;
+  - muestra en el tooltip y en la tabla
+    `share_count_bias_pp = price_cagr_pct - market_cap_cagr_pct`, que es
+    exactamente la parte del gap que viene del cambio de acciones, y el gap por
+    acción, que vale `fundamental_gap_pp - share_count_bias_pp`;
+  - marca, con forma y no sólo con color, los puntos cuyo sesgo supera una
+    tolerancia documentada.
+- **Vistas alternativas:** precio contra EPS, y market cap contra net income, que
+  comparan magnitudes de la misma base.
 
 ### 6. Volumen objetivo: el plan gratuito
 
@@ -204,16 +212,21 @@ Esta ADR no elige ninguno de los dos.
   - [`prd.md`](../../product/prd.md), `PRODUCT.md` y el
     [backlog](../../backlog/README.md).
 - **Fase 7:** pasa de «Screener y catálogo de métricas» a «Matrices sectoriales de
-  riesgo». Contiene precios, sector versionado, catálogo acotado, fórmula de
-  Sortino, matriz, export y degradación.
+  riesgo». Contiene precios, sector versionado, registro CEDEAR, catálogo
+  acotado, fórmula de Sortino, matriz, export y degradación.
 - **`F6-05`:** pasa a ser la ingesta bajo demanda. Conserva sus controles
   (`TM-10`, `TM-11`, `TM-16`).
 - **`F8-01`:** se acota a los filers del sector elegido.
 - **ADR de la ventana:** la que el backlog numeraba como 0016 pasa a ser la
   **ADR 0017**.
-- **Orden de las fases:** no cambia. Las matrices de riesgo no dependen del motor
-  de valuación, y adelantarlas es una decisión del owner que esta ADR deja
-  abierta.
+- **Orden de las fases:** la Fase 7 se ejecuta inmediatamente después de la Fase 2
+  y antes de la Fase 3, por decisión del owner del mismo día. No depende del motor
+  de valuación. El orden queda 2 → 7 → 3 → 4 → 5 → 6 → 8 → 9 → 10, y los IDs de
+  las fases no cambian.
+- **Registro CEDEAR:** la matriz necesita saber qué securities tienen programa
+  vigente, así que el registro de programas y ratios pasa a la Fase 7 (`F7-03`).
+  `F6-04` conserva la anotación de acceso en el resultado de la valuación: ratio
+  vigente y precio del CEDEAR.
 
 ## Alternativas descartadas
 

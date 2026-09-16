@@ -48,15 +48,15 @@ No hay screener general: el filtrado amplio se hace con Finviz ([ADR 0016](../ar
 
 ## Divergencias fundamentales
 
-La pagina ofrece dos vistas comparables y un puente; no presenta un score unico como oportunidad:
+La pagina ofrece una vista principal, dos alternativas y un puente; no presenta un score unico como oportunidad ([ADR 0016](../architecture/adr/0016-analysis-scope-sector-matrices.md)):
 
-- Vista agregada: X = market cap CAGR; Y = net income CAGR.
-- Vista por accion: X = price CAGR; Y = diluted EPS CAGR.
-- Linea diagonal `y=x`; tooltip explica compresion/expansion sin concluir infravaloracion.
-- Color = sector; borde o icono = CEDEAR; area = market cap actual con escala acotada.
+- Vista principal, elegida por el owner: X = market cap CAGR; Y = diluted EPS CAGR. Una frase junto al titulo aclara que las recompras hacen parecer mas barata a una empresa y la dilucion, mas cara.
+- Vistas alternativas de la misma base: agregada (X = market cap CAGR; Y = net income CAGR) y por accion (X = price CAGR; Y = diluted EPS CAGR).
+- Linea diagonal `y=x`; el tooltip explica compresion/expansion sin concluir infravaloracion y, en la vista principal, muestra `share_count_bias_pp` y el gap por accion.
+- CEDEAR = borde o icono mas color; sesgo de acciones por encima de la tolerancia = glifo propio; area = market cap actual con escala acotada. Ninguna senal depende solo del color.
 - Selector de sector (la poblacion de la matriz), toggle 2Y/5Y y filtros CEDEAR/market cap/data quality.
 - Lasso no es necesario en MVP; click fija tooltip y abre detalle.
-- Tabla sincronizada con `aggregate_gap_pp`, `per_share_gap_pp`, `fundamental_gap_pp` historico y share-count CAGR. El usuario elige orden y siempre ve el puente de acciones.
+- Tabla sincronizada con `fundamental_gap_pp`, `share_count_bias_pp`, `per_share_gap_pp`, `aggregate_gap_pp` y share-count CAGR. El usuario elige orden y siempre ve el puente de acciones.
 - Panel separado para `loss_to_profit`, `profit_to_loss` y `negative_both`.
 - Outliers recortados solo visualmente se etiquetan en el borde; tooltip conserva raw.
 
