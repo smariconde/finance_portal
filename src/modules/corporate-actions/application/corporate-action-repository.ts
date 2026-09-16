@@ -3,6 +3,8 @@ import { z } from "zod";
 import type { AppMode } from "@/modules/configuration/domain/config-health";
 import { selectPersonalDependency } from "@/modules/configuration/domain/runtime-lock";
 
+import type { DeclaredEventPlan } from "../domain/declared-event";
+
 import type { ListingReconciliationPlan } from "../domain/plan-listing-reconciliation";
 import type { SplitRecordingPlan } from "../domain/plan-split-recording";
 import type { SuccessionRecordingPlan } from "../domain/plan-succession-recording";
@@ -85,7 +87,28 @@ export type SuccessionRecordingSummary = {
   readonly relationships: number;
 };
 
+export type DeclaredEventSummary = {
+  corporateActions: number;
+  relationships: number;
+  supersessions: number;
+  listingSymbols: number;
+};
+
+export function summarizeDeclaredEventPlan(
+  plan: DeclaredEventPlan,
+): DeclaredEventSummary {
+  return {
+    corporateActions: plan.corporateActions.length,
+    relationships: plan.relationships.length,
+    supersessions: plan.supersessions.length,
+    listingSymbols: plan.listingSymbols.length,
+  };
+}
+
 export interface CorporateActionRepository {
+  applyDeclaredEventPlan(
+    plan: DeclaredEventPlan,
+  ): Promise<DeclaredEventSummary>;
   readonly storage: "in-memory-fixture" | "personal-postgres";
   /** Todas las versiones, también las cerradas: la historia se consulta al corte. */
   listRelationships(

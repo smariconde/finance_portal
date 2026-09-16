@@ -28,6 +28,7 @@ The current application command contract is:
 - `pnpm corporate-actions:record`: verify and record the declared issuer successions; dry run unless `--apply`.
 - `pnpm corporate-actions:splits`: verify and record the stock splits of an already ingested ticker; dry run unless `--apply`.
 - `pnpm corporate-actions:listings`: reconcile venue transfers, delistings and renames of the universe against dated SEC evidence; `--cik` asks for a filer explicitly; dry run unless `--apply`.
+- `pnpm corporate-actions:declare --file <path>`: verify an explicit owner declaration of an acquisition or ticker change; dry run unless `--apply`.
 
 Review documentation changes with `pnpm format:check`, `git diff --check`, and searches for stale references.
 

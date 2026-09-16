@@ -75,7 +75,7 @@ export function createLiveListingEvidenceSource(dependencies: {
   }
 
   return {
-    async loadAssignments() {
+    async loadAssignments(options) {
       const { response, payload } = await fetchJson(
         "company_tickers",
         ASSIGNMENTS_URL,
@@ -87,6 +87,16 @@ export function createLiveListingEvidenceSource(dependencies: {
           "payload_schema_invalid",
           "company_tickers",
           { detail: parsed.code },
+        );
+      }
+
+      // Absence cannot be inferred from a table whose discarded row may be the
+      // symbol we are trying to prove disappeared (ADR 0014).
+      if (options?.requireComplete && parsed.rejections.length > 0) {
+        throw new ListingEvidenceSourceError(
+          "payload_schema_invalid",
+          "company_tickers",
+          { detail: "assignment_rows_rejected" },
         );
       }
 

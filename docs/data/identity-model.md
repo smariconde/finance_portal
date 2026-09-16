@@ -1,7 +1,7 @@
 # Modelo de identidad financiera
 
 - Estado: contrato implementado en dominio y persistido en PostgreSQL
-- Versión: 0.4
+- Versión: 0.5
 - Fecha: 2026-09-04; sucesión de emisor el 2026-09-14; traspasos, delistings y
   renombres el 2026-09-15
 - Alcance: entity, security, listing, identifiers y programas depositarios
@@ -298,7 +298,7 @@ conservan sus IDs ([ADR 0011](../architecture/adr/0011-issuer-succession-reporti
 ```ts
 type LegalEntityRelationship = TemporalIdentityVersion & {
   relationshipId: string;
-  relationshipType: "reporting_successor";
+  relationshipType: "reporting_successor" | "acquired_by";
   predecessorLegalEntityId: string;
   successorLegalEntityId: string;
   corporateActionId: string;
@@ -316,8 +316,8 @@ type LegalEntityRelationship = TemporalIdentityVersion & {
   hechos del antecesor conservan su sujeto y el linaje los combina con la regla
   versionada `reporting-lineage-1.0.0` del
   [contrato point-in-time](point-in-time-contract.md#linaje-de-reporte).
-- Adquisiciones y spin-offs serán otros tipos de vínculo que nunca entran al linaje:
-  el adquirente no reporta la historia del adquirido.
+- `acquired_by` registra adquisiciones y nunca entra al linaje: el adquirente no
+  reporta la historia del adquirido. Spin-offs siguen diferidos.
 
 ### Split y reverse split (implementados)
 
@@ -358,9 +358,29 @@ una pregunta, y la responde el índice de presentaciones del filer
 - **Renombre**: `formerNames` fecha el borde. Si es posterior a la versión registrada
   se cierra y abre en el borde; si es anterior, la versión registrada nació vencida y se
   **supersede** en la descarga, con la nueva vigente desde el borde.
-- **Cambio de ticker en el mismo mercado**: la SEC no lo fecha y se rechaza con nombre.
+- **Cambio de ticker en el mismo mercado**: la reconciliación automática lo rechaza
+  porque la SEC no lo fecha. Una declaración explícita usa el flujo de abajo.
 - Dos clases del mismo emisor en el mismo mercado son `ambiguous_listing`: ni el `25`
   ni el `25-NSE` dicen cuál.
+
+### Adquisición y cambio de ticker declarados (implementados)
+
+[ADR 0014](../architecture/adr/0014-declared-corporate-events.md), migración `0009`
+y [runbook](../runbooks/declared-corporate-events.md):
+
+- Una adquisición entre entidades ya presentes crea `acquisition` y `acquired_by`.
+  Las columnas `predecessorLegalEntityId` y `successorLegalEntityId` significan
+  adquirido y adquirente para ese tipo. Un adquirente puede tener muchos adquiridos;
+  los límites uno-a-uno de `reporting_successor` no cambian.
+- Los roles y la fecha se declaran, y dos 8-K de cierre más un `425` compartido
+  corroboran el vínculo. `availableAt` es la última aceptación requerida. No se
+  infieren cancelaciones de securities, canjes ni incorporación de empresas privadas.
+- Un ticker declarado crea `symbol_change` sobre el mismo listing. Se verifica la
+  asignación vigente del nuevo símbolo al CIK/MIC y la ausencia del anterior. Se
+  supersede la fila original y se agregan viejo-cerrado y nuevo-abierto con IDs nuevos,
+  conservando la respuesta anterior a la declaración. `decidedBy`, `decidedAt`, motivo,
+  versión y hash de declaración quedan en los términos del evento.
+- Sin declaración o evidencia suficiente, se rechaza con nombre y no cambia el grafo.
 
 ## Reglas de vigencia
 
@@ -519,11 +539,15 @@ antecesor de reporte abierto por sucesor y un solo sucesor por antecesor, y
 entidad legal y un ratio decimal canónico mayor que uno o entre cero y uno según el
 tipo. Desde `0008` suma `listing_transfer` y `delisting`, y
 `corporate_actions_listing_terms_check` exige security con dos MIC distintos para el
-traspaso y listing con su MIC para el delisting.
+traspaso y listing con su MIC para el delisting. Desde `0009` suma `acquisition`,
+`symbol_change` y el vínculo `acquired_by`; el check de términos exige sujeto,
+decisión y campos propios. El índice único por sucesor se limita a
+`reporting_successor`: varias adquisiciones del mismo comprador son válidas.
 
 Todavía no tienen tabla, con su motivo: `depositary_programs` y
-`depositary_ratios` esperan a su fuente (`F6-04`); `security_relationships` espera a
-las fusiones y spin-offs del incremento 3b de `F2-04`. La primera decisión manual
+`depositary_ratios` esperan a su fuente (`F6-04`); `security_relationships` espera
+a evidencia de canje o spin-off: `F2-04` registra la adquisición entre entidades
+legales y no inventa relaciones entre sus instrumentos. La primera decisión manual
 real —la sucesión de ExxonMobil— se registró sin `identity_decisions`: la decisión
 vive en la declaración versionada del repositorio y el vínculo guarda `decided_by` y
 la versión de la regla que la verificó. `identity_resolution_runs` e
@@ -563,9 +587,10 @@ colapsada, idempotencia, renombre historizado y salida del índice sin borrado.
   última base conocible y re-expresión clasificada
   ([`verify-split-evidence.test.ts`](../../src/modules/corporate-actions/domain/verify-split-evidence.test.ts),
   [`split-adjustment.test.ts`](../../src/modules/corporate-actions/domain/split-adjustment.test.ts));
-- merger, spin-off y delisting;
-- ✔ identificador ambiguo y conflicto de fuentes; el override manual sigue
-  pendiente;
+- ✔ adquisición sin unión de historia, delisting y ticker declarado; spin-off
+  sigue diferido;
+- ✔ identificador ambiguo y conflicto de fuentes; decisión del owner sobre un
+  ticker registrada y verificada;
 - ✔ intervalos que se tocan sin solaparse y rechazo de solapamientos reales
   ([`temporal-version.test.ts`](../../src/modules/temporal/domain/temporal-version.test.ts)).
 

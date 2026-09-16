@@ -1031,11 +1031,13 @@ export const corporateActionType = pgEnum("corporate_action_type", [
   "reverse_split",
   "listing_transfer",
   "delisting",
+  "acquisition",
+  "symbol_change",
 ]);
 
 export const legalEntityRelationshipType = pgEnum(
   "legal_entity_relationship_type",
-  ["reporting_successor"],
+  ["reporting_successor", "acquired_by"],
 );
 
 export const identityDecisionMaker = pgEnum("identity_decision_maker", [
@@ -1126,6 +1128,26 @@ export const corporateActions = pgTable(
       end`,
     ),
     check(
+      "corporate_actions_declared_terms_check",
+      sql`case when ${table.actionType}::text in ('acquisition', 'symbol_change') then
+        coalesce(${table.terms}->>'decidedBy', '') = 'owner'
+        and coalesce(${table.terms}->>'decidedAt', '') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]{3})?Z$'
+        and coalesce(${table.terms}->>'declarationHash', '') ~ '^[a-f0-9]{64}$'
+        and length(coalesce(${table.terms}->>'rationale', '')) > 0
+        and length(coalesce(${table.terms}->>'ruleVersion', '')) > 0
+        and case when ${table.actionType}::text = 'acquisition' then
+          ${table.subjectType}::text = 'legal_entity'
+          and coalesce(${table.terms}->>'acquirerLegalEntityId', '') ~ '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'
+          and ${table.terms}->>'acquirerLegalEntityId' <> ${table.subjectId}::text
+        else ${table.subjectType}::text = 'listing'
+          and coalesce(${table.terms}->>'mic', '') ~ '^[A-Z0-9]{4}$'
+          and coalesce(${table.terms}->>'fromSymbol', '') ~ '^[A-Z0-9][A-Z0-9.-]{0,31}$'
+          and coalesce(${table.terms}->>'toSymbol', '') ~ '^[A-Z0-9][A-Z0-9.-]{0,31}$'
+          and ${table.terms}->>'fromSymbol' <> ${table.terms}->>'toSymbol'
+        end
+      else true end`,
+    ),
+    check(
       "corporate_actions_listing_terms_check",
       sql`case
         when ${table.actionType}::text = 'listing_transfer' then ${table.subjectType}::text = 'security'
@@ -1183,7 +1205,9 @@ export const legalEntityRelationships = pgTable(
     }),
     uniqueIndex("legal_entity_relationships_successor_open_uidx")
       .on(table.relationshipType, table.successorLegalEntityId)
-      .where(openVersion(table)),
+      .where(
+        sql`${openVersion(table)} and ${table.relationshipType} = 'reporting_successor'`,
+      ),
     uniqueIndex("legal_entity_relationships_predecessor_open_uidx")
       .on(table.relationshipType, table.predecessorLegalEntityId)
       .where(openVersion(table)),

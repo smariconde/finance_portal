@@ -8,6 +8,7 @@ import {
   corporateActionListQuerySchema,
   StaleListingPlanError,
   summarizeListingPlan,
+  summarizeDeclaredEventPlan,
   summarizeSuccessionPlan,
   type CorporateActionRepository,
 } from "@/modules/corporate-actions/application/corporate-action-repository";
@@ -218,6 +219,81 @@ export function createPostgresCorporateActionRepository(
       });
 
       return summarizeSuccessionPlan(plan);
+    },
+    async applyDeclaredEventPlan(plan) {
+      if (plan.status !== "planned")
+        return {
+          corporateActions: 0,
+          relationships: 0,
+          supersessions: 0,
+          listingSymbols: 0,
+        };
+      const actions = plan.corporateActions.map((a) =>
+        corporateActionSchema.parse(a),
+      );
+      const relationships = plan.relationships.map((r) =>
+        legalEntityRelationshipSchema.parse(r),
+      );
+      const symbols = plan.listingSymbols.map((s) =>
+        listingSymbolSchema.parse(s),
+      );
+      await database.transaction(async (transaction) => {
+        for (const replacement of plan.supersessions) {
+          const rows = await transaction
+            .update(schema.listingSymbols)
+            .set({ supersededAt: new Date(replacement.supersededAt) })
+            .where(
+              and(
+                eq(
+                  schema.listingSymbols.listingSymbolId,
+                  replacement.listingSymbolId,
+                ),
+                eq(
+                  schema.listingSymbols.validFrom,
+                  new Date(replacement.validFrom),
+                ),
+                isNull(schema.listingSymbols.validTo),
+                isNull(schema.listingSymbols.supersededAt),
+              ),
+            )
+            .returning({ id: schema.listingSymbols.listingSymbolId });
+          if (rows.length !== 1)
+            throw new StaleListingPlanError(
+              "listing_symbol",
+              replacement.listingSymbolId,
+            );
+        }
+        if (symbols.length)
+          await transaction.insert(schema.listingSymbols).values(
+            symbols.map((s) => ({
+              ...toTemporalRow(s),
+              listingSymbolId: s.listingSymbolId,
+              listingId: s.listingId,
+              symbol: s.symbol,
+              normalizedSymbol: normalizeSymbol(s.symbol),
+              symbolType: s.symbolType,
+            })),
+          );
+        if (actions.length)
+          await transaction
+            .insert(schema.corporateActions)
+            .values(actions.map(toCorporateActionRow));
+        if (relationships.length)
+          await transaction.insert(schema.legalEntityRelationships).values(
+            relationships.map((r) => ({
+              ...toTemporalRow(r),
+              relationshipId: r.relationshipId,
+              relationshipType: r.relationshipType,
+              predecessorLegalEntityId: r.predecessorLegalEntityId,
+              successorLegalEntityId: r.successorLegalEntityId,
+              corporateActionId: r.corporateActionId,
+              effectiveOn: r.effectiveOn,
+              decidedBy: r.decidedBy,
+              decisionRuleVersion: r.decisionRuleVersion,
+            })),
+          );
+      });
+      return summarizeDeclaredEventPlan(plan);
     },
     async applySplitPlan(plan: SplitRecordingPlan) {
       const actions = plan.corporateActions.map((action) =>

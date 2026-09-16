@@ -24,21 +24,22 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 
 ## Tracker activo
 
-| Orden | Issue      | Estado        | Resultado verificable                                                                                                | Dependencias  |
-| ----: | ---------- | ------------- | -------------------------------------------------------------------------------------------------------------------- | ------------- |
-|     1 | `F1-01`    | `done`        | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos.         | Fase 0 `done` |
-|     2 | `F1-02`    | `done`        | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.              | `F1-01`       |
-|     3 | `F1-UI-01` | `done`        | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.                       | `F1-02`       |
-|     4 | `F1-03`    | `done`        | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.                       | `F1-UI-01`    |
-|     5 | `F1-04`    | `done`        | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.                  | `F1-03`       |
-|     6 | `F1-05`    | `done`        | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                              | `F1-04`       |
-|     7 | `F1-06`    | `done`        | Superficie de resultado y trazabilidad con fuentes, freshness, supuestos y sensibilidad accesibles.                  | `F1-05`       |
-|     8 | `F1-07`    | `done`        | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                                   | `F1-06`       |
-|     9 | `F1-08`    | `deferred`    | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.                       | `F1-07`       |
-|    10 | `F2-01`    | `done`        | Acceso personal remoto habilitado en produccion, con los tests de frontera invertidos a proposito.                   | ADR 0008      |
-|    11 | `F2-02`    | `done`        | Universo S&P 500 con identidad completa: issuer, security, listing, simbolo vigente y CIK.                           | `F2-01`       |
-|    12 | `F2-03`    | `done`        | SEC EDGAR integrada: companyfacts publicado como observaciones point-in-time, con aceptación, vintages y cuarentena. | `F2-02`       |
-|    13 | `F2-04`    | `in_progress` | Corporate actions con vigencia: splits, cambios de símbolo, sucesiones de CIK, delistings y fusiones.                | `F2-03`       |
+| Orden | Issue      | Estado     | Resultado verificable                                                                                                | Dependencias  |
+| ----: | ---------- | ---------- | -------------------------------------------------------------------------------------------------------------------- | ------------- |
+|     1 | `F1-01`    | `done`     | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos.         | Fase 0 `done` |
+|     2 | `F1-02`    | `done`     | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.              | `F1-01`       |
+|     3 | `F1-UI-01` | `done`     | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.                       | `F1-02`       |
+|     4 | `F1-03`    | `done`     | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.                       | `F1-UI-01`    |
+|     5 | `F1-04`    | `done`     | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.                  | `F1-03`       |
+|     6 | `F1-05`    | `done`     | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                              | `F1-04`       |
+|     7 | `F1-06`    | `done`     | Superficie de resultado y trazabilidad con fuentes, freshness, supuestos y sensibilidad accesibles.                  | `F1-05`       |
+|     8 | `F1-07`    | `done`     | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                                   | `F1-06`       |
+|     9 | `F1-08`    | `deferred` | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.                       | `F1-07`       |
+|    10 | `F2-01`    | `done`     | Acceso personal remoto habilitado en produccion, con los tests de frontera invertidos a proposito.                   | ADR 0008      |
+|    11 | `F2-02`    | `done`     | Universo S&P 500 con identidad completa: issuer, security, listing, simbolo vigente y CIK.                           | `F2-01`       |
+|    12 | `F2-03`    | `done`     | SEC EDGAR integrada: companyfacts publicado como observaciones point-in-time, con aceptación, vintages y cuarentena. | `F2-02`       |
+|    13 | `F2-04`    | `done`     | Corporate actions con vigencia: splits, cambios de símbolo, sucesiones de CIK, delistings y fusiones.                | `F2-03`       |
+|    14 | `F2-05`    | `ready`    | Backfill y refresh durable con presupuesto, cursor, lease y recuperación verificables.                               | `F2-04`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -961,7 +962,7 @@ por CIK cambiado son `F2-05`; las golden fixtures reales son `F2-06`.
 
 #### `F2-04` — Corporate actions con vigencia
 
-- Estado: `in_progress` (desde 2026-09-14)
+- Estado: `done` (2026-09-16; iniciado el 2026-09-14)
 - Fase y dependencia: Fase 2; `F2-03`
 - Alcance incluido, en tres incrementos que se cierran en este orden:
   1. **sucesión de emisor**: una reorganización que cambia el CIK del filer une la
@@ -1229,7 +1230,7 @@ no sabe si el job corrió para el emisor, así que va después de cada ingesta h
 `F2-05`; una fila sensible de un antecesor falla bajo `latest_adjusted` porque la
 conversión de acciones de la sucesión no está registrada.
 
-##### Incremento 3 — símbolos, traspasos, delistings y fusiones (especificado el 2026-09-15; 3a entregado el 2026-09-15, 3b no iniciado)
+##### Incremento 3 — símbolos, traspasos, delistings y fusiones (especificado el 2026-09-15; 3a entregado el 2026-09-15, 3b entregado el 2026-09-16)
 
 Material medido al cerrar el incremento 2, 3 requests de `submissions` sin conservar
 payload:
@@ -1378,7 +1379,7 @@ sin vínculo al adquirente; sólo Nasdaq y NYSE en el mapa de mercados; la secur
 un adquirido sigue vigente; corregir un listing se rechaza; un renombre posterior
 cerrado en el lugar tiene el mismo límite que el del planner del universo.
 
-##### Incremento 3b — vínculos de adquisición y cambios de ticker declarados (especificado el 2026-09-15, no iniciado)
+##### Incremento 3b — vínculos de adquisición y cambios de ticker declarados (especificado el 2026-09-15, entregado el 2026-09-16)
 
 Material medido en el sondeo del 3a:
 
@@ -1406,6 +1407,71 @@ Criterios de aceptación (borrador):
 - un cambio de ticker declarado cierra y abre `listing_symbol` en la fecha declarada,
   con `decided_by = owner`, y un `as_known` anterior a la declaración no lo ve;
 - lo que la declaración no cierra se rechaza con nombre y no toca el grafo.
+
+Entregado (2026-09-16): [ADR 0014](../architecture/adr/0014-declared-corporate-events.md),
+`declared-event.ts`, `plan-declared-event.ts`, `record-declared-event.ts`,
+`applyDeclaredEventPlan` en ambos repositorios, migración
+`0009_pretty_thunderbird.sql` con rollback pareado y
+`pnpm corporate-actions:declare --file <path>`;
+[protocolo y ejemplos sintéticos](../runbooks/declared-corporate-events.md).
+
+El sondeo previo corrigió el borrador:
+
+- 15 accessions `425` compartidas entre AvalonBay y Vivmark, presentadas por agentes;
+  no prueban la dirección. La intersección reciente no trae `S-4`. Los roles se
+  declaran después de leer los 8-K y se corroboran con sus ítems y fecha de evento.
+- La aceptación del adquirido es 20:01:44Z; la del adquirente 20:01:49Z. El vínculo
+  usa **la última aceptación requerida**, corrigiendo los cinco segundos de
+  anticipación que habría introducido el borrador.
+- El ticker conserva `decidedBy = owner`, instante y motivo de la declaración. Su
+  `availableAt` es la primera verificación satisfactoria, no la fecha del cambio.
+  Superseder la fila original y agregar viejo-cerrado/nuevo-abierto conserva el
+  resultado de un `as_known` anterior. Una tabla incompleta no prueba ausencia;
+  una fila del símbolo con mercado desconocido tampoco se descarta como ausente.
+
+Criterios cumplidos:
+
+- `acquired_by` entre dos entidades del grafo, sin incorporar compañías desconocidas,
+  sin unir historias ni siquiera solicitar hechos del adquirido en la lectura del
+  adquirente; un comprador admite varias adquisiciones y sólo `reporting_successor`
+  mantiene un antecesor único;
+- cambio de ticker sobre el mismo listing/security con vigencia y conocimiento
+  separados, declaración explícita y tabla SEC completa como corroboración;
+- schema estricto y entrada acotada, derechos/modo/identidad antes de red, rechazos
+  nombrados, fallo y conflicto de documentos sin cambiar el grafo;
+- transacción atómica, rechazo de planes desactualizados, replay sin versiones nuevas
+  y recuperación después del registro de auditoría/documentos.
+
+Evidencia: 1.004 unit tests (969 + 35), 62 integration tests (55 + 7), build con las
+cuatro rutas dinámicas y 131 E2E aprobados (2 casos mobile omitidos en proyectos
+exclusivamente desktop). `format:check`, `lint`, `typecheck` y `git diff --check`
+aprobados. Rollback probado en base creada para ese propósito: rechaza eventos en
+uso sin perderlos, revierte tipos sin datos y permite reaplicar `0009`. Migración
+aplicada también al PostgreSQL personal; no se aplicó ninguna declaración personal.
+
+Validación real (2026-09-15, 3 requests adicionales, sin conservar payload): sobre
+una **réplica técnica del grafo anterior** —no una declaración del owner— el planner
+admite AvalonBay→Vivmark desde 2026-08-17T04:00Z y conocible desde 20:01:49Z;
+EQR→VMRK cierra/abre el símbolo el 2026-08-18T04:00Z y queda conocible desde la
+verificación. Nada se escribió en el grafo personal. Las pruebas PostgreSQL usan
+fixtures sintéticas conforme a la política del repositorio.
+
+`F2-04` cierra. Límites: no se infieren roles desde accessions, no se reconstruye un
+ticker anterior al grafo registrado, y canjes/spin-offs requieren evidencia distinta.
+El backfill durable sigue en `F2-05`.
+
+#### `F2-05` — Backfill y refresh durable
+
+- Estado: `ready`; próximo slice autorizado de Fase 2.
+- Dependencia: `F2-04` cerrado.
+- Primer incremento: decidir mediante ADR el almacenamiento durable de jobs y
+  presupuestos; implementar cursor/checkpoint, lease, vencimiento y recuperación
+  manual con reloj inyectado y PostgreSQL, antes de programar refresh.
+- El issue completo debe probar idempotencia, concurrencia entre procesos, límites por
+  corrida/día, kill switch, `429`, reanudación tras crash y poison policy. La página
+  sigue leyendo PostgreSQL; no se recorren 503 emisores desde una request.
+- Controles: `TM-10`, `TM-11`, `TM-16`.
+- No iniciado en esta entrega. No autoriza cron live, gasto ni recursos externos.
 
 | Issue   | Resultado y aceptación mínima                                                                                       | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |

@@ -74,6 +74,8 @@ export const corporateActionTypeSchema = z.enum([
   "reverse_split",
   "listing_transfer",
   "delisting",
+  "acquisition",
+  "symbol_change",
 ]);
 
 export type CorporateActionType = z.infer<typeof corporateActionTypeSchema>;
@@ -117,6 +119,39 @@ export const corporateActionSchema = z
     recordedAt: utcTimestampSchema,
   })
   .superRefine((action, context) => {
+    if (
+      action.actionType === "acquisition" ||
+      action.actionType === "symbol_change"
+    ) {
+      const acquisition = action.actionType === "acquisition";
+      const terms = action.terms;
+      const valid = acquisition
+        ? action.subjectType === "legal_entity" &&
+          z.uuid().safeParse(terms.acquirerLegalEntityId).success &&
+          terms.acquirerLegalEntityId !== action.subjectId
+        : action.subjectType === "listing" &&
+          MIC.test(terms.mic ?? "") &&
+          /^[A-Z0-9][A-Z0-9.-]{0,31}$/u.test(terms.fromSymbol ?? "") &&
+          /^[A-Z0-9][A-Z0-9.-]{0,31}$/u.test(terms.toSymbol ?? "") &&
+          terms.fromSymbol !== terms.toSymbol;
+      if (
+        !valid ||
+        terms.decidedBy !== "owner" ||
+        !utcTimestampSchema.safeParse(terms.decidedAt).success ||
+        !contentHashSchema.safeParse(terms.declarationHash).success ||
+        !terms.rationale ||
+        !terms.ruleVersion
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["terms"],
+          message:
+            "A declared event requires its subject, terms and owner decision.",
+        });
+      }
+      return;
+    }
+
     if (action.actionType === "successor_issuer") {
       return;
     }
@@ -231,14 +266,17 @@ export function computeCorporateActionContentHash(
   });
 }
 
-export const relationshipTypeSchema = z.enum(["reporting_successor"]);
+export const relationshipTypeSchema = z.enum([
+  "reporting_successor",
+  "acquired_by",
+]);
 
 /**
  * Vínculo versionado entre dos entidades legales.
  *
  * `reporting_successor` es el único tipo que **une historias**: el antecesor
- * presentaba los estados del mismo grupo consolidado. Una adquisición o un
- * spin-off serán otros tipos que nunca entran al linaje de reporte.
+ * presentaba los estados del mismo grupo consolidado. `acquired_by` registra una
+ * adquisición sin incorporarla al linaje de reporte.
  *
  * `effectiveOn` es el borde de la partición en el calendario de la fuente —el
  * antecesor aporta hechos con `as_of` anterior— y `validFrom` es ese mismo día a

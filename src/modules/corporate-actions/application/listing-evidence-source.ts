@@ -42,7 +42,7 @@ export class ListingEvidenceSourceError extends Error {
 }
 
 export interface ListingEvidenceSource {
-  loadAssignments(): Promise<{
+  loadAssignments(options?: { readonly requireComplete?: boolean }): Promise<{
     readonly assignments: readonly CompanyTickerAssignment[];
     readonly document: ListingEvidenceDocument;
   }>;

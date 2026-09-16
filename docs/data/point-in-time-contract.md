@@ -1,7 +1,7 @@
 # Contrato point-in-time
 
 - Estado: contrato aceptado para implementación posterior
-- Versión: 0.4
+- Versión: 0.5
 - Fecha: 2026-08-21; SEC y documentos de fuente el 2026-09-14; linaje de reporte
   el 2026-09-14; corrección de una dimensión el 2026-09-15
 - Alcance: identidad, fundamentales, mercado, macro, CEDEAR y valuaciones
@@ -92,6 +92,20 @@ versión nueva vale desde el borde publicado, con ese mismo `available_at`. Un
 `as_known` anterior sigue viendo el nombre viejo; uno posterior, el nuevo también para
 fechas efectivas anteriores a la versión superseded
 ([ADR 0013](../architecture/adr/0013-listing-events-dated-evidence.md)).
+
+### Ticker declarado y adquisición
+
+[ADR 0014](../architecture/adr/0014-declared-corporate-events.md): una declaración
+retrospectiva no cierra destructivamente el símbolo original. Supersede esa fila en
+la primera verificación satisfactoria y agrega dos asignaciones conocidas desde ese
+corte: el símbolo viejo hasta la fecha efectiva declarada y el nuevo desde ella. La
+fila original conserva su intervalo para consultas con corte anterior. Repetir la
+declaración no mueve el corte ni genera versiones adicionales.
+
+Un vínculo `acquired_by` usa la última aceptación de las presentaciones que lo
+corroboran, aunque la del adquirido haya ocurrido antes. Es visible con la selección
+de dimensión habitual, pero **no participa** en `resolveReportingLineage`: tampoco
+solicita observaciones del adquirido en una lectura del adquirente.
 
 ### Observaciones
 

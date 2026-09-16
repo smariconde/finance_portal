@@ -9,6 +9,7 @@ import {
   matchesCorporateActionQuery,
   StaleListingPlanError,
   summarizeListingPlan,
+  summarizeDeclaredEventPlan,
   summarizeSuccessionPlan,
   type CorporateActionRepository,
 } from "../application/corporate-action-repository";
@@ -125,6 +126,53 @@ export function createInMemoryCorporateActionRepository(initial?: {
       }
 
       return matching;
+    },
+    async applyDeclaredEventPlan(plan) {
+      if (failApply) {
+        failApply = false;
+        throw new Error("simulated transaction failure");
+      }
+      if (plan.status !== "planned")
+        return {
+          corporateActions: 0,
+          relationships: 0,
+          supersessions: 0,
+          listingSymbols: 0,
+        };
+      const symbols = [...state.listingSymbols];
+      for (const replacement of plan.supersessions) {
+        const index = symbols.findIndex(
+          (s) =>
+            s.listingSymbolId === replacement.listingSymbolId &&
+            s.validFrom === replacement.validFrom &&
+            isOpen(s),
+        );
+        if (index < 0)
+          throw new StaleListingPlanError(
+            "listing_symbol",
+            replacement.listingSymbolId,
+          );
+        symbols[index] = {
+          ...symbols[index]!,
+          supersededAt: replacement.supersededAt,
+        };
+      }
+      assertUniqueActions(plan.corporateActions);
+      for (const r of plan.relationships) {
+        if (
+          state.relationships.some(
+            (old) =>
+              isOpen(old) &&
+              old.relationshipType === r.relationshipType &&
+              old.predecessorLegalEntityId === r.predecessorLegalEntityId,
+          )
+        )
+          throw new Error("duplicate key value violates unique constraint");
+      }
+      state.listingSymbols = [...symbols, ...plan.listingSymbols];
+      state.corporateActions.push(...plan.corporateActions);
+      state.relationships.push(...plan.relationships);
+      return summarizeDeclaredEventPlan(plan);
     },
     async applySplitPlan(plan) {
       if (failApply) {

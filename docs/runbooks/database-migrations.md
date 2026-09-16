@@ -94,6 +94,11 @@ revertir:
 3. verificar backup/restore;
 4. revisar dependencias creadas después de la migración;
 5. ejecutar manualmente el SQL pareado, en orden inverso al de aplicación:
+   - `drizzle/rollback/0009_pretty_thunderbird.down.sql` (tipos de adquisición y
+     cambio de ticker, check de declaración e índice de sucesor; falla atómicamente
+     si un evento o vínculo sigue usando los tipos nuevos);
+   - `drizzle/rollback/0008_grey_ultimo.down.sql` (traspasos y delistings;
+     falla si todavía existen eventos que usan esos tipos);
    - `drizzle/rollback/0007_amazing_captain_marvel.down.sql` (los valores `split`
      y `reverse_split` de `corporate_action_type`, que se reconstruye sin ellos, y
      `corporate_actions_split_terms_check`);

@@ -38,6 +38,28 @@ function serve(documents: Record<string, { status?: number; body: unknown }>) {
 }
 
 describe("fuente viva de evidencia de listings", () => {
+  it("requires a complete table when the caller will infer absence", async () => {
+    const source = createLiveListingEvidenceSource({
+      fetch: serve({
+        [ASSIGNMENTS_URL]: {
+          body: {
+            fields: ["cik", "name", "ticker", "exchange"],
+            data: [
+              [85, "Synthetic", "NEWT", "NYSE"],
+              [85, null, "OLDT", "NYSE"],
+            ],
+          },
+        },
+      }),
+    });
+    await expect(
+      source.loadAssignments({ requireComplete: true }),
+    ).rejects.toMatchObject({
+      code: "payload_schema_invalid",
+      document: "company_tickers",
+    });
+    expect((await source.loadAssignments()).assignments).toHaveLength(1);
+  });
   it("sale sólo por `sec-edgar` y devuelve tabla e índice parseados", async () => {
     const fetch = serve({
       [ASSIGNMENTS_URL]: {

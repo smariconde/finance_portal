@@ -117,6 +117,17 @@ policy, so adjusted reads go through `readLineageObservations`
 imported only by `src/modules/numeric/domain/decimal-policy.ts`, enforced by ESLint.
 
 ```bash
+pnpm corporate-actions:declare --file /tmp/declaration.json          # validates an explicit owner declaration without writes
+pnpm corporate-actions:declare --file /tmp/declaration.json --apply  # records acquisition or ticker change atomically
+```
+
+[ADR 0014](docs/architecture/adr/0014-declared-corporate-events.md) and the
+[runbook](docs/runbooks/declared-corporate-events.md) define the strict JSON input.
+`acquired_by` never joins reporting history. A declared ticker change supersedes the
+old assertion and preserves answers before owner verification. A partial SEC table
+cannot prove absence. Keep personal declarations outside this public repository.
+
+```bash
 pnpm corporate-actions:listings                          # dry run: tickers table + one submissions request per divergent filer
 pnpm corporate-actions:listings --cik 0000712515 --apply # also checks a filer explicitly, then closes/opens listings
 ```

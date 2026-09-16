@@ -51,6 +51,22 @@ const QUERY = pointInTimeQuerySchema.parse({
 });
 
 describe("readLineageObservations", () => {
+  it("an acquisition never requests facts from the acquired legal entity", async () => {
+    const observations = createInMemoryObservationRepository();
+    const list = vi.spyOn(observations, "list");
+    const result = await readLineageObservations(
+      { legalEntityId: NEW, metricIds: ["us-gaap:Revenues"] },
+      QUERY,
+      {
+        corporateActions: createInMemoryCorporateActionRepository({
+          relationships: [{ ...RELATIONSHIP, relationshipType: "acquired_by" }],
+        }),
+        observations,
+      },
+    );
+    expect(list.mock.calls.map(([query]) => query.subjectId)).toEqual([NEW]);
+    expect(result.lineage.segments).toHaveLength(1);
+  });
   it("lee cada segmento del linaje por su propio sujeto", async () => {
     const observations = createInMemoryObservationRepository();
     const list = vi.spyOn(observations, "list");

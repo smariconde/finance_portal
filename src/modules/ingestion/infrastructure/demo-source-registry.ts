@@ -91,6 +91,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
       ],
       datasets: [
         "sec.submissions",
+        "sec.company-tickers-exchange",
         "sec.companyfacts",
         "sec.companyconcept",
         "sec.frames",

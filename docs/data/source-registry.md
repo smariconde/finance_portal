@@ -105,6 +105,16 @@ identificador y transformación permitidos; nunca se omite el hecho silenciosame
 Las clases, hard caps y preguntas pendientes están definidas en la
 [matriz operativa](provider-use-matrix.md).
 
+## Declaraciones de corporate actions (`F2-04`, incremento 3b)
+
+La fuente SEC suma el dataset explícito `sec.company-tickers-exchange` para
+corroborar cambios de ticker declarados. La evidencia se descarga por el mismo
+endpoint aprobado; no hay un host nuevo ni retención de payload. Una tabla con filas
+rechazadas no permite confirmar que el ticker anterior desapareció. Las adquisiciones
+usan `sec.submissions`, dos 8-K y un `425` compartido. La decisión del owner queda
+separada mediante `decidedBy`, fecha, motivo y hash en los términos del evento
+([ADR 0014](../architecture/adr/0014-declared-corporate-events.md)).
+
 ## Inventario prioritario
 
 | Source ID                 | Dataset y uso previsto                                  | Fase | Estado técnico       | Aprobación              | Observaciones                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
