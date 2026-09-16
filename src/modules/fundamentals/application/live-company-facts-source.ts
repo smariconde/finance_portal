@@ -59,6 +59,15 @@ export const SEC_SOURCE_ID = "sec-edgar";
  */
 export const MAX_HISTORY_FILES_PER_COMPANY = 64;
 
+/**
+ * Peor caso de requests de una carga: submissions, companyfacts y el techo de
+ * archivos históricos, que se comprueba **antes** de pedirlos. Un backfill no
+ * empieza una empresa si el presupuesto de la corrida no cubre este número, así
+ * que el presupuesto nunca se agota a mitad de un documento (ADR 0015).
+ */
+export const MAX_REQUESTS_PER_COMPANY_FACTS_LOAD =
+  2 + MAX_HISTORY_FILES_PER_COMPANY;
+
 export function buildSubmissionsUrl(cik: string): string {
   return `https://data.sec.gov/submissions/CIK${cik}.json`;
 }

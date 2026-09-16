@@ -71,6 +71,13 @@
       "when": 1789511111018,
       "tag": "0009_pretty_thunderbird",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789570314309,
+      "tag": "0010_smooth_sally_floyd",
+      "breakpoints": true
     }
   ]
 }

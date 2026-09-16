@@ -8,7 +8,7 @@ Portal Financiero: a single-owner Next.js 16 portal for researching global compa
 
 The code is public; the data is not. The app is **personal-first**: it serves real data only from a private runtime, and there is no public demo deployment. See [ADR 0004](docs/architecture/adr/0004-personal-first-runtime.md).
 
-The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, and a deterministic FCFF engine with its reference run exist. Universe backfill, ticker changes the SEC does not date, acquisition links, market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads real observations yet; nothing may be presented in the UI as if it were.
+The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, and a deterministic FCFF engine with its reference run exist. Scheduled refresh, refresh of only-changed filers, daily provider budgets and a per-source kill switch, market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads real observations yet; nothing may be presented in the UI as if it were.
 
 `AGENTS.md` holds the full contributor contract and takes precedence over this file where they overlap.
 
@@ -145,6 +145,37 @@ no dated evidence and is rejected by name, never dated with the run
 ([ADR 0013](docs/architecture/adr/0013-listing-events-dated-evidence.md)). Since
 `universe-constitution-1.1.0` a plan-stage rejection holds its issuer's memberships
 instead of closing them as index exits.
+
+```bash
+pnpm fundamentals:backfill                           # plan over the constituted universe: no network, no writes
+pnpm fundamentals:backfill --apply                   # creates (or finds) the job for that plan; --cik narrows it
+pnpm fundamentals:backfill --job <id> --apply        # runs it under the sec-edgar lease; --limit caps attempts
+pnpm ingestion:jobs [--job <id>]                     # jobs, leases, troubled items and the event log
+pnpm ingestion:jobs --job <id> --pause --reason "…" --apply   # also --resume, --cancel, --requeue <ordinal>
+pnpm ingestion:jobs --release sec-edgar --reason "…" --apply  # declares the holder dead and recovers its item
+```
+
+Do **not** run the universe backfill against the personal database yet: it still keeps
+the whole XBRL history (~1.2 GB for the universe) and the owner decided to keep five
+fiscal years; that window is `F2-05` increment 2, designed in the backlog.
+
+Also hand-run, never scheduled. A job is a fixed plan of CIKs processed **in order,
+one at a time**; the cursor is the first non-terminal item. The lease is per
+**source**, because what it guards is the source's quota: 5-minute TTL, 60-second
+heartbeat, and every worker write is fenced by the lease token, so a zombie's late
+checkpoint is refused. Expiry allows a takeover; it does not revoke. An attempt is
+counted when it starts: a process that dies leaves its item `running` and the next
+holder recovers it, poisoning it at `max_attempts`. A `429`/`403`/`503` or an
+unreachable SEC defers the job (`not_before`) without spending the attempt; a wait of
+up to 5 minutes is slept through holding the lease, and three signals in a row stop
+the run. A
+company only starts if the run budget still covers its worst case (66 requests).
+Every transition takes `pg_advisory_xact_lock` on the source first and reads the
+injected clock, never `now()`; the same contract suite runs on the in-memory double
+and on PostgreSQL. Manual commands (`fundamentals:ingest`, `corporate-actions:*`) do
+not take the lease: do not run them during a backfill
+([ADR 0015](docs/architecture/adr/0015-durable-ingestion-jobs.md),
+[runbook](docs/runbooks/ingestion-backfill.md)).
 
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 

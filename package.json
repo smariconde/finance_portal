@@ -30,7 +30,9 @@
     "corporate-actions:listings": "tsx --conditions=react-server --env-file=.env.local scripts/reconcile-listings.ts",
     "db:up": "docker compose --env-file .env.docker.local up -d --wait",
     "db:down": "docker compose --env-file .env.docker.local down",
-    "corporate-actions:declare": "tsx --conditions=react-server --env-file=.env.local scripts/record-declared-event.ts"
+    "corporate-actions:declare": "tsx --conditions=react-server --env-file=.env.local scripts/record-declared-event.ts",
+    "fundamentals:backfill": "tsx --conditions=react-server --env-file=.env.local scripts/backfill-company-facts.ts",
+    "ingestion:jobs": "tsx --conditions=react-server --env-file=.env.local scripts/manage-ingestion-jobs.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

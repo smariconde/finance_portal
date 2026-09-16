@@ -227,6 +227,33 @@ describe("PostgreSQL SEC company facts ingestion", () => {
     expect(second.sourceDocuments?.unchanged).toHaveLength(4);
   });
 
+  it("keeps finding the publishable run after later duplicates on the real database", async () => {
+    let tick = 0;
+    const advancing = {
+      ...dependencies(),
+      now: () => new Date(Date.parse(CLOCK) + 1000 * tick++).toISOString(),
+    };
+    const ingest = () =>
+      ingestCompanyFacts(
+        { cik: FIXTURE_FILER_CIK, mode: "personal" },
+        advancing,
+      );
+
+    const first = await ingest();
+    await ingest();
+    const third = await ingest();
+
+    expect(third.run).toMatchObject({
+      status: "duplicate",
+      replayOfRunId: first.run.runId,
+    });
+    await expect(
+      createPostgresIngestionRunRepository(database).findByIdempotencyKey(
+        first.run.idempotencyKey,
+      ),
+    ).resolves.toMatchObject({ runId: first.run.runId, status: "succeeded" });
+  });
+
   it("quarantines a broken document on the real database and keeps the last batch", async () => {
     await ingestCompanyFacts(
       { cik: FIXTURE_FILER_CIK, mode: "personal" },

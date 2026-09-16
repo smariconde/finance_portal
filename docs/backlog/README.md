@@ -24,22 +24,22 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 
 ## Tracker activo
 
-| Orden | Issue      | Estado     | Resultado verificable                                                                                                | Dependencias  |
-| ----: | ---------- | ---------- | -------------------------------------------------------------------------------------------------------------------- | ------------- |
-|     1 | `F1-01`    | `done`     | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos.         | Fase 0 `done` |
-|     2 | `F1-02`    | `done`     | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.              | `F1-01`       |
-|     3 | `F1-UI-01` | `done`     | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.                       | `F1-02`       |
-|     4 | `F1-03`    | `done`     | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.                       | `F1-UI-01`    |
-|     5 | `F1-04`    | `done`     | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.                  | `F1-03`       |
-|     6 | `F1-05`    | `done`     | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                              | `F1-04`       |
-|     7 | `F1-06`    | `done`     | Superficie de resultado y trazabilidad con fuentes, freshness, supuestos y sensibilidad accesibles.                  | `F1-05`       |
-|     8 | `F1-07`    | `done`     | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                                   | `F1-06`       |
-|     9 | `F1-08`    | `deferred` | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.                       | `F1-07`       |
-|    10 | `F2-01`    | `done`     | Acceso personal remoto habilitado en produccion, con los tests de frontera invertidos a proposito.                   | ADR 0008      |
-|    11 | `F2-02`    | `done`     | Universo S&P 500 con identidad completa: issuer, security, listing, simbolo vigente y CIK.                           | `F2-01`       |
-|    12 | `F2-03`    | `done`     | SEC EDGAR integrada: companyfacts publicado como observaciones point-in-time, con aceptación, vintages y cuarentena. | `F2-02`       |
-|    13 | `F2-04`    | `done`     | Corporate actions con vigencia: splits, cambios de símbolo, sucesiones de CIK, delistings y fusiones.                | `F2-03`       |
-|    14 | `F2-05`    | `ready`    | Backfill y refresh durable con presupuesto, cursor, lease y recuperación verificables.                               | `F2-04`       |
+| Orden | Issue      | Estado        | Resultado verificable                                                                                                | Dependencias  |
+| ----: | ---------- | ------------- | -------------------------------------------------------------------------------------------------------------------- | ------------- |
+|     1 | `F1-01`    | `done`        | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos.         | Fase 0 `done` |
+|     2 | `F1-02`    | `done`        | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.              | `F1-01`       |
+|     3 | `F1-UI-01` | `done`        | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.                       | `F1-02`       |
+|     4 | `F1-03`    | `done`        | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.                       | `F1-UI-01`    |
+|     5 | `F1-04`    | `done`        | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.                  | `F1-03`       |
+|     6 | `F1-05`    | `done`        | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                              | `F1-04`       |
+|     7 | `F1-06`    | `done`        | Superficie de resultado y trazabilidad con fuentes, freshness, supuestos y sensibilidad accesibles.                  | `F1-05`       |
+|     8 | `F1-07`    | `done`        | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                                   | `F1-06`       |
+|     9 | `F1-08`    | `deferred`    | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.                       | `F1-07`       |
+|    10 | `F2-01`    | `done`        | Acceso personal remoto habilitado en produccion, con los tests de frontera invertidos a proposito.                   | ADR 0008      |
+|    11 | `F2-02`    | `done`        | Universo S&P 500 con identidad completa: issuer, security, listing, simbolo vigente y CIK.                           | `F2-01`       |
+|    12 | `F2-03`    | `done`        | SEC EDGAR integrada: companyfacts publicado como observaciones point-in-time, con aceptación, vintages y cuarentena. | `F2-02`       |
+|    13 | `F2-04`    | `done`        | Corporate actions con vigencia: splits, cambios de símbolo, sucesiones de CIK, delistings y fusiones.                | `F2-03`       |
+|    14 | `F2-05`    | `in_progress` | Backfill y refresh durable con presupuesto, cursor, lease y recuperación verificables.                               | `F2-04`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -1462,16 +1462,251 @@ El backfill durable sigue en `F2-05`.
 
 #### `F2-05` — Backfill y refresh durable
 
-- Estado: `ready`; próximo slice autorizado de Fase 2.
-- Dependencia: `F2-04` cerrado.
-- Primer incremento: decidir mediante ADR el almacenamiento durable de jobs y
-  presupuestos; implementar cursor/checkpoint, lease, vencimiento y recuperación
-  manual con reloj inyectado y PostgreSQL, antes de programar refresh.
-- El issue completo debe probar idempotencia, concurrencia entre procesos, límites por
-  corrida/día, kill switch, `429`, reanudación tras crash y poison policy. La página
-  sigue leyendo PostgreSQL; no se recorren 503 emisores desde una request.
+- Estado: `in_progress` (iniciado el 2026-09-16). El incremento 1 está entregado.
+- Fase y dependencia: Fase 2; `F2-04` cerrado.
+- Alcance, en cuatro incrementos que se cierran en este orden:
+  1. **jobs durables** (entregado):
+     - ADR del almacenamiento de jobs y presupuestos;
+     - cursor y checkpoint, lease, vencimiento, poison policy y recuperación
+       manual, con reloj inyectado y PostgreSQL;
+     - backfill manual del universo sobre la SEC.
+  2. **ventana de historia de cinco ejercicios y almacenamiento eficiente**
+     (próximo; ver abajo). Bloquea correr el backfill del universo sobre la base
+     personal.
+  3. **presupuesto diario y kill switch por fuente**, en PostgreSQL y antes de
+     cualquier programación. Los comandos manuales de un ticker pasan a
+     respetarlos.
+  4. **refresh de CIK cambiados**: `submissions` detecta presentaciones nuevas y
+     sólo esos filers vuelven a bajar companyfacts. La programación llega recién
+     después, con su propio gate.
+- El issue completo debe probar idempotencia, concurrencia entre procesos, límites
+  por corrida y por día, kill switch, `429`, reanudación tras un crash y poison
+  policy. La página sigue leyendo PostgreSQL: ninguna request recorre los 503
+  emisores.
 - Controles: `TM-10`, `TM-11`, `TM-16`.
-- No iniciado en esta entrega. No autoriza cron live, gasto ni recursos externos.
+- No autoriza cron live, gasto ni recursos externos.
+
+Criterios de aceptación del incremento 1:
+
+- el almacenamiento se decide por ADR, sin dependencias estructurales nuevas;
+- el lease vence y está cercado por token:
+  - dos procesos no corren la misma fuente;
+  - un proceso muerto no la retiene más que el TTL;
+  - un proceso zombi no escribe;
+- cursor y checkpoint se escriben en la misma transacción, en orden estricto, y
+  una corrida retoma desde el cursor;
+- poison policy: el intento se cuenta al empezar, los huérfanos se recuperan y hay
+  un techo de intentos;
+- las señales de la fuente no gastan intentos, y el presupuesto por corrida
+  reserva el peor caso de una empresa;
+- la recuperación manual queda auditada: pausar, reanudar, cancelar, reencolar y
+  liberar;
+- el reloj es inyectado, el mismo contrato corre sobre el doble en memoria y sobre
+  PostgreSQL, y la concurrencia se prueba con conexiones reales.
+
+Entregado (2026-09-16) — incremento 1, jobs durables. Decisiones en la
+[ADR 0015](../architecture/adr/0015-durable-ingestion-jobs.md) y operación en el
+[runbook](../runbooks/ingestion-backfill.md).
+
+- `src/modules/ingestion/`:
+  - dominio `ingestion-job` y `ingestion-job-transitions`;
+  - puerto `ingestion-job-store` con su contrato compartido;
+  - worker `run-ingestion-job`;
+  - doble en memoria.
+- `src/modules/fundamentals/`: plan del backfill, observador de señales de la SEC
+  y ejecutor.
+- `postgres-ingestion-job-store.ts` y la raíz de composición.
+- Migración `0010`, con cuatro tablas y rollback pareado.
+- Comandos `pnpm fundamentals:backfill` y `pnpm ingestion:jobs`.
+
+Lo que fija el incremento:
+
+- **Lease por fuente.** Lo que se protege es la cuota de la SEC, no un job.
+  - Vencer habilita la toma, no la produce.
+  - Cada escritura del worker está cercada por el token y renueva el vencimiento.
+  - Un lock transaccional por fuente (`pg_advisory_xact_lock`) serializa las
+    transiciones: sin deadlocks y sin lecturas viejas.
+- **Cursor = primer item no terminal**, recalculado en el mismo commit que el
+  checkpoint. Reencolar lo hace retroceder sin una regla aparte.
+- **Poison policy.** El intento se cuenta al empezar. El próximo dueño recupera el
+  huérfano de un proceso muerto, que se envenena al tercer intento.
+- **Señales de la fuente.**
+  - `429`, `403`, `503` y la red caída difieren el job sin gastar el intento.
+  - Una espera de hasta 5 minutos se hace con el lease tomado.
+  - Tres señales seguidas frenan la corrida.
+- **Presupuesto.** Una empresa sólo empieza si la corrida cubre su peor caso: 66
+  requests.
+
+Verificación:
+
+- `format:check`, `lint`, `typecheck`, `git diff --check` y `build` (cuatro rutas
+  en `ƒ (Dynamic)`) pasan.
+- 1.100 unit tests (1.004 + 96).
+- 93 integration tests (62 + 31):
+  - el contrato del almacén corre completo sobre PostgreSQL;
+  - ocho conexiones compiten por el lease y una sola lo toma;
+  - seis conexiones piden el mismo plan y se crea un solo job;
+  - el checkpoint tardío y la toma se fuerzan en los dos órdenes con el lock
+    retenido desde otra conexión, y nunca ganan los dos;
+  - las invariantes se sostienen también en la base;
+  - un backfill de punta a punta con `429` y un checkpoint perdido repetido deja
+    una corrida `duplicate`.
+- 131 E2E, sin cambios.
+- Rollback de `0010` probado en una base descartable: se niega con un job abierto
+  y con un lease tomado, revierte sin trabajo en curso y `0010` se vuelve a
+  aplicar.
+- Migración aplicada al PostgreSQL personal. Ahí no se creó ningún job.
+
+Evidencia sobre datos reales (2026-09-16), en una réplica descartable clonada del
+grafo personal:
+
+- **Plan.** 503 miembros dan 501 filers: 500 emisores más el antecesor de
+  ExxonMobil, con cero rechazos. El plan en seco sobre la base personal da lo
+  mismo.
+- **Job de nueve arquetipos:** JPMorgan, el antecesor de ExxonMobil, Wells Fargo,
+  Apple, Realty Income, Microsoft, NVIDIA, Berkshire y ExxonMobil. Pedirlo dos
+  veces devuelve el mismo job.
+  - **`kill -9` con JPMorgan en curso:**
+    - la corrida siguiente encuentra la fuente ocupada, nombra al holder y no hace
+      ningún request;
+    - al vencer el lease, otra corrida lo toma, recupera el item y lo reintenta
+      (intento 2: 47 requests en 29,8 s).
+  - **Segundo `kill -9` con Apple en curso:**
+    - `ingestion:jobs --release` recupera el item en el acto y deja el motivo en
+      la bitácora;
+    - dos procesos lanzados a la vez: uno corre y el otro sale `source_busy` sin
+      ningún request.
+  - **Pausa desde otro proceso:** la empresa en curso termina y la corrida se
+    detiene con el lease libre. Reanudar completa el job: 9 de 9.
+  - **Bitácora:** 46 eventos que cuentan toda la secuencia.
+- **Universo completo, con las dos correcciones de abajo.**
+  - Resultado: 501 de 501 filers completos, en tres corridas y unos 37 minutos, con
+    1.649 requests y ningún item fallado ni envenenado.
+  - Las corridas:
+    - la primera, cortada con Ctrl-C, terminó la empresa en curso y soltó el lease;
+    - la segunda paró por la reserva de presupuesto con 936 requests (268
+      empresas en 20,5 min);
+    - la tercera completó el resto con 593.
+  - Ritmo: unas 3,3 requests y 4,4 s por empresa.
+  - Corridas de ingesta: 354 `succeeded`, 136 `partial` (12.115 registros
+    rechazados con nombre) y 11 `duplicate`.
+  - Publicado: 1.299.374 observaciones de 501 sujetos y 30.852 documentos.
+  - Tamaño: la base pasó de 24 MB a 1,2 GB, un dato para la base hosteada de
+    `F6-06`.
+  - Después de corregir el transporte: 1.529 requests sin ninguna señal de la
+    fuente.
+  - La réplica se borró al terminar. El backfill **no** se corrió sobre la base
+    personal y no debe correrse hasta cerrar el incremento 2.
+
+Dos defectos anteriores encontrados por estas corridas y corregidos, con pruebas
+que fallan sobre el código viejo:
+
+- **La tercera ingesta del mismo contenido chocaba con el índice único.**
+  - `findByIdempotencyKey` devolvía la corrida más reciente, y las `duplicate`
+    llevan la misma clave.
+  - Apple terminó `poisoned` por ese defecto (la poison policy hizo su trabajo) y
+    volvió a la cola con `--requeue` tras corregirlo.
+  - Afectaba también a splits y listings. El repositorio devuelve ahora la corrida
+    publicable.
+- **`ETIMEDOUT` sin mensaje en menos de un segundo**: dos veces en unos 210
+  requests del 2026-09-16, y una más el día anterior.
+  - Causa: el _happy eyeballs_ de Node 22 prueba cada dirección con 250 ms y el
+    host no tiene ruta IPv6, así que un SYN perdido hacia el único IPv4 de
+    `data.sec.gov` tumba la conexión.
+  - El transporte espera ahora 5 s por dirección (enmienda de la ADR 0009).
+  - Antes de encontrar la causa, este corte llevó a que `unavailable` espere
+    1 minuto dentro de la corrida en vez de frenarla.
+
+Incremento 2 — ventana de historia y almacenamiento eficiente (próxima sesión).
+
+Decisión del owner (2026-09-16): se guardan **cinco ejercicios** de historia. Más
+que eso no se justifica, y 1,2 GB para el universo es demasiado. El objetivo es
+guardar sólo lo que la metodología va a usar.
+
+Medición sobre la base personal (14.276 observaciones de 6 emisores), que motiva el
+incremento:
+
+- **Tamaño por fila:** cada observación ocupa unos 555 bytes más unos 390 de
+  índices. 1,3 millones de filas dan los 1,2 GB del universo; no se guardan
+  payloads.
+- **Antigüedad:** el 37 % de las filas es de períodos anteriores a 2016, el 30 %
+  de 2016–2020 y el 33 % de 2021 en adelante. Las re-expresiones son el 5 %.
+- **Ventana de cinco ejercicios:** se queda con el **34 %** de las filas, unos
+  **410 MB** para el universo con el formato actual.
+- **Composición dentro de la ventana:**
+  - 41 % saldos de balance y carátula;
+  - 24 % trimestres de resultados;
+  - 15 % acumulados de resultados, derivables de trimestres más ejercicio;
+  - 9 % ejercicios de resultados;
+  - 11 % flujo de fondos, donde el acumulado es lo único que publica la SEC.
+- **Procedencia redundante:** unos 260 de los 555 bytes de cada fila.
+  - `content_hash` y `revision_group_id` son hex en texto (65 bytes cada uno;
+    32 en binario), y el segundo aparece además en dos índices.
+  - `external_id` ocupa 95 bytes y se arma con datos que ya están en otras
+    columnas.
+  - `metric_id` es idéntico a `concept` en el 100 % de las filas (37 bytes), por
+    ahora.
+  - `source_id`, `dataset_id` y `parser_version` (50 bytes) se derivan de la
+    corrida.
+
+Alcance, en este orden:
+
+1. **Ventana de cinco ejercicios** (decidida), como regla versionada
+   `sec-history-5fy-1.0.0` con su ADR (0016):
+   - **Ancla:** el cierre del último ejercicio **anual** que reportó el propio
+     filer, no el reloj. Si no hay ninguno, el último período. Así un filer con
+     cierre en junio sin 10-K nuevo no pierde un año, y la misma descarga recorta
+     igual.
+   - **Qué entra:**
+     - las duraciones que terminan después de `ancla − 5 años + 14 días`;
+     - los saldos desde `ancla − 5 años − 14 días`, que incluyen el saldo de
+       apertura del primer ejercicio.
+
+     Los 14 días absorben los ejercicios de 52/53 semanas.
+
+   - **Dónde se aplica:** en `live-company-facts-source`, justo después de
+     `parseSecCompanyFacts` y **antes** de elegir los archivos históricos de
+     `submissions`. Además de filas, ahorra requests: JPMorgan pedía 41 archivos
+     por sus 10-K viejos.
+   - **Versión de selección:** sube (`sec-core-concepts-2.0.0`, los mismos 58
+     conceptos recortados a la ventana). Así, un período anterior sigue siendo
+     «no se fue a buscar» para `F3-02`. Los jobs planeados con 1.0.0 dejan de
+     correr (`assertCompanyFactsJob`).
+   - **Sin poda:** lo ya publicado no se borra (append-only). La ventana gobierna
+     las ingestas nuevas; una poda de filas viejas sería otra decisión, con su
+     auditoría. La base personal hoy tiene 13 MB de observaciones.
+   - **Splits:** un split anterior a la ventana no afecta lecturas dentro de ella,
+     porque todo lo reportado después ya está en la base nueva. Hay que
+     documentarlo y verificar que `corporate-actions:splits` rechace con nombre lo
+     que queda afuera.
+   - **Tests:**
+     - ancla anual, calendario y de 52/53 semanas;
+     - filer sin ejercicio anual;
+     - 29 de febrero;
+     - saldo de apertura adentro y trimestre anterior afuera;
+     - menos archivos históricos pedidos;
+     - la corrida registra la versión.
+   - **Medición real:** dry run de `fundamentals:ingest` sobre Apple, JPMorgan,
+     Berkshire, NVIDIA, Realty Income y Wells Fargo, con vintages y requests
+     antes y después.
+2. **Filas más livianas**, con migración de `observations` y aprobación del owner
+   antes de empezar:
+   - hashes en `bytea`, convertidos en el borde del repositorio para que el
+     dominio siga viendo hex;
+   - `external_id`, `metric_id` y la procedencia repetida, evaluados contra el
+     contrato point-in-time antes de tocarlos;
+   - un índice redundante, si lo hay.
+
+   Estimación: cerca de un 40 % menos por fila, unos **250 MB** para el universo
+   con la ventana. Se mide con un prototipo antes de decidir.
+
+3. **Acumulados de resultados (15 %):** no se descartan en este incremento.
+   Derivarlos es normalización de Fase 3/4. Queda anotado como opción medida.
+
+Criterios de aceptación: la ventana es versionada y está probada; la reducción de
+filas y de requests está medida sobre datos reales; la ADR 0016 existe; el
+runbook y el plan del backfill reflejan la ventana; y el backfill del universo
+sobre una réplica ocupa lo estimado.
 
 | Issue   | Resultado y aceptación mínima                                                                                       | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
@@ -1580,28 +1815,28 @@ Esta matriz evita que una amenaza o deuda visual quede mencionada sin un issue q
 la cierre. La columna “primer cierre” indica el primer slice que debe implementar o
 probar el control; fases posteriores pueden volver a verificarlo.
 
-| Deuda   | Primer cierre                           | Seguimiento posterior                | Estado actual                                                                                                        |
-| ------- | --------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| `TM-01` | `F1-02`                                 | `F1-07`, `F2-01`, `F5-02`, `F6-06`   | `done`: composición falla cerrada y el modo se resuelve en el request; el mismo build niega o sirve según su entorno |
-| `TM-02` | `F1-02`                                 | cada frontera, `F10-03`              | `done`: DB server-only y URLs pooled/direct separadas probadas                                                       |
-| `TM-03` | `F6-01`, primera Route Handler real     | `F5-02`, `F10-04`                    | required: la corrida por ticker es la primera frontera real; `F1-07` probó las de composición                        |
-| `TM-04` | `F1-02`                                 | `F1-07`, `F2-01`, `F10-01`           | `done`: cache namespaced por modo; sólo `personal` construye almacenamiento, verificado sobre el artefacto servido   |
-| `TM-05` | `F1-03`                                 | `F2-03`, `F3-03`, cada parser/modelo | `done` de ingesta a publicación: vacío y parser roto no publican ni reemplazan                                       |
-| `TM-06` | `F1-04`                                 | `F2-02`, `F4-01`, cada consulta      | `done` de la consulta a la valuación: dos cortes producen dos corridas distintas                                     |
-| `TM-07` | `F1-02`                                 | `F1-07`, `F6-01`, `F7-02`            | `done`: Drizzle parametrizado y límite de consulta verificados en PostgreSQL                                         |
-| `TM-08` | `F2-03`, primer provider real           | `F5-04`, `F9-01`                     | required; no hay egress aún                                                                                          |
-| `TM-09` | `F5-03`                                 | `F5-04`, `F5-07`, `F10-04`           | required; no hay IA aún                                                                                              |
-| `TM-10` | `F2-05`                                 | `F5-01`, `F6-05`, `F10-05`           | contracted; no hay gasto live aún                                                                                    |
-| `TM-11` | `F2-05`                                 | `F6-05`, `F9-01`, `F10-05`           | idempotencia y replay probados en `F1-03`; lease, `429` y crash siguen abiertos                                      |
-| `TM-12` | `F1-01`                                 | cada UI externa, `F10-06`            | headers base y render seguro verificados                                                                             |
-| `TM-13` | `F10-07`                                | cada actualización de dependencia    | baseline implementada; scans pendientes                                                                              |
-| `TM-14` | `F2-01`, antes del primer deploy remoto | `F6-06`, `F10-03`                    | required: `F2-01` habilita produccion; la proteccion del deployment es su precondicion                               |
-| `TM-15` | `F3-03`, nivel de rigor declarado       | cada IA/export, `F5-03`, `F6-03`     | rescopeado por ADR 0007: derechos pasan a procedencia informativa; el control ahora es el nivel de rigor declarado   |
-| `TM-16` | `F1-03`                                 | cada operación y gate                | `done` sobre ingesta y valuación: corridas append-only con hash, versión y error seguro                              |
-| `UI-01` | Fase `0B.7`                             | revisar copy al cambiar roadmap      | revisar: el copy de la home cita el orden de fases anterior al pivote                                                |
-| `UI-02` | `F1-07`                                 | `F6-03`, `F6-06`, `F10-06`           | `done`: revisión renderizada automatizada en 6 proyectos con `axe-core`, teclado, reflow y movimiento reducido       |
-| `UI-03` | `F1-01`                                 | cada feedback stateful, `F10-06`     | `done`: estados y reduced motion conservan feedback                                                                  |
-| `UI-04` | `F1-01`                                 | cada extracción visual, `F10-06`     | `done`: escala reusable y token de contraste registrados                                                             |
+| Deuda   | Primer cierre                           | Seguimiento posterior                | Estado actual                                                                                                         |
+| ------- | --------------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `TM-01` | `F1-02`                                 | `F1-07`, `F2-01`, `F5-02`, `F6-06`   | `done`: composición falla cerrada y el modo se resuelve en el request; el mismo build niega o sirve según su entorno  |
+| `TM-02` | `F1-02`                                 | cada frontera, `F10-03`              | `done`: DB server-only y URLs pooled/direct separadas probadas                                                        |
+| `TM-03` | `F6-01`, primera Route Handler real     | `F5-02`, `F10-04`                    | required: la corrida por ticker es la primera frontera real; `F1-07` probó las de composición                         |
+| `TM-04` | `F1-02`                                 | `F1-07`, `F2-01`, `F10-01`           | `done`: cache namespaced por modo; sólo `personal` construye almacenamiento, verificado sobre el artefacto servido    |
+| `TM-05` | `F1-03`                                 | `F2-03`, `F3-03`, cada parser/modelo | `done` de ingesta a publicación: vacío y parser roto no publican ni reemplazan                                        |
+| `TM-06` | `F1-04`                                 | `F2-02`, `F4-01`, cada consulta      | `done` de la consulta a la valuación: dos cortes producen dos corridas distintas                                      |
+| `TM-07` | `F1-02`                                 | `F1-07`, `F6-01`, `F7-02`            | `done`: Drizzle parametrizado y límite de consulta verificados en PostgreSQL                                          |
+| `TM-08` | `F2-03`, primer provider real           | `F5-04`, `F9-01`                     | required; no hay egress aún                                                                                           |
+| `TM-09` | `F5-03`                                 | `F5-04`, `F5-07`, `F10-04`           | required; no hay IA aún                                                                                               |
+| `TM-10` | `F2-05`                                 | `F5-01`, `F6-05`, `F10-05`           | presupuesto por corrida con reserva del peor caso y señales de la fuente; límite diario y kill switch: `F2-05` inc. 2 |
+| `TM-11` | `F2-05`                                 | `F6-05`, `F9-01`, `F10-05`           | `done` para el backfill de la SEC: lease, `429`, crash y recuperación manual probados (ADR 0015); cron sigue apagado  |
+| `TM-12` | `F1-01`                                 | cada UI externa, `F10-06`            | headers base y render seguro verificados                                                                              |
+| `TM-13` | `F10-07`                                | cada actualización de dependencia    | baseline implementada; scans pendientes                                                                               |
+| `TM-14` | `F2-01`, antes del primer deploy remoto | `F6-06`, `F10-03`                    | required: `F2-01` habilita produccion; la proteccion del deployment es su precondicion                                |
+| `TM-15` | `F3-03`, nivel de rigor declarado       | cada IA/export, `F5-03`, `F6-03`     | rescopeado por ADR 0007: derechos pasan a procedencia informativa; el control ahora es el nivel de rigor declarado    |
+| `TM-16` | `F1-03`                                 | cada operación y gate                | `done` sobre ingesta y valuación: corridas append-only con hash, versión y error seguro                               |
+| `UI-01` | Fase `0B.7`                             | revisar copy al cambiar roadmap      | revisar: el copy de la home cita el orden de fases anterior al pivote                                                 |
+| `UI-02` | `F1-07`                                 | `F6-03`, `F6-06`, `F10-06`           | `done`: revisión renderizada automatizada en 6 proyectos con `axe-core`, teclado, reflow y movimiento reducido        |
+| `UI-03` | `F1-01`                                 | cada feedback stateful, `F10-06`     | `done`: estados y reduced motion conservan feedback                                                                   |
+| `UI-04` | `F1-01`                                 | cada extracción visual, `F10-06`     | `done`: escala reusable y token de contraste registrados                                                              |
 
 ## Plantilla para nuevos issues
 

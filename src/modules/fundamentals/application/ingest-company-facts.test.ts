@@ -302,6 +302,36 @@ describe("ingestCompanyFacts", () => {
     await expect(harness.observations.list(SUBJECT)).resolves.toHaveLength(7);
   });
 
+  it("keeps pointing at the original run on a third look at unchanged content", async () => {
+    // Con el reloj fijo las tres corridas empatan y el orden estable escondía el
+    // defecto: la más reciente tiene que ser una `duplicate` para verlo.
+    const harness = createHarness();
+    let tick = 0;
+    const dependencies = {
+      ...harness.dependencies,
+      now: () => new Date(Date.parse(CLOCK) + 1000 * tick++).toISOString(),
+    };
+    const ingest = () =>
+      ingestCompanyFacts({ cik: "42", mode: "personal" }, dependencies);
+
+    const first = await ingest();
+    const second = await ingest();
+    const third = await ingest();
+
+    expect(second.run).toMatchObject({
+      status: "duplicate",
+      replayOfRunId: first.run.runId,
+    });
+    expect(third.run).toMatchObject({
+      status: "duplicate",
+      replayOfRunId: first.run.runId,
+    });
+    expect(third.publication).toMatchObject({ published: 0, duplicates: 7 });
+    await expect(
+      harness.ingestionRuns.findByIdempotencyKey(first.run.idempotencyKey),
+    ).resolves.toMatchObject({ runId: first.run.runId });
+  });
+
   it("quarantines a broken document and leaves the last valid batch untouched", async () => {
     const harness = createHarness();
     await harness.ingest();

@@ -68,8 +68,8 @@ export const EMPTY_COUNTS: IngestionRunCounts = Object.freeze({
 
 const utcTimestampSchema = z.iso.datetime({ offset: true });
 const contentHashSchema = z.string().regex(/^[a-f0-9]{64}$/u);
-const subjectKeySchema = z.string().trim().min(1).max(128);
-const selectionVersionSchema = z
+export const subjectKeySchema = z.string().trim().min(1).max(128);
+export const selectionVersionSchema = z
   .string()
   .trim()
   .min(1)

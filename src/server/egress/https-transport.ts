@@ -1,6 +1,7 @@
 import "server-only";
 
 import https from "node:https";
+import type { TcpSocketConnectOpts } from "node:net";
 
 import { EgressBlockedError } from "./egress-policy";
 import { createGuardedLookup, type AddressResolver } from "./guarded-lookup";
@@ -61,6 +62,27 @@ function describeTransportFailure(error: unknown): string {
 
   return code ?? (message || "request failed");
 }
+
+/**
+ * Espera por dirección al conectar. Node 22 prueba las direcciones de a una
+ * (*happy eyeballs*) con 250 ms por intento. Medido el 2026-09-16: en un host sin
+ * ruta IPv6, un SYN perdido hacia el único IPv4 de `data.sec.gov` hacía fallar la
+ * conexión entera en menos de un segundo, como un `ETIMEDOUT` sin mensaje: dos
+ * veces en unos 210 requests ese día. Cinco segundos cubren dos retransmisiones
+ * del SYN y, con tres direcciones, siguen dentro del deadline de la operación.
+ */
+export const CONNECT_ATTEMPT_TIMEOUT_MS = 5_000;
+
+/**
+ * Los tipos de `https.request` no declaran las opciones de `net.connect`, pero
+ * el agente las pasa al socket tal cual.
+ */
+const CONNECT_OPTIONS: Pick<
+  TcpSocketConnectOpts,
+  "autoSelectFamilyAttemptTimeout"
+> = Object.freeze({
+  autoSelectFamilyAttemptTimeout: CONNECT_ATTEMPT_TIMEOUT_MS,
+});
 
 function firstHeader(value: string | string[] | undefined): string | null {
   if (value === undefined) {
@@ -123,6 +145,7 @@ export function createHttpsTransport(
           agent,
           headers: request.headers,
           lookup,
+          ...CONNECT_OPTIONS,
           minVersion: "TLSv1.2",
         },
         (message) => {

@@ -341,7 +341,9 @@ un cambio por una caída externa sin diagnóstico.
   ninguna fuente real está aprobada por defecto.
 - `F1-02` fija Drizzle ORM, Postgres.js, la migración inicial y la composición de
   repositorios, verificadas contra PostgreSQL 17.11 local dedicado.
-- Fase 2 decidirá el mecanismo durable de jobs si el refresh lo requiere.
+- ADR 0015 fija los jobs durables de ingesta: tablas propias en PostgreSQL, un
+  lease por fuente con vencimiento y token, cursor por ordinal, poison policy y
+  recuperación manual. No hay scheduler; el backfill es un comando manual.
 - Ningún proveedor real, cuenta externa o recurso con costo se crea desde este
   documento.
 

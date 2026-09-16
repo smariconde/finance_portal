@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   char,
   check,
@@ -336,6 +337,268 @@ export const ingestionRuns = pgTable(
     check(
       "ingestion_runs_idempotency_key_check",
       sql`${table.idempotencyKey} ~ '^[a-f0-9]{64}$'`,
+    ),
+  ],
+);
+
+export const ingestionJobKind = pgEnum("ingestion_job_kind", [
+  "sec_companyfacts_backfill",
+]);
+
+export const ingestionJobStatus = pgEnum("ingestion_job_status", [
+  "open",
+  "paused",
+  "completed",
+  "cancelled",
+]);
+
+export const ingestionJobItemStatus = pgEnum("ingestion_job_item_status", [
+  "pending",
+  "running",
+  "completed",
+  "failed",
+  "poisoned",
+]);
+
+export const ingestionJobFailureCode = pgEnum("ingestion_job_failure_code", [
+  "ingestion_failed",
+  "subject_rejected",
+  "executor_error",
+  "lease_expired",
+  "source_signal",
+]);
+
+export const ingestionJobEventType = pgEnum("ingestion_job_event_type", [
+  "job_created",
+  "job_paused",
+  "job_resumed",
+  "job_cancelled",
+  "job_completed",
+  "job_reopened",
+  "job_backoff",
+  "lease_acquired",
+  "lease_taken_over",
+  "lease_released",
+  "lease_force_released",
+  "item_started",
+  "item_completed",
+  "item_failed",
+  "item_retry_scheduled",
+  "item_poisoned",
+  "item_deferred",
+  "item_recovered",
+  "item_requeued",
+]);
+
+function instant(name: string) {
+  return timestamp(name, { withTimezone: true, mode: "date" });
+}
+
+/**
+ * Jobs durables de ingesta (ADR 0015): un plan fijo de sujetos que se procesa en
+ * orden. `cursor` es el ordinal del primer item no terminal.
+ *
+ * Los instantes los escribe la aplicación con su reloj inyectado, no
+ * `defaultNow()`: así un test mueve el tiempo y una fila nunca mezcla dos relojes.
+ * El índice único parcial es la idempotencia del pedido (`TM-11`): a lo sumo un
+ * job abierto o pausado por plan.
+ */
+export const ingestionJobs = pgTable(
+  "ingestion_jobs",
+  {
+    jobId: uuid("job_id").primaryKey(),
+    jobKind: ingestionJobKind("job_kind").notNull(),
+    sourceId: varchar("source_id", { length: 64 }).notNull(),
+    datasetId: varchar("dataset_id", { length: 128 }).notNull(),
+    parserVersion: varchar("parser_version", { length: 32 }).notNull(),
+    selectionVersion: varchar("selection_version", { length: 64 }),
+    planHash: text("plan_hash").notNull(),
+    itemCount: integer("item_count").notNull(),
+    maxAttempts: integer("max_attempts").notNull(),
+    status: ingestionJobStatus("status").notNull(),
+    cursor: integer("cursor").notNull(),
+    notBefore: instant("not_before"),
+    statusReason: varchar("status_reason", { length: 240 }),
+    createdAt: instant("created_at").notNull(),
+    updatedAt: instant("updated_at").notNull(),
+    finishedAt: instant("finished_at"),
+  },
+  (table) => [
+    uniqueIndex("ingestion_jobs_active_plan_uidx")
+      .on(table.planHash)
+      .where(sql`${table.status} in ('open', 'paused')`),
+    index("ingestion_jobs_source_idx").on(
+      table.sourceId,
+      table.status,
+      table.createdAt,
+    ),
+    check(
+      "ingestion_jobs_plan_hash_check",
+      sql`${table.planHash} ~ '^[a-f0-9]{64}$'`,
+    ),
+    check(
+      "ingestion_jobs_item_count_check",
+      sql`${table.itemCount} between 1 and 10000`,
+    ),
+    check(
+      "ingestion_jobs_max_attempts_check",
+      sql`${table.maxAttempts} between 1 and 10`,
+    ),
+    check(
+      "ingestion_jobs_cursor_check",
+      sql`${table.cursor} between 0 and ${table.itemCount}`,
+    ),
+    check(
+      "ingestion_jobs_finished_check",
+      sql`(${table.status} in ('completed', 'cancelled')) = (${table.finishedAt} is not null)`,
+    ),
+    // Completo es exactamente «no queda nada»; abierto o pausado, «queda algo».
+    check(
+      "ingestion_jobs_completion_check",
+      sql`case
+        when ${table.status} = 'completed' then ${table.cursor} = ${table.itemCount}
+        when ${table.status} = 'cancelled' then true
+        else ${table.cursor} < ${table.itemCount}
+      end`,
+    ),
+    check(
+      "ingestion_jobs_timeline_check",
+      sql`${table.updatedAt} >= ${table.createdAt} and (${table.finishedAt} is null or ${table.finishedAt} >= ${table.createdAt})`,
+    ),
+  ],
+);
+
+/**
+ * Un item por sujeto del plan. `lease_token` es el cercado del intento en curso:
+ * un item `running` cuyo token no es el del lease de su fuente es huérfano.
+ */
+export const ingestionJobItems = pgTable(
+  "ingestion_job_items",
+  {
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => ingestionJobs.jobId),
+    ordinal: integer("ordinal").notNull(),
+    subjectKey: varchar("subject_key", { length: 128 }).notNull(),
+    status: ingestionJobItemStatus("status").notNull(),
+    attempts: integer("attempts").notNull(),
+    notBefore: instant("not_before"),
+    leaseToken: uuid("lease_token"),
+    startedAt: instant("started_at"),
+    finishedAt: instant("finished_at"),
+    ingestionRunId: uuid("ingestion_run_id").references(
+      () => ingestionRuns.runId,
+    ),
+    failureCode: ingestionJobFailureCode("failure_code"),
+    failureMessage: varchar("failure_message", { length: 240 }),
+    failureRetryable: boolean("failure_retryable"),
+    updatedAt: instant("updated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      name: "ingestion_job_items_pkey",
+      columns: [table.jobId, table.ordinal],
+    }),
+    uniqueIndex("ingestion_job_items_subject_uidx").on(
+      table.jobId,
+      table.subjectKey,
+    ),
+    index("ingestion_job_items_running_idx")
+      .on(table.jobId)
+      .where(sql`${table.status} = 'running'`),
+    check("ingestion_job_items_ordinal_check", sql`${table.ordinal} >= 0`),
+    check("ingestion_job_items_attempts_check", sql`${table.attempts} >= 0`),
+    check(
+      "ingestion_job_items_running_check",
+      sql`(${table.status} = 'running') = (${table.leaseToken} is not null) and (${table.status} <> 'running' or ${table.startedAt} is not null)`,
+    ),
+    check(
+      "ingestion_job_items_finished_check",
+      sql`(${table.status} in ('completed', 'failed', 'poisoned')) = (${table.finishedAt} is not null)`,
+    ),
+    check(
+      "ingestion_job_items_completed_run_check",
+      sql`${table.status} <> 'completed' or ${table.ingestionRunId} is not null`,
+    ),
+    check(
+      "ingestion_job_items_failure_check",
+      sql`(${table.failureCode} is null) = (${table.failureMessage} is null) and (${table.failureCode} is null) = (${table.failureRetryable} is null)
+        and (${table.status} not in ('failed', 'poisoned') or ${table.failureCode} is not null)
+        and (${table.status} <> 'pending' or ${table.attempts} = 0 or ${table.failureCode} is not null)`,
+    ),
+    check(
+      "ingestion_job_items_not_before_check",
+      sql`${table.status} = 'pending' or ${table.notBefore} is null`,
+    ),
+  ],
+);
+
+/**
+ * Un lease por fuente: el permiso para gastar su cuota. Vencer habilita que otro
+ * proceso lo tome; mientras nadie lo tome, el token sigue siendo del holder.
+ */
+export const ingestionSourceLeases = pgTable(
+  "ingestion_source_leases",
+  {
+    sourceId: varchar("source_id", { length: 64 }).primaryKey(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => ingestionJobs.jobId),
+    holder: varchar("holder", { length: 128 }).notNull(),
+    leaseToken: uuid("lease_token").notNull(),
+    acquiredAt: instant("acquired_at").notNull(),
+    heartbeatAt: instant("heartbeat_at").notNull(),
+    expiresAt: instant("expires_at").notNull(),
+  },
+  (table) => [
+    check(
+      "ingestion_source_leases_timeline_check",
+      sql`${table.acquiredAt} <= ${table.heartbeatAt} and ${table.heartbeatAt} < ${table.expiresAt}`,
+    ),
+    check(
+      "ingestion_source_leases_holder_check",
+      sql`${table.holder} ~ '^[A-Za-z0-9._:@/-]{1,128}$'`,
+    ),
+  ],
+);
+
+/**
+ * Bitácora append-only de jobs (`TM-16`): quién tomó, soltó o forzó un lease, qué
+ * decidió cada intento y cada acción manual con su motivo. `event_sequence` es el
+ * orden total; con un reloj fijo varios eventos comparten instante.
+ */
+export const ingestionJobEvents = pgTable(
+  "ingestion_job_events",
+  {
+    eventSequence: bigint("event_sequence", { mode: "number" })
+      .primaryKey()
+      .generatedAlwaysAsIdentity(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => ingestionJobs.jobId),
+    ordinal: integer("ordinal"),
+    eventType: ingestionJobEventType("event_type").notNull(),
+    actor: varchar("actor", { length: 128 }).notNull(),
+    leaseToken: uuid("lease_token"),
+    occurredAt: instant("occurred_at").notNull(),
+    detail: jsonb("detail")
+      .$type<Record<string, string | number | boolean | null>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+  },
+  (table) => [
+    index("ingestion_job_events_job_idx").on(table.jobId, table.eventSequence),
+    check(
+      "ingestion_job_events_ordinal_check",
+      sql`${table.ordinal} is null or ${table.ordinal} >= 0`,
+    ),
+    check(
+      "ingestion_job_events_detail_check",
+      sql`jsonb_typeof(${table.detail}) = 'object'`,
+    ),
+    check(
+      "ingestion_job_events_actor_check",
+      sql`${table.actor} ~ '^[A-Za-z0-9._:@/-]{1,128}$'`,
     ),
   ],
 );

@@ -132,3 +132,20 @@ tráfico ni revela por DNS que existe (ADR 0004).
   que se recibe, y un cuerpo comprimido escondería su tamaño real detrás de la
   descompresión. Si el volumen lo justifica, el cambio necesita medir el techo sobre
   el stream descomprimido.
+
+## Enmienda del 2026-09-16: espera por dirección al conectar
+
+El backfill de la [ADR 0015](0015-durable-ingestion-jobs.md) mostró `ETIMEDOUT` sin
+mensaje en menos de un segundo: dos veces en unos 210 requests a `data.sec.gov` el
+2026-09-16, y una más el día anterior.
+Node 22 prueba las direcciones que devuelve el `lookup` de a una (_happy eyeballs_)
+con 250 ms por intento.
+
+Este host no tiene ruta IPv6: las dos direcciones IPv6 fallan en el acto y todo
+depende de que el único IPv4 conecte en 250 ms. Un SYN perdido se retransmite al
+segundo, así que basta uno para que la conexión entera falle.
+
+`https-transport.ts` pasa ahora `autoSelectFamilyAttemptTimeout` de 5 s. Eso cubre
+dos retransmisiones y, con tres direcciones, queda dentro del deadline de 30 s. El
+`lookup` guardado sigue siendo la única resolución: la opción sólo cambia cuánto se
+espera a cada dirección ya validada.

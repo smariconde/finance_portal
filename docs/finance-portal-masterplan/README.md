@@ -65,6 +65,7 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 - [`../runbooks/database-migrations.md`](../runbooks/database-migrations.md): conexiones pooled/direct, generación, aplicación, prueba y rollback de migraciones.
 
 - [`../runbooks/declared-corporate-events.md`](../runbooks/declared-corporate-events.md): declaraciones de adquisición y ticker, dry run, aplicación y recuperación.
+- [`../runbooks/ingestion-backfill.md`](../runbooks/ingestion-backfill.md): backfill durable de companyfacts, paradas, lease, recuperación manual y rollback.
 
 ## Principios no negociables
 
@@ -84,7 +85,7 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 
 ## Estado actual
 
-La Fase 2 está en curso; `F2-01` a `F2-04` están cerrados y `F2-05` es el próximo
-slice autorizado. El estado operativo y el historial de sesiones viven en
+La Fase 2 está en curso; `F2-01` a `F2-04` están cerrados y `F2-05` está en curso:
+su primer incremento (jobs durables, ADR 0015) está entregado. El estado operativo y el historial de sesiones viven en
 `06_PHASED_ROADMAP.md`; el orden ejecutable vive en `../backlog/README.md`.
 La existencia de una página o documento no demuestra avance.

@@ -628,8 +628,10 @@ Queda deferido y no debe presentarse como disponible:
   revisiones acotadas del sujeto y la selección corre en el dominio, para que
   exista una sola implementación del contrato.
 
-La ingesta real es un job manual (`pnpm fundamentals:ingest`) y no un refresh: no
-hay backfill del universo, lease ni reanudación hasta `F2-05`.
+La ingesta real es manual y no un refresh. `pnpm fundamentals:ingest` trae un
+ticker; `pnpm fundamentals:backfill` recorre el universo como job durable, con lease
+por fuente, cursor y reanudación ([ADR 0015](../architecture/adr/0015-durable-ingestion-jobs.md)).
+Ninguno detecta presentaciones nuevas ni corre programado: eso sigue en `F2-05`.
 
 ## Fuentes primarias
 

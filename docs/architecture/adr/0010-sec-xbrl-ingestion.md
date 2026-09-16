@@ -154,4 +154,5 @@ requests/s y con presupuesto de 1.000 por corrida, como fija la matriz de cuotas
 - **Bancos con miles de notas estructuradas** parten su índice en decenas de archivos
   (JPMorgan necesita 41). El techo por empresa es 64; más allá, la corrida falla
   nombrada.
-- Lease, reanudación y refresh sólo de CIK cambiados siguen siendo `F2-05`.
+- Lease y reanudación llegaron con la [ADR 0015](0015-durable-ingestion-jobs.md);
+  el refresh sólo de CIK cambiados sigue en `F2-05`.

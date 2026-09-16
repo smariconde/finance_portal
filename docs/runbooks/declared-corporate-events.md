@@ -85,7 +85,9 @@ salida 1 y conserva el grafo.
 - Un conflicto de documento, un plan desactualizado o una declaración incompatible
   falla; no borrar filas ni modificar fechas para forzar su aceptación.
 - Un `429` o `5xx` registra fallo reintentable. No hay retry automático ni scheduler:
-  se vuelve a ejecutar manualmente; los leases y presupuestos durables son `F2-05`.
+  se vuelve a ejecutar manualmente. Este comando no toma el lease de la fuente
+  ([ADR 0015](../architecture/adr/0015-durable-ingestion-jobs.md)): no correrlo
+  durante un backfill.
 - La migración `0009` tiene rollback pareado. Rechaza la reversión si todavía existen
   eventos o vínculos que usan los tipos nuevos. Probar únicamente en una base
   descartable; no borra decisiones personales para hacer que el downgrade pase.

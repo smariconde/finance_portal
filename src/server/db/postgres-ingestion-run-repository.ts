@@ -102,7 +102,11 @@ export function createPostgresIngestionRunRepository(
         .select()
         .from(schema.ingestionRuns)
         .where(eq(schema.ingestionRuns.idempotencyKey, parsedKey))
-        .orderBy(desc(schema.ingestionRuns.startedAt))
+        .orderBy(
+          // La publicable primero: el índice único garantiza que hay una sola.
+          desc(inArray(schema.ingestionRuns.status, PUBLISHABLE_STATUSES)),
+          desc(schema.ingestionRuns.startedAt),
+        )
         .limit(1);
 
       return row ? toDomainRun(row) : null;
