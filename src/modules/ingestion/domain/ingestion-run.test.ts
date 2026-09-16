@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { computeContentHash } from "./content-hash";
 import {
   computeIdempotencyKey,
   ingestionRunSchema,
@@ -115,6 +116,42 @@ describe("ingestionRunSchema", () => {
       }).status,
     ).toBe("quarantined");
   });
+
+  it("quarantines a document whose envelope yielded no records to count", () => {
+    expect(
+      run({
+        status: "quarantined",
+        counts: { fetched: 0, accepted: 0, rejected: 0, duplicate: 0 },
+        qualityFlags: ["payload_schema_invalid"],
+      }).status,
+    ).toBe("quarantined");
+  });
+
+  it("never lets a quarantined run report accepted records", () => {
+    expect(() =>
+      run({
+        status: "quarantined",
+        counts: { fetched: 2, accepted: 1, rejected: 1, duplicate: 0 },
+      }),
+    ).toThrow();
+  });
+
+  it("defaults subject and selection to null for dataset-wide sources", () => {
+    const parsed = run();
+
+    expect(parsed.subjectKey).toBeNull();
+    expect(parsed.selectionVersion).toBeNull();
+  });
+
+  it("records the subject and selection a document run asked for", () => {
+    const parsed = run({
+      subjectKey: "0000320193",
+      selectionVersion: "sec-core-concepts-1.0.0",
+    });
+
+    expect(parsed.subjectKey).toBe("0000320193");
+    expect(parsed.selectionVersion).toBe("sec-core-concepts-1.0.0");
+  });
 });
 
 describe("isPublishableStatus", () => {
@@ -159,6 +196,46 @@ describe("computeIdempotencyKey", () => {
   it("changes when the cursor advances", () => {
     expect(computeIdempotencyKey(key)).not.toBe(
       computeIdempotencyKey({ ...key, cursor: "offset:500" }),
+    );
+  });
+
+  it("keeps the key a request had before subject and document fields existed", () => {
+    // La clave de una corrida ya registrada no puede cambiar de identidad
+    // porque el esquema haya crecido: los campos nuevos en `null` no entran.
+    expect(computeIdempotencyKey(key)).toBe(
+      computeContentHash({ ...key, requestedVintage: null }),
+    );
+    expect(
+      computeIdempotencyKey({
+        ...key,
+        subjectKey: null,
+        selectionVersion: null,
+        documentVersion: null,
+      }),
+    ).toBe(computeIdempotencyKey(key));
+  });
+
+  it("separates two subjects of the same dataset", () => {
+    expect(
+      computeIdempotencyKey({ ...key, subjectKey: "0000320193" }),
+    ).not.toBe(computeIdempotencyKey({ ...key, subjectKey: "0000789019" }));
+  });
+
+  it("separates two contents of the same living document", () => {
+    const document = { ...key, subjectKey: "0000320193" };
+
+    expect(
+      computeIdempotencyKey({ ...document, documentVersion: "c".repeat(64) }),
+    ).not.toBe(
+      computeIdempotencyKey({ ...document, documentVersion: "d".repeat(64) }),
+    );
+  });
+
+  it("changes when the selection applied to the document changes", () => {
+    expect(
+      computeIdempotencyKey({ ...key, selectionVersion: "sec-core-1.0.0" }),
+    ).not.toBe(
+      computeIdempotencyKey({ ...key, selectionVersion: "sec-core-1.1.0" }),
     );
   });
 });

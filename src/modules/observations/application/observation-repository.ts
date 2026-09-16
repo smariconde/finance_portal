@@ -45,9 +45,25 @@ export type ObservationPublication = {
   supersessions: readonly ObservationSupersession[];
 };
 
+/**
+ * Techo de cadenas por lectura en lote. Un documento de la SEC trae miles de
+ * hechos; el techo obliga al llamador a partir el lote en vez de armar una
+ * consulta sin límite (`TM-07`).
+ */
+export const MAX_REVISION_GROUPS_PER_LOOKUP = 1000;
+
 export interface ObservationRepository {
   readonly storage: "in-memory-fixture" | "personal-postgres";
   findLatestRevision(revisionGroupId: string): Promise<Observation | null>;
+  /**
+   * Todas las revisiones de las cadenas pedidas. Hace falta la cadena entera y no
+   * sólo su punta: volver a publicar una vintage vieja de un hecho ya re-expresado
+   * es un duplicado de una revisión intermedia, no una revisión nueva. Una cadena
+   * sin revisiones no aparece; nunca se inventa una vacía.
+   */
+  listRevisionGroups(
+    revisionGroupIds: readonly string[],
+  ): Promise<Observation[]>;
   listByRevisionGroup(revisionGroupId: string): Promise<Observation[]>;
   list(query: ObservationListQuery): Promise<Observation[]>;
   publish(publication: ObservationPublication): Promise<Observation[]>;

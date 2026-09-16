@@ -15,11 +15,18 @@ export const rawValueStatusSchema = z.enum([
   "license_restricted",
 ]);
 
+/**
+ * `year_to_date` es el acumulado desde el inicio del ejercicio que no llega a un
+ * año: los estados de un 10-Q reportan seis y nueve meses acumulados además del
+ * trimestre, y el flujo de fondos sólo en acumulado. Tratarlo como `quarter`
+ * haría que un semestre pasara por el último trimestre.
+ */
 export const periodTypeSchema = z.enum([
   "instant",
   "daily",
   "monthly",
   "quarter",
+  "year_to_date",
   "annual",
   "ttm",
 ]);

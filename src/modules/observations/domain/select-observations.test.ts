@@ -234,6 +234,25 @@ describe("queryObservations", () => {
     expect(result).toHaveLength(0);
   });
 
+  it("refuses latest_adjusted instead of returning unadjusted values", () => {
+    // Este dominio no conoce los splits: devolver la base reportada bajo esa
+    // política sería el default silencioso que el contrato prohíbe.
+    try {
+      queryObservations(
+        chain,
+        selector,
+        query({ adjustmentPolicy: "latest_adjusted" }),
+      );
+      expect.unreachable(
+        "latest_adjusted pasa por la lectura de corporate actions",
+      );
+    } catch (error) {
+      expect(
+        isTemporalContractError(error, "unsupported_revision_policy"),
+      ).toBe(true);
+    }
+  });
+
   it("returns one revision per chain and never both", () => {
     const result = queryObservations(chain, selector, query());
 

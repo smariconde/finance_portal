@@ -19,7 +19,7 @@ La aplicación está diseñada para responder preguntas como:
 
 ## Estado actual
 
-La **Fase 0 — Fundación** está terminada y la Fase 1 está en curso. `F1-07` cerró el gate automatizado de extremo a extremo: un mismo build se sirve con entorno personal y con entorno trabado para verificar que el runtime que no prueba ser privado no sirve nada, más accesibilidad, teclado, mobile y movimiento reducido. El próximo slice es `F1-08`: el walkthrough del owner que cierra la fase. Todavía no hay proveedores reales ni datos financieros: todo lo implementado corre sobre fixtures versionadas.
+Las fases 0 y 1 están cerradas y la **Fase 2 — datos reales SEC y universo S&P 500** está en curso. El universo del S&P 500 está constituido con identidad completa y los hechos XBRL de la SEC se ingieren como observaciones point-in-time: `available_at` desde la aceptación de cada presentación, vintages y re-expresiones preservadas, y cuarentena ante un documento que no se entiende. Una reorganización que cambia el CIK del filer —ExxonMobil en 2026— se declara, se verifica contra la SEC y une las dos historias en la lectura sin reasignar hechos ([ADR 0011](docs/architecture/adr/0011-issuer-succession-reporting-lineage.md)). Un split se confirma con el ratio que declara el filer y la re-expresión de sus propios números en la misma presentación, y la lectura `latest_adjusted` lleva las series por acción a una sola base sin reescribir lo publicado ([ADR 0012](docs/architecture/adr/0012-stock-splits-share-basis.md)). Un traspaso de mercado, un delisting o un renombre se llevan al grafo con la presentación de la SEC que los fecha —Kraft Heinz pasa a NYSE en el instante en que NYSE certifica la admisión— y un cambio de ticker que la SEC no fecha se rechaza con nombre ([ADR 0013](docs/architecture/adr/0013-listing-events-dated-evidence.md)). La ingesta es un job manual; los vínculos de adquisición, los cambios de ticker declarados, el backfill del universo y las golden fixtures reales son los próximos slices.
 
 Disponible hoy:
 
@@ -28,6 +28,10 @@ Disponible hoy:
 - Health seguro de configuración para los modos `locked` y `personal`, con estados honestos y headers base.
 - Schema y migraciones Drizzle con rollback pareado, y composición que falla cerrada cuando el runtime no puede servir datos.
 - Registro de fuentes fail-closed por derecho, corridas de ingesta append-only y un provider sintético determinista.
+- Egress único con allowlist por fuente, defensa SSRF, ritmo de 2 requests/s y presupuesto por corrida.
+- Universo S&P 500 constituido desde fuentes reales, con issuer, security, listing, símbolo vigente y CIK separados.
+- Ingesta de companyfacts de la SEC con disponibilidad desde la aceptación, vintages, re-expresiones y presentaciones como eventos inmutables.
+- Splits verificados contra la SEC y lectura de series por acción en la última base conocible, con cada re-expresión clasificada como split o restatement.
 - Identidad separada en entidad legal, security, listing y símbolo, con programas depositarios y consultas `as_known` sin look-ahead.
 - Motor FCFF base en dominio puro con política decimal, policy checks, sensibilidad WACC/g y corridas reproducibles por hash.
 - Corrida de referencia navegable en `/valuacion/referencia`, con provenance, freshness, supuestos, sensibilidad accesible y policy checks.
@@ -38,7 +42,7 @@ Disponible hoy:
 - PRD, arquitectura ejecutable, registro inicial de fuentes y metodología de valuación derivados del masterplan.
 - Backlog ejecutable con dependencias, criterios de aceptación y trazabilidad de riesgos y deuda visual.
 
-Todavía no están implementados los datos financieros reales, el screener, el tablero argentino ni las funciones de IA, y ninguna superficie de la interfaz expone aún la ingesta, la identidad ni la valuación: esos módulos existen como dominio y persistencia, no como pantallas. Esas capacidades se incorporarán por slices verificables; la interfaz no las presenta como disponibles antes de tiempo.
+Todavía no están implementados el backfill del universo, los cambios de símbolo, traspasos, delistings y fusiones, el screener, el tablero argentino ni las funciones de IA, y ninguna superficie de la interfaz expone aún la ingesta, la identidad ni la valuación: esos módulos existen como dominio y persistencia, no como pantallas. Esas capacidades se incorporarán por slices verificables; la interfaz no las presenta como disponibles antes de tiempo.
 
 ## Experiencia objetivo
 
@@ -132,6 +136,20 @@ drizzle/                        # migración SQL y metadata versionada
 
 ### Instalación
 
+`corepack` hay que instalarlo aparte, porque en el rango de Node soportado falla
+de dos maneras distintas y ninguna de las dos es evidente:
+
+- Node 25 y 26 **no lo incluyen**: fue removido del runtime, así que
+  `corepack enable` corta con `command not found`.
+- El que trae Node `22.11.0` (0.29.4) sí existe pero tiene vencidas las claves de
+  firma del registry, y `corepack prepare` corta con `Cannot find matching keyid`.
+
+En ambos casos se resuelve igual:
+
+```bash
+npm install -g corepack@latest
+```
+
 Después de clonar el repositorio:
 
 ```bash
@@ -141,12 +159,6 @@ corepack prepare pnpm@10.33.2 --activate
 pnpm install --frozen-lockfile
 cp .env.example .env.local
 pnpm dev
-```
-
-En PowerShell, copiar el entorno con:
-
-```powershell
-Copy-Item .env.example .env.local
 ```
 
 Abrir [http://localhost:3000](http://localhost:3000).
@@ -173,8 +185,9 @@ probar que es privado ([ADR 0004](docs/architecture/adr/0004-personal-first-runt
 
 Está reservado al owner y se ejecutará en localhost o detrás de protección de plataforma.
 
-- Usa `APP_RUNTIME_ACCESS=local` fuera de Vercel o
-  `APP_RUNTIME_ACCESS=protected` en un Vercel Preview protegido.
+- Usa `APP_RUNTIME_ACCESS=local` fuera de una plataforma de hosting o
+  `APP_RUNTIME_ACCESS=protected` en cualquier entorno detrás de la protección de
+  la plataforma, producción incluida.
 - Requiere una conexión PostgreSQL pooled para el runtime.
 - Las integraciones live permanecen deshabilitadas hasta superar sus gates técnicos y de licencia.
 - No agrega login, cuentas, roles, multi-tenancy ni claves aportadas por usuarios.
@@ -183,23 +196,31 @@ Definir variables en `.env.local` no habilita por sí solo una integración toda
 
 ## Comandos
 
-| Comando                 | Uso                                                                 |
-| ----------------------- | ------------------------------------------------------------------- |
-| `pnpm dev`              | Inicia el servidor local con recarga en desarrollo.                 |
-| `pnpm build`            | Genera y valida el build de producción.                             |
-| `pnpm start`            | Sirve un build de producción ya generado.                           |
-| `pnpm lint`             | Ejecuta ESLint sin permitir warnings.                               |
-| `pnpm typecheck`        | Verifica TypeScript sin emitir archivos.                            |
-| `pnpm test`             | Ejecuta la suite unitaria una vez.                                  |
-| `pnpm test:integration` | Prueba migración y repositorio contra una base PostgreSQL dedicada. |
-| `pnpm test:e2e`         | Gate E2E y de accesibilidad sobre un build servido en ambos modos.  |
-| `pnpm test:watch`       | Ejecuta tests en modo interactivo.                                  |
-| `pnpm db:generate`      | Genera SQL versionado desde el schema Drizzle.                      |
-| `pnpm db:migrate`       | Aplica migraciones con `DATABASE_DIRECT_URL`.                       |
-| `pnpm db:test:up`       | Inicia PostgreSQL local dedicado a integración.                     |
-| `pnpm db:test:down`     | Detiene PostgreSQL local sin borrar su volumen.                     |
-| `pnpm format:check`     | Comprueba el formato del repositorio.                               |
-| `pnpm format`           | Aplica Prettier a los archivos permitidos.                          |
+| Comando                                        | Uso                                                                                                                                |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`                                     | Inicia el servidor local con recarga en desarrollo.                                                                                |
+| `pnpm build`                                   | Genera y valida el build de producción.                                                                                            |
+| `pnpm start`                                   | Sirve un build de producción ya generado.                                                                                          |
+| `pnpm lint`                                    | Ejecuta ESLint sin permitir warnings.                                                                                              |
+| `pnpm typecheck`                               | Verifica TypeScript sin emitir archivos.                                                                                           |
+| `pnpm test`                                    | Ejecuta la suite unitaria una vez.                                                                                                 |
+| `pnpm test:integration`                        | Prueba migración y repositorio contra una base PostgreSQL dedicada.                                                                |
+| `pnpm test:e2e`                                | Gate E2E y de accesibilidad sobre un build servido en ambos modos.                                                                 |
+| `pnpm test:watch`                              | Ejecuta tests en modo interactivo.                                                                                                 |
+| `pnpm db:generate`                             | Genera SQL versionado desde el schema Drizzle.                                                                                     |
+| `pnpm db:migrate`                              | Aplica migraciones con `DATABASE_DIRECT_URL`.                                                                                      |
+| `pnpm db:up`                                   | Inicia el PostgreSQL local con la base personal y la de tests.                                                                     |
+| `pnpm db:down`                                 | Detiene PostgreSQL local sin borrar su volumen.                                                                                    |
+| `pnpm universe:constitute`                     | Constituye el universo S&P 500; dry run salvo `--apply`.                                                                           |
+| `pnpm fundamentals:ingest`                     | Ingiere companyfacts de la SEC por ticker; dry run salvo `--apply`.                                                                |
+| `pnpm corporate-actions:record`                | Verifica y registra las sucesiones de emisor declaradas; dry run salvo `--apply`.                                                  |
+| `pnpm corporate-actions:splits`                | Verifica y registra los splits de un ticker ya ingerido; dry run salvo `--apply`.                                                  |
+| `pnpm corporate-actions:listings`              | Reconcilia traspasos, delistings y renombres con evidencia fechada; dry run salvo `--apply`.                                       |
+| `pnpm corporate-actions:declare --file <path>` | Verifica una declaración de adquisición o ticker; dry run salvo `--apply`. [Runbook](docs/runbooks/declared-corporate-events.md).  |
+| `pnpm fundamentals:backfill`                   | Planea, crea y corre el backfill durable de companyfacts; dry run salvo `--apply`. [Runbook](docs/runbooks/ingestion-backfill.md). |
+| `pnpm ingestion:jobs`                          | Inspecciona jobs y leases; pausa, reanuda, cancela, reencola o libera con `--reason`; dry run salvo `--apply`.                     |
+| `pnpm format:check`                            | Comprueba el formato del repositorio.                                                                                              |
+| `pnpm format`                                  | Aplica Prettier a los archivos permitidos.                                                                                         |
 
 Antes de entregar un cambio:
 
@@ -238,7 +259,7 @@ Las integraciones previstas priorizan fuentes primarias y contratos reemplazable
 - Proveedores de precios y datos con términos compatibles con uso personal y persistencia.
 - NYU Stern/Damodaran para datasets y metodología de valuación.
 
-Cada observación persistida deberá conservar provenance, fecha efectiva, fecha de disponibilidad, unidad, moneda, transformación, hash y flags de calidad. Los proveedores pueden cambiar sin modificar los contratos del dominio ni la interfaz.
+Cada observación persistida conserva provenance, fecha efectiva, fecha de disponibilidad, unidad, moneda, transformación, hash y flags de calidad; las de la SEC, además, la presentación que las publicó ([ADR 0010](docs/architecture/adr/0010-sec-xbrl-ingestion.md)). Los proveedores pueden cambiar sin modificar los contratos del dominio ni la interfaz.
 
 ## Despliegue
 
@@ -246,10 +267,12 @@ El destino previsto es Vercel, pero el repositorio todavía no publica una URL d
 
 - No hay ni habrá una URL pública anónima con datos: cualquier entorno que no
   pruebe ser privado queda `locked`.
-- La instancia personal con datos reales deberá ejecutarse localmente o en un
-  Vercel Preview cuya protección se haya verificado fuera de la aplicación.
-- Vercel Production permanece `locked`; no se configura cron live mientras esa
-  frontera siga vigente.
+- La instancia personal con datos reales corre localmente o en un despliegue cuya
+  protección se haya verificado fuera de la aplicación: `protected` es una
+  declaración del owner, no algo que el runtime pueda comprobar.
+- Un despliegue sin acceso declarado queda `locked`. En Vercel Hobby, Standard
+  Protection no cubre el dominio de producción, así que ahí la declaración sólo es
+  cierta con una protección adicional confirmada.
 - El modo se resuelve en cada request, no al compilar
   ([ADR 0005](docs/architecture/adr/0005-request-time-runtime-boundary.md)): un
   build hecho en la máquina del owner no sirve datos al desplegarse en otro lado.

@@ -18,7 +18,16 @@ export type IngestionRunListQuery = z.input<typeof ingestionRunListQuerySchema>;
 
 export interface IngestionRunRepository {
   readonly storage: "in-memory-fixture" | "personal-postgres";
-  /** Corrida más reciente registrada para esa clave, publicable o no. */
+  /**
+   * La corrida publicable de esa clave —a lo sumo una, por el índice único— y,
+   * si no hay ninguna, la más reciente.
+   *
+   * La publicable va primero aunque no sea la última: una clave también la llevan
+   * las corridas `duplicate` que registran cada vuelta a mirar el mismo
+   * contenido. Devolver la más reciente hacía que la tercera ingesta de un
+   * contenido sin cambios no viera la original e intentara publicarla otra vez
+   * (medido el 2026-09-16 con Apple en el backfill, ADR 0015).
+   */
   findByIdempotencyKey(idempotencyKey: string): Promise<IngestionRun | null>;
   /** Última corrida publicable, usada para deduplicar por content hash. */
   findLatestPublishable(

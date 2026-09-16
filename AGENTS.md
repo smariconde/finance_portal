@@ -21,8 +21,16 @@ The current application command contract is:
 - `pnpm build`: verify the production build.
 - `pnpm db:generate`: generate reviewed SQL migrations from the Drizzle schema.
 - `pnpm db:migrate`: apply migrations through the direct administrative connection.
-- `pnpm db:test:up`: start the dedicated local PostgreSQL integration database.
-- `pnpm db:test:down`: stop the local PostgreSQL integration database without deleting its volume.
+- `pnpm db:up`: start the local PostgreSQL container that hosts the personal and the disposable test database.
+- `pnpm db:down`: stop the local PostgreSQL container without deleting its volume.
+- `pnpm universe:constitute`: constitute the S&P 500 universe; dry run unless `--apply`.
+- `pnpm fundamentals:ingest --ticker <T>`: ingest SEC companyfacts for a universe issuer; dry run unless `--apply`.
+- `pnpm corporate-actions:record`: verify and record the declared issuer successions; dry run unless `--apply`.
+- `pnpm corporate-actions:splits`: verify and record the stock splits of an already ingested ticker; dry run unless `--apply`.
+- `pnpm corporate-actions:listings`: reconcile venue transfers, delistings and renames of the universe against dated SEC evidence; `--cik` asks for a filer explicitly; dry run unless `--apply`.
+- `pnpm corporate-actions:declare --file <path>`: verify an explicit owner declaration of an acquisition or ticker change; dry run unless `--apply`.
+- `pnpm fundamentals:backfill`: plan the companyfacts backfill of the constituted universe; `--apply` creates the job, `--job <id> --apply` runs it under the source lease.
+- `pnpm ingestion:jobs`: inspect ingestion jobs and leases; pause, resume, cancel, requeue an item, or release a dead holder's lease with `--reason`; dry run unless `--apply`.
 
 Review documentation changes with `pnpm format:check`, `git diff --check`, and searches for stale references.
 
@@ -64,3 +72,11 @@ Before reusing or expanding the visual system, read
 ## Commits & Pull Requests
 
 History follows Conventional Commits with a short imperative subject and an optional scope, for example `docs(architecture): clarify provider boundary` or `feat: implement PostgreSQL dataset snapshot repository`. Match that pattern. Pull requests should summarize changes, link issues or ADRs, state validation, and include screenshots only for UI changes.
+
+`main` changes only through merged pull requests. Work on one branch per major section:
+
+- A section is a backlog issue (`F2-05`, `F7-01`) or a cross-cutting docs or tooling change. A phase ships as a sequence of section branches, and an issue with long increments may use one branch per increment.
+- Branch from an up-to-date `main` and name it `<type>/<issue>-<short-kebab-summary>`, where the type follows Conventional Commits, for example `feat/f2-05-history-window` or `docs/analysis-scope`.
+- Commit in small Conventional Commits on the branch. Never commit directly to `main` or rewrite history that `main` already has.
+- Merge only after the CI quality and E2E jobs pass and the backlog and roadmap session log are updated. Use a merge commit, not squash or rebase, so the section stays grouped in history.
+- After merging, delete the branch on the remote and locally, update `main`, and start the next section from it.

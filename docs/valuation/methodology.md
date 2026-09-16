@@ -1,12 +1,15 @@
 # Metodología de valuación
 
 - Estado: metodología objetivo; motor FCFF base implementado en `src/modules/valuation/`
-- Versión metodológica: 0.1.0
+- Versión metodológica: 0.2.0
 - Versión de engine implementada: `fcff-1.0.0` (método `fcff_base`)
-- Fecha: 2026-08-21; motor base entregado el 2026-08-24
+- Fecha: 2026-08-21; motor base entregado el 2026-08-24; niveles de rigor y alcance
+  de la IA incorporados el 2026-09-04
 - Alcance inicial: FCFF para no financieras maduras o en transición
 - Decisión de aritmética:
   [`../architecture/adr/0003-decimal-arithmetic-valuation-engine.md`](../architecture/adr/0003-decimal-arithmetic-valuation-engine.md)
+- Orden de implementación y frontera IA/motor:
+  [`../architecture/adr/0007-ticker-driven-valuation-pivot.md`](../architecture/adr/0007-ticker-driven-valuation-pivot.md)
 
 ## Propósito y límite
 
@@ -24,18 +27,43 @@ DCF, WACC, terminal value ni valor por acción en texto libre.
 
 ## Cobertura incremental
 
+Reordenada por la [ADR 0007](../architecture/adr/0007-ticker-driven-valuation-pivot.md):
+los arquetipos dejan de ser el final del camino porque el universo elegido —el
+S&P 500— los exige desde el principio. Del orden de 65 financieras y 30 REITs del
+índice no admiten FCFF industrial, así que un motor que sólo sabe FCFF cubre menos
+de cuatro quintos del universo y produce números inválidos en el resto.
+
 | Etapa    | Cobertura                                                             | Estado inicial |
 | -------- | --------------------------------------------------------------------- | -------------- |
 | Fase 1   | FCFF base sobre una empresa fixture para probar el flujo reproducible | `done`         |
-| Fase 4   | FCFF multi-etapa para no financieras maduras y high growth            | `planned`      |
-| Fase 5.1 | bancos y aseguradoras mediante excess return/residual income o DDM    | `planned`      |
-| Fase 5.2 | cíclicas y commodities con normalización de ciclo                     | `planned`      |
-| Fase 5.3 | pérdidas/high growth con revenue-to-margin y supervivencia            | `planned`      |
-| Fase 5.4 | REIT mediante AFFO/FCFE/DDM y NAV                                     | `planned`      |
-| Fase 5.5 | holdings/SOTP y distress sólo con demanda observada                   | `deferred`     |
+| Fase 3   | selector de arquetipo, completitud de datos y admisibilidad de método | `planned`      |
+| Fase 3   | parámetros Damodaran y costo de capital bottom-up                     | `planned`      |
+| Fase 4   | FCFF multi-etapa con leases e I+D capitalizados                       | `planned`      |
+| Fase 4.1 | bancos y aseguradoras mediante excess return/residual income o DDM    | `planned`      |
+| Fase 4.2 | cíclicas y commodities con normalización de ciclo                     | `planned`      |
+| Fase 4.3 | pérdidas/high growth con revenue-to-margin y supervivencia            | `planned`      |
+| Fase 4.4 | REIT mediante AFFO/FCFE/DDM y NAV                                     | `planned`      |
+| Fase 4.5 | holdings/SOTP y distress sólo con demanda observada                   | `deferred`     |
 
 Un método inexistente devuelve `unsupported_method`, inputs requeridos y motivo.
 Nunca cae silenciosamente a FCFF.
+
+## Nivel de rigor declarado
+
+Un dato que no existe no se completa: cambia el nivel de rigor con el que la corrida
+puede hacerse, y ese nivel es una salida visible del resultado. Degradar es un
+resultado legítimo; inventar un faltante para poder mostrar un número no lo es.
+
+| Nivel         | Requiere                                                                                                                       | Resultado                                          |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------- |
+| `full`        | ≥5 años de fundamentals, industria mapeada, mix geográfico de ingresos, leases e I+D reconstruibles, deuda y cash desagregados | valor por acción con rango y sensibilidad          |
+| `standard`    | ≥3 años, industria mapeada, sin mix geográfico confiable                                                                       | CRP por domicilio legal, marcado como aproximación |
+| `screening`   | sólo los últimos estados, sin reconstrucción del capital invertido                                                             | rango amplio, ROIC no confiable, terminal grueso   |
+| `unsupported` | falta un input estructural del método admisible                                                                                | no valúa; nombra qué falta y por qué               |
+
+El nivel se deriva de la completitud medida, no se elige. La corrida persiste qué
+comprobación bajó el nivel, de modo que conseguir ese dato más adelante y volver a
+correr sea una acción concreta y no una intuición.
 
 ## Motor implementado: `fcff-1.0.0`
 
@@ -210,11 +238,20 @@ terminal_value = terminal_fcff_next / (terminal_wacc - terminal_growth)
 
 Precondiciones:
 
+- **`terminal_growth <= risk_free_rate` en la moneda de la valuación.** Es la
+  restricción de Damodaran y es más fuerte que el buffer contra el WACC: ninguna
+  empresa crece a perpetuidad por encima de la economía en la que opera, y la tasa
+  libre de riesgo nominal es el techo observable de esa economía. El buffer sigue
+  existiendo, pero como defensa aritmética contra un denominador cerca de cero, no
+  como la regla económica;
 - `terminal_wacc > terminal_growth + buffer`;
 - crecimiento, risk-free e inflación son coherentes con la moneda;
 - ROIC terminal y reinversión sostienen el crecimiento;
 - margen, beta y leverage convergen a valores defendibles;
 - terminal value share excesivo genera diagnóstico visible.
+
+El motor `fcff-1.0.0` implementa hoy sólo el buffer. Incorporar la regla contra el
+risk-free incrementa la versión del engine y no reescribe corridas históricas.
 
 ### Puente EV-equity
 
@@ -332,7 +369,7 @@ No se presentan como una recomendación personalizada.
 
 ## IA y evidencia
 
-Una propuesta IA futura usa schema cerrado, evidence IDs, temperatura baja,
+Una propuesta IA usa schema cerrado, evidence IDs, temperatura baja,
 modelo/provider allowlist, timeout y límites de costo. Registra modelo solicitado
 y efectivo, routing, provider, ZDR/data collection, prompt version, response ID y
 output estructurado.
@@ -340,6 +377,46 @@ output estructurado.
 El policy engine puede aceptar, requerir revisión o rechazar la propuesta. Una IA
 no puede inventar consenso, betas, ERP o citas; sobrescribir locks; ejecutar el
 DCF; ni completar faltantes silenciosamente.
+
+### Qué decide y qué no
+
+La frontera de la [ADR 0007](../architecture/adr/0007-ticker-driven-valuation-pivot.md):
+los hechos numéricos salen de los estados contables, la IA decide lo que Damodaran
+trata como juicio, el policy engine valida y el motor calcula.
+
+| Decisión cualitativa                      | Parámetro que mueve                        | Evidencia mínima                       |
+| ----------------------------------------- | ------------------------------------------ | -------------------------------------- |
+| clasificación de industria                | beta desapalancada y margen objetivo       | descripción del negocio y segmentos    |
+| mix geográfico de ingresos                | country risk premium por operaciones       | desagregación geográfica del filing    |
+| carácter cíclico y punto del ciclo        | normalización de margen y de precio        | historia de márgenes y del sector      |
+| one-offs que distorsionan earnings        | puente reported → normalized               | notas y partidas no recurrentes        |
+| plausibilidad del guidance de crecimiento | crecimiento de los períodos explícitos     | guidance citado del MD&A               |
+| señales de distress                       | probabilidad de fracaso                    | cobertura de intereses y vencimientos  |
+| posición competitiva                      | velocidad de fade del ROIC y ROIC terminal | ROIC histórico y estructura del sector |
+
+Cada fila produce un `Assumption` con `sourceType: "ai_proposed"`, su
+`allowedRange`, su `confidence` y sus `evidenceIds`. Fuera de esa tabla, la IA no
+propone: no elige el método —eso es el selector determinista—, no fija el
+risk-free ni la ERP —eso son datasets fechados— y no toca el puente EV-equity.
+
+### Por qué la propuesta se persiste
+
+La corrida guarda la propuesta como parte del snapshot de entrada, no como una
+llamada que se repite. Un replay un año después lee la propuesta persistida y
+reproduce el mismo hash sin volver a contactar al modelo. Sin eso, la
+no-determinación del modelo se propaga al resultado y `input_hash` deja de
+significar algo.
+
+Volver a pedirle al modelo produce **otra corrida**, con su propio hash, igual que
+un corte de conocimiento distinto. No es una corrección de la anterior.
+
+### Disciplina de contexto
+
+Los números vienen estructurados de los estados contables; el modelo lee sólo las
+secciones que hacen falta para las filas de la tabla. Entregarle documentos
+completos multiplica el costo por un orden de magnitud y empeora la extracción al
+diluir la señal. La cita de evidencia es obligatoria justamente para que una
+propuesta sin respaldo en el texto sea detectable.
 
 ## Validación
 

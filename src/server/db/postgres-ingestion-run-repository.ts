@@ -34,6 +34,8 @@ function toDomainRun(row: IngestionRunRow) {
     requestedVintage: row.requestedVintage,
     cursor: row.cursor,
     nextCursor: row.nextCursor,
+    subjectKey: row.subjectKey,
+    selectionVersion: row.selectionVersion,
     status: row.status,
     startedAt: row.startedAt.toISOString(),
     finishedAt: row.finishedAt?.toISOString() ?? null,
@@ -69,6 +71,8 @@ function toRow(run: IngestionRun): typeof schema.ingestionRuns.$inferInsert {
     requestedVintage: run.requestedVintage,
     cursor: run.cursor,
     nextCursor: run.nextCursor,
+    subjectKey: run.subjectKey,
+    selectionVersion: run.selectionVersion,
     status: run.status,
     startedAt: new Date(run.startedAt),
     finishedAt: run.finishedAt === null ? null : new Date(run.finishedAt),
@@ -98,7 +102,11 @@ export function createPostgresIngestionRunRepository(
         .select()
         .from(schema.ingestionRuns)
         .where(eq(schema.ingestionRuns.idempotencyKey, parsedKey))
-        .orderBy(desc(schema.ingestionRuns.startedAt))
+        .orderBy(
+          // La publicable primero: el índice único garantiza que hay una sola.
+          desc(inArray(schema.ingestionRuns.status, PUBLISHABLE_STATUSES)),
+          desc(schema.ingestionRuns.startedAt),
+        )
         .limit(1);
 
       return row ? toDomainRun(row) : null;

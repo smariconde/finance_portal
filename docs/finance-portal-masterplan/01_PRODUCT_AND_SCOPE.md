@@ -4,6 +4,8 @@
 
 Una herramienta personal de decision financiera que combina datos reproducibles, herramientas cuantitativas y explicaciones asistidas por IA. Tiene un solo owner y no intenta ser una terminal de trading ni un agregador de noticias. Cada modulo debe responder una pregunta y mostrar como llego a la respuesta.
 
+El portal no es un screener general. El filtrado amplio del mercado se hace con la version gratuita de Finviz, de uso manual. El portal existe para calculos y analisis especificos: valuar las empresas que el owner elige por ticker y comparar un sector con matrices que un screener general no ofrece ([ADR 0016](../architecture/adr/0016-analysis-scope-sector-matrices.md)).
+
 Todas las secciones siguientes pertenecen a la vision objetivo, pero no se construyen en paralelo. El primer wedge es descubrir y analizar subyacentes accesibles por CEDEAR con datos auditables; luego se agregan divergencias, valuacion, Argentina e IA segun los gates del roadmap. Una seccion futura se muestra como planificada, nunca como funcional si aun no tiene datos, calculos y tests.
 
 ## Usuario y operacion
@@ -15,19 +17,19 @@ Todas las secciones siguientes pertenecen a la vision objetivo, pero no se const
 
 ## Jobs to be done
 
-1. Encontrar: "mostrame CEDEARs de tecnologia con ROIC alto, deuda moderada y mejora de margen en 5 anos".
-2. Comparar: "como evolucionaron EPS, ventas, margen, capitalizacion y acciones diluidas en 2/5 anos".
-3. Detectar divergencias: "donde crecieron mas las ganancias que el valor de mercado".
-4. Valorar: "que metodo corresponde, cuales son los supuestos y que rango de valor resulta".
+1. Comparar riesgo en un sector: "en Communication Services, que empresas compensaron mejor su riesgo a la baja a 2 y a 5 anos, cuales superan al S&P 500 en las dos ventanas y a cuales accedo por CEDEAR".
+2. Detectar divergencias en un sector: "donde crecieron mas las ganancias que el precio o el valor de mercado, y cuanto explican las recompras".
+3. Valorar una empresa elegida: "que metodo corresponde, cuales son los supuestos y que rango de valor resulta".
+4. Seguir una empresa elegida: "como evolucionaron EPS, ventas, margen, capitalizacion y acciones diluidas en 2/5 anos".
 5. Entender Argentina: "que dicen reservas, liquidez, inflacion, actividad, sector externo y soja".
 6. Auditar: "de donde salio cada dato, de que fecha es y que transformacion recibio".
 
 ## Navegacion objetivo
 
 - `/`: preguntas frecuentes, buscador global, estado de datos y accesos rapidos.
-- `/empresas`: screener por sector, CEDEAR, ratio, periodo y metrica.
-- `/empresas/[symbol]`: ficha, series fundamentales, filings y trazabilidad.
-- `/divergencias/fundamental-gap`: vistas market cap/net income y precio/EPS para 2 y 5 anos, mas puente de acciones.
+- `/sectores/[sector]`: matriz de riesgo Sortino 2Y/5Y del sector, con referencia S&P 500 y CEDEAR distinguido. No es un screener general.
+- `/empresas/[symbol]`: ficha de una empresa elegida, series fundamentales, filings y trazabilidad.
+- `/divergencias/fundamental-gap`: por sector, market cap contra EPS con su sesgo de recompras visible, vistas alternativas market cap/net income y precio/EPS para 2 y 5 anos, mas puente de acciones.
 - `/valuacion`: selector/buscador y valuaciones recientes.
 - `/valuacion/[symbol]`: wizard automatico, supuestos, escenarios y resultados.
 - `/argentina`: tablero por bloques, no una pared de graficos.
@@ -36,19 +38,31 @@ Todas las secciones siguientes pertenecen a la vision objetivo, pero no se const
 
 ## Modulos
 
-### 1. Empresas y ratios
+### 1. Matriz de riesgo sectorial
 
-- Universo inicial: subyacentes de CEDEAR de acciones, mas un universo configurable de empresas de EE.UU.
-- Seleccion de 2/5 anos y TTM/annual cuando corresponda.
-- Constructor de filtros con AND/OR limitado, presets guardables mas adelante.
-- Ratios iniciales: P/E, EV/EBITDA, EV/Sales, P/B, FCF yield, ROIC, ROE, gross/operating margin, net debt/EBITDA, revenue/EPS/FCF CAGR y share-count CAGR.
-- La definicion de cada ratio es unica y versionada; no mezclar formulas de proveedores sin normalizacion.
+- Poblacion: los miembros de un sector del S&P 500 al `as_of`, con el sesgo de supervivencia declarado.
+- Scatter con el Sortino a 2 anos en X y a 5 anos en Y, las dos ventanas cerradas el mismo dia.
+- El S&P 500 es un punto y un cruce de lineas que divide los cuadrantes, calculado en la misma base de retorno que las empresas.
+- Una recta de ajuste de los puntos del sector, nombrada como ajuste y no como valor justo.
+- Las empresas con CEDEAR vigente al `as_of` llevan una marca de forma y color, no solo de color.
+- Un punto por security: dos clases del mismo emisor son dos puntos con etiquetas legibles.
+- Solo usa precios. Los parametros de la formula (retorno minimo, frecuencia, base de retorno, referencia) se deciden antes de implementarla; la especificacion esta en [`03_DATA_AND_PROVENANCE.md`](03_DATA_AND_PROVENANCE.md).
+- Una tabla equivalente conserva valores crudos y `null` con motivo, como historia insuficiente o ausencia de retornos a la baja.
 
-### 2. Fundamental gap
+### 2. Fundamental gap sectorial
 
-El scatter compara crecimiento anualizado de market cap y EPS. Es una herramienta de deteccion, no una senal de compra. El detalle debe exponer recompras/dilucion, punto de partida ciclico, extraordinarios y EPS no comparable.
+El scatter compara, dentro de un sector, crecimiento anualizado de valor y de ganancias, para detectar donde las ganancias crecieron mucho mas que el valor y el multiplo pudo quedar mas atractivo. Es una herramienta de deteccion, no una senal de compra.
+
+- Vista principal, elegida por el owner: X = crecimiento del market cap, Y = crecimiento del EPS diluido.
+- Esa vista mezcla un total con un valor por accion: las recompras hacen que una empresa parezca mas barata de lo que se volvio su multiplo, y la dilucion, mas cara. La matriz lo aclara junto al titulo, muestra en tooltip y tabla cuantos puntos del gap vienen del cambio de acciones y marca los puntos donde ese sesgo es grande.
+- Vistas alternativas de la misma base: precio contra EPS, y market cap contra net income.
+- El detalle debe exponer recompras/dilucion, punto de partida ciclico, extraordinarios y EPS no comparable.
+
+Necesita pocos fundamentals: EPS diluido, net income y acciones diluidas en dos cierres fiscales por empresa del sector. Se bajan por sector, nunca para todo el universo.
 
 ### 3. Valuacion
+
+Se aplica a las empresas que el owner elige por ticker. Si la empresa no tiene sus fundamentals, la corrida los baja una vez como job, con la ventana de cinco ejercicios. No hay valuacion por lote del universo.
 
 Flujo progressive disclosure:
 
@@ -76,6 +90,8 @@ Cada bloque termina con "por que importa", "que cambio" y "que podria invalidar 
 
 ## Fuera de alcance inicial
 
+- Screener general del universo: constructor de filtros, presets y ratios fundamentales sobre todas las empresas. Para eso se usa Finviz gratuito, de forma manual ([ADR 0016](../architecture/adr/0016-analysis-scope-sector-matrices.md)).
+- Carga de fundamentals de todo el universo y valuacion por lote.
 - Ejecucion de ordenes, conexion a broker o custodia.
 - Recomendaciones personales basadas en patrimonio o tolerancia al riesgo.
 - Portfolios sociales, copy trading, pagos y suscripciones.

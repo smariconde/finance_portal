@@ -30,26 +30,33 @@ Interfaz financiera sobria, clara y explicable. Evitar tanto el aspecto de plani
 - Ultimos analisis solo cuando haya persistencia real.
 - Secciones futuras pueden aparecer como `Planificada` con alcance y fase, pero sin numeros demo ambiguos, botones muertos ni promesas de disponibilidad.
 
-## Screener
+## Matriz de riesgo sectorial
 
-- TanStack Table con virtualizacion solo cuando el volumen la justifique.
-- Column picker, orden multiple, filtros tipados y presets.
-- Chip `CEDEAR` con tooltip de simbolo BYMA y ratio vigente.
-- Columnas con valor actual, 2Y, 5Y y delta; el usuario elige la vista, no se muestran todas juntas en movil.
-- Exportar CSV con definiciones, fecha y fuente, no solo numeros.
-- Click en fila abre drawer de comparacion rapida; pagina completa para profundidad.
+No hay screener general: el filtrado amplio se hace con Finviz ([ADR 0016](../architecture/adr/0016-analysis-scope-sector-matrices.md)). La pagina de un sector responde una pregunta con un scatter y su tabla.
+
+- Titulo en forma de pregunta, con sector, `as_of`, frecuencia, base de retorno y fuente cerca del grafico.
+- X = Sortino 2Y; Y = Sortino 5Y. Las etiquetas de los ejes nombran la ventana y la fecha de cierre.
+- El S&P 500 es un punto propio y el cruce de dos lineas punteadas que definen los cuadrantes; el tooltip dice que cuadrante significa superar a la referencia en las dos ventanas.
+- La recta de ajuste se rotula como ajuste lineal del sector con su `n`, nunca como valor justo.
+- CEDEAR vigente: marca de forma o borde mas color, y chip `CEDEAR` en la tabla con simbolo BYMA y ratio vigente. El color nunca es la unica senal.
+- Un punto por security. Las etiquetas no se superponen: dos clases del mismo emisor que caen juntas se agrupan en una etiqueta que se abre al hacer foco o click.
+- Outliers recortados visualmente quedan en el borde con su valor crudo en el tooltip y en la tabla.
+- Tabla sincronizada con ticker, emisor, CEDEAR, Sortino 2Y, Sortino 5Y y distancia a la referencia; orden por columna y fila enfocable que resalta el punto.
+- Panel separado para `insufficient_history`, `no_downside_observations` y `missing_period`; esos casos no se dibujan como cero.
+- Selector de sector y fecha. Recharts alcanza para unos 70 puntos por sector; no hay justificacion para otro motor.
+- Exportar CSV con definiciones, parametros, fecha y fuente, no solo numeros.
 
 ## Divergencias fundamentales
 
-La pagina ofrece dos vistas comparables y un puente; no presenta un score unico como oportunidad:
+La pagina ofrece una vista principal, dos alternativas y un puente; no presenta un score unico como oportunidad ([ADR 0016](../architecture/adr/0016-analysis-scope-sector-matrices.md)):
 
-- Vista agregada: X = market cap CAGR; Y = net income CAGR.
-- Vista por accion: X = price CAGR; Y = diluted EPS CAGR.
-- Linea diagonal `y=x`; tooltip explica compresion/expansion sin concluir infravaloracion.
-- Color = sector; borde o icono = CEDEAR; area = market cap actual con escala acotada.
-- Toggle 2Y/5Y y filtro sector/CEDEAR/market cap/data quality.
+- Vista principal, elegida por el owner: X = market cap CAGR; Y = diluted EPS CAGR. Una frase junto al titulo aclara que las recompras hacen parecer mas barata a una empresa y la dilucion, mas cara.
+- Vistas alternativas de la misma base: agregada (X = market cap CAGR; Y = net income CAGR) y por accion (X = price CAGR; Y = diluted EPS CAGR).
+- Linea diagonal `y=x`; el tooltip explica compresion/expansion sin concluir infravaloracion y, en la vista principal, muestra `share_count_bias_pp` y el gap por accion.
+- CEDEAR = borde o icono mas color; sesgo de acciones por encima de la tolerancia = glifo propio; area = market cap actual con escala acotada. Ninguna senal depende solo del color.
+- Selector de sector (la poblacion de la matriz), toggle 2Y/5Y y filtros CEDEAR/market cap/data quality.
 - Lasso no es necesario en MVP; click fija tooltip y abre detalle.
-- Tabla sincronizada con `aggregate_gap_pp`, `per_share_gap_pp`, `fundamental_gap_pp` historico y share-count CAGR. El usuario elige orden y siempre ve el puente de acciones.
+- Tabla sincronizada con `fundamental_gap_pp`, `share_count_bias_pp`, `per_share_gap_pp`, `aggregate_gap_pp` y share-count CAGR. El usuario elige orden y siempre ve el puente de acciones.
 - Panel separado para `loss_to_profit`, `profit_to_loss` y `negative_both`.
 - Outliers recortados solo visualmente se etiquetan en el borde; tooltip conserva raw.
 
@@ -99,5 +106,5 @@ La narrativa IA aparece despues de los numeros y cita evidence cards. Un usuario
 - Server Components por defecto y paquetes de charts cargados solo en paginas que los usan.
 - No hidratar tablas o dashboards completos si una isla interactiva alcanza.
 - Presupuesto inicial: JS first-load por ruta medido y registrado; ninguna regresion grande sin explicacion.
-- Paginacion/consulta server-side para screeners amplios.
+- Paginacion/consulta server-side para tablas amplias.
 - Imagenes y logos con fallback; nunca bloquear contenido financiero por un logo.

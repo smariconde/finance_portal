@@ -74,7 +74,14 @@ type Provenance = {
   fetchedAt: string;
   unit: string;
   currency?: string;
-  period?: "instant" | "quarter" | "annual" | "ttm" | "daily" | "monthly";
+  period?:
+    | "instant"
+    | "quarter"
+    | "year_to_date"
+    | "annual"
+    | "ttm"
+    | "daily"
+    | "monthly";
   vintage?: string;
   restatementOf?: string;
   originalConcept?: string;
@@ -158,7 +165,7 @@ Las tablas revisables conservan tiempo efectivo (`valid_from/valid_to`) y tiempo
 - Cada job es idempotente por `(source, dataset, as_of, parser_version)`.
 - Backfills y refresh de universo usan lotes acotados, cursor persistido, lease/claim, heartbeat y checkpoint. Nunca recorren todo el universo dentro de una request de usuario.
 - Guardar ultimo snapshot valido. Un parser roto no reemplaza datos buenos por vacio.
-- Vercel Cron dispara el scheduler, no constituye una cola. Para Fase 2 elegir mediante ADR entre job table durable, Vercel Workflow/Queues u otra alternativa; exigir entrega at-least-once, idempotencia, poison-message policy y recuperacion manual. No depender de una beta sin fallback.
+- Vercel Cron dispara el scheduler, no constituye una cola. La [ADR 0015](../architecture/adr/0015-durable-ingestion-jobs.md) eligio una job table durable en el PostgreSQL existente, con lease por fuente, entrega at-least-once, idempotencia, poison policy y recuperacion manual; Vercel Workflow/Queues quedaron descartados.
 - Freshness inicial: precios EOD una vez despues del cierre; SEC al detectar filing nuevo; CEDEAR semanal o ante anuncio; BCRA/BNA/BCR diario; Damodaran mensual o ante nueva publicacion. No se ofrece tiempo real.
 
 Postgres conserva snapshots entre navegadores y sesiones. El cache de Next.js es una capa derivada y descartable: se elige un solo modelo para la version instalada y cada lectura declara freshness e invalidacion. `localStorage` se limita a preferencias visuales y borradores; claves y datos financieros autoritativos permanecen en servidor. `sessionStorage` no es persistencia.

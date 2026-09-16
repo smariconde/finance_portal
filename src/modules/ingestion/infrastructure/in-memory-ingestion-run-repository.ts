@@ -31,12 +31,14 @@ export function createInMemoryIngestionRunRepository(
   return {
     storage: "in-memory-fixture",
     async findByIdempotencyKey(idempotencyKey) {
+      const matching = runs
+        .filter((run) => run.idempotencyKey === idempotencyKey)
+        .sort((left, right) => right.startedAt.localeCompare(left.startedAt));
+
       return (
-        runs
-          .filter((run) => run.idempotencyKey === idempotencyKey)
-          .sort((left, right) =>
-            right.startedAt.localeCompare(left.startedAt),
-          )[0] ?? null
+        matching.find((run) => isPublishableStatus(run.status)) ??
+        matching[0] ??
+        null
       );
     },
     async findLatestPublishable(sourceId, datasetId) {

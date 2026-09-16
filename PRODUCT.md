@@ -43,9 +43,10 @@ financiera.
   protección de plataforma.
 - Una eventual URL pública funciona únicamente en modo demo con fixtures
   deterministas y sin credenciales.
-- El flujo previsto abarca búsqueda y screener, ficha de empresa, divergencias
-  fundamentales, valuación por escenarios, tablero argentino, metodología y
-  salud de las fuentes.
+- El flujo previsto abarca búsqueda, matrices sectoriales de riesgo, ficha de
+  empresa, divergencias fundamentales, valuación por escenarios, tablero
+  argentino, metodología y salud de las fuentes. No incluye un screener general:
+  el filtrado amplio se hace con Finviz.
 - El repositorio público funciona también como portfolio técnico, sin exponer
   claves, base de datos ni payloads licenciados.
 

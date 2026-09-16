@@ -1,4 +1,5 @@
 import {
+  MAX_REVISION_GROUPS_PER_LOOKUP,
   observationListQuerySchema,
   type ObservationPublication,
   type ObservationRepository,
@@ -45,6 +46,23 @@ export function createInMemoryObservationRepository(
     storage: "in-memory-fixture",
     async findLatestRevision(revisionGroupId) {
       return groupOf(revisionGroupId).at(-1) ?? null;
+    },
+    async listRevisionGroups(revisionGroupIds) {
+      if (revisionGroupIds.length > MAX_REVISION_GROUPS_PER_LOOKUP) {
+        throw new RangeError(
+          `At most ${MAX_REVISION_GROUPS_PER_LOOKUP} revision groups per lookup.`,
+        );
+      }
+
+      const wanted = new Set(revisionGroupIds);
+
+      return stored
+        .filter((observation) => wanted.has(observation.revisionGroupId))
+        .sort(
+          (left, right) =>
+            left.revisionGroupId.localeCompare(right.revisionGroupId) ||
+            left.revisionNumber - right.revisionNumber,
+        );
     },
     async listByRevisionGroup(revisionGroupId) {
       return groupOf(revisionGroupId);

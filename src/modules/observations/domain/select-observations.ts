@@ -3,6 +3,8 @@ import { z } from "zod";
 import type { PointInTimeQuery } from "@/modules/temporal/domain/point-in-time-query";
 import { TemporalContractError } from "@/modules/temporal/domain/temporal-error";
 
+import { periodTypeSchema } from "@/modules/ingestion/domain/staged-record";
+
 import { observationSubjectTypeSchema, type Observation } from "./observation";
 
 /**
@@ -17,9 +19,7 @@ export const observationSelectorSchema = z.object({
   subjectType: observationSubjectTypeSchema,
   subjectId: z.uuid(),
   metricIds: z.array(z.string().trim().min(1).max(128)).max(64).optional(),
-  periodType: z
-    .enum(["instant", "daily", "monthly", "quarter", "annual", "ttm"])
-    .optional(),
+  periodType: periodTypeSchema.optional(),
   currency: z
     .string()
     .trim()
@@ -128,6 +128,18 @@ export function queryObservations(
   selector: ObservationSelector,
   query: PointInTimeQuery,
 ): Observation[] {
+  // Este dominio no conoce corporate actions. Devolver valores sin ajustar bajo
+  // `latest_adjusted` sería el default silencioso que el contrato prohíbe: esa
+  // lectura pasa por `src/modules/corporate-actions/`, que elige revisiones con
+  // `as_known` y después aplica los splits (ADR 0012).
+  if (query.adjustmentPolicy !== "as_known") {
+    throw new TemporalContractError(
+      "unsupported_revision_policy",
+      "Observation selection does not apply corporate actions; read latest_adjusted through the corporate-action read.",
+      [query.adjustmentPolicy],
+    );
+  }
+
   const parsedSelector = observationSelectorSchema.parse(selector);
   const metricIds =
     parsedSelector.metricIds === undefined

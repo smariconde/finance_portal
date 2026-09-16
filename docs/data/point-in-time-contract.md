@@ -1,8 +1,9 @@
 # Contrato point-in-time
 
 - Estado: contrato aceptado para implementación posterior
-- Versión: 0.1
-- Fecha: 2026-08-21
+- Versión: 0.5
+- Fecha: 2026-08-21; SEC y documentos de fuente el 2026-09-14; linaje de reporte
+  el 2026-09-14; corrección de una dimensión el 2026-09-15
 - Alcance: identidad, fundamentales, mercado, macro, CEDEAR y valuaciones
 - Persistencia: diferida al slice de PostgreSQL/Drizzle de Fase 1
 
@@ -83,6 +84,29 @@ Ejemplo: un cambio de ticker anunciado el 10 de mayo y efectivo el 1 de junio
 tiene `available_at=10 de mayo` y `valid_from=1 de junio`. Antes del 1 de junio se
 conoce el cambio, pero el símbolo anterior sigue siendo el válido.
 
+Una versión registrada puede nacer desactualizada: el grafo abrió a Franklin Templeton
+el 2026-09-05 con un nombre que EDGAR había dejado de usar el 14 de agosto. Cerrarla en
+el pasado le haría decir a un corte anterior algo que la instalación no sabía. Se
+**supersede**: `superseded_at` es el instante en que se conoció la corrección y la
+versión nueva vale desde el borde publicado, con ese mismo `available_at`. Un
+`as_known` anterior sigue viendo el nombre viejo; uno posterior, el nuevo también para
+fechas efectivas anteriores a la versión superseded
+([ADR 0013](../architecture/adr/0013-listing-events-dated-evidence.md)).
+
+### Ticker declarado y adquisición
+
+[ADR 0014](../architecture/adr/0014-declared-corporate-events.md): una declaración
+retrospectiva no cierra destructivamente el símbolo original. Supersede esa fila en
+la primera verificación satisfactoria y agrega dos asignaciones conocidas desde ese
+corte: el símbolo viejo hasta la fecha efectiva declarada y el nuevo desde ella. La
+fila original conserva su intervalo para consultas con corte anterior. Repetir la
+declaración no mueve el corte ni genera versiones adicionales.
+
+Un vínculo `acquired_by` usa la última aceptación de las presentaciones que lo
+corroboran, aunque la del adquirido haya ocurrido antes. Es visible con la selección
+de dimensión habitual, pero **no participa** en `resolveReportingLineage`: tampoco
+solicita observaciones del adquirido en una lectura del adquirente.
+
 ### Observaciones
 
 Precios, hechos financieros y series macro describen un instante o período:
@@ -96,7 +120,14 @@ type PointInTimeObservation = {
   asOf: string;
   periodStart: string | null;
   periodEnd: string | null;
-  periodType: "instant" | "quarter" | "annual" | "ttm" | "daily" | "monthly";
+  periodType:
+    | "instant"
+    | "quarter"
+    | "year_to_date"
+    | "annual"
+    | "ttm"
+    | "daily"
+    | "monthly";
   unit: string;
   currency: string | null;
   rawValue: string | null;
@@ -220,7 +251,8 @@ Reglas:
 - `latest_restated` es una vista actual explícita; no puede etiquetarse como
   point-in-time histórico.
 - `latest_adjusted` puede aplicar splits/corporate actions conocidos hoy a una
-  serie histórica, pero debe mostrar la base y transformación.
+  serie histórica, pero debe mostrar la base y transformación. «Hoy» es el corte de
+  la consulta: ver [Base accionaria](#base-accionaria).
 - Una valuación o screening guarda el query completo, no sólo `as_of`.
 - No hay defaults silenciosos entre vista original y restated.
 
@@ -252,6 +284,58 @@ recorded_at <= :known_at
 
 El orden por `fetched_at DESC` nunca sustituye estas reglas.
 
+### Linaje de reporte
+
+Cuando una reorganización cambia el filer que presenta los estados del mismo grupo,
+la historia del antecesor se lee junto a la del sucesor sin reasignar sujetos
+(`reporting-lineage-1.0.0`,
+[ADR 0011](../architecture/adr/0011-issuer-succession-reporting-lineage.md)):
+
+1. el vínculo `reporting_successor` se selecciona con la regla de dimensión de
+   arriba: efectivo en `effective_at`, `available_at <= known_at` —la aceptación de
+   la presentación de sucesión— y `recorded_at <= known_at` bajo `system_recorded`;
+2. cada segmento se selecciona por su propio sujeto con las reglas de observación;
+3. el antecesor aporta sólo hechos con `as_of` anterior a la fecha efectiva de la
+   sucesión, y un antecesor lejano el borde más temprano de la cadena;
+4. un hecho —la clave lógica sin sujeto— reportado por más de un segmento se
+   resuelve por la revisión con `available_at` más reciente. El mismo instante con
+   valores distintos es `ambiguous_revision`; con el mismo valor gana el segmento
+   más cercano al sujeto consultado;
+5. cada fila devuelta conserva su `subject_id`: la provenance sigue nombrando al
+   filer que reportó el valor.
+
+Un `as_known` anterior a la aceptación de la sucesión devuelve la historia del
+sucesor sola, aunque el antecesor ya haya presentado todo lo que presentó.
+
+### Base accionaria
+
+`adjustmentPolicy` decide en qué base se expresa un valor en acciones o por acción
+(`split-adjustment-1.0.0`,
+[ADR 0012](../architecture/adr/0012-stock-splits-share-basis.md)):
+
+1. las revisiones se eligen siempre con la base reportada; `queryObservations`
+   rechaza `latest_adjusted` con `unsupported_revision_policy` porque no conoce los
+   splits, y la lectura ajustada pasa por el linaje;
+2. con `as_known` cada valor queda en la base de la presentación que lo publicó;
+3. con `latest_adjusted` cada valor sensible se multiplica —acciones— o divide —por
+   acción— por el producto de los ratios de los splits confirmados cuya presentación
+   es posterior a la de su vintage y conocible en el corte: `available_at <= known_at`
+   y, bajo `system_recorded`, `recorded_at <= known_at`. La presentación del split ya
+   está en base nueva; otra del mismo instante es `ambiguous_share_basis`;
+4. la base es la del corte de conocimiento, no la de `effective_at`: la fecha efectiva
+   filtra hechos y no deshace splits;
+5. cada fila sensible nombra la transformación y su factor —`1` si ya estaba en
+   base—, conserva la observación publicada y un valor faltante sigue faltando;
+6. cada revisión se clasifica `original`, `restatement` o `split_reexpression`: es de
+   split si difiere de la anterior exactamente por los splits publicados entre las dos,
+   dentro del redondeo del filer;
+7. una fila sensible de un antecesor del linaje no se lleva a la base del sucesor sin
+   la conversión de acciones de la sucesión (`adjustment_across_succession`).
+
+Un `as_known` anterior a la presentación del split lo ignora aunque el split ya haya
+ocurrido: al 2014-05-01 el EPS básico FY2012 de Apple vale 44,64 con las dos
+políticas.
+
 ## Semántica por dominio
 
 ### Identidad y CEDEAR
@@ -266,8 +350,10 @@ El orden por `fetched_at DESC` nunca sustituye estas reglas.
 ### SEC y fundamentales
 
 - El sujeto es legal entity/security interna, no ticker.
-- Se conservan accession, form, filed, accepted, fy, fp, start, end, frame, unit,
-  taxonomy y tag original.
+- Se conservan accession, form, filed, accepted, fy, fp, start, end, unit,
+  taxonomy y tag original. `frame` **no** se conserva: la SEC lo asigna al hecho
+  más reciente de cada período calendario y lo mueve con cada presentación nueva,
+  así que no describe lo reportado.
 - `available_at` usa `accepted_at` cuando está disponible; de lo contrario aplica
   la regla documentada de la fuente y un quality flag.
 - Un amendment/restatement crea otra revisión.
@@ -275,6 +361,29 @@ El orden por `fetched_at DESC` nunca sustituye estas reglas.
 
 La API de frames puede ser útil para agregados, pero su alineación calendaria no
 reemplaza el período fiscal exacto de un filing.
+
+Reglas implementadas en `F2-03` ([ADR 0010](../architecture/adr/0010-sec-xbrl-ingestion.md)):
+
+- **Aceptación.** `acceptanceDateTime` de `submissions` es UTC real: sobre 1.000
+  presentaciones del filer 320193, leído como UTC cae dentro del horario operativo
+  de EDGAR el 99,8%; leído como hora de Nueva York, el 33,9%. Sin aceptación, y
+  sólo para formularios periódicos o corrientes, `available_at` es el primer
+  instante del día siguiente al filing en Nueva York con offset EST (`05:00Z`) más
+  `availability_inferred`: puede llegar tarde, nunca antes.
+- **Vintages.** Un hecho es `(taxonomía, concepto, unidad, inicio, fin)`. Un
+  re-reporte del mismo valor no crea revisión; un valor distinto en una
+  presentación posterior sí, con el `available_at` de la primera presentación que
+  lo mostró.
+- **Sujeto.** El CIK se resuelve una vez, al corte de la descarga, contra el grafo
+  vigente. Resolverlo al corte de cada hecho rechazaría toda la historia anterior a
+  la constitución del universo; hacerlo al corte de la descarga no adelanta el
+  conocimiento del hecho, porque el CIK no se reasigna.
+- **Período.** El acumulado desde el inicio del ejercicio que no llega a un año es
+  `year_to_date`, clasificado por duración medida; inicio y fin exactos siguen en la
+  clave lógica.
+- **Documento.** Cada presentación es un evento inmutable en `source_documents`,
+  con su foco fiscal: `fy`/`fp` describen a la presentación, no al período del
+  hecho.
 
 ### Mercado
 
@@ -464,11 +573,53 @@ El ejemplo es ficticio y existe únicamente para probar la semántica.
   valor faltante, período, cadena de revisión y supersesión, y foreign key hacia
   la corrida que publicó cada fila.
 
+`F2-02` persistió el grafo de identidad y constituyó el universo real del S&P 500.
+
+`F2-03` llevó el contrato a datos reales de la SEC:
+
+- [`src/modules/fundamentals/`](../../src/modules/fundamentals/): parsers de
+  `submissions` y `companyfacts`, reglas de período, unidad y disponibilidad, y la
+  construcción de vintages;
+- [`source_documents`](../../src/server/db/schema.ts): el evento inmutable de cada
+  presentación;
+- [`publish-observations.ts`](../../src/modules/observations/application/publish-observations.ts):
+  sujeto de documento, varias revisiones de un hecho en un lote y duplicados
+  reconocidos contra toda la cadena;
+- verificado sobre Apple en PostgreSQL personal: `as_known` un segundo antes de la
+  aceptación de la 10-K/A del 2010-01-25 devuelve `Assets` FY2008 = 39.572 M; en la
+  aceptación, 36.171 M.
+
+`F2-04` sumó la sucesión de emisor y el linaje de reporte:
+
+- [`src/modules/corporate-actions/`](../../src/modules/corporate-actions/):
+  verificación de la sucesión declarada, vínculo versionado y lectura del linaje;
+- [`corporate_actions` y `legal_entity_relationships`](../../src/server/db/schema.ts);
+- verificado sobre ExxonMobil en PostgreSQL personal: la historia de `us-gaap:Revenues`
+  anual pasa de 0 a 17 ejercicios (FY2009 a FY2025) y el vínculo no existe un segundo
+  antes de la aceptación del `8-K12B` del 2026-07-01 16:36:49Z. Los ingresos del
+  segundo trimestre de 2025 salen del antecesor antes del 10-Q conjunto y del sucesor
+  después, con el mismo valor.
+
+El incremento 2 de `F2-04` sumó los splits y la base accionaria:
+
+- [`share-basis`, `verify-split-evidence`, `plan-split-recording` y `split-adjustment`](../../src/modules/corporate-actions/domain/):
+  conceptos sensibles, coherencia, confirmación con dos evidencias de la misma
+  presentación y lectura `latest_adjusted`;
+- `split` y `reverse_split` en [`corporate_actions`](../../src/server/db/schema.ts),
+  con `corporate_actions_split_terms_check`;
+- verificado sobre Apple en PostgreSQL personal: de 150 re-expresiones, 71 son de split
+  y 79 no; un segundo antes de la aceptación del 10-Q del 2014-07-23 el promedio de
+  acciones FY2012 vale 934.818.000 y en la aceptación, con el 7:1 aplicado,
+  6.543.726.000, el mismo valor que Apple re-expresó después.
+
 Queda deferido y no debe presentarse como disponible:
 
-- persistir el grafo de identidad —hoy vive como fixture sintética en
-  [`demo-identity-fixtures.ts`](../../src/modules/identity/infrastructure/demo-identity-fixtures.ts)—
-  y sus corporate actions, que corresponden a `F2-02`;
+- los cambios de ticker que la SEC no fecha y los vínculos de adquisición, que son el
+  incremento 3b de `F2-04`. Traspasos de mercado, delistings y renombres ya se
+  reconcilian con evidencia fechada (ADR 0013);
+- la confirmación declarada de un split que la regla deja candidato —Duke Energy y
+  Citigroup declaran su reverse split años después de re-expresar—: hasta entonces su
+  serie por acción anterior al split sigue en la base vieja bajo `latest_adjusted`;
 - el constraint de exclusión temporal por rango: exige la extensión `btree_gist`
   y por lo tanto un ADR propio. Hoy el no solapamiento se prueba en dominio con
   `assertNoOverlappingVersions` y en PostgreSQL sólo para el caso peligroso —dos
@@ -477,8 +628,10 @@ Queda deferido y no debe presentarse como disponible:
   revisiones acotadas del sujeto y la selección corre en el dominio, para que
   exista una sola implementación del contrato.
 
-Este documento no autoriza una ingesta real ni marca disponible un historial
-point-in-time de datos reales: la única empresa cubierta es sintética.
+La ingesta real es manual y no un refresh. `pnpm fundamentals:ingest` trae un
+ticker; `pnpm fundamentals:backfill` recorre el universo como job durable, con lease
+por fuente, cursor y reanudación ([ADR 0015](../architecture/adr/0015-durable-ingestion-jobs.md)).
+Ninguno detecta presentaciones nuevas ni corre programado: eso sigue en `F2-05`.
 
 ## Fuentes primarias
 

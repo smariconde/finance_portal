@@ -93,7 +93,7 @@ No construir el producto sobre datos gratis de Yahoo obtenidos por endpoints no 
 
 - Las paginas leen Postgres y muestran `as_of`/`fetched_at`; cero llamadas de proveedor por page view.
 - Precios: un job EOD multi-symbol, en lotes paginados, con margen operativo del 50% respecto del limite por minuto documentado.
-- SEC: `submissions` detecta filings nuevos y `companyfacts` se actualiza solo para entidades cambiadas; ritmo objetivo maximo 2 requests/segundo aunque Fair Access admita mas.
+- SEC: los fundamentals se bajan para las empresas que el owner valua y para los filers de un sector con matriz de divergencia, nunca para todo el universo ([ADR 0016](../architecture/adr/0016-analysis-scope-sector-matrices.md)). `submissions` detecta filings nuevos y `companyfacts` se actualiza solo para entidades cambiadas de ese conjunto; ritmo objetivo maximo 2 requests/segundo aunque Fair Access admita mas.
 - Backfills avanzan con cursor durable y presupuesto por corrida. Un `429` pausa sin borrar el ultimo snapshot valido.
 - `provider_usage` registra requests, filas, paginas, ventana, respuesta y backoff. Un circuit breaker detiene la fuente antes de agotar el presupuesto configurado.
 - Historicos ya obtenidos no se vuelven a pedir. Preferencias y valuaciones del owner tambien viven en Postgres; el navegador solo guarda estado de presentacion.
@@ -116,11 +116,11 @@ Modelo minimo:
 - alcance de inversor, tipo (share/ETF/corporate), sector publicado;
 - `valid_from`, `valid_to`, fuente, hash del documento y fecha de ingesta.
 
-Los ratios cambian. Nunca sobrescribir historia. La etiqueta CEDEAR del screener depende del snapshot vigente a la fecha consultada.
+Los ratios cambian. Nunca sobrescribir historia. La marca CEDEAR de las matrices sectoriales depende del snapshot vigente a la fecha consultada y se aplica a la security subyacente del programa, no a todas las clases del emisor.
 
-## Screener y formulas
+## Catalogo de metricas y formulas
 
-Crear un metric catalog con nombre, formula, periodicidad, tratamiento de negativos y version. Ejemplos:
+No hay screener general ([ADR 0016](../architecture/adr/0016-analysis-scope-sector-matrices.md)). El metric catalog contiene solo lo que usan las matrices sectoriales y la valuacion, cada entrada con nombre, formula, periodicidad, tratamiento de negativos y version. Ejemplos:
 
 - `roic = nopat / average_invested_capital`;
 - `fcf_yield = fcff_or_equity_fcf / corresponding_market_value` con definicion explicita;
@@ -129,7 +129,41 @@ Crear un metric catalog con nombre, formula, periodicidad, tratamiento de negati
 
 No comparar ratios sin significado entre sectores. Por ejemplo, deuda/EBITDA no es el filtro central de un banco; mostrar metricas sectoriales o `not_applicable`.
 
+## Matriz de riesgo sectorial: especificacion
+
+Responde que empresas de un sector compensaron mejor su riesgo a la baja a 2 y a 5 anos, cuales superan al S&P 500 en las dos ventanas y a cuales se accede por CEDEAR. Solo usa precios ([ADR 0016](../architecture/adr/0016-analysis-scope-sector-matrices.md)).
+
+1. Poblacion: las securities de los miembros del sector al `as_of`. El sector es una clasificacion versionada con taxonomia y vigencia, nunca una columna sin origen. Los que salieron del indice no aparecen, y la matriz declara ese sesgo de supervivencia.
+2. Las ventanas de 2 y 5 anos terminan en el mismo cierre de mercado, que es el `as_of`. Precios y eventos se leen con su `available_at` y su base de ajuste declarada.
+3. Para los `N` retornos por periodo de una ventana, con `mar` el retorno minimo aceptable del periodo y `k` los periodos por ano:
+   - `excess_t = r_t - mar_t`
+   - `downside_deviation = sqrt((1/N) * sum(min(0, excess_t)^2))`, sobre los `N` periodos y no solo los negativos
+   - `sortino = mean(excess_t) / downside_deviation * sqrt(k)`
+4. Casos que no producen numero:
+   - historia menor que la ventana: `null` con `insufficient_history`, sin acortar la ventana;
+   - `downside_deviation = 0`: `null` con `no_downside_observations`, nunca infinito;
+   - huecos de precio por encima de la tolerancia documentada: `null` con `missing_period`, nunca retorno cero.
+5. La referencia S&P 500 usa la misma base de retorno, frecuencia y ventanas que las empresas.
+6. La recta de ajuste se calcula sobre los puntos del sector, sin la referencia, y publica su `n`. Como la ventana de 5 anos contiene a la de 2, parte de la correlacion entre ejes es mecanica.
+7. Dos clases del mismo emisor son dos securities y dos puntos.
+
+Parametros a decidir con el owner antes de escribir `sortino-1.0.0`:
+
+| Parametro | Opciones | Recomendacion inicial |
+|---|---|---|
+| `mar` | cero o tasa libre de riesgo del periodo | a decidir |
+| Frecuencia | diaria (`k = 252`) o mensual (`k = 12`) | a decidir; la mensual guarda unas 60 filas por security |
+| Base de retorno | dividendos reinvertidos o solo precio | dividendos reinvertidos: solo precio castiga a quien paga dividendos altos |
+| Referencia | indice de precio, indice total return o ETF ajustado | la que coincida con la base de retorno |
+| Numerador | media aritmetica o CAGR | media aritmetica, la definicion estandar |
+| Limites de ventana | calendario o cantidad de ruedas | a decidir |
+| Clases del mismo emisor | todas o una por emisor | todas, con etiquetas legibles |
+
+Los precios se guardan en una tabla propia y liviana, no en `observations`: unas 630.000 barras diarias de 5 anos para el universo ocuparian ~600 MB alli, contra un orden de 60-80 MB en una tabla liviana. El tamano se mide con un prototipo antes de ingerir.
+
 ## Divergencias fundamentales: especificacion exacta
+
+La poblacion es un sector ([ADR 0016](../architecture/adr/0016-analysis-scope-sector-matrices.md)). Los fundamentals que necesita —EPS diluido, net income y acciones diluidas en los dos cierres de cada horizonte— se bajan de la SEC para los filers de ese sector, con la ventana de cinco ejercicios; no hay carga de todo el universo.
 
 Para horizonte `h`:
 
@@ -144,11 +178,13 @@ Para horizonte `h`:
    - `price_cagr_pct = ((price1 / price0)^(1/years)-1)*100`
    - `eps_cagr_pct = ((eps1 / eps0)^(1/years)-1)*100`
    - `per_share_gap_pp = eps_cagr_pct - price_cagr_pct`
-   - conservar `fundamental_gap_pp = eps_cagr_pct - market_cap_cagr_pct` solo como diagnostico historico, no ranking aislado.
+   - `fundamental_gap_pp = eps_cagr_pct - market_cap_cagr_pct`: vista principal elegida por el owner ([ADR 0016](../architecture/adr/0016-analysis-scope-sector-matrices.md)). Mezcla un total con un valor por accion, asi que nunca se muestra sin su sesgo:
+   - `share_count_bias_pp = price_cagr_pct - market_cap_cagr_pct`, la parte del gap que viene del cambio de acciones: positiva con recompras, negativa con dilucion. Se cumple exactamente `fundamental_gap_pp - share_count_bias_pp = per_share_gap_pp`.
+   - Un punto cuyo `share_count_bias_pp` supere en valor absoluto la tolerancia documentada lleva una marca de sesgo.
 6. EPS o net income no positivo produce categoria especial por vista, no CAGR artificial.
 7. Calcular `diluted_shares_cagr_pct`, reconciliar basic/diluted shares con corporate actions y explicar la diferencia entre las vistas.
 
-Interpretacion: `aggregate_gap_pp` aproxima compresion/expansion entre beneficio total y equity value; `per_share_gap_pp` hace lo propio entre EPS y precio. Ninguna prueba infravaloracion: recompras, dilucion, picos ciclicos, riesgo, one-offs y expectativas requieren el puente explicativo.
+Interpretacion: `fundamental_gap_pp` es la lectura que eligio el owner y `share_count_bias_pp` dice cuanto de ella son recompras o dilucion. `aggregate_gap_pp` aproxima compresion/expansion entre beneficio total y equity value; `per_share_gap_pp` hace lo propio entre EPS y precio. Ninguna prueba infravaloracion: recompras, dilucion, picos ciclicos, riesgo, one-offs y expectativas requieren el puente explicativo.
 
 ## Argentina
 

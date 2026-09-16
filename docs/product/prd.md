@@ -1,8 +1,9 @@
 # Product requirements document
 
 - Estado: aprobado para orientar la implementación incremental
-- Versión: 0.1
-- Fecha: 2026-08-21
+- Versión: 0.2
+- Fecha: 2026-08-21; alcance analítico revisado el 2026-09-16
+  ([ADR 0016](../architecture/adr/0016-analysis-scope-sector-matrices.md))
 - Owner: propietario único de la instancia
 - Fuente de avance: [`../finance-portal-masterplan/06_PHASED_ROADMAP.md`](../finance-portal-masterplan/06_PHASED_ROADMAP.md)
 
@@ -47,18 +48,20 @@ sistema de diseño.
 
 ## Jobs to be done
 
-1. **Encontrar:** filtrar empresas por calidad, crecimiento, deuda, valuación y
-   disponibilidad mediante CEDEAR.
-2. **Comparar:** observar cómo evolucionaron ventas, EPS, márgenes, market cap y
-   acciones diluidas en dos o cinco años.
-3. **Explicar divergencias:** separar crecimiento agregado, crecimiento por
-   acción y efecto de recompras o dilución.
-4. **Valorar:** elegir un método apropiado, editar supuestos y obtener escenarios
-   y sensibilidad reproducibles.
-5. **Interpretar Argentina:** revisar bloques nominales, monetarios, cambiarios,
-   reales, fiscales, externos y agropecuarios con fechas heterogéneas explícitas.
-6. **Auditar:** rastrear fuente, fecha, unidad, moneda, transformación, vintage y
-   calidad de cada resultado material.
+1. **Comparar riesgo en un sector:** ver qué empresas compensaron mejor su riesgo
+   a la baja a dos y cinco años, cuáles superan al S&P 500 y a cuáles se accede
+   por CEDEAR.
+2. **Explicar divergencias en un sector:** separar crecimiento agregado,
+   crecimiento por acción y efecto de recompras o dilución.
+3. **Valorar una empresa elegida:** elegir un método apropiado, editar supuestos y
+   obtener escenarios y sensibilidad reproducibles.
+4. **Seguir una empresa elegida:** observar cómo evolucionaron ventas, EPS,
+   márgenes, market cap y acciones diluidas en dos o cinco años.
+
+El filtrado amplio del mercado no es un trabajo del portal: el owner usa la
+versión gratuita de Finviz. 5. **Interpretar Argentina:** revisar bloques nominales, monetarios, cambiarios,
+reales, fiscales, externos y agropecuarios con fechas heterogéneas explícitas. 6. **Auditar:** rastrear fuente, fecha, unidad, moneda, transformación, vintage y
+calidad de cada resultado material.
 
 ## Principios de producto
 
@@ -95,11 +98,16 @@ frontera de red debe verificar el modo efectivo en servidor.
   futuros.
 - No mostrar análisis recientes hasta que exista persistencia real.
 
-### Empresas y CEDEAR
+### Matrices sectoriales y CEDEAR
 
-- Filtrar un universo versionado por sector, CEDEAR, período y métricas
-  compatibles con el sector.
-- Mostrar valor actual, dos y cinco años sin forzar todas las columnas en mobile.
+- Mostrar, para un sector del S&P 500 al `as_of`, el Sortino a dos años contra el
+  Sortino a cinco años, con el S&P 500 como referencia en la misma base de
+  retorno y una recta de ajuste nombrada como tal.
+- Distinguir las securities con CEDEAR vigente sin depender sólo del color.
+- Declarar como `null` con motivo la historia insuficiente y la ausencia de
+  retornos a la baja, y ofrecer una tabla equivalente.
+- Calcular la matriz de riesgo sólo con precios; no hay filtros sobre ratios
+  fundamentales del universo.
 - Resolver identidad mediante IDs estables y tickers con vigencia.
 - Historizar programas y ratios CEDEAR como fracciones exactas.
 - Exportar sólo cuando el contrato de la fuente lo permita e incluir definiciones,
@@ -107,8 +115,11 @@ frontera de red debe verificar el modo efectivo en servidor.
 
 ### Divergencias fundamentales
 
-- Separar la vista agregada `net income vs market cap` de la vista por acción
-  `EPS vs price`.
+- Tomar como población un sector; los fundamentals se bajan sólo para sus filers.
+- Mostrar como vista principal `market cap vs EPS`, elegida por el owner, con su
+  sesgo a la vista: cuántos puntos del gap vienen de recompras o dilución.
+- Ofrecer como alternativas la vista agregada `net income vs market cap` y la
+  vista por acción `EPS vs price`.
 - Mostrar el cambio de acciones diluidas como puente explicativo.
 - Clasificar extremos no positivos sin inventar un CAGR comparable.
 - Mantener valores reales de outliers aunque la escala visual se recorte.
@@ -116,6 +127,8 @@ frontera de red debe verificar el modo efectivo en servidor.
 
 ### Valuación
 
+- Valuar las empresas que el owner pide por ticker; si faltan sus fundamentals,
+  bajarlos una vez como job, sin valuación por lote del universo.
 - Seleccionar arquetipo y método mediante reglas deterministas.
 - Mostrar datos faltantes antes de calcular.
 - Separar supuestos operativos, reinversión, riesgo, terminales y ajustes.
@@ -186,7 +199,7 @@ historia.
 | --------- | ------------------------------------------------------------------------------------------------------- |
 | Fase 0    | contratos, decisiones y gobierno suficientes para implementar sin ambigüedad estructural                |
 | Fase 1    | una empresa fixture recorre identidad, persistencia, provenance y FCFF demo de extremo a extremo        |
-| Fases 2-3 | universo CEDEAR auditable, screener y divergencias con negativos y acciones reconciliados               |
+| Fases 2-3 | universo CEDEAR auditable, matrices sectoriales y divergencias con negativos y acciones reconciliados   |
 | Fase 4    | valuación no financiera multi-etapa reproducible; cierre del MVP útil                                   |
 | Fases 5-9 | arquetipos adicionales, Argentina, IA acotada, persistencia personal y hardening según evidencia de uso |
 
@@ -208,6 +221,9 @@ instrumentación y evidencia.
 
 ## Fuera de alcance
 
+- screener general del universo con filtros sobre ratios fundamentales (se usa
+  Finviz gratuito), carga de fundamentals de todo el universo y valuación por
+  lote;
 - ejecución de órdenes, broker, custodia o tiempo real;
 - asesoramiento personalizado por patrimonio o tolerancia al riesgo;
 - cuentas, login propio, roles, multi-tenancy o BYOK;

@@ -22,7 +22,7 @@ sobre una sesión limpia.
 
 ## Cómo se levanta la sesión
 
-```powershell
+```bash
 pnpm walkthrough
 ```
 
@@ -36,7 +36,7 @@ diferencian en su entorno:
 
 Para iterar sin recompilar, cuando el build ya está hecho:
 
-```powershell
+```bash
 pnpm walkthrough --no-build
 ```
 
@@ -61,7 +61,7 @@ puerta. La tarea mobile se hace con emulación de dispositivo a 390×844.
 
 Límite declarado: la emulación no reproduce el teclado virtual, el gesto de
 volver del sistema operativo ni el rendimiento real del dispositivo. Lo que ese
-límite deje afuera queda para `F9-03`.
+límite deje afuera queda para `F10-06`.
 
 ### Qué cuenta como sesión limpia
 

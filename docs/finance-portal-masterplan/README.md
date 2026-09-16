@@ -64,6 +64,9 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 - [`../agent/skills-inventory.md`](../agent/skills-inventory.md): skills locales aprobadas, acciones auditadas y candidatos diferidos.
 - [`../runbooks/database-migrations.md`](../runbooks/database-migrations.md): conexiones pooled/direct, generación, aplicación, prueba y rollback de migraciones.
 
+- [`../runbooks/declared-corporate-events.md`](../runbooks/declared-corporate-events.md): declaraciones de adquisición y ticker, dry run, aplicación y recuperación.
+- [`../runbooks/ingestion-backfill.md`](../runbooks/ingestion-backfill.md): backfill durable de companyfacts, paradas, lease, recuperación manual y rollback.
+
 ## Principios no negociables
 
 1. Fuente y fecha visibles para todo dato importante.
@@ -82,4 +85,7 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 
 ## Estado actual
 
-El masterplan está revisado, la Fase 0 está terminada y la Fase 1 está en curso. `F1-02` cerró la persistencia base contra PostgreSQL real y `F1-03` es el próximo slice autorizado. El estado operativo y el historial de sesiones viven exclusivamente en `06_PHASED_ROADMAP.md`; el orden ejecutable vive en `../backlog/README.md` y no se infiere avance por la mera existencia de una página o documento.
+La Fase 2 está en curso; `F2-01` a `F2-04` están cerrados y `F2-05` está en curso:
+su primer incremento (jobs durables, ADR 0015) está entregado. El estado operativo y el historial de sesiones viven en
+`06_PHASED_ROADMAP.md`; el orden ejecutable vive en `../backlog/README.md`.
+La existencia de una página o documento no demuestra avance.

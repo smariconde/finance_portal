@@ -1,16 +1,29 @@
 # Modelo de identidad financiera
 
-- Estado: contrato implementado en dominio y fixture; persistencia diferida
-- Versión: 0.1
-- Fecha: 2026-08-21
+- Estado: contrato implementado en dominio y persistido en PostgreSQL
+- Versión: 0.5
+- Fecha: 2026-09-04; sucesión de emisor el 2026-09-14; traspasos, delistings y
+  renombres el 2026-09-15
 - Alcance: entity, security, listing, identifiers y programas depositarios
 - Implementación (`F1-04`):
   [`identity-graph.ts`](../../src/modules/identity/domain/identity-graph.ts),
   [`resolve-identity.ts`](../../src/modules/identity/domain/resolve-identity.ts) y
   la fixture sintética
   [`demo-identity-fixtures.ts`](../../src/modules/identity/infrastructure/demo-identity-fixtures.ts)
-- Persistencia: las tablas de identidad siguen diferidas a `F2-02`; hoy el grafo
-  es una fixture versionada y sólo `observations` está persistida
+- Persistencia (`F2-02`): migración
+  [`0004_common_proteus.sql`](../../drizzle/0004_common_proteus.sql) con su
+  rollback pareado; repositorio
+  [`postgres-universe-repository.ts`](../../src/server/db/postgres-universe-repository.ts).
+  Los programas depositarios y sus ratios siguen viviendo sólo en dominio y
+  fixture: su fuente es el registro CEDEAR y su tabla llega en `F7-03`
+  ([ADR 0016](../architecture/adr/0016-analysis-scope-sector-matrices.md))
+- Corporate actions (`F2-04`): migración
+  [`0006_lonely_zeigeist.sql`](../../drizzle/0006_lonely_zeigeist.sql) con su
+  rollback pareado; módulo
+  [`src/modules/corporate-actions/`](../../src/modules/corporate-actions/) y
+  [ADR 0011](../architecture/adr/0011-issuer-succession-reporting-lineage.md); eventos de
+  listing en la migración [`0008_grey_ultimo.sql`](../../drizzle/0008_grey_ultimo.sql)
+  y [ADR 0013](../architecture/adr/0013-listing-events-dated-evidence.md)
 
 ## Propósito
 
@@ -276,6 +289,100 @@ Un cambio de ticker crea otro `ListingSymbol`. Una merger o spin-off crea edges
 explícitos entre entidades/securities. Un split ajusta series mediante una
 transformación versionada; no cambia el ID de la security.
 
+### Sucesión de emisor (implementada)
+
+Una reorganización en holding cambia el CIK del filer sin cambiar el grupo que
+reporta. Se guarda como evento `successor_issuer` sobre la entidad del sucesor y
+como vínculo versionado `reporting_successor` entre dos entidades legales que
+conservan sus IDs ([ADR 0011](../architecture/adr/0011-issuer-succession-reporting-lineage.md)):
+
+```ts
+type LegalEntityRelationship = TemporalIdentityVersion & {
+  relationshipId: string;
+  relationshipType: "reporting_successor" | "acquired_by";
+  predecessorLegalEntityId: string;
+  successorLegalEntityId: string;
+  corporateActionId: string;
+  effectiveOn: string; // fecha del evento en el calendario de la fuente
+  decidedBy: "rule" | "owner";
+  decisionRuleVersion: string;
+};
+```
+
+- La sucesión no se detecta: el owner la declara con el accession que la prueba y el
+  job la verifica contra los índices de la SEC de los dos filers.
+- `availableAt` es la aceptación de la presentación y `validFrom` es `effectiveOn`
+  a las 00:00 de Nueva York.
+- Es el único vínculo que **une historias de reporte**, y lo hace en la lectura: los
+  hechos del antecesor conservan su sujeto y el linaje los combina con la regla
+  versionada `reporting-lineage-1.0.0` del
+  [contrato point-in-time](point-in-time-contract.md#linaje-de-reporte).
+- `acquired_by` registra adquisiciones y nunca entra al linaje: el adquirente no
+  reporta la historia del adquirido. Spin-offs siguen diferidos.
+
+### Split y reverse split (implementados)
+
+Un split se registra como `corporate_action` `split` o `reverse_split` sobre la
+**entidad legal**, no sobre la security ([ADR 0012](../architecture/adr/0012-stock-splits-share-basis.md)):
+
+- la evidencia es del filer: el ratio llega sin dimensiones y los hechos que se
+  re-expresan cuelgan de la entidad legal, así que lo que prueba es que cambió la base
+  de las acciones comunes **que ese filer reporta** (`terms.scope =
+filer_reported_shares`), no qué clase se dividió. Alphabet tiene dos securities en el
+  grafo y su 20:1 se registra igual;
+- no se detecta por el ratio solo: se confirma cuando la misma presentación declara el
+  ratio y re-expresa EPS y acciones ya publicados por él. Lo demás queda candidato y
+  no ajusta nada;
+- `availableAt` es la aceptación de esa presentación y `effectiveOn` el cierre del
+  primer período presentado en base nueva, no la fecha de distribución;
+- `terms.ratio` son las acciones nuevas por cada anterior, como texto exacto: mayor
+  que uno es `split`, entre cero y uno `reverse_split`;
+- no cambia el ID de ninguna security ni reescribe una observación: la base se aplica
+  en la lectura. La proyección a cada clase de acciones espera a los datos de mercado.
+
+### Traspaso de mercado, delisting y renombre (implementados)
+
+La tabla vigente de tickers de la SEC no tiene fechas: una diferencia con el grafo es
+una pregunta, y la responde el índice de presentaciones del filer
+([ADR 0013](../architecture/adr/0013-listing-events-dated-evidence.md)):
+
+- **Traspaso de mercado**: `25` y `8-A12B` del emisor más un `CERT` presentado por el
+  mercado de destino. Se cierran el listing y su ticker y se abre **otro listing** —con
+  otro ID— sobre la misma security; la membresía no se toca. Evento `listing_transfer`
+  sobre la security.
+- **Delisting**: `25-NSE` presentado por el mercado del listing más un 8-K con ítem 3.01
+  contemporáneo. Se cierran el listing y su ticker; la security y su membresía siguen.
+  Evento `delisting` sobre el listing.
+- Los dos se escriben en el instante en que la evidencia quedó completa: cierre,
+  apertura y `availableAt` coinciden. El mercado que actuó es el CIK de quien presentó,
+  que publica el accession.
+- **Renombre**: `formerNames` fecha el borde. Si es posterior a la versión registrada
+  se cierra y abre en el borde; si es anterior, la versión registrada nació vencida y se
+  **supersede** en la descarga, con la nueva vigente desde el borde.
+- **Cambio de ticker en el mismo mercado**: la reconciliación automática lo rechaza
+  porque la SEC no lo fecha. Una declaración explícita usa el flujo de abajo.
+- Dos clases del mismo emisor en el mismo mercado son `ambiguous_listing`: ni el `25`
+  ni el `25-NSE` dicen cuál.
+
+### Adquisición y cambio de ticker declarados (implementados)
+
+[ADR 0014](../architecture/adr/0014-declared-corporate-events.md), migración `0009`
+y [runbook](../runbooks/declared-corporate-events.md):
+
+- Una adquisición entre entidades ya presentes crea `acquisition` y `acquired_by`.
+  Las columnas `predecessorLegalEntityId` y `successorLegalEntityId` significan
+  adquirido y adquirente para ese tipo. Un adquirente puede tener muchos adquiridos;
+  los límites uno-a-uno de `reporting_successor` no cambian.
+- Los roles y la fecha se declaran, y dos 8-K de cierre más un `425` compartido
+  corroboran el vínculo. `availableAt` es la última aceptación requerida. No se
+  infieren cancelaciones de securities, canjes ni incorporación de empresas privadas.
+- Un ticker declarado crea `symbol_change` sobre el mismo listing. Se verifica la
+  asignación vigente del nuevo símbolo al CIK/MIC y la ausencia del anterior. Se
+  supersede la fila original y se agregan viejo-cerrado y nuevo-abierto con IDs nuevos,
+  conservando la respuesta anterior a la declaración. `decidedBy`, `decidedAt`, motivo,
+  versión y hash de declaración quedan en los términos del evento.
+- Sin declaración o evidencia suficiente, se rechaza con nombre y no cambia el grafo.
+
 ## Reglas de vigencia
 
 - Todos los intervalos son semiabiertos: `[validFrom, validTo)`.
@@ -392,37 +499,99 @@ DepositaryProgram:
 El ejemplo es ficticio. Demuestra que símbolo, listing y programa pueden cambiar
 sin alterar la identidad histórica de la acción subyacente.
 
-## Persistencia objetivo
+## Persistencia
 
-La migración futura separará al menos:
+La migración `0004` separa cada nivel en dos tablas: un **registro** que sólo
+declara que el ID existe y una tabla de **versiones** con atributos y vigencia.
+Sin esa separación, `security_versions.issuer_legal_entity_id` no tendría a qué
+apuntar: en una tabla versionada el mismo emisor aparece una vez por versión.
 
-- `legal_entities`, `entity_names`, `entity_identifiers`;
-- `securities`, `security_identifiers`, `security_descriptions`;
-- `listings`, `listing_symbols`, `listing_venue_names`;
-- `depositary_programs`, `depositary_ratios`;
-- `corporate_actions`, `security_relationships`;
-- `identity_resolution_runs`, `identity_candidates`, `identity_decisions`;
-- `source_documents` y referencias de provenance.
+| Nivel                  | Registro         | Versiones                    |
+| ---------------------- | ---------------- | ---------------------------- |
+| entidad legal          | `legal_entities` | `legal_entity_versions`      |
+| security               | `securities`     | `security_versions`          |
+| listing                | `listings`       | `listing_versions`           |
+| símbolo                | —                | `listing_symbols`            |
+| identificador externo  | —                | `identifier_assignments`     |
+| pertenencia a índice   | —                | `index_memberships`          |
+| corporate action       | —                | `corporate_actions`          |
+| vínculo entre emisores | —                | `legal_entity_relationships` |
 
-Constraints de exclusión temporal, uniques parciales y foreign keys se diseñan en
-la migración. Este documento fija semántica; no simula un schema aplicado.
+La clave primaria de cada versión es `(id, valid_from)`: su clave natural, sin
+surrogate inventado. Cerrar una versión es un update dirigido a esa clave y nunca
+un borrado.
+
+Índices únicos parciales que espejan las invariantes en PostgreSQL:
+
+- una sola versión abierta por sujeto (`*_open_uidx` en los tres niveles);
+- un solo símbolo vigente por listing **y tipo**: un listing puede tener a la vez
+  un ticker y un código local, pero no dos tickers;
+- un identificador autoritativo no puede quedar abierto para dos sujetos
+  (`identifier_assignments_authoritative_uidx`);
+- una security no está dos veces en el mismo índice a la vez.
+
+Desde `0006`, `corporate_actions` guarda el evento inmutable —una accession
+describe a lo sumo un evento de cada tipo— y `legal_entity_relationships` el vínculo
+versionado. Sus invariantes en PostgreSQL: antecesor distinto del sucesor, un solo
+antecesor de reporte abierto por sucesor y un solo sucesor por antecesor, y
+`valid_from` igual a `effective_on` a las 00:00 de Nueva York
+(`legal_entity_relationships_valid_from_check`). Desde `0007` el tipo suma `split` y
+`reverse_split`, y `corporate_actions_split_terms_check` exige para ellos sujeto
+entidad legal y un ratio decimal canónico mayor que uno o entre cero y uno según el
+tipo. Desde `0008` suma `listing_transfer` y `delisting`, y
+`corporate_actions_listing_terms_check` exige security con dos MIC distintos para el
+traspaso y listing con su MIC para el delisting. Desde `0009` suma `acquisition`,
+`symbol_change` y el vínculo `acquired_by`; el check de términos exige sujeto,
+decisión y campos propios. El índice único por sucesor se limita a
+`reporting_successor`: varias adquisiciones del mismo comprador son válidas.
+
+Todavía no tienen tabla, con su motivo: `depositary_programs` y
+`depositary_ratios` esperan a su fuente (`F7-03`); `security_relationships` espera
+a evidencia de canje o spin-off: `F2-04` registra la adquisición entre entidades
+legales y no inventa relaciones entre sus instrumentos. La primera decisión manual
+real —la sucesión de ExxonMobil— se registró sin `identity_decisions`: la decisión
+vive en la declaración versionada del repositorio y el vínculo guarda `decided_by` y
+la versión de la regla que la verificó. `identity_resolution_runs` e
+`identity_candidates` siguen esperando a un caso con candidatos que elegir. Los nombres, descripciones y clasificaciones tampoco se persisten: mezclar
+una taxonomía sin registrar cuál es y en qué versión es exactamente lo que este
+documento prohíbe, y el mapeo a industria es `F3-05`.
+
+El constraint de exclusión temporal por rango sigue diferido: exige la extensión
+`btree_gist` y por lo tanto un ADR propio. Hoy el no solapamiento se prueba en
+dominio y en PostgreSQL se impide el caso peligroso —dos versiones vigentes
+simultáneas para el mismo sujeto—.
 
 ## Tests requeridos
 
 Los casos marcados con ✔ están cubiertos por
 [`resolve-identity.test.ts`](../../src/modules/identity/domain/resolve-identity.test.ts)
-sobre la fixture de `FixtureCo`; el resto espera a las fuentes reales de Fase 2.
+sobre la fixture de `FixtureCo`, salvo donde se indique otro archivo; el resto
+espera a las fuentes reales de Fase 2. A eso se suma, desde `F2-02`, lo que la
+constitución del universo prueba sobre el grafo persistido: identidad no
+colapsada, idempotencia, renombre historizado y salida del índice sin borrado.
 
 - ✔ cambio de ticker con consulta antes y después del corte;
 - dos listings de la misma security en MIC/monedas distintos;
 - ✔ ticker reutilizado por otra security en un intervalo posterior;
-- dos share classes del mismo issuer;
+- ✔ dos share classes del mismo issuer, con un solo CIK y dos securities
+  ([`plan-universe-constitution.test.ts`](../../src/modules/universe/domain/plan-universe-constitution.test.ts));
 - ADR cuyo subyacente no es el listing primario esperado;
 - ✔ CEDEAR sobre acción (ADR y ETF siguen pendientes);
 - ✔ cambio de ratio depositario anunciado antes de su vigencia;
-- split, reverse split, merger, spin-off y delisting;
-- ✔ identificador ambiguo y conflicto de fuentes; el override manual sigue
-  pendiente;
+- ✔ sucesión de emisor con cambio de CIK: vínculo invisible antes de la aceptación,
+  partición por vigencia, comparativos repetidos por los dos filers y ciclos
+  rechazados
+  ([`reporting-lineage.test.ts`](../../src/modules/corporate-actions/domain/reporting-lineage.test.ts),
+  [`plan-succession-recording.test.ts`](../../src/modules/corporate-actions/domain/plan-succession-recording.test.ts));
+- ✔ split y reverse split: confirmación con dos evidencias de la misma presentación,
+  anuncio previo que corrobora, ratio declarado después de re-expresar, lectura en la
+  última base conocible y re-expresión clasificada
+  ([`verify-split-evidence.test.ts`](../../src/modules/corporate-actions/domain/verify-split-evidence.test.ts),
+  [`split-adjustment.test.ts`](../../src/modules/corporate-actions/domain/split-adjustment.test.ts));
+- ✔ adquisición sin unión de historia, delisting y ticker declarado; spin-off
+  sigue diferido;
+- ✔ identificador ambiguo y conflicto de fuentes; decisión del owner sobre un
+  ticker registrada y verificada;
 - ✔ intervalos que se tocan sin solaparse y rechazo de solapamientos reales
   ([`temporal-version.test.ts`](../../src/modules/temporal/domain/temporal-version.test.ts)).
 

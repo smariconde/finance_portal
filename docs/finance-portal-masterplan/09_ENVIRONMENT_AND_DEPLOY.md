@@ -58,7 +58,7 @@ Crear grupos:
 - `research`: Tavily;
 - `observability`: opcional por fase.
 
-`locked` rechaza cualquier configuracion de ingesta live aunque existan keys por error, y no abre PostgreSQL. `personal` exige Postgres y habilita modulos solo si sus variables estan completas. Tambien exige `APP_RUNTIME_ACCESS=local` fuera de Vercel o `APP_RUNTIME_ACCESS=protected` en un Vercel Preview. Una combinacion ausente, invalida o insegura queda en el modo efectivo `locked`; Vercel Production siempre queda `locked`. El modo se resuelve en cada request y no se hornea en el build ([ADR 0005](../architecture/adr/0005-request-time-runtime-boundary.md)), asi que un artefacto compilado en la maquina del owner no sirve datos al desplegarse en otro lado. `DATABASE_URL` usa pooling compatible con Functions; `DATABASE_DIRECT_URL` nunca se importa desde rutas normales y se reserva al job controlado de migracion. Si una cola/workflow se aprueba por ADR, agregar sus variables en ese cambio.
+`locked` rechaza cualquier configuracion de ingesta live aunque existan keys por error, y no abre PostgreSQL. `personal` exige Postgres y habilita modulos solo si sus variables estan completas. Tambien exige `APP_RUNTIME_ACCESS=local` fuera de Vercel o `APP_RUNTIME_ACCESS=protected` en cualquier entorno detras de la proteccion de la plataforma, Production incluida ([ADR 0008](../architecture/adr/0008-remote-personal-access.md)). Una combinacion ausente, invalida o insegura queda en el modo efectivo `locked`. El modo se resuelve en cada request y no se hornea en el build ([ADR 0005](../architecture/adr/0005-request-time-runtime-boundary.md)), asi que un artefacto compilado en la maquina del owner no sirve datos al desplegarse en otro lado. `DATABASE_URL` usa pooling compatible con Functions; `DATABASE_DIRECT_URL` nunca se importa desde rutas normales y se reserva al job controlado de migracion. Si una cola/workflow se aprueba por ADR, agregar sus variables en ese cambio.
 
 `getConfigHealth()` retorna `ready | degraded | disabled`, missing vars y mensaje seguro. Nunca incluye valores.
 
@@ -87,8 +87,8 @@ pnpm build
 ### Personal
 
 - Opcion mas simple: `APP_MODE=personal` y `APP_RUNTIME_ACCESS=local` fuera de Vercel, con Postgres remoto o local y refresh manual.
-- Opcion desplegada: `APP_MODE=personal` y `APP_RUNTIME_ACCESS=protected` en una Preview URL protegida con Vercel Authentication. La variable es una declaracion operativa; el checklist debe confirmar la proteccion real. No requiere construir login, sesiones ni tablas de usuarios.
-- En Hobby, Standard Protection no protege el production domain. Por eso production queda `locked`; los datos reales se usan en localhost o en una URL que la plataforma confirme como protegida.
+- Opcion desplegada: `APP_MODE=personal` y `APP_RUNTIME_ACCESS=protected` en una URL que la plataforma confirme como protegida, sea Preview o Production. La variable es una declaracion operativa; la aplicacion no puede verificarla y no la simula, asi que el checklist debe confirmar la proteccion real antes de declararla. No requiere construir login, sesiones ni tablas de usuarios.
+- **En Hobby, Standard Protection no protege el production domain.** El codigo ya no lo impide, pero el hecho no cambio: declarar `protected` en una Production sin proteccion real pone los datos del owner en una URL publica. Confirmar el nivel de proteccion del plan contratado es parte del despliegue, no un detalle posterior.
 - No se programa Vercel Cron para este modo: el servicio invoca Production, no Preview. El refresh inicial es manual.
 
 ### Trabado
@@ -101,7 +101,7 @@ pnpm build
 
 1. Importar repo en Vercel.
 2. Provisionar Postgres (Neon/Supabase/otro) desde Marketplace en region compatible.
-3. Configurar Production con `APP_MODE=locked` y `APP_RUNTIME_ACCESS=public`; agregar keys solo al entorno Preview personal/protegido y marcarlas como sensibles.
+3. Configurar Production con `APP_MODE=locked` y `APP_RUNTIME_ACCESS=public` hasta confirmar la proteccion del dominio; recien entonces declarar `protected`. Marcar las keys como sensibles en el entorno personal.
 4. Ejecutar migraciones mediante job controlado, no implicitamente desde cada Function.
 5. No configurar cron live mientras Production este `locked`. Vercel Cron invoca Production, no Preview; el modo personal comienza con refresh manual. Una automatizacion posterior exige un nuevo ADR, un destino protegido y autenticacion verificable.
 6. Configurar `maxDuration` solo en rutas que lo necesiten; no subirlo globalmente como parche.
