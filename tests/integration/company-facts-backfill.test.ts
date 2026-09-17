@@ -109,7 +109,15 @@ describe("PostgreSQL company facts backfill", () => {
       .where(eq(schema.ingestionJobs.sourceId, "sec-edgar"));
     await database
       .delete(schema.observations)
-      .where(eq(schema.observations.sourceId, "sec-edgar"));
+      .where(
+        inArray(
+          schema.observations.ingestionRunId,
+          database
+            .select({ runId: schema.ingestionRuns.runId })
+            .from(schema.ingestionRuns)
+            .where(eq(schema.ingestionRuns.sourceId, "sec-edgar")),
+        ),
+      );
     await database
       .delete(schema.sourceDocuments)
       .where(eq(schema.sourceDocuments.sourceId, "sec-edgar"));

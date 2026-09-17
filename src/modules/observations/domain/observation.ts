@@ -76,6 +76,49 @@ export function computeRevisionGroupId(key: ObservationLogicalKey): string {
   return computeContentHash(observationLogicalKeySchema.parse(key));
 }
 
+/** Flag que registra una ingesta tardía sin fingir conocimiento anticipado. */
+export const LATE_INGESTION_FLAG = "late_ingestion";
+
+/**
+ * Más de un día entre la publicación y el registro local ya es una ingesta
+ * tardía: `public_availability` y `system_recorded` divergen y la consulta debe
+ * poder distinguirlas. La fila no guarda el flag, así que cambiar este umbral
+ * reetiqueta la historia y exige otra decisión (ADR 0018).
+ */
+export const LATE_INGESTION_THRESHOLD_MS = 24 * 60 * 60 * 1000;
+
+export function isLateIngestion(
+  availableAt: string,
+  recordedAt: string,
+): boolean {
+  return (
+    Date.parse(recordedAt) - Date.parse(availableAt) >
+    LATE_INGESTION_THRESHOLD_MS
+  );
+}
+
+/**
+ * Flags de una observación: los de la fuente, en su orden, y `late_ingestion`
+ * al final cuando corresponde. Una fuente que trajera su propio
+ * `late_ingestion` no se repara acá: el schema la rechaza.
+ */
+export function withIngestionFlags(
+  sourceFlags: readonly string[],
+  availableAt: string,
+  recordedAt: string,
+): string[] {
+  return isLateIngestion(availableAt, recordedAt)
+    ? [...sourceFlags, LATE_INGESTION_FLAG]
+    : [...sourceFlags];
+}
+
+/**
+ * `externalId` no forma parte de la observación publicada: nombra un registro
+ * dentro de un lote (duplicados, rechazos, orden) y entra al content hash, pero
+ * la fila no lo guarda. Su procedencia la cuentan el documento, el concepto, el
+ * período, la unidad y la corrida; para la SEC eso reconstruye el ID entero
+ * (`secFactExternalId`, ADR 0018).
+ */
 export const observationSchema = z
   .object({
     observationId: z.uuid(),
@@ -96,7 +139,6 @@ export const observationSchema = z
     contentHash: contentHashSchema,
     qualityFlags: z.array(z.string().trim().min(1).max(64)).max(16),
     sourceDocumentId: z.string().trim().min(1).max(256).nullable(),
-    externalId: z.string().trim().min(1).max(256),
     ingestionRunId: z.uuid(),
   })
   .superRefine((observation, context) => {
@@ -171,12 +213,31 @@ export const observationSchema = z
         message: "supersededAt must be strictly later than availableAt.",
       });
     }
+
+    // `late_ingestion` no es un dato de la fuente: lo decide la regla con los dos
+    // instantes de la propia fila, y va último para que guardar la fila sin él y
+    // volver a derivarlo devuelva exactamente la misma observación (ADR 0018).
+    const lateFlags = observation.qualityFlags.filter(
+      (flag) => flag === LATE_INGESTION_FLAG,
+    ).length;
+    const late = isLateIngestion(
+      observation.availableAt,
+      observation.recordedAt,
+    );
+
+    if (
+      lateFlags !== (late ? 1 : 0) ||
+      (late && observation.qualityFlags.at(-1) !== LATE_INGESTION_FLAG)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["qualityFlags"],
+        message: `${LATE_INGESTION_FLAG} must be the last flag exactly when recordedAt is more than a day after availableAt.`,
+      });
+    }
   });
 
 export type Observation = z.infer<typeof observationSchema>;
-
-/** Flag que registra una ingesta tardía sin fingir conocimiento anticipado. */
-export const LATE_INGESTION_FLAG = "late_ingestion";
 
 /**
  * Hash de contenido de la observación. Cubre el payload publicado y la

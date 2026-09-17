@@ -1,6 +1,15 @@
 import "server-only";
 
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  getTableColumns,
+  inArray,
+  isNull,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 
 import {
@@ -12,7 +21,9 @@ import {
   type ObservationRepository,
 } from "@/modules/observations/application/observation-repository";
 import {
+  LATE_INGESTION_FLAG,
   observationSchema,
+  withIngestionFlags,
   type Observation,
 } from "@/modules/observations/domain/observation";
 
@@ -21,15 +32,54 @@ import * as schema from "./schema";
 type Database = PostgresJsDatabase<typeof schema>;
 type ObservationRow = typeof schema.observations.$inferSelect;
 
-/** 500 filas × 29 columnas = 14.500 parámetros, lejos del techo de PostgreSQL. */
+/**
+ * Procedencia que la fila no guarda: es la de la corrida que la publicó
+ * (ADR 0018).
+ */
+type RunProvenance = Pick<
+  typeof schema.ingestionRuns.$inferSelect,
+  "sourceId" | "datasetId" | "parserVersion"
+>;
+
+/** 500 filas × 27 columnas = 13.500 parámetros, lejos del techo de PostgreSQL. */
 const INSERT_CHUNK_SIZE = 500;
 
-function toDomainObservation(row: ObservationRow): Observation {
+/**
+ * Una observación que dice venir de otra fuente, dataset o parser que su corrida.
+ * La fila ya no guarda esos tres valores, así que aceptarla los cambiaría en
+ * silencio por los de la corrida.
+ */
+export class ObservationProvenanceError extends Error {
+  constructor(observationId: string, ingestionRunId: string) {
+    super(
+      `Observation ${observationId} does not carry the source, dataset and parser of run ${ingestionRunId}.`,
+    );
+    this.name = "ObservationProvenanceError";
+  }
+}
+
+const observationWithProvenance = {
+  ...getTableColumns(schema.observations),
+  sourceId: schema.ingestionRuns.sourceId,
+  datasetId: schema.ingestionRuns.datasetId,
+  parserVersion: schema.ingestionRuns.parserVersion,
+};
+
+/** La métrica de una fila con `metric_id` nulo es su concepto. */
+const metricOf: SQL<string> = sql`coalesce(${schema.observations.metricId}, ${schema.observations.concept})`;
+
+function toDomainObservation(
+  row: ObservationRow,
+  provenance: RunProvenance,
+): Observation {
+  const availableAt = row.availableAt.toISOString();
+  const recordedAt = row.recordedAt.toISOString();
+
   return observationSchema.parse({
     observationId: row.observationId,
     subjectType: row.subjectType,
     subjectId: row.subjectId,
-    metricId: row.metricId,
+    metricId: row.metricId ?? row.concept,
     concept: row.concept,
     asOf: row.asOf,
     periodStart: row.periodStart,
@@ -37,27 +87,30 @@ function toDomainObservation(row: ObservationRow): Observation {
     periodType: row.periodType,
     unit: row.unit,
     currency: row.currency,
-    sourceId: row.sourceId,
-    datasetId: row.datasetId,
+    sourceId: provenance.sourceId,
+    datasetId: provenance.datasetId,
     valueBasis: row.valueBasis,
-    parserVersion: row.parserVersion,
+    parserVersion: provenance.parserVersion,
     rawValue: row.rawValue,
     rawValueStatus: row.rawValueStatus,
     normalizedValue: row.normalizedValue,
     transformationId: row.transformationId,
-    availableAt: row.availableAt.toISOString(),
+    availableAt,
     supersededAt: row.supersededAt?.toISOString() ?? null,
     fetchedAt: row.fetchedAt.toISOString(),
-    recordedAt: row.recordedAt.toISOString(),
+    recordedAt,
     revisionGroupId: row.revisionGroupId,
     revisionNumber: row.revisionNumber,
     restatementOfId: row.restatementOfId,
     contentHash: row.contentHash,
-    qualityFlags: row.qualityFlags,
+    qualityFlags: withIngestionFlags(row.qualityFlags, availableAt, recordedAt),
     sourceDocumentId: row.sourceDocumentId,
-    externalId: row.externalId,
     ingestionRunId: row.ingestionRunId,
   });
+}
+
+function fromJoinedRow(row: ObservationRow & RunProvenance): Observation {
+  return toDomainObservation(row, row);
 }
 
 function toRow(
@@ -67,7 +120,10 @@ function toRow(
     observationId: observation.observationId,
     subjectType: observation.subjectType,
     subjectId: observation.subjectId,
-    metricId: observation.metricId,
+    metricId:
+      observation.metricId === observation.concept
+        ? null
+        : observation.metricId,
     concept: observation.concept,
     asOf: observation.asOf,
     periodStart: observation.periodStart,
@@ -91,12 +147,12 @@ function toRow(
     revisionNumber: observation.revisionNumber,
     restatementOfId: observation.restatementOfId,
     contentHash: observation.contentHash,
-    qualityFlags: [...observation.qualityFlags],
-    sourceId: observation.sourceId,
-    datasetId: observation.datasetId,
-    parserVersion: observation.parserVersion,
+    // El schema del dominio garantiza que `late_ingestion` va último y sólo
+    // cuando la regla lo pide: sacarlo y volver a derivarlo es la identidad.
+    qualityFlags: observation.qualityFlags.filter(
+      (flag) => flag !== LATE_INGESTION_FLAG,
+    ),
     sourceDocumentId: observation.sourceDocumentId,
-    externalId: observation.externalId,
     ingestionRunId: observation.ingestionRunId,
   };
 }
@@ -104,10 +160,18 @@ function toRow(
 export function createPostgresObservationRepository(
   database: Database,
 ): ObservationRepository {
-  async function listGroup(revisionGroupId: string): Promise<Observation[]> {
-    const rows = await database
-      .select()
+  function selectObservations() {
+    return database
+      .select(observationWithProvenance)
       .from(schema.observations)
+      .innerJoin(
+        schema.ingestionRuns,
+        eq(schema.observations.ingestionRunId, schema.ingestionRuns.runId),
+      );
+  }
+
+  async function listGroup(revisionGroupId: string): Promise<Observation[]> {
+    const rows = await selectObservations()
       .where(
         eq(
           schema.observations.revisionGroupId,
@@ -116,7 +180,7 @@ export function createPostgresObservationRepository(
       )
       .orderBy(asc(schema.observations.revisionNumber));
 
-    return rows.map(toDomainObservation);
+    return rows.map(fromJoinedRow);
   }
 
   return {
@@ -138,9 +202,7 @@ export function createPostgresObservationRepository(
         );
       }
 
-      const rows = await database
-        .select()
-        .from(schema.observations)
+      const rows = await selectObservations()
         .where(
           inArray(
             schema.observations.revisionGroupId,
@@ -152,20 +214,18 @@ export function createPostgresObservationRepository(
           asc(schema.observations.revisionNumber),
         );
 
-      return rows.map(toDomainObservation);
+      return rows.map(fromJoinedRow);
     },
     async list(query) {
       const parsedQuery = observationListQuerySchema.parse(query);
-      const rows = await database
-        .select()
-        .from(schema.observations)
+      const rows = await selectObservations()
         .where(
           and(
             eq(schema.observations.subjectType, parsedQuery.subjectType),
             eq(schema.observations.subjectId, parsedQuery.subjectId),
             parsedQuery.metricIds === undefined
               ? undefined
-              : inArray(schema.observations.metricId, parsedQuery.metricIds),
+              : inArray(metricOf, parsedQuery.metricIds),
           ),
         )
         .orderBy(
@@ -174,7 +234,7 @@ export function createPostgresObservationRepository(
         )
         .limit(parsedQuery.limit);
 
-      return rows.map(toDomainObservation);
+      return rows.map(fromJoinedRow);
     },
     async publish(publication: ObservationPublication) {
       const observations = publication.observations.map((observation) =>
@@ -188,6 +248,43 @@ export function createPostgresObservationRepository(
       // una sola operación. Las supersesiones van primero para que el índice
       // único de revisión vigente nunca vea dos filas abiertas.
       return database.transaction(async (transaction) => {
+        const runIds = [
+          ...new Set(
+            observations.map((observation) => observation.ingestionRunId),
+          ),
+        ];
+        const runs = new Map<string, RunProvenance>(
+          runIds.length === 0
+            ? []
+            : (
+                await transaction
+                  .select({
+                    runId: schema.ingestionRuns.runId,
+                    sourceId: schema.ingestionRuns.sourceId,
+                    datasetId: schema.ingestionRuns.datasetId,
+                    parserVersion: schema.ingestionRuns.parserVersion,
+                  })
+                  .from(schema.ingestionRuns)
+                  .where(inArray(schema.ingestionRuns.runId, runIds))
+              ).map(({ runId, ...provenance }) => [runId, provenance]),
+        );
+
+        for (const observation of observations) {
+          const run = runs.get(observation.ingestionRunId);
+
+          if (
+            run === undefined ||
+            run.sourceId !== observation.sourceId ||
+            run.datasetId !== observation.datasetId ||
+            run.parserVersion !== observation.parserVersion
+          ) {
+            throw new ObservationProvenanceError(
+              observation.observationId,
+              observation.ingestionRunId,
+            );
+          }
+        }
+
         for (const supersession of supersessions) {
           await transaction
             .update(schema.observations)
@@ -207,7 +304,7 @@ export function createPostgresObservationRepository(
 
         const inserted: Observation[] = [];
 
-        // Un statement admite 65.535 parámetros y cada fila usa 29: un
+        // Un statement admite 65.535 parámetros y cada fila usa 27: un
         // documento de la SEC con miles de hechos no entra en un solo INSERT.
         // Los tramos siguen dentro de la misma transacción, así que la
         // publicación sigue siendo todo o nada.
@@ -223,7 +320,11 @@ export function createPostgresObservationRepository(
             )
             .returning();
 
-          inserted.push(...rows.map(toDomainObservation));
+          inserted.push(
+            ...rows.map((row) =>
+              toDomainObservation(row, runs.get(row.ingestionRunId)!),
+            ),
+          );
         }
 
         return inserted;

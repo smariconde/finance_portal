@@ -19,6 +19,7 @@ import {
   type SecFiling,
 } from "./parse-sec-submissions";
 import { isSelectedSecConcept } from "./sec-concept-selection";
+import { secFactExternalId } from "./sec-fact-rules";
 
 function filings(withHistory = true): SecFiling[] {
   const submissions = parseSecSubmissions(buildFixtureSubmissions());
@@ -138,6 +139,30 @@ describe("buildSecFactVintages", () => {
     for (const record of build().records) {
       expect(stagedRecordSchema.safeParse(record).success).toBe(true);
       expect(record.subjectKey).toBe(FIXTURE_FILER_CIK);
+    }
+  });
+
+  // La fila publicada no guarda el ID externo (ADR 0018): tiene que salir entero
+  // de lo que sí guarda más el CIK de la corrida.
+  it("names each vintage with an ID its published row can rebuild", () => {
+    const { records } = build();
+
+    expect(records[0]!.externalId).toBe(
+      `${FIXTURE_FILER_CIK}:us-gaap:Assets:USD:instant:2008-12-31:${FIXTURE_ACCESSIONS.q3Filing}`,
+    );
+
+    for (const record of records) {
+      expect(
+        secFactExternalId({
+          cik: record.subjectKey,
+          concept: record.concept,
+          unit: record.unit,
+          currency: record.currency,
+          periodStart: record.periodStart,
+          asOf: record.asOf,
+          accessionNumber: record.sourceDocumentId!,
+        }),
+      ).toBe(record.externalId);
     }
   });
 

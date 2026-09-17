@@ -3,8 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   computeObservationContentHash,
   computeRevisionGroupId,
+  isLateIngestion,
+  LATE_INGESTION_FLAG,
   observationSchema,
   toLogicalKey,
+  withIngestionFlags,
   type Observation,
   type ObservationLogicalKey,
 } from "@/modules/observations/domain/observation";
@@ -56,9 +59,9 @@ function observation(overrides: Record<string, unknown> = {}): Observation {
       externalId: "fixtureco-2024-revenue",
       qualityFlags: [],
     }),
-    qualityFlags: [],
+    // Registrada un año y medio después de publicada: ingesta tardía.
+    qualityFlags: [LATE_INGESTION_FLAG],
     sourceDocumentId: "fixtureco-fy2024-annual-report",
-    externalId: "fixtureco-2024-revenue",
     ingestionRunId: RUN_ID,
     ...overrides,
   });
@@ -114,6 +117,43 @@ describe("observationSchema", () => {
     expect(
       observation({ supersededAt: "2025-05-01T14:00:00.000Z" }).supersededAt,
     ).toBe("2025-05-01T14:00:00.000Z");
+  });
+
+  it("does not carry the staging external ID into the published row", () => {
+    expect(
+      observation({ externalId: "fixtureco-2024-revenue" }),
+    ).not.toHaveProperty("externalId");
+  });
+
+  it("flags a late ingestion exactly when the rule says so, and last", () => {
+    expect(() => observation({ qualityFlags: [] })).toThrow(
+      LATE_INGESTION_FLAG,
+    );
+    expect(() =>
+      observation({
+        qualityFlags: [LATE_INGESTION_FLAG, "availability_inferred"],
+      }),
+    ).toThrow(LATE_INGESTION_FLAG);
+    expect(() =>
+      observation({ qualityFlags: [LATE_INGESTION_FLAG, LATE_INGESTION_FLAG] }),
+    ).toThrow(LATE_INGESTION_FLAG);
+    expect(
+      observation({
+        qualityFlags: ["availability_inferred", LATE_INGESTION_FLAG],
+      }).qualityFlags,
+    ).toStrictEqual(["availability_inferred", LATE_INGESTION_FLAG]);
+
+    // Registrada a la hora de publicada: no es tardía y no lleva el flag.
+    const timely = {
+      fetchedAt: "2025-02-20T22:00:00.000Z",
+      recordedAt: "2025-02-20T22:00:00.000Z",
+    };
+    expect(
+      observation({ ...timely, qualityFlags: [] }).qualityFlags,
+    ).toStrictEqual([]);
+    expect(() =>
+      observation({ ...timely, qualityFlags: [LATE_INGESTION_FLAG] }),
+    ).toThrow(LATE_INGESTION_FLAG);
   });
 
   it("rejects an instant observation that carries a period interval", () => {
@@ -222,5 +262,33 @@ describe("computeObservationContentHash", () => {
     ).toBe(
       computeObservationContentHash({ ...input, qualityFlags: ["b", "a"] }),
     );
+  });
+});
+
+describe("late ingestion", () => {
+  const availableAt = "2025-02-20T21:00:00.000Z";
+
+  it("starts strictly after one day between publication and record", () => {
+    expect(isLateIngestion(availableAt, "2025-02-21T21:00:00.000Z")).toBe(
+      false,
+    );
+    expect(isLateIngestion(availableAt, "2025-02-21T21:00:00.001Z")).toBe(true);
+    // Un registro anterior a la publicación no es tardío.
+    expect(isLateIngestion(availableAt, "2025-02-19T21:00:00.000Z")).toBe(
+      false,
+    );
+  });
+
+  it("appends the derived flag after the source flags, without reordering", () => {
+    expect(
+      withIngestionFlags(
+        ["b_flag", "a_flag"],
+        availableAt,
+        "2026-08-24T10:00:00.000Z",
+      ),
+    ).toStrictEqual(["b_flag", "a_flag", LATE_INGESTION_FLAG]);
+    expect(
+      withIngestionFlags(["b_flag"], availableAt, "2025-02-20T21:00:01.000Z"),
+    ).toStrictEqual(["b_flag"]);
   });
 });

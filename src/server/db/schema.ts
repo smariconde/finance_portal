@@ -4,6 +4,7 @@ import {
   boolean,
   char,
   check,
+  customType,
   date,
   index,
   integer,
@@ -111,6 +112,27 @@ export const sourceAuthentication = pgEnum("source_authentication", [
 ]);
 
 const emptyJsonArray = sql`'[]'::jsonb`;
+
+const SHA256_HEX = /^[a-f0-9]{64}$/u;
+
+/**
+ * SHA-256 en sus 32 bytes. El dominio lo sigue viendo en hex, como el resto de
+ * los hashes: la conversión ocurre en este borde y nunca adivina un valor mal
+ * formado (ADR 0018).
+ */
+const sha256 = customType<{ data: string; driverData: Buffer }>({
+  dataType: () => "bytea",
+  toDriver(value) {
+    if (!SHA256_HEX.test(value)) {
+      throw new TypeError("A SHA-256 column takes 64 lowercase hex digits.");
+    }
+
+    return Buffer.from(value, "hex");
+  },
+  fromDriver(value) {
+    return Buffer.from(value).toString("hex");
+  },
+});
 
 /**
  * Registro de fuentes. Cada derecho es una columna propia con default
@@ -647,6 +669,12 @@ export const observationValueBasis = pgEnum("observation_value_basis", [
  * lineage hasta la corrida que la publicó (`TM-06`, `TM-16`). Los valores
  * viajan como `numeric` para no perder exactitud y un faltante queda `null` con
  * su motivo en `raw_value_status` (`TM-05`).
+ *
+ * La fila no guarda lo que puede reconstruir sin pérdida (ADR 0018): fuente,
+ * dataset y parser son los de su corrida; `metric_id` nulo es el propio
+ * concepto; `late_ingestion` sale de `available_at` y `recorded_at`; y el ID
+ * externo de staging sale del documento, el concepto, la unidad, el período y
+ * el sujeto de la corrida. Los dos hashes van en binario.
  */
 export const observations = pgTable(
   "observations",
@@ -654,7 +682,8 @@ export const observations = pgTable(
     observationId: uuid("observation_id").primaryKey(),
     subjectType: observationSubjectType("subject_type").notNull(),
     subjectId: uuid("subject_id").notNull(),
-    metricId: varchar("metric_id", { length: 128 }).notNull(),
+    // `null` mientras la métrica sea el concepto reportado: nunca una copia.
+    metricId: varchar("metric_id", { length: 128 }),
     concept: varchar("concept", { length: 128 }).notNull(),
     // Fechas calendarias: conservan el calendario de la fuente.
     asOf: date("as_of", { mode: "string" }).notNull(),
@@ -683,19 +712,16 @@ export const observations = pgTable(
     recordedAt: timestamp("recorded_at", { withTimezone: true, mode: "date" })
       .defaultNow()
       .notNull(),
-    revisionGroupId: text("revision_group_id").notNull(),
+    revisionGroupId: sha256("revision_group_id").notNull(),
     revisionNumber: integer("revision_number").notNull(),
     restatementOfId: uuid("restatement_of_id"),
-    contentHash: text("content_hash").notNull(),
+    contentHash: sha256("content_hash").notNull(),
+    // Flags de la fuente; `late_ingestion` se deriva al leer.
     qualityFlags: jsonb("quality_flags")
       .$type<string[]>()
       .notNull()
       .default(emptyJsonArray),
-    sourceId: varchar("source_id", { length: 64 }).notNull(),
-    datasetId: varchar("dataset_id", { length: 128 }).notNull(),
-    parserVersion: varchar("parser_version", { length: 32 }).notNull(),
     sourceDocumentId: varchar("source_document_id", { length: 256 }),
-    externalId: varchar("external_id", { length: 256 }).notNull(),
     ingestionRunId: uuid("ingestion_run_id")
       .notNull()
       .references(() => ingestionRuns.runId),
@@ -710,13 +736,13 @@ export const observations = pgTable(
     uniqueIndex("observations_current_revision_uidx")
       .on(table.revisionGroupId)
       .where(sql`${table.supersededAt} is null`),
+    // Sin `as_of`: las lecturas ordenan por cadena y la selección temporal corre
+    // en el dominio. Así las claves se repiten y PostgreSQL las deduplica.
     index("observations_subject_idx").on(
       table.subjectType,
       table.subjectId,
-      table.metricId,
-      table.asOf,
+      sql`coalesce(${table.metricId}, ${table.concept})`,
     ),
-    index("observations_knowledge_idx").on(table.availableAt, table.recordedAt),
     check(
       "observations_raw_value_status_check",
       sql`(${table.rawValueStatus} = 'stored' and ${table.rawValue} is not null) or (${table.rawValueStatus} <> 'stored' and ${table.rawValue} is null)`,
@@ -739,7 +765,15 @@ export const observations = pgTable(
     ),
     check(
       "observations_content_hash_check",
-      sql`${table.contentHash} ~ '^[a-f0-9]{64}$' and ${table.revisionGroupId} ~ '^[a-f0-9]{64}$'`,
+      sql`octet_length(${table.contentHash}) = 32 and octet_length(${table.revisionGroupId}) = 32`,
+    ),
+    check(
+      "observations_metric_id_check",
+      sql`${table.metricId} is null or ${table.metricId} <> ${table.concept}`,
+    ),
+    check(
+      "observations_derived_flags_check",
+      sql`jsonb_typeof(${table.qualityFlags}) = 'array' and not ${table.qualityFlags} @> '["late_ingestion"]'::jsonb`,
     ),
     check(
       "observations_currency_check",

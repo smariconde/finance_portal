@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   classifySecPeriod,
+  formatSecUnit,
   indexSecFilings,
   mapSecUnit,
   resolveSecAvailability,
+  secFactExternalId,
 } from "./sec-fact-rules";
 
 describe("classifySecPeriod", () => {
@@ -76,6 +78,72 @@ describe("mapSecUnit", () => {
       expect(mapSecUnit(unit)).toBeNull();
     },
   );
+});
+
+describe("formatSecUnit", () => {
+  it.each(["USD", "EUR", "USD/shares", "shares", "pure"])(
+    "returns %s from its own mapping",
+    (unit) => {
+      expect(formatSecUnit(mapSecUnit(unit)!)).toBe(unit);
+    },
+  );
+
+  it.each([
+    ["monetary without currency", { unit: "monetary", currency: null }],
+    ["shares with currency", { unit: "shares", currency: "USD" }],
+    ["an unknown unit", { unit: "Year", currency: null }],
+    ["a malformed currency", { unit: "monetary", currency: "usd" }],
+    ["a currency on an unknown unit", { unit: "ratio", currency: "USD" }],
+  ])("has no source unit for %s", (_label, unit) => {
+    expect(formatSecUnit(unit)).toBeNull();
+  });
+});
+
+describe("secFactExternalId", () => {
+  const identity = {
+    cik: "0000000042",
+    concept: "us-gaap:Revenues",
+    unit: "monetary",
+    currency: "USD",
+    periodStart: "2009-01-01",
+    asOf: "2009-12-31",
+    accessionNumber: "0000000042-10-000005",
+  };
+
+  // El formato entra al content hash de cada observación publicada: si este test
+  // cambia, todo lo ya publicado pasaría por revisión nueva.
+  it("keeps the format the published hashes were computed with", () => {
+    expect(secFactExternalId(identity)).toBe(
+      "0000000042:us-gaap:Revenues:USD:2009-01-01:2009-12-31:0000000042-10-000005",
+    );
+    expect(
+      secFactExternalId({
+        ...identity,
+        concept: "us-gaap:EarningsPerShareDiluted",
+        unit: "monetary_per_share",
+      }),
+    ).toBe(
+      "0000000042:us-gaap:EarningsPerShareDiluted:USD/shares:2009-01-01:2009-12-31:0000000042-10-000005",
+    );
+    expect(
+      secFactExternalId({
+        ...identity,
+        concept: "dei:EntityCommonStockSharesOutstanding",
+        unit: "shares",
+        currency: null,
+        periodStart: null,
+        asOf: "2010-02-15",
+      }),
+    ).toBe(
+      "0000000042:dei:EntityCommonStockSharesOutstanding:shares:instant:2010-02-15:0000000042-10-000005",
+    );
+  });
+
+  it("refuses a unit no SEC point could have produced", () => {
+    expect(() =>
+      secFactExternalId({ ...identity, unit: "monetary", currency: null }),
+    ).toThrow(RangeError);
+  });
 });
 
 describe("resolveSecAvailability", () => {
