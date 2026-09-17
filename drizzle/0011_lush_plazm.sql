@@ -1,0 +1,2 @@
+ALTER TABLE "ingestion_runs" ADD COLUMN "selection_anchor_on" date;--> statement-breakpoint
+ALTER TABLE "ingestion_runs" ADD CONSTRAINT "ingestion_runs_selection_anchor_check" CHECK ("ingestion_runs"."selection_anchor_on" is null or "ingestion_runs"."selection_version" is not null);

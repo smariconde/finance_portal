@@ -57,6 +57,10 @@ import {
 import { SEC_SUBMISSIONS_PARSER_VERSION } from "../domain/parse-sec-submissions";
 import { SEC_CONCEPT_SELECTION_VERSION } from "../domain/sec-concept-selection";
 import { SEC_FACT_RULES_VERSION } from "../domain/sec-fact-rules";
+import type {
+  SecHistoryWindow,
+  SecHistoryWindowSelection,
+} from "../domain/sec-history-window";
 import {
   CompanyFactsSourceError,
   type CompanyFactsDocument,
@@ -174,6 +178,11 @@ export type IngestCompanyFactsOutcome = {
     readonly filingRowRejections: number;
     readonly factRowRejections: number;
   } | null;
+  /** Ventana de historia aplicada; `null` si la corrida no llegó a los hechos. */
+  readonly window: {
+    readonly window: SecHistoryWindow | null;
+    readonly counts: SecHistoryWindowSelection["counts"];
+  } | null;
   readonly vintages: SecFactVintagesCounts | null;
   readonly rejections: readonly SecFactRejection[];
   readonly stagingRejections: number;
@@ -262,6 +271,7 @@ export async function ingestCompanyFacts(
     qualityFlags: string[];
     replayOfRunId?: string | null;
     idempotencyKey?: string;
+    selectionAnchorOn?: string | null;
   };
 
   const record = async (fields: RunFields): Promise<IngestionRun> => {
@@ -277,6 +287,7 @@ export async function ingestCompanyFacts(
       nextCursor: null,
       subjectKey: cik,
       selectionVersion: SEC_CONCEPT_SELECTION_VERSION,
+      selectionAnchorOn: fields.selectionAnchorOn ?? null,
       status: fields.status,
       startedAt,
       finishedAt,
@@ -296,6 +307,7 @@ export async function ingestCompanyFacts(
   const blank = {
     documents: [],
     wire: null,
+    window: null,
     vintages: null,
     rejections: [],
     stagingRejections: 0,
@@ -437,7 +449,10 @@ export async function ingestCompanyFacts(
     };
   }
 
-  // 4. Vintages y staging.
+  // 4. Vintages y staging, sobre los hechos de la ventana. El ancla viaja en cada
+  //    corrida que haya leído los hechos: sin ella, la versión de la selección no
+  //    dice qué períodos se fueron a buscar.
+  const selectionAnchorOn = download.window?.anchorOn ?? null;
   const vintages = buildSecFactVintages({
     cik,
     facts: download.facts,
@@ -474,6 +489,7 @@ export async function ingestCompanyFacts(
     legalEntityId,
     documents: download.documents,
     wire,
+    window: { window: download.window, counts: download.windowCounts },
     vintages: vintages.counts,
     rejections: vintages.rejections,
     stagingRejections,
@@ -490,6 +506,7 @@ export async function ingestCompanyFacts(
         contentHash: emptyHash,
         failure: null,
         qualityFlags: ["no_selected_facts"],
+        selectionAnchorOn,
       }),
       ...partialOutcome,
     };
@@ -506,15 +523,17 @@ export async function ingestCompanyFacts(
         contentHash,
         failure: null,
         qualityFlags: ["parser_broken"],
+        selectionAnchorOn,
       }),
       ...partialOutcome,
     };
   }
 
-  // La versión del documento es todo lo que la corrida decidió sobre él: los
-  // registros aceptados, lo rechazado con su código y las presentaciones. Dos
-  // descargas con esa misma versión son la misma corrida.
+  // La versión del documento es todo lo que la corrida decidió sobre él: el
+  // ancla de la ventana, los registros aceptados, lo rechazado con su código y
+  // las presentaciones. Dos descargas con esa misma versión son la misma corrida.
   const documentVersion = computeContentHash({
+    selectionAnchorOn,
     records: contentHash,
     rejections: vintages.rejections
       .map((rejection) =>
@@ -551,6 +570,7 @@ export async function ingestCompanyFacts(
           failure: null,
           qualityFlags: rejected > 0 ? ["partial_batch"] : [],
           idempotencyKey,
+          selectionAnchorOn,
         }
       : {
           // Mismo contenido que una corrida ya publicada: se registra que se
@@ -562,6 +582,7 @@ export async function ingestCompanyFacts(
           qualityFlags: ["duplicate_content"],
           replayOfRunId: replayOf.runId,
           idempotencyKey,
+          selectionAnchorOn,
         },
   );
 

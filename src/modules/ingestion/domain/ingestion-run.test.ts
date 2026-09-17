@@ -151,6 +151,25 @@ describe("ingestionRunSchema", () => {
 
     expect(parsed.subjectKey).toBe("0000320193");
     expect(parsed.selectionVersion).toBe("sec-core-concepts-1.0.0");
+    expect(parsed.selectionAnchorOn).toBeNull();
+  });
+
+  it("anchors a selection only together with the version it anchors", () => {
+    expect(
+      run({
+        selectionVersion: "sec-core-concepts-2.0.0",
+        selectionAnchorOn: "2025-09-27",
+      }).selectionAnchorOn,
+    ).toBe("2025-09-27");
+    expect(() => run({ selectionAnchorOn: "2025-09-27" })).toThrow(
+      /selection anchor/u,
+    );
+    expect(() =>
+      run({
+        selectionVersion: "sec-core-concepts-2.0.0",
+        selectionAnchorOn: "2025-09-31",
+      }),
+    ).toThrow();
   });
 });
 

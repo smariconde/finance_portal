@@ -52,7 +52,13 @@ type Documents = {
   submissions: string;
   companyFacts: { status: number; body: string };
   history: string;
+  /** Archivo histórico anterior, servido sólo si el test lo define. */
+  olderHistory?: string;
 };
+
+const OLDER_HISTORY_FILE = "CIK0000000042-submissions-002.json";
+const OLD_ANNUAL = "0000000042-04-000003";
+const OLD_ANNUAL_ACCEPTED_AT = "2004-03-01T21:02:03.000Z";
 
 function wire(overrides: Partial<Documents> = {}): Documents {
   return {
@@ -75,7 +81,11 @@ function egressFor(documents: () => Documents) {
           ? [current.companyFacts.status, current.companyFacts.body]
           : url === `https://data.sec.gov/submissions/${FIXTURE_HISTORY_FILE}`
             ? [200, current.history]
-            : [599, ""];
+            : url ===
+                  `https://data.sec.gov/submissions/${OLDER_HISTORY_FILE}` &&
+                current.olderHistory !== undefined
+              ? [200, current.olderHistory]
+              : [599, ""];
     const body = encoder.encode(text);
 
     return { status, body, byteLength: body.byteLength, fetchedAt: CLOCK };
@@ -149,6 +159,61 @@ function asKnown(knownAt: string) {
   });
 }
 
+/**
+ * Un 10-K de 2004 que sólo aparece en un archivo histórico anterior, con el
+ * ejercicio 2003: seis años antes del ancla del filer sintético (2009-12-31).
+ */
+function withOldAnnualReport(points: {
+  readonly netIncome?: boolean;
+  readonly eps?: boolean;
+}): Partial<Documents> {
+  const submissions = buildFixtureSubmissions() as {
+    filings: { files: unknown[] };
+  };
+  submissions.filings.files.push({
+    name: OLDER_HISTORY_FILE,
+    filingCount: 1,
+    filingFrom: "2004-01-02",
+    filingTo: "2004-12-30",
+  });
+  const point = (val: number) => ({
+    start: "2003-01-01",
+    end: "2003-12-31",
+    val,
+    accn: OLD_ANNUAL,
+    fy: 2003,
+    fp: "FY",
+    form: "10-K",
+    filed: "2004-03-01",
+  });
+
+  return {
+    submissions: JSON.stringify(submissions),
+    companyFacts: {
+      status: 200,
+      body: buildFixtureCompanyFactsText({
+        extraPoints: {
+          ...(points.netIncome === true
+            ? { "USD@NetIncomeLoss": [point(21000000)] }
+            : {}),
+          ...(points.eps === true
+            ? { "USD/shares@EarningsPerShareBasic": [point(0.42)] }
+            : {}),
+        },
+      }),
+    },
+    olderHistory: JSON.stringify({
+      accessionNumber: [OLD_ANNUAL],
+      filingDate: ["2004-03-01"],
+      reportDate: ["2003-12-31"],
+      acceptanceDateTime: [OLD_ANNUAL_ACCEPTED_AT],
+      act: ["34"],
+      form: ["10-K"],
+      size: [1],
+    }),
+  };
+}
+
 // `TM-08`: la ingesta sólo sale por el `EgressFetch` inyectado.
 const globalFetch = vi.spyOn(globalThis, "fetch");
 
@@ -186,8 +251,19 @@ describe("ingestCompanyFacts", () => {
       datasetId: "sec.companyfacts",
       parserVersion: "sec-companyfacts-1.0.0",
       subjectKey: FIXTURE_FILER_CIK,
-      selectionVersion: "sec-core-concepts-1.0.0",
+      selectionVersion: "sec-core-concepts-2.0.0",
+      selectionAnchorOn: "2009-12-31",
       counts: { fetched: 7, accepted: 7, rejected: 0, duplicate: 0 },
+    });
+    expect(outcome.window).toStrictEqual({
+      window: {
+        version: "sec-history-5fy-1.0.0",
+        anchorOn: "2009-12-31",
+        anchorBasis: "annual_report",
+        periodsEndingFrom: "2004-12-17",
+        evidencePeriodsEndingFrom: "2003-12-17",
+      },
+      counts: { points: 8, kept: 8, outside: 0 },
     });
     expect(outcome.publication).toStrictEqual({
       published: 7,
@@ -408,6 +484,87 @@ describe("ingestCompanyFacts", () => {
     );
   });
 
+  it("neither publishes nor fetches the filing index of what is outside the history window", async () => {
+    const harness = createHarness();
+    harness.serve(withOldAnnualReport({ netIncome: true }));
+
+    const outcome = await harness.ingest();
+
+    expect(outcome.run).toMatchObject({
+      status: "succeeded",
+      selectionAnchorOn: "2009-12-31",
+      counts: { fetched: 7, accepted: 7, rejected: 0, duplicate: 0 },
+    });
+    expect(outcome.window?.counts).toStrictEqual({
+      points: 9,
+      kept: 8,
+      outside: 1,
+    });
+    // El único hecho que necesitaba el archivo de 2004 quedó afuera: no se pide.
+    expect(harness.fetch.mock.calls.map(([request]) => request.url)).toEqual([
+      buildSubmissionsUrl(FIXTURE_FILER_CIK),
+      buildCompanyFactsUrl(FIXTURE_FILER_CIK),
+      `https://data.sec.gov/submissions/${FIXTURE_HISTORY_FILE}`,
+    ]);
+    await expect(
+      harness.observations.list({
+        ...SUBJECT,
+        metricIds: ["us-gaap:NetIncomeLoss"],
+      }),
+    ).resolves.toHaveLength(0);
+  });
+
+  it("keeps one more fiscal year of split evidence, with its filing's acceptance", async () => {
+    const harness = createHarness();
+    harness.serve(withOldAnnualReport({ netIncome: true, eps: true }));
+
+    const outcome = await harness.ingest();
+
+    expect(outcome.run).toMatchObject({
+      status: "succeeded",
+      counts: { fetched: 8, accepted: 8, rejected: 0, duplicate: 0 },
+    });
+    expect(outcome.window?.counts).toStrictEqual({
+      points: 10,
+      kept: 9,
+      outside: 1,
+    });
+    expect(harness.fetch.mock.calls.map(([request]) => request.url)).toContain(
+      `https://data.sec.gov/submissions/${OLDER_HISTORY_FILE}`,
+    );
+
+    const [eps] = await harness.observations.list({
+      ...SUBJECT,
+      metricIds: ["us-gaap:EarningsPerShareBasic"],
+    });
+
+    expect(eps).toMatchObject({
+      periodEnd: "2003-12-31",
+      rawValue: "0.42",
+      availableAt: OLD_ANNUAL_ACCEPTED_AT,
+      sourceDocumentId: OLD_ANNUAL,
+    });
+    await expect(
+      harness.observations.list({
+        ...SUBJECT,
+        metricIds: ["us-gaap:NetIncomeLoss"],
+      }),
+    ).resolves.toHaveLength(0);
+  });
+
+  it("keeps the anchor on a duplicate run of unchanged content", async () => {
+    const harness = createHarness();
+    const first = await harness.ingest();
+    const second = await harness.ingest();
+
+    expect(second.run).toMatchObject({
+      status: "duplicate",
+      selectionAnchorOn: "2009-12-31",
+      idempotencyKey: first.run.idempotencyKey,
+      replayOfRunId: first.run.runId,
+    });
+  });
+
   it("records a filer without XBRL facts as an empty run", async () => {
     const harness = createHarness();
     harness.serve({ companyFacts: { status: 404, body: "" } });
@@ -417,7 +574,10 @@ describe("ingestCompanyFacts", () => {
     expect(outcome.run).toMatchObject({
       status: "empty",
       qualityFlags: ["no_company_facts"],
+      // Sin hechos no hay ancla: la corrida no leyó ningún período.
+      selectionAnchorOn: null,
     });
+    expect(outcome.window).toBeNull();
   });
 
   it("records a throttled source as a retryable failure", async () => {

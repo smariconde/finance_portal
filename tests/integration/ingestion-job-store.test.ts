@@ -112,6 +112,7 @@ async function createIngestionRun(): Promise<string> {
     nextCursor: null,
     subjectKey: null,
     selectionVersion: null,
+    selectionAnchorOn: null,
     status: "failed",
     startedAt: at(0),
     finishedAt: at(0),

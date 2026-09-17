@@ -16,7 +16,11 @@ import {
   type SecFilingRowRejection,
   type SecSubmissionsHistoryFile,
 } from "../domain/parse-sec-submissions";
-import { isSelectedSecConcept } from "../domain/sec-concept-selection";
+import {
+  isSelectedSecConcept,
+  isSplitEvidenceConcept,
+} from "../domain/sec-concept-selection";
+import { applySecHistoryWindow } from "../domain/sec-history-window";
 import {
   CompanyFactsSourceError,
   type CompanyFactsDocument,
@@ -34,10 +38,11 @@ import {
  *    publica el instante de aceptación;
  * 2. **companyfacts**, con los valores;
  * 3. los **archivos históricos** de submissions que hagan falta, y sólo esos: los
- *    que cubren la fecha de filing de un hecho seleccionado cuya presentación no
- *    está entre las mil recientes. En el filer 320193 son 28 de 72 accessions y un
- *    archivo; pedir todos por las dudas gastaría cuota de la fuente sin cambiar
- *    un solo `available_at`.
+ *    que cubren la fecha de filing de un hecho seleccionado **dentro de la
+ *    ventana de historia** cuya presentación no está entre las mil recientes.
+ *    Pedir todos por las dudas gastaría cuota de la fuente sin cambiar un solo
+ *    `available_at`. La ventana se aplica antes de elegirlos (ADR 0017): medido
+ *    el 2026-09-17, JPMorgan pasa de 45 archivos a 25.
  *
  * Esta pieza no evalúa derechos: lo hace el orquestador, antes de llamarla y
  * antes de registrar nada, igual que `executeIngestionRun`. Tampoco espacia las
@@ -300,6 +305,11 @@ export function createLiveCompanyFactsSource(dependencies: {
         ),
       );
 
+      const windowed = applySecHistoryWindow(
+        companyFacts.facts,
+        isSplitEvidenceConcept,
+      );
+
       const known = new Set(
         [
           ...submissions.filings.map((filing) => filing.accessionNumber),
@@ -310,7 +320,7 @@ export function createLiveCompanyFactsSource(dependencies: {
       );
       const missingFiledDates = [
         ...new Set(
-          companyFacts.facts
+          windowed.facts
             .filter((fact) => !known.has(fact.accessionNumber))
             .map((fact) => fact.filed),
         ),
@@ -369,9 +379,11 @@ export function createLiveCompanyFactsSource(dependencies: {
         cik,
         filings,
         filingRejections,
-        facts: companyFacts.facts,
+        facts: windowed.facts,
         factRejections: companyFacts.rejections,
         counts: companyFacts.counts,
+        window: windowed.window,
+        windowCounts: windowed.counts,
         fetchedAt: factsFetched.response.fetchedAt,
         documents,
       };

@@ -212,6 +212,21 @@ for (const target of targets) {
     );
   }
 
+  if (outcome.window !== null) {
+    const { window, counts } = outcome.window;
+
+    log(
+      "  ventana",
+      window === null
+        ? "sin hechos seleccionados"
+        : `ancla ${window.anchorOn} (${window.anchorBasis}), desde ${window.periodsEndingFrom}`,
+    );
+    if (window !== null) {
+      log("  evidencia de splits desde", window.evidencePeriodsEndingFrom);
+    }
+    log("  puntos en la ventana", `${counts.kept}/${counts.points}`);
+  }
+
   if (outcome.vintages !== null) {
     log("  vintages", outcome.vintages.vintages);
     log("  re-expresiones", outcome.vintages.restated);
