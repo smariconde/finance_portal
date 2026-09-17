@@ -1,15 +1,16 @@
 # Backfill durable de companyfacts
 
 - Slice: `F2-05`, incrementos 1 y 2
-- Decisiones: [ADR 0015](../architecture/adr/0015-durable-ingestion-jobs.md) (jobs) y
-  [ADR 0017](../architecture/adr/0017-sec-history-window.md) (ventana de historia)
+- Decisiones: [ADR 0015](../architecture/adr/0015-durable-ingestion-jobs.md) (jobs),
+  [ADR 0017](../architecture/adr/0017-sec-history-window.md) (ventana de historia) y
+  [ADR 0018](../architecture/adr/0018-lighter-observation-rows.md) (filas livianas)
 - Runtime: personal local o protegido, con PostgreSQL y `SEC_USER_AGENT`
 
 > **El backfill del universo no es objetivo de producto**
 > ([ADR 0016](../architecture/adr/0016-analysis-scope-sector-matrices.md)). Los
 > fundamentals se bajan para un ticker valuado o para los filers de un sector, con
-> `--cik`. Aun con la ventana, el universo midió 451 MB en una réplica:
-> no correrlo sobre la base personal sin decisión del owner.
+> `--cik`. Aun con la ventana y las filas livianas, el universo midió 245 MB en
+> una réplica: no correrlo sobre la base personal sin decisión del owner.
 
 Lleva los hechos XBRL de un conjunto de filers del universo constituido a
 PostgreSQL en varias corridas manuales. Una corrida puede morir en cualquier
@@ -34,8 +35,8 @@ como `antes de la historia` (`precedes_published_history`) y no ajustan nada.
 
 ## Preparación
 
-1. `pnpm db:migrate`: las tablas de jobs llegan con la migración `0010` y el ancla
-   de la ventana con la `0011`.
+1. `pnpm db:migrate`: las tablas de jobs llegan con la migración `0010`, el ancla
+   de la ventana con la `0011` y las filas livianas con la `0012`.
 2. El universo tiene que estar constituido (`pnpm universe:constitute --apply`).
 3. Las sucesiones declaradas tienen que estar registradas
    (`pnpm corporate-actions:record --apply`). El plan agrega los antecesores de

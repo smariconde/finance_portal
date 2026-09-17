@@ -1489,9 +1489,9 @@ El backfill durable sigue en `F2-05`.
 
 #### `F2-05` — Backfill y refresh durable
 
-- Estado: `in_progress` (iniciado el 2026-09-16). El incremento 1 está entregado;
-  del incremento 2 está entregado el paso 1, la ventana (2026-09-17), y el paso 2
-  espera la aprobación del owner.
+- Estado: `in_progress` (iniciado el 2026-09-16). Los incrementos 1 y 2 están
+  entregados: jobs durables (2026-09-16), la ventana (paso 1) y las filas más
+  livianas (paso 2), ambos el 2026-09-17. Sigue el incremento 3.
 - Fase y dependencia: Fase 2; `F2-04` cerrado.
 - Alcance, en cuatro incrementos que se cierran en este orden:
   1. **jobs durables** (entregado):
@@ -1500,8 +1500,7 @@ El backfill durable sigue en `F2-05`.
        manual, con reloj inyectado y PostgreSQL;
      - backfill manual del universo sobre la SEC.
   2. **ventana de historia de cinco ejercicios y almacenamiento eficiente**
-     (paso 1, la ventana, entregado; paso 2, filas más livianas, pendiente de
-     aprobación; ver abajo).
+     (entregado: la ventana y las filas más livianas; ver abajo).
   3. **presupuesto diario y kill switch por fuente**, en PostgreSQL y antes de
      cualquier programación. Los comandos manuales de un ticker pasan a
      respetarlos.
@@ -1651,8 +1650,9 @@ que fallan sobre el código viejo:
   - Antes de encontrar la causa, este corte llevó a que `unavailable` espere
     1 minuto dentro de la corrida en vez de frenarla.
 
-Incremento 2 — ventana de historia y almacenamiento eficiente. El paso 1 se entregó
-el 2026-09-17 (ver «Entregado» al final); el paso 2 espera la aprobación del owner.
+Incremento 2 — ventana de historia y almacenamiento eficiente. Los dos pasos se
+entregaron el 2026-09-17 (ver los dos «Entregado» al final). El owner aprobó el
+paso 2 ese mismo día.
 
 Decisión del owner (2026-09-16): se guardan **cinco ejercicios** de historia. Más
 que eso no se justifica, y 1,2 GB para el universo es demasiado. El objetivo es
@@ -1840,13 +1840,101 @@ Evidencia sobre datos reales, en réplicas descartables del grafo personal:
 - **Migración `0011` aplicada al PostgreSQL personal**, sin ninguna corrida nueva:
   la columna existe y no tiene anclas.
 
-Lo que queda del incremento 2:
+Entregado (2026-09-17) — incremento 2, paso 2, filas más livianas. Decisiones en la
+[ADR 0018](../architecture/adr/0018-lighter-observation-rows.md).
 
-- **Paso 2, filas más livianas.** Necesita la aprobación del owner antes de
-  empezar, como dice el alcance.
+El prototipo (copias frescas de las 14.276 filas de la base personal en una
+réplica) cambió el alcance de arriba en tres puntos:
+
+- **`late_ingestion` también sale de la fila.** Estaba en el 100 % de las filas y
+  coincide siempre con la regla de 24 horas: 17 bytes por fila.
+- **`metric_id` no se borra: queda nulo cuando es el concepto.** El catálogo de
+  métricas lo va a necesitar.
+- **El índice que sobra no era uno sino un índice y media clave.**
+  `observations_knowledge_idx` tenía 0 scans, y `as_of` en el índice de sujeto
+  impedía deduplicar: de 72 a 10 bytes por fila.
+
+Resultado del prototipo, en bytes por fila con índices: 890 → 737 con los hashes
+en binario, → 484 sin ID externo ni procedencia repetida, → **467** con el flag
+derivado. Reordenar las columnas daba 459 y obligaba a recrear la tabla: quedó
+afuera.
+
+Qué se entregó:
+
+- `observation.ts`:
+  - `externalId` deja la observación publicada: es identidad de staging y sigue
+    entrando al content hash, así que ningún hash cambia;
+  - `isLateIngestion` y `withIngestionFlags`; el schema exige `late_ingestion`,
+    último, exactamente cuando la regla lo pide.
+- `sec-fact-rules.ts`: `formatSecUnit`, inversa exacta de `mapSecUnit`, y
+  `secFactExternalId`, la única fórmula del ID externo de la SEC, con su formato
+  fijado por test. La usa la construcción de vintages.
+- `schema.ts`: el tipo `sha256` (`bytea`, hex en el borde, rechaza lo que no es hex)
+  para los dos hashes; `metric_id` nulo con check contra la copia; sin fuente,
+  dataset, parser ni ID externo; check que rechaza `late_ingestion` guardado;
+  índice de sujeto `(subject_type, subject_id, coalesce(metric_id, concept))`; sin
+  índice de conocimiento.
+- `postgres-observation-repository.ts`: lee con join a `ingestion_runs`, filtra por
+  `coalesce(metric_id, concept)` y, al publicar, falla con
+  `ObservationProvenanceError` antes de escribir si una observación no trae la
+  fuente, el dataset y el parser de su corrida.
+- Migración `0012`, escrita a mano sobre lo que generó `drizzle-kit`: un guardia
+  que se niega y cuenta las filas que perderían información, y una sola
+  reescritura. Su rollback pareado restaura la forma anterior y se niega con filas
+  cuyo ID externo no tiene fórmula.
+- Documentación: ADR 0018, contrato point-in-time, registro de fuentes, runbooks de
+  migraciones y de backfill, `CLAUDE.md`, `AGENTS.md` y `README.md`.
+
+Verificación:
+
+- `format:check`, `lint`, `typecheck`, `git diff --check` y `build` (cuatro rutas
+  en `ƒ (Dynamic)`) pasan.
+- 1.145 unit tests (1.128 + 17).
+- 131 E2E, sin cambios.
+- 99 integration tests (94 + 5):
+  - ida y vuelta exacta entre lo que la publicación construyó y lo que se lee;
+  - forma física de la fila: sin las cuatro columnas, hashes de 32 bytes y flags
+    de la fuente sin `late_ingestion`;
+  - los tres checks nuevos y el hash mal formado rechazado en el borde;
+  - cuatro procedencias ajenas rechazadas sin escribir ni cerrar la revisión
+    vigente;
+  - cada hash de la SEC se vuelve a calcular con la fila liviana y su corrida.
+
+Evidencia sobre datos reales, en réplicas descartables de la base personal:
+
+- **Migración:** 1 s. `observations` pasa de 13 MB a **7,0 MB**, de 954 a **491
+  bytes por fila**. La tabla baja de 8,1 a 4,7 MB y los índices, de 5,5 a 2,2 MB.
+  Las 14.276 filas conservan byte a byte todo lo que queda.
+- **Reingesta con `--apply`** de Apple, NVIDIA, Alphabet, Duke y ExxonMobil con su
+  antecesor: 0 publicadas y 5.107 duplicadas, en 14 requests.
+- **Splits:** NVIDIA y Apple dan `unchanged`, y el filtro por métrica encuentra
+  666 y 689 revisiones sensibles.
+- **Rollback:** las 14.276 filas quedan idénticas en todas sus columnas, con los
+  índices y checks anteriores. La `0012` se reaplica al mismo tamaño.
+- **Guardias:**
+  - la migración se niega con un ID externo alterado, un parser ajeno y un flag
+    fuera de lugar, nombra una fila de cada uno y no toca nada;
+  - el rollback se niega con una fila de otra fuente.
+- **Universo**, en una réplica limpia del grafo:
+  - 501 de 501 filers en dos corridas y 21 minutos, con 1.192 requests, sin
+    señales de la fuente ni items fallados;
+  - las mismas filas que en el paso 1: 464.531 observaciones, 13.141 documentos,
+    464 `succeeded` y 37 `partial` con 2.611 rechazos con nombre;
+  - las observaciones ocupan **229 MB** (antes 434), a **516 bytes por fila**
+    (antes 980), y la base, **245 MB** (antes 451);
+  - compactada, la tabla queda en 206 MB, a 465 bytes por fila, como el
+    prototipo;
+  - la réplica se borró al terminar.
+- **Migración `0012` aplicada al PostgreSQL personal**, después de un backup:
+  observaciones de 13 a 6,8 MB y base de 24 a 18 MB. Las 14.276 filas se leen por
+  el repositorio y pasan el schema del dominio. No hubo corridas nuevas.
+
+Lo que queda:
+
 - **Poda de la historia completa en la base personal.** Los seis filers ingeridos
-  con la 1.0.0 conservan toda su historia: 13 MB de observaciones. Borrarla es una
-  decisión aparte, con su auditoría, que la ADR 0016 pide antes de `F6-06`.
+  con la 1.0.0 conservan toda su historia: 6,8 MB de observaciones desde la `0012`.
+  Borrarla es una decisión aparte, con su auditoría, que la ADR 0016 pide antes de
+  `F6-06`. No bloquea el incremento 3.
 
 | Issue   | Resultado y aceptación mínima                                                                                       | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
