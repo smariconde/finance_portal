@@ -60,6 +60,12 @@ pnpm db:down
 `db:generate` no aplica cambios. No usar `drizzle-kit push`: el repositorio conserva
 SQL versionado para que los cambios sean revisables y reproducibles.
 
+Cuando el SQL generado no alcanza —un cambio de tipo que necesita `USING`, un guardia
+que se niega antes de perder datos, el orden de una reescritura— se edita el `.sql` a
+mano y el snapshot queda como lo generó `drizzle-kit`. `0012` es el ejemplo: con el
+tipo `sha256` de `schema.ts`, `drizzle-kit` escribe `"undefined"."bytea"` y no sabe
+convertir hex a binario.
+
 ## Aplicar
 
 `db:migrate` lee `.env.local`, así que basta con:
@@ -94,6 +100,11 @@ revertir:
 3. verificar backup/restore;
 4. revisar dependencias creadas después de la migración;
 5. ejecutar manualmente el SQL pareado, en orden inverso al de aplicación:
+   - `drizzle/rollback/0012_jittery_whiplash.down.sql` (la forma anterior de
+     `observations`: hashes en texto, fuente, dataset, parser, ID externo,
+     `metric_id` y `late_ingestion` guardados en cada fila, y los dos índices
+     anteriores; falla mientras haya una observación cuyo ID externo no se puede
+     reconstruir);
    - `drizzle/rollback/0011_lush_plazm.down.sql` (la columna
      `ingestion_runs.selection_anchor_on` y su check; falla mientras alguna
      corrida tenga un ancla registrada);
@@ -156,7 +167,12 @@ a mezclar bases en una serie por acción que cruzó un split; si algún evento u
 historia de cada corrida `sec-core-concepts-2.0.0`: sin ella, un período ausente
 vuelve a ser ambiguo entre «el filer no lo reportó» y «la corrida no lo fue a
 buscar» (ADR 0017). Por eso se niega mientras haya anclas; exportarlas y limpiarlas
-es una decisión explícita (`TM-16`).
+es una decisión explícita (`TM-16`). Revertir `0012` no pierde nada: cada columna
+vuelve a llenarse desde la fila y su corrida (ADR 0018). El ID externo sólo tiene
+fórmula para companyfacts de la SEC, así que el rollback se niega mientras exista
+una observación de otra fuente o de una corrida sin `subject_key`. Para volver a
+aplicar `0012` después, borrar su fila de `drizzle.__drizzle_migrations` y correr
+el job de migración.
 
 ## Fallas seguras
 
@@ -164,3 +180,8 @@ es una decisión explícita (`TM-16`).
 - Falta `DATABASE_TEST_URL`: el gate de integración falla, no se marca como aprobado.
 - Falla una migración: no iniciar la app contra una versión de schema incompatible;
   conservar logs sin URLs ni credenciales y restaurar o aplicar el rollback revisado.
+- `0012` se niega con «cannot be made lighter without losing data»: alguna
+  observación tiene un ID externo, una procedencia o un `late_ingestion` que la
+  fila liviana no podría reconstruir, y el mensaje cuenta cada caso. No se toca
+  nada. En la base personal hay que entender esas filas antes de seguir; en
+  `finance_portal_test`, que es desechable, alcanza con vaciar `observations`.

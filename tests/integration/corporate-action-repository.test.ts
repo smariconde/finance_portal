@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres, { type Sql } from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -34,6 +34,7 @@ import {
   computeObservationContentHash,
   computeRevisionGroupId,
   observationSchema,
+  withIngestionFlags,
   type ObservationLogicalKey,
 } from "@/modules/observations/domain/observation";
 import { pointInTimeQuerySchema } from "@/modules/temporal/domain/point-in-time-query";
@@ -125,7 +126,15 @@ describe("PostgreSQL corporate actions", () => {
     await database.delete(schema.corporateActions);
     await database
       .delete(schema.observations)
-      .where(eq(schema.observations.sourceId, "sec-edgar"));
+      .where(
+        inArray(
+          schema.observations.ingestionRunId,
+          database
+            .select({ runId: schema.ingestionRuns.runId })
+            .from(schema.ingestionRuns)
+            .where(eq(schema.ingestionRuns.sourceId, "sec-edgar")),
+        ),
+      );
     await database
       .delete(schema.sourceDocuments)
       .where(eq(schema.sourceDocuments.sourceId, "sec-edgar"));
@@ -348,9 +357,8 @@ describe("PostgreSQL corporate actions", () => {
           externalId,
           qualityFlags: [],
         }),
-        qualityFlags: [],
+        qualityFlags: withIngestionFlags([], availableAt, CLOCK),
         sourceDocumentId: null,
-        externalId,
         ingestionRunId: run.runId,
       });
     };

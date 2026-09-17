@@ -4,6 +4,7 @@ import {
   computeObservationContentHash,
   computeRevisionGroupId,
   observationSchema,
+  withIngestionFlags,
   type Observation,
   type ObservationLogicalKey,
 } from "@/modules/observations/domain/observation";
@@ -121,9 +122,12 @@ function fact(fields: {
       externalId: `external-${sequence}`,
       qualityFlags: [],
     }),
-    qualityFlags: [],
+    qualityFlags: withIngestionFlags(
+      [],
+      fields.availableAt,
+      fields.recordedAt ?? RECORDED_AT,
+    ),
     sourceDocumentId: null,
-    externalId: `external-${sequence}`,
     ingestionRunId: "00000000-0000-4000-8000-0000000000f1",
   });
 }

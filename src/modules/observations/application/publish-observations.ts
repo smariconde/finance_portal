@@ -17,9 +17,9 @@ import {
 import {
   computeObservationContentHash,
   computeRevisionGroupId,
-  LATE_INGESTION_FLAG,
   observationSchema,
   observationSubjectTypeSchema,
+  withIngestionFlags,
   type Observation,
   type ObservationLogicalKey,
 } from "../domain/observation";
@@ -39,9 +39,6 @@ import {
  * Ninguna corrida no publicable llega hasta acá: una respuesta vacía, un parser
  * roto o una fuente caída no reemplazan el último valor válido (`TM-05`).
  */
-/** Más de un día entre publicación y registro local ya es una ingesta tardía. */
-const LATE_INGESTION_THRESHOLD_MS = 24 * 60 * 60 * 1000;
-
 export class PublicationNotAllowedError extends Error {
   constructor(status: string) {
     super(
@@ -411,16 +408,13 @@ export async function publishObservations(
       qualityFlags: record.qualityFlags,
     });
 
-    const qualityFlags = [...record.qualityFlags];
-
-    if (
-      Date.parse(recordedAt) - Date.parse(record.availableAt) >
-      LATE_INGESTION_THRESHOLD_MS
-    ) {
-      // Ingesta tardía: `public_availability` y `system_recorded` divergen y la
-      // consulta debe poder distinguirlas.
-      qualityFlags.push(LATE_INGESTION_FLAG);
-    }
+    // Ingesta tardía: `public_availability` y `system_recorded` divergen y la
+    // consulta debe poder distinguirlas.
+    const qualityFlags = withIngestionFlags(
+      record.qualityFlags,
+      record.availableAt,
+      recordedAt,
+    );
 
     const previous = latestByGroup.get(revisionGroupId) ?? null;
 
@@ -463,7 +457,6 @@ export async function publishObservations(
       contentHash,
       qualityFlags,
       sourceDocumentId: record.sourceDocumentId,
-      externalId: record.externalId,
       ingestionRunId: run.runId,
     });
 

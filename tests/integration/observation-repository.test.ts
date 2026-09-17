@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { eq } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres, { type Sql } from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -22,10 +22,18 @@ import {
 } from "@/modules/ingestion/infrastructure/demo-ingestion-fixtures";
 import { DEMO_SOURCE_REGISTRY } from "@/modules/ingestion/infrastructure/demo-source-registry";
 import { publishObservations } from "@/modules/observations/application/publish-observations";
-import { computeRevisionGroupId } from "@/modules/observations/domain/observation";
+import {
+  computeRevisionGroupId,
+  LATE_INGESTION_FLAG,
+  observationSchema,
+  type Observation,
+} from "@/modules/observations/domain/observation";
 import { queryObservations } from "@/modules/observations/domain/select-observations";
 import { createPostgresIngestionRunRepository } from "@/server/db/postgres-ingestion-run-repository";
-import { createPostgresObservationRepository } from "@/server/db/postgres-observation-repository";
+import {
+  createPostgresObservationRepository,
+  ObservationProvenanceError,
+} from "@/server/db/postgres-observation-repository";
 import { createPostgresSourceRegistryRepository } from "@/server/db/postgres-source-registry-repository";
 import * as schema from "@/server/db/schema";
 import {
@@ -78,6 +86,8 @@ const fixtureEntry = DEMO_SOURCE_REGISTRY.find(
 describe("PostgreSQL point-in-time observations", () => {
   let client: Sql;
   let database: PostgresJsDatabase<typeof schema>;
+  /** Lo que la publicación construyó, con las supersesiones ya aplicadas. */
+  let published: Observation[] = [];
 
   async function ingestAndPublish(
     provider: ReturnType<typeof createDemoDatasetProvider>,
@@ -129,32 +139,63 @@ describe("PostgreSQL point-in-time observations", () => {
     // haría que la primera de este archivo se dedupe por content hash.
     await database
       .delete(schema.observations)
-      .where(eq(schema.observations.sourceId, DEMO_SOURCE_ID));
+      .where(
+        inArray(
+          schema.observations.ingestionRunId,
+          database
+            .select({ runId: schema.ingestionRuns.runId })
+            .from(schema.ingestionRuns)
+            .where(eq(schema.ingestionRuns.sourceId, DEMO_SOURCE_ID)),
+        ),
+      );
     await database
       .delete(schema.ingestionRuns)
       .where(eq(schema.ingestionRuns.sourceId, DEMO_SOURCE_ID));
 
-    await ingestAndPublish(
+    const first = await ingestAndPublish(
       createDemoDatasetProvider(() => RUN_CLOCK),
       {
         vintage: null,
         publishedAt: PUBLISH_CLOCK,
       },
     );
-    await ingestAndPublish(
+    const amendment = await ingestAndPublish(
       createDemoRestatedDatasetProvider(() => RUN_CLOCK),
       {
         vintage: "2025-05-01",
         publishedAt: LATER_PUBLISH_CLOCK,
       },
     );
+    const closed = new Map(
+      amendment.publication.supersessions.map((supersession) => [
+        supersession.observationId,
+        supersession.supersededAt,
+      ]),
+    );
+
+    published = [
+      ...first.publication.published,
+      ...amendment.publication.published,
+    ].map((observation) => ({
+      ...observation,
+      supersededAt:
+        closed.get(observation.observationId) ?? observation.supersededAt,
+    }));
   });
 
   afterAll(async () => {
     if (database) {
       await database
         .delete(schema.observations)
-        .where(eq(schema.observations.sourceId, DEMO_SOURCE_ID));
+        .where(
+          inArray(
+            schema.observations.ingestionRunId,
+            database
+              .select({ runId: schema.ingestionRuns.runId })
+              .from(schema.ingestionRuns)
+              .where(eq(schema.ingestionRuns.sourceId, DEMO_SOURCE_ID)),
+          ),
+        );
       await database
         .delete(schema.ingestionRuns)
         .where(eq(schema.ingestionRuns.sourceId, DEMO_SOURCE_ID));
@@ -178,6 +219,152 @@ describe("PostgreSQL point-in-time observations", () => {
     expect(
       new Set(stored.map((observation) => observation.ingestionRunId)).size,
     ).toBe(2);
+  });
+
+  it("reads back exactly what it published from the lighter row", async () => {
+    const stored =
+      await createPostgresObservationRepository(database).list(SUBJECT);
+    const byId = (left: Observation, right: Observation) =>
+      left.observationId.localeCompare(right.observationId);
+
+    expect(published).toHaveLength(6);
+    expect([...stored].sort(byId)).toStrictEqual([...published].sort(byId));
+    // Registrado en 2026 lo publicado en 2024 y 2025: el flag vuelve derivado.
+    expect(
+      stored.every(
+        (observation) =>
+          observation.qualityFlags.at(-1) === LATE_INGESTION_FLAG,
+      ),
+    ).toBe(true);
+  });
+
+  it("stores hashes in binary and leaves out what it can rebuild", async () => {
+    const columns = await database.execute<{ column_name: string }>(
+      sql`select column_name from information_schema.columns where table_schema = 'public' and table_name = 'observations'`,
+    );
+    const names = columns.map((column) => column.column_name);
+
+    expect(names).not.toContain("source_id");
+    expect(names).not.toContain("dataset_id");
+    expect(names).not.toContain("parser_version");
+    expect(names).not.toContain("external_id");
+
+    const rows = await database.execute<{
+      observation_id: string;
+      metric_id: string | null;
+      flags: string[];
+      content_hash: string;
+      hash_bytes: number;
+    }>(
+      sql`select o.observation_id, o.metric_id, array(select jsonb_array_elements_text(o.quality_flags)) as flags, encode(o.content_hash, 'hex') as content_hash, octet_length(o.content_hash) as hash_bytes from observations o join ingestion_runs r on r.run_id = o.ingestion_run_id where r.source_id = ${DEMO_SOURCE_ID}`,
+    );
+    const expected = new Map(
+      published.map((observation) => [observation.observationId, observation]),
+    );
+
+    expect(rows).toHaveLength(6);
+    // Las métricas de la fixture no son su concepto: se guardan tal cual.
+    expect(rows.map((row) => row.metric_id).sort()).toStrictEqual(
+      [...published.map((observation) => observation.metricId)].sort(),
+    );
+    // La fila guarda los flags de la fuente; `late_ingestion` no.
+    for (const row of rows) {
+      expect(row.flags).toStrictEqual(
+        expected
+          .get(row.observation_id)!
+          .qualityFlags.filter((flag) => flag !== LATE_INGESTION_FLAG),
+      );
+    }
+    expect(rows.some((row) => row.flags.length > 0)).toBe(true);
+    expect(rows.every((row) => row.hash_bytes === 32)).toBe(true);
+    expect(rows.map((row) => row.content_hash).sort()).toStrictEqual(
+      published.map((observation) => observation.contentHash).sort(),
+    );
+  });
+
+  it("refuses a metric copy, a stored late flag and a hash of another length", async () => {
+    const [current] = await createPostgresObservationRepository(database).list({
+      ...SUBJECT,
+      metricIds: ["net_income"],
+    });
+    const row = eq(schema.observations.observationId, current!.observationId);
+
+    await expectConstraintViolation(
+      () =>
+        database
+          .update(schema.observations)
+          .set({ metricId: current!.concept })
+          .where(row),
+      "observations_metric_id_check",
+    );
+    await expectConstraintViolation(
+      () =>
+        database
+          .update(schema.observations)
+          .set({ qualityFlags: [LATE_INGESTION_FLAG] })
+          .where(row),
+      "observations_derived_flags_check",
+    );
+    await expectConstraintViolation(
+      () =>
+        database.execute(
+          sql`update observations set content_hash = decode('00', 'hex') where observation_id = ${current!.observationId}`,
+        ),
+      "observations_content_hash_check",
+    );
+    // Un hash mal formado no llega a la base: el borde no adivina bytes.
+    await expect(
+      (async () =>
+        database
+          .update(schema.observations)
+          .set({ contentHash: "A".repeat(64) })
+          .where(row))(),
+    ).rejects.toThrow("64 lowercase hex digits");
+  });
+
+  it("refuses an observation whose provenance is not its run's, without writing", async () => {
+    const observations = createPostgresObservationRepository(database);
+    const [current] = await observations.list({
+      ...SUBJECT,
+      metricIds: ["net_income"],
+    });
+    const forgedGroup = "f".repeat(64);
+    const forge = (overrides: Partial<Observation>) =>
+      observationSchema.parse({
+        ...current!,
+        observationId: randomUUID(),
+        revisionGroupId: forgedGroup,
+        revisionNumber: 1,
+        restatementOfId: null,
+        supersededAt: null,
+        ...overrides,
+      });
+
+    for (const forged of [
+      forge({ parserVersion: "fixture-9.9.9" }),
+      forge({ sourceId: "sec-edgar" }),
+      forge({ datasetId: "demo.fundamentals.quarterly" }),
+      forge({ ingestionRunId: randomUUID() }),
+    ]) {
+      await expect(
+        observations.publish({
+          ingestionRunId: current!.ingestionRunId,
+          observations: [forged],
+          supersessions: [
+            {
+              observationId: current!.observationId,
+              supersededAt: "2026-01-01T00:00:00.000Z",
+            },
+          ],
+        }),
+      ).rejects.toThrow(ObservationProvenanceError);
+    }
+
+    expect(await observations.listByRevisionGroup(forgedGroup)).toHaveLength(0);
+    expect(
+      (await observations.findLatestRevision(current!.revisionGroupId))
+        ?.supersededAt,
+    ).toBe(current!.supersededAt);
   });
 
   it("round-trips exact decimals, nulls and their reason", async () => {
@@ -326,10 +513,6 @@ describe("PostgreSQL point-in-time observations", () => {
             revisionNumber: 9,
             restatementOfId: current!.observationId,
             contentHash: "a".repeat(64),
-            sourceId: current!.sourceId,
-            datasetId: current!.datasetId,
-            parserVersion: current!.parserVersion,
-            externalId: "constraint-probe",
             ingestionRunId: current!.ingestionRunId,
           },
         }),
@@ -368,10 +551,6 @@ describe("PostgreSQL point-in-time observations", () => {
           revisionNumber: 1,
           restatementOfId: null,
           contentHash: "c".repeat(64),
-          sourceId: DEMO_SOURCE_ID,
-          datasetId: DEMO_DATASETS.annual,
-          parserVersion: DEMO_PARSER_VERSION,
-          externalId: "constraint-probe-zero",
           ingestionRunId: current!.ingestionRunId,
         }),
       "observations_raw_value_status_check",
@@ -408,10 +587,6 @@ describe("PostgreSQL point-in-time observations", () => {
         revisionNumber: 1,
         restatementOfId: null,
         contentHash: "e".repeat(64),
-        sourceId: DEMO_SOURCE_ID,
-        datasetId: DEMO_DATASETS.annual,
-        parserVersion: DEMO_PARSER_VERSION,
-        externalId: "constraint-probe-lineage",
         ingestionRunId: randomUUID(),
       }),
     ).rejects.toThrow();

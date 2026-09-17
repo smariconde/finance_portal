@@ -98,6 +98,17 @@ submissions history files, so it saves requests too. Each run records
 `selection_version` (`sec-core-concepts-2.0.0`) and `selection_anchor_on`: together
 they say which periods the run went to fetch. Nothing already published is pruned.
 
+An observation row stores only what it cannot rebuild
+([ADR 0018](docs/architecture/adr/0018-lighter-observation-rows.md), migration
+`0012`): both hashes are 32-byte `bytea` (the domain still sees hex); source,
+dataset and parser come from the row's ingestion run, and publishing a row that
+disagrees with its run throws; a null `metric_id` means the reported concept;
+`late_ingestion` is derived from `available_at`/`recorded_at` and the domain schema
+requires it last exactly when the rule says so. `externalId` is a staging identity
+kept in the content hash but not on the published observation;
+`secFactExternalId` rebuilds it for SEC rows. Raw SQL that filters observations by
+source has to go through `ingestion_runs`.
+
 ```bash
 pnpm corporate-actions:record           # dry run: verifies declared successions against SEC submissions
 pnpm corporate-actions:record --apply   # records predecessor entity, event and relationship
@@ -172,7 +183,7 @@ The universe backfill is no longer a product goal
 ([ADR 0016](docs/architecture/adr/0016-analysis-scope-sector-matrices.md)): fundamentals
 are fetched per valued ticker or per sector, so plans are narrowed with `--cik`. Do
 **not** run the whole universe against the personal database without the owner's
-go-ahead: even with the window it measured 451 MB on a replica, and the
+go-ahead: even with the window and lighter rows it measured 245 MB on a replica, and the
 hosted database of `F6-06` should fit a free tier. A job planned with
 `sec-core-concepts-1.0.0` no longer runs: cancel it and plan a new one.
 

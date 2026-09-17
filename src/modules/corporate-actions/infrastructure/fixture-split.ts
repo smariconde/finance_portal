@@ -26,6 +26,7 @@ import {
   computeObservationContentHash,
   computeRevisionGroupId,
   observationSchema,
+  withIngestionFlags,
   type Observation,
   type ObservationLogicalKey,
 } from "@/modules/observations/domain/observation";
@@ -272,6 +273,7 @@ export function buildRevisionChain(
     const sourceDocumentId = SPLIT_ACCESSIONS[vintage.filing];
     const rawValueStatus = vintage.value === null ? "not_provided" : "stored";
     const externalId = `${SPLIT_FILER_CIK}:${fact.concept}:${fact.asOf}:${sourceDocumentId}`;
+    const recordedAt = options.recordedAt ?? SPLIT_FIXTURE_RECORDED_AT;
 
     chain.push(
       observationSchema.parse({
@@ -285,8 +287,8 @@ export function buildRevisionChain(
         availableAt,
         supersededAt:
           next === undefined ? null : SPLIT_FILINGS[next.filing].acceptedAt,
-        fetchedAt: options.recordedAt ?? SPLIT_FIXTURE_RECORDED_AT,
-        recordedAt: options.recordedAt ?? SPLIT_FIXTURE_RECORDED_AT,
+        fetchedAt: recordedAt,
+        recordedAt,
         revisionGroupId,
         revisionNumber: index + 1,
         restatementOfId: index === 0 ? null : chain[index - 1]!.observationId,
@@ -301,9 +303,8 @@ export function buildRevisionChain(
           externalId,
           qualityFlags: [],
         }),
-        qualityFlags: [],
+        qualityFlags: withIngestionFlags([], availableAt, recordedAt),
         sourceDocumentId,
-        externalId,
         ingestionRunId: INGESTION_RUN_ID,
       }),
     );

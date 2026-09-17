@@ -242,6 +242,12 @@ campos que se asignan en la publicación —identidad interna, revisión,
 [`publish-observations.ts`](../../src/modules/observations/application/publish-observations.ts)
 y quedan persistidos en la tabla `observations`.
 
+«Incluye» se cumple por la fila o por su corrida: `source_id` y la versión del
+parser se leen de `ingestion_runs`, y el ID externo del registro se reconstruye
+con la regla de la fuente en vez de guardarse
+([ADR 0018](../architecture/adr/0018-lighter-observation-rows.md)). Una fuente que
+no pueda reconstruir su ID externo necesita otra decisión antes de publicar.
+
 ## Fixtures y modo demo
 
 La fixture vigente vive en

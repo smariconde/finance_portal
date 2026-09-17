@@ -50,6 +50,8 @@ Keep `legal_entity -> security -> listing -> listing_symbol` separate. Depositar
 
 Every historical read must declare effective time, knowledge cutoff, revision policy, and corporate-action adjustment basis. Preserve `available_at`, `recorded_at`, vintages, restatements, and source lineage. A later filing or mapping must never leak into an earlier `as_known` result.
 
+A persisted observation stores only what it cannot rebuild (ADR 0018): source, dataset, and parser live on its ingestion run, a null `metric_id` is the reported concept, `late_ingestion` is derived, and hashes are binary. A new column that copies something derivable needs the same scrutiny, and a new source must be able to rebuild its external ID before it publishes.
+
 ## UI Art Direction
 
 Every task that creates, redesigns, or materially changes a page, component, dashboard, chart, table, empty state, theme, or responsive layout must use the project-local `impeccable` skill before editing UI code. Establish a clear visual concept and interaction mode, then apply the skill's craft floor and bounded desktop/mobile review.

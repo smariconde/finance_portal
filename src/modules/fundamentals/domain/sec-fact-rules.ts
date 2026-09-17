@@ -95,6 +95,68 @@ export function mapSecUnit(unit: string): SecUnit | null {
 }
 
 /**
+ * Inversa de `mapSecUnit`: la unidad de la fuente que produjo una unidad del
+ * contrato. Es exacta porque `mapSecUnit` no descarta nada de lo que acepta.
+ */
+export function formatSecUnit(unit: SecUnit): string | null {
+  if (unit.currency !== null && /^[A-Z]{3}$/u.test(unit.currency)) {
+    if (unit.unit === "monetary") {
+      return unit.currency;
+    }
+
+    if (unit.unit === "monetary_per_share") {
+      return `${unit.currency}/shares`;
+    }
+
+    return null;
+  }
+
+  return unit.currency === null &&
+    (unit.unit === "shares" || unit.unit === "pure")
+    ? unit.unit
+    : null;
+}
+
+export type SecFactIdentity = SecUnit & {
+  /** CIK del documento, normalizado a diez dígitos. */
+  readonly cik: string;
+  /** Concepto calificado: `us-gaap:Assets`. */
+  readonly concept: string;
+  readonly periodStart: string | null;
+  /** Fin del período, o el instante de un saldo. */
+  readonly asOf: string;
+  readonly accessionNumber: string;
+};
+
+/**
+ * ID externo de una vintage de la SEC: CIK, concepto calificado, unidad de la
+ * fuente, inicio (o `instant`), fin y presentación.
+ *
+ * Todo sale de columnas de la observación publicada más el `subject_key` de su
+ * corrida, así que la fila no lo guarda (ADR 0018) y el rollback de la migración
+ * `0012` repite esta fórmula en SQL. El ID entra al content hash: cambiar el
+ * formato haría que cada hecho ya publicado pareciera una revisión nueva.
+ */
+export function secFactExternalId(identity: SecFactIdentity): string {
+  const unit = formatSecUnit(identity);
+
+  if (unit === null) {
+    throw new RangeError(
+      `No SEC unit produces ${identity.unit}/${identity.currency ?? "none"}.`,
+    );
+  }
+
+  return [
+    identity.cik,
+    identity.concept,
+    unit,
+    identity.periodStart ?? "instant",
+    identity.asOf,
+    identity.accessionNumber,
+  ].join(":");
+}
+
+/**
  * Formularios cuya fecha de filing nunca es anterior a su aceptación: los reportes
  * periódicos y corrientes que traen estados financieros. En el cable real hay
  * documentos cuya fecha de filing precede por semanas a la aceptación —cartas del

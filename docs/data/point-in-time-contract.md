@@ -657,6 +657,24 @@ encontrar filas de corridas distintas, y cada una se explica por su propia corri
 vintage sensible publicada del filer: los nombra `precedes_published_history`,
 porque no hay con qué comparar ni nada que ajustar.
 
+### Forma persistida
+
+Desde la migración `0012`, la fila de `observations` no guarda lo que reconstruye
+sin pérdida ([ADR 0018](../architecture/adr/0018-lighter-observation-rows.md)). La
+observación del dominio no cambia:
+
+- `source_id`, `dataset_id` y `parser_version` son los de la corrida, y publicar
+  una observación con otros falla antes de escribir;
+- `metric_id` nulo significa que la métrica es el concepto reportado;
+- `late_ingestion` es una regla: el flag aparece, último, exactamente cuando
+  `recorded_at` supera a `available_at` en más de un día;
+- los dos hashes van en 32 bytes y el dominio los sigue viendo en hex.
+
+`externalId` es una identidad de staging: nombra registros dentro de un lote y
+entra al content hash, pero la observación publicada no lo lleva. Para la SEC se
+reconstruye con `secFactExternalId` a partir de la fila y el `subject_key` de su
+corrida, así que cada hash guardado se puede volver a calcular.
+
 ## Fuentes primarias
 
 - [SEC: EDGAR APIs y XBRL](https://www.sec.gov/search-filings/edgar-application-programming-interfaces)
