@@ -214,6 +214,13 @@ for (const target of targets) {
     }
   }
 
+  for (const claim of outcome.claimsBeforeHistory) {
+    log(
+      "  antes de la historia",
+      `${claim.form} ${claim.accessionNumber} ${claim.filed} ratio ${claim.ratios.join("/")} (${claim.code})`,
+    );
+  }
+
   if (outcome.plan !== null) {
     log("  plan", outcome.plan.status);
 
