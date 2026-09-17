@@ -7,6 +7,10 @@ import type {
   SecFiling,
   SecFilingRowRejection,
 } from "../domain/parse-sec-submissions";
+import type {
+  SecHistoryWindow,
+  SecHistoryWindowSelection,
+} from "../domain/sec-history-window";
 
 /**
  * Puerto de la fuente de hechos XBRL de un filer.
@@ -34,9 +38,13 @@ export type CompanyFactsDownload =
       readonly cik: string;
       readonly filings: readonly SecFiling[];
       readonly filingRejections: readonly SecFilingRowRejection[];
+      /** Hechos seleccionados **dentro de la ventana** de historia. */
       readonly facts: readonly SecReportedFact[];
       readonly factRejections: readonly SecFactRowRejection[];
       readonly counts: SecCompanyFactsCounts;
+      /** Ventana aplicada (ADR 0017); `null` si no hubo hechos seleccionados. */
+      readonly window: SecHistoryWindow | null;
+      readonly windowCounts: SecHistoryWindowSelection["counts"];
       /** Descarga de companyfacts: el documento del que salen los valores. */
       readonly fetchedAt: string;
       readonly documents: readonly CompanyFactsDocument[];

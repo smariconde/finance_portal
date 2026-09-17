@@ -633,6 +633,30 @@ ticker; `pnpm fundamentals:backfill` recorre el universo como job durable, con l
 por fuente, cursor y reanudación ([ADR 0015](../architecture/adr/0015-durable-ingestion-jobs.md)).
 Ninguno detecta presentaciones nuevas ni corre programado: eso sigue en `F2-05`.
 
+### Ventana de historia
+
+Desde `sec-core-concepts-2.0.0` las dos guardan sólo la ventana
+`sec-history-5fy-1.0.0` ([ADR 0017](../architecture/adr/0017-sec-history-window.md)):
+
+- el corte es por fin de período, `end >= ancla − 5 años − 14 días`;
+- el ancla es el último ejercicio anual del propio filer, no el reloj;
+- los seis conceptos sensibles a splits conservan un ejercicio más, como evidencia.
+
+Un período ausente no significa lo mismo a cada lado del corte:
+
+- **Anterior al corte** de la corrida que lo habría traído: esa corrida **no lo fue a
+  buscar**. La corrida registra `selection_version` y `selection_anchor_on`, y con
+  los dos se reconstruye el corte.
+- **Posterior al corte:** el filer no lo publicó, o se rechazó con nombre.
+
+Lo publicado antes de la ventana no se borra: la base personal conserva la historia
+completa de los filers ingeridos con la 1.0.0. Una lectura que cruce el corte puede
+encontrar filas de corridas distintas, y cada una se explica por su propia corrida.
+
+`corporate-actions:splits` no juzga los ratios declarados antes de la primera
+vintage sensible publicada del filer: los nombra `precedes_published_history`,
+porque no hay con qué comparar ni nada que ajustar.
+
 ## Fuentes primarias
 
 - [SEC: EDGAR APIs y XBRL](https://www.sec.gov/search-filings/edgar-application-programming-interfaces)

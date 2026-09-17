@@ -8,7 +8,7 @@ Portal Financiero: a single-owner Next.js 16 portal for researching global compa
 
 The code is public; the data is not. The app is **personal-first**: it serves real data only from a private runtime, and there is no public demo deployment. See [ADR 0004](docs/architecture/adr/0004-personal-first-runtime.md).
 
-The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, and a deterministic FCFF engine with its reference run exist. Scheduled refresh, refresh of only-changed filers, daily provider budgets and a per-source kill switch, market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads real observations yet; nothing may be presented in the UI as if it were.
+The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations kept to a five-fiscal-year window, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, and a deterministic FCFF engine with its reference run exist. Scheduled refresh, refresh of only-changed filers, daily provider budgets and a per-source kill switch, market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads real observations yet; nothing may be presented in the UI as if it were.
 
 `AGENTS.md` holds the full contributor contract and takes precedence over this file where they overlap.
 
@@ -88,6 +88,16 @@ through the persisted graph) and `SEC_USER_AGENT`. Calls go out one at a time at
 vintages, subject resolved by CIK at download time, `year_to_date`— are in
 [ADR 0010](docs/architecture/adr/0010-sec-xbrl-ingestion.md).
 
+Only a **history window** is stored (`sec-history-5fy-1.0.0`,
+[ADR 0017](docs/architecture/adr/0017-sec-history-window.md)): facts whose period
+ends on or after `anchor − 5 years − 14 days`, where the anchor is the filer's own
+latest annual period (`fp = FY`), never the clock. That keeps five fiscal years plus
+the base close a 5-year comparison needs. The six split-sensitive concepts keep one
+more year as split evidence. The cut happens before vintages and before choosing
+submissions history files, so it saves requests too. Each run records
+`selection_version` (`sec-core-concepts-2.0.0`) and `selection_anchor_on`: together
+they say which periods the run went to fetch. Nothing already published is pruned.
+
 ```bash
 pnpm corporate-actions:record           # dry run: verifies declared successions against SEC submissions
 pnpm corporate-actions:record --apply   # records predecessor entity, event and relationship
@@ -113,7 +123,10 @@ single piece of evidence stays a named candidate and adjusts nothing. Splits han
 the legal entity, and `latest_adjusted` reads restate per-share values into the latest
 basis known at the cutoff without rewriting rows; `queryObservations` rejects that
 policy, so adjusted reads go through `readLineageObservations`
-([ADR 0012](docs/architecture/adr/0012-stock-splits-share-basis.md)). `decimal.js` is
+([ADR 0012](docs/architecture/adr/0012-stock-splits-share-basis.md)). A ratio declared
+no later than the filer's first published sensitive vintage is not judged: it is named
+`precedes_published_history` (`split-claim-horizon-1.0.0`, ADR 0017), because there is
+nothing to compare against and nothing to adjust. `decimal.js` is
 imported only by `src/modules/numeric/domain/decimal-policy.ts`, enforced by ESLint.
 
 ```bash
@@ -155,9 +168,13 @@ pnpm ingestion:jobs --job <id> --pause --reason "…" --apply   # also --resume,
 pnpm ingestion:jobs --release sec-edgar --reason "…" --apply  # declares the holder dead and recovers its item
 ```
 
-Do **not** run the universe backfill against the personal database yet: it still keeps
-the whole XBRL history (~1.2 GB for the universe) and the owner decided to keep five
-fiscal years; that window is `F2-05` increment 2, designed in the backlog.
+The universe backfill is no longer a product goal
+([ADR 0016](docs/architecture/adr/0016-analysis-scope-sector-matrices.md)): fundamentals
+are fetched per valued ticker or per sector, so plans are narrowed with `--cik`. Do
+**not** run the whole universe against the personal database without the owner's
+go-ahead: even with the window it measured 451 MB on a replica, and the
+hosted database of `F6-06` should fit a free tier. A job planned with
+`sec-core-concepts-1.0.0` no longer runs: cancel it and plan a new one.
 
 Also hand-run, never scheduled. A job is a fixed plan of CIKs processed **in order,
 one at a time**; the cursor is the first non-terminal item. The lease is per

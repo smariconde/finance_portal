@@ -94,6 +94,12 @@ revertir:
 3. verificar backup/restore;
 4. revisar dependencias creadas después de la migración;
 5. ejecutar manualmente el SQL pareado, en orden inverso al de aplicación:
+   - `drizzle/rollback/0011_lush_plazm.down.sql` (la columna
+     `ingestion_runs.selection_anchor_on` y su check; falla mientras alguna
+     corrida tenga un ancla registrada);
+   - `drizzle/rollback/0010_smooth_sally_floyd.down.sql` (las cuatro tablas de
+     jobs durables y sus enums; falla con un job abierto o pausado, o con un lease
+     tomado);
    - `drizzle/rollback/0009_pretty_thunderbird.down.sql` (tipos de adquisición y
      cambio de ticker, check de declaración e índice de sucesor; falla atómicamente
      si un evento o vínculo sigue usando los tipos nuevos);
@@ -146,7 +152,11 @@ descarta cada sucesión declarada: un sucesor deja de ver la historia de su ante
 Revertir `0007` descarta cada split confirmado, y una lectura `latest_adjusted` vuelve
 a mezclar bases en una serie por acción que cruzó un split; si algún evento usa
 `split` o `reverse_split` la reconstrucción del tipo falla a propósito, igual que
-`0005` (`TM-06`, `TM-16`).
+`0005` (`TM-06`, `TM-16`). Revertir `0011` descarta el ancla de la ventana de
+historia de cada corrida `sec-core-concepts-2.0.0`: sin ella, un período ausente
+vuelve a ser ambiguo entre «el filer no lo reportó» y «la corrida no lo fue a
+buscar» (ADR 0017). Por eso se niega mientras haya anclas; exportarlas y limpiarlas
+es una decisión explícita (`TM-16`).
 
 ## Fallas seguras
 

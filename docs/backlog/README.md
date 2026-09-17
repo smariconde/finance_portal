@@ -1489,7 +1489,9 @@ El backfill durable sigue en `F2-05`.
 
 #### `F2-05` — Backfill y refresh durable
 
-- Estado: `in_progress` (iniciado el 2026-09-16). El incremento 1 está entregado.
+- Estado: `in_progress` (iniciado el 2026-09-16). El incremento 1 está entregado;
+  del incremento 2 está entregado el paso 1, la ventana (2026-09-17), y el paso 2
+  espera la aprobación del owner.
 - Fase y dependencia: Fase 2; `F2-04` cerrado.
 - Alcance, en cuatro incrementos que se cierran en este orden:
   1. **jobs durables** (entregado):
@@ -1498,8 +1500,8 @@ El backfill durable sigue en `F2-05`.
        manual, con reloj inyectado y PostgreSQL;
      - backfill manual del universo sobre la SEC.
   2. **ventana de historia de cinco ejercicios y almacenamiento eficiente**
-     (próximo; ver abajo). Bloquea correr el backfill del universo sobre la base
-     personal.
+     (paso 1, la ventana, entregado; paso 2, filas más livianas, pendiente de
+     aprobación; ver abajo).
   3. **presupuesto diario y kill switch por fuente**, en PostgreSQL y antes de
      cualquier programación. Los comandos manuales de un ticker pasan a
      respetarlos.
@@ -1649,7 +1651,8 @@ que fallan sobre el código viejo:
   - Antes de encontrar la causa, este corte llevó a que `unavailable` espere
     1 minuto dentro de la corrida en vez de frenarla.
 
-Incremento 2 — ventana de historia y almacenamiento eficiente (próxima sesión).
+Incremento 2 — ventana de historia y almacenamiento eficiente. El paso 1 se entregó
+el 2026-09-17 (ver «Entregado» al final); el paso 2 espera la aprobación del owner.
 
 Decisión del owner (2026-09-16): se guardan **cinco ejercicios** de historia. Más
 que eso no se justifica, y 1,2 GB para el universo es demasiado. El objetivo es
@@ -1739,6 +1742,111 @@ Criterios de aceptación: la ventana es versionada y está probada; la reducció
 filas y de requests está medida sobre datos reales; la ADR 0017 existe; el
 runbook y el plan del backfill reflejan la ventana; y el backfill del universo
 sobre una réplica ocupa lo estimado.
+
+Entregado (2026-09-17) — incremento 2, paso 1, la ventana. Decisiones en la
+[ADR 0017](../architecture/adr/0017-sec-history-window.md).
+
+El sondeo previo (25 filers, 50 requests, sin conservar payload) cambió el diseño
+de arriba en dos puntos antes de escribir código:
+
+- **Corte único por fin de período** (`end >= ancla − 5 años − 14 días`), también
+  para las duraciones. El corte de arriba dejaba afuera el EPS diluido y el net
+  income anuales del ejercicio base en los 21 filers con historia, y la matriz de
+  divergencias a 5 años los necesita (ADR 0016). Cuesta 0,8 puntos de filas.
+- **Un ejercicio más para los seis conceptos sensibles a splits.** Sin él, el 4:1
+  de NVIDIA de 2021 se confirmaba en el 10-K de marzo de 2022 y ajustaba dos veces
+  18 vintages ya en base nueva, y el 1:8 de GE no se confirmaba. Cuesta 1,1 puntos.
+
+Además, el ancla es la duración anual más reciente con foco `FY`: sin el foco,
+Amazon anclaría en un TTM de un 10-Q.
+
+Qué se entregó:
+
+- `src/modules/fundamentals/domain/sec-history-window.ts`: regla
+  `sec-history-5fy-1.0.0`, aritmética de calendario con el 29 de febrero.
+- `sec-concept-selection.ts`: selección `sec-core-concepts-2.0.0`, con la ventana
+  como componente fijado por test y los conceptos de evidencia tomados de
+  `share-basis`.
+- `live-company-facts-source`: la ventana se aplica antes de las vintages y de los
+  archivos históricos. El resultado de la ingesta y `pnpm fundamentals:ingest`
+  muestran ancla, cortes y puntos dentro.
+- `ingestion_runs.selection_anchor_on`:
+  - migración `0011`, con su check espejado en Zod;
+  - rollback pareado que se niega mientras haya anclas;
+  - el ancla entra a la versión del documento.
+- `split-claim-horizon-1.0.0` en `corporate-actions`: los ratios declarados antes
+  de la primera vintage sensible publicada salen de la regla como
+  `precedes_published_history`.
+  - Sin eso, un anuncio viejo «corroboraba» un split posterior con el mismo ratio.
+  - Pipeline `sec-split-1.1.0`. La regla de evidencia no cambia, así que los splits
+    registrados siguen `unchanged`.
+- Documentación: ADR 0017, enmienda de la ADR 0010, runbooks de backfill y de
+  migraciones (que además no listaba el rollback de `0010`), contrato
+  point-in-time, registro de fuentes, `CLAUDE.md`, `AGENTS.md` y `README.md`.
+
+Verificación:
+
+- `format:check`, `lint`, `typecheck`, `git diff --check` y `build`
+  (cuatro rutas en `ƒ (Dynamic)`) pasan.
+- 1.128 unit tests (1.100 + 28).
+- 94 integration tests (93 + 1): el ancla hace ida y vuelta por PostgreSQL como
+  fecha y el check rechaza un ancla sin versión.
+- 131 E2E, sin cambios.
+- Rollback de `0011` probado en una base descartable:
+  - revierte sin anclas y la migración se vuelve a aplicar;
+  - con anclas registradas se niega y la columna queda.
+
+Evidencia sobre datos reales, en réplicas descartables del grafo personal:
+
+- **Dry run de los seis filers del backlog**, antes (código de `main`) y después:
+
+  | Filer         | Vintages antes |  Vintages después | Archivos históricos |    Requests |
+  | ------------- | -------------: | ----------------: | ------------------: | ----------: |
+  | Apple         |          3.254 |     1.151 (35,4%) |               1 → 0 |       3 → 2 |
+  | JPMorgan      |          2.078 |       614 (29,5%) |             45 → 25 |     47 → 27 |
+  | Berkshire     |          1.793 |       614 (34,2%) |               1 → 0 |       3 → 2 |
+  | NVIDIA        |          3.541 |     1.194 (33,7%) |               1 → 1 |       3 → 3 |
+  | Realty Income |          2.034 |       821 (40,4%) |               1 → 0 |       3 → 2 |
+  | Wells Fargo   |          2.174 |       756 (34,8%) |               6 → 2 |       8 → 4 |
+  | **Total**     |     **14.874** | **5.150 (34,6%)** |         **55 → 28** | **67 → 40** |
+
+- **Anclas:** del cierre fiscal de cada filer: 2025-09-27 (Apple), 2026-01-25
+  (NVIDIA), 2026-05-31 (Nike) y 2025-12-31 para los de calendario. El sucesor de
+  ExxonMobil, sin ejercicio anual, ancla en su último período (2026-06-30); su
+  antecesor aporta desde el cierre base 2020 hasta FY2025.
+- **Splits con la ventana** (8 ingestas con 46 requests, 6 verificaciones con 6):
+  - NVIDIA 4:1 y 10:1, Apple 4:1 y Alphabet 20:1 se confirman en las mismas
+    presentaciones que con la historia completa, con el mismo hash de contenido
+    que en la base personal;
+  - GE 1:8 se confirma en el 10-Q del 2021-10-26 y Amazon 20:1 en el del
+    2022-07-29;
+  - los 7:1 de Apple, los ocho 2:1 de Nike y los 2:1 de Alphabet de 2016 quedan
+    `precedes_published_history`.
+- **Contrafáctico** (filas de evidencia de NVIDIA y GE borradas en la réplica):
+  NVIDIA 4:1 se confirma en el 10-K del 2022-03-18, y GE queda
+  `reexpression_incomplete` y `reexpressed_before_ratio_filing`.
+- **Universo con la ventana**, en una réplica limpia del grafo:
+  - 501 de 501 filers en dos corridas y 25 minutos, con 1.194 requests (antes,
+    1.649 en 37 minutos);
+  - una señal `transport_error` difirió a Warner Bros. Discovery sin gastar el
+    intento; ningún item fallado ni envenenado;
+  - 464.531 observaciones (35,8 % de antes) y 13.141 documentos;
+  - la base pasó de 9,4 MB a **451 MB**. Las observaciones ocupan 434 MB, a 980
+    bytes por fila, y la estimación era de unos 448 MB;
+  - 497 anclas coinciden con el cierre del último reporte anual. Paramount
+    Skydance y Ferguson, cuyo último reporte anual no cubre doce meses, anclan en
+    su último ejercicio completo: un corte más amplio.
+  - La réplica se borró al terminar. Nada se corrió sobre la base personal.
+- **Migración `0011` aplicada al PostgreSQL personal**, sin ninguna corrida nueva:
+  la columna existe y no tiene anclas.
+
+Lo que queda del incremento 2:
+
+- **Paso 2, filas más livianas.** Necesita la aprobación del owner antes de
+  empezar, como dice el alcance.
+- **Poda de la historia completa en la base personal.** Los seis filers ingeridos
+  con la 1.0.0 conservan toda su historia: 13 MB de observaciones. Borrarla es una
+  decisión aparte, con su auditoría, que la ADR 0016 pide antes de `F6-06`.
 
 | Issue   | Resultado y aceptación mínima                                                                                       | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |

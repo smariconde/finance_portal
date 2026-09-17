@@ -16,6 +16,7 @@ import {
   type CorporateAction,
 } from "../domain/reporting-succession";
 import { SPLIT_BASIS_RULE_VERSION } from "../domain/share-basis";
+import { SPLIT_CLAIM_HORIZON_VERSION } from "../domain/split-claim-horizon";
 import { SPLIT_EVIDENCE_RULE_VERSION } from "../domain/verify-split-evidence";
 import {
   buildCompanyConceptPayload,
@@ -110,9 +111,10 @@ function harness(
 describe("recordSplits", () => {
   it("fija las versiones que componen el pipeline", () => {
     expect(SPLIT_PIPELINE).toStrictEqual({
-      parserVersion: "sec-split-1.0.0",
+      parserVersion: "sec-split-1.1.0",
       components: {
         companyconcept: SEC_COMPANY_CONCEPT_PARSER_VERSION,
+        horizon: SPLIT_CLAIM_HORIZON_VERSION,
         basis: SPLIT_BASIS_RULE_VERSION,
         evidence: SPLIT_EVIDENCE_RULE_VERSION,
         recording: SPLIT_RECORDING_RULE_VERSION,
@@ -128,7 +130,7 @@ describe("recordSplits", () => {
       status: "succeeded",
       sourceId: "sec-edgar",
       datasetId: "sec.companyconcept",
-      parserVersion: "sec-split-1.0.0",
+      parserVersion: "sec-split-1.1.0",
       subjectKey: SPLIT_FILER_CIK,
       counts: { fetched: 4, accepted: 4, rejected: 0, duplicate: 0 },
       qualityFlags: ["split_evidence_outliers"],
@@ -274,6 +276,42 @@ describe("recordSplits", () => {
       status: "partial",
       counts: { fetched: 5, accepted: 4, rejected: 1, duplicate: 0 },
     });
+    expect(outcome.applied).toStrictEqual({ corporateActions: 1 });
+  });
+
+  it("un ratio anterior a la historia publicada se nombra y no se juzga", async () => {
+    const test = harness({
+      body: buildCompanyConceptPayload([
+        ...buildSplitFixtureClaims(),
+        {
+          ...buildSplitClaim({ filing: "annual2022", end: "2019-06-01" }),
+          accessionNumber: "0000000073-20-000011",
+          filed: "2020-02-20",
+        },
+      ]),
+    });
+    const outcome = await test.record();
+
+    expect(outcome.run).toMatchObject({
+      status: "partial",
+      counts: { fetched: 5, accepted: 4, rejected: 1, duplicate: 0 },
+      qualityFlags: [
+        "split_candidate_precedes_published_history",
+        "split_evidence_outliers",
+      ],
+    });
+    expect(outcome.claimsBeforeHistory).toStrictEqual([
+      {
+        accessionNumber: "0000000073-20-000011",
+        form: "10-K",
+        filed: "2020-02-20",
+        ratios: ["4"],
+        code: "precedes_published_history",
+      },
+    ]);
+    expect(
+      outcome.evidence?.filings.map((filing) => filing.accessionNumber),
+    ).not.toContain("0000000073-20-000011");
     expect(outcome.applied).toStrictEqual({ corporateActions: 1 });
   });
 

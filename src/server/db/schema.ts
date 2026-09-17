@@ -269,6 +269,9 @@ export const ingestionRuns = pgTable(
     // Qué parte del documento se ingirió. Distingue «la empresa no lo reporta»
     // de «esta corrida no fue a buscarlo».
     selectionVersion: varchar("selection_version", { length: 64 }),
+    // Ancla de una selección que depende del documento (la ventana de historia
+    // de la SEC): con la versión, dice qué períodos se fueron a buscar.
+    selectionAnchorOn: date("selection_anchor_on", { mode: "string" }),
     status: ingestionRunStatus("status").notNull(),
     startedAt: timestamp("started_at", {
       withTimezone: true,
@@ -337,6 +340,10 @@ export const ingestionRuns = pgTable(
     check(
       "ingestion_runs_idempotency_key_check",
       sql`${table.idempotencyKey} ~ '^[a-f0-9]{64}$'`,
+    ),
+    check(
+      "ingestion_runs_selection_anchor_check",
+      sql`${table.selectionAnchorOn} is null or ${table.selectionVersion} is not null`,
     ),
   ],
 );

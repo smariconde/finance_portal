@@ -104,6 +104,13 @@ export const ingestionRunSchema = z
      * esta corrida no fue a buscar.
      */
     selectionVersion: selectionVersionSchema.nullable().default(null),
+    /**
+     * Fecha a la que se ancló una selección que depende del documento, como la
+     * ventana de historia de la SEC (ADR 0017). Con la versión, dice qué
+     * períodos se fueron a buscar. `null` si la selección no se ancla o si la
+     * corrida no llegó a leer el documento.
+     */
+    selectionAnchorOn: z.iso.date().nullable().default(null),
     status: ingestionRunStatusSchema,
     startedAt: utcTimestampSchema,
     finishedAt: utcTimestampSchema.nullable(),
@@ -116,6 +123,14 @@ export const ingestionRunSchema = z
   })
   .superRefine((run, context) => {
     const terminal = isTerminalStatus(run.status);
+
+    if (run.selectionAnchorOn !== null && run.selectionVersion === null) {
+      context.addIssue({
+        code: "custom",
+        path: ["selectionAnchorOn"],
+        message: "A selection anchor needs the selection version it anchors.",
+      });
+    }
 
     if (terminal === (run.finishedAt === null)) {
       context.addIssue({

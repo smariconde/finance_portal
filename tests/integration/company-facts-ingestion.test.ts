@@ -155,7 +155,10 @@ describe("PostgreSQL SEC company facts ingestion", () => {
 
     expect(run).toMatchObject({
       subjectKey: FIXTURE_FILER_CIK,
-      selectionVersion: "sec-core-concepts-1.0.0",
+      selectionVersion: "sec-core-concepts-2.0.0",
+      // La ventana se ancla en el cierre anual del filer sintético, sin pasar por
+      // medianoche UTC.
+      selectionAnchorOn: "2009-12-31",
       parserVersion: COMPANY_FACTS_PIPELINE.parserVersion,
       acceptedCount: 7,
     });

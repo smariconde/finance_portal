@@ -1,5 +1,10 @@
+import { listSplitSensitiveConcepts } from "@/modules/corporate-actions/domain/share-basis";
+
+import { SEC_HISTORY_WINDOW_VERSION } from "./sec-history-window";
+
 /**
- * Selección versionada de conceptos XBRL que se ingieren de companyfacts.
+ * Selección versionada de los hechos XBRL que se ingieren de companyfacts: qué
+ * conceptos y, desde la 2.0.0, qué períodos.
  *
  * companyfacts trae todo lo que un filer etiquetó sin dimensiones: para Apple son
  * 505 conceptos y 12.901 vintages distintas. La selección las lleva a lo que el
@@ -19,7 +24,22 @@
  *   a correr el CIK publica sólo lo nuevo. No sube la versión del parser, porque
  *   filtrar no cambia el contenido de un hecho ya publicado.
  */
-export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-1.0.0";
+export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-2.0.0";
+
+/**
+ * Qué decide la versión. La 1.0.0 eran los mismos conceptos con toda la historia
+ * XBRL; la 2.0.0 los recorta a la ventana de cinco ejercicios (ADR 0017), cuyo
+ * ancla sale de cada descarga y queda en la corrida (`selection_anchor_on`). Con
+ * la versión y el ancla, un período anterior al corte sigue siendo «no se fue a
+ * buscar». El test fija los componentes: cambiar uno sin subir la versión lo
+ * rompe.
+ */
+export const SEC_CONCEPT_SELECTION = Object.freeze({
+  version: SEC_CONCEPT_SELECTION_VERSION,
+  components: Object.freeze({
+    historyWindow: SEC_HISTORY_WINDOW_VERSION,
+  }),
+});
 
 const US_GAAP = [
   // Resultado: ingresos. La taxonomía cambió de nombre con ASC 606, así que
@@ -101,6 +121,14 @@ const SELECTED: ReadonlyMap<string, ReadonlySet<string>> = new Map([
   ["dei", new Set<string>(DEI)],
 ]);
 
+/**
+ * Conceptos que conservan un ejercicio más como evidencia de splits: los que la
+ * regla de base accionaria sabe re-expresar (ADR 0012). Todos están seleccionados.
+ */
+const SPLIT_EVIDENCE: ReadonlySet<string> = new Set(
+  listSplitSensitiveConcepts(),
+);
+
 export function isSelectedSecConcept(
   taxonomy: string,
   concept: string,
@@ -112,4 +140,11 @@ export function listSelectedSecConcepts(): readonly string[] {
   return [...SELECTED].flatMap(([taxonomy, concepts]) =>
     [...concepts].map((concept) => `${taxonomy}:${concept}`),
   );
+}
+
+export function isSplitEvidenceConcept(
+  taxonomy: string,
+  concept: string,
+): boolean {
+  return SPLIT_EVIDENCE.has(`${taxonomy}:${concept}`);
 }

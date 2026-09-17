@@ -42,6 +42,11 @@ import {
   SPLIT_BASIS_RULE_VERSION,
 } from "../domain/share-basis";
 import {
+  partitionSplitClaimsByHistory,
+  SPLIT_CLAIM_HORIZON_VERSION,
+  type SplitClaimBeforeHistory,
+} from "../domain/split-claim-horizon";
+import {
   evaluateSplitEvidence,
   SPLIT_EVIDENCE_RULE_VERSION,
   type SplitEvidence,
@@ -77,9 +82,10 @@ import {
 export const SPLIT_DATASET_ID = "sec.companyconcept";
 
 export const SPLIT_PIPELINE = Object.freeze({
-  parserVersion: "sec-split-1.0.0",
+  parserVersion: "sec-split-1.1.0",
   components: Object.freeze({
     companyconcept: SEC_COMPANY_CONCEPT_PARSER_VERSION,
+    horizon: SPLIT_CLAIM_HORIZON_VERSION,
     basis: SPLIT_BASIS_RULE_VERSION,
     evidence: SPLIT_EVIDENCE_RULE_VERSION,
     recording: SPLIT_RECORDING_RULE_VERSION,
@@ -142,6 +148,11 @@ export type RecordSplitsOutcome = {
   readonly rejection: RecordSplitsRejection | null;
   readonly sensitiveRevisions: number;
   readonly documents: readonly SplitClaimDocument[];
+  /**
+   * Ratios declarados antes de la primera vintage sensible publicada: la regla
+   * no los juzga, porque no hay re-expresión posible (ADR 0017).
+   */
+  readonly claimsBeforeHistory: readonly SplitClaimBeforeHistory[];
   readonly evidence: SplitEvidence | null;
   readonly plan: SplitRecordingPlan | null;
   readonly applied: SplitRecordingSummary | null;
@@ -258,6 +269,7 @@ export async function recordSplits(
     rejection: null,
     sensitiveRevisions: 0,
     documents: [],
+    claimsBeforeHistory: [],
     evidence: null,
     plan: null,
     applied: null,
@@ -400,8 +412,10 @@ export async function recordSplits(
     ...new Set(claims.map((claim) => claim.accessionNumber)),
   ].sort();
 
-  // 4. Evidencia y plan.
+  // 4. Evidencia y plan, sólo sobre los ratios que caen dentro de la historia
+  //    publicada: lo anterior se nombra y no se juzga.
   let evidence: SplitEvidence;
+  let claimsBeforeHistory: readonly SplitClaimBeforeHistory[] = [];
 
   try {
     const documents =
@@ -411,10 +425,16 @@ export async function recordSplits(
             sourceId: SEC_SOURCE_ID,
             sourceDocumentIds: accessions,
           });
+    const horizon = partitionSplitClaimsByHistory({
+      claims,
+      observations: revisions,
+      documents,
+    });
+    claimsBeforeHistory = horizon.before;
 
     evidence = evaluateSplitEvidence({
       legalEntityId,
-      claims,
+      claims: horizon.within,
       observations: revisions,
       documents,
     });
@@ -448,14 +468,14 @@ export async function recordSplits(
     newId,
   });
 
-  const fetched = evidence.filings.length;
+  const fetched = evidence.filings.length + claimsBeforeHistory.length;
   const accepted = evidence.filings.filter(
     (filing) => filing.status !== "candidate",
   ).length;
   const rejected = fetched - accepted;
   const qualityFlags = [
     ...new Set([
-      ...evidence.filings
+      ...[...evidence.filings, ...claimsBeforeHistory]
         .filter((filing) => filing.code !== null)
         .map((filing) => `split_candidate_${filing.code}`)
         .sort(),
@@ -473,6 +493,7 @@ export async function recordSplits(
     cik,
     legalEntityId,
     pipeline: SPLIT_PIPELINE,
+    claimsBeforeHistory,
     evidence,
   });
   const idempotencyKey = computeIdempotencyKey({
@@ -482,6 +503,7 @@ export async function recordSplits(
   const partial = {
     ...withRevisions,
     documents: download.documents,
+    claimsBeforeHistory,
     evidence,
     plan,
   };

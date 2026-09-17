@@ -229,6 +229,58 @@ describe("PostgreSQL ingestion persistence", () => {
     expect(stored?.failure?.message).not.toMatch(/[A-Za-z0-9_-]{24,}/u);
   });
 
+  it("keeps a selection anchor and refuses one without its selection version", async () => {
+    const runs = createPostgresIngestionRunRepository(database);
+    const run = {
+      runId: randomUUID(),
+      sourceId: DEMO_SOURCE_ID,
+      datasetId: DEMO_DATASETS.partial,
+      parserVersion: DEMO_PARSER_VERSION,
+      idempotencyKey: "d".repeat(64),
+      requestedAsOf: null,
+      requestedVintage: null,
+      cursor: null,
+      nextCursor: null,
+      subjectKey: "0000320193",
+      selectionVersion: "sec-core-concepts-2.0.0",
+      selectionAnchorOn: "2024-02-29",
+      status: "empty" as const,
+      startedAt: FIXED_NOW,
+      finishedAt: FIXED_NOW,
+      counts: { fetched: 0, accepted: 0, rejected: 0, duplicate: 0 },
+      contentHash: "c".repeat(64),
+      failure: null,
+      qualityFlags: ["no_selected_facts"],
+      replayOfRunId: null,
+      recordedAt: FIXED_NOW,
+    };
+
+    await runs.append(run);
+
+    // Una fecha calendaria, sin pasar por medianoche UTC.
+    await expect(runs.findByIdempotencyKey("d".repeat(64))).resolves.toEqual(
+      run,
+    );
+
+    // El check espeja al schema aunque alguien escriba sin pasar por Zod.
+    await expectConstraintViolation(
+      () =>
+        database.insert(schema.ingestionRuns).values({
+          runId: randomUUID(),
+          sourceId: DEMO_SOURCE_ID,
+          datasetId: DEMO_DATASETS.partial,
+          parserVersion: DEMO_PARSER_VERSION,
+          idempotencyKey: "d".repeat(64),
+          selectionAnchorOn: "2024-02-29",
+          status: "empty",
+          startedAt: new Date(FIXED_NOW),
+          finishedAt: new Date(FIXED_NOW),
+          contentHash: "c".repeat(64),
+        }),
+      "ingestion_runs_selection_anchor_check",
+    );
+  });
+
   it("allows retrying a failed key but never two publishable runs for it", async () => {
     const runs = createPostgresIngestionRunRepository(database);
     const idempotencyKey = "e".repeat(64);
@@ -243,6 +295,7 @@ describe("PostgreSQL ingestion persistence", () => {
       nextCursor: null,
       subjectKey: null,
       selectionVersion: null,
+      selectionAnchorOn: null,
       startedAt: FIXED_NOW,
       finishedAt: FIXED_NOW,
       qualityFlags: [],
