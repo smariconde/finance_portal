@@ -1,20 +1,41 @@
 # Backfill durable de companyfacts
 
-- Slice: `F2-05`, incremento 1
-- Decisión: [ADR 0015](../architecture/adr/0015-durable-ingestion-jobs.md)
+- Slice: `F2-05`, incrementos 1 y 2
+- Decisiones: [ADR 0015](../architecture/adr/0015-durable-ingestion-jobs.md) (jobs) y
+  [ADR 0017](../architecture/adr/0017-sec-history-window.md) (ventana de historia)
 - Runtime: personal local o protegido, con PostgreSQL y `SEC_USER_AGENT`
 
-> **No correr el backfill del universo sobre la base personal todavía.** Hoy guarda
-> toda la historia XBRL desde 2009: unos 1,2 GB para el universo. El owner decidió
-> guardar cinco ejercicios, y la ventana llega con el incremento 2 de `F2-05`.
+> **El backfill del universo no es objetivo de producto**
+> ([ADR 0016](../architecture/adr/0016-analysis-scope-sector-matrices.md)). Los
+> fundamentals se bajan para un ticker valuado o para los filers de un sector, con
+> `--cik`. Aun con la ventana, el universo midió 451 MB en una réplica:
+> no correrlo sobre la base personal sin decisión del owner.
 
-Lleva los hechos XBRL de todo el universo constituido a PostgreSQL en varias
-corridas manuales. Una corrida puede morir en cualquier momento sin perder el
-avance ni el orden. No hay cron: cada corrida la lanza el owner.
+Lleva los hechos XBRL de un conjunto de filers del universo constituido a
+PostgreSQL en varias corridas manuales. Una corrida puede morir en cualquier
+momento sin perder el avance ni el orden. No hay cron: cada corrida la lanza el
+owner.
+
+## Qué se guarda de cada filer
+
+Sólo la ventana `sec-history-5fy-1.0.0`: los hechos cuyo período termina desde
+`ancla − 5 años − 14 días`. El ancla es el último ejercicio anual del propio filer.
+Son cinco ejercicios completos más el cierre base, y los seis conceptos sensibles a
+splits conservan un ejercicio más como evidencia.
+
+Cada corrida registra `selection_version = sec-core-concepts-2.0.0` y
+`selection_anchor_on`. El dry run de `pnpm fundamentals:ingest --cik <CIK>` muestra
+el ancla, los dos cortes y cuántos puntos quedaron dentro. Lo publicado antes no se
+borra.
+
+Después de ingerir, `pnpm corporate-actions:splits --cik <CIK> --apply` confirma los
+splits de la ventana. Los ratios declarados antes de la historia publicada salen
+como `antes de la historia` (`precedes_published_history`) y no ajustan nada.
 
 ## Preparación
 
-1. `pnpm db:migrate`: las tablas de jobs llegan con la migración `0010`.
+1. `pnpm db:migrate`: las tablas de jobs llegan con la migración `0010` y el ancla
+   de la ventana con la `0011`.
 2. El universo tiene que estar constituido (`pnpm universe:constitute --apply`).
 3. Las sucesiones declaradas tienen que estar registradas
    (`pnpm corporate-actions:record --apply`). El plan agrega los antecesores de
@@ -114,7 +135,8 @@ redactado en la bitácora con actor `owner`.
   ```
 
 Un job planeado con otro pipeline o con otra selección de conceptos no corre con el
-código actual. En ese caso se cancela y se planea uno nuevo.
+código actual. En ese caso se cancela y se planea uno nuevo. Es el caso de todo job
+creado antes de la ventana, con `sec-core-concepts-1.0.0`.
 
 ## Qué significa cada estado de item
 

@@ -156,3 +156,12 @@ requests/s y con presupuesto de 1.000 por corrida, como fija la matriz de cuotas
   nombrada.
 - Lease y reanudación llegaron con la [ADR 0015](0015-durable-ingestion-jobs.md);
   el refresh sólo de CIK cambiados sigue en `F2-05`.
+
+## Enmienda del 2026-09-17: la selección también recorta períodos
+
+La [ADR 0017](0017-sec-history-window.md) sube la selección a
+`sec-core-concepts-2.0.0`: son los mismos 58 conceptos, recortados a la ventana de
+historia `sec-history-5fy-1.0.0`. El corte depende de cada descarga, así que la
+corrida registra además su ancla en `ingestion_runs.selection_anchor_on`. Con
+versión y ancla, un período anterior al corte sigue siendo «no buscado» y no «no
+reportado». El parser no cambia de versión.
