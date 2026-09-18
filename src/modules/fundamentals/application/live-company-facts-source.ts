@@ -26,6 +26,8 @@ import {
   type CompanyFactsDocument,
   type CompanyFactsDocumentKind,
   type CompanyFactsDownload,
+  type CompanyFactsProbe,
+  type CompanyFactsProbeSource,
   type CompanyFactsSource,
 } from "./company-facts-source";
 
@@ -215,52 +217,98 @@ function describe(
   };
 }
 
+/** CIK válido o un `TypeError`: un CIK inválido no construye ninguna URL. */
+function requireCik(requestedCik: string): string {
+  const cik = normalizeCik(requestedCik);
+
+  if (cik === null) {
+    throw new TypeError("The requested CIK is not a valid SEC CIK.");
+  }
+
+  return cik;
+}
+
+/**
+ * El índice de presentaciones del filer: un request, y el mismo primer paso para
+ * la carga completa y para el sondeo del refresh.
+ */
+async function loadSubmissions(
+  fetch: EgressFetch,
+  cik: string,
+): Promise<{
+  readonly submissions: Extract<
+    ReturnType<typeof parseSecSubmissions>,
+    { ok: true }
+  >;
+  readonly document: CompanyFactsDocument;
+  readonly fetchedAt: string;
+}> {
+  const url = buildSubmissionsUrl(cik);
+  const fetched = (await fetchDocument(fetch, "submissions", url))!;
+  const submissions = parseSecSubmissions(
+    parseJson("submissions", fetched.text),
+  );
+
+  if (!submissions.ok) {
+    throw new CompanyFactsSourceError("payload_schema_invalid", "submissions", {
+      detail: submissions.code,
+    });
+  }
+
+  if (submissions.cik !== cik) {
+    throw new CompanyFactsSourceError("subject_mismatch", "submissions");
+  }
+
+  return {
+    submissions,
+    document: describe(
+      "submissions",
+      url,
+      fetched,
+      SEC_SUBMISSIONS_PARSER_VERSION,
+    ),
+    fetchedAt: fetched.response.fetchedAt,
+  };
+}
+
 export function createLiveCompanyFactsSource(dependencies: {
   readonly fetch: EgressFetch;
-}): CompanyFactsSource {
+}): CompanyFactsSource & CompanyFactsProbeSource {
   const { fetch } = dependencies;
 
   return {
-    async load(requestedCik: string): Promise<CompanyFactsDownload> {
-      const cik = normalizeCik(requestedCik);
-
-      if (cik === null) {
-        // Un CIK inválido no es un fallo de la fuente: la URL ni se construye.
-        throw new TypeError("The requested CIK is not a valid SEC CIK.");
-      }
-
-      const documents: CompanyFactsDocument[] = [];
-
-      const submissionsUrl = buildSubmissionsUrl(cik);
-      const submissionsFetched = (await fetchDocument(
+    /**
+     * Sondeo del refresh (ADR 0021): un request, el índice de presentaciones.
+     *
+     * Mira sólo `filings.recent` —las últimas mil— y no pide ningún archivo
+     * histórico: una presentación nueva siempre está ahí, y pedir el resto para
+     * contestar «¿hay algo nuevo?» gastaría cuota sin cambiar la respuesta.
+     */
+    async probe(requestedCik: string): Promise<CompanyFactsProbe> {
+      const cik = requireCik(requestedCik);
+      const { submissions, document, fetchedAt } = await loadSubmissions(
         fetch,
-        "submissions",
-        submissionsUrl,
-      ))!;
-      const submissions = parseSecSubmissions(
-        parseJson("submissions", submissionsFetched.text),
+        cik,
       );
 
-      if (!submissions.ok) {
-        throw new CompanyFactsSourceError(
-          "payload_schema_invalid",
-          "submissions",
-          { detail: submissions.code },
-        );
-      }
+      return {
+        cik,
+        filings: submissions.filings,
+        filingRejections: submissions.rejections,
+        fetchedAt,
+        document,
+      };
+    },
+    async load(requestedCik: string): Promise<CompanyFactsDownload> {
+      const cik = requireCik(requestedCik);
+      const documents: CompanyFactsDocument[] = [];
+      const {
+        submissions,
+        document: submissionsDocument,
+        fetchedAt: submissionsFetchedAt,
+      } = await loadSubmissions(fetch, cik);
 
-      if (submissions.cik !== cik) {
-        throw new CompanyFactsSourceError("subject_mismatch", "submissions");
-      }
-
-      documents.push(
-        describe(
-          "submissions",
-          submissionsUrl,
-          submissionsFetched,
-          SEC_SUBMISSIONS_PARSER_VERSION,
-        ),
-      );
+      documents.push(submissionsDocument);
 
       const factsUrl = buildCompanyFactsUrl(cik);
       const factsFetched = await fetchDocument(
@@ -274,7 +322,7 @@ export function createLiveCompanyFactsSource(dependencies: {
         return {
           status: "no_company_facts",
           cik,
-          fetchedAt: submissionsFetched.response.fetchedAt,
+          fetchedAt: submissionsFetchedAt,
           documents,
         };
       }

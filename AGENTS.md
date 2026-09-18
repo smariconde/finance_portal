@@ -32,6 +32,7 @@ The current application command contract is:
 - `pnpm fundamentals:backfill`: plan the companyfacts backfill of the constituted universe (or `--cik` filers); `--apply` creates the job, `--job <id> --apply` runs it under the source lease. Every companyfacts ingestion keeps only the five-fiscal-year window of ADR 0017.
 - `pnpm ingestion:jobs`: inspect ingestion jobs and leases; pause, resume, cancel, requeue an item, or release a dead holder's lease with `--reason`; dry run unless `--apply`.
 - `pnpm ingestion:sources`: inspect each source's daily budget, today's usage and control history; `--disable`, `--enable` or `--limit <n>` with `--reason`; dry run unless `--apply` (ADR 0020).
+- `pnpm fundamentals:refresh`: keep the followed set fresh — the filers that already have published fundamentals (ADR 0021). With no argument it lists that set and its watermarks without opening the network; `--cik` probes one filer's `submissions` for one request and re-downloads companyfacts only if it filed something relevant since the stored watermark; `--all --apply` plans the whole round as a durable job and `--job <id> --apply` runs it under the source lease; dry run unless `--apply` (ADR 0022).
 - `pnpm fundamentals:prune`: delete the observations an older selection published outside that window and record why; the anchor comes from the subject's latest anchored run, never from the stored rows, and `--reason` is required; dry run unless `--apply` (ADR 0019).
 
 Review documentation changes with `pnpm format:check`, `git diff --check`, and searches for stale references.

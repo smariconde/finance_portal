@@ -24,6 +24,7 @@ function observation(overrides: {
   subjectId?: string;
   sourceId?: string;
   datasetId?: string;
+  availableAt?: string;
 }): Observation {
   sequence += 1;
 
@@ -47,7 +48,7 @@ function observation(overrides: {
     normalizedValue: null,
     transformationId: null,
     valueBasis: "reported",
-    availableAt: "2026-01-01T00:00:00.000Z",
+    availableAt: overrides.availableAt ?? "2026-01-01T00:00:00.000Z",
     supersededAt: null,
     fetchedAt: "2026-01-01T00:00:00.000Z",
     recordedAt: "2026-01-01T00:00:00.000Z",
@@ -169,5 +170,77 @@ describe("poda en el doble en memoria", () => {
     expect(record.deletedCount).toBe(0);
     expect(record.deletedMinAsOf).toBeNull();
     expect(record.keptCount).toBe(1);
+  });
+});
+
+describe("sujetos publicados en el doble en memoria", () => {
+  it("agrupa por sujeto del dataset pedido, con su conteo y su fila más nueva", async () => {
+    const repository = createInMemoryObservationRepository([
+      observation({
+        asOf: "2025-12-31",
+        availableAt: "2026-02-26T21:00:00.000Z",
+      }),
+      observation({
+        asOf: "2026-03-31",
+        availableAt: "2026-05-01T21:00:00.000Z",
+      }),
+      observation({
+        asOf: "2026-03-31",
+        subjectId: OTHER_SUBJECT_ID,
+        availableAt: "2026-04-01T21:00:00.000Z",
+      }),
+      // Otro dataset de la misma fuente: no es un filer con fundamentals.
+      observation({
+        asOf: "2026-03-31",
+        subjectId: OTHER_SUBJECT_ID,
+        datasetId: "sec.companyconcept",
+        availableAt: "2026-09-01T21:00:00.000Z",
+      }),
+    ]);
+
+    const subjects = await repository.listPublishedSubjects({
+      sourceId: "sec-edgar",
+      datasetId: "sec.companyfacts",
+    });
+
+    expect(subjects).toEqual([
+      {
+        subjectType: "legal_entity",
+        subjectId: SUBJECT_ID,
+        observations: 2,
+        latestAvailableAt: "2026-05-01T21:00:00.000Z",
+      },
+      {
+        subjectType: "legal_entity",
+        subjectId: OTHER_SUBJECT_ID,
+        observations: 1,
+        latestAvailableAt: "2026-04-01T21:00:00.000Z",
+      },
+    ]);
+  });
+
+  it("no devuelve un sujeto cuyas filas se podaron enteras", async () => {
+    const repository = createInMemoryObservationRepository([
+      observation({ asOf: "2019-12-31" }),
+    ]);
+
+    await repository.prune({
+      pruneId: "33333333-3333-4333-8333-333333333333",
+      ruleVersion: "sec-history-prune-1.0.0",
+      plan: PLAN,
+      selectionVersion: "sec-core-concepts-2.0.0",
+      selectionAnchorOn: "2025-09-27",
+      anchorRunId: RUN_ID,
+      actor: "owner",
+      reason: "prueba",
+      executedAt: "2026-09-18T00:00:00.000Z",
+    });
+
+    await expect(
+      repository.listPublishedSubjects({
+        sourceId: "sec-edgar",
+        datasetId: "sec.companyfacts",
+      }),
+    ).resolves.toEqual([]);
   });
 });

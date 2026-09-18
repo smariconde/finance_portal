@@ -31,7 +31,10 @@ export const INGESTION_JOB_RULE_VERSION = "ingestion-job-1.0.0";
 /** Techo de sujetos por job: el universo y sus antecesores, con margen. */
 export const MAX_INGESTION_JOB_ITEMS = 10_000;
 
-export const ingestionJobKindSchema = z.enum(["sec_companyfacts_backfill"]);
+export const ingestionJobKindSchema = z.enum([
+  "sec_companyfacts_backfill",
+  "sec_companyfacts_refresh",
+]);
 
 export type IngestionJobKind = z.infer<typeof ingestionJobKindSchema>;
 

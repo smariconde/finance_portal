@@ -33,6 +33,7 @@
     "corporate-actions:declare": "tsx --conditions=react-server --env-file=.env.local scripts/record-declared-event.ts",
     "fundamentals:backfill": "tsx --conditions=react-server --env-file=.env.local scripts/backfill-company-facts.ts",
     "fundamentals:prune": "tsx --conditions=react-server --env-file=.env.local scripts/prune-observation-history.ts",
+    "fundamentals:refresh": "tsx --conditions=react-server --env-file=.env.local scripts/refresh-company-facts.ts",
     "ingestion:jobs": "tsx --conditions=react-server --env-file=.env.local scripts/manage-ingestion-jobs.ts",
     "ingestion:sources": "tsx --conditions=react-server --env-file=.env.local scripts/manage-source-budgets.ts"
   },

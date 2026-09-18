@@ -18,6 +18,7 @@ import {
   observationListQuerySchema,
   observationPruneRequestSchema,
   observationSupersessionSchema,
+  publishedSubjectsQuerySchema,
   revisionGroupIdSchema,
   type ObservationPublication,
   type ObservationRepository,
@@ -475,6 +476,46 @@ export function createPostgresObservationRepository(
 
         return toDomainPrune(row!);
       });
+    },
+    async listPublishedSubjects(query) {
+      const parsedQuery = publishedSubjectsQuerySchema.parse(query);
+      // La fuente y el dataset viven en la corrida, no en la fila (ADR 0018):
+      // el filtro entra por `ingestion_run_id`, igual que el de la poda.
+      const rows = await database
+        .select({
+          subjectType: schema.observations.subjectType,
+          subjectId: schema.observations.subjectId,
+          observations: sql<number>`count(*)::int`,
+          latestAvailableAt: sql<Date>`max(${schema.observations.availableAt})`,
+        })
+        .from(schema.observations)
+        .where(
+          inArray(
+            schema.observations.ingestionRunId,
+            database
+              .select({ runId: schema.ingestionRuns.runId })
+              .from(schema.ingestionRuns)
+              .where(
+                and(
+                  eq(schema.ingestionRuns.sourceId, parsedQuery.sourceId),
+                  eq(schema.ingestionRuns.datasetId, parsedQuery.datasetId),
+                ),
+              ),
+          ),
+        )
+        .groupBy(schema.observations.subjectType, schema.observations.subjectId)
+        .orderBy(
+          asc(schema.observations.subjectType),
+          asc(schema.observations.subjectId),
+        )
+        .limit(parsedQuery.limit);
+
+      return rows.map((row) => ({
+        subjectType: row.subjectType,
+        subjectId: row.subjectId,
+        observations: row.observations,
+        latestAvailableAt: new Date(row.latestAvailableAt).toISOString(),
+      }));
     },
     async listPrunes(subjectType, subjectId) {
       const rows = await database

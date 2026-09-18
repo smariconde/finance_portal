@@ -594,6 +594,32 @@ describe("PostgreSQL point-in-time observations", () => {
     expect(current!.ingestionRunId).toMatch(/^[0-9a-f-]{36}$/u);
   });
 
+  it("lists the subjects a dataset published, resolving source and dataset through the run", async () => {
+    const observations = createPostgresObservationRepository(database);
+    const latest = published
+      .map((observation) => observation.availableAt)
+      .sort()
+      .at(-1);
+
+    await expect(
+      observations.listPublishedSubjects({
+        sourceId: DEMO_SOURCE_ID,
+        datasetId: DEMO_DATASETS.annual,
+      }),
+    ).resolves.toEqual([
+      { ...SUBJECT, observations: published.length, latestAvailableAt: latest },
+    ]);
+
+    // La fila publicada ya no guarda el dataset (ADR 0018): el filtro tiene que
+    // pasar por la corrida, y otro dataset de la misma fuente no devuelve nada.
+    await expect(
+      observations.listPublishedSubjects({
+        sourceId: DEMO_SOURCE_ID,
+        datasetId: DEMO_DATASETS.partial,
+      }),
+    ).resolves.toEqual([]);
+  });
+
   it("registers the amendment as its own run instead of replaying the first", async () => {
     const runs = await createPostgresIngestionRunRepository(database).list({
       sourceId: DEMO_SOURCE_ID,
