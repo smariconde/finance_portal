@@ -1,0 +1,235 @@
+{
+  "reducerVersion": "sec-corpus-reducer-1.0.0",
+  "sourceId": "sec-edgar",
+  "attribution": "U.S. Securities and Exchange Commission, EDGAR (https://www.sec.gov/edgar). Informacion publica copiada con cita, sin el sello ni los logos de la SEC y sin afiliacion.",
+  "entries": [
+    {
+      "path": "0000034088/companyfacts.json",
+      "dataset": "sec.companyfacts",
+      "cik": "0000034088",
+      "entityName": "Exxon Mobil Corporation",
+      "sourceUrl": "https://data.sec.gov/api/xbrl/companyfacts/CIK0000034088.json",
+      "fetchedAt": "2026-09-18T22:15:26.382Z",
+      "rawBytes": 3122723,
+      "rawSha256": "9b95535419e5662e3deed01de803e83deead477a4c81316e1c45186368fdd8b8",
+      "bytes": 438261,
+      "sha256": "18a41d41a026cf99782eb0f5923cdd94d589b2ff9a7611016b1b310d61edf13d",
+      "anchorOn": "2026-03-31",
+      "floorOn": "2018-03-31",
+      "counts": {
+        "conceptsKept": 42,
+        "conceptsDropped": 405,
+        "pointsKept": 2802,
+        "pointsDropped": 3102
+      }
+    },
+    {
+      "path": "0000034088/submissions.json",
+      "dataset": "sec.submissions",
+      "cik": "0000034088",
+      "entityName": "EXXON MOBIL CORP",
+      "sourceUrl": "https://data.sec.gov/submissions/CIK0000034088.json",
+      "fetchedAt": "2026-09-18T22:15:24.830Z",
+      "rawBytes": 162232,
+      "rawSha256": "7918818ea3045fb09fbb18d67537909a28feb245d693d0bd7cd3bc30b16ea3db",
+      "bytes": 178851,
+      "sha256": "67bdb43fa44f65bc961de7f006c12c41b75a186323ae69d21a122f4ab48028ba",
+      "anchorOn": "2026-08-07",
+      "floorOn": "2018-08-07",
+      "counts": {
+        "filingsKept": 571,
+        "filingsDropped": 429
+      }
+    },
+    {
+      "path": "0000320193/companyfacts.json",
+      "dataset": "sec.companyfacts",
+      "cik": "0000320193",
+      "entityName": "Apple Inc.",
+      "sourceUrl": "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json",
+      "fetchedAt": "2026-09-18T22:15:29.338Z",
+      "rawBytes": 3789099,
+      "rawSha256": "73a86c6aedc31f77cac2ea4df5f80f0b3bd7e6eb58bb4e01444fbedf3afb9c43",
+      "bytes": 532450,
+      "sha256": "6cb9671fbbbbf0b685e1a0f82a6ccd53437070ee4a24f68d46131cc79d78736b",
+      "anchorOn": "2026-07-17",
+      "floorOn": "2018-07-17",
+      "counts": {
+        "conceptsKept": 50,
+        "conceptsDropped": 455,
+        "pointsKept": 3380,
+        "pointsDropped": 4502
+      }
+    },
+    {
+      "path": "0000320193/submissions.json",
+      "dataset": "sec.submissions",
+      "cik": "0000320193",
+      "entityName": "Apple Inc.",
+      "sourceUrl": "https://data.sec.gov/submissions/CIK0000320193.json",
+      "fetchedAt": "2026-09-18T22:15:26.945Z",
+      "rawBytes": 164231,
+      "rawSha256": "21995788784b0bc55218499c45c6fc1878378176024c615170f97e1b65044fd4",
+      "bytes": 50532,
+      "sha256": "b990491060f65c531bc1048407cf60bfaeeb116d46134ae59c29502b5ca1eb87",
+      "anchorOn": "2026-09-17",
+      "floorOn": "2018-09-17",
+      "counts": {
+        "filingsKept": 155,
+        "filingsDropped": 846
+      }
+    },
+    {
+      "path": "0001045810/companyfacts.json",
+      "dataset": "sec.companyfacts",
+      "cik": "0001045810",
+      "entityName": "NVIDIA CORP",
+      "sourceUrl": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001045810.json",
+      "fetchedAt": "2026-09-18T22:15:32.174Z",
+      "rawBytes": 4092966,
+      "rawSha256": "19ef503a5770f5660964b3c3aea6937579d9b359da344afe6a9adf59c63d26ff",
+      "bytes": 534185,
+      "sha256": "2e44c7b6963767aba069df4cdc29315252810b32fd19e32888af17a8ecef532d",
+      "anchorOn": "2026-08-21",
+      "floorOn": "2018-08-21",
+      "counts": {
+        "conceptsKept": 58,
+        "conceptsDropped": 586,
+        "pointsKept": 3403,
+        "pointsDropped": 4195
+      }
+    },
+    {
+      "path": "0001045810/submissions.json",
+      "dataset": "sec.submissions",
+      "cik": "0001045810",
+      "entityName": "NVIDIA CORP",
+      "sourceUrl": "https://data.sec.gov/submissions/CIK0001045810.json",
+      "fetchedAt": "2026-09-18T22:15:29.885Z",
+      "rawBytes": 160802,
+      "rawSha256": "94a9ef1d6491be580b5e537d2982e06119e5be25c08152a88f2477ee894f0c40",
+      "bytes": 45918,
+      "sha256": "5ba37abdd7db335af9921ae47fba31ad55369327ddeb9b7f92225a406a34fc2d",
+      "anchorOn": "2026-09-18",
+      "floorOn": "2018-09-18",
+      "counts": {
+        "filingsKept": 142,
+        "filingsDropped": 864
+      }
+    },
+    {
+      "path": "0001326160/companyfacts.json",
+      "dataset": "sec.companyfacts",
+      "cik": "0001326160",
+      "entityName": "Duke Energy CORP",
+      "sourceUrl": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001326160.json",
+      "fetchedAt": "2026-09-18T22:15:35.696Z",
+      "rawBytes": 5349280,
+      "rawSha256": "1e94bb53863e9fef2f5554a229aa7e0ebc197e06c759b5879db6137d8f1b1b3d",
+      "bytes": 414064,
+      "sha256": "ce0865cc635c0ed4be796e7a2b5ca639417bfcecc9a4bb5c101eef27bbe32b54",
+      "anchorOn": "2026-08-11",
+      "floorOn": "2018-08-11",
+      "counts": {
+        "conceptsKept": 45,
+        "conceptsDropped": 875,
+        "pointsKept": 2652,
+        "pointsDropped": 3954
+      }
+    },
+    {
+      "path": "0001326160/submissions.json",
+      "dataset": "sec.submissions",
+      "cik": "0001326160",
+      "entityName": "Duke Energy CORP",
+      "sourceUrl": "https://data.sec.gov/submissions/CIK0001326160.json",
+      "fetchedAt": "2026-09-18T22:15:32.779Z",
+      "rawBytes": 165586,
+      "rawSha256": "c405571cba9641f5a7fe13f9dcb7bf528d15a1cf97c3fb818cd7f6952ff29180",
+      "bytes": 76366,
+      "sha256": "7bb77b96f7c77dca4454048b2d1f8cf1fe3a586e89c3d11cd1ab6823bbb0547e",
+      "anchorOn": "2026-08-13",
+      "floorOn": "2018-08-13",
+      "counts": {
+        "filingsKept": 233,
+        "filingsDropped": 771
+      }
+    },
+    {
+      "path": "0001652044/companyfacts.json",
+      "dataset": "sec.companyfacts",
+      "cik": "0001652044",
+      "entityName": "Alphabet Inc.",
+      "sourceUrl": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001652044.json",
+      "fetchedAt": "2026-09-18T22:15:40.071Z",
+      "rawBytes": 3164517,
+      "rawSha256": "a017f26ee88cb4a639d1c1ddb06d53b4afe22f0ac89cabec7cd67c88919fe1c5",
+      "bytes": 451551,
+      "sha256": "0802efdfed05fc7bd49f7ebba730ed402efba46e1ba3f700d3d5ce8f86ef385c",
+      "anchorOn": "2026-08-07",
+      "floorOn": "2018-08-07",
+      "counts": {
+        "conceptsKept": 51,
+        "conceptsDropped": 506,
+        "pointsKept": 2895,
+        "pointsDropped": 1224
+      }
+    },
+    {
+      "path": "0001652044/submissions.json",
+      "dataset": "sec.submissions",
+      "cik": "0001652044",
+      "entityName": "Alphabet Inc.",
+      "sourceUrl": "https://data.sec.gov/submissions/CIK0001652044.json",
+      "fetchedAt": "2026-09-18T22:15:36.164Z",
+      "rawBytes": 154521,
+      "rawSha256": "9624fe558574d3c33ca6a6a0f9451a2fdba6e11e465de1d5a822d2e3d70042bc",
+      "bytes": 30635,
+      "sha256": "3b650079523345de02a65932d6aaaeab11db424dbc050182edc894263499b73f",
+      "anchorOn": "2026-09-16",
+      "floorOn": "2018-09-16",
+      "counts": {
+        "filingsKept": 97,
+        "filingsDropped": 916
+      }
+    },
+    {
+      "path": "0002115436/companyfacts.json",
+      "dataset": "sec.companyfacts",
+      "cik": "0002115436",
+      "entityName": "Exxon Mobil Corporation",
+      "sourceUrl": "https://data.sec.gov/api/xbrl/companyfacts/CIK0002115436.json",
+      "fetchedAt": "2026-09-18T22:15:40.923Z",
+      "rawBytes": 77964,
+      "rawSha256": "2719a5e960fbd38d2759a183008267387324a5d705cca2c8c72a6980b3ed199b",
+      "bytes": 19358,
+      "sha256": "c1ba0351829d7578e3077a68614611e6e4a85b16c294bc6f6bc725301e291efd",
+      "anchorOn": "2026-06-30",
+      "floorOn": "2018-06-30",
+      "counts": {
+        "conceptsKept": 31,
+        "conceptsDropped": 69,
+        "pointsKept": 98,
+        "pointsDropped": 0
+      }
+    },
+    {
+      "path": "0002115436/submissions.json",
+      "dataset": "sec.submissions",
+      "cik": "0002115436",
+      "entityName": "ExxonMobil Holdings Corp",
+      "sourceUrl": "https://data.sec.gov/submissions/CIK0002115436.json",
+      "fetchedAt": "2026-09-18T22:15:40.491Z",
+      "rawBytes": 6154,
+      "rawSha256": "c8aee4327ac005e1db4dc0294f3af5a40300a1a06e373df76af16b3bec260db8",
+      "bytes": 8827,
+      "sha256": "9033e644243ccc1af691842ea96a077abaefef302b038757ffa77ebd0b56a6f5",
+      "anchorOn": "2026-08-28",
+      "floorOn": "2018-08-28",
+      "counts": {
+        "filingsKept": 29,
+        "filingsDropped": 0
+      }
+    }
+  ]
+}

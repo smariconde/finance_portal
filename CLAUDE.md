@@ -8,7 +8,7 @@ Portal Financiero: a single-owner Next.js 16 portal for researching global compa
 
 The code is public; the data is not. The app is **personal-first**: it serves real data only from a private runtime, and there is no public demo deployment. See [ADR 0004](docs/architecture/adr/0004-personal-first-runtime.md).
 
-The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations kept to a five-fiscal-year window, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, per-source daily request budgets with an owner kill switch, a hand-run refresh that probes `submissions` and re-downloads only the filers that filed something relevant, and a deterministic FCFF engine with its reference run exist. Scheduled refresh, market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads real observations yet; nothing may be presented in the UI as if it were.
+The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations kept to a five-fiscal-year window, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, per-source daily request budgets with an owner kill switch, a hand-run refresh that probes `submissions` and re-downloads only the filers that filed something relevant, a deterministic FCFF engine with its reference run, and a frozen corpus of real SEC extracts as regression oracle exist. Scheduled refresh, market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads real observations yet; nothing may be presented in the UI as if it were.
 
 `AGENTS.md` holds the full contributor contract and takes precedence over this file where they overlap.
 
@@ -274,6 +274,36 @@ ADR 0020 admission, reserving 67 requests per item. Measured on the six: 20 requ
 the first round, 6 the second. The refresh never deletes — a new fiscal year moves
 the window anchor and `fundamentals:prune` is still what takes the old one out.
 
+```bash
+pnpm fixtures:capture                    # the followed set and what it would weigh, writes nothing
+pnpm fixtures:capture --cik 320193       # one filer
+pnpm fixtures:capture --apply            # downloads and freezes the corpus
+```
+
+Also hand-run, and rarely. The **frozen corpus** is the second regression oracle
+next to the synthetic filer: the filer proves the parser does what we think, the
+corpus proves the cable is what we think, with numbers that reconcile against the
+filing ([ADR 0023](docs/architecture/adr/0023-frozen-sec-extracts-rights.md),
+[runbook](docs/runbooks/golden-corpus.md)). Two requests per filer; the corpus
+itself never goes back to the network and no test downloads anything.
+
+Freezing real SEC extracts in a public repository is a rights decision, not a
+technical one: sec.gov content is public information the SEC lets anyone copy and
+redistribute with citation, so `sec-edgar` now declares `rawStorage`,
+`publicDisplay` and `export` as `allowed` — `aiTransfer` stays `unknown` because
+the receiver decides that one, and the row stays `approved_personal`, so a public
+surface still needs `approved_public_demo`. A corpus is not a recording: it is a
+chosen extract, reduced by a declared reducer version, carrying a manifest, from a
+source whose rights are `allowed`. All four hold together or it stays out.
+
+The reducer (`sec-corpus-reducer-1.0.0`) is deliberately **coarser** than what the
+corpus tests — eight fiscal years against the window's six, plus a declared sample
+of unselected concepts and the first concept of every unknown taxonomy — because a
+file trimmed by the selection would make the selection's own test a tautology.
+Rewriting the JSON preserves every number's source text: a `val` that round-trips
+through a `double` is an invented value. Files are pinned by `sha256` in
+`manifest.json`, Prettier ignores the directory, and a test recomputes the hashes.
+
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 
 Node `>=22.11.0 <27`, pnpm `10.33.2` via corepack. Arch Linux dev host — use POSIX shell syntax for env-var examples in docs, matching the `ubuntu-latest` runners CI validates on.
@@ -332,7 +362,7 @@ Network egress has exactly one door: `getEgressClient()` in [src/server/egress/]
 
 That door is metered. `getEgressClient` is ESLint-restricted to `src/server/egress/`; every other caller takes `getSourceEgressFetch`, which pairs the per-run pacing with the daily budget and the kill switch ([ADR 0020](docs/architecture/adr/0020-source-daily-budget-kill-switch.md)). Three controls, none implying another: the allowlist answers "where may a socket open?", the rights gate "do we have a right to this data?", and the budget "is there quota left today?". A source missing from `SOURCE_DAILY_REQUEST_BUDGETS` makes no calls at all.
 
-Scope guardrails: no application auth, accounts, roles, multi-tenancy, or BYOK. Real providers run only in personal mode. Never put secrets in `NEXT_PUBLIC_*`, and never commit captured payloads or credentials to this public repository.
+Scope guardrails: no application auth, accounts, roles, multi-tenancy, or BYOK. Real providers run only in personal mode. Never put secrets in `NEXT_PUBLIC_*`, and never commit captured payloads or credentials to this public repository. The one exception is a **frozen corpus** under [ADR 0023](docs/architecture/adr/0023-frozen-sec-extracts-rights.md): a chosen, reduced, manifested extract of a source whose rights say `allowed` — today only `sec-edgar`. All four properties must hold; a personal run's payload has none of them and stays out.
 
 ## Working rhythm
 

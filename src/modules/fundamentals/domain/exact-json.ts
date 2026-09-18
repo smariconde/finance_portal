@@ -94,3 +94,102 @@ export function canonicalDecimalFromJsonNumber(source: string): string | null {
 
   return body === "0" ? "0" : `${sign}${body}`;
 }
+
+/**
+ * Parsea `text` conservando **todos** los números como texto fuente.
+ *
+ * `parseJsonWithExactNumbers` toma sólo las claves que la ingesta necesita leer
+ * exactas. Congelar un extracto necesita lo contrario: reescribir el documento sin
+ * que ningún número cambie, incluidos los que la ingesta ni mira. Un `val` que
+ * viaja por `double` y vuelve es un valor inventado, y un corpus con valores
+ * inventados es peor que no tener corpus.
+ */
+export function parseJsonPreservingNumbers(text: string): unknown {
+  return JSON.parse(
+    text,
+    (_key: string, value: unknown, context?: ReviverContext) => {
+      if (typeof value !== "number") {
+        return value;
+      }
+
+      if (context?.source === undefined) {
+        throw new ExactJsonUnavailableError();
+      }
+
+      return new ExactJsonNumber(context.source);
+    },
+  );
+}
+
+/** Máximo de caracteres de un contenedor para escribirlo en una sola línea. */
+const INLINE_WIDTH = 240;
+
+function isPrimitiveJson(value: unknown): boolean {
+  return (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "boolean" ||
+    typeof value === "number" ||
+    value instanceof ExactJsonNumber
+  );
+}
+
+function writeJson(value: unknown, indent: string): string {
+  if (value instanceof ExactJsonNumber) {
+    return value.source;
+  }
+
+  if (isPrimitiveJson(value)) {
+    return JSON.stringify(value) ?? "null";
+  }
+
+  const nested = `${indent}  `;
+  const entries: ReadonlyArray<readonly [string | null, unknown]> =
+    Array.isArray(value)
+      ? value.map((item) => [null, item] as const)
+      : Object.entries(value as Record<string, unknown>);
+
+  if (entries.length === 0) {
+    return Array.isArray(value) ? "[]" : "{}";
+  }
+
+  const [open, close] = Array.isArray(value)
+    ? (["[", "]"] as const)
+    : (["{", "}"] as const);
+
+  const written = entries.map(
+    ([key, item]) => [key, writeJson(item, nested)] as const,
+  );
+
+  // Un contenedor de puros primitivos —un punto de companyfacts, la lista de
+  // tickers— va en una línea mientras entre: el diff del corpus se lee por hecho,
+  // no por campo.
+  if (entries.every(([, item]) => isPrimitiveJson(item))) {
+    const single = `${open}${written
+      .map(([key, text]) =>
+        key === null ? text : `${JSON.stringify(key)}:${text}`,
+      )
+      .join(",")}${close}`;
+
+    if (single.length <= INLINE_WIDTH) {
+      return single;
+    }
+  }
+
+  const parts = written.map(([key, text]) =>
+    key === null ? text : `${JSON.stringify(key)}: ${text}`,
+  );
+
+  return `${open}\n${nested}${parts.join(`,\n${nested}`)}\n${indent}${close}`;
+}
+
+/**
+ * Serializa lo que devolvió `parseJsonPreservingNumbers` sin tocar un solo dígito.
+ *
+ * La forma es determinista: el orden de las claves es el del documento original
+ * —no se reordena nada—, así que el mismo texto descargado produce siempre el
+ * mismo archivo, que es lo que permite fijarlo por hash.
+ */
+export function stringifyJsonPreservingNumbers(value: unknown): string {
+  return `${writeJson(value, "")}\n`;
+}

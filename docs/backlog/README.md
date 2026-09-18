@@ -40,7 +40,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    12 | `F2-03`    | `done`     | SEC EDGAR integrada: companyfacts publicado como observaciones point-in-time, con aceptación, vintages y cuarentena. | `F2-02`       |
 |    13 | `F2-04`    | `done`     | Corporate actions con vigencia: splits, cambios de símbolo, sucesiones de CIK, delistings y fusiones.                | `F2-03`       |
 |    14 | `F2-05`    | `done`     | Backfill y refresh durable con presupuesto, cursor, lease y recuperación verificables.                               | `F2-04`       |
-|    15 | `F2-06`    | `ready`    | Golden fixtures desde extractos reales congelados, en reemplazo de `FixtureCo` como oráculo de regresión.            | `F2-03`       |
+|    15 | `F2-06`    | `done`     | Golden fixtures desde extractos reales congelados, en reemplazo de `FixtureCo` como oráculo de regresión.            | `F2-03`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -2203,6 +2203,128 @@ se escribió ninguna fila: las migraciones `0015` y `0016` se aplicaron ahí, va
 un cambio de companyfacts sin presentación nueva no lo ve el refresh y se arregla
 con `fundamentals:ingest --ticker`; y el refresh no dispara la verificación de
 splits, que sigue siendo `corporate-actions:splits` a mano.
+
+<a id="f2-06"></a>
+
+#### `F2-06` — Golden fixtures desde extractos reales congelados
+
+- Estado: `done` (2026-09-18, iniciado el mismo día). Los tres incrementos
+  están entregados.
+- Fase y dependencia: Fase 2; `F2-03` cerrado. Se apoya además en la ventana de la
+  [ADR 0017](../architecture/adr/0017-sec-history-window.md) y en el egress con
+  presupuesto de la [ADR 0020](../architecture/adr/0020-source-daily-budget.md),
+  porque la captura sale por la misma puerta que una ingesta.
+- Problema: hoy el oráculo de regresión de los tres parsers de la SEC es
+  [`fixture-sec-filer.ts`](../../src/modules/fundamentals/infrastructure/fixture-sec-filer.ts),
+  un filer sintético que copia la **forma** del cable y los casos que se
+  observaron en él, pero ningún valor, fecha ni accession suyo viene de una
+  descarga. Prueba que el parser hace lo que creemos que hace; no prueba que el
+  cable sea como creemos que es. Un cambio de la SEC —un campo nuevo, una unidad
+  no vista, un `frame` ausente, una taxonomía que se mueve— no rompe ningún test.
+- Alcance, en tres incrementos que se cierran en este orden:
+  1. **derechos y exposición** (gate): el repositorio es público y `AGENTS.md`
+     prohíbe commitear payloads capturados. Congelar extractos reales cambia esa
+     exposición, así que necesita su ADR antes de la primera descarga: qué
+     autoriza la SEC sobre copia y redistribución, qué queda afuera, y cómo pasan
+     a `allowed` los derechos que hoy `sec-edgar` declara `unknown`
+     (`rawStorage`, `publicDisplay`, `export`). No convierte la fuente en
+     `approved_public_demo`: no hay demo pública ([ADR 0004](../architecture/adr/0004-personal-first-runtime.md)).
+  2. **corpus congelado**: un comando a mano captura `submissions` y
+     `companyfacts` de los filers elegidos, los **reduce** a lo que el oráculo
+     necesita y los escribe versionados con un manifiesto —URL, `accession`,
+     instante de descarga, bytes, `sha256` y versión del reductor—. La captura
+     sale por el egress con su presupuesto; el corpus, una vez congelado, no
+     vuelve a la red nunca.
+  3. **oráculo de regresión**: los tests de los parsers, de los vintages, de la
+     ventana y de las reglas de split pasan a correr contra el corpus con sus
+     salidas esperadas commiteadas. `FixtureCo` no se borra —sigue siendo el
+     oráculo de los casos que el cable real no ofrece: parser roto, fuente caída,
+     lote vacío— pero deja de ser el único.
+- Controles: `TM-05` (el corpus es lo que hace detectable una respuesta parcial o
+  un parser roto contra el cable real) y `TM-16` (el manifiesto es lo que deja
+  explicar de dónde salió cada byte del oráculo).
+- No autoriza: cron, demo pública, ni conservar el payload íntegro de una ingesta
+  del modo personal. El corpus es un extracto elegido y reducido a propósito, no
+  un recording.
+- Fuera de alcance, declarado: la reconciliación contra el filing de 30 empresas
+  de arquetipos distintos y la validación semántica XBRL de muestra (Arelle/DQC)
+  son el **gate de Fase 2**, no este issue. `F2-06` entrega el corpus y el
+  arnés que esa reconciliación va a usar; correrla y registrarla es el cierre de
+  la fase.
+
+Criterios de aceptación del incremento 1:
+
+- una ADR cita la condición publicada por la SEC, con fecha de consulta, y dice
+  qué se puede copiar, qué atribución corresponde y qué queda prohibido;
+- `demo-source-registry.ts` deja de declarar `unknown` los derechos que la ADR
+  resuelve, con `rightsReviewedAt` nuevo y evidencia apuntando a la ADR;
+- el registro de fuentes, la matriz de uso y la política de fixtures del código
+  dicen lo mismo;
+- ninguna descarga ocurre antes de que el owner apruebe la ADR.
+
+Criterios de aceptación del incremento 2:
+
+- el comando es a mano, dry-run por defecto, y pasa por `getSourceEgressFetch`
+  con el presupuesto de la fuente;
+- cada archivo del corpus tiene manifiesto con URL, instante de descarga, bytes y
+  `sha256`, y una verificación recalcula los hashes y falla si algo derivó;
+- la reducción es determinista y versionada: el mismo extracto produce el mismo
+  archivo, y el reductor declara qué tiró;
+- el corpus entra en un presupuesto de bytes declarado y medido, coherente con la
+  frugalidad de las ADR 0017 y 0018;
+- los filers elegidos cubren arquetipos distintos y se justifica cada elección.
+
+Criterios de aceptación del incremento 3:
+
+- los tests de parsers, vintages, ventana y splits corren contra el corpus con
+  salidas esperadas commiteadas, bajo la guardia de red del suite unitario;
+- una diferencia del cable —campo nuevo, unidad no vista, concepto movido— rompe
+  un test con un nombre que dice qué cambió;
+- `FixtureCo` queda con su rol acotado y documentado, no borrado;
+- la actualización del corpus es un diff revisable, nunca una resolución de
+  «lo último» en runtime.
+
+Entregado (2026-09-18). Derechos en la
+[ADR 0023](../architecture/adr/0023-frozen-sec-extracts-rights.md) y operación en
+el [runbook](../runbooks/golden-corpus.md).
+
+- **Incremento 1**: la ADR cita la condición publicada por la SEC —información
+  pública, copiable y redistribuible con cita, sin el sello ni los logos—
+  consultada el 2026-09-18. `sec-edgar` pasa `rawStorage`, `publicDisplay` y
+  `export` a `allowed` con revisión nueva; `aiTransfer` sigue `unknown` porque no
+  lo decide la SEC sino el receptor. La fila sigue en `approved_personal`: mostrar
+  datos en una superficie anónima sigue exigiendo `approved_public_demo`. La
+  prohibición de commitear payloads se precisó en `AGENTS.md` y `CLAUDE.md` con
+  las cuatro propiedades que distinguen un corpus de un recording. Hallazgo: la
+  matriz de uso ya decía «copia y redistribución con cita»; la conclusión nunca
+  había bajado a la fila del registro, que es la que el gate lee.
+- **Incremento 2**: `pnpm fixtures:capture`, el reductor versionado
+  (`sec-corpus-reducer-1.0.0`), el manifiesto con URL, instante, bytes y `sha256`
+  —del archivo y del documento entero que no se conserva—, y
+  `parseJsonPreservingNumbers`/`stringifyJsonPreservingNumbers`, que reescriben el
+  JSON sin que ningún número pase por un `double`. El reductor es más grueso que
+  lo que el corpus prueba —ocho ejercicios contra seis, más una muestra declarada
+  de conceptos no seleccionados y el primer concepto de cada taxonomía
+  desconocida—, porque un archivo recortado con la selección volvería tautológico
+  el test de la selección. La lista de formularios de alto volumen es negra y no
+  blanca, y los nombres cortos se comparan exactos: `4` como prefijo se llevaba
+  puesto el `40-F`.
+- **Incremento 3**: `golden-sec-oracle.test.ts`, con los números commiteados y
+  reconciliados contra el filing —los US$ 391.035 millones del 10-K de Apple, el
+  ejercicio 2019 repetido por tres 10-K, el EPS de NVIDIA de 12,05 a 1,21 por el
+  10:1 y el de Alphabet de 113,88 a 5,69 por el 20:1—, más los dos casos en que la
+  aceptación y la fecha de presentación no coinciden, que es de lo que depende
+  `available_at`. `golden-sec-corpus.test.ts` verifica bytes y `sha256` de cada
+  archivo. El filer sintético queda con su rol acotado y escrito en su encabezado.
+
+Medido: 19,5 MB descargados quedan en 2,7 MB congelados (86 % de reducción), con
+un presupuesto declarado de 4 MB. 24 requests gastados en total, entre el ensayo
+en seco y la captura. 1.324 unit y 131 integration pasan.
+
+`F2-06` cierra, y con él el último casillero de la Fase 2. Límites: el corpus son
+seis filers y no los 30 arquetipos del gate de fase; la validación semántica XBRL
+de muestra (Arelle/DQC) sigue pendiente; y el corpus no alimenta ninguna
+superficie ni ninguna ingesta, sólo lo leen tests.
 
 | Issue   | Resultado y aceptación mínima                                                                                       | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
