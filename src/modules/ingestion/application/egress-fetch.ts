@@ -42,6 +42,16 @@ export const SEC_REQUEST_PACING: RequestPacingPolicy = Object.freeze({
   maxRequests: 1000,
 });
 
+/**
+ * El archivo de constituyentes son dos requests por corrida y un snapshot por
+ * día (`docs/data/provider-use-matrix.md`). El techo del proceso deja lugar a un
+ * redirect sin habilitar un bucle.
+ */
+export const DATAHUB_REQUEST_PACING: RequestPacingPolicy = Object.freeze({
+  minIntervalMs: 1000,
+  maxRequests: 4,
+});
+
 export class RequestBudgetExhaustedError extends Error {
   readonly sourceId: string;
   readonly maxRequests: number;

@@ -632,6 +632,96 @@ export const ingestionJobEvents = pgTable(
   ],
 );
 
+export const ingestionSourceStatus = pgEnum("ingestion_source_status", [
+  "enabled",
+  "disabled",
+]);
+
+/**
+ * Consumo diario de cada fuente (ADR 0020). Una fila por fuente y día UTC, y el
+ * contador se gasta al intentar.
+ *
+ * Es lo que hace que el tope sea de la **fuente** y no del proceso: el
+ * presupuesto por corrida se repone con cada comando, y éste no. El incremento
+ * se hace condicionado al tope en una sola sentencia, así que dos procesos
+ * concurrentes no pueden pasarse: PostgreSQL serializa el upsert sobre la misma
+ * clave y el que llega tarde no recibe fila.
+ */
+export const ingestionSourceBudgets = pgTable(
+  "ingestion_source_budgets",
+  {
+    sourceId: varchar("source_id", { length: 64 }).notNull(),
+    usageOn: date("usage_on", { mode: "string" }).notNull(),
+    requests: integer("requests").notNull(),
+    firstRequestAt: instant("first_request_at").notNull(),
+    lastRequestAt: instant("last_request_at").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.sourceId, table.usageOn],
+      name: "ingestion_source_budgets_pkey",
+    }),
+    check(
+      "ingestion_source_budgets_requests_check",
+      sql`${table.requests} >= 0`,
+    ),
+    check(
+      "ingestion_source_budgets_timeline_check",
+      sql`${table.lastRequestAt} >= ${table.firstRequestAt}`,
+    ),
+  ],
+);
+
+/**
+ * Estado operativo de una fuente: el kill switch y, si el owner lo bajó, el tope
+ * del día (ADR 0020).
+ *
+ * Append-only con `superseded_at`, como las versiones del grafo: la fila abierta
+ * es el estado vigente y las cerradas son la historia de quién cambió qué y por
+ * qué (`TM-16`). No es una columna de `source_registry` porque esa tabla es un
+ * documento declarado que `syncDeclaredSourceRegistry` reescribe desde el
+ * código: una decisión operativa ahí duraría hasta el próximo comando.
+ *
+ * El tope guardado sólo puede **bajar** el declarado; subir la cuota de una
+ * fuente es un diff revisable, y el dominio lo resuelve con un mínimo.
+ */
+export const ingestionSourceControls = pgTable(
+  "ingestion_source_controls",
+  {
+    controlId: uuid("control_id").primaryKey(),
+    sourceId: varchar("source_id", { length: 64 }).notNull(),
+    status: ingestionSourceStatus("status").notNull(),
+    dailyRequestLimit: integer("daily_request_limit"),
+    reason: varchar("reason", { length: 240 }).notNull(),
+    actor: varchar("actor", { length: 128 }).notNull(),
+    recordedAt: instant("recorded_at").notNull(),
+    supersededAt: instant("superseded_at"),
+  },
+  (table) => [
+    // A lo sumo un control vigente por fuente: dos serían dos respuestas
+    // simultáneas a «¿se puede hablar con esta fuente?».
+    uniqueIndex("ingestion_source_controls_current_uidx")
+      .on(table.sourceId)
+      .where(sql`${table.supersededAt} is null`),
+    index("ingestion_source_controls_source_idx").on(
+      table.sourceId,
+      table.recordedAt,
+    ),
+    check(
+      "ingestion_source_controls_limit_check",
+      sql`${table.dailyRequestLimit} is null or ${table.dailyRequestLimit} >= 0`,
+    ),
+    check(
+      "ingestion_source_controls_timeline_check",
+      sql`${table.supersededAt} is null or ${table.supersededAt} >= ${table.recordedAt}`,
+    ),
+    check(
+      "ingestion_source_controls_actor_check",
+      sql`${table.actor} ~ '^[A-Za-z0-9._:@/-]{1,128}$'`,
+    ),
+  ],
+);
+
 export const observationSubjectType = pgEnum("observation_subject_type", [
   "legal_entity",
   "security",

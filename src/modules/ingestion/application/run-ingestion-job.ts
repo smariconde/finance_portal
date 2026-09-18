@@ -49,6 +49,10 @@ export type IngestionJobStopReason =
   | "attempt_limit"
   /** El presupuesto de la corrida no alcanza para el peor caso de un item. */
   | "budget_reserve"
+  /** El owner frenó la fuente con el kill switch (ADR 0020). */
+  | "source_disabled"
+  /** La cuota del día de la fuente está gastada (ADR 0020). */
+  | "daily_budget_exhausted"
   /** El item del cursor espera un backoff más largo que el tolerable. */
   | "item_backoff"
   /**
@@ -58,6 +62,21 @@ export type IngestionJobStopReason =
   | "source_signal"
   /** El proceso pidió parar: termina el item en curso y suelta el lease. */
   | "interrupted";
+
+/**
+ * Si el próximo item puede empezar. Reúne en una sola decisión el presupuesto de
+ * la corrida y los dos controles por fuente, para que el worker tenga un único
+ * punto donde preguntar y cada negativa llegue con su nombre.
+ */
+export type IngestionJobAdmission =
+  | { readonly status: "ready" }
+  | { readonly status: "budget_reserve" }
+  | { readonly status: "source_disabled"; readonly reason: string }
+  | {
+      readonly status: "daily_budget_exhausted";
+      /** Cuándo se repone el contador de la fuente. */
+      readonly resumesAt: string;
+    };
 
 export type IngestionJobAttemptReport = {
   readonly ordinal: number;
@@ -79,6 +98,8 @@ export type RunIngestionJobResult = {
   readonly attempts: readonly IngestionJobAttemptReport[];
   /** Hasta cuándo espera el job o su item, si la corrida paró por eso. */
   readonly waitUntil: string | null;
+  /** Motivo de la negativa de admisión, si la corrida paró por una. */
+  readonly admissionReason: string | null;
   readonly heartbeatFailures: number;
 };
 
@@ -108,8 +129,13 @@ export type RunIngestionJobDependencies = {
     beat: () => Promise<void>,
     intervalMs: number,
   ) => () => void;
-  /** `false` cuando el presupuesto de la corrida no cubre el próximo item. */
-  readonly canStartItem?: () => boolean;
+  /**
+   * Si el próximo item puede empezar. Se consulta **antes** de contar el intento,
+   * así que una negativa no gasta intentos ni envenena sujetos sanos: una fuente
+   * frenada o sin cuota no es un problema del sujeto.
+   */
+  readonly admitItem?: () =>
+    IngestionJobAdmission | Promise<IngestionJobAdmission>;
   /** `true` cuando el proceso pidió parar (una señal del sistema, por ejemplo). */
   readonly shouldStop?: () => boolean;
   readonly onAttempt?: (report: IngestionJobAttemptReport) => void;
@@ -178,6 +204,7 @@ export async function runIngestionJob(
       busyLease: acquisition.status === "busy" ? acquisition.lease : null,
       attempts: [],
       waitUntil: job.notBefore,
+      admissionReason: null,
       heartbeatFailures: 0,
     };
   }
@@ -220,6 +247,7 @@ export async function runIngestionJob(
   let consecutiveSignals = 0;
   let stopReason: IngestionJobStopReason;
   let waitUntil: string | null = null;
+  let admissionReason: string | null = null;
 
   try {
     for (;;) {
@@ -267,9 +295,22 @@ export async function runIngestionJob(
         break;
       }
 
-      if (dependencies.canStartItem && !dependencies.canStartItem()) {
-        stopReason = "budget_reserve";
-        break;
+      if (dependencies.admitItem) {
+        const admission = await dependencies.admitItem();
+
+        if (admission.status !== "ready") {
+          stopReason = admission.status;
+
+          if (admission.status === "daily_budget_exhausted") {
+            waitUntil = admission.resumesAt;
+          }
+
+          if (admission.status === "source_disabled") {
+            admissionReason = admission.reason;
+          }
+
+          break;
+        }
       }
 
       const item = next.item;
@@ -385,6 +426,7 @@ export async function runIngestionJob(
     busyLease: null,
     attempts,
     waitUntil,
+    admissionReason,
     heartbeatFailures,
   };
 }

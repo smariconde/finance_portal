@@ -7,7 +7,7 @@ import {
   assertCompanyFactsJob,
   buildCompanyFactsJobPlan,
   createCompanyFactsJobExecutor,
-  hasBudgetForCompanyFactsLoad,
+  createCompanyFactsAdmission,
   observeSourceSignals,
 } from "@/modules/fundamentals/application/company-facts-backfill";
 import { ingestCompanyFacts } from "@/modules/fundamentals/application/ingest-company-facts";
@@ -21,7 +21,6 @@ import { createGraphIdentityResolver } from "@/modules/identity/application/iden
 import {
   createPacedEgressFetch,
   SEC_REQUEST_PACING,
-  type EgressFetch,
 } from "@/modules/ingestion/application/egress-fetch";
 import { runIngestionJob } from "@/modules/ingestion/application/run-ingestion-job";
 import { syncDeclaredSourceRegistry } from "@/modules/ingestion/application/sync-source-registry";
@@ -29,7 +28,8 @@ import { INGESTION_JOB_POLICY } from "@/modules/ingestion/domain/ingestion-job";
 import { DEMO_SOURCE_REGISTRY } from "@/modules/ingestion/infrastructure/demo-source-registry";
 import { pointInTimeQuerySchema } from "@/modules/temporal/domain/point-in-time-query";
 import { SP500_INDEX_ID } from "@/modules/universe/application/live-universe-source";
-import { getEgressClient } from "@/server/egress/get-egress-client";
+import { getMeteredEgressFetch } from "@/server/egress/get-source-egress-fetch";
+import { getSourceBudgetStore } from "@/server/persistence/get-source-budget-store";
 import { getCorporateActionRepository } from "@/server/persistence/get-corporate-action-repository";
 import { getIngestionJobStore } from "@/server/persistence/get-ingestion-job-store";
 import { getIngestionRunRepository } from "@/server/persistence/get-ingestion-run-repository";
@@ -239,19 +239,10 @@ if (attemptLimit !== undefined && !(attemptLimit > 0)) {
 const registry = getSourceRegistryRepository();
 await syncDeclaredSourceRegistry(DEMO_SOURCE_REGISTRY, registry);
 
-const egress = getEgressClient();
 // Debajo del espaciador: lo que ve el observador es la fuente, no el presupuesto.
-const signals = observeSourceSignals((async (request) => {
-  const response = await egress(request);
-
-  return {
-    status: response.status,
-    body: response.body,
-    byteLength: response.byteLength,
-    fetchedAt: response.fetchedAt,
-    retryAfter: response.retryAfter,
-  };
-}) satisfies EgressFetch);
+// El observador va entre el ritmo y el contador: una negativa del presupuesto
+// diario no es una señal de la SEC (ADR 0020).
+const signals = observeSourceSignals(getMeteredEgressFetch());
 const paced = createPacedEgressFetch(signals.fetch, SEC_REQUEST_PACING, {
   elapsedMs: () => performance.now(),
   sleep: (ms) => sleep(ms),
@@ -306,7 +297,12 @@ const result = await runIngestionJob(
       timer.unref();
       return () => clearInterval(timer);
     },
-    canStartItem: () => hasBudgetForCompanyFactsLoad(paced, SEC_REQUEST_PACING),
+    admitItem: createCompanyFactsAdmission({
+      fetch: paced,
+      pacing: SEC_REQUEST_PACING,
+      budgets: getSourceBudgetStore(),
+      now: () => new Date().toISOString(),
+    }),
     shouldStop: () => interrupted,
     onAttempt: (attempt) => {
       const now = performance.now();
