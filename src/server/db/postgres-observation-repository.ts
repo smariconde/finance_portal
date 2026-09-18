@@ -3,6 +3,7 @@ import "server-only";
 import {
   and,
   asc,
+  desc,
   eq,
   getTableColumns,
   inArray,
@@ -15,6 +16,7 @@ import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import {
   MAX_REVISION_GROUPS_PER_LOOKUP,
   observationListQuerySchema,
+  observationPruneRequestSchema,
   observationSupersessionSchema,
   revisionGroupIdSchema,
   type ObservationPublication,
@@ -26,6 +28,13 @@ import {
   withIngestionFlags,
   type Observation,
 } from "@/modules/observations/domain/observation";
+import {
+  observationPruneCountsSchema,
+  observationPrunePlanSchema,
+  observationPruneSchema,
+  type ObservationPrune,
+  type ObservationPrunePlan,
+} from "@/modules/observations/domain/observation-prune";
 
 import * as schema from "./schema";
 
@@ -67,6 +76,74 @@ const observationWithProvenance = {
 
 /** La métrica de una fila con `metric_id` nulo es su concepto. */
 const metricOf: SQL<string> = sql`coalesce(${schema.observations.metricId}, ${schema.observations.concept})`;
+
+/**
+ * Filas que un plan de poda alcanza. La fuente y el dataset no están en la fila
+ * (ADR 0018): se filtran por la corrida que la publicó, que es la única forma de
+ * preguntar por procedencia desde la `0012`.
+ */
+function pruneScope(
+  executor: Database,
+  plan: ObservationPrunePlan,
+): SQL | undefined {
+  return and(
+    eq(schema.observations.subjectType, plan.subjectType),
+    eq(schema.observations.subjectId, plan.subjectId),
+    inArray(
+      schema.observations.ingestionRunId,
+      executor
+        .select({ runId: schema.ingestionRuns.runId })
+        .from(schema.ingestionRuns)
+        .where(
+          and(
+            eq(schema.ingestionRuns.sourceId, plan.sourceId),
+            eq(schema.ingestionRuns.datasetId, plan.datasetId),
+          ),
+        ),
+    ),
+  );
+}
+
+/**
+ * Corte de la poda, estricto: la fila se borra si su fin de período es anterior
+ * al corte que le toca. Los conceptos de evidencia usan el suyo, más viejo.
+ */
+function prunedBy(plan: ObservationPrunePlan): SQL {
+  const cut =
+    plan.evidenceConcepts.length === 0
+      ? sql`${plan.periodsEndingBefore}::date`
+      : sql`case when ${inArray(schema.observations.concept, [...plan.evidenceConcepts])}
+          then ${plan.evidencePeriodsEndingBefore}::date
+          else ${plan.periodsEndingBefore}::date end`;
+
+  return sql`${schema.observations.asOf} < ${cut}`;
+}
+
+function toDomainPrune(
+  row: typeof schema.observationPrunes.$inferSelect,
+): ObservationPrune {
+  return observationPruneSchema.parse({
+    pruneId: row.pruneId,
+    ruleVersion: row.ruleVersion,
+    sourceId: row.sourceId,
+    datasetId: row.datasetId,
+    subjectType: row.subjectType,
+    subjectId: row.subjectId,
+    selectionVersion: row.selectionVersion,
+    selectionAnchorOn: row.selectionAnchorOn,
+    anchorRunId: row.anchorRunId,
+    periodsEndingBefore: row.periodsEndingBefore,
+    evidencePeriodsEndingBefore: row.evidencePeriodsEndingBefore,
+    evidenceConcepts: row.evidenceConcepts,
+    deletedCount: row.deletedCount,
+    keptCount: row.keptCount,
+    deletedMinAsOf: row.deletedMinAsOf,
+    deletedMaxAsOf: row.deletedMaxAsOf,
+    actor: row.actor,
+    reason: row.reason,
+    executedAt: row.executedAt.toISOString(),
+  });
+}
 
 function toDomainObservation(
   row: ObservationRow,
@@ -329,6 +406,89 @@ export function createPostgresObservationRepository(
 
         return inserted;
       });
+    },
+    async countPruneTargets(plan) {
+      const parsedPlan = observationPrunePlanSchema.parse(plan);
+      const [row] = await database
+        .select({
+          deleted: sql<number>`count(*) filter (where ${prunedBy(parsedPlan)})::int`,
+          kept: sql<number>`count(*) filter (where not (${prunedBy(parsedPlan)}))::int`,
+          deletedMinAsOf: sql<
+            string | null
+          >`min(${schema.observations.asOf}) filter (where ${prunedBy(parsedPlan)})`,
+          deletedMaxAsOf: sql<
+            string | null
+          >`max(${schema.observations.asOf}) filter (where ${prunedBy(parsedPlan)})`,
+        })
+        .from(schema.observations)
+        .where(pruneScope(database, parsedPlan));
+
+      return observationPruneCountsSchema.parse({
+        deleted: row?.deleted ?? 0,
+        kept: row?.kept ?? 0,
+        deletedMinAsOf: row?.deletedMinAsOf ?? null,
+        deletedMaxAsOf: row?.deletedMaxAsOf ?? null,
+      });
+    },
+    async prune(request) {
+      const parsedRequest = observationPruneRequestSchema.parse(request);
+      const plan = parsedRequest.plan;
+
+      // El borrado y su registro son una sola operación: una poda sin auditoría
+      // dejaría la base afirmando que la fuente nunca reportó lo que se borró.
+      return database.transaction(async (transaction) => {
+        const deleted = await transaction
+          .delete(schema.observations)
+          .where(and(pruneScope(transaction, plan), prunedBy(plan)))
+          .returning({ asOf: schema.observations.asOf });
+
+        const [survivors] = await transaction
+          .select({ kept: sql<number>`count(*)::int` })
+          .from(schema.observations)
+          .where(pruneScope(transaction, plan));
+
+        const ends = deleted.map(({ asOf }) => asOf).sort();
+        const [row] = await transaction
+          .insert(schema.observationPrunes)
+          .values({
+            pruneId: parsedRequest.pruneId,
+            ruleVersion: parsedRequest.ruleVersion,
+            sourceId: plan.sourceId,
+            datasetId: plan.datasetId,
+            subjectType: plan.subjectType,
+            subjectId: plan.subjectId,
+            selectionVersion: parsedRequest.selectionVersion,
+            selectionAnchorOn: parsedRequest.selectionAnchorOn,
+            anchorRunId: parsedRequest.anchorRunId,
+            periodsEndingBefore: plan.periodsEndingBefore,
+            evidencePeriodsEndingBefore: plan.evidencePeriodsEndingBefore,
+            evidenceConcepts: [...plan.evidenceConcepts],
+            deletedCount: deleted.length,
+            keptCount: survivors?.kept ?? 0,
+            deletedMinAsOf: ends.at(0) ?? null,
+            deletedMaxAsOf: ends.at(-1) ?? null,
+            actor: parsedRequest.actor,
+            reason: parsedRequest.reason,
+            executedAt: new Date(parsedRequest.executedAt),
+          })
+          .returning();
+
+        return toDomainPrune(row!);
+      });
+    },
+    async listPrunes(subjectType, subjectId) {
+      const rows = await database
+        .select()
+        .from(schema.observationPrunes)
+        .where(
+          and(
+            eq(schema.observationPrunes.subjectType, subjectType),
+            eq(schema.observationPrunes.subjectId, subjectId),
+          ),
+        )
+        .orderBy(desc(schema.observationPrunes.executedAt));
+
+      return rows.map(toDomainPrune);
     },
   };
 }

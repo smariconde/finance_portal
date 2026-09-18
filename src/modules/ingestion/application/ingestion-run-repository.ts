@@ -34,6 +34,17 @@ export interface IngestionRunRepository {
     sourceId: string,
     datasetId: string,
   ): Promise<IngestionRun | null>;
+  /**
+   * Última corrida de ese sujeto que registró un ancla de selección. Es lo que
+   * dice hasta dónde fue a buscar la ingesta más reciente, y por eso lo único
+   * que puede definir el corte de una poda (ADR 0019). Una corrida sin ancla no
+   * llegó a leer los hechos y no describe ninguna ventana.
+   */
+  findLatestAnchored(
+    sourceId: string,
+    datasetId: string,
+    subjectKey: string,
+  ): Promise<IngestionRun | null>;
   list(query: IngestionRunListQuery): Promise<IngestionRun[]>;
   /** Append-only: una corrida ya registrada no se reescribe. */
   append(run: IngestionRun): Promise<IngestionRun>;

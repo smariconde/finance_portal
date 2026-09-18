@@ -148,3 +148,11 @@ export function isSplitEvidenceConcept(
 ): boolean {
   return SPLIT_EVIDENCE.has(`${taxonomy}:${concept}`);
 }
+
+/**
+ * Los conceptos de evidencia, calificados y en orden estable. La poda los guarda
+ * en su registro, así que el orden no puede depender del recorrido de un `Set`.
+ */
+export function listSplitEvidenceConcepts(): readonly string[] {
+  return [...SPLIT_EVIDENCE].sort();
+}

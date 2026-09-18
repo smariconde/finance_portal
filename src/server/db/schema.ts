@@ -783,6 +783,95 @@ export const observations = pgTable(
 );
 
 /**
+ * Podas de historia publicada (ADR 0019).
+ *
+ * Append-only y sin foreign key a las observaciones que borró, por definición:
+ * describe filas que ya no existen. Es la contracara de
+ * `ingestion_runs.selection_anchor_on`: la corrida dice hasta dónde fue a
+ * buscar, la poda hasta dónde quedó lo que trajo, y para un sujeto podado la
+ * segunda es la respuesta a «¿por qué falta este período?» (`TM-16`).
+ *
+ * Los checks sostienen que el registro se pueda leer sin el código que lo
+ * escribió: nada posterior al corte se borró, el corte no es más nuevo que su
+ * ancla y el de evidencia nunca es más nuevo que el general.
+ */
+export const observationPrunes = pgTable(
+  "observation_prunes",
+  {
+    pruneId: uuid("prune_id").primaryKey(),
+    ruleVersion: varchar("rule_version", { length: 64 }).notNull(),
+    sourceId: varchar("source_id", { length: 64 }).notNull(),
+    datasetId: varchar("dataset_id", { length: 128 }).notNull(),
+    subjectType: observationSubjectType("subject_type").notNull(),
+    subjectId: uuid("subject_id").notNull(),
+    selectionVersion: varchar("selection_version", { length: 64 }).notNull(),
+    selectionAnchorOn: date("selection_anchor_on", {
+      mode: "string",
+    }).notNull(),
+    anchorRunId: uuid("anchor_run_id")
+      .notNull()
+      .references(() => ingestionRuns.runId),
+    periodsEndingBefore: date("periods_ending_before", {
+      mode: "string",
+    }).notNull(),
+    evidencePeriodsEndingBefore: date("evidence_periods_ending_before", {
+      mode: "string",
+    }).notNull(),
+    // La lista completa, para que el registro no dependa de leer el código de
+    // la versión de la regla dentro de cinco años.
+    evidenceConcepts: jsonb("evidence_concepts")
+      .$type<string[]>()
+      .notNull()
+      .default(emptyJsonArray),
+    deletedCount: integer("deleted_count").notNull(),
+    keptCount: integer("kept_count").notNull(),
+    deletedMinAsOf: date("deleted_min_as_of", { mode: "string" }),
+    deletedMaxAsOf: date("deleted_max_as_of", { mode: "string" }),
+    actor: varchar("actor", { length: 128 }).notNull(),
+    reason: varchar("reason", { length: 240 }).notNull(),
+    executedAt: timestamp("executed_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+  },
+  (table) => [
+    index("observation_prunes_subject_idx").on(
+      table.subjectType,
+      table.subjectId,
+      table.executedAt,
+    ),
+    check(
+      "observation_prunes_counts_check",
+      sql`${table.deletedCount} >= 0 and ${table.keptCount} >= 0`,
+    ),
+    check(
+      "observation_prunes_deleted_range_check",
+      sql`(${table.deletedCount} = 0) = (${table.deletedMinAsOf} is null)
+        and (${table.deletedCount} = 0) = (${table.deletedMaxAsOf} is null)
+        and (${table.deletedMinAsOf} is null or ${table.deletedMinAsOf} <= ${table.deletedMaxAsOf})`,
+    ),
+    check(
+      "observation_prunes_cuts_check",
+      sql`${table.evidencePeriodsEndingBefore} <= ${table.periodsEndingBefore}
+        and ${table.periodsEndingBefore} <= ${table.selectionAnchorOn}`,
+    ),
+    // Nada que la ventana conserva pudo haberse borrado.
+    check(
+      "observation_prunes_within_cut_check",
+      sql`${table.deletedMaxAsOf} is null or ${table.deletedMaxAsOf} < ${table.periodsEndingBefore}`,
+    ),
+    check(
+      "observation_prunes_evidence_concepts_check",
+      sql`jsonb_typeof(${table.evidenceConcepts}) = 'array'`,
+    ),
+    check(
+      "observation_prunes_actor_check",
+      sql`${table.actor} ~ '^[A-Za-z0-9._:@/-]{1,128}$'`,
+    ),
+  ],
+);
+
+/**
  * Documentos de fuente: el evento inmutable que publicó observaciones. Para la
  * SEC, una presentación con su accession, formulario, fecha de filing, instante
  * de aceptación y foco fiscal (`docs/data/point-in-time-contract.md`, "Eventos").

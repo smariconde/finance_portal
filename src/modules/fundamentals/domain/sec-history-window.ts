@@ -148,10 +148,18 @@ export function resolveSecHistoryAnchor(facts: readonly SecReportedFact[]): {
     : { anchorOn: latest, anchorBasis: "latest_period" };
 }
 
-export function buildSecHistoryWindow(
-  anchorOn: string,
-  anchorBasis: SecHistoryAnchorBasis,
-): SecHistoryWindow {
+export type SecHistoryCuts = Pick<
+  SecHistoryWindow,
+  "periodsEndingFrom" | "evidencePeriodsEndingFrom"
+>;
+
+/**
+ * Los dos cortes que un ancla define. Es la única aritmética de la ventana: la
+ * ingesta la usa para no traer lo que queda afuera y la poda (ADR 0019) para
+ * borrar lo que quedó de una ingesta anterior. Dos implementaciones podrían
+ * discrepar en el borde, y ahí es donde la ventana decide un ejercicio entero.
+ */
+export function secHistoryCutsFrom(anchorOn: string): SecHistoryCuts {
   const from = (years: number) =>
     subtractDays(
       subtractCalendarYears(anchorOn, years),
@@ -159,13 +167,22 @@ export function buildSecHistoryWindow(
     );
 
   return {
-    version: SEC_HISTORY_WINDOW_VERSION,
-    anchorOn,
-    anchorBasis,
     periodsEndingFrom: from(HISTORY_FISCAL_YEARS),
     evidencePeriodsEndingFrom: from(
       HISTORY_FISCAL_YEARS + SPLIT_EVIDENCE_EXTRA_FISCAL_YEARS,
     ),
+  };
+}
+
+export function buildSecHistoryWindow(
+  anchorOn: string,
+  anchorBasis: SecHistoryAnchorBasis,
+): SecHistoryWindow {
+  return {
+    version: SEC_HISTORY_WINDOW_VERSION,
+    anchorOn,
+    anchorBasis,
+    ...secHistoryCutsFrom(anchorOn),
   };
 }
 

@@ -1,10 +1,20 @@
 import {
   MAX_REVISION_GROUPS_PER_LOOKUP,
   observationListQuerySchema,
+  observationPruneRequestSchema,
   type ObservationPublication,
   type ObservationRepository,
 } from "../application/observation-repository";
 import { observationSchema, type Observation } from "../domain/observation";
+import {
+  isPruned,
+  observationPruneCountsSchema,
+  observationPrunePlanSchema,
+  observationPruneSchema,
+  type ObservationPrune,
+  type ObservationPruneCounts,
+  type ObservationPrunePlan,
+} from "../domain/observation-prune";
 
 export class DuplicateRevisionError extends Error {
   constructor(revisionGroupId: string, revisionNumber: number) {
@@ -22,6 +32,20 @@ export class ConcurrentRevisionError extends Error {
   }
 }
 
+function countsOf(
+  deleted: readonly Observation[],
+  kept: readonly Observation[],
+): ObservationPruneCounts {
+  const ends = deleted.map((observation) => observation.asOf).sort();
+
+  return observationPruneCountsSchema.parse({
+    deleted: deleted.length,
+    kept: kept.length,
+    deletedMinAsOf: ends.at(0) ?? null,
+    deletedMaxAsOf: ends.at(-1) ?? null,
+  });
+}
+
 /**
  * Almacén en memoria del modo demo: la demo no abre PostgreSQL, así que sus
  * observaciones viven en el proceso. Mantiene las mismas invariantes que el
@@ -35,6 +59,31 @@ export function createInMemoryObservationRepository(
   const stored: Observation[] = seed.map((observation) =>
     observationSchema.parse(observation),
   );
+  const prunes: ObservationPrune[] = [];
+
+  /** Las filas del sujeto que ese plan alcanza, borradas o conservadas. */
+  function partition(plan: ObservationPrunePlan): {
+    deleted: Observation[];
+    kept: Observation[];
+  } {
+    const deleted: Observation[] = [];
+    const kept: Observation[] = [];
+
+    for (const observation of stored) {
+      if (
+        observation.sourceId !== plan.sourceId ||
+        observation.datasetId !== plan.datasetId ||
+        observation.subjectType !== plan.subjectType ||
+        observation.subjectId !== plan.subjectId
+      ) {
+        continue;
+      }
+
+      (isPruned(plan, observation) ? deleted : kept).push(observation);
+    }
+
+    return { deleted, kept };
+  }
 
   function groupOf(revisionGroupId: string): Observation[] {
     return stored
@@ -143,6 +192,62 @@ export function createInMemoryObservationRepository(
       stored.push(...merged);
 
       return incoming;
+    },
+    async countPruneTargets(plan) {
+      const { deleted, kept } = partition(
+        observationPrunePlanSchema.parse(plan),
+      );
+
+      return countsOf(deleted, kept);
+    },
+    async prune(request) {
+      const parsedRequest = observationPruneRequestSchema.parse(request);
+      const { deleted, kept } = partition(parsedRequest.plan);
+      const counts = countsOf(deleted, kept);
+      const doomed = new Set(
+        deleted.map((observation) => observation.observationId),
+      );
+
+      const record = observationPruneSchema.parse({
+        pruneId: parsedRequest.pruneId,
+        ruleVersion: parsedRequest.ruleVersion,
+        sourceId: parsedRequest.plan.sourceId,
+        datasetId: parsedRequest.plan.datasetId,
+        subjectType: parsedRequest.plan.subjectType,
+        subjectId: parsedRequest.plan.subjectId,
+        selectionVersion: parsedRequest.selectionVersion,
+        selectionAnchorOn: parsedRequest.selectionAnchorOn,
+        anchorRunId: parsedRequest.anchorRunId,
+        periodsEndingBefore: parsedRequest.plan.periodsEndingBefore,
+        evidencePeriodsEndingBefore:
+          parsedRequest.plan.evidencePeriodsEndingBefore,
+        evidenceConcepts: parsedRequest.plan.evidenceConcepts,
+        deletedCount: counts.deleted,
+        keptCount: counts.kept,
+        deletedMinAsOf: counts.deletedMinAsOf,
+        deletedMaxAsOf: counts.deletedMaxAsOf,
+        actor: parsedRequest.actor,
+        reason: parsedRequest.reason,
+        executedAt: parsedRequest.executedAt,
+      });
+
+      const survivors = stored.filter(
+        (observation) => !doomed.has(observation.observationId),
+      );
+
+      stored.length = 0;
+      stored.push(...survivors);
+      prunes.push(record);
+
+      return record;
+    },
+    async listPrunes(subjectType, subjectId) {
+      return prunes
+        .filter(
+          (prune) =>
+            prune.subjectType === subjectType && prune.subjectId === subjectId,
+        )
+        .sort((left, right) => right.executedAt.localeCompare(left.executedAt));
     },
   };
 }

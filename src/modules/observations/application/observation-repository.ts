@@ -8,6 +8,12 @@ import {
   observationSubjectTypeSchema,
   type Observation,
 } from "../domain/observation";
+import {
+  observationPrunePlanSchema,
+  type ObservationPrune,
+  type ObservationPruneCounts,
+  type ObservationPrunePlan,
+} from "../domain/observation-prune";
 
 /**
  * Lectura acotada: el repositorio devuelve todas las revisiones del sujeto y la
@@ -52,6 +58,31 @@ export type ObservationPublication = {
  */
 export const MAX_REVISION_GROUPS_PER_LOOKUP = 1000;
 
+/**
+ * Poda con su auditoría (ADR 0019). El borrado y la fila que lo explica entran
+ * en la misma transacción: un borrado sin registro dejaría la base afirmando que
+ * el filer no reportó lo que en realidad se borró.
+ *
+ * Los conteos no se pasan: el repositorio los mide dentro de la transacción y
+ * los devuelve en el registro, para que la auditoría diga lo que efectivamente
+ * pasó y no lo que el llamador creyó que iba a pasar.
+ */
+export const observationPruneRequestSchema = z.object({
+  pruneId: z.uuid(),
+  ruleVersion: z.string().trim().min(1).max(64),
+  plan: observationPrunePlanSchema,
+  selectionVersion: z.string().trim().min(1).max(64),
+  selectionAnchorOn: z.iso.date(),
+  anchorRunId: z.uuid(),
+  actor: z.string().trim().min(1).max(128),
+  reason: z.string().trim().min(1).max(240),
+  executedAt: z.iso.datetime({ offset: true }),
+});
+
+export type ObservationPruneRequest = z.infer<
+  typeof observationPruneRequestSchema
+>;
+
 export interface ObservationRepository {
   readonly storage: "in-memory-fixture" | "personal-postgres";
   findLatestRevision(revisionGroupId: string): Promise<Observation | null>;
@@ -67,6 +98,17 @@ export interface ObservationRepository {
   listByRevisionGroup(revisionGroupId: string): Promise<Observation[]>;
   list(query: ObservationListQuery): Promise<Observation[]>;
   publish(publication: ObservationPublication): Promise<Observation[]>;
+  /** Cuántas filas borraría el plan, sin borrar ninguna: la corrida en seco. */
+  countPruneTargets(
+    plan: ObservationPrunePlan,
+  ): Promise<ObservationPruneCounts>;
+  /** Borra y registra en una sola transacción. */
+  prune(request: ObservationPruneRequest): Promise<ObservationPrune>;
+  /** Podas registradas de un sujeto, de la más reciente a la más vieja. */
+  listPrunes(
+    subjectType: Observation["subjectType"],
+    subjectId: string,
+  ): Promise<ObservationPrune[]>;
 }
 
 export const revisionGroupIdSchema = contentHashSchema;
