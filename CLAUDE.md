@@ -8,7 +8,7 @@ Portal Financiero: a single-owner Next.js 16 portal for researching global compa
 
 The code is public; the data is not. The app is **personal-first**: it serves real data only from a private runtime, and there is no public demo deployment. See [ADR 0004](docs/architecture/adr/0004-personal-first-runtime.md).
 
-The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations kept to a five-fiscal-year window, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, per-source daily request budgets with an owner kill switch, a hand-run refresh that probes `submissions` and re-downloads only the filers that filed something relevant, and a deterministic FCFF engine with its reference run exist. Scheduled refresh, market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads real observations yet; nothing may be presented in the UI as if it were.
+The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations kept to a five-fiscal-year window, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, per-source daily request budgets with an owner kill switch, a hand-run refresh that probes `submissions` and re-downloads only the filers that filed something relevant, a deterministic FCFF engine with its reference run, and a frozen corpus of real SEC extracts as regression oracle exist. Scheduled refresh, market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads real observations yet; nothing may be presented in the UI as if it were.
 
 `AGENTS.md` holds the full contributor contract and takes precedence over this file where they overlap.
 
@@ -273,6 +273,36 @@ recorded `duplicate`. The full round is a durable job of its own kind
 ADR 0020 admission, reserving 67 requests per item. Measured on the six: 20 requests
 the first round, 6 the second. The refresh never deletes — a new fiscal year moves
 the window anchor and `fundamentals:prune` is still what takes the old one out.
+
+```bash
+pnpm fixtures:capture                    # the followed set and what it would weigh, writes nothing
+pnpm fixtures:capture --cik 320193       # one filer
+pnpm fixtures:capture --apply            # downloads and freezes the corpus
+```
+
+Also hand-run, and rarely. The **frozen corpus** is the second regression oracle
+next to the synthetic filer: the filer proves the parser does what we think, the
+corpus proves the cable is what we think, with numbers that reconcile against the
+filing ([ADR 0023](docs/architecture/adr/0023-frozen-sec-extracts-rights.md),
+[runbook](docs/runbooks/golden-corpus.md)). Two requests per filer; the corpus
+itself never goes back to the network and no test downloads anything.
+
+Freezing real SEC extracts in a public repository is a rights decision, not a
+technical one: sec.gov content is public information the SEC lets anyone copy and
+redistribute with citation, so `sec-edgar` now declares `rawStorage`,
+`publicDisplay` and `export` as `allowed` — `aiTransfer` stays `unknown` because
+the receiver decides that one, and the row stays `approved_personal`, so a public
+surface still needs `approved_public_demo`. A corpus is not a recording: it is a
+chosen extract, reduced by a declared reducer version, carrying a manifest, from a
+source whose rights are `allowed`. All four hold together or it stays out.
+
+The reducer (`sec-corpus-reducer-1.0.0`) is deliberately **coarser** than what the
+corpus tests — eight fiscal years against the window's six, plus a declared sample
+of unselected concepts and the first concept of every unknown taxonomy — because a
+file trimmed by the selection would make the selection's own test a tautology.
+Rewriting the JSON preserves every number's source text: a `val` that round-trips
+through a `double` is an invented value. Files are pinned by `sha256` in
+`manifest.json`, Prettier ignores the directory, and a test recomputes the hashes.
 
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 

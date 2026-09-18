@@ -24,23 +24,23 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 
 ## Tracker activo
 
-| Orden | Issue      | Estado        | Resultado verificable                                                                                                | Dependencias  |
-| ----: | ---------- | ------------- | -------------------------------------------------------------------------------------------------------------------- | ------------- |
-|     1 | `F1-01`    | `done`        | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos.         | Fase 0 `done` |
-|     2 | `F1-02`    | `done`        | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.              | `F1-01`       |
-|     3 | `F1-UI-01` | `done`        | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.                       | `F1-02`       |
-|     4 | `F1-03`    | `done`        | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.                       | `F1-UI-01`    |
-|     5 | `F1-04`    | `done`        | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.                  | `F1-03`       |
-|     6 | `F1-05`    | `done`        | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                              | `F1-04`       |
-|     7 | `F1-06`    | `done`        | Superficie de resultado y trazabilidad con fuentes, freshness, supuestos y sensibilidad accesibles.                  | `F1-05`       |
-|     8 | `F1-07`    | `done`        | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                                   | `F1-06`       |
-|     9 | `F1-08`    | `deferred`    | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.                       | `F1-07`       |
-|    10 | `F2-01`    | `done`        | Acceso personal remoto habilitado en produccion, con los tests de frontera invertidos a proposito.                   | ADR 0008      |
-|    11 | `F2-02`    | `done`        | Universo S&P 500 con identidad completa: issuer, security, listing, simbolo vigente y CIK.                           | `F2-01`       |
-|    12 | `F2-03`    | `done`        | SEC EDGAR integrada: companyfacts publicado como observaciones point-in-time, con aceptación, vintages y cuarentena. | `F2-02`       |
-|    13 | `F2-04`    | `done`        | Corporate actions con vigencia: splits, cambios de símbolo, sucesiones de CIK, delistings y fusiones.                | `F2-03`       |
-|    14 | `F2-05`    | `done`        | Backfill y refresh durable con presupuesto, cursor, lease y recuperación verificables.                               | `F2-04`       |
-|    15 | `F2-06`    | `in_progress` | Golden fixtures desde extractos reales congelados, en reemplazo de `FixtureCo` como oráculo de regresión.            | `F2-03`       |
+| Orden | Issue      | Estado     | Resultado verificable                                                                                                | Dependencias  |
+| ----: | ---------- | ---------- | -------------------------------------------------------------------------------------------------------------------- | ------------- |
+|     1 | `F1-01`    | `done`     | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos.         | Fase 0 `done` |
+|     2 | `F1-02`    | `done`     | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.              | `F1-01`       |
+|     3 | `F1-UI-01` | `done`     | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.                       | `F1-02`       |
+|     4 | `F1-03`    | `done`     | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.                       | `F1-UI-01`    |
+|     5 | `F1-04`    | `done`     | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.                  | `F1-03`       |
+|     6 | `F1-05`    | `done`     | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                              | `F1-04`       |
+|     7 | `F1-06`    | `done`     | Superficie de resultado y trazabilidad con fuentes, freshness, supuestos y sensibilidad accesibles.                  | `F1-05`       |
+|     8 | `F1-07`    | `done`     | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                                   | `F1-06`       |
+|     9 | `F1-08`    | `deferred` | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.                       | `F1-07`       |
+|    10 | `F2-01`    | `done`     | Acceso personal remoto habilitado en produccion, con los tests de frontera invertidos a proposito.                   | ADR 0008      |
+|    11 | `F2-02`    | `done`     | Universo S&P 500 con identidad completa: issuer, security, listing, simbolo vigente y CIK.                           | `F2-01`       |
+|    12 | `F2-03`    | `done`     | SEC EDGAR integrada: companyfacts publicado como observaciones point-in-time, con aceptación, vintages y cuarentena. | `F2-02`       |
+|    13 | `F2-04`    | `done`     | Corporate actions con vigencia: splits, cambios de símbolo, sucesiones de CIK, delistings y fusiones.                | `F2-03`       |
+|    14 | `F2-05`    | `done`     | Backfill y refresh durable con presupuesto, cursor, lease y recuperación verificables.                               | `F2-04`       |
+|    15 | `F2-06`    | `done`     | Golden fixtures desde extractos reales congelados, en reemplazo de `FixtureCo` como oráculo de regresión.            | `F2-03`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -2208,7 +2208,8 @@ splits, que sigue siendo `corporate-actions:splits` a mano.
 
 #### `F2-06` — Golden fixtures desde extractos reales congelados
 
-- Estado: `in_progress` (iniciado el 2026-09-18)
+- Estado: `done` (2026-09-18, iniciado el mismo día). Los tres incrementos
+  están entregados.
 - Fase y dependencia: Fase 2; `F2-03` cerrado. Se apoya además en la ventana de la
   [ADR 0017](../architecture/adr/0017-sec-history-window.md) y en el egress con
   presupuesto de la [ADR 0020](../architecture/adr/0020-source-daily-budget.md),
@@ -2282,6 +2283,48 @@ Criterios de aceptación del incremento 3:
 - `FixtureCo` queda con su rol acotado y documentado, no borrado;
 - la actualización del corpus es un diff revisable, nunca una resolución de
   «lo último» en runtime.
+
+Entregado (2026-09-18). Derechos en la
+[ADR 0023](../architecture/adr/0023-frozen-sec-extracts-rights.md) y operación en
+el [runbook](../runbooks/golden-corpus.md).
+
+- **Incremento 1**: la ADR cita la condición publicada por la SEC —información
+  pública, copiable y redistribuible con cita, sin el sello ni los logos—
+  consultada el 2026-09-18. `sec-edgar` pasa `rawStorage`, `publicDisplay` y
+  `export` a `allowed` con revisión nueva; `aiTransfer` sigue `unknown` porque no
+  lo decide la SEC sino el receptor. La fila sigue en `approved_personal`: mostrar
+  datos en una superficie anónima sigue exigiendo `approved_public_demo`. La
+  prohibición de commitear payloads se precisó en `AGENTS.md` y `CLAUDE.md` con
+  las cuatro propiedades que distinguen un corpus de un recording. Hallazgo: la
+  matriz de uso ya decía «copia y redistribución con cita»; la conclusión nunca
+  había bajado a la fila del registro, que es la que el gate lee.
+- **Incremento 2**: `pnpm fixtures:capture`, el reductor versionado
+  (`sec-corpus-reducer-1.0.0`), el manifiesto con URL, instante, bytes y `sha256`
+  —del archivo y del documento entero que no se conserva—, y
+  `parseJsonPreservingNumbers`/`stringifyJsonPreservingNumbers`, que reescriben el
+  JSON sin que ningún número pase por un `double`. El reductor es más grueso que
+  lo que el corpus prueba —ocho ejercicios contra seis, más una muestra declarada
+  de conceptos no seleccionados y el primer concepto de cada taxonomía
+  desconocida—, porque un archivo recortado con la selección volvería tautológico
+  el test de la selección. La lista de formularios de alto volumen es negra y no
+  blanca, y los nombres cortos se comparan exactos: `4` como prefijo se llevaba
+  puesto el `40-F`.
+- **Incremento 3**: `golden-sec-oracle.test.ts`, con los números commiteados y
+  reconciliados contra el filing —los US$ 391.035 millones del 10-K de Apple, el
+  ejercicio 2019 repetido por tres 10-K, el EPS de NVIDIA de 12,05 a 1,21 por el
+  10:1 y el de Alphabet de 113,88 a 5,69 por el 20:1—, más los dos casos en que la
+  aceptación y la fecha de presentación no coinciden, que es de lo que depende
+  `available_at`. `golden-sec-corpus.test.ts` verifica bytes y `sha256` de cada
+  archivo. El filer sintético queda con su rol acotado y escrito en su encabezado.
+
+Medido: 19,5 MB descargados quedan en 2,7 MB congelados (86 % de reducción), con
+un presupuesto declarado de 4 MB. 24 requests gastados en total, entre el ensayo
+en seco y la captura. 1.324 unit y 131 integration pasan.
+
+`F2-06` cierra, y con él el último casillero de la Fase 2. Límites: el corpus son
+seis filers y no los 30 arquetipos del gate de fase; la validación semántica XBRL
+de muestra (Arelle/DQC) sigue pendiente; y el corpus no alimenta ninguna
+superficie ni ninguna ingesta, sólo lo leen tests.
 
 | Issue   | Resultado y aceptación mínima                                                                                       | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |

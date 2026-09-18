@@ -1,11 +1,19 @@
 /**
  * Filer sintético con la forma del cable de la SEC.
  *
- * Ningún valor, fecha ni accession proviene de una descarga: el repositorio es
- * público y los extractos reales congelados son `F2-06`, con su propia revisión de
- * derechos. Lo que sí copia del cable real es la **forma** —columnas paralelas en
- * submissions, puntos agrupados por taxonomía, concepto y unidad en companyfacts—
- * y los casos que se observaron en él:
+ * Ningún valor, fecha ni accession proviene de una descarga. Desde `F2-06` hay un
+ * segundo oráculo, el corpus congelado de extractos reales
+ * ([`golden-sec-corpus.ts`](./golden-sec-corpus.ts)), y los dos se reparten el
+ * trabajo: **el corpus prueba que el cable sea como creemos**, con números que se
+ * reconcilian contra el filing; **este filer prueba que el parser haga lo que
+ * creemos**, y sigue siendo el único que puede, porque ejercita lo que el cable
+ * real no ofrece —un documento que no se entiende, una fuente caída, un lote
+ * vacío, un concepto fuera de la selección puesto a propósito— y porque un caso
+ * construido se puede mover para probar un borde sin volver a la red.
+ *
+ * Lo que copia del cable real es la **forma** —columnas paralelas en submissions,
+ * puntos agrupados por taxonomía, concepto y unidad en companyfacts— y los casos
+ * que se observaron en él:
  *
  * - un balance de cierre reportado primero como comparativo en un 10-Q, repetido
  *   en el 10-K y re-expresado después por una 10-K/A;
