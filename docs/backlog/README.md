@@ -1490,8 +1490,9 @@ El backfill durable sigue en `F2-05`.
 #### `F2-05` — Backfill y refresh durable
 
 - Estado: `in_progress` (iniciado el 2026-09-16). Los incrementos 1 y 2 están
-  entregados: jobs durables (2026-09-16), la ventana (paso 1) y las filas más
-  livianas (paso 2), ambos el 2026-09-17. Sigue el incremento 3.
+  entregados: jobs durables (2026-09-16), y la ventana (paso 1), las filas más
+  livianas (paso 2) y la poda (paso 3), los tres el 2026-09-17. Sigue el
+  incremento 3.
 - Fase y dependencia: Fase 2; `F2-04` cerrado.
 - Alcance, en cuatro incrementos que se cierran en este orden:
   1. **jobs durables** (entregado):
@@ -1709,7 +1710,8 @@ Alcance, en este orden:
      correr (`assertCompanyFactsJob`).
    - **Sin poda:** lo ya publicado no se borra (append-only). La ventana gobierna
      las ingestas nuevas; una poda de filas viejas sería otra decisión, con su
-     auditoría. La base personal hoy tiene 13 MB de observaciones.
+     auditoría. La base personal hoy tiene 13 MB de observaciones. _(El owner la
+     autorizó el 2026-09-17 y es el paso 3, abajo.)_
    - **Splits:** un split anterior a la ventana no afecta lecturas dentro de ella,
      porque todo lo reportado después ya está en la base nueva. Hay que
      documentarlo y verificar que `corporate-actions:splits` rechace con nombre lo
@@ -1735,7 +1737,11 @@ Alcance, en este orden:
    Estimación: cerca de un 40 % menos por fila, unos **250 MB** para el universo
    con la ventana. Se mide con un prototipo antes de decidir.
 
-3. **Acumulados de resultados (15 %):** no se descartan en este incremento.
+3. **Poda de lo que quedó fuera de la ventana** (agregado el 2026-09-17, cuando el
+   owner la autorizó): regla versionada, complemento exacto de la ventana y con su
+   misma aritmética, sin red, con el ancla tomada de la corrida que la registró y
+   una fila de auditoría por sujeto en la misma transacción que el borrado.
+4. **Acumulados de resultados (15 %):** no se descartan en este incremento.
    Derivarlos es normalización de Fase 3/4. Queda anotado como opción medida.
 
 Criterios de aceptación: la ventana es versionada y está probada; la reducción de
@@ -1929,12 +1935,80 @@ Evidencia sobre datos reales, en réplicas descartables de la base personal:
   observaciones de 13 a 6,8 MB y base de 24 a 18 MB. Las 14.276 filas se leen por
   el repositorio y pasan el schema del dominio. No hubo corridas nuevas.
 
-Lo que queda:
+Entregado (2026-09-17) — incremento 2, paso 3, la poda. El owner la autorizó ese
+día. Decisiones en la [ADR 0019](../architecture/adr/0019-observation-history-prune.md)
+y operación en el [runbook](../runbooks/history-prune.md).
 
-- **Poda de la historia completa en la base personal.** Los seis filers ingeridos
-  con la 1.0.0 conservan toda su historia: 6,8 MB de observaciones desde la `0012`.
-  Borrarla es una decisión aparte, con su auditoría, que la ADR 0016 pide antes de
-  `F6-06`. No bloquea el incremento 3.
+El punto de la decisión no fue borrar sino qué queda dicho después. La ADR 0017 §5
+puso `selection_anchor_on` para que `F3-02` distinga «el filer no lo reportó» de «la
+corrida no lo fue a buscar»; un `DELETE` a secas rompe eso, porque la corrida
+`sec-core-concepts-1.0.0` de cada filer fue a buscar desde 2006 y la base pasaría a
+afirmar que no hay nada anterior a 2020. Además el ancla avanza con cada ejercicio,
+así que la poda se repite: no es un borrado único.
+
+Qué se entregó:
+
+- `observation-prune.ts`: el plan genérico (un corte por fin de período y otro, más
+  ancho, para una lista de conceptos de evidencia) y el registro, con las
+  invariantes que lo hacen legible sin el código que lo escribió.
+- `plan-sec-history-prune.ts`: regla `sec-history-prune-1.0.0`. Toma el ancla de la
+  corrida, nunca de las filas —el foco `FY` no está en la observación—, y rechaza
+  por nombre `anchor_unknown` y `selection_superseded`.
+- `secHistoryCutsFrom` en `sec-history-window.ts`: la aritmética de la ventana pasa
+  a existir una sola vez, y la usan la ingesta y la poda.
+- `ObservationRepository.countPruneTargets`, `prune` y `listPrunes`, en PostgreSQL y
+  en el doble; `IngestionRunRepository.findLatestAnchored`.
+- Migración `0013` con `observation_prunes` y su rollback pareado, que se niega
+  mientras haya podas registradas.
+- Comando `pnpm fundamentals:prune`.
+- Documentación: ADR 0019, contrato point-in-time, runbook nuevo, runbook de
+  migraciones, `CLAUDE.md`, `AGENTS.md` y `README.md`.
+
+Verificación:
+
+- `format:check`, `lint`, `typecheck`, `git diff --check` y `build` (cuatro rutas en
+  `ƒ (Dynamic)`) pasan.
+- 1.163 unit tests (1.145 + 18).
+- 108 integration tests (99 + 9): el borrado conserva el ejercicio de evidencia y no
+  toca otro sujeto, otra fuente ni otro dataset; el registro guarda ancla, corrida y
+  extremos; la segunda poda no encuentra nada y se registra igual; los tres checks
+  nuevos y la foreign key del ancla rechazan; y un registro que la base rechaza deja
+  las seis filas en su lugar, porque el borrado y la auditoría son una transacción.
+- 131 E2E, sin cambios.
+- Rollback de `0013` probado en una base descartable: revierte sin podas, se reaplica
+  y se niega con una poda registrada.
+
+Evidencia sobre la base personal (2026-09-17), con `pg_dump -Fc` previo:
+
+- **Reingesta de los seis filers** (14 requests): 0 publicadas, 5.107 duplicadas, y
+  las seis anclas registradas —Apple 2025-09-27, NVIDIA 2026-01-25, Alphabet, Duke y
+  el antecesor de ExxonMobil 2025-12-31, y el sucesor 2026-06-30 por
+  `latest_period`, el único sin ejercicio anual—.
+- **Poda**, sin red: 14.276 → **5.107** filas, 9.169 borradas.
+
+  | Filer           |      Ancla |      Corte | Antes | Borradas | Quedan |
+  | --------------- | ---------: | ---------: | ----: | -------: | -----: |
+  | Apple           | 2025-09-27 | 2020-09-13 | 3.254 |    2.103 |  1.151 |
+  | NVIDIA          | 2026-01-25 | 2021-01-11 | 3.541 |    2.347 |  1.194 |
+  | Duke            | 2025-12-31 | 2020-12-17 | 3.071 |    2.170 |    901 |
+  | Exxon antecesor | 2025-12-31 | 2020-12-17 | 2.510 |    1.688 |    822 |
+  | Alphabet        | 2025-12-31 | 2020-12-17 | 1.811 |      861 |    950 |
+  | Exxon sucesor   | 2026-06-30 | 2021-06-16 |    89 |        0 |     89 |
+
+- **Las filas que quedan son las que una ingesta nueva produciría:** una tercera
+  ingesta con `--apply` publica 0 y duplica 5.107 con 14 requests. Los 5.107 ya eran
+  las vintages que la reingesta había contado filer por filer.
+- **Integridad:** 0 cadenas de revisión rotas y 0 revisiones vigentes duplicadas.
+  Ningún grupo cruza el corte, y no puede: sus revisiones comparten `as_of`.
+- **Splits:** `unchanged` en Apple, NVIDIA y Alphabet. El 7:1 de Apple de 2014 sigue
+  registrado y la corrida lo nombra `recorded_split_not_reconfirmed`, con su ratio
+  `precedes_published_history`. Ninguna lectura `latest_adjusted` cambia: ese ratio
+  sólo afectaba períodos anteriores a 2014 y la fila más vieja de Apple es del
+  2019-09-28.
+- **Documentos:** los 326 se conservan, 191 sin observaciones. Tres corporate actions
+  registradas apuntan a documentos que quedarían huérfanos.
+- **Tamaño:** observaciones de 6,5 MB a **2,4 MB** compactadas (481 bytes por fila,
+  contra 491 medidos en la ADR 0018) y la base de 18 MB a **14 MB**.
 
 | Issue   | Resultado y aceptación mínima                                                                                       | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 
 import {
@@ -125,6 +125,26 @@ export function createPostgresIngestionRunRepository(
               datasetIdSchema.parse(datasetId),
             ),
             inArray(schema.ingestionRuns.status, PUBLISHABLE_STATUSES),
+          ),
+        )
+        .orderBy(desc(schema.ingestionRuns.startedAt))
+        .limit(1);
+
+      return row ? toDomainRun(row) : null;
+    },
+    async findLatestAnchored(sourceId, datasetId, subjectKey) {
+      const [row] = await database
+        .select()
+        .from(schema.ingestionRuns)
+        .where(
+          and(
+            eq(schema.ingestionRuns.sourceId, sourceIdSchema.parse(sourceId)),
+            eq(
+              schema.ingestionRuns.datasetId,
+              datasetIdSchema.parse(datasetId),
+            ),
+            eq(schema.ingestionRuns.subjectKey, subjectKey),
+            isNotNull(schema.ingestionRuns.selectionAnchorOn),
           ),
         )
         .orderBy(desc(schema.ingestionRuns.startedAt))

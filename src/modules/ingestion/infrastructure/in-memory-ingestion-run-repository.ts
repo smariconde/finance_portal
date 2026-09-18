@@ -55,6 +55,21 @@ export function createInMemoryIngestionRunRepository(
           )[0] ?? null
       );
     },
+    async findLatestAnchored(sourceId, datasetId, subjectKey) {
+      return (
+        runs
+          .filter(
+            (run) =>
+              run.sourceId === sourceId &&
+              run.datasetId === datasetId &&
+              run.subjectKey === subjectKey &&
+              run.selectionAnchorOn !== null,
+          )
+          .sort((left, right) =>
+            right.startedAt.localeCompare(left.startedAt),
+          )[0] ?? null
+      );
+    },
     async list(query) {
       const parsedQuery = ingestionRunListQuerySchema.parse(query);
 

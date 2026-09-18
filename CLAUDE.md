@@ -96,7 +96,27 @@ the base close a 5-year comparison needs. The six split-sensitive concepts keep 
 more year as split evidence. The cut happens before vintages and before choosing
 submissions history files, so it saves requests too. Each run records
 `selection_version` (`sec-core-concepts-2.0.0`) and `selection_anchor_on`: together
-they say which periods the run went to fetch. Nothing already published is pruned.
+they say which periods the run went to fetch.
+
+```bash
+pnpm fundamentals:prune --ticker AAPL                             # dry run: plans and counts, deletes nothing
+pnpm fundamentals:prune --ticker AAPL --reason "…" --apply        # deletes and records the prune
+```
+
+The window governs new ingestions; what an older selection already published is
+removed by this hand-run job (`sec-history-prune-1.0.0`,
+[ADR 0019](docs/architecture/adr/0019-observation-history-prune.md), migration
+`0013`, [runbook](docs/runbooks/history-prune.md)). It is the exact complement of
+the window and shares its arithmetic (`secHistoryCutsFrom`). It opens no network:
+the anchor comes from the subject's latest run that recorded one, because the `FY`
+focus the anchor needs is not on the observation — a subject without a current
+anchor is refused by name (`anchor_unknown`, `selection_superseded`) and the way
+out is to ingest it again. Every prune writes an append-only row in
+`observation_prunes` in the same transaction as the delete: **for a pruned subject
+that row, not the run, explains why a period before its cut is missing.**
+`source_documents` and `corporate_actions` are never touched; a split whose
+evidence fell outside the window stays registered and the splits run names it
+`recorded_split_not_reconfirmed`.
 
 An observation row stores only what it cannot rebuild
 ([ADR 0018](docs/architecture/adr/0018-lighter-observation-rows.md), migration

@@ -31,6 +31,7 @@ The current application command contract is:
 - `pnpm corporate-actions:declare --file <path>`: verify an explicit owner declaration of an acquisition or ticker change; dry run unless `--apply`.
 - `pnpm fundamentals:backfill`: plan the companyfacts backfill of the constituted universe (or `--cik` filers); `--apply` creates the job, `--job <id> --apply` runs it under the source lease. Every companyfacts ingestion keeps only the five-fiscal-year window of ADR 0017.
 - `pnpm ingestion:jobs`: inspect ingestion jobs and leases; pause, resume, cancel, requeue an item, or release a dead holder's lease with `--reason`; dry run unless `--apply`.
+- `pnpm fundamentals:prune`: delete the observations an older selection published outside that window and record why; the anchor comes from the subject's latest anchored run, never from the stored rows, and `--reason` is required; dry run unless `--apply` (ADR 0019).
 
 Review documentation changes with `pnpm format:check`, `git diff --check`, and searches for stale references.
 
@@ -51,6 +52,8 @@ Keep `legal_entity -> security -> listing -> listing_symbol` separate. Depositar
 Every historical read must declare effective time, knowledge cutoff, revision policy, and corporate-action adjustment basis. Preserve `available_at`, `recorded_at`, vintages, restatements, and source lineage. A later filing or mapping must never leak into an earlier `as_known` result.
 
 A persisted observation stores only what it cannot rebuild (ADR 0018): source, dataset, and parser live on its ingestion run, a null `metric_id` is the reported concept, `late_ingestion` is derived, and hashes are binary. A new column that copies something derivable needs the same scrutiny, and a new source must be able to rebuild its external ID before it publishes.
+
+Deleting a published observation is a prune (ADR 0019), never an edit, and it is the only case in which the append-only contract gives ground. It happens solely through `pnpm fundamentals:prune`, it is the exact complement of the history window, and the delete and its `observation_prunes` row are one transaction: for a pruned subject that row, not the ingestion run, explains why an earlier period is missing. Do not add another path that removes observations, and do not let a read conclude "the source never reported it" for a period before a recorded prune cut.
 
 ## UI Art Direction
 

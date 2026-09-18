@@ -649,13 +649,48 @@ Un período ausente no significa lo mismo a cada lado del corte:
   los dos se reconstruye el corte.
 - **Posterior al corte:** el filer no lo publicó, o se rechazó con nombre.
 
-Lo publicado antes de la ventana no se borra: la base personal conserva la historia
-completa de los filers ingeridos con la 1.0.0. Una lectura que cruce el corte puede
-encontrar filas de corridas distintas, y cada una se explica por su propia corrida.
+Una lectura que cruce el corte puede encontrar filas de corridas distintas, y cada
+una se explica por su propia corrida.
 
 `corporate-actions:splits` no juzga los ratios declarados antes de la primera
 vintage sensible publicada del filer: los nombra `precedes_published_history`,
 porque no hay con qué comparar ni nada que ajustar.
+
+### Poda
+
+La ventana gobierna las ingestas nuevas, pero el ancla avanza con cada ejercicio y
+lo publicado antes se queda. `pnpm fundamentals:prune` lo borra con la regla
+`sec-history-prune-1.0.0` ([ADR 0019](../architecture/adr/0019-observation-history-prune.md)),
+que es el complemento exacto de la ventana: borra `as_of < ancla − 5 años − 14 días`
+y les da a los seis conceptos de evidencia su ejercicio extra, con la misma
+aritmética que la ingesta. El ancla sale de la corrida que la registró, nunca de las
+filas guardadas: el foco `FY` que el ancla necesita no está en la observación. Un
+sujeto sin ancla vigente se rechaza por nombre (`anchor_unknown`,
+`selection_superseded`) y la salida es volver a ingerirlo.
+
+Una poda es un borrado, no una re-expresión: no hay revisión nueva ni cadena que
+cerrar. Un grupo de revisión es un hecho `(concepto, unidad, inicio, fin)`, así que
+todas sus revisiones comparten `as_of` y la poda se lo lleva entero o no lo toca.
+
+**Para un sujeto podado, la poda —y no la corrida— es la que explica una ausencia
+anterior a su corte.** Cada una deja una fila append-only en `observation_prunes`
+con la regla, la selección, el ancla y su corrida, los dos cortes, los conceptos de
+evidencia, cuántas filas se borraron y cuántas quedaron, los extremos de lo
+borrado, el actor y el motivo. Un check exige que nada borrado termine en el corte
+o después, que es lo que hace confiable al registro:
+
+- **anterior al corte de la poda:** la fila existió y el owner la borró, en la fecha
+  que dice el registro;
+- **entre el corte de la poda y el de la corrida:** esa corrida no fue a buscar el
+  período;
+- **posterior al corte de la corrida:** el filer no lo publicó, o se rechazó con
+  nombre.
+
+Los `source_documents` no se podan: el evento de que una presentación se leyó sigue
+siendo cierto, y hay corporate actions que apuntan a documentos cuyas observaciones
+ya no están. Un split confirmado con evidencia que la poda borró tampoco se toca: la
+corrida de splits lo nombra `recorded_split_not_reconfirmed` y su ratio queda
+`precedes_published_history`.
 
 ### Forma persistida
 

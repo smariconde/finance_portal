@@ -161,6 +161,13 @@ Lo publicado no se borra. La ventana gobierna las ingestas nuevas: cuando llega 
 decisión, con su auditoría, y la ADR 0016 ya la pide antes de `F6-06`. La base
 personal conserva la historia completa de sus seis filers (13 MB de observaciones).
 
+**Enmienda del 2026-09-17.** Esa decisión aparte es la
+[ADR 0019](0019-observation-history-prune.md): `sec-history-prune-1.0.0` borra el
+complemento exacto de esta ventana, comparte su aritmética (`secHistoryCutsFrom`) y
+toma el ancla de la corrida que la registró, nunca de las filas. Para un sujeto
+podado, su fila de `observation_prunes` —y no la corrida— explica una ausencia
+anterior al corte.
+
 ## Medición sobre datos reales (2026-09-17)
 
 `pnpm fundamentals:ingest` en dry run sobre los seis filers del backlog. El
