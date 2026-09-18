@@ -171,11 +171,15 @@ describe("executeIngestionRun", () => {
     const fetchDataset = vi.spyOn(provider, "fetchDataset");
     const { dependencies } = createHarness(provider);
 
+    // `alpaca-market-data` está registrada y sigue en `rights_review_pending`:
+    // es la fila que prueba el gate sin depender de que una fuente aprobada
+    // conserve algún derecho sin revisar. Desde la ADR 0023, `sec-edgar` ya no
+    // sirve para esto: los tres derechos que le faltaban están contestados.
     const outcome = await executeIngestionRun(
       {
-        sourceId: "sec-edgar",
-        datasetId: "sec.companyfacts",
-        parserVersion: "sec-1.0.0",
+        sourceId: "alpaca-market-data",
+        datasetId: "alpaca.stock-bars",
+        parserVersion: "alpaca-1.0.0",
       },
       dependencies,
     );

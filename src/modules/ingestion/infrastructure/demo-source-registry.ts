@@ -16,6 +16,12 @@ const RECORDED_AT = "2026-08-23T00:00:00.000Z";
 const RIGHTS_REVIEWED_AT = "2026-09-05T00:00:00.000Z";
 
 /**
+ * Segunda revisión de `sec-edgar`, la que pedía congelar extractos reales:
+ * [ADR 0023](../../../../docs/architecture/adr/0023-frozen-sec-extracts-rights.md).
+ */
+const SEC_FROZEN_EXTRACTS_RIGHTS_REVIEWED_AT = "2026-09-18T00:00:00.000Z";
+
+/**
  * Registro de fuentes del modo demo.
  *
  * Cada fila lleva su estado honesto, porque el registro existe justamente para que
@@ -29,8 +35,10 @@ const RIGHTS_REVIEWED_AT = "2026-09-05T00:00:00.000Z";
  * ([ADR 0009](../../../../docs/architecture/adr/0009-egress-boundary.md)), y
  * `alpaca-market-data` es el caso que lo muestra en el otro sentido.
  *
- * Cada aprobación concede sólo los derechos que su adaptador usa: el payload
- * descargado no se conserva, así que `rawStorage` sigue en `unknown` a propósito.
+ * Cada aprobación concede sólo los derechos que su adaptador usa, y una fila se
+ * revisa de nuevo recién cuando algo necesita un derecho que decía `unknown`: eso
+ * le pasó a `sec-edgar` el 2026-09-18, cuando congelar extractos reales obligó a
+ * contestar por `rawStorage`, `publicDisplay` y `export` (ADR 0023).
  */
 export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
   Object.freeze([
@@ -110,27 +118,34 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
       // cada corrida registra el suyo; una sola versión acá mentiría.
       parserVersion: null,
       fixturePolicy:
-        "Fixtures sintéticas con la forma del cable (`fixture-sec-filer.ts`), sin valores descargados; los extractos reales congelados llegan en `F2-06`. El payload descargado no se conserva.",
+        "Dos oráculos: el filer sintético (`fixture-sec-filer.ts`) para los casos que el cable real no ofrece —parser roto, fuente caída, lote vacío—, y extractos reales congelados, elegidos, reducidos y con manifiesto, para el cable tal como la SEC lo publica (ADR 0023). Una ingesta del modo personal sigue sin conservar su payload.",
       fallbackSourceIds: [],
       rights: {
         personalUse: "allowed",
         automatedAccess: "allowed",
-        // El universo se persiste normalizado y derivado; el payload descargado
-        // no se conserva, así que `rawStorage` sigue sin revisar a propósito.
-        rawStorage: "unknown",
+        // La SEC publica que lo que está en sec.gov es información pública y
+        // puede copiarse y redistribuirse sin su permiso, pidiendo cita y sin
+        // usar su sello (ADR 0023). Eso contesta los tres primeros.
+        rawStorage: "allowed",
         normalizedStorage: "allowed",
         derivedStorage: "allowed",
-        publicDisplay: "unknown",
-        export: "unknown",
+        // Un derecho, no una superficie: mostrar datos de la fuente en una
+        // superficie anónima sigue exigiendo `approved_public_demo`, y la fila
+        // sigue en `approved_personal`.
+        publicDisplay: "allowed",
+        export: "allowed",
+        // Sin revisar a propósito: no lo decide la SEC sino el receptor, y no
+        // hay receptor hasta el policy engine de Fase 5.
         aiTransfer: "unknown",
       },
       technicalStatus: "integrated",
       approvalStatus: "approved_personal",
       reviewedAt: "2026-09-14T00:00:00.000Z",
-      rightsReviewedAt: RIGHTS_REVIEWED_AT,
+      rightsReviewedAt: SEC_FROZEN_EXTRACTS_RIGHTS_REVIEWED_AT,
       rightsReviewDueAt: null,
       reviewEvidence: [
         "docs/data/source-registry.md#sec-edgar",
+        "docs/architecture/adr/0023-frozen-sec-extracts-rights.md",
         "docs/data/provider-use-matrix.md",
         "docs/architecture/adr/0009-egress-boundary.md",
         "docs/architecture/adr/0010-sec-xbrl-ingestion.md",

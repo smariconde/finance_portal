@@ -332,7 +332,7 @@ Network egress has exactly one door: `getEgressClient()` in [src/server/egress/]
 
 That door is metered. `getEgressClient` is ESLint-restricted to `src/server/egress/`; every other caller takes `getSourceEgressFetch`, which pairs the per-run pacing with the daily budget and the kill switch ([ADR 0020](docs/architecture/adr/0020-source-daily-budget-kill-switch.md)). Three controls, none implying another: the allowlist answers "where may a socket open?", the rights gate "do we have a right to this data?", and the budget "is there quota left today?". A source missing from `SOURCE_DAILY_REQUEST_BUDGETS` makes no calls at all.
 
-Scope guardrails: no application auth, accounts, roles, multi-tenancy, or BYOK. Real providers run only in personal mode. Never put secrets in `NEXT_PUBLIC_*`, and never commit captured payloads or credentials to this public repository.
+Scope guardrails: no application auth, accounts, roles, multi-tenancy, or BYOK. Real providers run only in personal mode. Never put secrets in `NEXT_PUBLIC_*`, and never commit captured payloads or credentials to this public repository. The one exception is a **frozen corpus** under [ADR 0023](docs/architecture/adr/0023-frozen-sec-extracts-rights.md): a chosen, reduced, manifested extract of a source whose rights say `allowed` — today only `sec-edgar`. All four properties must hold; a personal run's payload has none of them and stays out.
 
 ## Working rhythm
 

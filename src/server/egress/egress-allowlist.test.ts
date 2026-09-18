@@ -69,11 +69,26 @@ describe("egress allowlist", () => {
 
       expect(entry?.approvalStatus).toBe("approved_personal");
       expect(entry?.rights.automatedAccess).toBe("allowed");
-      // El payload descargado no se conserva, así que el derecho a guardarlo
-      // sigue sin revisarse: el gate pide sólo lo que el adaptador usa.
-      expect(entry?.rights.rawStorage).toBe("unknown");
       expect(entry?.rightsReviewedAt).not.toBeNull();
     }
+  });
+
+  it("keeps each source's raw storage right at whatever was actually reviewed", () => {
+    // El gate pide sólo lo que el adaptador usa, así que una fila se revisa de
+    // nuevo recién cuando algo necesita un derecho que decía `unknown`. Las dos
+    // fuentes alcanzables divergen justo ahí, y la divergencia se afirma para que
+    // conceder un derecho por arrastre no pase inadvertido.
+    const findRights = (sourceId: string) =>
+      DEMO_SOURCE_REGISTRY.find((entry) => entry.sourceId === sourceId)?.rights;
+
+    // ADR 0023: los extractos congelados obligaron a contestar por `sec-edgar`.
+    expect(findRights("sec-edgar")?.rawStorage).toBe("allowed");
+    expect(findRights("sec-edgar")?.publicDisplay).toBe("allowed");
+    // Y no por arrastre: el receptor todavía no existe.
+    expect(findRights("sec-edgar")?.aiTransfer).toBe("unknown");
+
+    // El universo se persiste normalizado y derivado; nadie guardó su payload.
+    expect(findRights("datahub-sp500-pddl")?.rawStorage).toBe("unknown");
   });
 
   it("authorizes the SEC endpoints that Phase 2 needs", () => {
