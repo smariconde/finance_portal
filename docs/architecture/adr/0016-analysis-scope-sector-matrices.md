@@ -192,6 +192,10 @@ deciden con un prototipo medido.
 Sin poda, la ventana crece un ejercicio por año, así que antes de `F6-06` hay que
 decidir qué se borra.
 
+**Enmienda del 2026-09-17.** Decidido: la [ADR 0019](0019-observation-history-prune.md)
+define la poda como el complemento exacto de la ventana, con auditoría por sujeto.
+La base personal pasó de 14.276 a 5.107 observaciones.
+
 ### 7. La fuente de precios sigue abierta
 
 Los precios son un proveedor nuevo y entran con su propia ADR en `F7-01`. Los

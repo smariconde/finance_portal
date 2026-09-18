@@ -100,6 +100,9 @@ revertir:
 3. verificar backup/restore;
 4. revisar dependencias creadas después de la migración;
 5. ejecutar manualmente el SQL pareado, en orden inverso al de aplicación:
+   - `drizzle/rollback/0013_medical_the_phantom.down.sql` (la tabla
+     `observation_prunes`; falla mientras haya una poda registrada, y no restaura
+     ninguna observación borrada);
    - `drizzle/rollback/0012_jittery_whiplash.down.sql` (la forma anterior de
      `observations`: hashes en texto, fuente, dataset, parser, ID externo,
      `metric_id` y `late_ingestion` guardados en cada fila, y los dos índices
@@ -172,7 +175,10 @@ vuelve a llenarse desde la fila y su corrida (ADR 0018). El ID externo sólo tie
 fórmula para companyfacts de la SEC, así que el rollback se niega mientras exista
 una observación de otra fuente o de una corrida sin `subject_key`. Para volver a
 aplicar `0012` después, borrar su fila de `drizzle.__drizzle_migrations` y correr
-el job de migración.
+el job de migración. Revertir `0013` **no** deshace ninguna poda: las observaciones
+ya no están y el rollback sólo borraría su auditoría, que es lo único que explica
+por qué faltan (ADR 0019). Por eso se niega mientras haya podas registradas;
+exportarlas y limpiarlas es una decisión explícita (`TM-16`).
 
 ## Fallas seguras
 
