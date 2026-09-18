@@ -8,12 +8,14 @@ import {
   RequestBudgetExhaustedError,
   type EgressFetch,
 } from "@/modules/ingestion/application/egress-fetch";
+import { SEC_REQUEST_PACING } from "@/modules/ingestion/application/egress-fetch";
 import { runIngestionJob } from "@/modules/ingestion/application/run-ingestion-job";
 import type { IngestionJobItem } from "@/modules/ingestion/domain/ingestion-job";
 import { sourceRegistryEntrySchema } from "@/modules/ingestion/domain/source-registry-entry";
 import { DEMO_SOURCE_REGISTRY } from "@/modules/ingestion/infrastructure/demo-source-registry";
 import { createInMemoryIngestionJobStore } from "@/modules/ingestion/infrastructure/in-memory-ingestion-job-store";
 import { createInMemoryIngestionRunRepository } from "@/modules/ingestion/infrastructure/in-memory-ingestion-run-repository";
+import { createInMemorySourceBudgetStore } from "@/modules/ingestion/infrastructure/in-memory-source-budget-store";
 import { createInMemorySourceRegistryRepository } from "@/modules/ingestion/infrastructure/in-memory-source-registry-repository";
 import { createInMemoryObservationRepository } from "@/modules/observations/infrastructure/in-memory-observation-repository";
 import { createInMemorySourceDocumentRepository } from "@/modules/observations/infrastructure/in-memory-source-document-repository";
@@ -30,6 +32,7 @@ import {
   assertCompanyFactsJob,
   buildCompanyFactsJobPlan,
   CompanyFactsJobMismatchError,
+  createCompanyFactsAdmission,
   createCompanyFactsJobExecutor,
   hasBudgetForCompanyFactsLoad,
   observeSourceSignals,
@@ -448,5 +451,97 @@ describe("backfill de companyfacts", () => {
         }),
       ).toThrow(CompanyFactsJobMismatchError);
     });
+  });
+});
+
+describe("admisión de una empresa", () => {
+  const SEC = "sec-edgar";
+  const NOW = "2026-09-18T10:00:00.000Z";
+
+  function pacedDouble(requestCount: number) {
+    return Object.assign(
+      async () => {
+        throw new Error("no debería salir a la red");
+      },
+      { requestCount: () => requestCount },
+    );
+  }
+
+  it("admite mientras la corrida y el día cubran el peor caso de una empresa", async () => {
+    const budgets = createInMemorySourceBudgetStore({ [SEC]: 2000 });
+    const admit = createCompanyFactsAdmission({
+      fetch: pacedDouble(0),
+      pacing: SEC_REQUEST_PACING,
+      budgets,
+      now: () => NOW,
+    });
+
+    expect(await admit()).toEqual({ status: "ready" });
+  });
+
+  it("nombra el presupuesto de la corrida cuando es ese el que no alcanza", async () => {
+    const budgets = createInMemorySourceBudgetStore({ [SEC]: 2000 });
+    const admit = createCompanyFactsAdmission({
+      // 1.000 − 66 + 1: no entra el peor caso de una empresa más.
+      fetch: pacedDouble(SEC_REQUEST_PACING.maxRequests - 65),
+      pacing: SEC_REQUEST_PACING,
+      budgets,
+      now: () => NOW,
+    });
+
+    expect(await admit()).toEqual({ status: "budget_reserve" });
+  });
+
+  it("nombra el día cuando lo que no alcanza es la cuota de la fuente", async () => {
+    const budgets = createInMemorySourceBudgetStore({ [SEC]: 10 });
+    const admit = createCompanyFactsAdmission({
+      fetch: pacedDouble(0),
+      pacing: SEC_REQUEST_PACING,
+      budgets,
+      now: () => NOW,
+    });
+
+    // Diez de cuota no cubren las 66 que una empresa puede necesitar.
+    expect(await admit()).toEqual({
+      status: "daily_budget_exhausted",
+      resumesAt: "2026-09-19T00:00:00.000Z",
+    });
+  });
+
+  it("nombra el kill switch, que gana sobre el presupuesto", async () => {
+    const budgets = createInMemorySourceBudgetStore({ [SEC]: 2000 });
+
+    await budgets.setControl({
+      controlId: randomUUID(),
+      sourceId: SEC,
+      status: "disabled",
+      dailyRequestLimit: null,
+      reason: "sondeo manual en curso",
+      actor: "owner",
+      now: NOW,
+    });
+
+    const admit = createCompanyFactsAdmission({
+      fetch: pacedDouble(0),
+      pacing: SEC_REQUEST_PACING,
+      budgets,
+      now: () => NOW,
+    });
+
+    expect(await admit()).toEqual({
+      status: "source_disabled",
+      reason: "sondeo manual en curso",
+    });
+  });
+
+  it("falla cerrado si la fuente no tiene presupuesto declarado", async () => {
+    const admit = createCompanyFactsAdmission({
+      fetch: pacedDouble(0),
+      pacing: SEC_REQUEST_PACING,
+      budgets: createInMemorySourceBudgetStore({}),
+      now: () => NOW,
+    });
+
+    expect(await admit()).toMatchObject({ status: "source_disabled" });
   });
 });

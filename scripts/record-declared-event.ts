@@ -1,19 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { open } from "node:fs/promises";
-import { setTimeout as sleep } from "node:timers/promises";
 import { parseArgs } from "node:util";
 
 import { declaredEventSchema } from "@/modules/corporate-actions/domain/declared-event";
 import { recordDeclaredEvent } from "@/modules/corporate-actions/application/record-declared-event";
 import { createLiveListingEvidenceSource } from "@/modules/corporate-actions/application/live-listing-evidence-source";
-import {
-  createPacedEgressFetch,
-  SEC_REQUEST_PACING,
-} from "@/modules/ingestion/application/egress-fetch";
+import { SEC_REQUEST_PACING } from "@/modules/ingestion/application/egress-fetch";
 import { syncDeclaredSourceRegistry } from "@/modules/ingestion/application/sync-source-registry";
 import { DEMO_SOURCE_REGISTRY } from "@/modules/ingestion/infrastructure/demo-source-registry";
 import { SP500_INDEX_ID } from "@/modules/universe/application/live-universe-source";
-import { getEgressClient } from "@/server/egress/get-egress-client";
+import { getSourceEgressFetch } from "@/server/egress/get-source-egress-fetch";
 import { getCorporateActionRepository } from "@/server/persistence/get-corporate-action-repository";
 import { getIngestionRunRepository } from "@/server/persistence/get-ingestion-run-repository";
 import { getSourceDocumentRepository } from "@/server/persistence/get-source-document-repository";
@@ -61,10 +57,7 @@ async function main() {
   if (values.apply)
     await syncDeclaredSourceRegistry(DEMO_SOURCE_REGISTRY, registry);
   const universe = getUniverseRepository();
-  const fetch = createPacedEgressFetch(getEgressClient(), SEC_REQUEST_PACING, {
-    elapsedMs: () => performance.now(),
-    sleep: (ms) => sleep(ms),
-  });
+  const fetch = getSourceEgressFetch(SEC_REQUEST_PACING);
   const result = await recordDeclaredEvent(
     { declaration: parsed.data, mode: "personal", dryRun: !values.apply },
     {

@@ -3,7 +3,12 @@ import type {
   PacedEgressFetch,
   RequestPacingPolicy,
 } from "@/modules/ingestion/application/egress-fetch";
-import type { IngestionJobExecutor } from "@/modules/ingestion/application/run-ingestion-job";
+import { checkSourceBudget } from "@/modules/ingestion/application/metered-egress-fetch";
+import type {
+  IngestionJobAdmission,
+  IngestionJobExecutor,
+} from "@/modules/ingestion/application/run-ingestion-job";
+import type { SourceBudgetStore } from "@/modules/ingestion/application/source-budget-store";
 import type { IngestionFailureCode } from "@/modules/ingestion/domain/ingestion-failure";
 import type {
   IngestionJob,
@@ -11,6 +16,7 @@ import type {
   IngestionJobPlanInput,
   SourceSignalKind,
 } from "@/modules/ingestion/domain/ingestion-job";
+import { SourceRequestRefusedError } from "@/modules/ingestion/domain/source-budget";
 
 import type { CompanyFactsBackfillSubject } from "../domain/plan-company-facts-backfill";
 import { SEC_CONCEPT_SELECTION_VERSION } from "../domain/sec-concept-selection";
@@ -79,7 +85,7 @@ export function assertCompanyFactsJob(job: IngestionJob): void {
   }
 }
 
-/** Una empresa sólo empieza si el presupuesto cubre su peor caso. */
+/** Una empresa sólo empieza si el presupuesto de la corrida cubre su peor caso. */
 export function hasBudgetForCompanyFactsLoad(
   fetch: PacedEgressFetch,
   policy: RequestPacingPolicy,
@@ -88,6 +94,53 @@ export function hasBudgetForCompanyFactsLoad(
     fetch.requestCount() + MAX_REQUESTS_PER_COMPANY_FACTS_LOAD <=
     policy.maxRequests
   );
+}
+
+/**
+ * Admisión de una empresa: el presupuesto de la corrida **y** los dos controles
+ * por fuente (ADR 0020), los tres con la misma reserva del peor caso.
+ *
+ * Se consulta antes de contar el intento, así que ninguna de las tres negativas
+ * gasta intentos: una fuente frenada o sin cuota no es un problema del sujeto.
+ */
+export function createCompanyFactsAdmission(dependencies: {
+  readonly fetch: PacedEgressFetch;
+  readonly pacing: RequestPacingPolicy;
+  readonly budgets: SourceBudgetStore;
+  readonly now: () => string;
+}): () => Promise<IngestionJobAdmission> {
+  return async () => {
+    if (
+      !hasBudgetForCompanyFactsLoad(dependencies.fetch, dependencies.pacing)
+    ) {
+      return { status: "budget_reserve" };
+    }
+
+    const verdict = await checkSourceBudget(
+      dependencies.budgets,
+      SEC_SOURCE_ID,
+      MAX_REQUESTS_PER_COMPANY_FACTS_LOAD,
+      dependencies.now(),
+    );
+
+    switch (verdict.status) {
+      case "allowed":
+        return { status: "ready" };
+      case "source_disabled":
+        return { status: "source_disabled", reason: verdict.reason };
+      case "budget_undeclared":
+        // Falla cerrado: sin tope declarado no hay cuota que gastar.
+        return {
+          status: "source_disabled",
+          reason: `${SEC_SOURCE_ID} no tiene presupuesto diario declarado`,
+        };
+      case "daily_budget_exhausted":
+        return {
+          status: "daily_budget_exhausted",
+          resumesAt: verdict.resumesAt,
+        };
+    }
+  };
 }
 
 export type SourceSignal = {
@@ -129,7 +182,9 @@ function egressCode(cause: unknown): string | null {
  *   es configuración o una fuente que dejó de ser la aprobada → `refused`.
  *
  * Va **debajo** del espaciador: un presupuesto agotado no es una señal de la
- * fuente, y la reserva por empresa impide que ocurra a mitad de una carga.
+ * fuente, y la reserva por empresa impide que ocurra a mitad de una carga. Por lo
+ * mismo ignora la negativa del presupuesto diario y del kill switch (ADR 0020):
+ * esa es una decisión nuestra, no algo que la fuente haya dicho.
  */
 export function observeSourceSignals(fetch: EgressFetch): {
   readonly fetch: EgressFetch;
@@ -147,6 +202,10 @@ export function observeSourceSignals(fetch: EgressFetch): {
       try {
         response = await fetch(request);
       } catch (cause) {
+        if (cause instanceof SourceRequestRefusedError) {
+          throw cause;
+        }
+
         const code = egressCode(cause);
 
         if (code === null || UNAVAILABLE_EGRESS_CODES.has(code)) {
@@ -239,6 +298,19 @@ export function createCompanyFactsJobExecutor(dependencies: {
 
       if (cause instanceof SubjectNotInUniverseError) {
         return { kind: "subject_rejected", message: cause.message };
+      }
+
+      // La fuente quedó frenada a mitad de la carga: es una negativa nuestra y
+      // no un problema del sujeto, así que difiere sin gastar el intento. La
+      // admisión del próximo item la nombra con precisión.
+      if (cause instanceof SourceRequestRefusedError) {
+        return {
+          kind: "source_signal",
+          signal: "refused",
+          ingestionRunId: null,
+          retryAfter: null,
+          message: cause.code,
+        };
       }
 
       throw cause;

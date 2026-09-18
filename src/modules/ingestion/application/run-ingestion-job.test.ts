@@ -162,12 +162,63 @@ describe("runIngestionJob", () => {
 
     const result = await runIngestionJob(
       { jobId: job.jobId, holder: "worker-a" },
-      dependencies(execute, { canStartItem: () => remaining > 0 }),
+      dependencies(execute, {
+        admitItem: () =>
+          remaining > 0 ? { status: "ready" } : { status: "budget_reserve" },
+      }),
     );
 
     expect(result.stopReason).toBe("budget_reserve");
     expect(execute).toHaveBeenCalledOnce();
     expect(result.job.cursor).toBe(1);
+    expect((await store.peekNext(job.jobId)).item).toMatchObject({
+      status: "pending",
+      attempts: 0,
+    });
+  });
+
+  it("no empieza un item con la fuente frenada, y nombra el motivo", async () => {
+    const job = await createJob(["A", "B"]);
+    const execute = vi.fn(async () => ingested());
+
+    const result = await runIngestionJob(
+      { jobId: job.jobId, holder: "worker-a" },
+      dependencies(execute, {
+        admitItem: () => ({
+          status: "source_disabled",
+          reason: "sondeo manual en curso",
+        }),
+      }),
+    );
+
+    expect(result.stopReason).toBe("source_disabled");
+    expect(result.admissionReason).toBe("sondeo manual en curso");
+    // Nada empezó: una decisión del owner no gasta intentos ni envenena sujetos.
+    expect(execute).not.toHaveBeenCalled();
+    expect(result.job.cursor).toBe(0);
+    expect((await store.peekNext(job.jobId)).item).toMatchObject({
+      status: "pending",
+      attempts: 0,
+    });
+  });
+
+  it("no empieza un item sin cuota del día, y dice cuándo se repone", async () => {
+    const job = await createJob(["A", "B"]);
+    const execute = vi.fn(async () => ingested());
+
+    const result = await runIngestionJob(
+      { jobId: job.jobId, holder: "worker-a" },
+      dependencies(execute, {
+        admitItem: () => ({
+          status: "daily_budget_exhausted",
+          resumesAt: "2026-09-19T00:00:00.000Z",
+        }),
+      }),
+    );
+
+    expect(result.stopReason).toBe("daily_budget_exhausted");
+    expect(result.waitUntil).toBe("2026-09-19T00:00:00.000Z");
+    expect(execute).not.toHaveBeenCalled();
     expect((await store.peekNext(job.jobId)).item).toMatchObject({
       status: "pending",
       attempts: 0,

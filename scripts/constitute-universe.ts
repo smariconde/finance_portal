@@ -1,16 +1,20 @@
 import { randomUUID } from "node:crypto";
 
+import { DATAHUB_REQUEST_PACING } from "@/modules/ingestion/application/egress-fetch";
 import { syncDeclaredSourceRegistry } from "@/modules/ingestion/application/sync-source-registry";
 import { DEMO_SOURCE_REGISTRY } from "@/modules/ingestion/infrastructure/demo-source-registry";
 import { constituteUniverse } from "@/modules/universe/application/constitute-universe";
 import {
   buildConstituentsUrl,
+  CONSTITUENTS_SOURCE_ID,
   createLiveUniverseSource,
   SP500_CONSTITUENTS_PIN,
   SP500_INDEX_ID,
-  type EgressFetch,
 } from "@/modules/universe/application/live-universe-source";
-import { getEgressClient } from "@/server/egress/get-egress-client";
+import { checkSourceBudget } from "@/modules/ingestion/application/metered-egress-fetch";
+import { describeSourceRefusal } from "@/modules/ingestion/domain/source-budget";
+import { getSourceBudgetStore } from "@/server/persistence/get-source-budget-store";
+import { getSourceEgressFetch } from "@/server/egress/get-source-egress-fetch";
 import { getSourceRegistryRepository } from "@/server/persistence/get-source-registry-repository";
 import { getUniverseRepository } from "@/server/persistence/get-universe-repository";
 
@@ -37,17 +41,22 @@ log("registro creado", sync.created.join(", ") || "—");
 log("registro actualizado", sync.updated.join(", ") || "—");
 log("registro sin cambios", sync.unchanged.length);
 
-const egress = getEgressClient();
-const fetch: EgressFetch = async (request) => {
-  const response = await egress(request);
+// Antes de la primera llamada: un comando que la fuente tiene frenada, o cuya
+// cuota del día está gastada, sale con el motivo en vez de fallar contra el
+// primer request (ADR 0020).
+const budgetVerdict = await checkSourceBudget(
+  getSourceBudgetStore(),
+  CONSTITUENTS_SOURCE_ID,
+  1,
+  new Date().toISOString(),
+);
 
-  return {
-    status: response.status,
-    body: response.body,
-    byteLength: response.byteLength,
-    fetchedAt: response.fetchedAt,
-  };
-};
+if (budgetVerdict.status !== "allowed") {
+  console.error(describeSourceRefusal(CONSTITUENTS_SOURCE_ID, budgetVerdict));
+  process.exit(2);
+}
+
+const fetch = getSourceEgressFetch(DATAHUB_REQUEST_PACING);
 
 const source = createLiveUniverseSource({
   sourceRegistry: registry,

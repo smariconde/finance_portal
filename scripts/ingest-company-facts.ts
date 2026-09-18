@@ -1,22 +1,23 @@
 import { randomUUID } from "node:crypto";
-import { setTimeout as sleep } from "node:timers/promises";
 import { parseArgs } from "node:util";
 
 import { resolveReportingLineage } from "@/modules/corporate-actions/domain/reporting-lineage";
 import { ingestCompanyFacts } from "@/modules/fundamentals/application/ingest-company-facts";
-import { createLiveCompanyFactsSource } from "@/modules/fundamentals/application/live-company-facts-source";
+import {
+  createLiveCompanyFactsSource,
+  SEC_SOURCE_ID,
+} from "@/modules/fundamentals/application/live-company-facts-source";
 import { SEC_CONCEPT_SELECTION_VERSION } from "@/modules/fundamentals/domain/sec-concept-selection";
 import { createGraphIdentityResolver } from "@/modules/identity/application/identity-resolver";
-import {
-  createPacedEgressFetch,
-  SEC_REQUEST_PACING,
-  type EgressFetch,
-} from "@/modules/ingestion/application/egress-fetch";
+import { SEC_REQUEST_PACING } from "@/modules/ingestion/application/egress-fetch";
 import { syncDeclaredSourceRegistry } from "@/modules/ingestion/application/sync-source-registry";
 import { DEMO_SOURCE_REGISTRY } from "@/modules/ingestion/infrastructure/demo-source-registry";
 import { pointInTimeQuerySchema } from "@/modules/temporal/domain/point-in-time-query";
 import { SP500_INDEX_ID } from "@/modules/universe/application/live-universe-source";
-import { getEgressClient } from "@/server/egress/get-egress-client";
+import { checkSourceBudget } from "@/modules/ingestion/application/metered-egress-fetch";
+import { describeSourceRefusal } from "@/modules/ingestion/domain/source-budget";
+import { getSourceBudgetStore } from "@/server/persistence/get-source-budget-store";
+import { getSourceEgressFetch } from "@/server/egress/get-source-egress-fetch";
 import { getCorporateActionRepository } from "@/server/persistence/get-corporate-action-repository";
 import { getIngestionRunRepository } from "@/server/persistence/get-ingestion-run-repository";
 import { getObservationRepository } from "@/server/persistence/get-observation-repository";
@@ -140,25 +141,22 @@ for (const cik of values.cik) {
   targets.push({ label: `CIK ${cik}`, cik });
 }
 
-const egress = getEgressClient();
-const paced = createPacedEgressFetch(
-  (async (request) => {
-    const response = await egress(request);
-
-    return {
-      status: response.status,
-      body: response.body,
-      byteLength: response.byteLength,
-      fetchedAt: response.fetchedAt,
-      retryAfter: response.retryAfter,
-    };
-  }) satisfies EgressFetch,
-  SEC_REQUEST_PACING,
-  {
-    elapsedMs: () => performance.now(),
-    sleep: (ms) => sleep(ms),
-  },
+// Antes de la primera llamada: un comando que la fuente tiene frenada, o cuya
+// cuota del día está gastada, sale con el motivo en vez de fallar contra el
+// primer request (ADR 0020).
+const budgetVerdict = await checkSourceBudget(
+  getSourceBudgetStore(),
+  SEC_SOURCE_ID,
+  1,
+  new Date().toISOString(),
 );
+
+if (budgetVerdict.status !== "allowed") {
+  console.error(describeSourceRefusal(SEC_SOURCE_ID, budgetVerdict));
+  process.exit(2);
+}
+
+const paced = getSourceEgressFetch(SEC_REQUEST_PACING);
 
 const dependencies = {
   sourceRegistry: registry,

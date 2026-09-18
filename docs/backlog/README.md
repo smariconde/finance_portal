@@ -1489,10 +1489,10 @@ El backfill durable sigue en `F2-05`.
 
 #### `F2-05` — Backfill y refresh durable
 
-- Estado: `in_progress` (iniciado el 2026-09-16). Los incrementos 1 y 2 están
-  entregados: jobs durables (2026-09-16), y la ventana (paso 1), las filas más
-  livianas (paso 2) y la poda (paso 3), los tres el 2026-09-17. Sigue el
-  incremento 3.
+- Estado: `in_progress` (iniciado el 2026-09-16). Los incrementos 1, 2 y 3 están
+  entregados: jobs durables (2026-09-16); la ventana (paso 1), las filas más
+  livianas (paso 2) y la poda (paso 3), los tres el 2026-09-17; y el presupuesto
+  diario con kill switch por fuente (2026-09-18). Sigue el incremento 4.
 - Fase y dependencia: Fase 2; `F2-04` cerrado.
 - Alcance, en cuatro incrementos que se cierran en este orden:
   1. **jobs durables** (entregado):
@@ -1502,8 +1502,8 @@ El backfill durable sigue en `F2-05`.
      - backfill manual del universo sobre la SEC.
   2. **ventana de historia de cinco ejercicios y almacenamiento eficiente**
      (entregado: la ventana y las filas más livianas; ver abajo).
-  3. **presupuesto diario y kill switch por fuente**, en PostgreSQL y antes de
-     cualquier programación. Los comandos manuales de un ticker pasan a
+  3. **presupuesto diario y kill switch por fuente** (entregado), en PostgreSQL y
+     antes de cualquier programación. Los comandos manuales de un ticker pasan a
      respetarlos.
   4. **refresh de CIK cambiados**: `submissions` detecta presentaciones nuevas y
      sólo esos filers vuelven a bajar companyfacts. La programación llega recién
@@ -2010,6 +2010,87 @@ Evidencia sobre la base personal (2026-09-17), con `pg_dump -Fc` previo:
 - **Tamaño:** observaciones de 6,5 MB a **2,4 MB** compactadas (481 bytes por fila,
   contra 491 medidos en la ADR 0018) y la base de 18 MB a **14 MB**.
 
+Entregado (2026-09-18) — incremento 3, presupuesto diario y kill switch por fuente.
+Decisiones en la [ADR 0020](../architecture/adr/0020-source-daily-budget-kill-switch.md)
+y operación en el [runbook](../runbooks/source-budgets.md).
+
+El ritmo por corrida acota **un proceso**: cada comando arranca con su techo
+entero, así que dos ingestas seguidas son 2.000 requests y nada acota un día, que
+es la unidad en la que una fuente mide el abuso. Y no había forma de frenar una
+fuente sin dejar de correr los comandos y acordarse. Los dos agujeros son los que
+`TM-10` y `TM-11` nombraban desde `F2-03`.
+
+Qué se entregó:
+
+- `source-budget.ts`: topes declarados (`SOURCE_DAILY_REQUEST_BUDGETS`), día UTC,
+  tope efectivo —un control **baja** el declarado y nunca lo sube—, la reserva y
+  los cuatro veredictos con su nombre.
+- `source-budget-store.ts` con su contrato compartido, `metered-egress-fetch.ts`,
+  `postgres-source-budget-store.ts` y el doble en memoria.
+- `getSourceEgressFetch` como única forma de conseguir un `EgressFetch` fuera de
+  `src/server/egress/`, con `getEgressClient` restringido por ESLint a ese
+  directorio; los seis comandos migrados y con comprobación previa.
+- `runIngestionJob` pregunta una sola admisión antes de contar el intento:
+  `budget_reserve`, `source_disabled` y `daily_budget_exhausted`.
+- Migración `0014` con las dos tablas y rollback pareado, que se niega con una
+  fuente frenada.
+- Comando `pnpm ingestion:sources`.
+- Documentación: ADR 0020, threat model (`TM-10` pasa a implementado), matriz de
+  cuotas, runbook nuevo, runbook de migraciones, `CLAUDE.md`, `AGENTS.md`,
+  `README.md`.
+
+Decisiones que el incremento fija:
+
+- **El contador es de la fuente, no del proceso**, y el gasto es un upsert cuyo
+  incremento está condicionado al tope. No devolver fila _es_ la negativa, así que
+  no hacen falta lock, lease ni transacción: es lo que permite acotar los comandos
+  manuales sin darles el lease del backfill.
+- **El tope se declara en código y la fila sólo puede bajarlo.** Una fuente que no
+  figura en la constante no emite ninguna llamada, aunque tenga allowlist y
+  derechos: son tres controles y ninguno se deduce de otro.
+- **El kill switch es una fila append-only**, no una columna de `source_registry`,
+  que `syncDeclaredSourceRegistry` pisaría en el próximo comando.
+- **La admisión va antes de contar el intento**, así que ninguna de las tres
+  negativas envenena sujetos sanos. No se inventó ningún estado nuevo de job.
+- **Una negativa nuestra no es una señal de la fuente**: el observador de señales
+  la ignora, y si la fuente queda frenada a mitad de una empresa el ejecutor la
+  difiere sin gastar el intento.
+
+Verificación:
+
+- `format:check`, `lint`, `typecheck`, `git diff --check` y `build` (cuatro rutas en
+  `ƒ (Dynamic)`) pasan.
+- 1.194 unit tests (1.163 + 31), con el contrato del almacén corriendo sobre el
+  doble en memoria.
+- 119 integration tests (108 + 11): el mismo contrato sobre PostgreSQL, más
+  **doce llamadas simultáneas contra un tope de cinco, de las que pasan
+  exactamente cinco** con contadores 1 a 5, y dos procesos que no pueden dejar dos
+  controles vigentes de la misma fuente.
+- 131 E2E, sin cambios.
+- Rollback de `0014` probado en una base descartable: revierte sin fuentes
+  frenadas, se reaplica y se niega con una frenada.
+- La regla de ESLint se probó con un import real: rechaza `getEgressClient` fuera
+  de `src/server/egress/`.
+
+Evidencia sobre la base personal (2026-09-18), con la migración aplicada:
+
+- **El contador cuenta lo que sale.** Un `fundamentals:ingest --ticker AAPL` en
+  seco hizo 2 requests y el contador quedó en 2 de 2.000.
+- **Kill switch.** Con `sec-edgar` deshabilitada, `fundamentals:ingest` y
+  `corporate-actions:splits` salen con
+  `Source sec-edgar is disabled: prueba del kill switch.` antes de abrir ningún
+  socket, y el contador del día no se mueve.
+- **El techo declarado manda:** `--limit 5000` se rechaza contra el declarado de
+  2.000 sin escribir; `--limit 3` se aplica.
+- **Agotarlo a mitad de una corrida manual:** con el tope en 3 y 2 gastadas, la
+  ingesta pasó la comprobación previa, hizo la tercera llamada y la cuarta quedó
+  negada; la corrida falló con `provider_error` llevando el mensaje del
+  presupuesto y el contador quedó en 3 de 3. El backfill no tiene ese borde porque
+  reserva el peor caso de una empresa antes de empezarla.
+- **Historia:** los cuatro cambios del ensayo quedaron con actor, motivo e
+  instante, y en todo momento hubo un solo control vigente. La fuente quedó
+  habilitada y en su tope declarado.
+
 | Issue   | Resultado y aceptación mínima                                                                                       | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
 | `F2-03` | SEC XBRL integrada con `available_at` del filing, vintages y restatements preservados; cuarentena ante schema roto. | `F2-02`    | `TM-05`, `TM-06`, `TM-08` |
@@ -2125,28 +2206,28 @@ Esta matriz evita que una amenaza o deuda visual quede mencionada sin un issue q
 la cierre. La columna “primer cierre” indica el primer slice que debe implementar o
 probar el control; fases posteriores pueden volver a verificarlo.
 
-| Deuda   | Primer cierre                           | Seguimiento posterior                | Estado actual                                                                                                         |
-| ------- | --------------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| `TM-01` | `F1-02`                                 | `F1-07`, `F2-01`, `F5-02`, `F6-06`   | `done`: composición falla cerrada y el modo se resuelve en el request; el mismo build niega o sirve según su entorno  |
-| `TM-02` | `F1-02`                                 | cada frontera, `F10-03`              | `done`: DB server-only y URLs pooled/direct separadas probadas                                                        |
-| `TM-03` | `F6-01`, primera Route Handler real     | `F5-02`, `F10-04`                    | required: la corrida por ticker es la primera frontera real; `F1-07` probó las de composición                         |
-| `TM-04` | `F1-02`                                 | `F1-07`, `F2-01`, `F10-01`           | `done`: cache namespaced por modo; sólo `personal` construye almacenamiento, verificado sobre el artefacto servido    |
-| `TM-05` | `F1-03`                                 | `F2-03`, `F3-03`, cada parser/modelo | `done` de ingesta a publicación: vacío y parser roto no publican ni reemplazan                                        |
-| `TM-06` | `F1-04`                                 | `F2-02`, `F4-01`, cada consulta      | `done` de la consulta a la valuación: dos cortes producen dos corridas distintas                                      |
-| `TM-07` | `F1-02`                                 | `F1-07`, `F6-01`, `F7-05`            | `done`: Drizzle parametrizado y límite de consulta verificados en PostgreSQL                                          |
-| `TM-08` | `F2-03`, primer provider real           | `F5-04`, `F9-01`                     | required; no hay egress aún                                                                                           |
-| `TM-09` | `F5-03`                                 | `F5-04`, `F5-07`, `F10-04`           | required; no hay IA aún                                                                                               |
-| `TM-10` | `F2-05`                                 | `F5-01`, `F6-05`, `F10-05`           | presupuesto por corrida con reserva del peor caso y señales de la fuente; límite diario y kill switch: `F2-05` inc. 2 |
-| `TM-11` | `F2-05`                                 | `F6-05`, `F9-01`, `F10-05`           | `done` para el backfill de la SEC: lease, `429`, crash y recuperación manual probados (ADR 0015); cron sigue apagado  |
-| `TM-12` | `F1-01`                                 | cada UI externa, `F10-06`            | headers base y render seguro verificados                                                                              |
-| `TM-13` | `F10-07`                                | cada actualización de dependencia    | baseline implementada; scans pendientes                                                                               |
-| `TM-14` | `F2-01`, antes del primer deploy remoto | `F6-06`, `F10-03`                    | required: `F2-01` habilita produccion; la proteccion del deployment es su precondicion                                |
-| `TM-15` | `F3-03`, nivel de rigor declarado       | cada IA/export, `F5-03`, `F6-03`     | rescopeado por ADR 0007: derechos pasan a procedencia informativa; el control ahora es el nivel de rigor declarado    |
-| `TM-16` | `F1-03`                                 | cada operación y gate                | `done` sobre ingesta y valuación: corridas append-only con hash, versión y error seguro                               |
-| `UI-01` | Fase `0B.7`                             | revisar copy al cambiar roadmap      | revisar: el copy de la home cita el orden de fases anterior al pivote                                                 |
-| `UI-02` | `F1-07`                                 | `F6-03`, `F6-06`, `F10-06`           | `done`: revisión renderizada automatizada en 6 proyectos con `axe-core`, teclado, reflow y movimiento reducido        |
-| `UI-03` | `F1-01`                                 | cada feedback stateful, `F10-06`     | `done`: estados y reduced motion conservan feedback                                                                   |
-| `UI-04` | `F1-01`                                 | cada extracción visual, `F10-06`     | `done`: escala reusable y token de contraste registrados                                                              |
+| Deuda   | Primer cierre                           | Seguimiento posterior                | Estado actual                                                                                                                                            |
+| ------- | --------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TM-01` | `F1-02`                                 | `F1-07`, `F2-01`, `F5-02`, `F6-06`   | `done`: composición falla cerrada y el modo se resuelve en el request; el mismo build niega o sirve según su entorno                                     |
+| `TM-02` | `F1-02`                                 | cada frontera, `F10-03`              | `done`: DB server-only y URLs pooled/direct separadas probadas                                                                                           |
+| `TM-03` | `F6-01`, primera Route Handler real     | `F5-02`, `F10-04`                    | required: la corrida por ticker es la primera frontera real; `F1-07` probó las de composición                                                            |
+| `TM-04` | `F1-02`                                 | `F1-07`, `F2-01`, `F10-01`           | `done`: cache namespaced por modo; sólo `personal` construye almacenamiento, verificado sobre el artefacto servido                                       |
+| `TM-05` | `F1-03`                                 | `F2-03`, `F3-03`, cada parser/modelo | `done` de ingesta a publicación: vacío y parser roto no publican ni reemplazan                                                                           |
+| `TM-06` | `F1-04`                                 | `F2-02`, `F4-01`, cada consulta      | `done` de la consulta a la valuación: dos cortes producen dos corridas distintas                                                                         |
+| `TM-07` | `F1-02`                                 | `F1-07`, `F6-01`, `F7-05`            | `done`: Drizzle parametrizado y límite de consulta verificados en PostgreSQL                                                                             |
+| `TM-08` | `F2-03`, primer provider real           | `F5-04`, `F9-01`                     | required; no hay egress aún                                                                                                                              |
+| `TM-09` | `F5-03`                                 | `F5-04`, `F5-07`, `F10-04`           | required; no hay IA aún                                                                                                                                  |
+| `TM-10` | `F2-05`                                 | `F5-01`, `F6-05`, `F10-05`           | presupuesto por corrida con reserva del peor caso y señales de la fuente; límite diario por fuente y kill switch entregados en `F2-05` inc. 3 (ADR 0020) |
+| `TM-11` | `F2-05`                                 | `F6-05`, `F9-01`, `F10-05`           | `done` para el backfill de la SEC: lease, `429`, crash y recuperación manual probados (ADR 0015); cron sigue apagado                                     |
+| `TM-12` | `F1-01`                                 | cada UI externa, `F10-06`            | headers base y render seguro verificados                                                                                                                 |
+| `TM-13` | `F10-07`                                | cada actualización de dependencia    | baseline implementada; scans pendientes                                                                                                                  |
+| `TM-14` | `F2-01`, antes del primer deploy remoto | `F6-06`, `F10-03`                    | required: `F2-01` habilita produccion; la proteccion del deployment es su precondicion                                                                   |
+| `TM-15` | `F3-03`, nivel de rigor declarado       | cada IA/export, `F5-03`, `F6-03`     | rescopeado por ADR 0007: derechos pasan a procedencia informativa; el control ahora es el nivel de rigor declarado                                       |
+| `TM-16` | `F1-03`                                 | cada operación y gate                | `done` sobre ingesta y valuación: corridas append-only con hash, versión y error seguro                                                                  |
+| `UI-01` | Fase `0B.7`                             | revisar copy al cambiar roadmap      | revisar: el copy de la home cita el orden de fases anterior al pivote                                                                                    |
+| `UI-02` | `F1-07`                                 | `F6-03`, `F6-06`, `F10-06`           | `done`: revisión renderizada automatizada en 6 proyectos con `axe-core`, teclado, reflow y movimiento reducido                                           |
+| `UI-03` | `F1-01`                                 | cada feedback stateful, `F10-06`     | `done`: estados y reduced motion conservan feedback                                                                                                      |
+| `UI-04` | `F1-01`                                 | cada extracción visual, `F10-06`     | `done`: escala reusable y token de contraste registrados                                                                                                 |
 
 ## Plantilla para nuevos issues
 
