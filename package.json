@@ -35,7 +35,8 @@
     "fundamentals:prune": "tsx --conditions=react-server --env-file=.env.local scripts/prune-observation-history.ts",
     "fundamentals:refresh": "tsx --conditions=react-server --env-file=.env.local scripts/refresh-company-facts.ts",
     "ingestion:jobs": "tsx --conditions=react-server --env-file=.env.local scripts/manage-ingestion-jobs.ts",
-    "ingestion:sources": "tsx --conditions=react-server --env-file=.env.local scripts/manage-source-budgets.ts"
+    "ingestion:sources": "tsx --conditions=react-server --env-file=.env.local scripts/manage-source-budgets.ts",
+    "fixtures:capture": "tsx --conditions=react-server --env-file=.env.local scripts/capture-golden-corpus.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

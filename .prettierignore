@@ -6,5 +6,7 @@
 .impeccable/mocks
 coverage
 docs/finance-portal-masterplan
+# El corpus congelado está fijado por hash: reformatearlo lo rompería (ADR 0023).
+src/modules/fundamentals/infrastructure/golden
 node_modules
 pnpm-lock.yaml

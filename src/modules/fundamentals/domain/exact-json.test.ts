@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   canonicalDecimalFromJsonNumber,
   ExactJsonNumber,
+  parseJsonPreservingNumbers,
   parseJsonWithExactNumbers,
+  stringifyJsonPreservingNumbers,
 } from "./exact-json";
 
 describe("parseJsonWithExactNumbers", () => {
@@ -59,4 +61,55 @@ describe("canonicalDecimalFromJsonNumber", () => {
       expect(canonicalDecimalFromJsonNumber(source)).toBeNull();
     },
   );
+});
+
+describe("parseJsonPreservingNumbers + stringifyJsonPreservingNumbers", () => {
+  it("rewrites a document without moving a single digit", () => {
+    // El primero no entra en un `double`, el segundo es el caso clásico de
+    // `0.1 + 0.2`, y los dos últimos cambiarían de forma al reserializarse.
+    const text = `{"val":12345678901234567890,"rate":0.30000000000000004,"zero":1.0,"big":1e21,"neg":-0}`;
+
+    expect(
+      stringifyJsonPreservingNumbers(parseJsonPreservingNumbers(text)),
+    ).toBe(`${text}\n`);
+  });
+
+  it("keeps key order and shapes containers of primitives as one line", () => {
+    const text = `{"facts":{"Revenues":{"units":{"USD":[{"end":"2024-06-29","val":85777000000,"form":"10-Q"},{"end":"2024-09-28","val":94930000000,"form":"10-K"}]}}}}`;
+
+    expect(stringifyJsonPreservingNumbers(parseJsonPreservingNumbers(text)))
+      .toBe(`{
+  "facts": {
+    "Revenues": {
+      "units": {
+        "USD": [
+          {"end":"2024-06-29","val":85777000000,"form":"10-Q"},
+          {"end":"2024-09-28","val":94930000000,"form":"10-K"}
+        ]
+      }
+    }
+  }
+}
+`);
+  });
+
+  it("is stable: rewriting what it wrote changes nothing", () => {
+    const text = `{"a":[[1,2],[]],"b":{},"c":[],"d":null,"e":"con \\"comillas\\" y \\\\","f":true}`;
+    const once = stringifyJsonPreservingNumbers(
+      parseJsonPreservingNumbers(text),
+    );
+
+    expect(
+      stringifyJsonPreservingNumbers(parseJsonPreservingNumbers(once)),
+    ).toBe(once);
+  });
+
+  it("breaks a long array of primitives into lines instead of one wide row", () => {
+    const tickers = Array.from({ length: 40 }, (_, index) => `TICK${index}`);
+    const written = stringifyJsonPreservingNumbers(
+      parseJsonPreservingNumbers(JSON.stringify({ tickers })),
+    );
+
+    expect(written.split("\n").length).toBeGreaterThan(40);
+  });
 });
