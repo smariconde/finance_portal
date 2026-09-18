@@ -2,8 +2,10 @@ import {
   MAX_REVISION_GROUPS_PER_LOOKUP,
   observationListQuerySchema,
   observationPruneRequestSchema,
+  publishedSubjectsQuerySchema,
   type ObservationPublication,
   type ObservationRepository,
+  type PublishedSubject,
 } from "../application/observation-repository";
 import { observationSchema, type Observation } from "../domain/observation";
 import {
@@ -240,6 +242,41 @@ export function createInMemoryObservationRepository(
       prunes.push(record);
 
       return record;
+    },
+    async listPublishedSubjects(query) {
+      const parsedQuery = publishedSubjectsQuerySchema.parse(query);
+      const bySubject = new Map<string, PublishedSubject>();
+
+      for (const observation of stored) {
+        if (
+          observation.sourceId !== parsedQuery.sourceId ||
+          observation.datasetId !== parsedQuery.datasetId
+        ) {
+          continue;
+        }
+
+        const key = `${observation.subjectType}|${observation.subjectId}`;
+        const seen = bySubject.get(key);
+
+        bySubject.set(key, {
+          subjectType: observation.subjectType,
+          subjectId: observation.subjectId,
+          observations: (seen?.observations ?? 0) + 1,
+          latestAvailableAt:
+            seen === undefined ||
+            observation.availableAt > seen.latestAvailableAt
+              ? observation.availableAt
+              : seen.latestAvailableAt,
+        });
+      }
+
+      return [...bySubject.values()]
+        .sort(
+          (left, right) =>
+            left.subjectType.localeCompare(right.subjectType) ||
+            left.subjectId.localeCompare(right.subjectId),
+        )
+        .slice(0, parsedQuery.limit);
     },
     async listPrunes(subjectType, subjectId) {
       return prunes

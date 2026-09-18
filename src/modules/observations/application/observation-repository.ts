@@ -2,6 +2,10 @@ import { z } from "zod";
 
 import type { AppMode } from "@/modules/configuration/domain/config-health";
 import { selectPersonalDependency } from "@/modules/configuration/domain/runtime-lock";
+import {
+  datasetIdSchema,
+  sourceIdSchema,
+} from "@/modules/ingestion/domain/source-registry-entry";
 import { contentHashSchema } from "@/modules/temporal/domain/temporal-version";
 
 import {
@@ -83,6 +87,37 @@ export type ObservationPruneRequest = z.infer<
   typeof observationPruneRequestSchema
 >;
 
+/**
+ * Sujetos con observaciones publicadas por un dataset.
+ *
+ * Es la pregunta «de quién tenemos datos», y el conjunto que el refresh recorre
+ * (ADR 0021). Va acotada como toda lectura del repositorio (`TM-07`): el techo
+ * obliga a que un dataset que crezca fuera de escala se note acá y no en una
+ * consulta sin límite.
+ */
+export const publishedSubjectsQuerySchema = z.object({
+  sourceId: sourceIdSchema,
+  datasetId: datasetIdSchema,
+  limit: z.number().int().min(1).max(5000).default(1000),
+});
+
+export type PublishedSubjectsQuery = z.input<
+  typeof publishedSubjectsQuerySchema
+>;
+
+/**
+ * Un sujeto con datos publicados. El conteo y el `available_at` más reciente son
+ * descriptivos —sirven para leer el plan del refresh— y no deciden nada: la
+ * marca de agua del refresh es la que el sondeo escribe, nunca lo que publicó
+ * una ingesta.
+ */
+export type PublishedSubject = {
+  readonly subjectType: Observation["subjectType"];
+  readonly subjectId: string;
+  readonly observations: number;
+  readonly latestAvailableAt: string;
+};
+
 export interface ObservationRepository {
   readonly storage: "in-memory-fixture" | "personal-postgres";
   findLatestRevision(revisionGroupId: string): Promise<Observation | null>;
@@ -104,6 +139,14 @@ export interface ObservationRepository {
   ): Promise<ObservationPruneCounts>;
   /** Borra y registra en una sola transacción. */
   prune(request: ObservationPruneRequest): Promise<ObservationPrune>;
+  /**
+   * Sujetos con al menos una observación publicada por ese dataset, ordenados
+   * por sujeto. Filtrar por fuente y dataset pasa por la corrida (ADR 0018): la
+   * fila publicada ya no los guarda.
+   */
+  listPublishedSubjects(
+    query: PublishedSubjectsQuery,
+  ): Promise<PublishedSubject[]>;
   /** Podas registradas de un sujeto, de la más reciente a la más vieja. */
   listPrunes(
     subjectType: Observation["subjectType"],

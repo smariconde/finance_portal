@@ -75,6 +75,11 @@ const SELECTORS = [
     () => import("@/server/persistence/get-ingestion-job-store"),
     "getIngestionJobStore",
   ],
+  [
+    "refresh state",
+    () => import("@/server/persistence/get-refresh-state-store"),
+    "getRefreshStateStore",
+  ],
 ] as const;
 
 type SelectorImporter = () => Promise<Record<string, unknown>>;

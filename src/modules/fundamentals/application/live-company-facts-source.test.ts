@@ -9,6 +9,7 @@ import {
   buildFixtureCompanyFactsText,
   buildFixtureSubmissions,
   buildFixtureSubmissionsHistory,
+  FIXTURE_ACCEPTED_AT,
   FIXTURE_ACCESSIONS,
   FIXTURE_FILER_CIK,
   FIXTURE_HISTORY_FILE,
@@ -301,5 +302,64 @@ describe("createLiveCompanyFactsSource", () => {
       code: "payload_schema_invalid",
       document: "submissions",
     });
+  });
+});
+
+describe("sondeo del refresh", () => {
+  it("gasta un solo request: el índice de presentaciones", async () => {
+    const fetch = egress(routes());
+    const probe = await createLiveCompanyFactsSource({ fetch }).probe("42");
+
+    expect(fetch.mock.calls.map(([request]) => request.url)).toStrictEqual([
+      buildSubmissionsUrl(FIXTURE_FILER_CIK),
+    ]);
+    expect(probe.cik).toBe(FIXTURE_FILER_CIK);
+    expect(probe.document.kind).toBe("submissions");
+  });
+
+  it("devuelve las presentaciones recientes con su aceptación", async () => {
+    const fetch = egress(routes());
+    const probe = await createLiveCompanyFactsSource({ fetch }).probe(
+      FIXTURE_FILER_CIK,
+    );
+
+    expect(probe.filings).toHaveLength(FIXTURE_RECENT_FILINGS.length);
+    expect(probe.filings[0]).toMatchObject({
+      accessionNumber: FIXTURE_ACCESSIONS.q2Filing,
+      form: "10-Q",
+      acceptedAt: FIXTURE_ACCEPTED_AT.q2Filing,
+    });
+    expect(probe.filingRejections).toStrictEqual([]);
+  });
+
+  it("no acepta un índice que describe a otro filer", async () => {
+    const fetch = egress(
+      routes({
+        [buildSubmissionsUrl(FIXTURE_FILER_CIK)]: {
+          status: 200,
+          // Sin archivos históricos: sus nombres llevan el CIK del filer, y
+          // cambiarlo sin sacarlos rompe el índice antes de llegar al sujeto.
+          body: JSON.stringify({
+            ...(buildFixtureSubmissions({
+              withHistory: false,
+            }) as Record<string, unknown>),
+            cik: "0000000099",
+          }),
+        },
+      }),
+    );
+
+    await expect(
+      createLiveCompanyFactsSource({ fetch }).probe(FIXTURE_FILER_CIK),
+    ).rejects.toMatchObject({ code: "subject_mismatch" });
+  });
+
+  it("no construye ninguna URL con un CIK inválido", async () => {
+    const fetch = egress(routes());
+
+    await expect(
+      createLiveCompanyFactsSource({ fetch }).probe("../files/company_tickers"),
+    ).rejects.toBeInstanceOf(TypeError);
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

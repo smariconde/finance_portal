@@ -372,6 +372,9 @@ export const ingestionRuns = pgTable(
 
 export const ingestionJobKind = pgEnum("ingestion_job_kind", [
   "sec_companyfacts_backfill",
+  // Refresh del conjunto seguido (ADR 0021). Es un kind propio y no un backfill
+  // con otro plan: el item empieza por un sondeo y sólo a veces baja.
+  "sec_companyfacts_refresh",
 ]);
 
 export const ingestionJobStatus = pgEnum("ingestion_job_status", [
@@ -718,6 +721,69 @@ export const ingestionSourceControls = pgTable(
     check(
       "ingestion_source_controls_actor_check",
       sql`${table.actor} ~ '^[A-Za-z0-9._:@/-]{1,128}$'`,
+    ),
+  ],
+);
+
+/**
+ * Marca de agua del refresh (ADR 0021): hasta qué presentación miró el sondeo a
+ * cada sujeto, y cuándo lo miró.
+ *
+ * Es estado, no bitácora. La corrida del sondeo queda igual en `ingestion_runs`
+ * y es la que explica cada vuelta; esta fila es la respuesta directa a «¿qué
+ * sabía el portal la última vez?», que el plan necesita leer sin red y sin
+ * reconstruirla desde el log.
+ *
+ * La fila se escribe **después** de que el refresh terminó, así que la marca
+ * puede quedar atrás de la realidad —y entonces la vuelta siguiente vuelve a
+ * bajar, que deduplica por contenido— pero nunca adelante de un refresh que no
+ * ocurrió.
+ */
+export const ingestionRefreshState = pgTable(
+  "ingestion_refresh_state",
+  {
+    sourceId: varchar("source_id", { length: 64 }).notNull(),
+    datasetId: varchar("dataset_id", { length: 128 }).notNull(),
+    subjectKey: varchar("subject_key", { length: 128 }).notNull(),
+    // Par `(aceptación, accession)` de la presentación relevante más nueva que
+    // el sondeo vio: el accession desempata dos aceptadas en el mismo segundo.
+    watermarkAcceptedAt: instant("watermark_accepted_at").notNull(),
+    watermarkAccession: varchar("watermark_accession", {
+      length: 64,
+    }).notNull(),
+    formSelectionVersion: varchar("form_selection_version", {
+      length: 64,
+    }).notNull(),
+    probeVersion: varchar("probe_version", { length: 64 }).notNull(),
+    lastCheckedAt: instant("last_checked_at").notNull(),
+    lastChangedAt: instant("last_changed_at").notNull(),
+    probeRunId: uuid("probe_run_id")
+      .notNull()
+      .references(() => ingestionRuns.runId),
+    refreshRunId: uuid("refresh_run_id")
+      .notNull()
+      .references(() => ingestionRuns.runId),
+    updatedAt: instant("updated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      name: "ingestion_refresh_state_pkey",
+      columns: [table.sourceId, table.datasetId, table.subjectKey],
+    }),
+    index("ingestion_refresh_state_dataset_idx").on(
+      table.sourceId,
+      table.datasetId,
+      table.lastCheckedAt,
+    ),
+    check(
+      "ingestion_refresh_state_accession_check",
+      sql`${table.watermarkAccession} ~ '^[0-9]{10}-[0-9]{2}-[0-9]{6}$'`,
+    ),
+    // Una fila nace de un refresh efectivo y después sólo avanza el «cuándo se
+    // miró»: mirar no puede ser anterior a haber cambiado.
+    check(
+      "ingestion_refresh_state_timeline_check",
+      sql`${table.lastChangedAt} <= ${table.lastCheckedAt} and ${table.updatedAt} >= ${table.lastCheckedAt}`,
     ),
   ],
 );

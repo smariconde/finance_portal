@@ -8,7 +8,7 @@ Portal Financiero: a single-owner Next.js 16 portal for researching global compa
 
 The code is public; the data is not. The app is **personal-first**: it serves real data only from a private runtime, and there is no public demo deployment. See [ADR 0004](docs/architecture/adr/0004-personal-first-runtime.md).
 
-The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations kept to a five-fiscal-year window, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, and a deterministic FCFF engine with its reference run exist. Scheduled refresh, refresh of only-changed filers, daily provider budgets and a per-source kill switch, market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads real observations yet; nothing may be presented in the UI as if it were.
+The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations kept to a five-fiscal-year window, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, per-source daily request budgets with an owner kill switch, a hand-run refresh that probes `submissions` and re-downloads only the filers that filed something relevant, and a deterministic FCFF engine with its reference run exist. Scheduled refresh, market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads real observations yet; nothing may be presented in the UI as if it were.
 
 `AGENTS.md` holds the full contributor contract and takes precedence over this file where they overlap.
 
@@ -243,6 +243,36 @@ may only lower a declared cap, never raise it. `getEgressClient` is ESLint-restr
 to `src/server/egress/`; everything else takes `getSourceEgressFetch`. The job asks
 one admission before counting an attempt, so `budget_reserve`, `source_disabled` and
 `daily_budget_exhausted` stop a run without poisoning healthy subjects.
+
+```bash
+pnpm fundamentals:refresh                            # the followed set and its watermarks: no network, no writes
+pnpm fundamentals:refresh --cik 320193               # probes that filer's submissions (1 request), writes nothing
+pnpm fundamentals:refresh --cik 320193 --apply       # re-downloads companyfacts only if it filed something relevant
+pnpm fundamentals:refresh --all --apply              # plans the whole round as a durable job
+pnpm fundamentals:refresh --job <id> --apply         # runs it under the sec-edgar lease; --limit caps attempts
+```
+
+Also hand-run, never scheduled. What it follows is **the filers that already have
+published fundamentals** ([ADR 0021](docs/architecture/adr/0021-refresh-followed-set.md)):
+a query, not a list, so the set grows with every `fundamentals:ingest --apply` and
+needs no registration. Today that is six filers — five index members plus
+ExxonMobil's reporting predecessor.
+
+A round asks `submissions` once per filer and re-downloads companyfacts only for the
+ones with a relevant filing newer than their stored watermark
+([ADR 0022](docs/architecture/adr/0022-companyfacts-refresh-probe.md), migration
+`0015`, [runbook](docs/runbooks/fundamentals-refresh.md)). The watermark is the
+`(acceptance, accession)` pair the probe saw, in `ingestion_refresh_state`, and it
+advances **even when the new filing publishes no fact** — without it, an 8-K that
+carries no selected concept would trigger a download on every round forever. It is
+written last, so it can lag a refresh that failed but never lead one that did not
+happen. Only `sec-companyfacts-forms-1.0.0` forms wake a download; a Form 4 does
+not. Every probe leaves its own `sec.submissions` run, and a round with no news is
+recorded `duplicate`. The full round is a durable job of its own kind
+(`sec_companyfacts_refresh`, migration `0016`) reusing the ADR 0015 lease and the
+ADR 0020 admission, reserving 67 requests per item. Measured on the six: 20 requests
+the first round, 6 the second. The refresh never deletes — a new fiscal year moves
+the window anchor and `fundamentals:prune` is still what takes the old one out.
 
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 

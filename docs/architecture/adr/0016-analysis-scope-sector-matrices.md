@@ -1,6 +1,7 @@
 # ADR 0016: alcance analítico — valuaciones puntuales y matrices sectoriales
 
-- Estado: aceptado
+- Estado: aceptado; el conjunto seguido del refresh (punto 3) quedó
+  reemplazado por la [ADR 0021](0021-refresh-followed-set.md)
 - Fecha: 2026-09-16
 - Alcance: enmienda el alcance de producto de la
   [ADR 0007](0007-ticker-driven-valuation-pivot.md) y de
@@ -75,7 +76,11 @@ la valuación.
   demanda**: si la empresa pedida no tiene la ventana, la corrida la baja con
   presupuesto y reanudación.
 - El refresh de CIK cambiados (`F2-05`, incremento 4) recorre sólo el conjunto
-  seguido: las empresas valuadas y los sectores con matriz.
+  seguido, no el universo. Esta ADR lo definió como «las empresas valuadas y los
+  sectores con matriz»; la [ADR 0021](0021-refresh-followed-set.md) lo reemplaza
+  por **los filers que ya tienen fundamentals publicados**, que es la misma
+  intención sin depender de dos fases que todavía no existen: las valuaciones y
+  las matrices agregan filers a ese conjunto, no una regla nueva.
 - El universo constituido se conserva. Define la población de cada sector y
   resuelve tickers, y ocupa unos 24 MB.
 

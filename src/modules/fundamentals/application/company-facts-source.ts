@@ -98,3 +98,28 @@ export class CompanyFactsSourceError extends Error {
 export interface CompanyFactsSource {
   load(cik: string): Promise<CompanyFactsDownload>;
 }
+
+/**
+ * Lo que el sondeo del refresh trae: el índice de presentaciones del filer, un
+ * request y nada más (ADR 0021).
+ *
+ * Son las de `filings.recent` —las últimas mil—: una presentación nueva siempre
+ * está ahí, y pedir los archivos históricos para contestar «¿hay algo nuevo?»
+ * gastaría cuota sin cambiar la respuesta.
+ */
+export type CompanyFactsProbe = {
+  readonly cik: string;
+  readonly filings: readonly SecFiling[];
+  readonly filingRejections: readonly SecFilingRowRejection[];
+  readonly fetchedAt: string;
+  readonly document: CompanyFactsDocument;
+};
+
+/**
+ * Puerto del sondeo, separado del de la carga a propósito: la ingesta de
+ * companyfacts no necesita saber sondear, y el refresh no necesita poder bajar
+ * un documento para decidir que no hace falta bajarlo.
+ */
+export interface CompanyFactsProbeSource {
+  probe(cik: string): Promise<CompanyFactsProbe>;
+}
