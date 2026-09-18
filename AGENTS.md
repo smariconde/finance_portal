@@ -31,6 +31,7 @@ The current application command contract is:
 - `pnpm corporate-actions:declare --file <path>`: verify an explicit owner declaration of an acquisition or ticker change; dry run unless `--apply`.
 - `pnpm fundamentals:backfill`: plan the companyfacts backfill of the constituted universe (or `--cik` filers); `--apply` creates the job, `--job <id> --apply` runs it under the source lease. Every companyfacts ingestion keeps only the five-fiscal-year window of ADR 0017.
 - `pnpm ingestion:jobs`: inspect ingestion jobs and leases; pause, resume, cancel, requeue an item, or release a dead holder's lease with `--reason`; dry run unless `--apply`.
+- `pnpm ingestion:sources`: inspect each source's daily budget, today's usage and control history; `--disable`, `--enable` or `--limit <n>` with `--reason`; dry run unless `--apply` (ADR 0020).
 - `pnpm fundamentals:prune`: delete the observations an older selection published outside that window and record why; the anchor comes from the subject's latest anchored run, never from the stored rows, and `--reason` is required; dry run unless `--apply` (ADR 0019).
 
 Review documentation changes with `pnpm format:check`, `git diff --check`, and searches for stale references.
@@ -54,6 +55,8 @@ Every historical read must declare effective time, knowledge cutoff, revision po
 A persisted observation stores only what it cannot rebuild (ADR 0018): source, dataset, and parser live on its ingestion run, a null `metric_id` is the reported concept, `late_ingestion` is derived, and hashes are binary. A new column that copies something derivable needs the same scrutiny, and a new source must be able to rebuild its external ID before it publishes.
 
 Deleting a published observation is a prune (ADR 0019), never an edit, and it is the only case in which the append-only contract gives ground. It happens solely through `pnpm fundamentals:prune`, it is the exact complement of the history window, and the delete and its `observation_prunes` row are one transaction: for a pruned subject that row, not the ingestion run, explains why an earlier period is missing. Do not add another path that removes observations, and do not let a read conclude "the source never reported it" for a period before a recorded prune cut.
+
+Every outgoing call is metered against a per-source daily budget and an owner kill switch (ADR 0020), both in PostgreSQL and both enforced before the socket opens, so they bind the backfill and the hand-run commands alike. Three controls gate a call and none implies another: the allowlist says where a socket may open, the rights gate says whether we may have the data, and the budget says whether quota is left today — a source missing from `SOURCE_DAILY_REQUEST_BUDGETS` makes no calls however complete its other two. A stored control may only lower a declared cap. `getEgressClient` is ESLint-restricted to `src/server/egress/`: take `getSourceEgressFetch` instead, because a caller that can build the raw client is a door without a counter.
 
 ## UI Art Direction
 

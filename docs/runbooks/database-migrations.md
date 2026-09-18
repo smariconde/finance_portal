@@ -100,6 +100,8 @@ revertir:
 3. verificar backup/restore;
 4. revisar dependencias creadas después de la migración;
 5. ejecutar manualmente el SQL pareado, en orden inverso al de aplicación:
+   - `drizzle/rollback/0014_worthless_mockingbird.down.sql` (el presupuesto diario
+     y el kill switch por fuente; falla mientras alguna fuente esté frenada);
    - `drizzle/rollback/0013_medical_the_phantom.down.sql` (la tabla
      `observation_prunes`; falla mientras haya una poda registrada, y no restaura
      ninguna observación borrada);
@@ -178,7 +180,12 @@ aplicar `0012` después, borrar su fila de `drizzle.__drizzle_migrations` y corr
 el job de migración. Revertir `0013` **no** deshace ninguna poda: las observaciones
 ya no están y el rollback sólo borraría su auditoría, que es lo único que explica
 por qué faltan (ADR 0019). Por eso se niega mientras haya podas registradas;
-exportarlas y limpiarlas es una decisión explícita (`TM-16`).
+exportarlas y limpiarlas es una decisión explícita (`TM-16`). Revertir `0014`
+devuelve el presupuesto a ser por proceso y deja al owner sin forma de frenar una
+fuente: los dos son controles de `TM-10`, así que es una degradación deliberada y
+no una limpieza (ADR 0020). Se niega mientras una fuente esté deshabilitada, porque
+revertir la volvería a habilitar en silencio; el consumo del día se descarta con la
+tabla, que es un contador y no historia que otra cosa referencie.
 
 ## Fallas seguras
 

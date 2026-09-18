@@ -225,6 +225,25 @@ not take the lease: do not run them during a backfill
 ([ADR 0015](docs/architecture/adr/0015-durable-ingestion-jobs.md),
 [runbook](docs/runbooks/ingestion-backfill.md)).
 
+```bash
+pnpm ingestion:sources                                               # state, today's usage and control history
+pnpm ingestion:sources --source sec-edgar --disable --reason "…" --apply   # also --enable, --limit <n>
+```
+
+Every source has a **daily request budget** counted in PostgreSQL per UTC day, plus
+an owner **kill switch** ([ADR 0020](docs/architecture/adr/0020-source-daily-budget-kill-switch.md),
+migration `0014`, [runbook](docs/runbooks/source-budgets.md)). Both are enforced in
+the one egress door before the socket opens, so they bind the backfill and the
+hand-run commands alike — a per-run budget bounds a process, and the day is what a
+source measures abuse in. Quota is spent on the attempt, and the counter is a single
+conditional upsert, so two processes cannot exceed the cap without a lock or a lease.
+`SOURCE_DAILY_REQUEST_BUDGETS` declares the caps from the quota matrix (`sec-edgar`
+2.000/day): **a source missing from it makes no calls at all**, and a stored control
+may only lower a declared cap, never raise it. `getEgressClient` is ESLint-restricted
+to `src/server/egress/`; everything else takes `getSourceEgressFetch`. The job asks
+one admission before counting an attempt, so `budget_reserve`, `source_disabled` and
+`daily_budget_exhausted` stop a run without poisoning healthy subjects.
+
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 
 Node `>=22.11.0 <27`, pnpm `10.33.2` via corepack. Arch Linux dev host — use POSIX shell syntax for env-var examples in docs, matching the `ubuntu-latest` runners CI validates on.
@@ -280,6 +299,8 @@ Read [docs/data/identity-model.md](docs/data/identity-model.md) and [docs/data/p
 Before adding a Route Handler, Server Action, provider, export, job, or AI capability, read [docs/security/threat-model.md](docs/security/threat-model.md) and close the `TM-*` controls assigned to that surface.
 
 Network egress has exactly one door: `getEgressClient()` in [src/server/egress/](src/server/egress/). It takes a `sourceId` plus a URL that must match that source's allowlisted host **and** path prefix — there is no function that accepts a bare URL, and adding one reopens `TM-08` ([ADR 0009](docs/architecture/adr/0009-egress-boundary.md)). Being on the egress allowlist grants reachability, never the right to ingest: the source registry's rights gate is a separate control. Do not import `node:https`, `fetch`, or an HTTP SDK anywhere else.
+
+That door is metered. `getEgressClient` is ESLint-restricted to `src/server/egress/`; every other caller takes `getSourceEgressFetch`, which pairs the per-run pacing with the daily budget and the kill switch ([ADR 0020](docs/architecture/adr/0020-source-daily-budget-kill-switch.md)). Three controls, none implying another: the allowlist answers "where may a socket open?", the rights gate "do we have a right to this data?", and the budget "is there quota left today?". A source missing from `SOURCE_DAILY_REQUEST_BUDGETS` makes no calls at all.
 
 Scope guardrails: no application auth, accounts, roles, multi-tenancy, or BYOK. Real providers run only in personal mode. Never put secrets in `NEXT_PUBLIC_*`, and never commit captured payloads or credentials to this public repository.
 
