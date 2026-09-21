@@ -75,45 +75,67 @@ residuo lleva **signo**, porque el signo dice qué ajuste domina y tomar el valo
 absoluto borraría la distinción. Un ancla ausente deja el chequeo
 `not_evaluable`, nunca `ok`.
 
+## Dos trampas del anclaje
+
+El ejercicio sale del **ancla que registró la ingesta** (`fp = FY`, ADR 0017), no
+de buscar el período anual más reciente, y se busca a lo largo del **linaje**.
+Las dos reglas las impuso un caso real cada una:
+
+- un período de 365 días **no es** un ejercicio. Amazon publica cifras de doce
+  meses móviles que terminan en cada cierre de trimestre; tomarlas por ejercicio
+  pedía el balance a una fecha en la que no hay EPS publicada, y la hoja decía
+  «no evaluable» sobre una empresa que sí tiene su ejercicio en la base;
+- un **sucesor recién constituido** todavía no cerró un ejercicio. El de
+  ExxonMobil se registró en julio de 2026 y su única presentación es un 10-Q, así
+  que su ancla es un cierre de trimestre. El ejercicio del grupo está del lado
+  del antecesor, y el ancla tiene que seguir al linaje igual que la historia
+  (ADR 0011).
+
+`selectFiscalYearEnd` toma el ancla más reciente del linaje en la que el linaje
+efectivamente publicó anclas anuales. Sin ninguna devuelve `null`: no inventa una
+fecha.
+
 ## Evidencia registrada
 
-Tanda 1, doce empresas cubriendo los diez arquetipos, sobre el PostgreSQL
-personal del 2026-09-21.
+Las treinta empresas, sobre el PostgreSQL personal del 2026-09-21. La muestra se
+bajó en dos tandas, con la selección corregida entre una y otra.
 
-### Primera corrida, con `sec-core-concepts-2.0.0`
+### Balance
 
-- **10 de 12 balances cierran en 0,0000 %**, incluidos un banco, una
-  aseguradora, un REIT, un holding y una empresa en distress;
-- **5 anclas de 84 no reportadas**, todas decisiones del filer;
-- **4 residuos de EPS**, con signo: Duke −1,31 %, JPMorgan −2,31 %,
-  Prologis +2,35 % y Carnival +2,61 %.
+**26 de 30 cierran**, y **24 en 0,0000 % exacto** — entre ellas tres bancos, tres
+aseguradoras, tres REIT, dos holdings y dos empresas en distress. Los otros dos
+quedan dentro de tolerancia (Charles River −0,5783 %, Deere −0,0481 %). Las
+unidades, las escalas y los signos sobreviven a la ingesta en los diez
+arquetipos.
 
-Los cuatro residuos no eran de la ingesta: **la EPS diluida no se calcula sobre
-`NetIncomeLoss`** sino sobre un numerador que el filer reporta aparte, y la
-selección no lo traía. El signo distinguía dos ajustes opuestos —por debajo del
-resultado en Duke y JPMorgan, por encima en Prologis y Carnival—, que es la razón
-por la que el residuo lleva signo.
+Los 4 `not_evaluable` son filers que no publican `us-gaap:Liabilities` —Duke,
+Amazon, Devon y Carnival—. No lo arregla ninguna selección: es una decisión de
+quien presenta.
 
-### Segunda corrida, con `sec-core-concepts-3.0.0`
+### EPS
 
-La selección sumó `NetIncomeLossAvailableToCommonStockholders{Basic,Diluted}` y
-el puente de dividendos preferidos, y el chequeo pasó a usar ese numerador cuando
-el emisor lo publica. Reingerir los doce costó **53 requests**, y las cifras
-cierran el caso:
+**26 de 30 `ok`**, 15 de ellas contra el numerador propio de la EPS que trajo
+`sec-core-concepts-3.0.0`. 3 `not_evaluable` —ExxonMobil no publica acciones
+diluidas, Freeport no publica EPS diluida, Berkshire no publica ninguna de las
+dos— y **1 residuo**: Norwegian Cruise Line, +3,8570 %.
 
-| Empresa  | Residuo con 2.0.0 | Residuo con 3.0.0 |
-| -------- | ----------------- | ----------------- |
-| Duke     | −1,3110 %         | −0,1859 %         |
-| JPMorgan | −2,3059 %         | **+0,0083 %**     |
-| Prologis | +2,3463 %         | +0,0646 %         |
-| Carnival | +2,6101 %         | +0,0367 %         |
+El de Norwegian está explicado y no es nuestro: su EPS básica cuadra
+(0,94 × 448.542.442 = 421,6 M contra 423,2 M, −0,37 %), pero la diluida usa
+477.742.311 acciones —29 M más, de convertibles— y readiciona al numerador el
+interés de esos convertibles. Norwegian no publica
+`NetIncomeLossAvailableToCommonStockholdersDiluted`, así que el numerador
+ajustado no está en la base. El chequeo lo marca para que alguien abra el filing,
+que es exactamente su trabajo.
 
-**Cero chequeos con residuo** sobre las doce. Las cinco empresas que no publican
-el numerador —Apple, NVIDIA, Moderna, ExxonMobil y Berkshire— son justamente las
-de estructura de capital simple, que ya cuadraban contra `NetIncomeLoss`: el
-informe dice `numerador net_income` en esas y `net_income_to_common` en el resto.
+### Costo
 
-Quedan cuatro chequeos `not_evaluable`, todos por anclas que el filer no publica:
-Duke y Carnival no publican `us-gaap:Liabilities`, ExxonMobil no publica acciones
-diluidas y Berkshire no publica ni EPS diluida ni acciones diluidas. Eso no se
-arregla con una selección: son decisiones de quien presenta.
+|                                | requests         | base       |
+| ------------------------------ | ---------------- | ---------- |
+| Tanda 1, siete filers nuevos   | 39               | 14 → 16 MB |
+| Reingesta de doce con la 3.0.0 | 53               | —          |
+| Tanda 2, dieciocho filers      | 50               | 16 → 26 MB |
+| **Total del día**              | **144 de 2.000** | **26 MB**  |
+
+27.862 observaciones sobre 31 sujetos. El verificador del contrato pasa sobre
+todas: 27.123 cadenas, 722 con restatement y 739 transiciones, sin una sola
+falla.

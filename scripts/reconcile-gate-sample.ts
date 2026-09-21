@@ -13,8 +13,11 @@ import {
   isReported,
   RECONCILIATION_ANCHORS,
   RECONCILIATION_VERSION,
+  selectFiscalYearEnd,
   type AnchorReading,
 } from "@/modules/fundamentals/domain/reconciliation-anchors";
+import { COMPANY_FACTS_DATASET_ID } from "@/modules/fundamentals/application/ingest-company-facts";
+import { SEC_SOURCE_ID } from "@/modules/fundamentals/application/live-company-facts-source";
 import { createGraphIdentityResolver } from "@/modules/identity/application/identity-resolver";
 import type { BasisRow } from "@/modules/corporate-actions/domain/split-adjustment";
 import {
@@ -22,6 +25,7 @@ import {
   pointInTimeQuerySchema,
 } from "@/modules/temporal/domain/point-in-time-query";
 import { getCorporateActionRepository } from "@/server/persistence/get-corporate-action-repository";
+import { getIngestionRunRepository } from "@/server/persistence/get-ingestion-run-repository";
 import { getObservationRepository } from "@/server/persistence/get-observation-repository";
 import { getUniverseRepository } from "@/server/persistence/get-universe-repository";
 import { SP500_INDEX_ID } from "@/modules/universe/application/live-universe-source";
@@ -40,6 +44,7 @@ import { SP500_INDEX_ID } from "@/modules/universe/application/live-universe-sou
  * cuando una unidad, un signo o una escala se perdieron en la ingesta.
  *
  *   pnpm gate:reconcile                 # la tanda 1
+ *   pnpm gate:reconcile --all           # la muestra entera, que es el gate
  *   pnpm gate:reconcile --batch 2
  *   pnpm gate:reconcile --ticker JPM
  *   pnpm gate:reconcile --json
@@ -49,6 +54,7 @@ import { SP500_INDEX_ID } from "@/modules/universe/application/live-universe-sou
 const { values } = parseArgs({
   options: {
     batch: { type: "string", default: "1" },
+    all: { type: "boolean", default: false },
     ticker: { type: "string", multiple: true, default: [] },
     json: { type: "boolean", default: false },
   },
@@ -66,7 +72,9 @@ const selected: readonly GateSampleEntry[] =
     ? DECLARED_GATE_SAMPLE.filter((entry) =>
         values.ticker.includes(entry.ticker),
       )
-    : selectBatch(DECLARED_GATE_SAMPLE, batch);
+    : values.all
+      ? DECLARED_GATE_SAMPLE
+      : selectBatch(DECLARED_GATE_SAMPLE, batch);
 
 if (selected.length === 0) {
   console.error("La selección no incluye ninguna empresa declarada.");
@@ -75,6 +83,7 @@ if (selected.length === 0) {
 
 const observations = getObservationRepository();
 const corporateActions = getCorporateActionRepository();
+const ingestionRuns = getIngestionRunRepository();
 const state = await getUniverseRepository().loadState({
   indexId: SP500_INDEX_ID,
 });
@@ -95,27 +104,54 @@ function log(label: string, value: unknown): void {
 }
 
 /**
- * Cierre del último ejercicio publicado. Todas las anclas se piden a esa fecha,
- * también las de balance: mezclar el balance del último trimestre con el
- * resultado del ejercicio obligaría a abrir dos presentaciones para reconciliar
- * una sola hoja, y el residuo dejaría de decir algo sobre un filing.
+ * Cierre del ejercicio contra el que se reconcilia. Todas las anclas se piden a
+ * esa fecha, también las de balance: mezclar el balance del último trimestre con
+ * el resultado del ejercicio obligaría a abrir dos presentaciones para
+ * reconciliar una sola hoja.
+ *
+ * Sale del **ancla que registró la ingesta**, no de buscar el período anual más
+ * reciente. Un período de 365 días no es un ejercicio: Amazon publica cifras de
+ * doce meses móviles que terminan en cada cierre de trimestre, y tomarlas por
+ * ejercicio pedía el balance a una fecha en la que no hay EPS publicada. El
+ * ancla es el último período con `fp = FY` del propio filer, que es exactamente
+ * la pregunta (ADR 0017).
  */
-function latestFiscalYearEnd(rows: readonly BasisRow[]): string | null {
-  const annual = RECONCILIATION_ANCHORS.filter(
+async function anchorOf(cik: string): Promise<string | null> {
+  const run = await ingestionRuns.findLatestAnchored(
+    SEC_SOURCE_ID,
+    COMPANY_FACTS_DATASET_ID,
+    cik,
+  );
+
+  return run?.selectionAnchorOn ?? null;
+}
+
+const ANNUAL_CONCEPTS = new Set(
+  RECONCILIATION_ANCHORS.filter(
     (definition) => definition.periodType === "annual",
-  ).flatMap((definition) => definition.concepts);
+  ).flatMap((definition) => definition.concepts),
+);
 
-  const ends = rows
-    .filter(
-      (row) =>
-        row.observation.periodType === "annual" &&
-        annual.includes(row.observation.concept) &&
-        row.value !== null,
-    )
-    .map((row) => row.observation.asOf)
-    .sort();
+/** La regla vive en el dominio; acá sólo se reúnen sus dos entradas. */
+async function fiscalYearEndOf(
+  ciks: readonly string[],
+  rows: readonly BasisRow[],
+): Promise<string | null> {
+  const anchors = (await Promise.all(ciks.map(anchorOf))).filter(
+    (anchor): anchor is string => anchor !== null,
+  );
 
-  return ends[ends.length - 1] ?? null;
+  return selectFiscalYearEnd(
+    anchors,
+    rows
+      .filter(
+        (row) =>
+          row.observation.periodType === "annual" &&
+          ANNUAL_CONCEPTS.has(row.observation.concept) &&
+          row.value !== null,
+      )
+      .map((row) => row.observation.asOf),
+  );
 }
 
 /**
@@ -217,7 +253,32 @@ for (const entry of selected) {
     { corporateActions, observations },
   );
 
-  const fiscalYearEnd = latestFiscalYearEnd(selection.rows);
+  // CIKs del linaje: el sujeto y los antecesores cuyos hechos volvieron.
+  const lineageCiks = [
+    ...new Set(selection.rows.map((row) => row.observation.subjectId)),
+  ].flatMap((subjectId) => {
+    const found = state.graph.identifierAssignments.find(
+      (candidate) =>
+        candidate.identifierType === "cik" &&
+        candidate.subjectType === "legal_entity" &&
+        candidate.subjectId === subjectId,
+    );
+
+    return found === undefined ? [] : [found.normalizedValue];
+  });
+
+  const fiscalYearEnd = await fiscalYearEndOf(
+    [assignment.normalizedValue, ...lineageCiks],
+    selection.rows,
+  );
+
+  if (fiscalYearEnd === null) {
+    console.error(
+      `${entry.ticker}: ninguna corrida registró su ancla; volvé a ingerirlo.`,
+    );
+    process.exit(2);
+  }
+
   const readings = RECONCILIATION_ANCHORS.map((definition) =>
     pickAnchor(selection.rows, definition, fiscalYearEnd),
   );

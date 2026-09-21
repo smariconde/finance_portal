@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   checkCoherence,
   edgarFilingUrl,
+  selectFiscalYearEnd,
   isReported,
   RECONCILIATION_ANCHORS,
   ReconciliationError,
@@ -231,6 +232,42 @@ describe("checkCoherence", () => {
     ];
 
     expect(() => checkCoherence(readings)).toThrowError(ReconciliationError);
+  });
+});
+
+describe("selectFiscalYearEnd", () => {
+  it("takes the most recent anchor the lineage actually published", () => {
+    expect(
+      selectFiscalYearEnd(
+        ["2024-12-31", "2025-12-31"],
+        ["2024-12-31", "2025-12-31"],
+      ),
+    ).toBe("2025-12-31");
+  });
+
+  it("skips a successor's quarter-end anchor and falls back to the lineage", () => {
+    // ExxonMobil: el sucesor se registró en julio de 2026 y su única
+    // presentación es un 10-Q, así que su ancla es un cierre de trimestre sin
+    // resultado anual detrás. El ejercicio del grupo está del lado del antecesor.
+    expect(
+      selectFiscalYearEnd(["2026-06-30", "2025-12-31"], ["2025-12-31"]),
+    ).toBe("2025-12-31");
+  });
+
+  it("ignores a twelve-month period that no anchor names as a fiscal year", () => {
+    // Amazon publica doce meses móviles terminando en cada cierre de trimestre:
+    // son `annual` por duración y no son ejercicios.
+    expect(
+      selectFiscalYearEnd(
+        ["2025-12-31"],
+        ["2026-06-30", "2026-03-31", "2025-12-31"],
+      ),
+    ).toBe("2025-12-31");
+  });
+
+  it("returns null instead of inventing a date", () => {
+    expect(selectFiscalYearEnd(["2025-12-31"], [])).toBeNull();
+    expect(selectFiscalYearEnd([], ["2025-12-31"])).toBeNull();
   });
 });
 
