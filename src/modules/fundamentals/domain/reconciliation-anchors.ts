@@ -328,6 +328,37 @@ export function checkCoherence(
   return results;
 }
 
+/**
+ * Cierre del ejercicio contra el que se reconcilia, entre las anclas del linaje.
+ *
+ * Dos cosas que parecen detalles y no lo son. Un período de 365 días **no es**
+ * un ejercicio: Amazon publica cifras de doce meses móviles que terminan en cada
+ * cierre de trimestre, así que el ejercicio sale del ancla que registró la
+ * ingesta (`fp = FY`, ADR 0017) y no de buscar el período anual más reciente.
+ *
+ * Y el ancla se busca a lo largo del **linaje**: un sucesor recién constituido
+ * todavía no cerró un ejercicio —el de ExxonMobil se registró en julio de 2026 y
+ * su única presentación es un 10-Q—, y reconciliarlo contra su propio cierre de
+ * trimestre diría que no hay resultado cuando el ejercicio del grupo sí está en
+ * la base, del lado del antecesor (ADR 0011).
+ *
+ * Se elige el ancla más reciente en la que el linaje efectivamente publicó
+ * anclas anuales. Sin ninguna, `null`: no se inventa una fecha.
+ */
+export function selectFiscalYearEnd(
+  lineageAnchors: readonly string[],
+  publishedAnnualPeriodEnds: readonly string[],
+): string | null {
+  const published = new Set(publishedAnnualPeriodEnds);
+
+  return (
+    [...new Set(lineageAnchors)]
+      .sort()
+      .reverse()
+      .find((anchor) => published.has(anchor)) ?? null
+  );
+}
+
 /** URL pública del filing que publicó un ancla, para abrirlo y comparar. */
 export function edgarFilingUrl(cik: string, sourceDocumentId: string): string {
   const accession = sourceDocumentId.replace(/-/gu, "");

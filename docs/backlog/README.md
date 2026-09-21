@@ -2506,6 +2506,46 @@ El verificador del incremento 1 sigue pasando con las filas nuevas: 10.666
 cadenas, 11.010 revisiones, 335 con restatement y 344 transiciones, todo en
 verde.
 
+Entregada la tanda 2 y **cerrado el incremento 2** (2026-09-21). Las 18 empresas
+restantes se ingirieron ya con la selección completa: **50 requests**, sin un
+solo duplicado, y la base pasa de 16 a 26 MB con 27.862 observaciones sobre 31
+sujetos. El día entero costó **144 requests de los 2.000**.
+
+Dos trampas del anclaje que aparecieron con la muestra completa, y que hoy son
+reglas con test:
+
+- **un período de 365 días no es un ejercicio.** Amazon publica cifras de doce
+  meses móviles que terminan en cada cierre de trimestre. Tomarlas por ejercicio
+  pedía el balance a una fecha sin EPS publicada, y la hoja decía «no evaluable»
+  sobre una empresa que sí tiene su ejercicio en la base. El ejercicio pasa a
+  salir del ancla que registró la ingesta (`fp = FY`, ADR 0017);
+- **un sucesor recién constituido no cerró un ejercicio.** El de ExxonMobil se
+  registró en julio de 2026 y su única presentación es un 10-Q, así que su ancla
+  es un cierre de trimestre. El ejercicio del grupo está del lado del antecesor,
+  y el ancla tiene que seguir al linaje igual que la historia (ADR 0011).
+
+`selectFiscalYearEnd` toma el ancla más reciente del linaje en la que el linaje
+publicó anclas anuales, y devuelve `null` antes que inventar una fecha.
+
+**Resultado sobre las treinta.** Balance: 26 de 30 cierran, **24 en 0,0000 %
+exacto**, entre ellas tres bancos, tres aseguradoras, tres REIT, dos holdings y
+dos empresas en distress; los otros dos dentro de tolerancia. EPS: 26 de 30 `ok`,
+15 contra el numerador propio. Los 7 `not_evaluable` son conceptos que el filer
+no publica —`us-gaap:Liabilities` en Duke, Amazon, Devon y Carnival; acciones
+diluidas en ExxonMobil y Berkshire; EPS diluida en Freeport y Berkshire—: no los
+arregla ninguna selección.
+
+Queda **un residuo**, Norwegian Cruise Line con +3,8570 %, explicado y ajeno: su
+EPS básica cuadra (0,94 × 448.542.442 = 421,6 M contra 423,2 M), pero la diluida
+usa 29 M de acciones más por convertibles y readiciona su interés al numerador,
+y Norwegian no publica el numerador ajustado. El chequeo lo marca para que
+alguien abra el filing, que es su trabajo.
+
+El verificador del contrato pasa sobre las 27.862 observaciones: 27.123 cadenas,
+722 con restatement y 739 transiciones, sin una falla.
+
+Queda el incremento 3: la ADR que decide Arelle/DQC.
+
 | Issue   | Resultado y aceptación mínima                                                                                          | Depende de | Controles                 |
 | ------- | ---------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
 | `F2-03` | SEC XBRL integrada con `available_at` del filing, vintages y restatements preservados; cuarentena ante schema roto.    | `F2-02`    | `TM-05`, `TM-06`, `TM-08` |
