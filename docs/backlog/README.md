@@ -2422,6 +2422,64 @@ con las cuatro rutas en `ƒ (Dynamic)` pasan.
 Pendientes los incrementos 2 (30 empresas reconciliadas) y 3 (ADR de validación
 semántica XBRL).
 
+Entregado el incremento 2 (2026-09-21). Operación en el
+[runbook](../runbooks/gate-reconciliation.md).
+
+**El arquetipo se declara.** Nada en la base puede decir de qué arquetipo es una
+empresa: no hay columna de sector, industria ni SIC, y la clasificación
+versionada es `F7-02`, posterior a esta fase. El dato existe gratis —el
+`submissions` que ya se baja trae `sic` y `sicDescription`— pero persistirlo es
+esa otra decisión. Así que `declared-gate-sample.ts` declara las treinta
+empresas con el motivo de cada una, y `assertGateSample` se niega ante una
+muestra que repite una empresa, deja un arquetipo sin representante o cuya
+primera tanda no llega a los diez. Dos límites declarados: el S&P 500 tiene pocos
+holdings puros y por construcción expulsa a las empresas en distress, así que
+esos dos arquetipos llegan a dos y la diferencia se compensa con una cuarta
+madura y una cuarta de commodity.
+
+**Medición de la tanda 1** (los 6 sujetos ya publicados más 7 nuevos, doce
+empresas que cubren los diez arquetipos): **39 requests** de los 2.000 diarios y
+**2 MB** de base —de 14 a 16 MB, de 5.107 a 10.588 observaciones—. La estimación
+previa era de ~240 requests y ~6 MB: venía de la medición anterior a la ventana,
+y hoy la mayoría de los filers entra en 2-3 requests. Sólo JPMorgan necesitó 25,
+por su historial de presentaciones paginado. El verificador del incremento 1
+pasa sobre la base duplicada sin ningún cambio: 10.253 cadenas, 10.588
+revisiones, 326 con restatement y 335 transiciones, todas en verde.
+
+**Resultado de la reconciliación**: 10 de 12 balances cierran en **0,0000 %**
+—incluidos un banco, una aseguradora, un REIT, un holding y una empresa en
+distress—, lo que dice que la unidad, la escala y el signo sobreviven a la
+ingesta en todos los arquetipos. 5 anclas de 84 quedan no reportadas, todas
+decisiones del filer: Duke Energy y Carnival no publican `us-gaap:Liabilities`,
+ExxonMobil no publica acciones diluidas y Berkshire no publica ni EPS diluida ni
+acciones diluidas.
+
+**El hallazgo del incremento.** Los cuatro residuos de EPS vienen de lo mismo, y
+no es la ingesta: **la EPS diluida no se calcula sobre `NetIncomeLoss`**. Su
+numerador es una cifra ajustada que el filer reporta aparte y que
+`sec-core-concepts-2.0.0` no selecciona —no hay una sola fila de
+`AvailableToCommon` ni de `PreferredStockDividends` en la base—, así que el
+residuo no se explica con lo guardado.
+
+El signo distingue dos ajustes opuestos, y por eso el residuo pasó a llevarlo:
+Duke −1,31 % y JPMorgan −2,31 % tienen el numerador **por debajo** del resultado
+(dividendos preferidos; en JPMorgan la diferencia son 1.314 M, del orden de sus
+preferidos), mientras que Prologis +2,35 % y Carnival +2,61 % lo tienen **por
+encima** (unidades de la sociedad operativa del REIT e intereses de convertibles
+readicionados). Atribuir cada signo a ese ajuste es la lectura más plausible de
+cada estructura y no está verificado contra el filing: confirmarlo es abrir las
+cuatro presentaciones, que es el trabajo manual que la hoja habilita. Lo
+verificado es que el numerador de la EPS no está en la base.
+
+Un intento de confirmarlo contra el corpus congelado quedó inconcluso y vale
+anotarlo: Duke está en el corpus y no tiene esos conceptos, pero el reductor
+descarta la mayoría de los no seleccionados, así que su ausencia ahí no prueba
+ausencia en el cable. No se corrigió en este incremento a propósito: cambiar la
+selección es subirle la versión y reingerir los trece filers, y eso es un slice
+con su propia medición.
+
+Queda la tanda 2 —las 18 empresas restantes— y el incremento 3.
+
 | Issue   | Resultado y aceptación mínima                                                                                          | Depende de | Controles                 |
 | ------- | ---------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
 | `F2-03` | SEC XBRL integrada con `available_at` del filing, vintages y restatements preservados; cuarentena ante schema roto.    | `F2-02`    | `TM-05`, `TM-06`, `TM-08` |
