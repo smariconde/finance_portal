@@ -710,6 +710,36 @@ entra al content hash, pero la observación publicada no lo lleva. Para la SEC s
 reconstruye con `secFactExternalId` a partir de la fila y el `subject_key` de su
 corrida, así que cada hash guardado se puede volver a calcular.
 
+### Verificación sobre la base
+
+`F2-07` convirtió las verificaciones de arriba en un comando. Hasta entonces cada
+una se había corrido **una vez, a mano, sobre una empresa**: los 39.572 M de Apple
+que pasan a 36.171 M en la aceptación de la 10-K/A, los 17 ejercicios que
+ExxonMobil gana por el linaje, las 934.818.000 acciones que pasan a 6.543.726.000
+con el 7:1. Quedaban escritas en prosa y no volvían a correr, así que una regresión
+en la empresa número siete no rompía nada.
+
+`pnpm gate:point-in-time` ([runbook](../runbooks/point-in-time-audit.md)) recorre
+todas las cadenas publicadas y evalúa cinco afirmaciones:
+
+- `provenance_resolves` — la fila que cita un documento llega hasta él y las dos
+  disponibilidades coinciden;
+- `availability_precedes_fetch` — la disponibilidad es la aceptación, no la descarga;
+- `revision_chain_ordered` — números densos, cada revisión más nueva, encadenada,
+  una sola vigente y es la última;
+- `as_known_excludes_later_revision` — un instante antes de la aceptación de una
+  revisión se devuelve la anterior, y en la aceptación esa;
+- `restatement_changes_content` — una revisión nueva cambia algo.
+
+La cuarta pasa por `queryObservations`, así que lo que se prueba es el mismo
+dominio que lee la aplicación. Una afirmación que nunca se evaluó queda
+`not_exercised` y el comando sale distinto de cero: una base sin ninguna cadena
+restateada no prueba nada sobre el no-look-ahead.
+
+Es de sólo lectura y no sale a la red. Sobre el PostgreSQL personal del
+2026-09-21: 4.946 cadenas, 5.107 revisiones, 159 cadenas con restatement, 161
+transiciones evaluadas y ninguna falla.
+
 ## Fuentes primarias
 
 - [SEC: EDGAR APIs y XBRL](https://www.sec.gov/search-filings/edgar-application-programming-interfaces)

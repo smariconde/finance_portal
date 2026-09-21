@@ -24,23 +24,24 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 
 ## Tracker activo
 
-| Orden | Issue      | Estado     | Resultado verificable                                                                                                | Dependencias  |
-| ----: | ---------- | ---------- | -------------------------------------------------------------------------------------------------------------------- | ------------- |
-|     1 | `F1-01`    | `done`     | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos.         | Fase 0 `done` |
-|     2 | `F1-02`    | `done`     | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.              | `F1-01`       |
-|     3 | `F1-UI-01` | `done`     | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.                       | `F1-02`       |
-|     4 | `F1-03`    | `done`     | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.                       | `F1-UI-01`    |
-|     5 | `F1-04`    | `done`     | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.                  | `F1-03`       |
-|     6 | `F1-05`    | `done`     | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                              | `F1-04`       |
-|     7 | `F1-06`    | `done`     | Superficie de resultado y trazabilidad con fuentes, freshness, supuestos y sensibilidad accesibles.                  | `F1-05`       |
-|     8 | `F1-07`    | `done`     | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                                   | `F1-06`       |
-|     9 | `F1-08`    | `deferred` | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.                       | `F1-07`       |
-|    10 | `F2-01`    | `done`     | Acceso personal remoto habilitado en produccion, con los tests de frontera invertidos a proposito.                   | ADR 0008      |
-|    11 | `F2-02`    | `done`     | Universo S&P 500 con identidad completa: issuer, security, listing, simbolo vigente y CIK.                           | `F2-01`       |
-|    12 | `F2-03`    | `done`     | SEC EDGAR integrada: companyfacts publicado como observaciones point-in-time, con aceptación, vintages y cuarentena. | `F2-02`       |
-|    13 | `F2-04`    | `done`     | Corporate actions con vigencia: splits, cambios de símbolo, sucesiones de CIK, delistings y fusiones.                | `F2-03`       |
-|    14 | `F2-05`    | `done`     | Backfill y refresh durable con presupuesto, cursor, lease y recuperación verificables.                               | `F2-04`       |
-|    15 | `F2-06`    | `done`     | Golden fixtures desde extractos reales congelados, en reemplazo de `FixtureCo` como oráculo de regresión.            | `F2-03`       |
+| Orden | Issue      | Estado        | Resultado verificable                                                                                                                     | Dependencias  |
+| ----: | ---------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+|     1 | `F1-01`    | `done`        | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos.                              | Fase 0 `done` |
+|     2 | `F1-02`    | `done`        | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.                                   | `F1-01`       |
+|     3 | `F1-UI-01` | `done`        | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.                                            | `F1-02`       |
+|     4 | `F1-03`    | `done`        | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.                                            | `F1-UI-01`    |
+|     5 | `F1-04`    | `done`        | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.                                       | `F1-03`       |
+|     6 | `F1-05`    | `done`        | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                                                   | `F1-04`       |
+|     7 | `F1-06`    | `done`        | Superficie de resultado y trazabilidad con fuentes, freshness, supuestos y sensibilidad accesibles.                                       | `F1-05`       |
+|     8 | `F1-07`    | `done`        | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                                                        | `F1-06`       |
+|     9 | `F1-08`    | `deferred`    | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.                                            | `F1-07`       |
+|    10 | `F2-01`    | `done`        | Acceso personal remoto habilitado en produccion, con los tests de frontera invertidos a proposito.                                        | ADR 0008      |
+|    11 | `F2-02`    | `done`        | Universo S&P 500 con identidad completa: issuer, security, listing, simbolo vigente y CIK.                                                | `F2-01`       |
+|    12 | `F2-03`    | `done`        | SEC EDGAR integrada: companyfacts publicado como observaciones point-in-time, con aceptación, vintages y cuarentena.                      | `F2-02`       |
+|    13 | `F2-04`    | `done`        | Corporate actions con vigencia: splits, cambios de símbolo, sucesiones de CIK, delistings y fusiones.                                     | `F2-03`       |
+|    14 | `F2-05`    | `done`        | Backfill y refresh durable con presupuesto, cursor, lease y recuperación verificables.                                                    | `F2-04`       |
+|    15 | `F2-06`    | `done`        | Golden fixtures desde extractos reales congelados, en reemplazo de `FixtureCo` como oráculo de regresión.                                 | `F2-03`       |
+|    16 | `F2-07`    | `in_progress` | Gate de Fase 2 verificado sobre datos reales: contrato point-in-time auditado, 30 empresas reconciliadas y validación semántica decidida. | `F2-06`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -2326,12 +2327,108 @@ seis filers y no los 30 arquetipos del gate de fase; la validación semántica X
 de muestra (Arelle/DQC) sigue pendiente; y el corpus no alimenta ninguna
 superficie ni ninguna ingesta, sólo lo leen tests.
 
-| Issue   | Resultado y aceptación mínima                                                                                       | Depende de | Controles                 |
-| ------- | ------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
-| `F2-03` | SEC XBRL integrada con `available_at` del filing, vintages y restatements preservados; cuarentena ante schema roto. | `F2-02`    | `TM-05`, `TM-06`, `TM-08` |
-| `F2-04` | Corporate actions con vigencia: splits, cambios de símbolo, delistings y fusiones sin sobrescribir historia.        | `F2-03`    | `TM-05`, `TM-06`          |
-| `F2-05` | Backfill y refresh durable con presupuesto, cursor, lease, replay, `429`, crash y recuperación manual probados.     | `F2-04`    | `TM-10`, `TM-11`, `TM-16` |
-| `F2-06` | Golden fixtures desde extractos reales congelados, en reemplazo de `FixtureCo` como oráculo de regresión.           | `F2-03`    | `TM-05`, `TM-16`          |
+<a id="f2-07"></a>
+
+#### `F2-07` — Gate de Fase 2: verificación sobre datos reales
+
+- Estado: `in_progress` (iniciado el 2026-09-21).
+- Fase y dependencia: Fase 2; `F2-06` cerrado. Es el **gate de la fase**, no un
+  casillero más: el roadmap ya tiene sus seis puntos en `done` y la Fase 2 no puede
+  pasar a `done` sin esta evidencia.
+- Problema: las cuatro afirmaciones del gate —30 empresas de arquetipos distintos
+  reconciliadas contra su filing, 100 % de filas con source/as-of/available-at,
+  splits, restatements y un cambio de símbolo probados, y un `as_known` anterior a
+  un restatement que no devuelve el valor enmendado— hoy están sostenidas por
+  **verificaciones manuales de una sola empresa**, escritas en prosa en el
+  [contrato point-in-time](../data/point-in-time-contract.md): los 39.572 M de
+  Apple que pasan a 36.171 M en la aceptación de la 10-K/A, los 17 ejercicios que
+  ExxonMobil gana por el linaje, las 934.818.000 acciones que pasan a 6.543.726.000
+  con el 7:1. Cada una se corrió una vez, a mano, contra la base personal, y
+  ninguna vuelve a correr sola. Una regresión que rompiera el contrato en la
+  empresa número siete no rompería nada.
+- Alcance, en tres incrementos que se cierran en este orden:
+  1. **verificador del contrato sobre la base real**: las afirmaciones que no
+     necesitan red ni empresas nuevas pasan de prosa a un comando repetible que
+     recorre **todas** las cadenas publicadas y falla con el nombre de la
+     afirmación rota. Corre a través del mismo dominio que lee la aplicación, no
+     de SQL paralelo: un verificador que reimplementa la selección prueba su
+     propia copia, no el contrato.
+  2. **reconciliación de 30 empresas**: elegir los filers de los diez arquetipos
+     de [`04_VALUATION_SYSTEM.md`](../finance-portal-masterplan/04_VALUATION_SYSTEM.md),
+     ingerirlos con su presupuesto y reconciliar contra el filing, con el
+     verificador del incremento 1 corriendo sobre el conjunto entero.
+  3. **validación semántica XBRL**: una ADR decide si Arelle/EFM y las reglas DQC
+     entran como oráculo independiente de muestra, qué agregan sobre el corpus
+     congelado y la reconciliación, y qué cuestan —Python en el repositorio y en
+     CI, reglas versionadas—. La ADR puede concluir que no se adoptan; ese también
+     es el cierre del punto, con su motivo escrito.
+- Controles: `TM-05` (una afirmación del gate que deja de valer se vuelve
+  detectable), `TM-06` (el no-look-ahead es la afirmación central) y `TM-16` (el
+  informe es la evidencia que explica de dónde sale cada verdicto).
+- No autoriza: cron, superficie de UI, demo pública, ni escrituras. El verificador
+  lee y no escribe nada.
+- Fuera de alcance, declarado: el push-down de la selección temporal a SQL y el
+  constraint de exclusión temporal por rango siguen diferidos con su motivo en el
+  contrato point-in-time.
+
+Criterios de aceptación del incremento 1:
+
+- un comando a mano, de sólo lectura, sin red, recorre todas las cadenas
+  publicadas y emite un informe con un verdicto por afirmación, sus conteos y las
+  fallas nombradas;
+- la afirmación de no-look-ahead se evalúa **a través del dominio**
+  (`queryObservations`), no con SQL: para cada cadena con más de una revisión, un
+  `as_known` un instante antes de la aceptación de la revisión siguiente devuelve
+  la anterior, y en la aceptación devuelve la siguiente;
+- cada afirmación tiene su test de dominio con una entrada deliberadamente rota
+  que la hace fallar con nombre, además de la entrada sana;
+- la lectura es acotada y paginada: el verificador no arma una consulta sin techo
+  sobre la tabla entera (`TM-07`);
+- el informe sobre la base personal queda como evidencia del incremento, con sus
+  conteos reales.
+
+Entregado el incremento 1 (2026-09-21). Operación en el
+[runbook](../runbooks/point-in-time-audit.md).
+
+`pnpm gate:point-in-time` recorre todas las cadenas publicadas y evalúa cinco
+afirmaciones, de sólo lectura y sin red. La decisión de diseño fue **no escribir
+SQL de verificación**: la afirmación central pasa por `queryObservations`, el
+mismo dominio que lee la aplicación, porque un verificador con su propia copia de
+la selección prueba la copia. La segunda decisión fue que una afirmación sin
+ejercitar **no es un verde**: queda `not_exercised` y el comando sale distinto de
+cero, porque una base sin ninguna cadena restateada no prueba nada sobre el
+no-look-ahead.
+
+Dos hallazgos del camino:
+
+- exigir que **toda** fila cite un documento excede el contrato: una fuente de
+  fixture no publica documentos, y la afirmación correcta es sobre la cita que no
+  resuelve, no sobre la fila que no cita. Quedó como conteo del informe —para la
+  SEC vale cero, y pasar de cero a N es la regresión que hay que ver—;
+- el schema se negó a construir dos de las entradas rotas de los tests
+  (`superseded_at` tiene que ser posterior a `available_at`), así que esas fallas
+  sólo pueden entrar por una escritura que no pase por el dominio. El test de
+  integración las produce alterando la fila en PostgreSQL, que es exactamente el
+  caso que el verificador existe para ver.
+
+Medido sobre el PostgreSQL personal: 4.946 cadenas, 5.107 revisiones, 159 cadenas
+con restatement, 0 filas sin documento citado; `provenance_resolves` 5.107/0,
+`availability_precedes_fetch` 5.107/0, `revision_chain_ordered` 10.053/0,
+`as_known_excludes_later_revision` 161/0 y `restatement_changes_content` 161/0.
+Las 161 transiciones son restatements reales de la SEC sobre seis filers, no
+casos construidos. format, lint, typecheck, 1.342 unit, 135 integration y build
+con las cuatro rutas en `ƒ (Dynamic)` pasan.
+
+Pendientes los incrementos 2 (30 empresas reconciliadas) y 3 (ADR de validación
+semántica XBRL).
+
+| Issue   | Resultado y aceptación mínima                                                                                          | Depende de | Controles                 |
+| ------- | ---------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
+| `F2-03` | SEC XBRL integrada con `available_at` del filing, vintages y restatements preservados; cuarentena ante schema roto.    | `F2-02`    | `TM-05`, `TM-06`, `TM-08` |
+| `F2-04` | Corporate actions con vigencia: splits, cambios de símbolo, delistings y fusiones sin sobrescribir historia.           | `F2-03`    | `TM-05`, `TM-06`          |
+| `F2-05` | Backfill y refresh durable con presupuesto, cursor, lease, replay, `429`, crash y recuperación manual probados.        | `F2-04`    | `TM-10`, `TM-11`, `TM-16` |
+| `F2-06` | Golden fixtures desde extractos reales congelados, en reemplazo de `FixtureCo` como oráculo de regresión.              | `F2-03`    | `TM-05`, `TM-16`          |
+| `F2-07` | Gate de fase verificado sobre datos reales: contrato auditado por comando, 30 arquetipos reconciliados, XBRL decidido. | `F2-06`    | `TM-05`, `TM-06`, `TM-16` |
 
 ### Fase 3 — arquetipo, admisibilidad y costo de capital
 

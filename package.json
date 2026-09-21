@@ -36,7 +36,8 @@
     "fundamentals:refresh": "tsx --conditions=react-server --env-file=.env.local scripts/refresh-company-facts.ts",
     "ingestion:jobs": "tsx --conditions=react-server --env-file=.env.local scripts/manage-ingestion-jobs.ts",
     "ingestion:sources": "tsx --conditions=react-server --env-file=.env.local scripts/manage-source-budgets.ts",
-    "fixtures:capture": "tsx --conditions=react-server --env-file=.env.local scripts/capture-golden-corpus.ts"
+    "fixtures:capture": "tsx --conditions=react-server --env-file=.env.local scripts/capture-golden-corpus.ts",
+    "gate:point-in-time": "tsx --conditions=react-server --env-file=.env.local scripts/audit-point-in-time.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

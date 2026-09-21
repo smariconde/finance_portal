@@ -304,6 +304,28 @@ Rewriting the JSON preserves every number's source text: a `val` that round-trip
 through a `double` is an invented value. Files are pinned by `sha256` in
 `manifest.json`, Prettier ignores the directory, and a test recomputes the hashes.
 
+```bash
+pnpm gate:point-in-time                  # audits every published chain; no network, no writes
+pnpm gate:point-in-time --json           # the same report as evidence
+```
+
+The **gate of Phase 2**, turned into a command (`F2-07`,
+[runbook](docs/runbooks/point-in-time-audit.md)). Its claims used to be one-off
+manual checks written in prose — Apple before and after its 10-K/A, ExxonMobil
+before and after the `8-K12B`; the verifier evaluates them over **every** chain
+the database holds and names the one that stops holding. It is read-only.
+
+Five claims: a row that cites a document reaches it with the same availability;
+availability is the filing's acceptance and never the download instant; the
+revision chain is dense, ordered, linked and has exactly one current revision; an
+`as_known` one instant before a revision's acceptance returns the previous one and
+at the acceptance returns that one; and a new revision changes something. The
+fourth runs **through `queryObservations`**, the same domain the application
+reads — a verifier with its own copy of the selection would prove the copy. A
+claim that was never evaluated is `not_exercised`, never a pass, and the command
+exits non-zero: a database with no restated chain proves nothing about
+look-ahead.
+
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 
 Node `>=22.11.0 <27`, pnpm `10.33.2` via corepack. Arch Linux dev host — use POSIX shell syntax for env-var examples in docs, matching the `ubuntu-latest` runners CI validates on.
