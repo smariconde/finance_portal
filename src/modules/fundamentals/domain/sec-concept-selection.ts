@@ -24,15 +24,15 @@ import { SEC_HISTORY_WINDOW_VERSION } from "./sec-history-window";
  *   a correr el CIK publica sólo lo nuevo. No sube la versión del parser, porque
  *   filtrar no cambia el contenido de un hecho ya publicado.
  */
-export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-2.0.0";
+export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-3.0.0";
 
 /**
  * Qué decide la versión. La 1.0.0 eran los mismos conceptos con toda la historia
  * XBRL; la 2.0.0 los recorta a la ventana de cinco ejercicios (ADR 0017), cuyo
- * ancla sale de cada descarga y queda en la corrida (`selection_anchor_on`). Con
- * la versión y el ancla, un período anterior al corte sigue siendo «no se fue a
- * buscar». El test fija los componentes: cambiar uno sin subir la versión lo
- * rompe.
+ * ancla sale de cada descarga y queda en la corrida (`selection_anchor_on`). La
+ * 3.0.0 suma el **numerador de la EPS**, que faltaba. Con la versión y el ancla,
+ * un período anterior al corte sigue siendo «no se fue a buscar». El test fija
+ * los componentes: cambiar uno sin subir la versión lo rompe.
  */
 export const SEC_CONCEPT_SELECTION = Object.freeze({
   version: SEC_CONCEPT_SELECTION_VERSION,
@@ -70,6 +70,19 @@ const US_GAAP = [
   "EarningsPerShareDiluted",
   "WeightedAverageNumberOfSharesOutstandingBasic",
   "WeightedAverageNumberOfDilutedSharesOutstanding",
+  // Resultado: el numerador de la EPS, que **no es** `NetIncomeLoss`. Lo agregó
+  // la 3.0.0 después de que la reconciliación del gate midiera residuos que no
+  // se podían explicar con lo guardado: en Duke y JPMorgan el numerador queda
+  // por debajo del resultado —dividendos preferidos— y en Prologis y Carnival
+  // por encima —unidades de la sociedad operativa de un REIT e intereses de
+  // convertibles readicionados—. Guardar el numerador evita tener que
+  // reconstruirlo ajuste por ajuste.
+  "NetIncomeLossAvailableToCommonStockholdersBasic",
+  "NetIncomeLossAvailableToCommonStockholdersDiluted",
+  // El puente entre los dos, para que la diferencia quede explicada y no sólo
+  // medida.
+  "PreferredStockDividendsAndOtherAdjustments",
+  "PreferredStockDividendsIncomeStatementImpact",
   // Flujo de fondos: reinversión y retorno al accionista.
   "NetCashProvidedByUsedInOperatingActivities",
   "PaymentsToAcquirePropertyPlantAndEquipment",

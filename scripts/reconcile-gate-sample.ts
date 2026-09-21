@@ -268,7 +268,7 @@ if (values.json) {
       console.log(
         `  ${check.check.padEnd(16)} ${check.status}${
           check.residualPct === null ? "" : ` · residuo ${check.residualPct} %`
-        }${check.missing.length === 0 ? "" : ` · falta ${check.missing.join(", ")}`}`,
+        }${check.numeratorAnchor === undefined ? "" : ` · numerador ${check.numeratorAnchor}`}${check.missing.length === 0 ? "" : ` · falta ${check.missing.join(", ")}`}`,
       );
     }
   }

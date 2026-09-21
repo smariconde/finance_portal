@@ -109,6 +109,28 @@ describe("checkCoherence", () => {
     expect(statusOf(readings, "balance_sheet").residualPct).toBe("-0.5000");
   });
 
+  it("prefers the EPS numerator over the result when the filer publishes it", () => {
+    // Es lo que cerró los cuatro residuos de la tanda 1: la EPS no se calcula
+    // sobre `NetIncomeLoss` sino sobre esta cifra, que la selección 3.0.0 trajo.
+    const readings = [
+      reading("net_income", "5000"),
+      reading("net_income_to_common", "4903"),
+      reading("eps_diluted", "6.31"),
+      reading("diluted_shares", "777"),
+    ];
+    const result = statusOf(readings, "earnings_per_share");
+
+    expect(result.numeratorAnchor).toBe("net_income_to_common");
+    expect(result.status).toBe("ok");
+  });
+
+  it("falls back to the result, and says so, when the filer publishes no numerator", () => {
+    const result = statusOf(healthy(), "earnings_per_share");
+
+    expect(result.numeratorAnchor).toBe("net_income");
+    expect(result.status).toBe("ok");
+  });
+
   it("keeps the sign, which is what separates one cause from another", () => {
     // Numerador menor que el resultado —dividendos preferidos, como en Duke y
     // JPMorgan— contra numerador mayor —intereses de convertibles readicionados

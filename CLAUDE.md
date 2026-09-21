@@ -95,8 +95,12 @@ latest annual period (`fp = FY`), never the clock. That keeps five fiscal years 
 the base close a 5-year comparison needs. The six split-sensitive concepts keep one
 more year as split evidence. The cut happens before vintages and before choosing
 submissions history files, so it saves requests too. Each run records
-`selection_version` (`sec-core-concepts-2.0.0`) and `selection_anchor_on`: together
-they say which periods the run went to fetch.
+`selection_version` (`sec-core-concepts-3.0.0`) and `selection_anchor_on`: together
+they say which periods the run went to fetch. The `3.0.0` added the **EPS
+numerator** — `NetIncomeLossAvailableToCommonStockholders{Basic,Diluted}` plus the
+preferred-dividend bridge — after the `F2-07` reconciliation measured residuals
+that could not be explained from what was stored: diluted EPS is not computed on
+`NetIncomeLoss`.
 
 ```bash
 pnpm fundamentals:prune --ticker AAPL                             # dry run: plans and counts, deletes nothing

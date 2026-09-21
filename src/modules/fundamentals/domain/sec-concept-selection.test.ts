@@ -15,10 +15,10 @@ describe("sec concept selection", () => {
     // Cambiar la lista, la ventana o los conceptos de evidencia sin subir la
     // versión rompe este test: la corrida diría haber ingerido otra cosa.
     expect(SEC_CONCEPT_SELECTION).toEqual({
-      version: "sec-core-concepts-2.0.0",
+      version: "sec-core-concepts-3.0.0",
       components: { historyWindow: "sec-history-5fy-1.0.0" },
     });
-    expect(listSelectedSecConcepts()).toHaveLength(58);
+    expect(listSelectedSecConcepts()).toHaveLength(62);
     expect(
       listSelectedSecConcepts().filter((qualified) => {
         const [taxonomy, concept] = qualified.split(":") as [string, string];
