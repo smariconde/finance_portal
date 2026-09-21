@@ -165,3 +165,22 @@ historia `sec-history-5fy-1.0.0`. El corte depende de cada descarga, así que la
 corrida registra además su ancla en `ingestion_runs.selection_anchor_on`. Con
 versión y ancla, un período anterior al corte sigue siendo «no buscado» y no «no
 reportado». El parser no cambia de versión.
+
+## Enmienda del 2026-09-21: el numerador de la EPS
+
+La selección sube a `sec-core-concepts-3.0.0`, que suma cuatro conceptos a los 58:
+`NetIncomeLossAvailableToCommonStockholders{Basic,Diluted}` y el puente de
+dividendos preferidos
+(`PreferredStockDividendsAndOtherAdjustments`,
+`PreferredStockDividendsIncomeStatementImpact`).
+
+Lo descubrió la reconciliación de `F2-07`: la EPS diluida **no se calcula sobre
+`NetIncomeLoss`**, y sin su numerador propio ningún emisor con dividendos
+preferidos, unidades de una sociedad operativa o convertibles podía cuadrar EPS por
+acciones diluidas. Sobre los doce filers de la tanda 1 eso eran cuatro residuos
+—Duke, JPMorgan, Prologis y Carnival, de −2,31 % a +2,61 %— que con la 3.0.0 caen a
+cero. Las empresas de estructura de capital simple no publican el concepto, y son
+las que ya cuadraban.
+
+Sigue valiendo lo que la selección decide y lo que no: guarda los dos conceptos sin
+elegir cuál es «el resultado» de una empresa. El parser no cambia de versión.

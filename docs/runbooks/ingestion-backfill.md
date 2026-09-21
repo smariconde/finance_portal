@@ -24,7 +24,7 @@ Sólo la ventana `sec-history-5fy-1.0.0`: los hechos cuyo período termina desde
 Son cinco ejercicios completos más el cierre base, y los seis conceptos sensibles a
 splits conservan un ejercicio más como evidencia.
 
-Cada corrida registra `selection_version = sec-core-concepts-2.0.0` y
+Cada corrida registra `selection_version = sec-core-concepts-3.0.0` y
 `selection_anchor_on`. El dry run de `pnpm fundamentals:ingest --cik <CIK>` muestra
 el ancla, los dos cortes y cuántos puntos quedaron dentro. Lo publicado antes no se
 borra.

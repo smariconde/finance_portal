@@ -78,39 +78,42 @@ absoluto borraría la distinción. Un ancla ausente deja el chequeo
 ## Evidencia registrada
 
 Tanda 1, doce empresas cubriendo los diez arquetipos, sobre el PostgreSQL
-personal del 2026-09-21:
+personal del 2026-09-21.
+
+### Primera corrida, con `sec-core-concepts-2.0.0`
 
 - **10 de 12 balances cierran en 0,0000 %**, incluidos un banco, una
-  aseguradora, un REIT, un holding y una empresa en distress. Las unidades, las
-  escalas y los signos sobreviven a la ingesta en todos los arquetipos;
-- **5 anclas de 84 no reportadas**, todas decisiones del filer: Duke Energy y
-  Carnival no publican `us-gaap:Liabilities`, ExxonMobil no publica acciones
-  diluidas, y Berkshire no publica ni EPS diluida ni acciones diluidas;
+  aseguradora, un REIT, un holding y una empresa en distress;
+- **5 anclas de 84 no reportadas**, todas decisiones del filer;
 - **4 residuos de EPS**, con signo: Duke −1,31 %, JPMorgan −2,31 %,
   Prologis +2,35 % y Carnival +2,61 %.
 
-### El hallazgo
+Los cuatro residuos no eran de la ingesta: **la EPS diluida no se calcula sobre
+`NetIncomeLoss`** sino sobre un numerador que el filer reporta aparte, y la
+selección no lo traía. El signo distinguía dos ajustes opuestos —por debajo del
+resultado en Duke y JPMorgan, por encima en Prologis y Carnival—, que es la razón
+por la que el residuo lleva signo.
 
-Los cuatro residuos vienen de lo mismo, y no es la ingesta: **la EPS diluida no
-se calcula sobre `NetIncomeLoss`**. Su numerador es una cifra ajustada que el
-filer reporta aparte, y la selección `sec-core-concepts-2.0.0` no la incluye —no
-hay una sola fila de `AvailableToCommon` ni de `PreferredStockDividends` en la
-base—, así que el residuo no se puede explicar con lo guardado.
+### Segunda corrida, con `sec-core-concepts-3.0.0`
 
-El **signo** dice qué ajuste domina, y no es el mismo en los cuatro:
+La selección sumó `NetIncomeLossAvailableToCommonStockholders{Basic,Diluted}` y
+el puente de dividendos preferidos, y el chequeo pasó a usar ese numerador cuando
+el emisor lo publica. Reingerir los doce costó **53 requests**, y las cifras
+cierran el caso:
 
-| Empresa  | EPS × acciones | `NetIncomeLoss` | Residuo | Ajuste que lo explica                      |
-| -------- | -------------- | --------------- | ------- | ------------------------------------------ |
-| Duke     | 4.903 M        | 4.968 M         | −1,31 % | dividendos preferidos bajan el numerador   |
-| JPMorgan | 55.686 M       | 57.000 M        | −2,31 % | dividendos preferidos, ≈1.314 M            |
-| Prologis | 3.406 M        | 3.328 M         | +2,35 % | unidades de la sociedad operativa del REIT |
-| Carnival | 2.832 M        | 2.760 M         | +2,61 % | intereses de convertibles readicionados    |
+| Empresa  | Residuo con 2.0.0 | Residuo con 3.0.0 |
+| -------- | ----------------- | ----------------- |
+| Duke     | −1,3110 %         | −0,1859 %         |
+| JPMorgan | −2,3059 %         | **+0,0083 %**     |
+| Prologis | +2,3463 %         | +0,0646 %         |
+| Carnival | +2,6101 %         | +0,0367 %         |
 
-Las columnas «ajuste» son la lectura más plausible de cada estructura, **no algo
-verificado contra el filing**: confirmarlas es abrir las cuatro presentaciones,
-que es el trabajo manual que esta hoja habilita. Lo que sí queda verificado es
-que el numerador de la EPS no está en la base.
+**Cero chequeos con residuo** sobre las doce. Las cinco empresas que no publican
+el numerador —Apple, NVIDIA, Moderna, ExxonMobil y Berkshire— son justamente las
+de estructura de capital simple, que ya cuadraban contra `NetIncomeLoss`: el
+informe dice `numerador net_income` en esas y `net_income_to_common` en el resto.
 
-No se corrigió acá a propósito: cambiar la selección es subirle la versión y
-volver a ingerir los trece filers, y eso es un slice con su propia medición. El
-gate existe para que esto se vea, y queda escrito.
+Quedan cuatro chequeos `not_evaluable`, todos por anclas que el filer no publica:
+Duke y Carnival no publican `us-gaap:Liabilities`, ExxonMobil no publica acciones
+diluidas y Berkshire no publica ni EPS diluida ni acciones diluidas. Eso no se
+arregla con una selección: son decisiones de quien presenta.

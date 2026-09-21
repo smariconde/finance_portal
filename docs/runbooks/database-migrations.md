@@ -169,7 +169,7 @@ Revertir `0007` descarta cada split confirmado, y una lectura `latest_adjusted` 
 a mezclar bases en una serie por acción que cruzó un split; si algún evento usa
 `split` o `reverse_split` la reconstrucción del tipo falla a propósito, igual que
 `0005` (`TM-06`, `TM-16`). Revertir `0011` descarta el ancla de la ventana de
-historia de cada corrida `sec-core-concepts-2.0.0`: sin ella, un período ausente
+historia de cada corrida desde `sec-core-concepts-2.0.0`: sin ella, un período ausente
 vuelve a ser ambiguo entre «el filer no lo reportó» y «la corrida no lo fue a
 buscar» (ADR 0017). Por eso se niega mientras haya anclas; exportarlas y limpiarlas
 es una decisión explícita (`TM-16`). Revertir `0012` no pierde nada: cada columna

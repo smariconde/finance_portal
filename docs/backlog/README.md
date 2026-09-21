@@ -2480,6 +2480,32 @@ con su propia medición.
 
 Queda la tanda 2 —las 18 empresas restantes— y el incremento 3.
 
+**Cierre del hallazgo (2026-09-21, mismo día).** El owner eligió arreglar la
+selección antes de bajar la tanda 2, para que esas 18 —con 3 bancos, 3
+aseguradoras y 2 REIT más— se ingieran una sola vez y nazcan explicables.
+
+`sec-core-concepts-3.0.0` suma
+`NetIncomeLossAvailableToCommonStockholders{Basic,Diluted}` —el numerador de la
+EPS— y el puente de dividendos preferidos, y el chequeo de EPS pasa a usar ese
+numerador cuando el emisor lo publica, diciendo en la salida cuál usó. Reingerir
+los doce costó **53 requests**; publicó 422 filas nuevas y reconoció todo lo
+demás como duplicado, que es la prueba de idempotencia.
+
+El resultado confirma la hipótesis por construcción: **de 4 residuos a 0**. Duke
+−1,3110 → −0,1859 %, JPMorgan −2,3059 → **+0,0083 %**, Prologis +2,3463 →
++0,0646 %, Carnival +2,6101 → +0,0367 %. Y las cinco empresas que no publican el
+numerador —Apple, NVIDIA, Moderna, ExxonMobil, Berkshire— son exactamente las de
+estructura de capital simple, que ya cuadraban contra `NetIncomeLoss`.
+
+Los cuatro `not_evaluable` que quedan no los arregla ninguna selección: Duke y
+Carnival no publican `us-gaap:Liabilities`, ExxonMobil no publica acciones
+diluidas y Berkshire no publica ni EPS diluida ni acciones diluidas. Son
+decisiones de quien presenta.
+
+El verificador del incremento 1 sigue pasando con las filas nuevas: 10.666
+cadenas, 11.010 revisiones, 335 con restatement y 344 transiciones, todo en
+verde.
+
 | Issue   | Resultado y aceptación mínima                                                                                          | Depende de | Controles                 |
 | ------- | ---------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
 | `F2-03` | SEC XBRL integrada con `available_at` del filing, vintages y restatements preservados; cuarentena ante schema roto.    | `F2-02`    | `TM-05`, `TM-06`, `TM-08` |

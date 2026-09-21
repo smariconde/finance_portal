@@ -32,6 +32,7 @@ export const RECONCILIATION_VERSION = "gate-reconciliation-1.0.0";
 export const anchorIdSchema = z.enum([
   "revenue",
   "net_income",
+  "net_income_to_common",
   "assets",
   "liabilities",
   "equity",
@@ -64,6 +65,17 @@ export const RECONCILIATION_ANCHORS: readonly AnchorDefinition[] =
       anchor: "net_income",
       periodType: "annual",
       concepts: ["us-gaap:NetIncomeLoss", "us-gaap:ProfitLoss"],
+    },
+    {
+      // El numerador de la EPS, que no es el resultado: la 3.0.0 de la
+      // selección lo agregó después de que este mismo chequeo midiera residuos
+      // que no se podían explicar con lo guardado.
+      anchor: "net_income_to_common",
+      periodType: "annual",
+      concepts: [
+        "us-gaap:NetIncomeLossAvailableToCommonStockholdersDiluted",
+        "us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic",
+      ],
     },
     { anchor: "assets", periodType: "instant", concepts: ["us-gaap:Assets"] },
     {
@@ -175,6 +187,13 @@ export type CoherenceResult = {
   readonly residualPct: string | null;
   /** Qué faltó, cuando no se pudo evaluar. */
   readonly missing: readonly AnchorId[];
+  /**
+   * Qué ancla aportó el numerador. Un emisor que publica el numerador de la EPS
+   * se compara contra él; uno que no, contra el resultado, y entonces el residuo
+   * carga los ajustes que separan a los dos. Decir cuál se usó es lo que hace
+   * legible al residuo.
+   */
+  readonly numeratorAnchor?: AnchorId;
 };
 
 function readingOf(
@@ -259,7 +278,11 @@ export function checkCoherence(
     });
   }
 
-  const netIncome = readingOf(readings, "net_income");
+  // El numerador propio de la EPS gana al resultado cuando el emisor lo publica.
+  const toCommon = readingOf(readings, "net_income_to_common");
+  const netIncome = toCommon ?? readingOf(readings, "net_income");
+  const numeratorAnchor: AnchorId =
+    toCommon === null ? "net_income" : "net_income_to_common";
   const eps = readingOf(readings, "eps_diluted");
   const shares = readingOf(readings, "diluted_shares");
 
@@ -283,7 +306,7 @@ export function checkCoherence(
       parseDecimal(shares.value!, "diluted_shares"),
     );
     const pct = residualPct(
-      parseDecimal(netIncome.value!, "net_income"),
+      parseDecimal(netIncome.value!, numeratorAnchor),
       implied,
       "earnings_per_share",
     );
@@ -298,6 +321,7 @@ export function checkCoherence(
             : "residual",
       residualPct: pct,
       missing: [],
+      numeratorAnchor,
     });
   }
 
