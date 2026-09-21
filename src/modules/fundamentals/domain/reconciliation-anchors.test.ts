@@ -106,7 +106,31 @@ describe("checkCoherence", () => {
     );
 
     expect(statusOf(readings, "balance_sheet").status).toBe("ok");
-    expect(statusOf(readings, "balance_sheet").residualPct).toBe("0.5000");
+    expect(statusOf(readings, "balance_sheet").residualPct).toBe("-0.5000");
+  });
+
+  it("keeps the sign, which is what separates one cause from another", () => {
+    // Numerador menor que el resultado —dividendos preferidos, como en Duke y
+    // JPMorgan— contra numerador mayor —intereses de convertibles readicionados
+    // o unidades de la sociedad operativa de un REIT—. El valor absoluto
+    // borraría la distinción.
+    const preferredDividends = [
+      reading("net_income", "5000"),
+      reading("eps_diluted", "6.31"),
+      reading("diluted_shares", "777"),
+    ];
+    const ifConverted = [
+      reading("net_income", "2760"),
+      reading("eps_diluted", "2.02"),
+      reading("diluted_shares", "1402"),
+    ];
+
+    expect(statusOf(preferredDividends, "earnings_per_share").residualPct).toBe(
+      "-1.9426",
+    );
+    expect(statusOf(ifConverted, "earnings_per_share").residualPct).toBe(
+      "2.6101",
+    );
   });
 
   it("refuses to call an unevaluable check a pass", () => {

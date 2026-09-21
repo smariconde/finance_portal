@@ -150,9 +150,16 @@ export type CoherenceCheckId = z.infer<typeof coherenceCheckSchema>;
 
 /**
  * Un residuo **no es** una falla por sí mismo: el patrimonio sin participaciones
- * no controlantes deja un resto legítimo, y la EPS diluida carga dividendos
- * preferidos y títulos participantes. Lo que el residuo detecta es el error de
- * escala o de unidad, que es de órdenes de magnitud y no de puntos porcentuales.
+ * no controlantes deja un resto legítimo, y la EPS diluida no se calcula sobre
+ * `NetIncomeLoss` sino sobre un numerador ajustado. Lo que el residuo detecta es
+ * el error de escala o de unidad, que es de órdenes de magnitud y no de puntos
+ * porcentuales.
+ *
+ * El residuo lleva **signo**, y el signo dice qué ajuste domina: negativo cuando
+ * el numerador de la EPS es menor que el resultado —dividendos preferidos, como
+ * en Duke y JPMorgan—, positivo cuando es mayor —intereses de convertibles
+ * readicionados o unidades de la sociedad operativa de un REIT, como en Carnival
+ * y Prologis—. Tomar el valor absoluto borraría justamente esa distinción.
  */
 export const COHERENCE_TOLERANCE_PCT = "1";
 
@@ -161,7 +168,10 @@ export type CoherenceStatus = "ok" | "residual" | "not_evaluable";
 export type CoherenceResult = {
   readonly check: CoherenceCheckId;
   readonly status: CoherenceStatus;
-  /** Residuo sobre la referencia, en porcentaje. Nulo si no se pudo evaluar. */
+  /**
+   * Residuo sobre la referencia, en porcentaje y **con signo**. Nulo si no se
+   * pudo evaluar.
+   */
   readonly residualPct: string | null;
   /** Qué faltó, cuando no se pudo evaluar. */
   readonly missing: readonly AnchorId[];
@@ -182,15 +192,16 @@ function residualPct(expected: Dec, actual: Dec, path: string): string | null {
     return null;
   }
 
-  const ratio = divide(actual.minus(expected).abs(), expected.abs(), path);
+  const ratio = divide(actual.minus(expected), expected.abs(), path);
 
   return toFixedScale(ratio.times(HUNDRED), RESIDUAL_SCALE, path);
 }
 
+/** La tolerancia se aplica a la magnitud; el signo se conserva para leerlo. */
 function withinTolerance(pct: string): boolean {
-  return parseDecimal(pct, "residual").lessThanOrEqualTo(
-    parseDecimal(COHERENCE_TOLERANCE_PCT, "tolerance"),
-  );
+  return parseDecimal(pct, "residual")
+    .abs()
+    .lessThanOrEqualTo(parseDecimal(COHERENCE_TOLERANCE_PCT, "tolerance"));
 }
 
 /**

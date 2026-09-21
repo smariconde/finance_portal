@@ -69,9 +69,11 @@ la hoja trae la URL de cada presentación—. Prueban que la unidad, la escala y
 signo hayan sobrevivido a la ingesta, que es un error de órdenes de magnitud y
 no de puntos porcentuales.
 
-Un residuo por debajo del 1 % es `ok`: el patrimonio sin participaciones no
-controlantes y la EPS con dividendos preferidos dejan restos legítimos. Un ancla
-ausente deja el chequeo `not_evaluable`, nunca `ok`.
+Un residuo de magnitud menor al 1 % es `ok`: el patrimonio sin participaciones
+no controlantes y la EPS con su numerador ajustado dejan restos legítimos. El
+residuo lleva **signo**, porque el signo dice qué ajuste domina y tomar el valor
+absoluto borraría la distinción. Un ancla ausente deja el chequeo
+`not_evaluable`, nunca `ok`.
 
 ## Evidencia registrada
 
@@ -84,18 +86,30 @@ personal del 2026-09-21:
 - **5 anclas de 84 no reportadas**, todas decisiones del filer: Duke Energy y
   Carnival no publican `us-gaap:Liabilities`, ExxonMobil no publica acciones
   diluidas, y Berkshire no publica ni EPS diluida ni acciones diluidas;
-- **4 residuos de EPS**: Duke 1,31 %, JPMorgan 2,31 %, Prologis 2,35 % y
-  Carnival 2,61 %.
+- **4 residuos de EPS**, con signo: Duke −1,31 %, JPMorgan −2,31 %,
+  Prologis +2,35 % y Carnival +2,61 %.
 
 ### El hallazgo
 
-Los cuatro residuos tienen la misma causa, y es un agujero de la selección de
-conceptos, no de la ingesta: **`sec-core-concepts-2.0.0` no incluye
-`us-gaap:NetIncomeLossAvailableToCommonStockholdersDiluted`**, que es el
-numerador del que la EPS sale. Para un emisor con dividendos preferidos o
-participaciones no controlantes, `NetIncomeLoss` no es lo que se divide por las
-acciones diluidas, así que el residuo no se puede explicar con lo que hay
-guardado.
+Los cuatro residuos vienen de lo mismo, y no es la ingesta: **la EPS diluida no
+se calcula sobre `NetIncomeLoss`**. Su numerador es una cifra ajustada que el
+filer reporta aparte, y la selección `sec-core-concepts-2.0.0` no la incluye —no
+hay una sola fila de `AvailableToCommon` ni de `PreferredStockDividends` en la
+base—, así que el residuo no se puede explicar con lo guardado.
+
+El **signo** dice qué ajuste domina, y no es el mismo en los cuatro:
+
+| Empresa  | EPS × acciones | `NetIncomeLoss` | Residuo | Ajuste que lo explica                      |
+| -------- | -------------- | --------------- | ------- | ------------------------------------------ |
+| Duke     | 4.903 M        | 4.968 M         | −1,31 % | dividendos preferidos bajan el numerador   |
+| JPMorgan | 55.686 M       | 57.000 M        | −2,31 % | dividendos preferidos, ≈1.314 M            |
+| Prologis | 3.406 M        | 3.328 M         | +2,35 % | unidades de la sociedad operativa del REIT |
+| Carnival | 2.832 M        | 2.760 M         | +2,61 % | intereses de convertibles readicionados    |
+
+Las columnas «ajuste» son la lectura más plausible de cada estructura, **no algo
+verificado contra el filing**: confirmarlas es abrir las cuatro presentaciones,
+que es el trabajo manual que esta hoja habilita. Lo que sí queda verificado es
+que el numerador de la EPS no está en la base.
 
 No se corrigió acá a propósito: cambiar la selección es subirle la versión y
 volver a ingerir los trece filers, y eso es un slice con su propia medición. El

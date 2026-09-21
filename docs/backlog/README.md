@@ -2454,15 +2454,29 @@ decisiones del filer: Duke Energy y Carnival no publican `us-gaap:Liabilities`,
 ExxonMobil no publica acciones diluidas y Berkshire no publica ni EPS diluida ni
 acciones diluidas.
 
-**El hallazgo del incremento.** Los cuatro residuos de EPS —Duke 1,31 %,
-JPMorgan 2,31 %, Prologis 2,35 %, Carnival 2,61 %— tienen la misma causa, y es un
-agujero de la selección y no de la ingesta: `sec-core-concepts-2.0.0` **no
-incluye `us-gaap:NetIncomeLossAvailableToCommonStockholdersDiluted`**, que es el
-numerador del que sale la EPS. Para un emisor con dividendos preferidos o
-participaciones no controlantes, `NetIncomeLoss` no es lo que se divide por las
-acciones diluidas, así que el residuo no se explica con lo guardado. No se
-corrigió en este incremento a propósito: cambiar la selección es subirle la
-versión y reingerir los trece filers, y eso es un slice con su propia medición.
+**El hallazgo del incremento.** Los cuatro residuos de EPS vienen de lo mismo, y
+no es la ingesta: **la EPS diluida no se calcula sobre `NetIncomeLoss`**. Su
+numerador es una cifra ajustada que el filer reporta aparte y que
+`sec-core-concepts-2.0.0` no selecciona —no hay una sola fila de
+`AvailableToCommon` ni de `PreferredStockDividends` en la base—, así que el
+residuo no se explica con lo guardado.
+
+El signo distingue dos ajustes opuestos, y por eso el residuo pasó a llevarlo:
+Duke −1,31 % y JPMorgan −2,31 % tienen el numerador **por debajo** del resultado
+(dividendos preferidos; en JPMorgan la diferencia son 1.314 M, del orden de sus
+preferidos), mientras que Prologis +2,35 % y Carnival +2,61 % lo tienen **por
+encima** (unidades de la sociedad operativa del REIT e intereses de convertibles
+readicionados). Atribuir cada signo a ese ajuste es la lectura más plausible de
+cada estructura y no está verificado contra el filing: confirmarlo es abrir las
+cuatro presentaciones, que es el trabajo manual que la hoja habilita. Lo
+verificado es que el numerador de la EPS no está en la base.
+
+Un intento de confirmarlo contra el corpus congelado quedó inconcluso y vale
+anotarlo: Duke está en el corpus y no tiene esos conceptos, pero el reductor
+descarta la mayoría de los no seleccionados, así que su ausencia ahí no prueba
+ausencia en el cable. No se corrigió en este incremento a propósito: cambiar la
+selección es subirle la versión y reingerir los trece filers, y eso es un slice
+con su propia medición.
 
 Queda la tanda 2 —las 18 empresas restantes— y el incremento 3.
 
