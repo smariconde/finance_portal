@@ -24,24 +24,24 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 
 ## Tracker activo
 
-| Orden | Issue      | Estado        | Resultado verificable                                                                                                                     | Dependencias  |
-| ----: | ---------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-|     1 | `F1-01`    | `done`        | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos.                              | Fase 0 `done` |
-|     2 | `F1-02`    | `done`        | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.                                   | `F1-01`       |
-|     3 | `F1-UI-01` | `done`        | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.                                            | `F1-02`       |
-|     4 | `F1-03`    | `done`        | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.                                            | `F1-UI-01`    |
-|     5 | `F1-04`    | `done`        | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.                                       | `F1-03`       |
-|     6 | `F1-05`    | `done`        | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                                                   | `F1-04`       |
-|     7 | `F1-06`    | `done`        | Superficie de resultado y trazabilidad con fuentes, freshness, supuestos y sensibilidad accesibles.                                       | `F1-05`       |
-|     8 | `F1-07`    | `done`        | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                                                        | `F1-06`       |
-|     9 | `F1-08`    | `deferred`    | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.                                            | `F1-07`       |
-|    10 | `F2-01`    | `done`        | Acceso personal remoto habilitado en produccion, con los tests de frontera invertidos a proposito.                                        | ADR 0008      |
-|    11 | `F2-02`    | `done`        | Universo S&P 500 con identidad completa: issuer, security, listing, simbolo vigente y CIK.                                                | `F2-01`       |
-|    12 | `F2-03`    | `done`        | SEC EDGAR integrada: companyfacts publicado como observaciones point-in-time, con aceptación, vintages y cuarentena.                      | `F2-02`       |
-|    13 | `F2-04`    | `done`        | Corporate actions con vigencia: splits, cambios de símbolo, sucesiones de CIK, delistings y fusiones.                                     | `F2-03`       |
-|    14 | `F2-05`    | `done`        | Backfill y refresh durable con presupuesto, cursor, lease y recuperación verificables.                                                    | `F2-04`       |
-|    15 | `F2-06`    | `done`        | Golden fixtures desde extractos reales congelados, en reemplazo de `FixtureCo` como oráculo de regresión.                                 | `F2-03`       |
-|    16 | `F2-07`    | `in_progress` | Gate de Fase 2 verificado sobre datos reales: contrato point-in-time auditado, 30 empresas reconciliadas y validación semántica decidida. | `F2-06`       |
+| Orden | Issue      | Estado     | Resultado verificable                                                                                                                     | Dependencias  |
+| ----: | ---------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+|     1 | `F1-01`    | `done`     | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos.                              | Fase 0 `done` |
+|     2 | `F1-02`    | `done`     | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.                                   | `F1-01`       |
+|     3 | `F1-UI-01` | `done`     | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.                                            | `F1-02`       |
+|     4 | `F1-03`    | `done`     | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.                                            | `F1-UI-01`    |
+|     5 | `F1-04`    | `done`     | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.                                       | `F1-03`       |
+|     6 | `F1-05`    | `done`     | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                                                   | `F1-04`       |
+|     7 | `F1-06`    | `done`     | Superficie de resultado y trazabilidad con fuentes, freshness, supuestos y sensibilidad accesibles.                                       | `F1-05`       |
+|     8 | `F1-07`    | `done`     | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                                                        | `F1-06`       |
+|     9 | `F1-08`    | `deferred` | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.                                            | `F1-07`       |
+|    10 | `F2-01`    | `done`     | Acceso personal remoto habilitado en produccion, con los tests de frontera invertidos a proposito.                                        | ADR 0008      |
+|    11 | `F2-02`    | `done`     | Universo S&P 500 con identidad completa: issuer, security, listing, simbolo vigente y CIK.                                                | `F2-01`       |
+|    12 | `F2-03`    | `done`     | SEC EDGAR integrada: companyfacts publicado como observaciones point-in-time, con aceptación, vintages y cuarentena.                      | `F2-02`       |
+|    13 | `F2-04`    | `done`     | Corporate actions con vigencia: splits, cambios de símbolo, sucesiones de CIK, delistings y fusiones.                                     | `F2-03`       |
+|    14 | `F2-05`    | `done`     | Backfill y refresh durable con presupuesto, cursor, lease y recuperación verificables.                                                    | `F2-04`       |
+|    15 | `F2-06`    | `done`     | Golden fixtures desde extractos reales congelados, en reemplazo de `FixtureCo` como oráculo de regresión.                                 | `F2-03`       |
+|    16 | `F2-07`    | `done`     | Gate de Fase 2 verificado sobre datos reales: contrato point-in-time auditado, 30 empresas reconciliadas y validación semántica decidida. | `F2-06`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -2331,7 +2331,7 @@ superficie ni ninguna ingesta, sólo lo leen tests.
 
 #### `F2-07` — Gate de Fase 2: verificación sobre datos reales
 
-- Estado: `in_progress` (iniciado el 2026-09-21).
+- Estado: `done` (iniciado y cerrado el 2026-09-21).
 - Fase y dependencia: Fase 2; `F2-06` cerrado. Es el **gate de la fase**, no un
   casillero más: el roadmap ya tiene sus seis puntos en `done` y la Fase 2 no puede
   pasar a `done` sin esta evidencia.
@@ -2575,8 +2575,39 @@ anotada la alternativa más interesante que descarta **para esta fase y no por
 principio**: los R-files del Financial Report de EDGAR, que sí validan el tramo
 que importa y son un slice propio.
 
-`F2-07` queda a la espera de que el owner acepte la ADR. Con ella cierra el gate
-y, con el gate, la Fase 2.
+**ADR 0024 aceptada por el owner (2026-09-21).** Con ella cierra el incremento 3,
+cierra `F2-07` y cierra el **gate de la Fase 2**. Las cuatro afirmaciones del gate,
+contra lo que quedó:
+
+- **30 empresas de arquetipos distintos reconciliadas contra su filing.** Las
+  treinta de `declared-gate-sample.ts`, con los diez arquetipos representados:
+  balance 26 de 30 cerrando y 24 en 0,0000 % exacto, EPS 26 de 30 `ok`. Los 7
+  `not_evaluable` son conceptos que el filer no publica y el único residuo
+  —Norwegian +3,8570 %— está explicado y es ajeno a la ingesta. Repetible con
+  `pnpm gate:reconcile`;
+- **100 % de filas con source/as-of/available-at.** No por inspección sino por
+  las dos primeras afirmaciones del verificador sobre las 27.862 observaciones:
+  `provenance_resolves` y `availability_precedes_fetch`, ambas sin una falla, con
+  0 filas que citen un documento inalcanzable;
+- **splits, restatements y un cambio de símbolo probados.** Splits por regla, con
+  el 10:1 de NVIDIA y el 20:1 de Alphabet reconciliados contra el corpus
+  congelado; restatements en 722 cadenas con 739 transiciones; el cambio de
+  símbolo con evidencia fechada en el traspaso de Kraft Heinz, donde `XNAS:KHC`
+  cierra y `XNYS:KHC` abre en el `CERT` de NYSE, más el camino declarado de la
+  [ADR 0014](../architecture/adr/0014-declared-corporate-events.md) para el que
+  no tiene evidencia;
+- **un `as_known` anterior a un restatement no devuelve el valor enmendado.** Es
+  `as_known_excludes_later_revision`, evaluada **a través de `queryObservations`**
+  sobre las 739 transiciones reales, no sobre un caso construido.
+
+Lo que el gate **no** afirma queda igual de dicho: la consistencia dimensional de
+las presentaciones y la calidad del etiquetado del emisor no se validan, por la
+razón de la ADR 0024, y la ADR declara las tres condiciones que la reabren.
+
+Con `F2-07` cerrado, la **Fase 2 pasa a `done`** y el roadmap habilita la Fase 7
+—matrices sectoriales de riesgo—, que la [ADR 0016](../architecture/adr/0016-analysis-scope-sector-matrices.md)
+corre antes de la Fase 3 porque `F7-02` es la clasificación versionada de la que
+depende el selector de arquetipo.
 
 | Issue   | Resultado y aceptación mínima                                                                                          | Depende de | Controles                 |
 | ------- | ---------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |

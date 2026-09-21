@@ -1,7 +1,7 @@
 # ADR 0024: validación semántica XBRL y el lugar de Arelle/DQC
 
-- Estado: propuesto
-- Fecha: 2026-09-21
+- Estado: aceptado
+- Fecha: 2026-09-21 (aceptada por el owner el 2026-09-21)
 - Alcance: resuelve el incremento 3 de `F2-07`, el último del gate de la Fase 2.
   Decide si Arelle/EFM y las reglas del Data Quality Committee entran como
   oráculo independiente de validación semántica, qué aportarían sobre lo que ya
