@@ -2546,6 +2546,38 @@ El verificador del contrato pasa sobre las 27.862 observaciones: 27.123 cadenas,
 
 Queda el incremento 3: la ADR que decide Arelle/DQC.
 
+Incremento 3 entregado para aprobación (2026-09-21):
+[ADR 0024](../architecture/adr/0024-xbrl-semantic-validation.md), en estado
+**propuesto**. Concluye que **Arelle/EFM y las reglas del DQC no se adoptan**, y
+el argumento que decide no es el costo sino el alcance: validan el **XBRL inline
+de la presentación**, un artefacto que este proyecto no ingiere. Lo que se
+ingiere es `companyfacts`, la extracción que hace la propia SEC, así que Arelle
+cubre el único tramo de la cadena que no está en nuestro camino —una presentación
+impecable puede llegar mal extraída, mal parseada o mal guardada, y Arelle la
+aprobaría igual—.
+
+A eso se suman tres costos concretos: Python en un repositorio que no tiene
+ninguno; la resolución de taxonomías por HTTP, que pondría un proceso abriendo
+sockets **fuera de la única puerta de egress** —sin allowlist, sin cuota diaria y
+sin kill switch— salvo vendorizando cientos de megabytes; y un pin más que
+seguir.
+
+Lo que ocupa su lugar queda declarado: la validación semántica del proyecto es la
+coherencia sobre lo que guardamos —las identidades de `reconciliation-anchors.ts`
+y las cinco afirmaciones de `point-in-time-audit.ts`—, y crecer es agregar una
+regla nombrada con su test, no importar un motor. La familia que el DQC cubre y
+nosotros no es la dimensional, y hoy no hace falta porque la ingesta toma sólo
+hechos sin dimensiones (ADR 0010).
+
+La ADR declara su condición de revisión: ingerir XBRL inline, ingerir hechos con
+dimensiones, o encontrar un residuo que no se explique con lo guardado. Y deja
+anotada la alternativa más interesante que descarta **para esta fase y no por
+principio**: los R-files del Financial Report de EDGAR, que sí validan el tramo
+que importa y son un slice propio.
+
+`F2-07` queda a la espera de que el owner acepte la ADR. Con ella cierra el gate
+y, con el gate, la Fase 2.
+
 | Issue   | Resultado y aceptación mínima                                                                                          | Depende de | Controles                 |
 | ------- | ---------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
 | `F2-03` | SEC XBRL integrada con `available_at` del filing, vintages y restatements preservados; cuarentena ante schema roto.    | `F2-02`    | `TM-05`, `TM-06`, `TM-08` |
