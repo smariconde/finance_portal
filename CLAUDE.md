@@ -326,6 +326,27 @@ claim that was never evaluated is `not_exercised`, never a pass, and the command
 exits non-zero: a database with no restated chain proves nothing about
 look-ahead.
 
+```bash
+pnpm gate:reconcile                      # the gate sample's reconciliation sheet; no network, no writes
+pnpm gate:reconcile --batch 2 --json
+```
+
+The second increment of `F2-07` ([runbook](docs/runbooks/gate-reconciliation.md)).
+The archetype of a company is **declared**, like a succession: nothing in the
+database can say what archetype a company is — there is no sector, industry or SIC
+column, and the versioned classification is `F7-02`, which the roadmap runs after
+this phase. `declared-gate-sample.ts` holds thirty companies with the reason for
+each, and `assertGateSample` refuses a sample that repeats a company, leaves an
+archetype unrepresented, or whose first batch does not reach all ten.
+
+Seven anchors per company, read through `readLineageObservations` at the latest
+published fiscal year end — balance-sheet anchors included, so one sheet
+reconciles against one filing. Each anchor declares **alternative concepts in
+order** and the output names the one that supplied the number: archetypes do not
+report the same concepts, and a declared alternative is the opposite of a silent
+substitution. An anchor with none of its alternatives is `no reportada`, never a
+zero.
+
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 
 Node `>=22.11.0 <27`, pnpm `10.33.2` via corepack. Arch Linux dev host — use POSIX shell syntax for env-var examples in docs, matching the `ubuntu-latest` runners CI validates on.

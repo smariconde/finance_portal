@@ -35,6 +35,7 @@ The current application command contract is:
 - `pnpm fundamentals:refresh`: keep the followed set fresh — the filers that already have published fundamentals (ADR 0021). With no argument it lists that set and its watermarks without opening the network; `--cik` probes one filer's `submissions` for one request and re-downloads companyfacts only if it filed something relevant since the stored watermark; `--all --apply` plans the whole round as a durable job and `--job <id> --apply` runs it under the source lease; dry run unless `--apply` (ADR 0022).
 - `pnpm fundamentals:prune`: delete the observations an older selection published outside that window and record why; the anchor comes from the subject's latest anchored run, never from the stored rows, and `--reason` is required; dry run unless `--apply` (ADR 0019).
 - `pnpm gate:point-in-time`: audit the point-in-time contract over every published revision chain. Read-only, no network; exits non-zero when a claim fails **or was never exercised**. It is the Phase 2 gate turned into a command ([runbook](docs/runbooks/point-in-time-audit.md)).
+- `pnpm gate:reconcile`: build the reconciliation sheet of the declared gate sample — seven anchors per company at its latest fiscal year end, each naming the concept that supplied it, plus the balance-sheet and EPS coherence checks. Read-only, no network ([runbook](docs/runbooks/gate-reconciliation.md)).
 
 Review documentation changes with `pnpm format:check`, `git diff --check`, and searches for stale references.
 

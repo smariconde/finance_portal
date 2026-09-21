@@ -2422,6 +2422,50 @@ con las cuatro rutas en `ƒ (Dynamic)` pasan.
 Pendientes los incrementos 2 (30 empresas reconciliadas) y 3 (ADR de validación
 semántica XBRL).
 
+Entregado el incremento 2 (2026-09-21). Operación en el
+[runbook](../runbooks/gate-reconciliation.md).
+
+**El arquetipo se declara.** Nada en la base puede decir de qué arquetipo es una
+empresa: no hay columna de sector, industria ni SIC, y la clasificación
+versionada es `F7-02`, posterior a esta fase. El dato existe gratis —el
+`submissions` que ya se baja trae `sic` y `sicDescription`— pero persistirlo es
+esa otra decisión. Así que `declared-gate-sample.ts` declara las treinta
+empresas con el motivo de cada una, y `assertGateSample` se niega ante una
+muestra que repite una empresa, deja un arquetipo sin representante o cuya
+primera tanda no llega a los diez. Dos límites declarados: el S&P 500 tiene pocos
+holdings puros y por construcción expulsa a las empresas en distress, así que
+esos dos arquetipos llegan a dos y la diferencia se compensa con una cuarta
+madura y una cuarta de commodity.
+
+**Medición de la tanda 1** (los 6 sujetos ya publicados más 7 nuevos, doce
+empresas que cubren los diez arquetipos): **39 requests** de los 2.000 diarios y
+**2 MB** de base —de 14 a 16 MB, de 5.107 a 10.588 observaciones—. La estimación
+previa era de ~240 requests y ~6 MB: venía de la medición anterior a la ventana,
+y hoy la mayoría de los filers entra en 2-3 requests. Sólo JPMorgan necesitó 25,
+por su historial de presentaciones paginado. El verificador del incremento 1
+pasa sobre la base duplicada sin ningún cambio: 10.253 cadenas, 10.588
+revisiones, 326 con restatement y 335 transiciones, todas en verde.
+
+**Resultado de la reconciliación**: 10 de 12 balances cierran en **0,0000 %**
+—incluidos un banco, una aseguradora, un REIT, un holding y una empresa en
+distress—, lo que dice que la unidad, la escala y el signo sobreviven a la
+ingesta en todos los arquetipos. 5 anclas de 84 quedan no reportadas, todas
+decisiones del filer: Duke Energy y Carnival no publican `us-gaap:Liabilities`,
+ExxonMobil no publica acciones diluidas y Berkshire no publica ni EPS diluida ni
+acciones diluidas.
+
+**El hallazgo del incremento.** Los cuatro residuos de EPS —Duke 1,31 %,
+JPMorgan 2,31 %, Prologis 2,35 %, Carnival 2,61 %— tienen la misma causa, y es un
+agujero de la selección y no de la ingesta: `sec-core-concepts-2.0.0` **no
+incluye `us-gaap:NetIncomeLossAvailableToCommonStockholdersDiluted`**, que es el
+numerador del que sale la EPS. Para un emisor con dividendos preferidos o
+participaciones no controlantes, `NetIncomeLoss` no es lo que se divide por las
+acciones diluidas, así que el residuo no se explica con lo guardado. No se
+corrigió en este incremento a propósito: cambiar la selección es subirle la
+versión y reingerir los trece filers, y eso es un slice con su propia medición.
+
+Queda la tanda 2 —las 18 empresas restantes— y el incremento 3.
+
 | Issue   | Resultado y aceptación mínima                                                                                          | Depende de | Controles                 |
 | ------- | ---------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
 | `F2-03` | SEC XBRL integrada con `available_at` del filing, vintages y restatements preservados; cuarentena ante schema roto.    | `F2-02`    | `TM-05`, `TM-06`, `TM-08` |
