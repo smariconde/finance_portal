@@ -8,7 +8,7 @@ Portal Financiero: a single-owner Next.js 16 portal for researching global compa
 
 The code is public; the data is not. The app is **personal-first**: it serves real data only from a private runtime, and there is no public demo deployment. See [ADR 0004](docs/architecture/adr/0004-personal-first-runtime.md).
 
-The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations kept to a five-fiscal-year window, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, per-source daily request budgets with an owner kill switch, a hand-run refresh that probes `submissions` and re-downloads only the filers that filed something relevant, a deterministic FCFF engine with its reference run, and a frozen corpus of real SEC extracts as regression oracle exist. Scheduled refresh, market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads real observations yet; nothing may be presented in the UI as if it were.
+The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations kept to a five-fiscal-year window, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, per-source daily request budgets with an owner kill switch, a hand-run refresh that probes `submissions` and re-downloads only the filers that filed something relevant, a deterministic FCFF engine with its reference run, a frozen corpus of real SEC extracts as regression oracle, and the declared sector classification with its population resolved at `as_of` exist. Scheduled refresh, market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads real observations yet; nothing may be presented in the UI as if it were.
 
 `AGENTS.md` holds the full contributor contract and takes precedence over this file where they overlap.
 
@@ -76,6 +76,21 @@ pnpm universe:constitute --apply    # constitutes the S&P 500 into the personal 
 Constituting is a hand-run job, never a gate: a rebalance **closes memberships**. The
 constituents list is pinned to a commit in `live-universe-source.ts`; changing that pin
 is a reviewable diff, and the runtime never resolves "latest" on its own.
+
+The same run also records the **sector** (`F7-02`,
+[ADR 0025](docs/architecture/adr/0025-declared-sector-classification.md), migration
+`0017`). A classification is an assertion with taxonomy, version and validity in
+`classification_assignments` — never a column on an entity — because the sector
+(`F7-02`), the valuation archetype (`F3-01`) and Damodaran's industry (`F3-05`) are
+three different questions about the same company. The first taxonomy is
+`sp500-wikipedia-gics-sector`, named that way because it is **not** official GICS but
+the column the PDDL package derives from Wikipedia. Its version is the pin and its
+`available_at` is the pin's `committedAt`, so an `as_known` before that commit does not
+see it. A new pin **supersedes**; it never closes in a date the source never published,
+and a company the list stops carrying keeps its sector — absence from an index list is
+not evidence of a sector change. The subject is the legal entity, so two share classes
+are two securities and one sector. Measured on the personal database: 500 assertions
+over the eleven sectors, 0 rejected, 376 kB.
 
 ```bash
 pnpm fundamentals:ingest --ticker AAPL             # dry run: downloads and builds vintages, writes nothing
@@ -399,6 +414,7 @@ Read [docs/data/identity-model.md](docs/data/identity-model.md) and [docs/data/p
 
 - Keep `legal_entity → security → listing → listing_symbol` separate. Depositary programs link a depositary security to an underlying via versioned ratios; they never merge the two instruments. Tickers are time-bound lookup values, never stable foreign keys.
 - Every historical read declares effective time, knowledge cutoff, revision policy, and corporate-action adjustment basis. Preserve `available_at`, `recorded_at`, vintages, restatements, and lineage. A later filing must never leak into an earlier `as_known` result — see the temporal columns and check constraints on `dataset_snapshots` in [src/server/db/schema.ts](src/server/db/schema.ts).
+- A classification —sector, archetype, industry— is an assertion with taxonomy, version and validity in `classification_assignments`, never a column on an entity, and a taxonomy is named for what it is rather than for what it reproduces. A subject has at most one open assertion per taxonomy; a subject with none is `null` with a reason, never a default bucket.
 - Missing values stay `null`. Never coerce a missing financial value to zero.
 - Financial formulas are pure, deterministic, versioned, and require unit tests plus edge cases for null, zero, negative, currency mismatch, and non-finite results.
 - Zod schemas are the runtime source of truth at boundaries; DB check constraints mirror the schema invariants (e.g. manifest present iff `manifest_status = 'stored'`).

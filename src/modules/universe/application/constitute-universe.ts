@@ -7,7 +7,10 @@ import {
   planUniverseConstitution,
   type UniverseConstitutionPlan,
 } from "../domain/plan-universe-constitution";
-import { resolveConstituents } from "../domain/resolve-constituents";
+import {
+  resolveConstituents,
+  type ConstituentResolution,
+} from "../domain/resolve-constituents";
 import {
   companyTickerAssignmentSchema,
   indexConstituentClaimSchema,
@@ -53,6 +56,13 @@ export type ConstituteUniverseDependencies = {
 export type ConstituteUniverseOutcome = {
   readonly plan: UniverseConstitutionPlan;
   readonly summary: UniverseConstitutionSummary;
+  /**
+   * Cómo cada símbolo de la lista llegó (o no) a un CIK. Se expone porque la
+   * clasificación sectorial (`F7-02`) necesita el mismo join —símbolo → CIK →
+   * entidad legal— y rehacerlo por su cuenta sería resolver dos veces, con el
+   * riesgo de que las dos resoluciones no coincidan.
+   */
+  readonly resolution: ConstituentResolution;
 };
 
 /**
@@ -89,6 +99,7 @@ export async function constituteUniverse(
   if (plan.counts.members === 0) {
     return {
       plan,
+      resolution,
       summary: {
         ...summarizePlan(plan),
         applied: {
@@ -105,5 +116,9 @@ export async function constituteUniverse(
     };
   }
 
-  return { plan, summary: await repository.applyConstitution(plan) };
+  return {
+    plan,
+    resolution,
+    summary: await repository.applyConstitution(plan),
+  };
 }

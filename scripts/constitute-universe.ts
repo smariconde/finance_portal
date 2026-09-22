@@ -1,8 +1,10 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import { DATAHUB_REQUEST_PACING } from "@/modules/ingestion/application/egress-fetch";
 import { syncDeclaredSourceRegistry } from "@/modules/ingestion/application/sync-source-registry";
 import { DEMO_SOURCE_REGISTRY } from "@/modules/ingestion/infrastructure/demo-source-registry";
+import { classifyUniverseSectors } from "@/modules/classification/application/classify-universe-sectors";
+import { getClassificationRepository } from "@/server/persistence/get-classification-repository";
 import { constituteUniverse } from "@/modules/universe/application/constitute-universe";
 import {
   buildConstituentsUrl,
@@ -121,6 +123,83 @@ for (const rejection of outcome.plan.rejections) {
 }
 
 for (const [code, count] of byCode) {
+  log(`  ${code}`, count);
+}
+
+/**
+ * Clasificación sectorial (`F7-02`, ADR 0025).
+ *
+ * Corre después de la constitución y fuera de su transacción a propósito: el
+ * sector no constituye el grafo, y si esto fallara el universo seguiría siendo
+ * correcto y volver a correr lo arreglaría, porque el mismo pin no escribe nada.
+ *
+ * El `available_at` de cada aserción es el `committedAt` del pin y no el
+ * instante de esta corrida, que es lo que hace que un `as_known` anterior al
+ * commit no vea la clasificación (`TM-06`).
+ */
+const universeState = await getUniverseRepository().loadState({
+  indexId: SP500_INDEX_ID,
+});
+
+const entityIdByCik = new Map(
+  universeState.graph.identifierAssignments
+    .filter(
+      (assignment) =>
+        assignment.identifierType === "cik" &&
+        assignment.validTo === null &&
+        assignment.supersededAt === null,
+    )
+    .map((assignment) => [assignment.normalizedValue, assignment.subjectId]),
+);
+
+const sectors = await classifyUniverseSectors(
+  {
+    claims: snapshot.claims.map((claim) => ({
+      symbol: claim.symbol,
+      sector: claim.sector,
+    })),
+    resolved: outcome.resolution.resolved.map((entry) => ({
+      claimSymbol: entry.claimSymbol,
+      normalizedCik: entry.normalizedCik,
+    })),
+    entityIdByCik,
+    pin: SP500_CONSTITUENTS_PIN,
+    sourceId: CONSTITUENTS_SOURCE_ID,
+    sourceDocumentId: SP500_CONSTITUENTS_PIN.commit,
+  },
+  {
+    repository: getClassificationRepository(),
+    now: () => new Date().toISOString(),
+    newId: () => randomUUID(),
+    hashContent: (input: string) =>
+      createHash("sha256").update(input).digest("hex"),
+  },
+);
+
+console.log("");
+log("taxonomía", sectors.plan.taxonomyId);
+log("versión", sectors.plan.taxonomyVersion.slice(0, 12));
+log("  abiertas", sectors.plan.counts.opened);
+log("  superseded", sectors.plan.counts.superseded);
+log("  sin cambio", sectors.plan.counts.unchanged);
+log("  rechazadas", sectors.plan.counts.rejected);
+log("  no reafirmadas", sectors.plan.counts.notReasserted);
+
+if (sectors.conflicts.length > 0) {
+  log("  clases en conflicto", sectors.conflicts.join(", "));
+}
+
+if (sectors.unresolvedSubjects.length > 0) {
+  log("  sin entidad legal", sectors.unresolvedSubjects.length);
+}
+
+const bySectorCode = new Map<string, number>();
+
+for (const rejection of sectors.plan.rejections) {
+  bySectorCode.set(rejection.code, (bySectorCode.get(rejection.code) ?? 0) + 1);
+}
+
+for (const [code, count] of bySectorCode) {
   log(`  ${code}`, count);
 }
 

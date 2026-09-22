@@ -19,9 +19,16 @@ import {
  * de desarrollo. Reconciliar ambos CIK y reportar las discrepancias es útil y es
  * otro slice: exige decidir qué significa el desacuerdo, no sólo detectarlo.
  *
- * El sector se lee pero el planner no lo persiste: mezclar una taxonomía sin
- * registrar cuál es y en qué versión es lo que el modelo de identidad prohíbe. El
- * mapeo a industria es `F3-05`.
+ * El sector se lee y **ya se persiste**, desde `F7-02`: la reserva que este
+ * comentario sostenía —«mezclar una taxonomía sin registrar cuál es y en qué
+ * versión es lo que el modelo de identidad prohíbe»— la levanta la
+ * [ADR 0025](../../../../docs/architecture/adr/0025-declared-sector-classification.md)
+ * respondiendo lo que pedía: la taxonomía es `sp500-wikipedia-gics-sector`
+ * —llamada así porque **no** es GICS oficial, sino la columna que el paquete
+ * deriva de Wikipedia— y su versión es el commit pineado. El parser sigue sin
+ * decidir nada de eso: lee la etiqueta cruda y la clasificación la planifica
+ * `src/modules/classification/`. El mapeo a industria de Damodaran sigue siendo
+ * `F3-05`, y es otra taxonomía en la misma tabla.
  */
 export const SP500_CONSTITUENTS_PARSER_VERSION = "sp500-constituents-1.0.0";
 
