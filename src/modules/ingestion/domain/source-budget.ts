@@ -39,6 +39,11 @@ export const SOURCE_DAILY_REQUEST_BUDGETS: Readonly<Record<string, number>> =
   Object.freeze({
     "sec-edgar": 2000,
     "datahub-sp500-pddl": 10,
+    // Una request por security para cinco años. El tope cubre el universo
+    // entero (503) más margen de reintentos en el mismo día, y Yahoo no publica
+    // cuota, así que el número es una decisión de prudencia nuestra y no el eco
+    // de un límite publicado (ADR 0026).
+    "yahoo-finance": 700,
   });
 
 /** Tabla de topes declarados. Los tests inyectan la suya; el runtime usa la de arriba. */

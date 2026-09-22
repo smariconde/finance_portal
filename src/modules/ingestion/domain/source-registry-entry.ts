@@ -35,10 +35,38 @@ export const parserVersionSchema = z
     "parserVersion must be a stable lowercase identifier.",
   );
 
+/**
+ * Veredicto de un derecho.
+ *
+ * `allowed` significa una cosa concreta y por eso vale: **una fuente primaria
+ * vigente cubre este uso** —la SEC autorizando copia con cita, el PDDL del
+ * paquete de constituyentes—. Es lo que hace que el gate signifique algo.
+ *
+ * `owner_accepted` existe para no tener que mentir con `allowed`
+ * ([ADR 0026](../../../../docs/architecture/adr/0026-daily-prices-source.md)):
+ * **ninguna fuente concede este uso y el owner decidió proceder igual**, con la
+ * decisión fechada y su motivo en el registro. Si esos dos casos compartieran
+ * valor, el gate dejaría de distinguir «tenemos derecho» de «decidimos igual» y
+ * se volvería decorativo.
+ *
+ * `unknown` falla cerrado: omitir un derecho bloquea, no habilita.
+ */
 export const rightsDecisionSchema = z.enum([
   "unknown",
   "allowed",
+  "owner_accepted",
   "restricted",
+]);
+
+/**
+ * Veredictos que habilitan una corrida. `owner_accepted` alcanza para asumir un
+ * riesgo propio; **no** alcanza para una superficie pública, donde el riesgo es
+ * de terceros: eso lo sigue exigiendo `approved_public_demo` con
+ * `publicDisplay === "allowed"`.
+ */
+const INGESTABLE_RIGHTS: ReadonlySet<string> = new Set([
+  "allowed",
+  "owner_accepted",
 ]);
 
 export const technicalStatusSchema = z.enum([
@@ -231,9 +259,15 @@ export function evaluateIngestionRights(
   }
 
   for (const right of requiredRights) {
-    if (entry.rights[right] !== "allowed") {
+    if (!INGESTABLE_RIGHTS.has(entry.rights[right])) {
       blockedBy.push(`rights.${right}:${entry.rights[right]}`);
     }
+  }
+
+  // Una decisión del owner asume un riesgo propio; no fabrica un derecho frente
+  // a terceros. En una superficie pública el veredicto tiene que ser `allowed`.
+  if (parsedRequest.publicDisplay && entry.rights.publicDisplay !== "allowed") {
+    blockedBy.push("public_display_requires_granted_right");
   }
 
   if (

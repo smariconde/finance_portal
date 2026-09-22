@@ -81,9 +81,16 @@ export const datasetSnapshots = pgTable(
   ],
 );
 
+/**
+ * `owner_accepted` (ADR 0026) dice que ninguna fuente concede el uso y que el
+ * owner decidió proceder igual. Existe para que `allowed` siga significando «una
+ * fuente primaria lo cubre»: si los dos casos compartieran valor, el gate de
+ * derechos dejaría de distinguirlos.
+ */
 export const sourceRightsDecision = pgEnum("source_rights_decision", [
   "unknown",
   "allowed",
+  "owner_accepted",
   "restricted",
 ]);
 
@@ -1630,6 +1637,98 @@ export const classificationAssignments = pgTable(
     check(
       "classification_assignments_code_check",
       sql`${table.code} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`,
+    ),
+  ],
+);
+
+export const priceEventType = pgEnum("price_event_type", ["split", "dividend"]);
+
+/**
+ * Cierres diarios crudos (`F7-01`, ADR 0026).
+ *
+ * **Crudo** es la decisión: la fuente publica la serie ajustada por los splits
+ * posteriores y la reescribe hacia atrás cada vez que hay uno nuevo, así que
+ * guardarla tal cual metería look-ahead en la base y haría que una fila dejara
+ * de coincidir consigo misma después del próximo split. Guardando lo que se
+ * operó, la fila es inmutable y la re-descarga es idempotente; el ajuste vuelve
+ * a ser una política de lectura, como en la ADR 0012.
+ *
+ * La fila no guarda apertura, máximo, mínimo ni volumen: lo que las matrices y
+ * las divergencias piden es cierre contra cierre, y no hay screener que
+ * justifique el resto (ADR 0016). Tampoco guarda fuente, dataset ni parser —los
+ * trae su corrida— ni el factor de des-ajuste, que se reconstruye con los
+ * eventos de `price_events`: es la regla de la ADR 0018 aplicada a la tabla más
+ * grande del proyecto, donde cada columna de más se multiplica por ~630.000.
+ *
+ * La clave es natural —(security, fecha)— y con eso una rueda no puede tener dos
+ * cierres.
+ */
+export const securityPrices = pgTable(
+  "security_prices",
+  {
+    securityId: uuid("security_id")
+      .notNull()
+      .references(() => securities.securityId),
+    marketDate: date("market_date", { mode: "string" }).notNull(),
+    close: numeric("close", { mode: "string" }).notNull(),
+    currency: varchar("currency", { length: 3 }).notNull(),
+    ingestionRunId: uuid("ingestion_run_id")
+      .notNull()
+      .references(() => ingestionRuns.runId),
+  },
+  (table) => [
+    primaryKey({
+      name: "security_prices_pkey",
+      columns: [table.securityId, table.marketDate],
+    }),
+    check("security_prices_close_check", sql`${table.close} >= 0`),
+    check(
+      "security_prices_currency_check",
+      sql`${table.currency} ~ '^[A-Z]{3}$'`,
+    ),
+  ],
+);
+
+/**
+ * Eventos de la serie, fechados y **no aplicados** (ADR 0026).
+ *
+ * Los splits son la base de ajuste de las lecturas y la evidencia de cómo se
+ * des-ajustó la serie al ingerirla. Los dividendos se guardan sin aplicar
+ * porque la base de retorno de las matrices —reinvertidos o sólo precio— es un
+ * parámetro abierto de `F7-04`: aplicarlos en la ingesta lo dejaría decidido a
+ * espaldas de quien lo tiene que decidir.
+ *
+ * Estos eventos son los de la **fuente de precios**, y no reemplazan a los
+ * splits verificados por regla contra la SEC de la ADR 0012: son otra fuente
+ * diciendo lo mismo, y donde las dos existen, cruzarlas es una reconciliación.
+ */
+export const priceEvents = pgTable(
+  "price_events",
+  {
+    securityId: uuid("security_id")
+      .notNull()
+      .references(() => securities.securityId),
+    eventType: priceEventType("event_type").notNull(),
+    effectiveOn: date("effective_on", { mode: "string" }).notNull(),
+    /** Ratio decimal en un split; importe por acción en un dividendo. */
+    value: numeric("value", { mode: "string" }).notNull(),
+    currency: varchar("currency", { length: 3 }),
+    ingestionRunId: uuid("ingestion_run_id")
+      .notNull()
+      .references(() => ingestionRuns.runId),
+  },
+  (table) => [
+    primaryKey({
+      name: "price_events_pkey",
+      columns: [table.securityId, table.eventType, table.effectiveOn],
+    }),
+    check("price_events_value_check", sql`${table.value} > 0`),
+    // Un dividendo es un importe y necesita su moneda; un split es un ratio y
+    // no tiene ninguna.
+    check(
+      "price_events_currency_check",
+      sql`(${table.eventType} = 'dividend' and ${table.currency} is not null)
+        or (${table.eventType} = 'split' and ${table.currency} is null)`,
     ),
   ],
 );

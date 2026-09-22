@@ -2678,15 +2678,15 @@ Se ejecuta después de la Fase 2 y antes de la Fase 3.
 La especificación de la matriz y sus parámetros abiertos están en
 [`03_DATA_AND_PROVENANCE.md`](../finance-portal-masterplan/03_DATA_AND_PROVENANCE.md).
 
-| Issue   | Resultado y aceptación mínima                                                                                                                                                                                                                               | Depende de | Controles                          |
-| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------- |
-| `F7-01` | Precios diarios por security desde una fuente aprobada por ADR (derechos, cuota, retención), en una tabla liviana medida antes de ingerir; splits y dividendos con `available_at`; job fuera del request. **Bloqueado por decisión de fuente** (ver abajo). | Fase 2     | `TM-05`, `TM-08`, `TM-10`, `TM-11` |
-| `F7-02` | Sector como clasificación versionada (taxonomía, versión, vigencia) y población del sector resuelta al `as_of`.                                                                                                                                             | Fase 2     | `TM-05`, `TM-06`                   |
-| `F7-03` | Registro CEDEAR real: programas y ratios versionados desde la fuente aprobada por el owner, con la security subyacente resuelta y sin fusionar instrumentos.                                                                                                | `F7-02`    | `TM-05`, `TM-06`, `TM-08`          |
-| `F7-04` | Catálogo de métricas acotado a las matrices y la valuación; `sortino` puro y versionado, con parámetros decididos por el owner y tests de nulos, sin downside, historia insuficiente, huecos, negativos y no finitos.                                       | `F7-03`    | `TM-05`, `TM-16`                   |
-| `F7-05` | Matriz de riesgo por sector: Sortino 2Y vs 5Y, referencia S&P 500 en la misma base, recta de ajuste nombrada, CEDEAR vigente sin depender sólo del color, tabla equivalente, nulos con motivo y consulta acotada.                                           | `F7-04`    | `TM-06`, `TM-07`, `TM-12`, `UI-02` |
-| `F7-06` | Export personal con definiciones, parámetros, fecha, source y atribución.                                                                                                                                                                                   | `F7-05`    | `TM-02`, `TM-16`                   |
-| `F7-07` | Degradación, reconciliación y quality score explicable.                                                                                                                                                                                                     | `F7-05`    | `TM-05`, `TM-16`                   |
+| Issue   | Resultado y aceptación mínima                                                                                                                                                                                         | Depende de | Controles                          |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------- |
+| `F7-01` | Precios diarios por security desde una fuente aprobada por ADR (derechos, cuota, retención), en una tabla liviana medida antes de ingerir; splits y dividendos con `available_at`; job fuera del request.             | Fase 2     | `TM-05`, `TM-08`, `TM-10`, `TM-11` |
+| `F7-02` | Sector como clasificación versionada (taxonomía, versión, vigencia) y población del sector resuelta al `as_of`.                                                                                                       | Fase 2     | `TM-05`, `TM-06`                   |
+| `F7-03` | Registro CEDEAR real: programas y ratios versionados desde la fuente aprobada por el owner, con la security subyacente resuelta y sin fusionar instrumentos.                                                          | `F7-02`    | `TM-05`, `TM-06`, `TM-08`          |
+| `F7-04` | Catálogo de métricas acotado a las matrices y la valuación; `sortino` puro y versionado, con parámetros decididos por el owner y tests de nulos, sin downside, historia insuficiente, huecos, negativos y no finitos. | `F7-03`    | `TM-05`, `TM-16`                   |
+| `F7-05` | Matriz de riesgo por sector: Sortino 2Y vs 5Y, referencia S&P 500 en la misma base, recta de ajuste nombrada, CEDEAR vigente sin depender sólo del color, tabla equivalente, nulos con motivo y consulta acotada.     | `F7-04`    | `TM-06`, `TM-07`, `TM-12`, `UI-02` |
+| `F7-06` | Export personal con definiciones, parámetros, fecha, source y atribución.                                                                                                                                             | `F7-05`    | `TM-02`, `TM-16`                   |
+| `F7-07` | Degradación, reconciliación y quality score explicable.                                                                                                                                                               | `F7-05`    | `TM-05`, `TM-16`                   |
 
 **Reordenamiento del 2026-09-21: la fase arranca por `F7-02`.** `F7-01` iba primero
 y quedó **bloqueado por una decisión de derechos**, no por dificultad técnica. Al
@@ -2707,9 +2707,8 @@ que `F7-01` necesita:
   concede nada.
 
 El hallazgo quedó en la [matriz de uso](../data/provider-use-matrix.md) para que
-`F7-01` no lo vuelva a averiguar. La decisión pendiente del owner es de tres
-caminos: pagar un plan que permita persistir, asumir por escrito una fuente sin
-concesión contractual, o relevar antes las opciones pagas baratas.
+`F7-01` no lo vuelva a averiguar. **El owner decidió el 2026-09-22**: Yahoo, con
+la ADR 0026 declarando que no hay concesión contractual en vez de disfrazarla.
 
 `F7-02` **no depende de `F7-01`**: la flecha del cuadro era orden, no dependencia de
 datos. Una clasificación no necesita precios, su insumo ya está descargado y sus
@@ -2827,9 +2826,97 @@ a «de qué sector era esta empresa según lo que se sabía entonces».
 format, lint, typecheck, **1.411 unit** (73 nuevos), **141 integration** (6 nuevos)
 y build con las cuatro rutas en `ƒ (Dynamic)` pasan.
 
-Queda `F7-01` bloqueado por la decisión de fuente de precios, y detrás `F7-03` a
-`F7-07`. La Fase 3 ya tiene lo que esperaba de la Fase 7: una clasificación
-versionada sobre la que `F3-01` puede escribir su propio arquetipo.
+La Fase 3 ya tiene lo que esperaba de la Fase 7: una clasificación versionada
+sobre la que `F3-01` puede escribir su propio arquetipo.
+
+#### `F7-01` — precios diarios crudos, con su base de ajuste declarada
+
+- Estado: `done` (iniciado y cerrado el 2026-09-22).
+- Fase y dependencia: Fase 7; Fase 2 cerrada.
+- Decisión: [ADR 0026](../architecture/adr/0026-daily-prices-source.md).
+- Controles: `TM-05`, `TM-08` (la fuente entra por la única puerta, con un solo
+  host y un solo prefijo de path), `TM-10` y `TM-11` (tope diario y job fuera del
+  request).
+
+**La fuente.** Al revisar términos apareció que el panorama gratuito no concede lo
+que una tabla de precios necesita: Tiingo lo prohíbe en su plan gratuito
+(§1.6(a)) y Alpaca sigue en `blocked_rights` por lo mismo. El owner eligió
+**Yahoo** el 2026-09-22, con un razonamiento que queda registrado: aceptar un
+contrato para después incumplir una cláusula concreta expone más que no tener
+contrato —hay cuenta, identidad y una key que cortan sin aviso, y el
+incumplimiento quedaría escrito en un repositorio público—.
+
+**El vocabulario de derechos.** Es la decisión que casi se resuelve mal. El gate
+exige `allowed`, y marcar así a Yahoo habría corrompido el valor del que depende
+todo el gate: `allowed` significa «una fuente primaria cubre este uso», que es lo
+que hace que el de `sec-edgar` signifique algo. Los derechos ganaron
+**`owner_accepted`** —«nadie lo concede; el owner decidió proceder igual», fechado
+y con motivo—. Habilita una corrida y **nunca** una superficie pública, donde
+`publicDisplay` sigue exigiendo `allowed`: el schema se niega incluso a construir
+una fuente `approved_public_demo` que lo tenga en `owner_accepted`.
+
+**El hallazgo que definió el slice.** La serie de la fuente **no es
+point-in-time**: viene ajustada por los splits posteriores y se reescribe hacia
+atrás en cada uno. Medido sobre NVDA, el cierre del 2024-06-05 se devuelve hoy
+como 122,44 cuando ese día se operó a **1.224,40**. Guardar eso metería en la base
+exactamente el look-ahead que el contrato point-in-time existe para impedir, y
+además la fila cambiaría sola con el próximo split, perdiendo la idempotencia.
+**681 de las 1.254 ruedas de NVDA están reexpresadas**: esa es la medida de cuánto
+look-ahead se habría guardado ingiriendo la serie tal cual.
+
+La salida es que la misma respuesta trae los splits fechados, así que el
+des-ajuste es determinista —`raw(t) = close(t) × Π ratio(s)` para los `s`
+posteriores a `t`— y verificado al centavo. Guardando crudo la fila es inmutable,
+la re-descarga es idempotente y el ajuste vuelve a ser política de lectura, como
+en la [ADR 0012](../architecture/adr/0012-stock-splits-share-basis.md). Los
+dividendos se guardan fechados y **sin aplicar**: la base de retorno es un
+parámetro abierto de `F7-04`.
+
+**Dos decisiones más.** La fila guarda un cierre y no un OHLCV —lo que las
+matrices y las divergencias piden es cierre contra cierre, y la ADR 0016 eliminó
+el screener que justificaría el volumen—, y no guarda fuente ni parser, que los
+trae su corrida, ni el factor de des-ajuste, que se reconstruye con los eventos.
+Y el parser **normaliza el ruido de la fuente**: transmite float32 ensanchado a
+double —22,482 viaja como `22.48200035095215`— y leerlo como exacto guardaría ese
+ruido en la tabla más grande del proyecto, multiplicado por cada des-ajuste.
+
+Criterios, contra lo que se entregó:
+
+- **fuente aprobada por ADR con derechos, cuota y retención declarados.**
+  Cumplido, con el vocabulario nuevo: `owner_accepted` dice la verdad en vez de
+  disfrazarla. Allowlist de un host y un prefijo, tope diario de 700 y ritmo de
+  1 request/s;
+- **tabla liviana medida antes de ingerir.** Medido sobre tres securities:
+  **158 bytes por fila** (77 de heap, el resto del índice natural). Un sector de
+  ~70 securities son ~14 MB; el índice entero daría ~100 MB, **por encima** de la
+  estimación de 60–80 MB de la ADR 0016. El producto sólo necesita por sector;
+- **splits y dividendos con su fecha.** Cumplido, en `price_events`, sin aplicar;
+- **job fuera del request.** Comando a mano con dry run por defecto.
+
+**Medido sobre el PostgreSQL personal** (AAPL, NVDA, JPM): 3 requests, 1.254
+ruedas por security y **3.762 filas** publicadas, rango 2021-09-23 → 2026-09-22,
+0 ruedas sin cierre y 61 eventos. NVDA queda guardada en 1.224,40 el 2024-06-05 y
+121,79 el 2024-06-10, con su 10:1 como evento aparte. La segunda corrida de NVDA
+publica **0 y reconoce 1.254 duplicadas**, con la corrida registrada `duplicate`:
+la prueba de idempotencia, que sólo vale porque lo guardado es crudo. La base pasa
+de 26 a 27 MB.
+
+Dos cosas que encontró el camino y que hoy son regla:
+
+- **el gate se negó antes de tocar la red** en el primer intento, porque la fuente
+  estaba en `technical_reviewed`. Es el fail-closed funcionando: la red no se toca
+  hasta que el registro dice que sí;
+- **el rollback de `0018` no podía correr, y sólo se supo probándolo.** Rehacer un
+  enum exige soltar antes las ocho columnas que lo tienen por default y el check
+  de demo pública, y reponerlos idénticos en la misma transacción.
+
+format, lint, typecheck, **1.446 unit** (31 nuevos), **149 integration** (8
+nuevos) y build con las cuatro rutas en `ƒ (Dynamic)` pasan. Los rollbacks de
+`0018` y `0019` se probaron en sus tres estados: se niegan con datos, borran
+vacíos y las migraciones vuelven a aplicarse.
+
+Queda `F7-03` (registro CEDEAR) y detrás `F7-04` a `F7-07`. Antes de `F7-04` hay
+que decidir los parámetros del Sortino, que la especificación deja abiertos.
 
 ### Fase 8 — divergencias fundamentales
 

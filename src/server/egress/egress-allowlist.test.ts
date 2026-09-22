@@ -12,7 +12,7 @@ describe("egress allowlist", () => {
     // La allowlist no se escribe por adelantado. Cada fila de más es un destino
     // alcanzable que ningún test ejercita.
     expect(listEgressAllowlistEntries().map((entry) => entry.sourceId)).toEqual(
-      ["sec-edgar", "datahub-sp500-pddl"],
+      ["sec-edgar", "datahub-sp500-pddl", "yahoo-finance"],
     );
   });
 
@@ -89,6 +89,46 @@ describe("egress allowlist", () => {
 
     // El universo se persiste normalizado y derivado; nadie guardó su payload.
     expect(findRights("datahub-sp500-pddl")?.rawStorage).toBe("unknown");
+  });
+
+  it("records that Yahoo was accepted by the owner and never granted", () => {
+    // Es la distinción que la ADR 0026 agregó al vocabulario, y se afirma acá
+    // para que nadie la borre "simplificando" a `allowed`: `allowed` significa
+    // que una fuente primaria cubre el uso, y Yahoo no cubre ninguno.
+    const entry = DEMO_SOURCE_REGISTRY.find(
+      (candidate) => candidate.sourceId === "yahoo-finance",
+    );
+
+    expect(entry?.approvalStatus).toBe("approved_personal");
+    expect(entry?.rights.personalUse).toBe("owner_accepted");
+    expect(entry?.rights.automatedAccess).toBe("owner_accepted");
+    expect(entry?.rights.normalizedStorage).toBe("owner_accepted");
+    // Ninguno de estos es `allowed`: nadie los concedió.
+    expect(entry?.rights.automatedAccess).not.toBe("allowed");
+    // Y una decisión del owner no alcanza para una superficie pública.
+    expect(entry?.rights.publicDisplay).toBe("restricted");
+    expect(entry?.rights.rawStorage).toBe("restricted");
+  });
+
+  it("authorizes one Yahoo chart path and nothing else on that host", () => {
+    const entry = findEgressAllowlistEntry("yahoo-finance");
+
+    expect(entry).not.toBeNull();
+    expect(
+      authorizeEgressUrl(
+        "https://query1.finance.yahoo.com/v8/finance/chart/AAPL?range=5y&interval=1d",
+        entry!,
+      ).allowed,
+    ).toBe(true);
+
+    for (const url of [
+      "https://query1.finance.yahoo.com/v7/finance/quote?symbols=AAPL",
+      "https://query1.finance.yahoo.com/v1/finance/search?q=apple",
+      "https://query2.finance.yahoo.com/v8/finance/chart/AAPL",
+      "https://finance.yahoo.com/quote/AAPL",
+    ]) {
+      expect(authorizeEgressUrl(url, entry!).allowed).toBe(false);
+    }
   });
 
   it("authorizes the SEC endpoints that Phase 2 needs", () => {
