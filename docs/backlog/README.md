@@ -42,6 +42,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    14 | `F2-05`    | `done`     | Backfill y refresh durable con presupuesto, cursor, lease y recuperación verificables.                                                    | `F2-04`       |
 |    15 | `F2-06`    | `done`     | Golden fixtures desde extractos reales congelados, en reemplazo de `FixtureCo` como oráculo de regresión.                                 | `F2-03`       |
 |    16 | `F2-07`    | `done`     | Gate de Fase 2 verificado sobre datos reales: contrato point-in-time auditado, 30 empresas reconciliadas y validación semántica decidida. | `F2-06`       |
+|    17 | `F7-02`    | `done`     | El sector como clasificación declarada y versionada, con la población resuelta al `as_of`.                                                | Fase 2        |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -2677,15 +2678,158 @@ Se ejecuta después de la Fase 2 y antes de la Fase 3.
 La especificación de la matriz y sus parámetros abiertos están en
 [`03_DATA_AND_PROVENANCE.md`](../finance-portal-masterplan/03_DATA_AND_PROVENANCE.md).
 
-| Issue   | Resultado y aceptación mínima                                                                                                                                                                                         | Depende de | Controles                          |
-| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------- |
-| `F7-01` | Precios diarios por security desde una fuente aprobada por ADR (derechos, cuota, retención), en una tabla liviana medida antes de ingerir; splits y dividendos con `available_at`; job fuera del request.             | Fase 2     | `TM-05`, `TM-08`, `TM-10`, `TM-11` |
-| `F7-02` | Sector como clasificación versionada (taxonomía, versión, vigencia) y población del sector resuelta al `as_of`.                                                                                                       | `F7-01`    | `TM-05`, `TM-06`                   |
-| `F7-03` | Registro CEDEAR real: programas y ratios versionados desde la fuente aprobada por el owner, con la security subyacente resuelta y sin fusionar instrumentos.                                                          | `F7-02`    | `TM-05`, `TM-06`, `TM-08`          |
-| `F7-04` | Catálogo de métricas acotado a las matrices y la valuación; `sortino` puro y versionado, con parámetros decididos por el owner y tests de nulos, sin downside, historia insuficiente, huecos, negativos y no finitos. | `F7-03`    | `TM-05`, `TM-16`                   |
-| `F7-05` | Matriz de riesgo por sector: Sortino 2Y vs 5Y, referencia S&P 500 en la misma base, recta de ajuste nombrada, CEDEAR vigente sin depender sólo del color, tabla equivalente, nulos con motivo y consulta acotada.     | `F7-04`    | `TM-06`, `TM-07`, `TM-12`, `UI-02` |
-| `F7-06` | Export personal con definiciones, parámetros, fecha, source y atribución.                                                                                                                                             | `F7-05`    | `TM-02`, `TM-16`                   |
-| `F7-07` | Degradación, reconciliación y quality score explicable.                                                                                                                                                               | `F7-05`    | `TM-05`, `TM-16`                   |
+| Issue   | Resultado y aceptación mínima                                                                                                                                                                                                                               | Depende de | Controles                          |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------- |
+| `F7-01` | Precios diarios por security desde una fuente aprobada por ADR (derechos, cuota, retención), en una tabla liviana medida antes de ingerir; splits y dividendos con `available_at`; job fuera del request. **Bloqueado por decisión de fuente** (ver abajo). | Fase 2     | `TM-05`, `TM-08`, `TM-10`, `TM-11` |
+| `F7-02` | Sector como clasificación versionada (taxonomía, versión, vigencia) y población del sector resuelta al `as_of`.                                                                                                                                             | Fase 2     | `TM-05`, `TM-06`                   |
+| `F7-03` | Registro CEDEAR real: programas y ratios versionados desde la fuente aprobada por el owner, con la security subyacente resuelta y sin fusionar instrumentos.                                                                                                | `F7-02`    | `TM-05`, `TM-06`, `TM-08`          |
+| `F7-04` | Catálogo de métricas acotado a las matrices y la valuación; `sortino` puro y versionado, con parámetros decididos por el owner y tests de nulos, sin downside, historia insuficiente, huecos, negativos y no finitos.                                       | `F7-03`    | `TM-05`, `TM-16`                   |
+| `F7-05` | Matriz de riesgo por sector: Sortino 2Y vs 5Y, referencia S&P 500 en la misma base, recta de ajuste nombrada, CEDEAR vigente sin depender sólo del color, tabla equivalente, nulos con motivo y consulta acotada.                                           | `F7-04`    | `TM-06`, `TM-07`, `TM-12`, `UI-02` |
+| `F7-06` | Export personal con definiciones, parámetros, fecha, source y atribución.                                                                                                                                                                                   | `F7-05`    | `TM-02`, `TM-16`                   |
+| `F7-07` | Degradación, reconciliación y quality score explicable.                                                                                                                                                                                                     | `F7-05`    | `TM-05`, `TM-16`                   |
+
+**Reordenamiento del 2026-09-21: la fase arranca por `F7-02`.** `F7-01` iba primero
+y quedó **bloqueado por una decisión de derechos**, no por dificultad técnica. Al
+revisar los términos de las candidatas de precios antes de escribir su ADR —que es
+el orden que el proyecto se impuso— apareció que el panorama gratuito no concede lo
+que `F7-01` necesita:
+
+- **Tiingo**, que era la mejor candidata por contrato y por payload (OHLC sin
+  ajustar con `divCash` y `splitFactor` fechados en una sola request), **prohíbe en
+  su plan gratuito persistir el dato en una base**. Los ToU §1.6(a), actualizados
+  el 2026-08-05, nombran «databases» entre los sistemas alcanzados. Es la misma
+  razón por la que Alpaca está en `blocked_rights`: **la persistencia es la
+  condición de adopción**, y una tabla de precios es literalmente lo que la
+  cláusula prohíbe. El plan pago (USD 30/mes) sí la permite;
+- **Yahoo** funciona —una request sin credencial devuelve 1.254 cierres diarios y
+  20 dividendos fechados— pero no hay concesión contractual de ninguna clase;
+- el resto del panorama gratuito tiene la misma forma: o prohíbe persistir, o no
+  concede nada.
+
+El hallazgo quedó en la [matriz de uso](../data/provider-use-matrix.md) para que
+`F7-01` no lo vuelva a averiguar. La decisión pendiente del owner es de tres
+caminos: pagar un plan que permita persistir, asumir por escrito una fuente sin
+concesión contractual, o relevar antes las opciones pagas baratas.
+
+`F7-02` **no depende de `F7-01`**: la flecha del cuadro era orden, no dependencia de
+datos. Una clasificación no necesita precios, su insumo ya está descargado y sus
+derechos ya están aprobados. Y es lo que la Fase 3 espera de la Fase 7 —`F3-01`
+depende de la clasificación versionada, no de las matrices—, así que arrancar por
+acá desbloquea el camino en vez de esperar.
+
+#### `F7-02` — el sector como clasificación declarada y versionada
+
+- Estado: `done` (iniciado y cerrado el 2026-09-21).
+- Fase y dependencia: Fase 7; Fase 2 cerrada. No depende de `F7-01`.
+- Decisión: [ADR 0025](../architecture/adr/0025-declared-sector-classification.md).
+- Problema: la matriz sectorial necesita una población —«las securities de los
+  miembros del sector al `as_of`»— y hoy el sector es el único insumo que el
+  proyecto **lee y tira**. El parser del paquete PDDL levanta la columna
+  `GICS Sector` y no la persiste, con la reserva escrita en el propio archivo:
+  «mezclar una taxonomía sin registrar cuál es y en qué versión es lo que el modelo
+  de identidad prohíbe». Levantar esa reserva es responder lo que pedía.
+- Alcance: una clasificación es una **aserción fechada de una fuente sobre un
+  sujeto**, con taxonomía, versión y vigencia, en una tabla agnóstica de taxonomía
+  —no una columna de `legal_entity`—. La primera taxonomía registrada es
+  `sp500-wikipedia-gics-sector`, llamada por lo que es y no `gics`. Su versión es
+  el commit pineado del paquete y su `available_at` el `committedAt` de ese
+  commit, así que la clasificación es reproducible y fechada sin pedir una request
+  más.
+- Controles: `TM-05` (la aserción declara fuente, versión y vigencia) y `TM-06`
+  (un `as_known` anterior a un pin no ve la clasificación de ese pin).
+- No autoriza: precios, superficie de UI, matriz, arquetipo de valuación
+  (`F3-01`), mapeo a Damodaran (`F3-05`) ni el SIC como segunda taxonomía.
+
+Criterios de aceptación:
+
+- una tabla de clasificaciones agnóstica de taxonomía, con su migración y el
+  rollback pareado, que guarda sujeto, taxonomía, versión, código, etiqueta,
+  vigencia y procedencia, y que **no** puede representar dos aserciones vigentes
+  del mismo sujeto en la misma taxonomía;
+- la constitución del universo persiste el sector del paquete con el pin como
+  versión y el `committedAt` como `available_at`, y la reserva de
+  `parse-sp500-constituents.ts` queda levantada citando la ADR;
+- un pin nuevo **supersede** las aserciones del anterior en vez de cerrarlas en una
+  fecha que la fuente no publica; reconstituir con el mismo pin no escribe nada;
+- la población de un sector se resuelve al `as_of` componiendo dos vigencias
+  —membresía y clasificación— y un sujeto sin aserción vigente devuelve `null` con
+  motivo, nunca un sector por defecto ni un cajón «Otros»;
+- un `as_known` anterior al `committedAt` de un pin no ve la clasificación de ese
+  pin;
+- tests de dominio para cada rechazo nombrado, e integration test contra
+  PostgreSQL para la supersesión y para la lectura al `as_of`;
+- los cinco límites de la ADR quedan escritos donde se leen, no sólo en la ADR.
+
+Entregado (2026-09-21). Decisiones en la
+[ADR 0025](../architecture/adr/0025-declared-sector-classification.md).
+
+**La tabla no es de sectores, es de clasificaciones.** `classification_assignments`
+guarda sujeto, taxonomía, versión, código, etiqueta, vigencia y procedencia, y es
+agnóstica de taxonomía porque van a convivir tres respuestas distintas a «qué tipo
+de empresa es ésta» que no son la misma pregunta: el sector de las matrices, el
+arquetipo de `F3-01` y la industria de `F3-05`. Un REIT es `Real Estate` para la
+primera, `REIT` para la segunda y otra cosa para la tercera; una columna en
+`legal_entity` obligaría a elegir cuál pierde. Sumar el SIC o el arquetipo es
+insertar filas, no migrar el schema, y un test lo prueba conviviendo con una
+`valuation-archetype` sobre el mismo sujeto.
+
+**La taxonomía se llama por lo que es.** `sp500-wikipedia-gics-sector`, no `gics`.
+Lo que el paquete PDDL publica es una columna derivada de Wikipedia que reproduce
+una taxonomía propietaria de S&P y MSCI; nadie verificó contra S&P que coincida, y
+el registro ya dice de ese paquete que «no prueba membresía oficial». Llamarla
+`gics` afirmaría una procedencia que el proyecto no puede defender.
+
+**La versión y la vigencia salen del pin, no de la corrida.** El `available_at` de
+cada aserción es el `committedAt` del commit pineado, así que un `as_known`
+anterior al commit no ve la clasificación (`TM-06`). Un pin nuevo **supersede** en
+vez de cerrar en el pasado, por la razón de la ADR 0013: la fuente no publica
+desde cuándo cambió el sector de una empresa, y fechar el cambio con la corrida
+sería inventar evidencia.
+
+Tres decisiones que aparecieron al construir y que hoy son reglas con test:
+
+- **la versión queda afuera del contenido de la aserción.** Si entrara, cada
+  cambio de pin reescribiría las quinientas filas aunque ningún sector hubiera
+  cambiado, y el historial dejaría de distinguir «cambió de sector» de «hubo un
+  rebalanceo». Lo que la fila guarda es el pin que afirmó **por primera vez** el
+  valor vigente, no el último que lo confirmó;
+- **dejar de listar a una empresa no cierra su clasificación.** Es la diferencia
+  con la membresía y no es una omisión: la lista es autoritativa sobre quién está
+  en el índice, así que dejar de listar **es** la evidencia de una salida; pero no
+  es autoritativa sobre de qué sector es una empresa. Cerrarla ahí afirmaría algo
+  que la fuente no dijo —una tabla parcial no prueba una ausencia, ADR 0014—;
+- **dos clases del mismo emisor son una sola aserción.** El sujeto es la entidad
+  legal, así que `GOOG` y `GOOGL` colapsan; si declararan sectores distintos el
+  emisor no se clasifica y el conflicto se nombra, porque elegir una de las dos
+  sería inventar el desempate.
+
+**Medido sobre el PostgreSQL personal**, con `pg_dump` previo y la migración `0017`
+aplicada: la constitución con el pin vigente escribe **0 filas de identidad**
+—reconstituir el mismo estado no abre ni cierra nada— y abre **500 aserciones de
+sector**, con **0 rechazos**, 0 conflictos y 0 símbolos sin entidad legal. Las 503
+filas del paquete dan 500 sujetos porque tres emisores tienen dos clases en el
+índice —Alphabet, Fox y News Corp, los tres `Communication Services`—. Los once
+sectores quedan representados: Industrials 83, Financials 76, Information
+Technology 73, Health Care 59, Consumer Discretionary 47, Consumer Staples 34,
+Utilities 31, Real Estate 30, Materials 25, Communication Services 21 y Energy 21.
+Todas las filas comparten `available_at` `2026-09-05T01:39:10Z`, que es el
+`committedAt` del pin y no el instante de la corrida. La segunda corrida escribe
+**0 y reconoce 500 sin cambio**, que es la prueba de idempotencia. La tabla pesa
+**376 kB** con sus tres índices (344 bytes por fila) y la base sigue en 26 MB.
+
+El rollback de `0017` se probó en la base de test en sus tres estados: se **niega**
+con filas —nombrando cuántas—, **borra** la tabla vacía y la migración **vuelve a
+aplicarse**. Se niega a propósito: la clasificación no se reconstruye desde ninguna
+otra tabla —el sector no es columna de nadie— y reconstituir recuperaría sólo lo
+que dice el pin actual, perdiendo cada aserción superseded y con ella la respuesta
+a «de qué sector era esta empresa según lo que se sabía entonces».
+
+format, lint, typecheck, **1.411 unit** (73 nuevos), **141 integration** (6 nuevos)
+y build con las cuatro rutas en `ƒ (Dynamic)` pasan.
+
+Queda `F7-01` bloqueado por la decisión de fuente de precios, y detrás `F7-03` a
+`F7-07`. La Fase 3 ya tiene lo que esperaba de la Fase 7: una clasificación
+versionada sobre la que `F3-01` puede escribir su propio arquetipo.
 
 ### Fase 8 — divergencias fundamentales
 

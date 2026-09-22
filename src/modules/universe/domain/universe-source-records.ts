@@ -29,9 +29,12 @@ export const indexConstituentClaimSchema = z.object({
   symbol: z.string().trim().min(1).max(32),
   name: z.string().trim().min(1).max(256),
   /**
-   * Sector declarado por la lista. No se persiste en este slice: mezclar una
-   * taxonomía sin registrar cuál es y en qué versión es exactamente lo que el
-   * modelo de identidad prohíbe. El mapeo a industria es `F3-05`.
+   * Sector declarado por la lista, como etiqueta cruda.
+   *
+   * Desde `F7-02` se persiste como clasificación declarada (ADR 0025): la
+   * taxonomía es `sp500-wikipedia-gics-sector` y su versión es el commit
+   * pineado. Acá sigue viajando sin interpretar —el valor tal como la fuente lo
+   * escribe—, y quien lo traduce a un código es `src/modules/classification/`.
    */
   sector: z.string().trim().min(1).max(128).nullable().default(null),
 });

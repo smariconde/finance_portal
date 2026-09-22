@@ -1574,6 +1574,66 @@ export const indexMemberships = pgTable(
   ],
 );
 
+/**
+ * Clasificaciones declaradas (`F7-02`, ADR 0025): de qué sector, arquetipo o
+ * industria es un sujeto, según una taxonomía nombrada y en una versión.
+ *
+ * La tabla es **agnóstica de taxonomía** porque van a convivir al menos tres
+ * respuestas distintas a «qué tipo de empresa es ésta» —el sector de las
+ * matrices, el arquetipo de valuación (`F3-01`) y la industria de Damodaran
+ * (`F3-05`)— y no son la misma pregunta. Sumar una es insertar filas con otra
+ * `taxonomy_id`, no migrar el schema.
+ *
+ * `taxonomy_version` dice qué release de la fuente hizo la aserción: para la
+ * taxonomía del paquete PDDL es el commit pineado, que es reproducible y
+ * revisable en un diff. El `available_at` es el `committed_at` de ese commit y
+ * no el instante de la descarga, que es lo que hace que un `as_known` anterior
+ * al commit no vea la clasificación (`TM-06`).
+ *
+ * El índice único es la invariante central: un sujeto no puede tener dos
+ * aserciones vigentes en la misma taxonomía. Puede tener una por taxonomía, que
+ * es justamente el punto.
+ */
+export const classificationAssignments = pgTable(
+  "classification_assignments",
+  {
+    classificationAssignmentId: uuid("classification_assignment_id").notNull(),
+    subjectType: identifierSubjectType("subject_type").notNull(),
+    subjectId: uuid("subject_id").notNull(),
+    taxonomyId: varchar("taxonomy_id", { length: 64 }).notNull(),
+    taxonomyVersion: varchar("taxonomy_version", { length: 128 }).notNull(),
+    code: varchar("code", { length: 64 }).notNull(),
+    label: varchar("label", { length: 128 }).notNull(),
+    ...temporalVersionColumns(),
+  },
+  (table) => [
+    primaryKey({
+      name: "classification_assignments_pkey",
+      columns: [table.classificationAssignmentId, table.validFrom],
+    }),
+    uniqueIndex("classification_assignments_open_uidx")
+      .on(table.subjectType, table.subjectId, table.taxonomyId)
+      .where(openVersion(table)),
+    index("classification_assignments_taxonomy_idx").on(
+      table.taxonomyId,
+      table.code,
+    ),
+    index("classification_assignments_subject_idx").on(
+      table.subjectType,
+      table.subjectId,
+    ),
+    ...temporalVersionChecks("classification_assignments", table),
+    check(
+      "classification_assignments_taxonomy_id_check",
+      sql`${table.taxonomyId} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`,
+    ),
+    check(
+      "classification_assignments_code_check",
+      sql`${table.code} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`,
+    ),
+  ],
+);
+
 export const corporateActionType = pgEnum("corporate_action_type", [
   "successor_issuer",
   "split",

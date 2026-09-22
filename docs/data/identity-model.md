@@ -254,11 +254,51 @@ taxonomías distintas. Se modelan como asignaciones versionadas:
 
 - `entity_names`: nombre, tipo, idioma, vigencia y fuente;
 - `security_descriptions`: descripción y clase publicadas;
-- `classification_assignments`: taxonomía, versión, código y vigencia;
+- `classification_assignments`: taxonomía, versión, código y vigencia
+  —**implementada** en `F7-02`—;
 - `listing_venue_names`: nombre del mercado asociado a un MIC y vigencia.
 
 No se mezcla GICS, SIC u otra taxonomía en una columna `sector` sin registrar la
 taxonomía y versión.
+
+### `classification_assignments` (implementada)
+
+La tabla es **agnóstica de taxonomía**
+([ADR 0025](../architecture/adr/0025-declared-sector-classification.md)) porque
+van a convivir al menos tres respuestas distintas a «qué tipo de empresa es
+ésta», y no son la misma pregunta: el **sector** de las matrices (`F7-02`), el
+**arquetipo** de valuación (`F3-01`) y la **industria** del dataset de Damodaran
+(`F3-05`). Un REIT es `Real Estate` para la primera, `REIT` para la segunda y
+otra cosa para la tercera. Sumar una taxonomía es insertar filas con otra
+`taxonomy_id`, no migrar el schema.
+
+- **El sujeto es polimórfico**, como en `identifier_assignments`. El sector
+  cuelga de la **entidad legal**: dos clases del mismo emisor son dos securities
+  y un solo sector, así que colgarlo de la security duplicaría la respuesta y
+  dejaría que las dos clases discrepen.
+- **Un sujeto no puede tener dos aserciones vigentes en la misma taxonomía**
+  (`classification_assignments_open_uidx`). Puede tener una por taxonomía, que es
+  el punto.
+- **La versión y la vigencia salen de la fuente, no de la corrida.** Para la
+  primera taxonomía registrada —`sp500-wikipedia-gics-sector`— la versión es el
+  commit pineado del paquete PDDL y el `available_at` es su `committedAt`, así
+  que un `as_known` anterior a ese commit no ve la clasificación (`TM-06`).
+- **Un pin nuevo supersede; no cierra en el pasado.** La fuente no publica desde
+  cuándo cambió el sector de una empresa, así que fechar el cambio con la corrida
+  sería inventar evidencia: es la misma regla que la
+  [ADR 0013](../architecture/adr/0013-listing-events-dated-evidence.md) aplica a
+  un renombre anterior a la versión registrada.
+- **Dejar de listar a una empresa no cierra su clasificación.** Es la diferencia
+  con la membresía: la lista es autoritativa sobre quién está en el índice, así
+  que dejar de listar **es** la evidencia de una salida; pero no es autoritativa
+  sobre de qué sector es una empresa, y su ausencia no dice que haya cambiado.
+- **La taxonomía se llama por lo que es.** `sp500-wikipedia-gics-sector` y no
+  `gics`: lo que el paquete publica es una columna derivada de Wikipedia que
+  reproduce una taxonomía propietaria de S&P y MSCI, y nadie verificó contra S&P
+  que coincida.
+- **La población de un sector al `as_of`** se compone de dos vigencias leídas al
+  mismo corte —membresía y clasificación—, y un sujeto sin aserción vigente
+  devuelve `null` con motivo, nunca un sector por defecto ni un cajón «Otros».
 
 ## Corporate actions
 
