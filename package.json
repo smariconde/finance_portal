@@ -38,7 +38,8 @@
     "ingestion:sources": "tsx --conditions=react-server --env-file=.env.local scripts/manage-source-budgets.ts",
     "fixtures:capture": "tsx --conditions=react-server --env-file=.env.local scripts/capture-golden-corpus.ts",
     "gate:point-in-time": "tsx --conditions=react-server --env-file=.env.local scripts/audit-point-in-time.ts",
-    "gate:reconcile": "tsx --conditions=react-server --env-file=.env.local scripts/reconcile-gate-sample.ts"
+    "gate:reconcile": "tsx --conditions=react-server --env-file=.env.local scripts/reconcile-gate-sample.ts",
+    "prices:ingest": "tsx --conditions=react-server --env-file=.env.local scripts/ingest-prices.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

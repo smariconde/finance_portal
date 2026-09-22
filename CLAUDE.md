@@ -8,7 +8,7 @@ Portal Financiero: a single-owner Next.js 16 portal for researching global compa
 
 The code is public; the data is not. The app is **personal-first**: it serves real data only from a private runtime, and there is no public demo deployment. See [ADR 0004](docs/architecture/adr/0004-personal-first-runtime.md).
 
-The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations kept to a five-fiscal-year window, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, per-source daily request budgets with an owner kill switch, a hand-run refresh that probes `submissions` and re-downloads only the filers that filed something relevant, a deterministic FCFF engine with its reference run, a frozen corpus of real SEC extracts as regression oracle, and the declared sector classification with its population resolved at `as_of` exist. Scheduled refresh, market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads real observations yet; nothing may be presented in the UI as if it were.
+The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations kept to a five-fiscal-year window, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, per-source daily request budgets with an owner kill switch, a hand-run refresh that probes `submissions` and re-downloads only the filers that filed something relevant, a deterministic FCFF engine with its reference run, a frozen corpus of real SEC extracts as regression oracle, the declared sector classification with its population resolved at `as_of`, and raw daily price series with dated splits and dividends exist. Scheduled refresh, market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads real observations yet; nothing may be presented in the UI as if it were.
 
 `AGENTS.md` holds the full contributor contract and takes precedence over this file where they overlap.
 
@@ -91,6 +91,40 @@ and a company the list stops carrying keeps its sector — absence from an index
 not evidence of a sector change. The subject is the legal entity, so two share classes
 are two securities and one sector. Measured on the personal database: 500 assertions
 over the eleven sectors, 0 rejected, 376 kB.
+
+```bash
+pnpm prices:ingest --ticker AAPL                   # dry run: downloads and reports, writes nothing
+pnpm prices:ingest --ticker AAPL --ticker NVDA --apply
+```
+
+Also hand-run (`F7-01`, [ADR 0026](docs/architecture/adr/0026-daily-prices-source.md),
+migrations `0018` and `0019`). One request per security brings five years of daily
+closes plus dated splits and dividends.
+
+The source is **Yahoo**, and the registry says what that is: there is no
+contractual grant of any kind. That forced a vocabulary decision — the rights gate
+demands `allowed`, and marking Yahoo that way would have corrupted the value the
+whole gate rests on, since `allowed` means "a primary source covers this use". So
+rights gained **`owner_accepted`**: nobody grants it, the owner decided to proceed
+anyway, dated and with a reason. It enables a run but **never** a public surface,
+where `publicDisplay` must still be `allowed`.
+
+The series is stored **raw**, and that is the slice's central decision. The source
+publishes it adjusted for later splits and **rewrites it backwards on every one**:
+measured on NVDA, the 2024-06-05 close comes back as 122.44 when 1,224.40 is what
+traded, because the series is divided by the 10:1 of 2024-06-10. Storing that
+would put look-ahead in the database and make a stored row stop matching itself
+after the next split. The same response carries the dated splits, so un-adjusting
+is deterministic (`raw(t) = close(t) × Π ratio(s) for s later than t`) and the row
+becomes immutable, the re-download idempotent, and adjustment a read-time policy
+again — exactly as ADR 0012 did for per-share values. Dividends are stored dated
+and **unapplied**: the return base is `F7-04`'s open parameter.
+
+The row keeps a close, not an OHLCV, and no source/parser columns — those come
+from its run (ADR 0018), and the un-adjust factor rebuilds from `price_events`.
+Measured: **158 bytes per row**, so a sector of ~70 securities is ~14 MB and the
+whole index would be ~100 MB, above ADR 0016's 60–80 MB estimate. The product only
+needs per sector.
 
 ```bash
 pnpm fundamentals:ingest --ticker AAPL             # dry run: downloads and builds vintages, writes nothing

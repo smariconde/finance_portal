@@ -127,6 +127,20 @@
       "when": 1790037890818,
       "tag": "0017_wandering_star_brand",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790114184686,
+      "tag": "0018_rapid_lester",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790114612401,
+      "tag": "0019_tearful_titania",
+      "breakpoints": true
     }
   ]
 }

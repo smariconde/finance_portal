@@ -1,0 +1,1 @@
+ALTER TYPE "public"."source_rights_decision" ADD VALUE 'owner_accepted' BEFORE 'restricted';

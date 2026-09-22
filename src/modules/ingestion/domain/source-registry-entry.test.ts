@@ -141,6 +141,58 @@ describe("evaluateIngestionRights", () => {
     ).toBe(true);
   });
 
+  it("lets an owner-accepted right enable a personal run", () => {
+    // ADR 0026: ninguna fuente lo concede y el owner decidió proceder igual. El
+    // gate lo habilita, pero el veredicto sigue diciendo cuál de los dos es.
+    const candidate = entry({
+      rights: {
+        ...entry().rights,
+        personalUse: "owner_accepted",
+        automatedAccess: "owner_accepted",
+        normalizedStorage: "owner_accepted",
+      },
+    });
+
+    expect(
+      evaluateIngestionRights(candidate, {
+        ...PERSONAL_RUN,
+        storesRawPayload: false,
+      }),
+    ).toStrictEqual({ allowed: true, blockedBy: [] });
+  });
+
+  it("never lets an owner decision stand in for a granted public-display right", () => {
+    // El owner puede asumir un riesgo propio; no puede fabricar un derecho
+    // frente a terceros. La invariante vive una capa antes que el gate: el
+    // schema **se niega a construir** la entrada, así que una fuente
+    // `approved_public_demo` con `publicDisplay: "owner_accepted"` no llega a
+    // existir para que el gate tenga que rechazarla.
+    expect(() =>
+      entry({
+        approvalStatus: "approved_public_demo",
+        rights: { ...entry().rights, publicDisplay: "owner_accepted" },
+      }),
+    ).toThrow();
+
+    // Y en una fuente que sí existe —personal, no demo pública— el gate lo
+    // rechaza por su cuenta.
+    const candidate = entry({
+      approvalStatus: "approved_personal",
+      rights: { ...entry().rights, publicDisplay: "owner_accepted" },
+    });
+
+    const evaluation = evaluateIngestionRights(candidate, {
+      ...PERSONAL_RUN,
+      storesRawPayload: false,
+      publicDisplay: true,
+    });
+
+    expect(evaluation.allowed).toBe(false);
+    expect(evaluation.blockedBy).toContain(
+      "public_display_requires_granted_right",
+    );
+  });
+
   it("blocks public display unless the source is approved for a public demo", () => {
     const candidate = entry({
       approvalStatus: "approved_personal",

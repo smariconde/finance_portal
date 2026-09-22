@@ -76,6 +76,26 @@ const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
     // caso a seguir.
     maxRedirects: 0,
   }),
+  egressAllowlistEntrySchema.parse({
+    sourceId: "yahoo-finance",
+    origins: [
+      {
+        host: "query1.finance.yahoo.com",
+        // Sólo el chart de un símbolo. El host sirve muchos otros endpoints
+        // —quotes, search, screeners— y el prefijo es lo único que separa "la
+        // serie diaria de una security" de "el resto de la API no contractual".
+        pathPrefixes: ["/v8/finance/chart/"],
+      },
+    ],
+    // Cinco años de cierres diarios con eventos son ~140 KB por security. El
+    // techo deja margen para un símbolo con más historia y corta mucho antes de
+    // que una respuesta inesperada sea un problema.
+    maxResponseBytes: 8 * 1024 * 1024,
+    deadlineMs: 30_000,
+    // El endpoint responde directo. Un redirect acá sería una señal, no un caso
+    // a seguir: puede ser la pantalla de consentimiento que Yahoo interpone.
+    maxRedirects: 0,
+  }),
 ]);
 
 const BY_SOURCE_ID: ReadonlyMap<string, EgressAllowlistEntry> = new Map(

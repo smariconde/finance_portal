@@ -242,6 +242,63 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
       recordedAt: RECORDED_AT,
     }),
     sourceRegistryEntrySchema.parse({
+      sourceId: "yahoo-finance",
+      displayName: "Yahoo Finance (chart)",
+      owner: "Yahoo",
+      canonicalUrl: "https://finance.yahoo.com/",
+      documentationUrls: [],
+      datasets: ["yahoo.daily-close"],
+      endpoints: ["https://query1.finance.yahoo.com/v8/finance/chart/"],
+      authentication: "none",
+      applicablePlan: null,
+      rateLimit: "sin cuota publicada; el tope diario es interno",
+      attribution: "Yahoo Finance",
+      expectedCadence: "EOD a mano, nunca programado",
+      freshnessTarget: "cierre del día de mercado anterior",
+      timezone: "America/New_York",
+      units: [],
+      currencies: ["USD"],
+      parserVersion: null,
+      fixturePolicy:
+        "Fixture recortada del payload real, sin conservar la respuesta completa.",
+      fallbackSourceIds: [],
+      /**
+       * No hay concesión contractual de ninguna clase: el endpoint no está
+       * documentado como API pública y los términos de Yahoo no autorizan la
+       * extracción automatizada. `owner_accepted` dice exactamente eso —nadie lo
+       * concede, el owner decidió proceder igual el 2026-09-22 (ADR 0026)— en vez
+       * de disfrazarlo de `allowed`, que significa «una fuente primaria lo
+       * cubre» y es lo que hace que el gate valga.
+       */
+      rights: {
+        personalUse: "owner_accepted",
+        automatedAccess: "owner_accepted",
+        // No se guarda el payload: la serie se normaliza y se descarta.
+        rawStorage: "restricted",
+        normalizedStorage: "owner_accepted",
+        derivedStorage: "owner_accepted",
+        // Una decisión del owner asume un riesgo propio; no fabrica un derecho
+        // frente a terceros. El gate lo impide aunque alguien lo intente.
+        publicDisplay: "restricted",
+        export: "owner_accepted",
+        aiTransfer: "restricted",
+      },
+      technicalStatus: "integrated",
+      approvalStatus: "approved_personal",
+      reviewedAt: "2026-09-22T00:00:00.000Z",
+      rightsReviewedAt: "2026-09-22T00:00:00.000Z",
+      rightsReviewDueAt: "2026-12-21T00:00:00.000Z",
+      reviewEvidence: [
+        "docs/architecture/adr/0026-daily-prices-source.md",
+        "docs/data/provider-use-matrix.md#yahoo-finance",
+      ],
+      retentionClasses: ["R1", "R3"],
+      quotaPolicyId: null,
+      ownerNotes:
+        "Decisión del owner del 2026-09-22 sobre evidencia: Tiingo gratis prohíbe persistir (ToU 1.6(a)) y Alpaca sigue en blocked_rights. Sin contrato aceptado no hay cláusula que incumplir ni cuenta que cancelar. El endpoint puede romperse sin aviso: es riesgo asumido, no mitigado.",
+      recordedAt: RECORDED_AT,
+    }),
+    sourceRegistryEntrySchema.parse({
       sourceId: "alpaca-market-data",
       displayName: "Alpaca Market Data",
       owner: "Alpaca Securities LLC",

@@ -44,9 +44,11 @@ describe("topes declarados", () => {
   it("son los de la matriz de cuotas y no se deducen de la allowlist", () => {
     expect(declaredDailyBudget("sec-edgar")).toBe(2000);
     expect(declaredDailyBudget("datahub-sp500-pddl")).toBe(10);
+    expect(declaredDailyBudget("yahoo-finance")).toBe(700);
     expect(Object.keys(SOURCE_DAILY_REQUEST_BUDGETS).sort()).toEqual([
       "datahub-sp500-pddl",
       "sec-edgar",
+      "yahoo-finance",
     ]);
   });
 

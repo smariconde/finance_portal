@@ -52,6 +52,18 @@ export const DATAHUB_REQUEST_PACING: RequestPacingPolicy = Object.freeze({
   maxRequests: 4,
 });
 
+/**
+ * La serie de precios es **una request por security**, y la fuente no publica
+ * cuota, así que el ritmo lo elegimos nosotros por prudencia y no por eco de un
+ * límite ajeno ([ADR 0026](../../../../docs/architecture/adr/0026-daily-prices-source.md)):
+ * una por segundo, y un techo de proceso que cubre el universo entero con
+ * margen para reintentos. El tope **diario** de la fuente es el que manda.
+ */
+export const PRICES_REQUEST_PACING: RequestPacingPolicy = Object.freeze({
+  minIntervalMs: 1000,
+  maxRequests: 600,
+});
+
 export class RequestBudgetExhaustedError extends Error {
   readonly sourceId: string;
   readonly maxRequests: number;
