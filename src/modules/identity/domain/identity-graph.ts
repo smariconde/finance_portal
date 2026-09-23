@@ -128,6 +128,24 @@ export const depositaryProgramSchema = z
     sponsorLegalEntityId: internalIdSchema.nullable(),
     investorScope: shortTextSchema.nullable(),
     status: z.enum(["active", "suspended", "terminated", "unknown"]),
+    /**
+     * Evidencia de la resolución: el ticker y el ISIN subyacente que la fuente
+     * declaró cuando el programa se registró. El subyacente es la security; esto
+     * es cómo se llegó a ella, y es lo único que permitiría detectar después una
+     * resolución equivocada ([ADR 0027](../../../../docs/architecture/adr/0027-cedear-registry-sources.md)).
+     */
+    reportedUnderlyingSymbol: z
+      .string()
+      .trim()
+      .min(1)
+      .max(32)
+      .nullable()
+      .default(null),
+    reportedUnderlyingIsin: z
+      .string()
+      .regex(/^[A-Z]{2}[A-Z0-9]{9}[0-9]$/u)
+      .nullable()
+      .default(null),
   })
   .superRefine((program, context) => {
     refineTemporalVersion(program, context);

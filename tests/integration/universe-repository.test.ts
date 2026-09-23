@@ -112,7 +112,11 @@ describe("universo S&P 500 sobre PostgreSQL", () => {
     repository = createPostgresUniverseRepository(database);
 
     // Estado conocido: el archivo constituye su propio universo desde cero. Los
-    // vínculos de sucesión referencian entidades legales, así que salen primero.
+    // vínculos de sucesión y el registro CEDEAR referencian entidades legales y
+    // securities, así que salen primero.
+    await database.delete(schema.depositaryRatios);
+    await database.delete(schema.depositaryProgramVersions);
+    await database.delete(schema.depositaryPrograms);
     await database.delete(schema.legalEntityRelationships);
     await database.delete(schema.corporateActions);
     await database.delete(schema.indexMemberships);

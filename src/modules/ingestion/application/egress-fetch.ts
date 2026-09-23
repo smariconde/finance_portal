@@ -64,6 +64,17 @@ export const PRICES_REQUEST_PACING: RequestPacingPolicy = Object.freeze({
   maxRequests: 600,
 });
 
+/**
+ * El registro CEDEAR es **una request por emisor**: dos por corrida
+ * ([ADR 0027](../../../../docs/architecture/adr/0027-cedear-registry-sources.md)).
+ * Ninguno de los dos publica cuota; el techo del proceso deja lugar a un
+ * reintento manual sin habilitar un bucle.
+ */
+export const CEDEAR_REQUEST_PACING: RequestPacingPolicy = Object.freeze({
+  minIntervalMs: 1000,
+  maxRequests: 4,
+});
+
 export class RequestBudgetExhaustedError extends Error {
   readonly sourceId: string;
   readonly maxRequests: number;

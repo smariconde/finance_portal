@@ -8,7 +8,7 @@ Portal Financiero: a single-owner Next.js 16 portal for researching global compa
 
 The code is public; the data is not. The app is **personal-first**: it serves real data only from a private runtime, and there is no public demo deployment. See [ADR 0004](docs/architecture/adr/0004-personal-first-runtime.md).
 
-The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations kept to a five-fiscal-year window, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, per-source daily request budgets with an owner kill switch, a hand-run refresh that probes `submissions` and re-downloads only the filers that filed something relevant, a deterministic FCFF engine with its reference run, a frozen corpus of real SEC extracts as regression oracle, the declared sector classification with its population resolved at `as_of`, and raw daily price series with dated splits and dividends exist. Scheduled refresh, market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads real observations yet; nothing may be presented in the UI as if it were.
+The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations kept to a five-fiscal-year window, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, per-source daily request budgets with an owner kill switch, a hand-run refresh that probes `submissions` and re-downloads only the filers that filed something relevant, a deterministic FCFF engine with its reference run, a frozen corpus of real SEC extracts as regression oracle, the declared sector classification with its population resolved at `as_of`, raw daily price series with dated splits and dividends, and the CEDEAR registry of both issuers with each CEDEAR as its own security exist. Scheduled refresh, market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads real observations yet; nothing may be presented in the UI as if it were.
 
 `AGENTS.md` holds the full contributor contract and takes precedence over this file where they overlap.
 
@@ -125,6 +125,47 @@ from its run (ADR 0018), and the un-adjust factor rebuilds from `price_events`.
 Measured: **158 bytes per row**, so a sector of ~70 securities is ~14 MB and the
 whole index would be ~100 MB, above ADR 0016's 60–80 MB estimate. The product only
 needs per sector.
+
+```bash
+pnpm cedears:record                                # dry run: both issuers, one request each, writes nothing
+pnpm cedears:record --source comafi-cedear --apply # records one issuer's programs and ratios
+pnpm cedears:record --apply --accept-withdrawals   # the owner accepts a mass withdrawal the guard refused
+```
+
+Also hand-run (`F7-03`, [ADR 0027](docs/architecture/adr/0027-cedear-registry-sources.md),
+migration `0020`). The CNV authorizes **two** CEDEAR issuers, Banco Comafi and
+Caja de Valores, with no underlying in common: Caja is the only issuer of F, UAL,
+MU, OXY, UBER, PANW, MOS and ABNB, so a registry of one issuer would assert
+absences that are false. Both rows are `owner_accepted`: Comafi's terms
+**prohibit** storing its content in writing, and its registry row quotes the
+clause instead of summarizing it; Caja publishes no terms. Nothing but normalized
+facts is stored, and test fixtures are synthetic.
+
+Comafi publishes its registry twice and the two disagree (`3.1` ratios, stale
+ISINs); the record is the JSON behind its table (`getproducts.aspx`), whose errors
+are the kind a parser rejects by name. Caja's record is the server-rendered HTML
+table, whose headers are checked before any row is read.
+
+Each CEDEAR is a `depositary_receipt` security **issued by the depositary** (two
+declared legal entities with fixed IDs), identified by ISIN and Caja de Valores
+code; `depositary_program_versions` links it to the underlying and
+`depositary_ratios` holds the exact fraction, versioned apart so a ratio change
+does not erase the program. Only programs whose underlying resolves to a security
+the graph **already has** are recorded; the rest are counted by reason, never
+constituted from a depositary's list. The ticker identifies and the declared
+market corroborates: a stale US venue is flagged (`origin_market_stale`), a
+foreign venue leaves the row out, and two tickers in one row that reach different
+securities are rejected (`underlying_ticker_conflict`).
+
+Neither publication dates what it publishes, so `available_at` and `valid_from`
+are the observation (`availability_is_observation` on the run): a cutoff before
+the first capture answers `not_effective_at_cutoff`, never "no CEDEAR". Changes
+**supersede** at the observation —the effective date lives in the issuer's
+notices, which are not read yet—, a program the issuer stops listing is withdrawn
+without a successor, and a run that would withdraw more than a tenth of an
+issuer's programs is refused (`withdrawal_guard`). Read at a cutoff through
+`resolveCedearAccess`. Measured: 162 programs over 162 distinct index securities,
+320 kB.
 
 ```bash
 pnpm fundamentals:ingest --ticker AAPL             # dry run: downloads and builds vintages, writes nothing

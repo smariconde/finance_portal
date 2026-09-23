@@ -12,7 +12,13 @@ describe("egress allowlist", () => {
     // La allowlist no se escribe por adelantado. Cada fila de más es un destino
     // alcanzable que ningún test ejercita.
     expect(listEgressAllowlistEntries().map((entry) => entry.sourceId)).toEqual(
-      ["sec-edgar", "datahub-sp500-pddl", "yahoo-finance"],
+      [
+        "sec-edgar",
+        "datahub-sp500-pddl",
+        "yahoo-finance",
+        "comafi-cedear",
+        "caja-valores-cedear",
+      ],
     );
   });
 
@@ -108,6 +114,53 @@ describe("egress allowlist", () => {
     // Y una decisión del owner no alcanza para una superficie pública.
     expect(entry?.rights.publicDisplay).toBe("restricted");
     expect(entry?.rights.rawStorage).toBe("restricted");
+  });
+
+  it("records that both CEDEAR issuers were accepted by the owner and never granted", () => {
+    // ADR 0027. Comafi prohíbe almacenar por escrito y Caja de Valores no
+    // publica términos: ninguno concede, así que ninguno puede decir `allowed`.
+    for (const sourceId of ["comafi-cedear", "caja-valores-cedear"]) {
+      const entry = DEMO_SOURCE_REGISTRY.find(
+        (candidate) => candidate.sourceId === sourceId,
+      );
+
+      expect(entry?.approvalStatus).toBe("approved_personal");
+      expect(entry?.rights.automatedAccess).toBe("owner_accepted");
+      expect(entry?.rights.normalizedStorage).toBe("owner_accepted");
+      expect(entry?.rights.rawStorage).toBe("restricted");
+      expect(entry?.rights.publicDisplay).toBe("restricted");
+    }
+  });
+
+  it("authorizes one registry path per CEDEAR issuer and nothing else on those hosts", () => {
+    const comafi = findEgressAllowlistEntry("comafi-cedear")!;
+    const caja = findEgressAllowlistEntry("caja-valores-cedear")!;
+
+    expect(
+      authorizeEgressUrl(
+        "https://www.comafi.com.ar/custodiaglobal/json/apps/getproducts.aspx",
+        comafi,
+      ).allowed,
+    ).toBe(true);
+    expect(
+      authorizeEgressUrl("https://cajadevalores.com.ar/Servicios/Cedears", caja)
+        .allowed,
+    ).toBe(true);
+
+    for (const url of [
+      "https://www.comafi.com.ar/custodiaglobal/json/apps/getfiles.aspx?Category=1",
+      "https://www.comafi.com.ar/custodiaglobal/Multimedios/otros/14779.xlsx",
+      "https://hb.comafi.com.ar/",
+    ]) {
+      expect(authorizeEgressUrl(url, comafi).allowed).toBe(false);
+    }
+
+    for (const url of [
+      "https://cajadevalores.com.ar/Tramites/Index",
+      "https://inversores.cajadevalores.com.ar/",
+    ]) {
+      expect(authorizeEgressUrl(url, caja).allowed).toBe(false);
+    }
   });
 
   it("authorizes one Yahoo chart path and nothing else on that host", () => {

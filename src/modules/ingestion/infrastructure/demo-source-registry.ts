@@ -208,37 +208,114 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
       recordedAt: RECORDED_AT,
     }),
     sourceRegistryEntrySchema.parse({
-      sourceId: "caja-valores-cedear",
-      displayName: "Caja de Valores — CEDEAR",
-      owner: "Caja de Valores S.A.",
-      canonicalUrl: "https://cajadevalores.com.ar/Servicios/Cedears",
-      documentationUrls: ["https://cajadevalores.com.ar/Servicios/Cedears"],
-      datasets: ["cedear.programs"],
-      endpoints: [],
+      sourceId: "comafi-cedear",
+      displayName: "Banco Comafi — programas CEDEAR",
+      owner: "Banco Comafi S.A.",
+      canonicalUrl: "https://www.comafi.com.ar/custodiaglobal/programas.aspx",
+      documentationUrls: [
+        "https://www.comafi.com.ar/custodiaglobal/programas.aspx",
+        "https://www.comafi.com.ar/1759-Terminos-Y-Condiciones-Legales-De-Banco-Comafi.note.aspx",
+      ],
+      datasets: ["comafi.cedear-programs"],
+      endpoints: [
+        "https://www.comafi.com.ar/custodiaglobal/json/apps/getproducts.aspx",
+      ],
       authentication: "none",
       applicablePlan: null,
-      rateLimit: null,
-      attribution: null,
-      expectedCadence: "publicación sin cadencia declarada",
-      freshnessTarget: "pendiente de definir junto al gate de Fase 2",
+      rateLimit: "sin cuota publicada; el tope diario es interno",
+      attribution: "Banco Comafi S.A.",
+      expectedCadence: "a mano, semanal o ante un aviso del emisor",
+      freshnessTarget: "la última publicación del emisor al correr",
       timezone: "America/Argentina/Buenos_Aires",
       units: [],
       currencies: [],
       parserVersion: null,
       fixturePolicy:
-        "Sin fixture: la vista publicada no sustituye un historial y todavía no hay derechos revisados.",
+        "Fixture sintética: los términos del emisor prohíben almacenar su contenido, así que ningún payload capturado entra al repositorio.",
       fallbackSourceIds: [],
-      rights: {},
-      technicalStatus: "technical_reviewed",
-      approvalStatus: "rights_review_pending",
-      reviewedAt: "2026-08-21T00:00:00.000Z",
-      rightsReviewedAt: null,
-      rightsReviewDueAt: null,
-      reviewEvidence: ["docs/data/source-registry.md#cedear-y-universo"],
-      retentionClasses: [],
+      /**
+       * Los términos de Comafi **prohíben** almacenar su contenido, por escrito
+       * y no por omisión: «Prohibida la duplicación, distribución o
+       * almacenamiento en cualquier medio». `owner_accepted` dice que el owner
+       * decidió proceder igual el 2026-09-23 (ADR 0027), con esa cláusula a la
+       * vista; no la convierte en un permiso.
+       */
+      rights: {
+        personalUse: "owner_accepted",
+        automatedAccess: "owner_accepted",
+        // Se normaliza y se descarta: el JSON del emisor nunca se guarda.
+        rawStorage: "restricted",
+        normalizedStorage: "owner_accepted",
+        derivedStorage: "owner_accepted",
+        publicDisplay: "restricted",
+        export: "owner_accepted",
+        aiTransfer: "restricted",
+      },
+      technicalStatus: "integrated",
+      approvalStatus: "approved_personal",
+      reviewedAt: "2026-09-23T00:00:00.000Z",
+      rightsReviewedAt: "2026-09-23T00:00:00.000Z",
+      rightsReviewDueAt: "2026-12-22T00:00:00.000Z",
+      reviewEvidence: [
+        "docs/architecture/adr/0027-cedear-registry-sources.md",
+        "docs/data/provider-use-matrix.md#cedear",
+      ],
+      retentionClasses: ["R3"],
       quotaPolicyId: null,
       ownerNotes:
-        "Candidata de Fase 2. Falta método oficial y automatizable para historizar cambios de ratio.",
+        "Decisión del owner del 2026-09-23 sobre evidencia: los términos del sitio prohíben la duplicación, distribución o almacenamiento en cualquier medio. Se usa porque el registro sin Comafi no existe —emite 364 de los programas—. Se guardan hechos normalizados y nunca el payload. Publicación de registro: el JSON del sitio y no la planilla, que arrastra ratios mal escritos y valores viejos.",
+      recordedAt: RECORDED_AT,
+    }),
+    sourceRegistryEntrySchema.parse({
+      sourceId: "caja-valores-cedear",
+      displayName: "Caja de Valores — CEDEAR",
+      owner: "Caja de Valores S.A.",
+      canonicalUrl: "https://cajadevalores.com.ar/Servicios/Cedears",
+      documentationUrls: ["https://cajadevalores.com.ar/Servicios/Cedears"],
+      datasets: ["cajval.cedear-programs"],
+      endpoints: ["https://cajadevalores.com.ar/Servicios/Cedears"],
+      authentication: "none",
+      applicablePlan: null,
+      rateLimit: "sin cuota publicada; el tope diario es interno",
+      attribution: "Caja de Valores S.A.",
+      expectedCadence: "a mano, semanal o ante un aviso del emisor",
+      freshnessTarget: "la última publicación del emisor al correr",
+      timezone: "America/Argentina/Buenos_Aires",
+      units: [],
+      currencies: [],
+      parserVersion: null,
+      fixturePolicy:
+        "Fixture sintética: no hay términos que autoricen almacenar la página, así que ningún HTML capturado entra al repositorio.",
+      fallbackSourceIds: [],
+      /**
+       * Caja de Valores no publica términos de uso para su sitio: no concede ni
+       * prohíbe. El owner decidió usarla el 2026-09-23 (ADR 0027) porque es el
+       * otro emisor autorizado por la CNV, y sin sus programas el registro diría
+       * de ocho securities del índice que no tienen CEDEAR.
+       */
+      rights: {
+        personalUse: "owner_accepted",
+        automatedAccess: "owner_accepted",
+        rawStorage: "restricted",
+        normalizedStorage: "owner_accepted",
+        derivedStorage: "owner_accepted",
+        publicDisplay: "restricted",
+        export: "owner_accepted",
+        aiTransfer: "restricted",
+      },
+      technicalStatus: "integrated",
+      approvalStatus: "approved_personal",
+      reviewedAt: "2026-09-23T00:00:00.000Z",
+      rightsReviewedAt: "2026-09-23T00:00:00.000Z",
+      rightsReviewDueAt: "2026-12-22T00:00:00.000Z",
+      reviewEvidence: [
+        "docs/architecture/adr/0027-cedear-registry-sources.md",
+        "docs/data/provider-use-matrix.md#cedear",
+      ],
+      retentionClasses: ["R3"],
+      quotaPolicyId: null,
+      ownerNotes:
+        "Decisión del owner del 2026-09-23 sobre evidencia: sin términos publicados, ni concesión ni prohibición. Es el segundo emisor autorizado por la CNV (59 programas) y el único de F, UAL, MU, OXY, UBER, PANW, MOS y ABNB. Se guardan hechos normalizados y nunca el HTML.",
       recordedAt: RECORDED_AT,
     }),
     sourceRegistryEntrySchema.parse({

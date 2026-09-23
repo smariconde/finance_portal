@@ -44,6 +44,10 @@ export const SOURCE_DAILY_REQUEST_BUDGETS: Readonly<Record<string, number>> =
     // cuota, así que el número es una decisión de prudencia nuestra y no el eco
     // de un límite publicado (ADR 0026).
     "yahoo-finance": 700,
+    // Una request por emisor trae su registro entero (ADR 0027). Diez por día
+    // cubren varias corridas de prueba y dejan fuera cualquier bucle.
+    "comafi-cedear": 10,
+    "caja-valores-cedear": 10,
   });
 
 /** Tabla de topes declarados. Los tests inyectan la suya; el runtime usa la de arriba. */

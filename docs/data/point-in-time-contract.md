@@ -347,6 +347,25 @@ políticas.
 - Una consulta que no pueda resolver el subyacente exacto devuelve
   `ambiguous_identity`.
 
+Reglas implementadas en `F7-03` ([ADR 0027](../architecture/adr/0027-cedear-registry-sources.md)):
+
+- **Vigencia es observación.** Ninguno de los dos emisores fecha lo que publica,
+  así que `available_at` y `valid_from` de un programa y de su ratio son el
+  instante en que se leyó la publicación. No es la regla de la SEC —donde la
+  descarga nunca es la disponibilidad porque la aceptación está publicada—: acá
+  no hay nada publicado, y la observación es la primera fecha probable. Nunca
+  mete look-ahead. Cada corrida lo declara con `availability_is_observation`.
+- **Antes de la primera captura no hay respuesta negativa.** Un corte anterior a
+  la primera observación devuelve `not_effective_at_cutoff`, nunca «sin CEDEAR».
+- **Los cambios supersiden, no cierran.** Un ratio distinto supersede sólo al
+  ratio y un estado distinto al programa, en el instante de la observación. La
+  fecha efectiva está en el aviso del emisor, que el registro todavía no lee:
+  fecharla con la corrida la inventaría. Consecuencia declarada: sabiendo del
+  cambio, un corte anterior a su observación queda sin ratio.
+- **La lista del emisor es autoritativa sobre sus programas.** Dejar de listar
+  uno lo retira —se supersede sin sucesor—, y una corrida que retiraría más de
+  la décima parte se niega (`withdrawal_guard`).
+
 ### SEC y fundamentales
 
 - El sujeto es legal entity/security interna, no ticker.
