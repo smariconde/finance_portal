@@ -96,6 +96,39 @@ const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
     // a seguir: puede ser la pantalla de consentimiento que Yahoo interpone.
     maxRedirects: 0,
   }),
+  egressAllowlistEntrySchema.parse({
+    sourceId: "comafi-cedear",
+    origins: [
+      {
+        host: "www.comafi.com.ar",
+        // Sólo el JSON que alimenta la tabla de programas. El host sirve el home
+        // banking y el sitio institucional entero; el prefijo es lo que separa
+        // "el registro de programas" de todo lo demás (ADR 0027).
+        pathPrefixes: ["/custodiaglobal/json/apps/getproducts.aspx"],
+      },
+    ],
+    // El registro entero son ~350 KB de JSON. El techo deja margen para que
+    // crezca y corta mucho antes de que una respuesta inesperada sea un problema.
+    maxResponseBytes: 4 * 1024 * 1024,
+    deadlineMs: 30_000,
+    maxRedirects: 0,
+  }),
+  egressAllowlistEntrySchema.parse({
+    sourceId: "caja-valores-cedear",
+    origins: [
+      {
+        host: "cajadevalores.com.ar",
+        // Sólo la página de CEDEAR, que el servidor entrega con la tabla
+        // renderizada. El resto del sitio —trámites, portal de inversores— no
+        // tiene nada que este registro necesite.
+        pathPrefixes: ["/Servicios/Cedears"],
+      },
+    ],
+    // La página son ~65 KB de HTML.
+    maxResponseBytes: 2 * 1024 * 1024,
+    deadlineMs: 30_000,
+    maxRedirects: 0,
+  }),
 ]);
 
 const BY_SOURCE_ID: ReadonlyMap<string, EgressAllowlistEntry> = new Map(

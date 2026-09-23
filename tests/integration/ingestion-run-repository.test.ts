@@ -48,13 +48,14 @@ const fixtureEntry = DEMO_SOURCE_REGISTRY.find(
 )!;
 /**
  * Una fuente real **sin** derechos revisados. Era `sec-edgar` hasta que el owner la
- * aprobó el 2026-09-05; se apunta a otra en vez de aflojar la aserción, porque lo que
- * el test cuida es que `unknown` sobreviva al round-trip por PostgreSQL y siga
- * bloqueando. Si algún día no queda ninguna fuente sin revisar, este test se queda
- * sin sujeto y hay que fabricarle uno, no borrarlo.
+ * aprobó el 2026-09-05, y `caja-valores-cedear` hasta la ADR 0027 del 2026-09-23;
+ * se apunta a otra en vez de aflojar la aserción, porque lo que el test cuida es
+ * que `unknown` sobreviva al round-trip por PostgreSQL y siga bloqueando. Si algún
+ * día no queda ninguna fuente sin revisar, este test se queda sin sujeto y hay que
+ * fabricarle uno, no borrarlo.
  */
 const blockedEntry = DEMO_SOURCE_REGISTRY.find(
-  (entry) => entry.sourceId === "caja-valores-cedear",
+  (entry) => entry.sourceId === "alpaca-market-data",
 )!;
 
 describe("PostgreSQL ingestion persistence", () => {

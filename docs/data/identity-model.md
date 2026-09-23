@@ -1,9 +1,9 @@
 # Modelo de identidad financiera
 
 - Estado: contrato implementado en dominio y persistido en PostgreSQL
-- Versión: 0.5
+- Versión: 0.6
 - Fecha: 2026-09-04; sucesión de emisor el 2026-09-14; traspasos, delistings y
-  renombres el 2026-09-15
+  renombres el 2026-09-15; registro CEDEAR el 2026-09-23
 - Alcance: entity, security, listing, identifiers y programas depositarios
 - Implementación (`F1-04`):
   [`identity-graph.ts`](../../src/modules/identity/domain/identity-graph.ts),
@@ -14,9 +14,12 @@
   [`0004_common_proteus.sql`](../../drizzle/0004_common_proteus.sql) con su
   rollback pareado; repositorio
   [`postgres-universe-repository.ts`](../../src/server/db/postgres-universe-repository.ts).
-  Los programas depositarios y sus ratios siguen viviendo sólo en dominio y
-  fixture: su fuente es el registro CEDEAR y su tabla llega en `F7-03`
-  ([ADR 0016](../architecture/adr/0016-analysis-scope-sector-matrices.md))
+- Registro CEDEAR (`F7-03`): migración
+  [`0020_famous_catseye.sql`](../../drizzle/0020_famous_catseye.sql) con su
+  rollback pareado; módulo [`src/modules/cedears/`](../../src/modules/cedears/) y
+  [ADR 0027](../architecture/adr/0027-cedear-registry-sources.md). Cada CEDEAR es
+  una security propia cuyo emisor es el depositario, y el programa la vincula con
+  la subyacente sin fusionarlas
 - Corporate actions (`F2-04`): migración
   [`0006_lonely_zeigeist.sql`](../../drizzle/0006_lonely_zeigeist.sql) con su
   rollback pareado; módulo
@@ -181,6 +184,9 @@ type DepositaryProgram = TemporalIdentityVersion & {
   sponsorLegalEntityId: string | null;
   investorScope: string | null;
   status: "active" | "suspended" | "terminated" | "unknown";
+  // Evidencia de la resolución, no identidad: lo que la fuente declaró.
+  reportedUnderlyingSymbol: string | null;
+  reportedUnderlyingIsin: string | null;
 };
 ```
 
@@ -508,7 +514,10 @@ Se envía a `manual_review` cuando:
 
 - una fuente asigna el mismo identificador autoritativo a sujetos incompatibles;
 - ticker y MIC conducen a una security distinta del ISIN/FIGI confirmado;
-- un CEDEAR cambia de subyacente, ratio o alcance sin documento efectivo claro;
+- un CEDEAR cambia de subyacente (`underlying_changed`). Un ratio, un estado o un
+  alcance distinto en la lista del propio emisor no va a revisión: se supersede al
+  observarlo, sin inventar la fecha efectiva
+  ([ADR 0027](../architecture/adr/0027-cedear-registry-sources.md));
 - fechas de vigencia se superponen;
 - una merger, spin-off o conversión no permite determinar sucesión;
 - el nivel del identificador no puede distinguirse.
@@ -546,16 +555,18 @@ declara que el ID existe y una tabla de **versiones** con atributos y vigencia.
 Sin esa separación, `security_versions.issuer_legal_entity_id` no tendría a qué
 apuntar: en una tabla versionada el mismo emisor aparece una vez por versión.
 
-| Nivel                  | Registro         | Versiones                    |
-| ---------------------- | ---------------- | ---------------------------- |
-| entidad legal          | `legal_entities` | `legal_entity_versions`      |
-| security               | `securities`     | `security_versions`          |
-| listing                | `listings`       | `listing_versions`           |
-| símbolo                | —                | `listing_symbols`            |
-| identificador externo  | —                | `identifier_assignments`     |
-| pertenencia a índice   | —                | `index_memberships`          |
-| corporate action       | —                | `corporate_actions`          |
-| vínculo entre emisores | —                | `legal_entity_relationships` |
+| Nivel                  | Registro              | Versiones                     |
+| ---------------------- | --------------------- | ----------------------------- |
+| entidad legal          | `legal_entities`      | `legal_entity_versions`       |
+| security               | `securities`          | `security_versions`           |
+| listing                | `listings`            | `listing_versions`            |
+| símbolo                | —                     | `listing_symbols`             |
+| identificador externo  | —                     | `identifier_assignments`      |
+| pertenencia a índice   | —                     | `index_memberships`           |
+| corporate action       | —                     | `corporate_actions`           |
+| vínculo entre emisores | —                     | `legal_entity_relationships`  |
+| programa depositario   | `depositary_programs` | `depositary_program_versions` |
+| ratio depositario      | —                     | `depositary_ratios`           |
 
 La clave primaria de cada versión es `(id, valid_from)`: su clave natural, sin
 surrogate inventado. Cerrar una versión es un update dirigido a esa clave y nunca
@@ -585,8 +596,14 @@ traspaso y listing con su MIC para el delisting. Desde `0009` suma `acquisition`
 decisión y campos propios. El índice único por sucesor se limita a
 `reporting_successor`: varias adquisiciones del mismo comprador son válidas.
 
-Todavía no tienen tabla, con su motivo: `depositary_programs` y
-`depositary_ratios` esperan a su fuente (`F7-03`); `security_relationships` espera
+Desde `0020` (`F7-03`) el programa depositario tiene registro y versiones, y el
+ratio su propia tabla, versionada aparte para que un cambio de ratio no supersede
+la existencia del programa. Sus invariantes en PostgreSQL: un solo programa
+vigente por programa y por security del CEDEAR, un solo ratio vigente por
+programa, las dos securities distintas
+(`depositary_program_versions_distinct_securities_check`) y unidades positivas.
+
+Todavía no tiene tabla, con su motivo: `security_relationships` espera
 a evidencia de canje o spin-off: `F2-04` registra la adquisición entre entidades
 legales y no inventa relaciones entre sus instrumentos. La primera decisión manual
 real —la sucesión de ExxonMobil— se registró sin `identity_decisions`: la decisión
@@ -618,6 +635,12 @@ colapsada, idempotencia, renombre historizado y salida del índice sin borrado.
 - ADR cuyo subyacente no es el listing primario esperado;
 - ✔ CEDEAR sobre acción (ADR y ETF siguen pendientes);
 - ✔ cambio de ratio depositario anunciado antes de su vigencia;
+- ✔ registro CEDEAR sobre las dos publicaciones reales: sólo la clase subyacente
+  lleva programa, un ticker de mercado extranjero no resuelve aunque coincida, dos
+  tickers de la misma fila que se contradicen se rechazan, un cambio de ratio no
+  filtra hacia un `as_known` anterior, y una baja se retira sin sucesor
+  ([`plan-cedear-registry.test.ts`](../../src/modules/cedears/domain/plan-cedear-registry.test.ts),
+  [`resolve-cedear-access.test.ts`](../../src/modules/cedears/domain/resolve-cedear-access.test.ts));
 - ✔ sucesión de emisor con cambio de CIK: vínculo invisible antes de la aceptación,
   partición por vigencia, comparativos repetidos por los dos filers y ciclos
   rechazados

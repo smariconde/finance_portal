@@ -52,6 +52,8 @@ export function createPostgresUniverseRepository(
         symbolRows,
         assignmentRows,
         membershipRows,
+        programRows,
+        ratioRows,
       ] = await Promise.all([
         database
           .select()
@@ -108,6 +110,26 @@ export function createPostgresUniverseRepository(
           .from(schema.indexMemberships)
           .where(eq(schema.indexMemberships.indexId, parsed.indexId))
           .limit(parsed.limit),
+        database
+          .select()
+          .from(schema.depositaryProgramVersions)
+          .where(
+            and(
+              isNull(schema.depositaryProgramVersions.validTo),
+              isNull(schema.depositaryProgramVersions.supersededAt),
+            ),
+          )
+          .limit(parsed.limit),
+        database
+          .select()
+          .from(schema.depositaryRatios)
+          .where(
+            and(
+              isNull(schema.depositaryRatios.validTo),
+              isNull(schema.depositaryRatios.supersededAt),
+            ),
+          )
+          .limit(parsed.limit),
       ]);
 
       const graph = identityGraphSchema.parse({
@@ -145,11 +167,30 @@ export function createPostgresUniverseRepository(
           symbol: row.symbol,
           symbolType: row.symbolType,
         })),
-        // Los programas depositarios todavía no tienen tabla: su fuente es el
-        // acceso CEDEAR (`F6-04`). El grafo persistido los declara vacíos en vez
-        // de fingir que no existen en el modelo.
-        depositaryPrograms: [],
-        depositaryRatios: [],
+        // Los programas vigentes del registro CEDEAR (`F7-03`, ADR 0027). La
+        // historia —ratios superseded, programas retirados— no es estado del
+        // grafo: se lee con el repositorio del registro al corte pedido.
+        depositaryPrograms: programRows.map((row) => ({
+          ...toTemporalFields(row),
+          depositaryProgramId: row.depositaryProgramId,
+          programType: row.programType,
+          depositarySecurityId: row.depositarySecurityId,
+          underlyingSecurityId: row.underlyingSecurityId,
+          depositaryLegalEntityId: row.depositaryLegalEntityId,
+          sponsorLegalEntityId: row.sponsorLegalEntityId,
+          investorScope: row.investorScope,
+          status: row.status,
+          reportedUnderlyingSymbol: row.reportedUnderlyingSymbol,
+          reportedUnderlyingIsin: row.reportedUnderlyingIsin,
+        })),
+        depositaryRatios: ratioRows.map((row) => ({
+          ...toTemporalFields(row),
+          depositaryRatioId: row.depositaryRatioId,
+          depositaryProgramId: row.depositaryProgramId,
+          depositaryUnits: row.depositaryUnits,
+          underlyingUnits: row.underlyingUnits,
+          announcedAt: row.announcedAt?.toISOString() ?? null,
+        })),
         identifierAssignments: assignmentRows.map((row) => ({
           ...toTemporalFields(row),
           identifierAssignmentId: row.identifierAssignmentId,

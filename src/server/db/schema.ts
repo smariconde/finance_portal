@@ -1733,6 +1733,138 @@ export const priceEvents = pgTable(
   ],
 );
 
+export const depositaryProgramType = pgEnum("depositary_program_type", [
+  "cedear",
+  "adr",
+  "gdr",
+  "other",
+]);
+
+export const depositaryProgramStatus = pgEnum("depositary_program_status", [
+  "active",
+  "suspended",
+  "terminated",
+  "unknown",
+]);
+
+/**
+ * Registro de programas depositarios (`F7-03`, ADR 0027): sólo declara que el
+ * ID existe, como los registros de la migración `0004`. Hace falta porque el
+ * ratio se versiona **aparte** del programa y tiene que poder apuntarle: en una
+ * tabla versionada el mismo programa aparece una vez por versión.
+ */
+export const depositaryPrograms = pgTable("depositary_programs", {
+  depositaryProgramId: uuid("depositary_program_id").primaryKey(),
+  recordedAt: timestamp("recorded_at", { withTimezone: true, mode: "date" })
+    .defaultNow()
+    .notNull(),
+});
+
+/**
+ * Versiones de un programa: la security del CEDEAR, su subyacente, el
+ * depositario, el estado y el alcance.
+ *
+ * Las dos securities son filas distintas de `securities` y el check lo exige:
+ * un programa **vincula** instrumentos, no los fusiona (`TM-06`). La evidencia
+ * de la resolución —el ticker y el ISIN subyacente que la fuente declaró— se
+ * guarda porque es lo único que permitiría detectar después una resolución
+ * equivocada; no es identidad.
+ */
+export const depositaryProgramVersions = pgTable(
+  "depositary_program_versions",
+  {
+    depositaryProgramId: uuid("depositary_program_id")
+      .notNull()
+      .references(() => depositaryPrograms.depositaryProgramId),
+    programType: depositaryProgramType("program_type").notNull(),
+    depositarySecurityId: uuid("depositary_security_id")
+      .notNull()
+      .references(() => securities.securityId),
+    underlyingSecurityId: uuid("underlying_security_id")
+      .notNull()
+      .references(() => securities.securityId),
+    depositaryLegalEntityId: uuid("depositary_legal_entity_id").references(
+      () => legalEntities.legalEntityId,
+    ),
+    sponsorLegalEntityId: uuid("sponsor_legal_entity_id").references(
+      () => legalEntities.legalEntityId,
+    ),
+    investorScope: varchar("investor_scope", { length: 256 }),
+    status: depositaryProgramStatus("status").notNull(),
+    reportedUnderlyingSymbol: varchar("reported_underlying_symbol", {
+      length: 32,
+    }),
+    reportedUnderlyingIsin: char("reported_underlying_isin", { length: 12 }),
+    ...temporalVersionColumns(),
+  },
+  (table) => [
+    primaryKey({
+      name: "depositary_program_versions_pkey",
+      columns: [table.depositaryProgramId, table.validFrom],
+    }),
+    uniqueIndex("depositary_program_versions_open_uidx")
+      .on(table.depositaryProgramId)
+      .where(openVersion(table)),
+    // Un CEDEAR es un programa: dos vigentes para la misma security serían dos
+    // respuestas a «qué representa este instrumento».
+    uniqueIndex("depositary_program_versions_depositary_open_uidx")
+      .on(table.depositarySecurityId)
+      .where(openVersion(table)),
+    index("depositary_program_versions_underlying_idx").on(
+      table.underlyingSecurityId,
+    ),
+    index("depositary_program_versions_depositary_entity_idx").on(
+      table.depositaryLegalEntityId,
+    ),
+    ...temporalVersionChecks("depositary_program_versions", table),
+    check(
+      "depositary_program_versions_distinct_securities_check",
+      sql`${table.depositarySecurityId} <> ${table.underlyingSecurityId}`,
+    ),
+    check(
+      "depositary_program_versions_isin_check",
+      sql`${table.reportedUnderlyingIsin} is null or ${table.reportedUnderlyingIsin} ~ '^[A-Z]{2}[A-Z0-9]{9}[0-9]$'`,
+    ),
+  ],
+);
+
+/**
+ * Ratio del programa como fracción exacta, versionado **aparte** del programa
+ * (ADR 0027, decisión 5): un cambio de ratio supersede sólo al ratio, y la
+ * existencia del programa sobrevive. `numeric` guarda la fracción tal como el
+ * emisor la escribe, sin pasar por un binario.
+ */
+export const depositaryRatios = pgTable(
+  "depositary_ratios",
+  {
+    depositaryRatioId: uuid("depositary_ratio_id").notNull(),
+    depositaryProgramId: uuid("depositary_program_id")
+      .notNull()
+      .references(() => depositaryPrograms.depositaryProgramId),
+    depositaryUnits: numeric("depositary_units", { mode: "string" }).notNull(),
+    underlyingUnits: numeric("underlying_units", { mode: "string" }).notNull(),
+    announcedAt: timestamp("announced_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    ...temporalVersionColumns(),
+  },
+  (table) => [
+    primaryKey({
+      name: "depositary_ratios_pkey",
+      columns: [table.depositaryRatioId, table.validFrom],
+    }),
+    uniqueIndex("depositary_ratios_open_uidx")
+      .on(table.depositaryProgramId)
+      .where(openVersion(table)),
+    ...temporalVersionChecks("depositary_ratios", table),
+    check(
+      "depositary_ratios_units_check",
+      sql`${table.depositaryUnits} > 0 and ${table.underlyingUnits} > 0`,
+    ),
+  ],
+);
+
 export const corporateActionType = pgEnum("corporate_action_type", [
   "successor_issuer",
   "split",

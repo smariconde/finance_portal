@@ -43,6 +43,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    15 | `F2-06`    | `done`     | Golden fixtures desde extractos reales congelados, en reemplazo de `FixtureCo` como oráculo de regresión.                                 | `F2-03`       |
 |    16 | `F2-07`    | `done`     | Gate de Fase 2 verificado sobre datos reales: contrato point-in-time auditado, 30 empresas reconciliadas y validación semántica decidida. | `F2-06`       |
 |    17 | `F7-02`    | `done`     | El sector como clasificación declarada y versionada, con la población resuelta al `as_of`.                                                | Fase 2        |
+|    18 | `F7-01`    | `done`     | Precios diarios crudos por security, con splits y dividendos fechados y la base de ajuste declarada.                                      | Fase 2        |
+|    19 | `F7-03`    | `done`     | Registro CEDEAR de los dos emisores, con cada CEDEAR como security propia y el subyacente resuelto contra el grafo.                       | `F7-02`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -2915,8 +2917,89 @@ nuevos) y build con las cuatro rutas en `ƒ (Dynamic)` pasan. Los rollbacks de
 `0018` y `0019` se probaron en sus tres estados: se niegan con datos, borran
 vacíos y las migraciones vuelven a aplicarse.
 
-Queda `F7-03` (registro CEDEAR) y detrás `F7-04` a `F7-07`. Antes de `F7-04` hay
-que decidir los parámetros del Sortino, que la especificación deja abiertos.
+Quedaba `F7-03` (registro CEDEAR), entregado el 2026-09-23, y detrás `F7-04` a
+`F7-07`.
+
+#### `F7-03` — el registro CEDEAR de los dos emisores
+
+- Estado: `done` (iniciado y cerrado el 2026-09-23).
+- Fase y dependencia: Fase 7; `F7-02` cerrado.
+- Decisión: [ADR 0027](../architecture/adr/0027-cedear-registry-sources.md).
+- Controles: `TM-05` (cada aserción declara fuente, corrida y vigencia; lo que no
+  se entiende se rechaza por nombre), `TM-06` (el CEDEAR y su subyacente son dos
+  securities, y un `as_known` anterior a un cambio de ratio no lo ve) y `TM-08`
+  (cada emisor entra por la única puerta con un host y un prefijo de path).
+
+**La fuente, y por qué no fue la aprobada.** El owner había aprobado el
+2026-08-25 «el scraping de Comafi». Al medirlo aparecieron tres cosas:
+
+- **hay dos emisores**, Banco Comafi y Caja de Valores, sin subyacentes en común.
+  Caja de Valores es el único emisor de F, UAL, MU, OXY, UBER, PANW, MOS y ABNB,
+  y un registro sólo de Comafi habría dicho de esas ocho que no tienen CEDEAR;
+- **los términos de Comafi prohíben almacenar**, por escrito: «Prohibida la
+  duplicación, distribución o almacenamiento en cualquier medio». No es el «no se
+  concede» de Yahoo;
+- **las dos publicaciones de Comafi no coinciden**: la planilla trae `3.1` y
+  `25.1` como ratios, el ISIN panameño de Carnival después de su redomicilio y
+  AstraZeneca en 2:1 donde el JSON dice 4:1.
+
+El owner decidió el 2026-09-23 usar **las dos fuentes** en `owner_accepted`, con
+la cláusula de Comafi citada en su fila del registro en vez de resumida. La
+publicación de registro de Comafi es el JSON que alimenta su tabla, que fue el
+correcto en cada desacuerdo verificable; sus errores —campos vacíos, dos tickers
+que se contradicen en la misma fila— son de los que un parser rechaza por nombre.
+
+**El CEDEAR no se fusiona con su subyacente.** Cada depositario es una entidad
+legal declarada, cada CEDEAR una security `depositary_receipt` emitida por él con
+su ISIN y su código de Caja de Valores, y el programa las vincula. El ratio se
+versiona **aparte** del programa, para que un cambio de ratio no borre la
+existencia del programa en un corte anterior.
+
+**El ticker identifica y el mercado corrobora.** Es la regla que salió de medir:
+el mercado declarado está viejo o mal cargado más seguido que el ticker —KMB
+figura en NYSE y ya cotiza en Nasdaq; LIN, PLD y SHW traen la industria en el
+campo de mercado—, así que un mercado distinto se marca y no decide. Un mercado
+extranjero deja el programa afuera aunque su ticker coincida con uno del grafo, y
+dos tickers de la misma fila que resuelven a securities distintas se rechazan:
+Talen Energy declara el de GE Vernova.
+
+**La vigencia es la observación.** Ninguna publicación fecha lo que publica, así
+que `available_at` y `valid_from` son el instante de la lectura, y un corte
+anterior a la primera captura responde `not_effective_at_cutoff`, nunca «sin
+CEDEAR». Los cambios supersiden en vez de cerrar —la fecha efectiva está en el
+aviso del emisor, que el registro no lee—, y un programa que el emisor deja de
+listar se retira sin sucesor, con un guard que niega las bajas masivas.
+
+Criterios, contra lo que se entregó:
+
+- **fuente aprobada por el owner.** Cumplido, con la aprobación rehecha sobre la
+  evidencia nueva y las dos fuentes en `owner_accepted`;
+- **programas y ratios versionados.** Cumplido: `depositary_programs`,
+  `depositary_program_versions` y `depositary_ratios`, migración `0020` con su
+  rollback, y la lectura al corte `resolveCedearAccess`;
+- **security subyacente resuelta.** Cumplido contra el grafo en el instante de la
+  observación; sólo se registra lo que resuelve, y el resto se nombra;
+- **sin fusionar instrumentos.** Cumplido, con un check en PostgreSQL que impide
+  un programa cuyas dos securities sean la misma.
+
+**Medido sobre el PostgreSQL personal**, con `pg_dump` previo y la migración
+`0020` aplicada: 2 requests por corrida. Comafi publica 364 filas y registra
+**154 programas**, con 206 fuera del universo, 4 rechazos por nombre —el ratio
+`15.1` de ASTS, BBCA sin código, una segunda fila de WDC vacía y la de Talen— y 5
+marcas de calidad. Caja de Valores publica 59 y registra **8**, sin rechazos.
+Los 162 programas apuntan a 162 securities distintas del índice —GOOGL tiene
+programa y GOOG no—, 159 activos y 3 suspendidos. La segunda corrida queda
+**`duplicate` en los dos emisores y no escribe nada**. Las tres tablas pesan
+320 kB y la base pasa de 27 a 28 MB.
+
+El rollback de `0020` se probó en una réplica en sus tres estados: se **niega**
+con filas, **borra** las tablas vacías y la migración **vuelve a aplicarse**.
+
+format, lint, typecheck, **1.519 unit** (73 nuevos), **156 integration** (7
+nuevos), build con las cuatro rutas en `ƒ (Dynamic)` y el gate E2E pasan.
+
+Antes de `F7-04` hay que decidir los parámetros del Sortino, que la
+especificación deja abiertos.
 
 ### Fase 8 — divergencias fundamentales
 
