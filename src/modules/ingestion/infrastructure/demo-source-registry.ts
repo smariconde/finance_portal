@@ -324,7 +324,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
       owner: "Yahoo",
       canonicalUrl: "https://finance.yahoo.com/",
       documentationUrls: [],
-      datasets: ["yahoo.daily-close"],
+      datasets: ["yahoo.daily-close", "yahoo.benchmark-close"],
       endpoints: ["https://query1.finance.yahoo.com/v8/finance/chart/"],
       authentication: "none",
       applicablePlan: null,

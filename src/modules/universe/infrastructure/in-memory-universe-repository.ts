@@ -99,17 +99,18 @@ export function createInMemoryUniverseRepository(
     async loadState(query) {
       const parsed = universeStateQuerySchema.parse(query);
       const current = snapshot();
+      const keep = parsed.versions === "all" ? () => true : isOpen;
 
       return {
         graph: {
-          legalEntities: current.graph.legalEntities.filter(isOpen),
-          securities: current.graph.securities.filter(isOpen),
-          listings: current.graph.listings.filter(isOpen),
-          listingSymbols: current.graph.listingSymbols.filter(isOpen),
-          depositaryPrograms: current.graph.depositaryPrograms.filter(isOpen),
-          depositaryRatios: current.graph.depositaryRatios.filter(isOpen),
+          legalEntities: current.graph.legalEntities.filter(keep),
+          securities: current.graph.securities.filter(keep),
+          listings: current.graph.listings.filter(keep),
+          listingSymbols: current.graph.listingSymbols.filter(keep),
+          depositaryPrograms: current.graph.depositaryPrograms.filter(keep),
+          depositaryRatios: current.graph.depositaryRatios.filter(keep),
           identifierAssignments:
-            current.graph.identifierAssignments.filter(isOpen),
+            current.graph.identifierAssignments.filter(keep),
         },
         memberships: current.memberships.filter(
           (membership) => membership.indexId === parsed.indexId,

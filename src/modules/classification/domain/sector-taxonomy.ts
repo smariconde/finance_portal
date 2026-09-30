@@ -97,6 +97,14 @@ export function listSectorCodes(): readonly string[] {
 }
 
 /** Sanity check del módulo: los once códigos son válidos como código. */
+/** Los once sectores con su rótulo, en el orden declarado. */
+export function listSectors(): readonly {
+  readonly code: string;
+  readonly label: string;
+}[] {
+  return SECTOR_LABELS.map((label) => ({ code: toCode(label), label }));
+}
+
 export function assertSectorCodesAreValid(): void {
   for (const code of listSectorCodes()) {
     classificationCodeSchema.parse(code);

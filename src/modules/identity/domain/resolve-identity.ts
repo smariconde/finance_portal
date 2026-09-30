@@ -378,3 +378,51 @@ export function requireResolvedSubject(
 
   return subjectId;
 }
+
+export type SecurityTicker = {
+  readonly listingId: string;
+  readonly mic: string;
+  readonly symbol: string;
+};
+
+/**
+ * Tickers vigentes de una security al corte: la dirección inversa de una
+ * resolución por símbolo. Sirve para **etiquetar** —una matriz nombra cada punto
+ * con el ticker que tenía al `as_of`— y para pedir la serie a una fuente, nunca
+ * como clave: el ticker es un valor de búsqueda con vigencia.
+ *
+ * Una security con dos listings devuelve los dos, ordenados por MIC y símbolo;
+ * elegir uno es decisión de quien pregunta.
+ */
+export function securityTickersAt(
+  graph: IdentityGraph,
+  securityId: string,
+  query: PointInTimeQuery,
+): readonly SecurityTicker[] {
+  const listings = new Map(
+    currentVersions(graph.listings, query)
+      .filter((listing) => listing.securityId === securityId)
+      .map((listing) => [listing.listingId, listing]),
+  );
+
+  return currentVersions(graph.listingSymbols, query)
+    .filter((assignment) => assignment.symbolType === "ticker")
+    .flatMap((assignment) => {
+      const listing = listings.get(assignment.listingId);
+
+      return listing === undefined
+        ? []
+        : [
+            {
+              listingId: listing.listingId,
+              mic: listing.mic,
+              symbol: assignment.symbol,
+            },
+          ];
+    })
+    .sort((left, right) =>
+      left.mic === right.mic
+        ? left.symbol.localeCompare(right.symbol)
+        : left.mic.localeCompare(right.mic),
+    );
+}

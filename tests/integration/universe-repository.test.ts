@@ -246,6 +246,42 @@ describe("universo S&P 500 sobre PostgreSQL", () => {
     );
   });
 
+  it("lee el nombre histórico sólo cuando se pide la historia completa", async () => {
+    // El planner compara contra lo vigente; una lectura a un corte pasado
+    // necesita también lo cerrado, o etiquetaría el pasado con el nombre de hoy.
+    await constitute({
+      effectiveAt: LATER_EFFECTIVE_AT,
+      availableAt: LATER_AVAILABLE_AT,
+      assignments: FIXTURE_TICKER_ASSIGNMENTS.map((assignment) =>
+        assignment.ticker === "ANDES"
+          ? { ...assignment, name: "Andes Synthetic Holdings" }
+          : assignment,
+      ),
+    });
+
+    const names = async (versions: "open" | "all") =>
+      (
+        await repository.loadState({ indexId: FIXTURE_INDEX_ID, versions })
+      ).graph.legalEntities
+        .map((entity) => entity.legalName)
+        .filter((name) => name.startsWith("Andes"))
+        .sort();
+
+    expect(await names("open")).toEqual(["Andes Synthetic Holdings"]);
+    expect(await names("all")).toEqual([
+      "Andes Synthetic Corp",
+      "Andes Synthetic Holdings",
+    ]);
+  });
+
+  it("se niega a truncar el estado cuando supera su techo", async () => {
+    await constitute({});
+
+    await expect(
+      repository.loadState({ indexId: FIXTURE_INDEX_ID, limit: 1 }),
+    ).rejects.toThrow(/exceeded its limit/u);
+  });
+
   it("cierra la membresía de quien sale del índice sin borrar la fila", async () => {
     await constitute({
       effectiveAt: "2026-07-01T00:00:00.000Z",

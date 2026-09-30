@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertSectorCodesAreValid,
   listSectorCodes,
+  listSectors,
   resolveSectorLabel,
   SP500_SECTOR_TAXONOMY_ID,
 } from "./sector-taxonomy";
@@ -18,6 +19,14 @@ describe("sector taxonomy", () => {
   it("declares the eleven sectors and no more", () => {
     expect(listSectorCodes()).toHaveLength(11);
     assertSectorCodesAreValid();
+  });
+
+  it("lists each sector with its code and label", () => {
+    expect(listSectors()).toHaveLength(11);
+    expect(listSectors()[0]).toEqual({
+      code: "communication-services",
+      label: "Communication Services",
+    });
   });
 
   it("resolves a label to its code", () => {

@@ -18,6 +18,14 @@ import type {
  */
 export const universeStateQuerySchema = z.object({
   indexId: indexIdSchema,
+  /**
+   * `open` trae sólo las versiones vigentes, que es lo que el planner de
+   * constitución compara contra la lista nueva. `all` trae también las cerradas
+   * y las supersedidas: es lo que necesita una lectura **a un corte pasado**, que
+   * con sólo lo vigente etiquetaría un punto de 2024 con el ticker de hoy.
+   */
+  versions: z.enum(["open", "all"]).default("open"),
+  /** Techo por tabla. Superarlo es un error, no un truncado (`TM-07`). */
   limit: z.number().int().min(1).max(50_000).default(10_000),
 });
 

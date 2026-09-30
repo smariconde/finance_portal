@@ -1,6 +1,7 @@
 import "server-only";
 
 import { and, eq, isNull } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 
 import {
@@ -44,6 +45,15 @@ export function createPostgresUniverseRepository(
     storage: "personal-postgres",
     async loadState(query) {
       const parsed = universeStateQuerySchema.parse(query);
+      // Vigente es "sin cierre y sin supersesión". Con `all` no se filtra: la
+      // lectura al corte decide con `isEffectiveAt` e `isKnownAt`.
+      const openOnly = (table: {
+        validTo: AnyPgColumn;
+        supersededAt: AnyPgColumn;
+      }) =>
+        parsed.versions === "all"
+          ? undefined
+          : and(isNull(table.validTo), isNull(table.supersededAt));
 
       const [
         entityRows,
@@ -58,79 +68,63 @@ export function createPostgresUniverseRepository(
         database
           .select()
           .from(schema.legalEntityVersions)
-          .where(
-            and(
-              isNull(schema.legalEntityVersions.validTo),
-              isNull(schema.legalEntityVersions.supersededAt),
-            ),
-          )
-          .limit(parsed.limit),
+          .where(openOnly(schema.legalEntityVersions))
+          .limit(parsed.limit + 1),
         database
           .select()
           .from(schema.securityVersions)
-          .where(
-            and(
-              isNull(schema.securityVersions.validTo),
-              isNull(schema.securityVersions.supersededAt),
-            ),
-          )
-          .limit(parsed.limit),
+          .where(openOnly(schema.securityVersions))
+          .limit(parsed.limit + 1),
         database
           .select()
           .from(schema.listingVersions)
-          .where(
-            and(
-              isNull(schema.listingVersions.validTo),
-              isNull(schema.listingVersions.supersededAt),
-            ),
-          )
-          .limit(parsed.limit),
+          .where(openOnly(schema.listingVersions))
+          .limit(parsed.limit + 1),
         database
           .select()
           .from(schema.listingSymbols)
-          .where(
-            and(
-              isNull(schema.listingSymbols.validTo),
-              isNull(schema.listingSymbols.supersededAt),
-            ),
-          )
-          .limit(parsed.limit),
+          .where(openOnly(schema.listingSymbols))
+          .limit(parsed.limit + 1),
         database
           .select()
           .from(schema.identifierAssignments)
-          .where(
-            and(
-              isNull(schema.identifierAssignments.validTo),
-              isNull(schema.identifierAssignments.supersededAt),
-            ),
-          )
-          .limit(parsed.limit),
+          .where(openOnly(schema.identifierAssignments))
+          .limit(parsed.limit + 1),
         database
           .select()
           .from(schema.indexMemberships)
           .where(eq(schema.indexMemberships.indexId, parsed.indexId))
-          .limit(parsed.limit),
+          .limit(parsed.limit + 1),
         database
           .select()
           .from(schema.depositaryProgramVersions)
-          .where(
-            and(
-              isNull(schema.depositaryProgramVersions.validTo),
-              isNull(schema.depositaryProgramVersions.supersededAt),
-            ),
-          )
-          .limit(parsed.limit),
+          .where(openOnly(schema.depositaryProgramVersions))
+          .limit(parsed.limit + 1),
         database
           .select()
           .from(schema.depositaryRatios)
-          .where(
-            and(
-              isNull(schema.depositaryRatios.validTo),
-              isNull(schema.depositaryRatios.supersededAt),
-            ),
-          )
-          .limit(parsed.limit),
+          .where(openOnly(schema.depositaryRatios))
+          .limit(parsed.limit + 1),
       ]);
+
+      const tables = {
+        legal_entity_versions: entityRows,
+        security_versions: securityRows,
+        listing_versions: listingRows,
+        listing_symbols: symbolRows,
+        identifier_assignments: assignmentRows,
+        index_memberships: membershipRows,
+        depositary_program_versions: programRows,
+        depositary_ratios: ratioRows,
+      };
+
+      for (const [table, rows] of Object.entries(tables)) {
+        if (rows.length > parsed.limit) {
+          throw new Error(
+            `universe state read of ${table} exceeded its limit of ${parsed.limit} rows`,
+          );
+        }
+      }
 
       const graph = identityGraphSchema.parse({
         legalEntities: entityRows.map((row) => ({

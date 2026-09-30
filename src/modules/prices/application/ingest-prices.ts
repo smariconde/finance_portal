@@ -17,6 +17,7 @@ import {
   unadjustSeries,
   PRICE_UNADJUST_RULE_VERSION,
 } from "../domain/unadjust-series";
+import { settleSession } from "../domain/settled-session";
 
 import type { PriceRepository, PriceWriteSummary } from "./price-repository";
 import type { PriceSourceProvider } from "./live-price-source";
@@ -59,6 +60,8 @@ export type IngestPricesOutcome = {
   readonly currency: string;
   readonly bars: number;
   readonly barsWithoutClose: number;
+  /** Ruedas en curso al descargar (`settled-session-1.0.0`): no se guardan. */
+  readonly barsUnsettled: readonly string[];
   readonly splits: number;
   readonly dividends: number;
   /** Ruedas que el des-ajuste tuvo que mover: cero si no hubo splits. */
@@ -150,9 +153,16 @@ export async function ingestPrices(
 
   const fetched = await source.load(parsedCommand.symbol);
   const startedAt = now();
+  // La rueda en curso no se guarda: una fila cruda es inmutable y un intradía
+  // guardado como cierre no se corrige con la próxima descarga.
+  const settled = settleSession(
+    fetched.parsed.bars,
+    fetched.parsed,
+    fetched.fetchedAt,
+  );
   const { closes, events, barsRestatedBySource } = buildRows(
     parsedCommand.securityId,
-    fetched.parsed,
+    { ...fetched.parsed, bars: settled.bars },
   );
 
   const base = {
@@ -163,6 +173,7 @@ export async function ingestPrices(
     currency: fetched.parsed.currency,
     bars: closes.length,
     barsWithoutClose: fetched.parsed.barsWithoutClose,
+    barsUnsettled: settled.unsettled,
     splits: fetched.parsed.splits.length,
     dividends: fetched.parsed.dividends.length,
     barsRestatedBySource,

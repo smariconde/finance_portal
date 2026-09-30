@@ -95,6 +95,8 @@ over the eleven sectors, 0 rejected, 376 kB.
 ```bash
 pnpm prices:ingest --ticker AAPL                   # dry run: downloads and reports, writes nothing
 pnpm prices:ingest --ticker AAPL --ticker NVDA --apply
+pnpm prices:ingest --sector communication-services --apply   # the sector's population today
+pnpm prices:ingest --benchmark sp500-total-return --apply    # the declared reference series
 ```
 
 Also hand-run (`F7-01`, [ADR 0026](docs/architecture/adr/0026-daily-prices-source.md),
@@ -144,6 +146,21 @@ shortened), `missing_period` (consecutive closes more than 5 calendar days apart
 `metric-catalog-1.0.0` holds only matrix metrics: the two Sortinos implemented, the
 divergence ones `planned` with no formula version. Calendar arithmetic shared by
 the SEC window and these windows lives in `temporal/domain/calendar-date.ts`.
+
+The sector matrix (`F7-05`,
+[ADR 0029](docs/architecture/adr/0029-reference-series-sector-risk-matrix.md)) reads
+through `loadSectorRiskMatrix`, everything at one cutoff: the `as_of` close. The
+reference is **not a security** — an index has no issuer, and the graph demands
+one — so `^SP500TR` lives in `benchmark_prices` (migration `0021`) under a
+code-declared ID (`sp500-total-return`), and its ingestion refuses a response with
+splits or dividends. A read at a past cutoff needs the graph's **closed** versions
+too: `loadState({ versions: "all" })`; the default `"open"` is the constitution
+planner's view, and with it a 2024 point would carry today's ticker. The last bar
+is stored only once its session settled (`settled-session-1.0.0`: priced after the
+bell and fetched an hour later) — a raw row is immutable, so an intraday price
+stored as a close could never be corrected. Points are securities, the quadrant
+against the reference is `null` when either side lacks a window, and the fit
+(`sector-fit-ols-1.0.0`) excludes the reference, needs 3 points and publishes `n`.
 
 ```bash
 pnpm cedears:record                                # dry run: both issuers, one request each, writes nothing
