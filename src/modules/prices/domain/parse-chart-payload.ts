@@ -11,8 +11,12 @@ import { z } from "zod";
  * El payload no está documentado como API pública, así que el parser no asume
  * nada: valida la forma con Zod, rechaza por nombre lo que no reconoce y **nunca
  * repite el valor recibido en el rechazo** (`TM-02`).
+ *
+ * `1.1.0` (`F7-05`) lee además la sesión en curso que declara la respuesta
+ * —`currentTradingPeriod.regular` y `regularMarketTime`—, sin la cual no hay
+ * forma de saber si la última rueda es un cierre o un precio intradía.
  */
-export const CHART_PARSER_VERSION = "yahoo-chart-1.0.0";
+export const CHART_PARSER_VERSION = "yahoo-chart-1.1.0";
 
 const finiteNumber = z.number().finite();
 
@@ -26,6 +30,15 @@ const chartPayloadSchema = z.object({
             symbol: z.string().trim().min(1).max(32),
             /** Desfase en segundos del mercado respecto de UTC. */
             gmtoffset: z.number().int().nullish(),
+            /** Instante del último precio publicado, en epoch segundos. */
+            regularMarketTime: z.number().int().nullish(),
+            currentTradingPeriod: z
+              .object({
+                regular: z
+                  .object({ start: z.number().int(), end: z.number().int() })
+                  .nullish(),
+              })
+              .nullish(),
           }),
           timestamp: z.array(z.number().int()).nullish(),
           indicators: z.object({
@@ -99,12 +112,29 @@ export type ChartDividend = {
   readonly amount: string;
 };
 
+/**
+ * La sesión regular que la respuesta declara como actual. Es lo único que
+ * distingue la rueda de hoy cerrada de la rueda de hoy en curso: el timestamp de
+ * una barra diaria es su apertura en los dos casos.
+ */
+export type ChartSession = {
+  readonly marketDate: string;
+  /** Fin de la sesión regular (ISO). */
+  readonly regularEnd: string;
+  /** Instante del último precio publicado (ISO); `null` si no vino. */
+  readonly lastPriceAt: string | null;
+};
+
 export type ChartParseResult =
   | {
       readonly ok: true;
       readonly parserVersion: string;
       readonly symbol: string;
       readonly currency: string;
+      /** `null` si la respuesta no declaró su sesión. */
+      readonly session: ChartSession | null;
+      /** Desfase del mercado respecto de UTC, en segundos. */
+      readonly gmtOffsetSeconds: number;
       readonly bars: readonly ChartBar[];
       readonly splits: readonly ChartSplit[];
       readonly dividends: readonly ChartDividend[];
@@ -256,11 +286,27 @@ export function parseChartPayload(body: unknown): ChartParseResult {
     });
   }
 
+  const regular = result.meta.currentTradingPeriod?.regular;
+  const session: ChartSession | null =
+    regular === null || regular === undefined
+      ? null
+      : {
+          marketDate: marketDateOf(regular.start, gmtOffset),
+          regularEnd: new Date(regular.end * 1000).toISOString(),
+          lastPriceAt:
+            result.meta.regularMarketTime === null ||
+            result.meta.regularMarketTime === undefined
+              ? null
+              : new Date(result.meta.regularMarketTime * 1000).toISOString(),
+        };
+
   return {
     ok: true,
     parserVersion: CHART_PARSER_VERSION,
     symbol: result.meta.symbol,
     currency,
+    session,
+    gmtOffsetSeconds: gmtOffset,
     bars,
     splits: splits.sort((left, right) =>
       left.effectiveOn < right.effectiveOn ? -1 : 1,

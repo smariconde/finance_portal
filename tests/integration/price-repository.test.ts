@@ -49,6 +49,7 @@ afterAll(async () => {
   // de precios dejada atrás bloquea ese borrado con su foreign key.
   await database.delete(schema.securityPrices);
   await database.delete(schema.priceEvents);
+  await database.delete(schema.benchmarkPrices);
   await sql.end({ timeout: 5 });
 });
 
@@ -58,6 +59,7 @@ beforeEach(async () => {
   // Cada caso trabaja sobre una security nueva, así que no hay arrastre.
   await database.delete(schema.securityPrices);
   await database.delete(schema.priceEvents);
+  await database.delete(schema.benchmarkPrices);
 
   securityId = randomUUID();
   runId = randomUUID();
@@ -171,6 +173,94 @@ describe("security prices on PostgreSQL", () => {
 
     expect(again.eventsConflicting).toEqual([]);
     expect(again.eventsDuplicate).toBe(1);
+  });
+
+  it("reads a security's events in date order", async () => {
+    const repository = createPostgresPriceRepository(database);
+
+    await repository.writeSeries(
+      [],
+      [
+        split("2024-06-10", "10"),
+        priceEventSchema.parse({
+          securityId,
+          eventType: "dividend",
+          effectiveOn: "2024-03-05",
+          value: "0.04",
+          currency: "USD",
+        }),
+      ],
+      runId,
+    );
+
+    expect(
+      (await repository.loadEvents({ securityId })).map((event) => [
+        event.eventType,
+        event.effectiveOn,
+        Number(event.value),
+      ]),
+    ).toEqual([
+      ["dividend", "2024-03-05", 0.04],
+      ["split", "2024-06-10", 10],
+    ]);
+    await expect(
+      repository.loadEvents({ securityId, limit: 1 }),
+    ).rejects.toThrow(/exceeded its limit/u);
+  });
+
+  it("keeps a reference series apart from any security, immutable as well", async () => {
+    // Un índice no es una security: no tiene emisor. Su serie vive en su
+    // propia tabla, con la clave declarada en código (ADR 0029).
+    const repository = createPostgresPriceRepository(database);
+    const level = (marketDate: string, value: string) => ({
+      benchmarkId: "sp500-total-return",
+      marketDate,
+      close: value,
+      currency: "USD",
+    });
+
+    const first = await repository.writeBenchmarkSeries(
+      [level("2026-09-29", "17202.12"), level("2026-09-30", "17160.41")],
+      runId,
+    );
+    const again = await repository.writeBenchmarkSeries(
+      [level("2026-09-30", "17160.410"), level("2026-09-29", "17000")],
+      runId,
+    );
+
+    expect(first.closesInserted).toBe(2);
+    expect(again.closesDuplicate).toBe(1);
+    expect(again.closesConflicting).toEqual(["2026-09-29"]);
+    expect(
+      (
+        await repository.loadBenchmarkSeries({
+          benchmarkId: "sp500-total-return",
+        })
+      ).map((row) => [row.marketDate, row.close]),
+    ).toEqual([
+      ["2026-09-29", "17202.12"],
+      ["2026-09-30", "17160.41"],
+    ]);
+  });
+
+  it("refuses a benchmark ID that is not a declared-style slug", async () => {
+    try {
+      await database.insert(schema.benchmarkPrices).values({
+        benchmarkId: "^SP500TR",
+        marketDate: "2026-09-30",
+        close: "1",
+        currency: "USD",
+        ingestionRunId: runId,
+      });
+    } catch (error) {
+      const cause = ((error as { cause?: unknown }).cause ??
+        error) as PostgresErrorShape;
+
+      expect(cause.constraint_name).toBe("benchmark_prices_benchmark_id_check");
+      return;
+    }
+
+    throw new Error("the check constraint must refuse the vendor symbol");
   });
 
   it("treats trailing zeros as the same price, not a changed past", async () => {

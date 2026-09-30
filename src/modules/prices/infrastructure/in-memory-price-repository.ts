@@ -1,10 +1,18 @@
 import type {
+  BenchmarkSeriesQuery,
+  BenchmarkWriteSummary,
+  PriceEventsQuery,
   PriceRepository,
   PriceSeriesQuery,
   PriceWriteSummary,
 } from "../application/price-repository";
-import { priceSeriesQuerySchema } from "../application/price-repository";
+import {
+  benchmarkSeriesQuerySchema,
+  priceEventsQuerySchema,
+  priceSeriesQuerySchema,
+} from "../application/price-repository";
 import type { DailyClose, PriceEvent } from "../domain/daily-close";
+import type { BenchmarkClose } from "../domain/declared-benchmarks";
 
 /**
  * Doble de test, no un modo de runtime. Ningún composition root lo construye.
@@ -18,6 +26,7 @@ export class InMemoryPriceRepository implements PriceRepository {
 
   private readonly closes = new Map<string, DailyClose>();
   private readonly events = new Map<string, PriceEvent>();
+  private readonly benchmarkCloses = new Map<string, BenchmarkClose>();
 
   private static closeKey(securityId: string, marketDate: string): string {
     return `${securityId}|${marketDate}`;
@@ -28,9 +37,14 @@ export class InMemoryPriceRepository implements PriceRepository {
   }
 
   async loadSeries(query: PriceSeriesQuery): Promise<readonly DailyClose[]> {
-    const { securityId, limit } = priceSeriesQuerySchema.parse(query);
+    const { securityId, from, to, limit } = priceSeriesQuerySchema.parse(query);
     const matches = [...this.closes.values()]
-      .filter((close) => close.securityId === securityId)
+      .filter(
+        (close) =>
+          close.securityId === securityId &&
+          (from === null || close.marketDate >= from) &&
+          (to === null || close.marketDate <= to),
+      )
       .sort((left, right) => (left.marketDate < right.marketDate ? -1 : 1));
 
     if (matches.length > limit) {
@@ -40,6 +54,73 @@ export class InMemoryPriceRepository implements PriceRepository {
     }
 
     return matches;
+  }
+
+  async loadEvents(query: PriceEventsQuery): Promise<readonly PriceEvent[]> {
+    const { securityId, limit } = priceEventsQuerySchema.parse(query);
+    const matches = [...this.events.values()]
+      .filter((event) => event.securityId === securityId)
+      .sort((left, right) => (left.effectiveOn < right.effectiveOn ? -1 : 1));
+
+    if (matches.length > limit) {
+      throw new Error(
+        `price events read exceeded its limit of ${limit} rows for ${securityId}`,
+      );
+    }
+
+    return matches;
+  }
+
+  async loadBenchmarkSeries(
+    query: BenchmarkSeriesQuery,
+  ): Promise<readonly BenchmarkClose[]> {
+    const { benchmarkId, from, to, limit } =
+      benchmarkSeriesQuerySchema.parse(query);
+    const matches = [...this.benchmarkCloses.values()]
+      .filter(
+        (close) =>
+          close.benchmarkId === benchmarkId &&
+          (from === null || close.marketDate >= from) &&
+          (to === null || close.marketDate <= to),
+      )
+      .sort((left, right) => (left.marketDate < right.marketDate ? -1 : 1));
+
+    if (matches.length > limit) {
+      throw new Error(
+        `benchmark series read exceeded its limit of ${limit} rows for ${benchmarkId}`,
+      );
+    }
+
+    return matches;
+  }
+
+  async writeBenchmarkSeries(
+    closes: readonly BenchmarkClose[],
+  ): Promise<BenchmarkWriteSummary> {
+    let closesInserted = 0;
+    let closesDuplicate = 0;
+    const closesConflicting: string[] = [];
+
+    for (const close of closes) {
+      const key = `${close.benchmarkId}|${close.marketDate}`;
+      const existing = this.benchmarkCloses.get(key);
+
+      if (existing === undefined) {
+        this.benchmarkCloses.set(key, close);
+        closesInserted += 1;
+      } else if (Number(existing.close) === Number(close.close)) {
+        closesDuplicate += 1;
+      } else {
+        closesConflicting.push(close.marketDate);
+      }
+    }
+
+    return {
+      benchmarkId: closes[0]?.benchmarkId ?? "",
+      closesInserted,
+      closesDuplicate,
+      closesConflicting,
+    };
   }
 
   /**

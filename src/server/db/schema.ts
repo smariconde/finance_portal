@@ -1733,6 +1733,43 @@ export const priceEvents = pgTable(
   ],
 );
 
+/**
+ * Nivel diario de una serie de referencia declarada (`F7-05`, ADR 0029).
+ *
+ * No es `security_prices` porque un índice no es una security: no tiene emisor,
+ * y el grafo exige uno. La clave es el ID declarado en código
+ * (`declared-benchmarks.ts`), no el símbolo de la fuente, que es un valor de
+ * búsqueda. La fila es tan liviana como la de una security: fecha, nivel, moneda
+ * y la corrida que aporta fuente y parser.
+ */
+export const benchmarkPrices = pgTable(
+  "benchmark_prices",
+  {
+    benchmarkId: varchar("benchmark_id", { length: 64 }).notNull(),
+    marketDate: date("market_date", { mode: "string" }).notNull(),
+    close: numeric("close", { mode: "string" }).notNull(),
+    currency: varchar("currency", { length: 3 }).notNull(),
+    ingestionRunId: uuid("ingestion_run_id")
+      .notNull()
+      .references(() => ingestionRuns.runId),
+  },
+  (table) => [
+    primaryKey({
+      name: "benchmark_prices_pkey",
+      columns: [table.benchmarkId, table.marketDate],
+    }),
+    check("benchmark_prices_close_check", sql`${table.close} >= 0`),
+    check(
+      "benchmark_prices_currency_check",
+      sql`${table.currency} ~ '^[A-Z]{3}$'`,
+    ),
+    check(
+      "benchmark_prices_benchmark_id_check",
+      sql`${table.benchmarkId} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`,
+    ),
+  ],
+);
+
 export const depositaryProgramType = pgEnum("depositary_program_type", [
   "cedear",
   "adr",

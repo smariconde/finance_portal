@@ -1,18 +1,25 @@
 import "server-only";
 
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 
 import {
+  benchmarkSeriesQuerySchema,
+  priceEventsQuerySchema,
   priceSeriesQuerySchema,
   type PriceRepository,
   type PriceWriteSummary,
 } from "@/modules/prices/application/price-repository";
 import {
   dailyCloseSchema,
+  priceEventSchema,
   type DailyClose,
   type PriceEvent,
 } from "@/modules/prices/domain/daily-close";
+import {
+  benchmarkCloseSchema,
+  type BenchmarkClose,
+} from "@/modules/prices/domain/declared-benchmarks";
 
 import * as schema from "./schema";
 
@@ -51,7 +58,17 @@ export function createPostgresPriceRepository(
       const rows = await database
         .select()
         .from(schema.securityPrices)
-        .where(eq(schema.securityPrices.securityId, parsed.securityId))
+        .where(
+          and(
+            eq(schema.securityPrices.securityId, parsed.securityId),
+            parsed.from === null
+              ? undefined
+              : gte(schema.securityPrices.marketDate, parsed.from),
+            parsed.to === null
+              ? undefined
+              : lte(schema.securityPrices.marketDate, parsed.to),
+          ),
+        )
         .orderBy(asc(schema.securityPrices.marketDate))
         .limit(parsed.limit + 1);
 
@@ -69,6 +86,120 @@ export function createPostgresPriceRepository(
           currency: row.currency,
         }),
       );
+    },
+    async loadEvents(query) {
+      const parsed = priceEventsQuerySchema.parse(query);
+      const rows = await database
+        .select()
+        .from(schema.priceEvents)
+        .where(eq(schema.priceEvents.securityId, parsed.securityId))
+        .orderBy(asc(schema.priceEvents.effectiveOn))
+        .limit(parsed.limit + 1);
+
+      if (rows.length > parsed.limit) {
+        throw new Error(
+          `price events read exceeded its limit of ${parsed.limit} rows for ${parsed.securityId}`,
+        );
+      }
+
+      return rows.map((row) =>
+        priceEventSchema.parse({
+          securityId: row.securityId,
+          eventType: row.eventType,
+          effectiveOn: row.effectiveOn,
+          value: row.value,
+          currency: row.currency,
+        }),
+      );
+    },
+    async loadBenchmarkSeries(query) {
+      const parsed = benchmarkSeriesQuerySchema.parse(query);
+      const rows = await database
+        .select()
+        .from(schema.benchmarkPrices)
+        .where(
+          and(
+            eq(schema.benchmarkPrices.benchmarkId, parsed.benchmarkId),
+            parsed.from === null
+              ? undefined
+              : gte(schema.benchmarkPrices.marketDate, parsed.from),
+            parsed.to === null
+              ? undefined
+              : lte(schema.benchmarkPrices.marketDate, parsed.to),
+          ),
+        )
+        .orderBy(asc(schema.benchmarkPrices.marketDate))
+        .limit(parsed.limit + 1);
+
+      if (rows.length > parsed.limit) {
+        throw new Error(
+          `benchmark series read exceeded its limit of ${parsed.limit} rows for ${parsed.benchmarkId}`,
+        );
+      }
+
+      return rows.map((row) =>
+        benchmarkCloseSchema.parse({
+          benchmarkId: row.benchmarkId,
+          marketDate: row.marketDate,
+          close: row.close,
+          currency: row.currency,
+        }),
+      );
+    },
+    async writeBenchmarkSeries(closes, ingestionRunId) {
+      const benchmarkId = closes[0]?.benchmarkId ?? "";
+
+      return database.transaction(async (tx) => {
+        const stored = new Map(
+          (
+            await tx
+              .select({
+                marketDate: schema.benchmarkPrices.marketDate,
+                close: schema.benchmarkPrices.close,
+              })
+              .from(schema.benchmarkPrices)
+              .where(eq(schema.benchmarkPrices.benchmarkId, benchmarkId))
+          ).map((row) => [row.marketDate, row.close]),
+        );
+
+        const fresh: BenchmarkClose[] = [];
+        const closesConflicting: string[] = [];
+        let closesDuplicate = 0;
+
+        for (const close of closes) {
+          const existing = stored.get(close.marketDate);
+
+          if (existing === undefined) {
+            fresh.push(close);
+          } else if (Number(existing) === Number(close.close)) {
+            closesDuplicate += 1;
+          } else {
+            closesConflicting.push(close.marketDate);
+          }
+        }
+
+        for (const batch of chunk(fresh, INSERT_CHUNK)) {
+          await tx
+            .insert(schema.benchmarkPrices)
+            .values(
+              batch.map((close) => ({
+                benchmarkId: close.benchmarkId,
+                marketDate: close.marketDate,
+                close: close.close,
+                currency: close.currency,
+                ingestionRunId,
+              })),
+            )
+            .onConflictDoNothing();
+        }
+
+        return {
+          benchmarkId,
+          closesInserted: fresh.length,
+          closesDuplicate,
+          closesConflicting,
+        };
+      });
     },
     async writeSeries(
       closes: readonly DailyClose[],

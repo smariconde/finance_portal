@@ -210,6 +210,42 @@ describe("ingestPrices", () => {
     expect(outcome.summary!.eventsInserted).toBe(1);
   });
 
+  it("does not store a bar whose session was still open", async () => {
+    const repository = new InMemoryPriceRepository();
+    const open: PriceSourceProvider = {
+      sourceId: "yahoo-finance",
+      async load(symbol) {
+        return {
+          sourceId: "yahoo-finance",
+          symbol,
+          parsed: {
+            ...parsedFixture(),
+            session: {
+              marketDate: "2024-06-11",
+              regularEnd: "2024-06-11T20:00:00.000Z",
+              lastPriceAt: "2024-06-11T17:00:00.000Z",
+            },
+          },
+          byteLength: 1024,
+          fetchedAt: "2024-06-11T17:00:05.000Z",
+        };
+      },
+    };
+
+    const outcome = await ingestPrices(
+      { securityId: SECURITY, symbol: FIXTURE_CHART_SYMBOL },
+      deps(repository, open),
+    );
+
+    expect(outcome.barsUnsettled).toEqual(["2024-06-11"]);
+    expect(outcome.summary!.closesInserted).toBe(3);
+    expect(
+      (await repository.loadSeries({ securityId: SECURITY })).map(
+        (close) => close.marketDate,
+      ),
+    ).not.toContain("2024-06-11");
+  });
+
   it("refuses a read that exceeds its ceiling instead of truncating", async () => {
     const repository = new InMemoryPriceRepository();
 

@@ -189,12 +189,14 @@ segundos si se calcula todo al pedir la matriz.
    sería `sortino-1.1.0`.
 2. **La referencia todavía no se ingiere.** `^SP500TR` no es una security del
    grafo de identidad. Dónde se guarda su serie y cómo se la nombra se decide en
-   `F7-05`.
+   `F7-05`. **Resuelto** por la [ADR 0029](0029-reference-series-sector-risk-matrix.md):
+   la serie vive en `benchmark_prices`.
 3. **Un cierre del día en curso se guardaría como definitivo.** La ingesta no
    distingue una rueda abierta de una cerrada. Correrla con el mercado abierto
    guarda un precio intradía como cierre inmutable, y el cierre real de esa
    rueda después aparece como pasado cambiado. Es un defecto de `F7-01`,
-   registrado para corregirse antes de automatizar la ingesta.
+   registrado para corregirse antes de automatizar la ingesta. **Resuelto** por
+   la ADR 0029 con `settled-session-1.0.0`.
 4. **`mar = 0` no es un exceso sobre la tasa libre de riesgo.** Un Sortino con
    `mar = 0` en un período de tasas altas se ve mejor que uno sobre la tasa.
    Como la referencia y los puntos comparten el `mar`, el orden relativo se

@@ -31,6 +31,37 @@ describe("parseChartPayload", () => {
     expect(result.symbol).toBe("SYNTH");
   });
 
+  it("reads the session the response declares as current", () => {
+    const [result] = [FIXTURE_CHART_PAYLOAD.chart.result[0]!];
+    const withSession = {
+      chart: {
+        error: null,
+        result: [
+          {
+            ...result,
+            meta: {
+              ...result.meta,
+              // Forma medida sobre `^SP500TR` el 2026-09-30.
+              regularMarketTime: 1_790_800_691,
+              currentTradingPeriod: {
+                pre: { start: 1_790_755_200, end: 1_790_775_000 },
+                regular: { start: 1_790_775_000, end: 1_790_798_400 },
+              },
+            },
+          },
+        ],
+      },
+    };
+
+    expect(parsedOk(withSession).session).toEqual({
+      marketDate: "2026-09-30",
+      regularEnd: "2026-09-30T20:00:00.000Z",
+      lastPriceAt: "2026-09-30T20:38:11.000Z",
+    });
+    expect(parsedOk(FIXTURE_CHART_PAYLOAD).session).toBeNull();
+    expect(parsedOk(FIXTURE_CHART_PAYLOAD).gmtOffsetSeconds).toBe(-4 * 3600);
+  });
+
   it("dates each bar in the market's own timezone", () => {
     // El timestamp de una rueda es su apertura. Convertirlo en UTC sin el
     // desfase correría la fecha de cualquier mercado al oeste de Greenwich.

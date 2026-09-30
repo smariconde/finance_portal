@@ -7,6 +7,7 @@ import {
 import {
   resolveDepositaryRatio,
   resolveIdentity,
+  securityTickersAt,
   requireResolvedSubject,
   type IdentityLookup,
 } from "@/modules/identity/domain/resolve-identity";
@@ -257,5 +258,50 @@ describe("requireResolvedSubject", () => {
     } catch (error) {
       expect(isTemporalContractError(error, "ambiguous_identity")).toBe(true);
     }
+  });
+});
+
+describe("securityTickersAt", () => {
+  it("names the ticker in force at each cutoff", () => {
+    const before = securityTickersAt(
+      DEMO_IDENTITY_GRAPH,
+      DEMO_IDENTITY_IDS.fixtureCoClassA,
+      at("2023-06-01T00:00:00.000Z"),
+    );
+    const after = securityTickersAt(
+      DEMO_IDENTITY_GRAPH,
+      DEMO_IDENTITY_IDS.fixtureCoClassA,
+      at("2024-06-01T00:00:00.000Z"),
+    );
+
+    expect(before.map((ticker) => ticker.symbol)).toEqual(["FIXA"]);
+    expect(after).toEqual([
+      {
+        listingId: DEMO_IDENTITY_IDS.fixtureCoXnasListing,
+        mic: "XNAS",
+        symbol: "FXCO",
+      },
+    ]);
+  });
+
+  it("does not borrow the ticker another security carries", () => {
+    // FIXA también es el ticker del CEDEAR en XBUE: es otra security.
+    expect(
+      securityTickersAt(
+        DEMO_IDENTITY_GRAPH,
+        DEMO_IDENTITY_IDS.fixtureCoCedear,
+        at("2025-06-01T00:00:00.000Z"),
+      ).map((ticker) => [ticker.mic, ticker.symbol]),
+    ).toEqual([["XBUE", "FIXA"]]);
+  });
+
+  it("returns nothing for a security without a listing at the cutoff", () => {
+    expect(
+      securityTickersAt(
+        DEMO_IDENTITY_GRAPH,
+        DEMO_IDENTITY_IDS.andesCommon,
+        at("2024-06-01T00:00:00.000Z"),
+      ),
+    ).toEqual([]);
   });
 });
