@@ -45,6 +45,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    17 | `F7-02`    | `done`     | El sector como clasificación declarada y versionada, con la población resuelta al `as_of`.                                                | Fase 2        |
 |    18 | `F7-01`    | `done`     | Precios diarios crudos por security, con splits y dividendos fechados y la base de ajuste declarada.                                      | Fase 2        |
 |    19 | `F7-03`    | `done`     | Registro CEDEAR de los dos emisores, con cada CEDEAR como security propia y el subyacente resuelto contra el grafo.                       | `F7-02`       |
+|    20 | `F7-04`    | `done`     | Catálogo de métricas acotado a las matrices y `sortino-1.0.0` puro sobre base total return, con los parámetros decididos por el owner.    | `F7-03`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -3000,6 +3001,82 @@ nuevos), build con las cuatro rutas en `ƒ (Dynamic)` y el gate E2E pasan.
 
 Antes de `F7-04` hay que decidir los parámetros del Sortino, que la
 especificación deja abiertos.
+
+<a id="f7-04"></a>
+
+#### `F7-04` — catálogo de métricas y `sortino-1.0.0` sobre base total return
+
+- Estado: `done` el 2026-09-30.
+- Fase y dependencia: Fase 7; `F7-03` cerrado.
+- Controles: `TM-05`, `TM-16`.
+- Decisión: [ADR 0028](../architecture/adr/0028-sortino-parameters-total-return.md).
+
+Parámetros decididos por el owner antes de escribir la fórmula: `mar = 0`,
+retornos diarios con `k = 252`, total return con el dividendo reinvertido al
+cierre del ex-date, `^SP500TR` como referencia y ventanas de calendario cuya base
+es el último cierre en o antes de `as_of − n años`.
+
+Criterios de aceptación:
+
+- el catálogo contiene sólo métricas de las matrices, cada una con fórmula
+  versionada, unidad, periodicidad, tratamiento de negativos y motivos de `null`;
+  las de divergencias están `planned` y sin versión;
+- `sortino-1.0.0` es puro, determinista, decimal, y no mira nada posterior al
+  `as_of`;
+- tests de `null` con motivo para historia insuficiente, sin retornos a la baja,
+  huecos, sin cierre en el `as_of`, moneda distinta y cierre en cero; de valores
+  negativos; y de no finitos, que se rechazan;
+- la base de retorno se prueba con splits, dividendos, los dos el mismo día y un
+  evento en un día sin rueda.
+
+Evidencia:
+
+- `src/modules/metrics/`:
+  - `total-return.ts`, 15 tests;
+  - `sortino.ts`, 20 tests: forma cerrada `√126` sobre +2 %/−1 % alternados, y un
+    oráculo de punto flotante independiente;
+  - `metric-catalog.ts`, 7 tests.
+- `temporal/domain/calendar-date.ts`: la aritmética de calendario mudada desde la
+  ventana de la SEC, para que las dos ventanas corten igual.
+
+La base total return destapó **tres defectos de la ingesta de `F7-01`**,
+corregidos en el mismo slice:
+
+1. **Los dividendos estaban en la base de la fuente**, divididos por los splits
+   posteriores: NVDA pagó 0,04 y quedó 0,004, y así 10 de los 60 dividendos.
+   `price-unadjust-1.1.0` los des-ajusta con el mismo factor que los cierres.
+2. **Un evento que cambiaba de valor se contaba como duplicado.** Ahora se
+   reporta en `eventsConflicting` y no se pisa, en PostgreSQL y en el doble.
+3. **La historia no alcanzaba para la ventana de 5 años:** con `range=5y` las
+   series empezaban un día después de su inicio. La ingesta pide cinco años más
+   14 días.
+
+Medido:
+
+- **Réplica de la base personal.** La re-descarga nombra los 10 dividendos como
+  «evento cambiado» y no los pisa.
+- **Base personal**, con autorización del owner y `pg_dump` previo de
+  `price_events`:
+  - 10 filas borradas y re-ingeridas crudas;
+  - 11 ruedas nuevas por serie desde el 2021-09-16;
+  - la segunda corrida queda `duplicate`, sin escrituras;
+  - la base sigue en 28 MB y se usaron 7 requests a Yahoo.
+- **Sortino al 2026-09-30, total return, 2 y 5 años:** AAPL 1,15 y 1,14, NVDA
+  1,38 y 1,85, JPM 1,65 y 1,17. JPM a 5 años sólo precio da 1,01. Entre 5 y 28 ms
+  por ventana.
+
+format, lint, typecheck, **1.569 unit** (50 nuevos), **157 integration** (1
+nuevo), build con las cuatro rutas en `ƒ (Dynamic)` y el gate E2E (131) pasan.
+
+Queda registrado para después, en la ADR 0028:
+
+- la tolerancia de huecos es de calendario y no de sesiones;
+- `^SP500TR` no se ingiere todavía, porque no es una security del grafo;
+- la ingesta no distingue una rueda abierta de un cierre: correrla con el
+  mercado abierto guardaría un intradía como cierre inmutable.
+
+Sigue `F7-05`, la matriz de riesgo por sector. Antes hay que decidir dónde vive
+la serie de la referencia.
 
 ### Fase 8 — divergencias fundamentales
 

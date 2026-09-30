@@ -2,7 +2,7 @@ import {
   isSelectedSecConcept,
   isSplitEvidenceConcept,
 } from "./sec-concept-selection";
-import { subtractCalendarYears } from "./sec-history-window";
+import { subtractCalendarYears } from "@/modules/temporal/domain/calendar-date";
 
 /**
  * Reducción de un extracto de la SEC a lo que el oráculo de regresión necesita.

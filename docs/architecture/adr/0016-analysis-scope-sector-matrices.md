@@ -145,6 +145,11 @@ escribirla:
   primera para una comparación de largo plazo: sólo precio castiga a las empresas
   que pagan dividendos altos, como T o VZ en el ejemplo.
 - **Instrumento de referencia** coherente con esa base.
+
+**Decidido el 2026-09-30** ([ADR 0028](0028-sortino-parameters-total-return.md)):
+`mar = 0`, retornos diarios con `k = 252`, total return con el dividendo
+reinvertido en el ex-date, `^SP500TR` como referencia y ventanas de calendario.
+
 - **Numerador:** media aritmética, que es la definición estándar, o CAGR.
 - **Límites de las ventanas:** por calendario o por cantidad de ruedas.
 - **Clases de un mismo emisor:** si se muestran las dos o una sola por emisor.

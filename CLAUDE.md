@@ -8,7 +8,7 @@ Portal Financiero: a single-owner Next.js 16 portal for researching global compa
 
 The code is public; the data is not. The app is **personal-first**: it serves real data only from a private runtime, and there is no public demo deployment. See [ADR 0004](docs/architecture/adr/0004-personal-first-runtime.md).
 
-The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations kept to a five-fiscal-year window, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, per-source daily request budgets with an owner kill switch, a hand-run refresh that probes `submissions` and re-downloads only the filers that filed something relevant, a deterministic FCFF engine with its reference run, a frozen corpus of real SEC extracts as regression oracle, the declared sector classification with its population resolved at `as_of`, raw daily price series with dated splits and dividends, and the CEDEAR registry of both issuers with each CEDEAR as its own security exist. Scheduled refresh, market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads real observations yet; nothing may be presented in the UI as if it were.
+The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations kept to a five-fiscal-year window, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, per-source daily request budgets with an owner kill switch, a hand-run refresh that probes `submissions` and re-downloads only the filers that filed something relevant, a deterministic FCFF engine with its reference run, a frozen corpus of real SEC extracts as regression oracle, the declared sector classification with its population resolved at `as_of`, raw daily price series with dated splits and dividends, the CEDEAR registry of both issuers with each CEDEAR as its own security, and a pure `sortino-1.0.0` over a total-return base with the metric catalog it belongs to exist. Scheduled refresh, market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads real observations yet; nothing may be presented in the UI as if it were.
 
 `AGENTS.md` holds the full contributor contract and takes precedence over this file where they overlap.
 
@@ -98,8 +98,9 @@ pnpm prices:ingest --ticker AAPL --ticker NVDA --apply
 ```
 
 Also hand-run (`F7-01`, [ADR 0026](docs/architecture/adr/0026-daily-prices-source.md),
-migrations `0018` and `0019`). One request per security brings five years of daily
-closes plus dated splits and dividends.
+migrations `0018` and `0019`). One request per security brings five years plus 14
+days of daily closes (the 5-year window's base close sits on or before its start)
+plus dated splits and dividends.
 
 The source is **Yahoo**, and the registry says what that is: there is no
 contractual grant of any kind. That forced a vocabulary decision — the rights gate
@@ -117,14 +118,32 @@ would put look-ahead in the database and make a stored row stop matching itself
 after the next split. The same response carries the dated splits, so un-adjusting
 is deterministic (`raw(t) = close(t) × Π ratio(s) for s later than t`) and the row
 becomes immutable, the re-download idempotent, and adjustment a read-time policy
-again — exactly as ADR 0012 did for per-share values. Dividends are stored dated
-and **unapplied**: the return base is `F7-04`'s open parameter.
+again — exactly as ADR 0012 did for per-share values. Dividends are stored dated,
+**unapplied**, and un-adjusted with the same factor (`price-unadjust-1.1.0`): the
+source divides them by later splits too, and `1.0.0` stored NVDA's $0.04 as
+0.004. An event re-downloaded with another value is reported
+(`eventsConflicting`), never overwritten.
 
 The row keeps a close, not an OHLCV, and no source/parser columns — those come
 from its run (ADR 0018), and the un-adjust factor rebuilds from `price_events`.
 Measured: **158 bytes per row**, so a sector of ~70 securities is ~14 MB and the
 whole index would be ~100 MB, above ADR 0016's 60–80 MB estimate. The product only
 needs per sector.
+
+The risk matrix's formula lives in `src/modules/metrics/` (`F7-04`,
+[ADR 0028](docs/architecture/adr/0028-sortino-parameters-total-return.md)), pure
+and with no command yet. The owner fixed its parameters and they are part of the
+version: `mar = 0`, daily returns with `k = 252`, **total return**
+(`total-return-1.0.0`, the dividend reinvested at its ex-date close, a split carried
+into the holding), `^SP500TR` as reference, calendar windows whose base is the last
+close on or before `as_of − n years`. Everything after `as_of` is ignored, exactly,
+because the stored series is raw. It returns `null` with a reason, never zero or
+infinity: `no_close_at_as_of`, `insufficient_history` (the window is never
+shortened), `missing_period` (consecutive closes more than 5 calendar days apart),
+`no_downside_observations`, `currency_mismatch`, `non_positive_close`.
+`metric-catalog-1.0.0` holds only matrix metrics: the two Sortinos implemented, the
+divergence ones `planned` with no formula version. Calendar arithmetic shared by
+the SEC window and these windows lives in `temporal/domain/calendar-date.ts`.
 
 ```bash
 pnpm cedears:record                                # dry run: both issuers, one request each, writes nothing

@@ -147,9 +147,52 @@ export function createPostgresPriceRepository(
             .onConflictDoNothing();
         }
 
+        // Los eventos de una security son decenas, no miles: se leen todos. Un
+        // evento que ya está con otro valor se reporta y no se pisa, igual que
+        // un cierre.
+        const storedEvents =
+          events.length === 0
+            ? []
+            : await tx
+                .select({
+                  eventType: schema.priceEvents.eventType,
+                  effectiveOn: schema.priceEvents.effectiveOn,
+                  value: schema.priceEvents.value,
+                })
+                .from(schema.priceEvents)
+                .where(eq(schema.priceEvents.securityId, securityId));
+
+        const storedEventValue = new Map(
+          storedEvents.map((row) => [
+            `${row.eventType}:${row.effectiveOn}`,
+            row.value,
+          ]),
+        );
+
+        const freshEvents: PriceEvent[] = [];
+        const eventsConflicting: string[] = [];
+        let eventsDuplicate = 0;
+
+        for (const event of events) {
+          const key = `${event.eventType}:${event.effectiveOn}`;
+          const stored = storedEventValue.get(key);
+
+          if (stored === undefined) {
+            freshEvents.push(event);
+            continue;
+          }
+
+          if (Number(stored) === Number(event.value)) {
+            eventsDuplicate += 1;
+            continue;
+          }
+
+          eventsConflicting.push(key);
+        }
+
         let eventsInserted = 0;
 
-        for (const batch of chunk([...events], INSERT_CHUNK)) {
+        for (const batch of chunk(freshEvents, INSERT_CHUNK)) {
           const inserted = await tx
             .insert(schema.priceEvents)
             .values(
@@ -174,7 +217,8 @@ export function createPostgresPriceRepository(
           closesDuplicate,
           closesConflicting,
           eventsInserted,
-          eventsDuplicate: events.length - eventsInserted,
+          eventsDuplicate,
+          eventsConflicting,
         };
       });
     },

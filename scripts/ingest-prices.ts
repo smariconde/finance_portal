@@ -110,6 +110,7 @@ for (const ticker of values.ticker) {
 const source = createLivePriceSource({
   sourceRegistry: registry,
   fetch: getSourceEgressFetch(PRICES_REQUEST_PACING),
+  now: () => new Date(),
 });
 
 const repository = getPriceRepository();
@@ -170,6 +171,16 @@ for (const target of targets) {
       "  ⚠ pasado cambiado",
       outcome.summary.closesConflicting.slice(0, 5).join(", ") +
         (outcome.summary.closesConflicting.length > 5 ? " …" : ""),
+    );
+  }
+
+  if (outcome.summary.eventsConflicting.length > 0) {
+    // Lo mismo para un split o un dividendo. Un dividendo guardado con
+    // `price-unadjust-1.0.0` antes de un split cae acá: ADR 0028.
+    log(
+      "  ⚠ evento cambiado",
+      outcome.summary.eventsConflicting.slice(0, 5).join(", ") +
+        (outcome.summary.eventsConflicting.length > 5 ? " …" : ""),
     );
   }
 }

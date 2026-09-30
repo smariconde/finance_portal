@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   PriceUnadjustError,
   PRICE_UNADJUST_RULE_VERSION,
+  unadjustDividends,
   unadjustSeries,
 } from "./unadjust-series";
 
@@ -145,6 +146,63 @@ describe("unadjustSeries", () => {
   });
 
   it("declares its rule version", () => {
-    expect(PRICE_UNADJUST_RULE_VERSION).toBe("price-unadjust-1.0.0");
+    expect(PRICE_UNADJUST_RULE_VERSION).toBe("price-unadjust-1.1.0");
+  });
+});
+
+describe("unadjustDividends", () => {
+  const split = [{ effectiveOn: "2024-06-10", ratio: "10" }];
+
+  it("restores what NVDA paid per share before its 10:1", () => {
+    // Oráculo real, medido en la base personal el 2026-09-30: la fuente publica
+    // 0,004 para el 2024-03-05, junto a un cierre crudo de 859,64. NVDA pagó
+    // US$ 0,04 por acción de entonces.
+    const [dividend] = unadjustDividends(
+      [{ effectiveOn: "2024-03-05", amount: "0.004" }],
+      split,
+      NVDA,
+    );
+
+    expect(dividend).toEqual({
+      effectiveOn: "2024-03-05",
+      amount: "0.04",
+      appliedFactor: "10",
+    });
+  });
+
+  it("leaves a dividend on or after the split day in the base it already has", () => {
+    expect(
+      unadjustDividends(
+        [
+          { effectiveOn: "2024-06-10", amount: "0.01" },
+          { effectiveOn: "2024-06-11", amount: "0.01" },
+        ],
+        split,
+        NVDA,
+      ).map((dividend) => dividend.amount),
+    ).toEqual(["0.01", "0.01"]);
+  });
+
+  it("compounds every later split and undoes a reverse one", () => {
+    expect(
+      unadjustDividends(
+        [{ effectiveOn: "2020-01-02", amount: "0.05" }],
+        [
+          { effectiveOn: "2021-07-20", ratio: "4" },
+          { effectiveOn: "2024-06-10", ratio: "0.125" },
+        ],
+        NVDA,
+      )[0]?.amount,
+    ).toBe("0.025");
+  });
+
+  it("refuses a non-positive split ratio", () => {
+    expect(() =>
+      unadjustDividends(
+        [{ effectiveOn: "2024-03-05", amount: "0.004" }],
+        [{ effectiveOn: "2024-06-10", ratio: "0" }],
+        NVDA,
+      ),
+    ).toThrow(PriceUnadjustError);
   });
 });

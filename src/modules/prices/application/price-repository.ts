@@ -31,6 +31,12 @@ export type PriceWriteSummary = {
   readonly closesConflicting: readonly string[];
   readonly eventsInserted: number;
   readonly eventsDuplicate: number;
+  /**
+   * Eventos que ya estaban **con otro valor**, como `tipo:fecha`. Tampoco se
+   * pisan. Hasta `F7-04` se contaban como duplicados en silencio, y así fue como
+   * diez dividendos guardados en la base de la fuente pasaron por buenos.
+   */
+  readonly eventsConflicting: readonly string[];
 };
 
 export interface PriceRepository {

@@ -79,12 +79,19 @@ export class InMemoryPriceRepository implements PriceRepository {
 
     let eventsInserted = 0;
     let eventsDuplicate = 0;
+    const eventsConflicting: string[] = [];
 
     for (const event of events) {
       const key = InMemoryPriceRepository.eventKey(event);
+      const existing = this.events.get(key);
 
-      if (this.events.has(key)) {
-        eventsDuplicate += 1;
+      if (existing !== undefined) {
+        if (Number(existing.value) === Number(event.value)) {
+          eventsDuplicate += 1;
+        } else {
+          eventsConflicting.push(`${event.eventType}:${event.effectiveOn}`);
+        }
+
         continue;
       }
 
@@ -99,6 +106,7 @@ export class InMemoryPriceRepository implements PriceRepository {
       closesConflicting,
       eventsInserted,
       eventsDuplicate,
+      eventsConflicting,
     };
   }
 }

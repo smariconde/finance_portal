@@ -6,8 +6,6 @@ import {
   buildSecHistoryWindow,
   resolveSecHistoryAnchor,
   SEC_HISTORY_WINDOW_VERSION,
-  subtractCalendarYears,
-  subtractDays,
 } from "./sec-history-window";
 
 function fact(
@@ -31,26 +29,6 @@ function fact(
 const noEvidence = () => false;
 const epsIsEvidence = (_taxonomy: string, concept: string) =>
   concept === "EarningsPerShareDiluted";
-
-describe("calendar arithmetic", () => {
-  it("moves whole years and clamps the 29th of February", () => {
-    expect(subtractCalendarYears("2025-09-27", 5)).toBe("2020-09-27");
-    expect(subtractCalendarYears("2024-02-29", 5)).toBe("2019-02-28");
-    expect(subtractCalendarYears("2028-02-29", 4)).toBe("2024-02-29");
-    expect(subtractCalendarYears("2025-12-31", 6)).toBe("2019-12-31");
-  });
-
-  it("moves days across months and leap days", () => {
-    expect(subtractDays("2020-09-27", 14)).toBe("2020-09-13");
-    expect(subtractDays("2020-03-10", 14)).toBe("2020-02-25");
-    expect(subtractDays("2021-01-11", 14)).toBe("2020-12-28");
-  });
-
-  it("refuses text that is not a calendar date", () => {
-    expect(() => subtractCalendarYears("2025-02-30", 5)).toThrow(TypeError);
-    expect(() => subtractDays("20250101", 1)).toThrow(TypeError);
-  });
-});
 
 describe("resolveSecHistoryAnchor", () => {
   it("anchors on the latest annual duration of an annual report", () => {

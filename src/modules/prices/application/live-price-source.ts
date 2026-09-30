@@ -4,6 +4,10 @@ import {
   type IngestionRightsRequest,
 } from "@/modules/ingestion/domain/source-registry-entry";
 import type { SourceRegistryRepository } from "@/modules/ingestion/application/source-registry-repository";
+import {
+  subtractCalendarYears,
+  subtractDays,
+} from "@/modules/temporal/domain/calendar-date";
 
 import {
   parseChartPayload,
@@ -16,7 +20,7 @@ export const PRICES_SOURCE_ID = "yahoo-finance";
  * Adaptador vivo de la serie diaria
  * ([ADR 0026](../../../../docs/architecture/adr/0026-daily-prices-source.md)).
  *
- * Una request por security trae cinco años de cierres más los splits y
+ * Una request por security trae cinco años y dos semanas de cierres más los splits y
  * dividendos fechados. La respuesta se normaliza y **no se conserva**: la fila
  * de derechos declara `rawStorage: "restricted"`, así que el gate se negaría si
  * esta corrida dijera que guarda el payload.
@@ -53,25 +57,40 @@ export class PriceSourceError extends Error {
 }
 
 /**
- * Ventana pedida. Cinco años es lo que la matriz necesita para su ventana larga
+ * Historia pedida. Cinco años es la ventana larga de la matriz
  * ([ADR 0016](../../../../docs/architecture/adr/0016-analysis-scope-sector-matrices.md)),
- * y pedir más sería traer historia que ninguna vista usa y que hay que guardar.
+ * y la ventana es de calendario con su base en el último cierre **en o antes**
+ * del inicio (`sortino-1.0.0`). Con `range=5y` la fuente devolvía desde el día
+ * siguiente a ese inicio: medido el 2026-09-30, las tres series empezaban el
+ * 2021-09-23 contra un inicio del 2021-09-22, y la ventana de 5 años no tenía
+ * base en ninguna. El margen es el de la ventana de la SEC, y cuesta unas diez
+ * filas por security.
  */
-export const PRICE_HISTORY_RANGE = "5y";
+export const PRICE_HISTORY_YEARS = 5;
+export const PRICE_HISTORY_MARGIN_DAYS = 14;
 
-export function buildChartUrl(symbol: string): string {
+export function buildChartUrl(symbol: string, now: Date): string {
+  const today = now.toISOString().slice(0, 10);
+  const from = subtractDays(
+    subtractCalendarYears(today, PRICE_HISTORY_YEARS),
+    PRICE_HISTORY_MARGIN_DAYS,
+  );
+  const period1 = Date.parse(`${from}T00:00:00.000Z`) / 1000;
+  const period2 = Math.floor(now.getTime() / 1000);
+
   // El símbolo va percent-encoded: un `BRK.B` es legítimo y un símbolo con un
   // carácter inesperado no debe poder construir otra ruta. El prefijo de la
   // allowlist rechazaría el intento igual, pero esto lo corta antes.
   return (
     `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}` +
-    `?range=${PRICE_HISTORY_RANGE}&interval=1d&events=div%2Csplit`
+    `?period1=${period1}&period2=${period2}&interval=1d&events=div%2Csplit`
   );
 }
 
 export type PriceSourceDependencies = {
   readonly sourceRegistry: SourceRegistryRepository;
   readonly fetch: EgressFetch;
+  readonly now: () => Date;
 };
 
 export type FetchedSeries = {
@@ -118,7 +137,7 @@ export function createLivePriceSource(
       try {
         response = await dependencies.fetch({
           sourceId: PRICES_SOURCE_ID,
-          url: buildChartUrl(symbol),
+          url: buildChartUrl(symbol, dependencies.now()),
           accept: "application/json",
         });
       } catch (cause) {
