@@ -147,17 +147,18 @@ Responde que empresas de un sector compensaron mejor su riesgo a la baja a 2 y a
 6. La recta de ajuste se calcula sobre los puntos del sector, sin la referencia, y publica su `n`. Como la ventana de 5 anos contiene a la de 2, parte de la correlacion entre ejes es mecanica.
 7. Dos clases del mismo emisor son dos securities y dos puntos.
 
-Parametros a decidir con el owner antes de escribir `sortino-1.0.0`:
+Parametros de `sortino-1.0.0`, decididos por el owner el 2026-09-30 ([ADR 0028](../architecture/adr/0028-sortino-parameters-total-return.md)):
 
-| Parametro | Opciones | Recomendacion inicial |
-|---|---|---|
-| `mar` | cero o tasa libre de riesgo del periodo | a decidir |
-| Frecuencia | diaria (`k = 252`) o mensual (`k = 12`) | a decidir; la mensual guarda unas 60 filas por security |
-| Base de retorno | dividendos reinvertidos o solo precio | dividendos reinvertidos: solo precio castiga a quien paga dividendos altos |
-| Referencia | indice de precio, indice total return o ETF ajustado | la que coincida con la base de retorno |
-| Numerador | media aritmetica o CAGR | media aritmetica, la definicion estandar |
-| Limites de ventana | calendario o cantidad de ruedas | a decidir |
-| Clases del mismo emisor | todas o una por emisor | todas, con etiquetas legibles |
+| Parametro | Decision |
+|---|---|
+| `mar` | cero |
+| Frecuencia | diaria, `k = 252` |
+| Base de retorno | total return (`total-return-1.0.0`): dividendo reinvertido al cierre del ex-date |
+| Referencia | `^SP500TR`, el indice total return |
+| Numerador | media aritmetica |
+| Limites de ventana | calendario; la base es el ultimo cierre en o antes del inicio |
+| Tolerancia de huecos | 5 dias de calendario entre cierres consecutivos; mas es `missing_period` |
+| Clases del mismo emisor | todas, con etiquetas legibles |
 
 Los precios se guardan en una tabla propia y liviana, no en `observations`: unas 630.000 barras diarias de 5 anos para el universo ocuparian ~600 MB alli, contra un orden de 60-80 MB en una tabla liviana. El tamano se mide con un prototipo antes de ingerir.
 

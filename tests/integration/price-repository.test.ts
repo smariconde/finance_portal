@@ -143,6 +143,36 @@ describe("security prices on PostgreSQL", () => {
     expect(stored[0]!.close).toBe("1224.4");
   });
 
+  it("reports a changed event without overwriting it", async () => {
+    // Un dividendo guardado con `price-unadjust-1.0.0` antes de un split quedó
+    // en la base de la fuente. Hasta `F7-04` la re-descarga lo contaba como
+    // duplicado; ahora lo nombra y lo deja como estaba.
+    const repository = createPostgresPriceRepository(database);
+    const dividend = (value: string) => ({
+      securityId,
+      eventType: "dividend" as const,
+      effectiveOn: "2024-03-05",
+      value,
+      currency: "USD",
+    });
+
+    await repository.writeSeries([], [dividend("0.004")], runId);
+    const revised = await repository.writeSeries(
+      [],
+      [dividend("0.04"), split("2024-06-10", "10")],
+      runId,
+    );
+
+    expect(revised.eventsConflicting).toEqual(["dividend:2024-03-05"]);
+    expect(revised.eventsDuplicate).toBe(0);
+    expect(revised.eventsInserted).toBe(1);
+
+    const again = await repository.writeSeries([], [dividend("0.0040")], runId);
+
+    expect(again.eventsConflicting).toEqual([]);
+    expect(again.eventsDuplicate).toBe(1);
+  });
+
   it("treats trailing zeros as the same price, not a changed past", async () => {
     // `numeric` vuelve de PostgreSQL con la escala que guardó, así que comparar
     // como texto marcaría 121.79 y 121.790 como un pasado cambiado.

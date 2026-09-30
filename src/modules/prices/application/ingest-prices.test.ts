@@ -77,6 +77,8 @@ describe("buildRows", () => {
   });
 
   it("keeps the split and the dividend as dated, unapplied events", () => {
+    // El dividendo precede al 10:1 y la fuente lo publica dividido por él
+    // (0,25). Se guarda en la base de su propia rueda, como el cierre: 2,5.
     const { events } = buildRows(SECURITY, parsedFixture());
 
     expect(events).toEqual([
@@ -91,7 +93,7 @@ describe("buildRows", () => {
         securityId: SECURITY,
         eventType: "dividend",
         effectiveOn: "2024-06-05",
-        value: "0.25",
+        value: "2.5",
         currency: "USD",
       },
     ]);
@@ -111,7 +113,7 @@ describe("ingestPrices", () => {
     expect(outcome.summary!.closesConflicting).toEqual([]);
     expect(outcome.summary!.eventsInserted).toBe(2);
     expect(outcome.barsWithoutClose).toBe(1);
-    expect(outcome.unadjustRuleVersion).toBe("price-unadjust-1.0.0");
+    expect(outcome.unadjustRuleVersion).toBe("price-unadjust-1.1.0");
     expect(await repository.loadSeries({ securityId: SECURITY })).toHaveLength(
       4,
     );
@@ -178,6 +180,34 @@ describe("ingestPrices", () => {
     const untouched = stored.find((close) => close.marketDate === "2024-06-11");
 
     expect(untouched?.close).toBe("10.55");
+  });
+
+  it("reports a dividend stored in the source's basis instead of calling it a duplicate", async () => {
+    // Lo que dejó `price-unadjust-1.0.0`: el dividendo previo a un split,
+    // guardado dividido por él. La re-descarga no lo pisa ni lo da por bueno.
+    const repository = new InMemoryPriceRepository();
+
+    await repository.writeSeries(
+      [],
+      [
+        {
+          securityId: SECURITY,
+          eventType: "dividend",
+          effectiveOn: "2024-06-05",
+          value: "0.25",
+          currency: "USD",
+        },
+      ],
+    );
+
+    const outcome = await ingestPrices(
+      { securityId: SECURITY, symbol: FIXTURE_CHART_SYMBOL },
+      deps(repository),
+    );
+
+    expect(outcome.summary!.eventsConflicting).toEqual(["dividend:2024-06-05"]);
+    expect(outcome.summary!.eventsDuplicate).toBe(0);
+    expect(outcome.summary!.eventsInserted).toBe(1);
   });
 
   it("refuses a read that exceeds its ceiling instead of truncating", async () => {

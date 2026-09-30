@@ -13,6 +13,7 @@ import {
   type PriceEvent,
 } from "../domain/daily-close";
 import {
+  unadjustDividends,
   unadjustSeries,
   PRICE_UNADJUST_RULE_VERSION,
 } from "../domain/unadjust-series";
@@ -88,6 +89,11 @@ export function buildRows(
   readonly barsRestatedBySource: number;
 } {
   const unadjusted = unadjustSeries(parsed.bars, parsed.splits, securityId);
+  const dividends = unadjustDividends(
+    parsed.dividends,
+    parsed.splits,
+    securityId,
+  );
 
   const closes = unadjusted.map((bar) =>
     dailyCloseSchema.parse({
@@ -108,7 +114,7 @@ export function buildRows(
         currency: null,
       }),
     ),
-    ...parsed.dividends.map((dividend) =>
+    ...dividends.map((dividend) =>
       priceEventSchema.parse({
         securityId,
         eventType: "dividend",

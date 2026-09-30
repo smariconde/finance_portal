@@ -1,5 +1,9 @@
+import {
+  subtractCalendarYears,
+  subtractDays,
+} from "@/modules/temporal/domain/calendar-date";
+
 import type { SecReportedFact } from "./parse-sec-company-facts";
-import { isCalendarDate } from "./parse-sec-submissions";
 import { classifySecPeriod } from "./sec-fact-rules";
 
 /**
@@ -78,45 +82,6 @@ export type SecHistoryWindowSelection = {
     readonly outside: number;
   };
 };
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-function assertCalendarDate(value: string): void {
-  if (!isCalendarDate(value)) {
-    throw new TypeError("History window dates must be calendar dates.");
-  }
-}
-
-/**
- * Misma fecha `years` años antes. Un 29 de febrero cae en el 28 de febrero de un
- * año no bisiesto, nunca en el 1 de marzo: correr el corte hacia adelante dejaría
- * afuera un cierre que entra.
- */
-export function subtractCalendarYears(date: string, years: number): string {
-  assertCalendarDate(date);
-
-  const [year, month, day] = date.split("-").map(Number) as [
-    number,
-    number,
-    number,
-  ];
-  const targetYear = year - years;
-  const lastDay = new Date(Date.UTC(targetYear, month, 0)).getUTCDate();
-
-  return [
-    String(targetYear).padStart(4, "0"),
-    String(month).padStart(2, "0"),
-    String(Math.min(day, lastDay)).padStart(2, "0"),
-  ].join("-");
-}
-
-export function subtractDays(date: string, days: number): string {
-  assertCalendarDate(date);
-
-  return new Date(Date.parse(`${date}T00:00:00.000Z`) - days * DAY_MS)
-    .toISOString()
-    .slice(0, 10);
-}
 
 export function resolveSecHistoryAnchor(facts: readonly SecReportedFact[]): {
   readonly anchorOn: string;

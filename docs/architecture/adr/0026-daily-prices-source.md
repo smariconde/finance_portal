@@ -192,6 +192,14 @@ medición, no una columna agregada en silencio.
 6. **El dividendo se guarda pero no se aplica.** La base de retorno la decide
    `F7-04`.
 
+**Enmienda del 2026-09-30 (`F7-04`, [ADR 0028](0028-sortino-parameters-total-return.md)).**
+"Sin aplicar" no alcanzaba: la fuente también divide los **dividendos** por los
+splits posteriores, y `price-unadjust-1.0.0` sólo des-ajustaba los cierres. NVDA
+quedó con 0,004 donde pagó 0,04. `price-unadjust-1.1.0` los des-ajusta con el
+mismo factor, y la escritura reporta un evento que cambió de valor en lugar de
+contarlo como duplicado. La historia pedida pasa de `range=5y` a cinco años más
+14 días, porque la ventana de 5 años necesita un cierre en o antes de su inicio.
+
 ## Condición de revisión
 
 - **el endpoint deja de responder o cambia de forma.** El adaptador está detrás de
