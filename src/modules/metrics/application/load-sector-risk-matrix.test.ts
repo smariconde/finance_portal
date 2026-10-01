@@ -173,6 +173,14 @@ describe("loadSectorRiskMatrix", () => {
       point!.sortino2y.status === "computed" && Number(point!.sortino2y.value),
     ).toBeCloseTo(Math.sqrt(126), 6);
     expect(reading.population.unclassified).toBe(0);
+    expect(reading.quality).toMatchObject({
+      ruleVersion: "sector-risk-quality-1.0.0",
+      status: "ready",
+      score: 100,
+      population: 1,
+      comparable: 1,
+      seriesWithoutRows: 0,
+    });
   });
 
   it("labels a point with the ticker it had at an earlier as_of", async () => {

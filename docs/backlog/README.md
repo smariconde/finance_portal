@@ -49,7 +49,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    21 | `F7-05`    | `done`     | Matriz de riesgo por sector al `as_of`: referencia `^SP500TR` en la misma base, recta nombrada, CEDEAR, nulos con motivo y consulta acotada. | `F7-04`       |
 |    22 | `F7-08`    | `done`     | La matriz es a hoy y, al abrirla, descarga sólo los precios que le faltan, como job durable con progreso, sin bucles y sin pasar la cuota.   | `F7-05`       |
 |    23 | `F7-06`    | `done`     | Descarga CSV personal de la matriz con valores exactos, nulos, definiciones, versiones y atribucion de las fuentes.                          | `F7-05`       |
-|    24 | `F7-07`    | `ready`    | Degradacion, reconciliacion y quality score explicable de la matriz.                                                                         | `F7-05`       |
+|    24 | `F7-07`    | `done`     | Degradacion, reconciliacion y quality score explicable de la matriz.                                                                         | `F7-05`       |
+|    25 | `F3-01`    | `ready`    | Selector determinista de arquetipo con reglas explícitas, requisitos y rechazo de métodos no admitidos.                                      | Fase 7 `done` |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -3314,6 +3315,46 @@ Evidencia:
   build y gate E2E pasan.
 
 Sigue `F7-07`: degradación, reconciliación y quality score explicable.
+
+#### `F7-07` — calidad explicable de la matriz
+
+- Estado: `done` el 2026-10-01. Cierra la Fase 7.
+- Fase y dependencia: Fase 7; `F7-05` cerrado.
+- Controles: `TM-05`, `TM-16`.
+- Contrato: `sector-risk-quality-1.0.0`; nota operativa 0–100 con pesos
+  declarados: completitud 40 %, frescura 20 %, comparabilidad 20 % y validación
+  interna 20 %. El acuerdo entre fuentes queda `null` porque hay una sola fuente
+  de precios; el sector vacío queda sin nota.
+
+Criterios cerrados:
+
+- cada `null` de Sortino conserva su motivo y reduce sólo el componente al que
+  corresponde; la nota no reemplaza el panel «Sin valor» ni convierte ausencias en
+  cero;
+- la lectura reconcilia IDs de población, cantidad del ajuste, cuadrantes y
+  distancias decimales; un desacuerdo falla cerrado antes de mostrar la matriz;
+- la superficie muestra nota, cinco componentes, numeradores, denominadores,
+  antigüedad en días y la regla de frescura sin calendario de feriados;
+- la nota declara que la reconciliación es interna y no valida de forma
+  independiente los precios de Yahoo.
+
+Evidencia:
+
+- Tests de la regla: cobertura parcial por historia insuficiente, nota completa,
+  frescura degradada, sector vacío, security perdida y distancia alterada.
+- Sobre Energy en la base personal, la nota y sus componentes renderizan en
+  1440 oscuro y 390 claro; ningún POST de refresh llegó al servidor durante la
+  revisión. Axe: 0 hallazgos serious/critical; overflow horizontal: 0 px en los
+  dos anchos. Detector Impeccable: `[]`.
+- `pnpm lint`, `pnpm typecheck`, 1.660 unit, 165 integration, build y gate E2E
+  (170 pasan, 2 skipped) pasan. Sin migración ni fuente nueva.
+
+**Gate de Fase 7:** pasa. Las securities sin historia o downside mantienen su
+`null` con motivo; la referencia usa la misma fórmula, base y ventanas; el CSV
+personal declara la procedencia de cada columna. La calidad operativa queda
+versionada y su límite de una sola fuente aparece junto al resultado.
+
+Sigue `F3-01`: selector determinista de arquetipo.
 
 ### Fase 8 — divergencias fundamentales
 

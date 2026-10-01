@@ -9,6 +9,10 @@ import {
   type SectorMemberSeries,
 } from "./sector-risk-matrix";
 import type { ReturnClose } from "./total-return";
+import {
+  assessSectorRiskQuality,
+  SectorRiskReconciliationError,
+} from "./sector-risk-quality";
 
 const AS_OF = "2026-09-25";
 
@@ -236,5 +240,124 @@ describe("buildSectorRiskMatrix", () => {
       window2y: null,
       window5y: null,
     });
+  });
+});
+
+describe("assessSectorRiskQuality", () => {
+  const strong = alternating("2021-09-01", 0.02, -0.01);
+  const weak = alternating("2021-09-01", 0.01, -0.02);
+  const young = alternating("2024-06-03", 0.02, -0.01);
+
+  function assess(
+    members: readonly SectorMemberSeries[],
+    requestedAsOf = AS_OF,
+  ) {
+    const result = matrix(members);
+    return assessSectorRiskQuality({
+      matrix: result,
+      populationSecurityIds: members.map((entry) => entry.securityId),
+      requestedAsOf,
+      seriesWithoutRows: members.filter((entry) => entry.closes.length === 0)
+        .length,
+    });
+  }
+
+  it("shows the five components and scores only the four assessable ones", () => {
+    const quality = assess([
+      member("a", "STRG", strong),
+      member("b", "WEAK", weak),
+      member("c", "YNG", young),
+    ]);
+
+    expect(quality).toMatchObject({
+      ruleVersion: "sector-risk-quality-1.0.0",
+      status: "degraded",
+      score: 87,
+      population: 3,
+      computed2y: 3,
+      computed5y: 2,
+      comparable: 2,
+      components: {
+        completeness: 83,
+        freshness: 100,
+        comparability: 67,
+        validation: 100,
+        agreement: null,
+      },
+    });
+    expect(assess([member("a", "STRG", strong)])).toMatchObject({
+      score: 100,
+      status: "ready",
+    });
+  });
+
+  it("degrades stale data by calendar days and leaves an empty population unscored", () => {
+    expect(assess([member("a", "STRG", strong)], "2026-10-02")).toMatchObject({
+      score: 90,
+      daysSinceClose: 7,
+      components: { freshness: 50 },
+    });
+    expect(assess([], AS_OF)).toMatchObject({
+      score: null,
+      status: "degraded",
+      components: { completeness: null, comparability: null },
+    });
+    const noReference = buildSectorRiskMatrix({
+      asOf: AS_OF,
+      sector: {
+        code: "energy",
+        label: "Energy",
+        taxonomyId: "sp500-wikipedia-gics-sector",
+        taxonomyVersion: null,
+      },
+      reference: {
+        benchmarkId: "sp500-total-return",
+        label: "S&P 500 Total Return",
+        closes: [],
+      },
+      members: [member("a", "STRG", strong)],
+    });
+    expect(
+      assessSectorRiskQuality({
+        matrix: noReference,
+        populationSecurityIds: ["a"],
+        requestedAsOf: AS_OF,
+        seriesWithoutRows: 0,
+      }),
+    ).toMatchObject({
+      status: "degraded",
+      components: { comparability: 0 },
+    });
+  });
+
+  it("fails closed on a lost security or a changed derived distance", () => {
+    const result = matrix([member("a", "STRG", strong)]);
+    const input = {
+      matrix: result,
+      populationSecurityIds: ["a"],
+      requestedAsOf: AS_OF,
+      seriesWithoutRows: 0,
+    };
+
+    expect(() =>
+      assessSectorRiskQuality({ ...input, populationSecurityIds: ["a", "b"] }),
+    ).toThrow(SectorRiskReconciliationError);
+    expect(() =>
+      assessSectorRiskQuality({
+        ...input,
+        matrix: {
+          ...result,
+          points: [
+            {
+              ...result.points[0]!,
+              distanceToReference: {
+                ...result.points[0]!.distanceToReference,
+                window2y: "0",
+              },
+            },
+          ],
+        },
+      }),
+    ).toThrow(SectorRiskReconciliationError);
   });
 });

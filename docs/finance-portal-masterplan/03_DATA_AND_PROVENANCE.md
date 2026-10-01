@@ -106,6 +106,18 @@ Cada observacion tiene tiempo efectivo y `available_at`. Guardar filing/publicac
 
 El metric catalog define fuente preferida, precedencia, tolerancia absoluta/relativa y accion ante desacuerdo: `accept`, `flag`, `quarantine` o `manual_review`. El quality score tiene componentes visibles (completitud, freshness, comparabilidad, validacion y acuerdo); nunca es una cifra opaca producida por IA.
 
+Para la matriz de riesgo, `sector-risk-quality-1.0.0` puntúa sólo la calidad
+operativa que sus datos permiten medir: 40 % de completitud (Sortinos calculados
+sobre dos ventanas por security), 20 % de frescura (días calendario desde el
+último cierre: 100 hasta 4, 50 entre 5 y 7, 0 después), 20 % de comparabilidad
+(securities con ambas ventanas y referencia calculadas) y 20 % de validación
+interna. Esta última exige reconciliar IDs de población, cantidad del ajuste,
+cuadrantes y distancias decimales; una discrepancia falla cerrada antes de mostrar
+la matriz. El acuerdo entre fuentes queda `null`: Yahoo es la única fuente de
+precios, así que la nota no afirma que sus publicaciones sean correctas. Un
+sector vacío tampoco recibe nota. Cada componente y su denominador se muestran
+junto al resultado; los `null` de Sortino conservan su motivo.
+
 ## Registro CEDEAR
 
 Modelo minimo:
