@@ -188,7 +188,8 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         normalizedStorage: "allowed",
         derivedStorage: "allowed",
         publicDisplay: "unknown",
-        export: "unknown",
+        // El paquete publica PDDL 1.0: permite reutilización y exportación.
+        export: "allowed",
         aiTransfer: "unknown",
       },
       technicalStatus: "spike_ready",

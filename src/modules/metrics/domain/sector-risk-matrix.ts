@@ -42,6 +42,7 @@ export const MIN_FIT_POINTS = 3;
 export type CedearMark =
   | {
       readonly status: "program";
+      readonly sourceId: string;
       /** Ratio vigente `CEDEAR : subyacente`, o `null` si no hay uno conocido. */
       readonly ratio: {
         readonly depositaryUnits: string;

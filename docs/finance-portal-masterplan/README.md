@@ -85,7 +85,5 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 
 ## Estado actual
 
-La Fase 2 está en curso; `F2-01` a `F2-04` están cerrados y `F2-05` está en curso:
-su primer incremento (jobs durables, ADR 0015) está entregado. El estado operativo y el historial de sesiones viven en
-`06_PHASED_ROADMAP.md`; el orden ejecutable vive en `../backlog/README.md`.
+Las fases 0, 1 y 2 están cerradas. La Fase 7 está en curso: la matriz sectorial, la carga de precios al abrirla y su export personal están entregadas; queda `F7-07` (degradación, reconciliación y calidad explicable). El estado operativo y el historial de sesiones viven en `06_PHASED_ROADMAP.md`; el orden ejecutable vive en `../backlog/README.md`.
 La existencia de una página o documento no demuestra avance.

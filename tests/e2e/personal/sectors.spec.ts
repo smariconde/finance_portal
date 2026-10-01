@@ -32,6 +32,15 @@ test.describe("matrices por sector sin base", () => {
     });
   }
 
+  test("la descarga directa falla cerrada cuando la base personal no responde", async ({
+    request,
+  }) => {
+    const response = await request.get(`${ROUTES.sectorMatrix}/export`);
+    expect(response.status()).toBe(503);
+    expect(response.headers()["cache-control"]).toContain("no-store");
+    expect(await response.text()).toBe("Export no disponible.");
+  });
+
   test("un sector que no es de la taxonomía es la página de ruta inexistente", async ({
     page,
   }) => {

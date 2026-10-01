@@ -186,6 +186,7 @@ describe("buildSectorRiskMatrix", () => {
   it("carries the CEDEAR mark through untouched", () => {
     const mark: CedearMark = {
       status: "program",
+      sourceId: "comafi-cedear",
       ratio: { depositaryUnits: "58", underlyingUnits: "1" },
       programs: 1,
       programStatus: "active",

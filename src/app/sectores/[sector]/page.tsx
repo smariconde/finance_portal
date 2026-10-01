@@ -27,6 +27,7 @@ import { getPriceRepository } from "@/server/persistence/get-price-repository";
 import { getUniverseRepository } from "@/server/persistence/get-universe-repository";
 
 import { SectorPriceRefresh } from "./_components/sector-price-refresh";
+import { SectorRiskExport } from "./_components/sector-risk-export";
 import { SectorRiskWorkspace } from "./_components/sector-risk-workspace";
 
 /** Ver [ADR 0005](../../../../docs/architecture/adr/0005-request-time-runtime-boundary.md). */
@@ -210,6 +211,7 @@ function MatrixBody({
 
   return (
     <>
+      <SectorRiskExport sectorCode={matrix.sector.code} />
       <dl className="grid gap-x-8 gap-y-3 rounded-lg border bg-card p-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <dt className="text-muted-foreground">Cierre de las dos ventanas</dt>
