@@ -86,5 +86,7 @@ export const ROUTES = {
   home: "/",
   configuration: "/configuracion",
   reference: "/valuacion/referencia",
+  sectors: "/sectores",
+  sectorMatrix: "/sectores/communication-services",
   missing: "/ruta-que-no-existe",
 } as const;

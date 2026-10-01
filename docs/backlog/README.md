@@ -24,29 +24,29 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 
 ## Tracker activo
 
-| Orden | Issue      | Estado        | Resultado verificable                                                                                                                        | Dependencias  |
-| ----: | ---------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-|     1 | `F1-01`    | `done`        | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos.                                 | Fase 0 `done` |
-|     2 | `F1-02`    | `done`        | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.                                      | `F1-01`       |
-|     3 | `F1-UI-01` | `done`        | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.                                               | `F1-02`       |
-|     4 | `F1-03`    | `done`        | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.                                               | `F1-UI-01`    |
-|     5 | `F1-04`    | `done`        | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.                                          | `F1-03`       |
-|     6 | `F1-05`    | `done`        | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                                                      | `F1-04`       |
-|     7 | `F1-06`    | `done`        | Superficie de resultado y trazabilidad con fuentes, freshness, supuestos y sensibilidad accesibles.                                          | `F1-05`       |
-|     8 | `F1-07`    | `done`        | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                                                           | `F1-06`       |
-|     9 | `F1-08`    | `deferred`    | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.                                               | `F1-07`       |
-|    10 | `F2-01`    | `done`        | Acceso personal remoto habilitado en produccion, con los tests de frontera invertidos a proposito.                                           | ADR 0008      |
-|    11 | `F2-02`    | `done`        | Universo S&P 500 con identidad completa: issuer, security, listing, simbolo vigente y CIK.                                                   | `F2-01`       |
-|    12 | `F2-03`    | `done`        | SEC EDGAR integrada: companyfacts publicado como observaciones point-in-time, con aceptación, vintages y cuarentena.                         | `F2-02`       |
-|    13 | `F2-04`    | `done`        | Corporate actions con vigencia: splits, cambios de símbolo, sucesiones de CIK, delistings y fusiones.                                        | `F2-03`       |
-|    14 | `F2-05`    | `done`        | Backfill y refresh durable con presupuesto, cursor, lease y recuperación verificables.                                                       | `F2-04`       |
-|    15 | `F2-06`    | `done`        | Golden fixtures desde extractos reales congelados, en reemplazo de `FixtureCo` como oráculo de regresión.                                    | `F2-03`       |
-|    16 | `F2-07`    | `done`        | Gate de Fase 2 verificado sobre datos reales: contrato point-in-time auditado, 30 empresas reconciliadas y validación semántica decidida.    | `F2-06`       |
-|    17 | `F7-02`    | `done`        | El sector como clasificación declarada y versionada, con la población resuelta al `as_of`.                                                   | Fase 2        |
-|    18 | `F7-01`    | `done`        | Precios diarios crudos por security, con splits y dividendos fechados y la base de ajuste declarada.                                         | Fase 2        |
-|    19 | `F7-03`    | `done`        | Registro CEDEAR de los dos emisores, con cada CEDEAR como security propia y el subyacente resuelto contra el grafo.                          | `F7-02`       |
-|    20 | `F7-04`    | `done`        | Catálogo de métricas acotado a las matrices y `sortino-1.0.0` puro sobre base total return, con los parámetros decididos por el owner.       | `F7-03`       |
-|    21 | `F7-05`    | `in_progress` | Matriz de riesgo por sector al `as_of`: referencia `^SP500TR` en la misma base, recta nombrada, CEDEAR, nulos con motivo y consulta acotada. | `F7-04`       |
+| Orden | Issue      | Estado     | Resultado verificable                                                                                                                        | Dependencias  |
+| ----: | ---------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+|     1 | `F1-01`    | `done`     | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos.                                 | Fase 0 `done` |
+|     2 | `F1-02`    | `done`     | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.                                      | `F1-01`       |
+|     3 | `F1-UI-01` | `done`     | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.                                               | `F1-02`       |
+|     4 | `F1-03`    | `done`     | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.                                               | `F1-UI-01`    |
+|     5 | `F1-04`    | `done`     | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.                                          | `F1-03`       |
+|     6 | `F1-05`    | `done`     | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                                                      | `F1-04`       |
+|     7 | `F1-06`    | `done`     | Superficie de resultado y trazabilidad con fuentes, freshness, supuestos y sensibilidad accesibles.                                          | `F1-05`       |
+|     8 | `F1-07`    | `done`     | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                                                           | `F1-06`       |
+|     9 | `F1-08`    | `deferred` | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.                                               | `F1-07`       |
+|    10 | `F2-01`    | `done`     | Acceso personal remoto habilitado en produccion, con los tests de frontera invertidos a proposito.                                           | ADR 0008      |
+|    11 | `F2-02`    | `done`     | Universo S&P 500 con identidad completa: issuer, security, listing, simbolo vigente y CIK.                                                   | `F2-01`       |
+|    12 | `F2-03`    | `done`     | SEC EDGAR integrada: companyfacts publicado como observaciones point-in-time, con aceptación, vintages y cuarentena.                         | `F2-02`       |
+|    13 | `F2-04`    | `done`     | Corporate actions con vigencia: splits, cambios de símbolo, sucesiones de CIK, delistings y fusiones.                                        | `F2-03`       |
+|    14 | `F2-05`    | `done`     | Backfill y refresh durable con presupuesto, cursor, lease y recuperación verificables.                                                       | `F2-04`       |
+|    15 | `F2-06`    | `done`     | Golden fixtures desde extractos reales congelados, en reemplazo de `FixtureCo` como oráculo de regresión.                                    | `F2-03`       |
+|    16 | `F2-07`    | `done`     | Gate de Fase 2 verificado sobre datos reales: contrato point-in-time auditado, 30 empresas reconciliadas y validación semántica decidida.    | `F2-06`       |
+|    17 | `F7-02`    | `done`     | El sector como clasificación declarada y versionada, con la población resuelta al `as_of`.                                                   | Fase 2        |
+|    18 | `F7-01`    | `done`     | Precios diarios crudos por security, con splits y dividendos fechados y la base de ajuste declarada.                                         | Fase 2        |
+|    19 | `F7-03`    | `done`     | Registro CEDEAR de los dos emisores, con cada CEDEAR como security propia y el subyacente resuelto contra el grafo.                          | `F7-02`       |
+|    20 | `F7-04`    | `done`     | Catálogo de métricas acotado a las matrices y `sortino-1.0.0` puro sobre base total return, con los parámetros decididos por el owner.       | `F7-03`       |
+|    21 | `F7-05`    | `done`     | Matriz de riesgo por sector al `as_of`: referencia `^SP500TR` en la misma base, recta nombrada, CEDEAR, nulos con motivo y consulta acotada. | `F7-04`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -3083,7 +3083,7 @@ la serie de la referencia.
 
 #### `F7-05` — matriz de riesgo por sector
 
-- Estado: `in_progress` desde el 2026-09-30.
+- Estado: `done` el 2026-09-30.
 - Fase y dependencia: Fase 7; `F7-04` cerrado.
 - Controles: `TM-06`, `TM-07`, `TM-12`, `UI-02`.
 - Decisión: [ADR 0029](../architecture/adr/0029-reference-series-sector-risk-matrix.md).
@@ -3131,9 +3131,69 @@ filas, borra la tabla vacía y la migración vuelve a aplicarse.
 
 Tests: format, lint, typecheck, **1.602 unit**, **162 integration** y build pasan.
 
-**Incremento 3, pendiente:** la superficie `/sectores/[sector]`, con scatter,
-tabla equivalente y panel de nulos, bajo los skills `impeccable` y
-`financial-visualization-review`.
+**Incremento 3 — superficie (2026-09-30).** `/sectores` y `/sectores/[sector]`,
+con `impeccable` y `financial-visualization-review` cargados, brief en
+`.impeccable/surfaces/` y el patrón «Risk scatter» en `DESIGN.md`.
+
+Decisiones del owner:
+
+- entrada por un índice con la cobertura de precios;
+- todas las etiquetas visibles, sin superponerse;
+- dominio robusto en los ejes.
+
+Lo que entra:
+
+- **Recharts 3.8.0** con el `chart` de shadcn. El CLI generó un import roto
+  (`from "cn"`), corregido.
+- **Puntos como botones enfocables**, con nombre accesible completo y un panel
+  `aria-live`.
+- **Tabla ordenable** con `aria-sort` y los números primero.
+- **Panel «Sin valor».**
+- **`as_of` corrido** al último cierre en o antes de la fecha pedida, con aviso.
+- **Sidebar.** «Matrices» deja de ser `Plan`.
+- **`DataUnavailableNotice`**, la negativa cuando la base no responde.
+- **`listSecuritiesWithClosesSince`** y **`summarizeSectorCoverage`**, para el
+  índice.
+- **Consultas de series acotadas por fecha.**
+
+Defectos encontrados y corregidos al revisar:
+
+- **El cliente runtime de PostgreSQL acumulaba backoff de reconexión.** Con la
+  base caída, el tercer request tardó 35 s; ahora falla en 5 ms (`backoff: 0`).
+- **Las etiquetas se fusionaban con vecinos lejanos** y tapaban el rombo de la
+  referencia.
+- **Los ticks de los ejes eran irregulares.**
+
+Evidencia:
+
+- **Revisión renderizada** sobre `pnpm walkthrough` con la base personal, sin
+  capturas en el repo (ADR 0006):
+  - axe con 0 findings serious/critical y sin overflow horizontal en 1440 y
+    390 px, claro y oscuro, en las dos rutas y con una fecha pedida en domingo;
+  - 23 puntos enfocables;
+  - 0 rótulos superpuestos medidos en el DOM a 1440, 1024 y 360 px.
+- **Detector Impeccable** `[]`.
+- **Gate E2E: 165 pasan, en 1,5 minutos.**
+  - En personal, las rutas nuevas muestran «Base personal no disponible» y un
+    código fuera de la taxonomía muestra la página de ruta inexistente con
+    `noindex`.
+  - En el runtime trabado, las dos se niegan.
+- **Build:** `/sectores/[sector]` sale `◐`, con la cáscara vacía
+  (`hasHtml: false`).
+- format, lint, typecheck, **1.622 unit** y **164 integration** pasan.
+
+Queda registrado:
+
+- un choque residual de rótulos a 390 px en un corte;
+- el símbolo BYMA del CEDEAR, que el grafo no tiene;
+- un gate visual con datos sintéticos sembrados en PostgreSQL, que sería una
+  enmienda a la ADR 0006;
+- el status 200 del sector desconocido;
+- la lista de herramientas de la home, anterior al pivote de la ADR 0016, que
+  todavía describe «Matrices · Divergencias» como Fase 3.
+
+Sigue `F7-06`: export personal de la matriz con definiciones, parámetros, fecha,
+fuente y atribución.
 
 ### Fase 8 — divergencias fundamentales
 

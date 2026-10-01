@@ -289,6 +289,18 @@ Implementada en `src/app/valuacion/referencia/_components/sensitivity-matrix.tsx
 - **Undefined cells:** una celda fuera del modelo declara `No definido` con su motivo; no queda vacía, no cae a cero y no hereda el valor vecino.
 - **Base case:** la celda que reproduce el caso base se marca con `ring` y etiqueta. Cuando el snapshot no la contiene, no se marca ninguna y la página lo explica.
 
+### Risk scatter
+
+Implementado en `src/app/sectores/[sector]/_components/` (`F7-05`). Es el primer chart real del portal y el primer uso de Recharts, vía el `ChartContainer` de shadcn.
+
+- **Division of labor:** Recharts dibuja ejes, grilla, líneas de referencia y la recta; los puntos son una capa propia montada con `useXAxisScale`/`useYAxisScale`, porque cada punto es un `role="button"` enfocable con un nombre accesible que dice todo lo que diría un tooltip. No hay tooltip de hover: el detalle vive en un panel `aria-live` que se llena por foco, click o desde la tabla.
+- **Marks:** círculo hueco (neutral), cuadrado relleno `--chart-1` (pertenencia, p. ej. CEDEAR), rombo `foreground` para la referencia. La forma lleva el significado y el color lo refuerza.
+- **Lines:** cruce punteado `muted-foreground` en la referencia; recta de ajuste `--chart-4` rotulada como ajuste, nunca como valor justo, con su `n` en la leyenda.
+- **Out of range:** el punto se dibuja en el borde con un chevron hacia afuera; el valor exacto queda en el panel y en la tabla.
+- **Labels:** `text-xs`, sin superponerse, medidos con `measureText`; los puntos que se tapan comparten una etiqueta («GOOG · GOOGL») y un grupo sin lugar se suma al vecino más cercano con `+n`.
+- **Axes:** dominio robusto redondeado a un paso limpio; las marcas se formatean con los decimales justos (`1`, `0,5`, `0,25`).
+- **Equivalent table:** mismas cifras sin recorte, ordenable por columna con `aria-sort`, números antes que texto para que el mobile lea la respuesta sin desplazar, y los `null` con su motivo e icono, nunca un cero.
+
 ### Navigation
 
 - **Desktop:** sidebar de `16rem`, colapsable a iconos de `3rem`; shortcut `Ctrl/Cmd+B` y tooltips cuando está colapsada. El rail de arrastre queda fuera del árbol de accesibilidad: duplicaba el nombre del trigger sin agregar ninguna capacidad para teclado o lector de pantalla.

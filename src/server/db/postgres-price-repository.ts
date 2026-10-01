@@ -7,6 +7,7 @@ import {
   benchmarkSeriesQuerySchema,
   priceEventsQuerySchema,
   priceSeriesQuerySchema,
+  recentCoverageQuerySchema,
   type PriceRepository,
   type PriceWriteSummary,
 } from "@/modules/prices/application/price-repository";
@@ -111,6 +112,22 @@ export function createPostgresPriceRepository(
           currency: row.currency,
         }),
       );
+    },
+    async listSecuritiesWithClosesSince(query) {
+      const parsed = recentCoverageQuerySchema.parse(query);
+      const rows = await database
+        .selectDistinct({ securityId: schema.securityPrices.securityId })
+        .from(schema.securityPrices)
+        .where(gte(schema.securityPrices.marketDate, parsed.from))
+        .limit(parsed.limit + 1);
+
+      if (rows.length > parsed.limit) {
+        throw new Error(
+          `coverage read exceeded its limit of ${parsed.limit} securities`,
+        );
+      }
+
+      return rows.map((row) => row.securityId).sort();
     },
     async loadBenchmarkSeries(query) {
       const parsed = benchmarkSeriesQuerySchema.parse(query);

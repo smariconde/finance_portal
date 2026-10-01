@@ -46,6 +46,9 @@ import { SORTINO_WINDOW_YEARS } from "../domain/sortino";
  */
 export const MAX_MATRIX_MEMBERS = 150;
 
+/** Cuántos días hacia atrás se busca el cierre que funciona como `as_of`. */
+export const AS_OF_LOOKBACK_DAYS = 10;
+
 /** Días antes del inicio de 5 años que se leen para encontrar su base. */
 const BASE_LOOKBACK_DAYS = 14;
 
@@ -72,12 +75,14 @@ export type LoadSectorRiskMatrixDependencies = {
   readonly classifications: ClassificationRepository;
   readonly prices: PriceRepository;
   readonly cedears: CedearRegistryRepository;
-  /** Reloj inyectado: sólo decide el `as_of` por defecto. */
+  /** Reloj inyectado: sólo decide la fecha pedida por defecto. */
   readonly today: () => string;
 };
 
 export type SectorRiskMatrixReading = {
   readonly matrix: SectorRiskMatrix;
+  /** Fecha pedida; `matrix.asOf` es el cierre que se usó. */
+  readonly requestedAsOf: string;
   readonly population: {
     readonly ruleVersion: string;
     readonly indexId: string;
@@ -124,22 +129,22 @@ export async function loadSectorRiskMatrix(
 
   const benchmark = findDeclaredBenchmark(SP500_TOTAL_RETURN_BENCHMARK_ID)!;
 
-  let asOf = request.asOf;
+  // El `as_of` es un cierre de mercado: el último de la referencia en o antes
+  // de la fecha pedida. Un sábado o un feriado no deja a todos los puntos en
+  // `no_close_at_as_of`; se usa la rueda anterior y la página dice cuál.
+  const requestedAsOf = request.asOf ?? dependencies.today();
+  const recent = await dependencies.prices.loadBenchmarkSeries({
+    benchmarkId: benchmark.benchmarkId,
+    from: subtractDays(requestedAsOf, AS_OF_LOOKBACK_DAYS),
+    to: requestedAsOf,
+  });
+  const asOf = recent.at(-1)?.marketDate ?? null;
 
   if (asOf === null) {
-    const recent = await dependencies.prices.loadBenchmarkSeries({
-      benchmarkId: benchmark.benchmarkId,
-      from: subtractDays(dependencies.today(), 30),
-    });
-
-    asOf = recent.at(-1)?.marketDate ?? null;
-
-    if (asOf === null) {
-      throw new SectorRiskMatrixError(
-        "no_reference_series",
-        "No reference level is stored for the last 30 days.",
-      );
-    }
+    throw new SectorRiskMatrixError(
+      "no_reference_series",
+      `No reference level is stored in the ${AS_OF_LOOKBACK_DAYS} days up to the requested date.`,
+    );
   }
 
   const from = subtractDays(
@@ -242,6 +247,7 @@ export async function loadSectorRiskMatrix(
   const [anyMember] = population.members;
 
   return {
+    requestedAsOf,
     matrix: buildSectorRiskMatrix({
       asOf,
       sector: {

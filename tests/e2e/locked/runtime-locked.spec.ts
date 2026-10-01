@@ -47,6 +47,22 @@ test.describe("negativa del runtime trabado", () => {
     }
   });
 
+  test("niega las matrices por sector, índice y sector", async ({ page }) => {
+    for (const [route, surface] of [
+      [ROUTES.sectors, "Las matrices por sector"],
+      [ROUTES.sectorMatrix, "La matriz de riesgo sectorial"],
+    ] as const) {
+      await page.goto(route);
+
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Runtime trabado" }),
+      ).toBeVisible();
+      await expect(
+        page.getByText(new RegExp(`${surface} no se sirve porque`)),
+      ).toBeVisible();
+    }
+  });
+
   test("declara el modo trabado en el shell", async ({ page }) => {
     await page.goto(ROUTES.home);
 

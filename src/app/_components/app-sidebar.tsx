@@ -1,9 +1,9 @@
 "use client";
 
 import {
-  BarChart3,
   Building2,
   Calculator,
+  ChartScatter,
   Database,
   Home,
   Landmark,
@@ -41,6 +41,12 @@ const activeItems = [
     badge: "Ref",
   },
   {
+    href: "/sectores",
+    label: "Matrices",
+    icon: ChartScatter,
+    badge: null,
+  },
+  {
     href: "/configuracion",
     label: "Configuración",
     icon: Settings2,
@@ -50,7 +56,6 @@ const activeItems = [
 
 const plannedItems = [
   { label: "Empresas", icon: Building2 },
-  { label: "Matrices", icon: BarChart3 },
   { label: "Argentina", icon: Landmark },
   { label: "Agro", icon: Wheat },
 ] as const;

@@ -10,6 +10,12 @@ const runtimePostgresOptions = {
   prepare: false,
   connect_timeout: 10,
   idle_timeout: 20,
+  // Sin backoff de reconexión (`F7-05`). El cliente vive entre requests y, con
+  // la base caída, el backoff exponencial de postgres.js acumulaba esperas:
+  // medido contra un puerto cerrado, el tercer request tardó 35 s y el cuarto
+  // 57 s en fallar. Una superficie que lee en el request tiene que decir «la
+  // base no respondió» enseguida; reintentar es decisión del próximo request.
+  backoff: () => 0,
 } as const;
 
 const globalForPostgres = globalThis as typeof globalThis & {

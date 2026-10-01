@@ -51,10 +51,13 @@ pnpm exec playwright install chromium
 
 ## Requisitos
 
-- **No necesita PostgreSQL.** Ninguna superficie de este slice abre la base. El
-  servidor personal recibe una `DATABASE_URL` que apunta a un puerto donde no
-  escucha nada, así que si alguna ruta empezara a consultar la base el gate
-  fallaría en vez de pasar en silencio.
+- **No necesita PostgreSQL.** El servidor personal recibe una `DATABASE_URL`
+  que apunta a un puerto donde no escucha nada. Las rutas que no leen la base lo
+  prueban pasando; las que sí la leen —`/sectores` y `/sectores/[sector]`, desde
+  `F7-05`— tienen que responder la negativa «Base personal no disponible», y el
+  gate lo afirma. La matriz con datos no se captura acá: las capturas nunca
+  muestran datos del owner (ADR 0006), así que su revisión renderizada se hace
+  sobre `pnpm walkthrough` y se registra por escrito.
 - **No necesita `.env.local`.** El harness fija las variables que le importan en
   el proceso de cada servidor, y `@next/env` no pisa una variable ya declarada.
   Compilar en la máquina del owner no contamina la corrida.

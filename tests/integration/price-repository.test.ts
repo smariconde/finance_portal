@@ -243,6 +243,47 @@ describe("security prices on PostgreSQL", () => {
     ]);
   });
 
+  it("lists the securities with a close since a date, bounded", async () => {
+    const repository = createPostgresPriceRepository(database);
+
+    await repository.writeSeries(
+      [close("2026-09-15", "10"), close("2026-09-30", "11")],
+      [],
+      runId,
+    );
+
+    expect(
+      await repository.listSecuritiesWithClosesSince({ from: "2026-09-20" }),
+    ).toEqual([securityId]);
+    expect(
+      await repository.listSecuritiesWithClosesSince({ from: "2026-10-01" }),
+    ).toEqual([]);
+  });
+
+  it("reads a series inside a date window only", async () => {
+    const repository = createPostgresPriceRepository(database);
+
+    await repository.writeSeries(
+      [
+        close("2026-09-14", "9"),
+        close("2026-09-15", "10"),
+        close("2026-09-30", "11"),
+      ],
+      [],
+      runId,
+    );
+
+    expect(
+      (
+        await repository.loadSeries({
+          securityId,
+          from: "2026-09-15",
+          to: "2026-09-29",
+        })
+      ).map((row) => row.marketDate),
+    ).toEqual(["2026-09-15"]);
+  });
+
   it("refuses a benchmark ID that is not a declared-style slug", async () => {
     try {
       await database.insert(schema.benchmarkPrices).values({

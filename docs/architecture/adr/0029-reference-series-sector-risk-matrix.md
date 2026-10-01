@@ -4,8 +4,8 @@
 - Fecha: 2026-09-30
 - Alcance: `F7-05`. Decide dónde vive la serie de `^SP500TR`, cómo la ingesta
   distingue una rueda cerrada de una en curso, cómo se ingiere un sector y cómo se
-  lee la matriz a un corte. La superficie `/sectores/[sector]` tiene su propio
-  brief.
+  lee la matriz a un corte, y cómo la superficie la muestra sin datos del
+  owner en el gate. El detalle visual vive en su brief.
 - Decisiones relacionadas: [ADR 0016](0016-analysis-scope-sector-matrices.md) (la
   matriz), [ADR 0025](0025-declared-sector-classification.md) (la población),
   [ADR 0026](0026-daily-prices-source.md) (serie cruda e inmutable),
@@ -123,6 +123,46 @@ La consulta está acotada (`TM-07`):
 - **Marca CEDEAR** con el ratio vigente, la cantidad de programas y el estado del
   primero: un programa suspendido sigue siendo un programa, y se dice.
 
+## Decisión 5 — la superficie, y cómo se prueba sin datos del owner
+
+`/sectores` lista los once sectores con cuántas securities tienen un cierre en
+los últimos 14 días. `/sectores/[sector]` muestra la matriz al `as_of`, que es el
+último cierre de la referencia **en o antes** de la fecha pedida: un sábado no
+deja a todos los puntos sin cierre, y la página dice a qué rueda se corrió.
+
+Decisiones del owner el 2026-09-30:
+
+- se entra por un índice que muestra la cobertura;
+- todas las etiquetas visibles, sin superponerse;
+- dominio robusto en los ejes, con los puntos extremos en el borde.
+
+**Primer chart real, primer uso de Recharts**, vía el `ChartContainer` de shadcn,
+como ya fijaba `interface-foundations.md`. Recharts dibuja ejes, grilla y
+líneas; los puntos son una capa propia de botones enfocables, porque un tooltip
+de hover no es un equivalente accesible.
+
+**El gate E2E no ve la matriz con datos, y eso es a propósito.** Su servidor
+personal apunta a un puerto cerrado, y las capturas nunca muestran datos del
+owner (ADR 0006). El gate afirma la negativa «Base personal no disponible» en
+personal y `RuntimeLockedNotice` en el runtime trabado, con axe en los dos y
+sobre el mismo build: eso prueba que la frontera vive en el request. La matriz
+renderizada se revisó sobre `pnpm walkthrough`, y el resultado se registra por
+escrito.
+
+Tres cosas que aparecieron al cerrar la superficie:
+
+- **Backoff de reconexión.** postgres.js reintenta con backoff exponencial en
+  un cliente que vive entre requests. Contra la base caída, el tercer request
+  tardó 35 s y el cuarto 57 s en fallar. El cliente runtime pasa a `backoff: 0`:
+  una superficie que lee en el request dice enseguida que la base no respondió.
+- **`◐` en el build.** La ruta con segmento dinámico se marca como Partial
+  Prerender, pero su cáscara está vacía (`hasHtml: false`, 0 bytes) y nada del
+  modo se hornea.
+- **El 404 de un sector desconocido sale con status 200.** `notFound()` llega
+  con la respuesta ya en streaming, así que se ve la página de ruta inexistente
+  con `noindex`. `dynamicParams` no se admite con Cache Components, y un `proxy`
+  sería una superficie de request nueva para resolver un status.
+
 ## Medición
 
 Sobre la base personal, el 2026-09-30:
@@ -148,6 +188,13 @@ Sobre la base personal, el 2026-09-30:
 3. **Las series se ingieren a mano.** Un sector sin precios se ve con
    `no_close_at_as_of` en cada punto, no con una matriz vacía que parezca una
    respuesta.
+4. **La ventana de 5 años necesita historia guardada.** Las series empiezan el
+   2021-09-16, así que sólo los cortes desde el 2026-09-16 tienen base a 5 años;
+   uno anterior deja todos los puntos en «Sin valor», con su motivo.
+5. **Un choque residual de rótulos a 390 px.** Medido en el DOM: 0 rótulos
+   superpuestos a 1440, 1024 y 360 px en todos los cortes probados, y uno a
+   390 px en el corte del 27/09/2026, cuando un grupo fusionado no encuentra
+   lado libre.
 
 ## Alternativas descartadas
 
