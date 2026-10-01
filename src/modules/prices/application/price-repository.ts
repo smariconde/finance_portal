@@ -43,6 +43,14 @@ export const benchmarkSeriesQuerySchema = z.object({
 
 export type BenchmarkSeriesQuery = z.input<typeof benchmarkSeriesQuerySchema>;
 
+/** Securities con al menos un cierre desde una fecha: la cobertura de un sector. */
+export const recentCoverageQuerySchema = z.object({
+  from: calendarDateSchema,
+  limit: z.number().int().min(1).max(10_000).default(2_000),
+});
+
+export type RecentCoverageQuery = z.input<typeof recentCoverageQuerySchema>;
+
 export type BenchmarkWriteSummary = {
   readonly benchmarkId: string;
   readonly closesInserted: number;
@@ -78,6 +86,10 @@ export interface PriceRepository {
   loadSeries(query: PriceSeriesQuery): Promise<readonly DailyClose[]>;
   /** Splits y dividendos de una security, ordenados por fecha. */
   loadEvents(query: PriceEventsQuery): Promise<readonly PriceEvent[]>;
+  /** IDs de las securities con algún cierre desde `from`. */
+  listSecuritiesWithClosesSince(
+    query: RecentCoverageQuery,
+  ): Promise<readonly string[]>;
   loadBenchmarkSeries(
     query: BenchmarkSeriesQuery,
   ): Promise<readonly BenchmarkClose[]>;

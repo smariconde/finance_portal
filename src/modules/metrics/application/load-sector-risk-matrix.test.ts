@@ -16,6 +16,7 @@ import {
   loadSectorRiskMatrix,
   SectorRiskMatrixError,
 } from "./load-sector-risk-matrix";
+import { summarizeSectorCoverage } from "./summarize-sector-coverage";
 
 const SINCE = "2020-01-01T00:00:00.000Z";
 
@@ -190,6 +191,25 @@ describe("loadSectorRiskMatrix", () => {
     });
   });
 
+  it("moves a weekend request to the last close before it, and says so", async () => {
+    const reading = await loadSectorRiskMatrix(
+      { sectorCode: "communication-services", asOf: "2026-09-20" },
+      await setup(),
+    );
+
+    expect(reading.requestedAsOf).toBe("2026-09-20");
+    expect(reading.matrix.asOf).toBe("2026-09-18");
+  });
+
+  it("refuses a date with no reference close in the days before it", async () => {
+    await expect(
+      loadSectorRiskMatrix(
+        { sectorCode: "communication-services", asOf: "2019-01-15" },
+        await setup(),
+      ),
+    ).rejects.toMatchObject({ code: "no_reference_series" });
+  });
+
   it("returns an empty sector as an empty matrix, with its label", async () => {
     const { matrix } = await loadSectorRiskMatrix(
       { sectorCode: "utilities", asOf: null },
@@ -214,5 +234,28 @@ describe("loadSectorRiskMatrix", () => {
         await setup({ withReference: false }),
       ),
     ).rejects.toBeInstanceOf(SectorRiskMatrixError);
+  });
+});
+
+describe("summarizeSectorCoverage", () => {
+  it("counts each sector's members and how many have recent closes", async () => {
+    const dependencies = await setup();
+    const summary = await summarizeSectorCoverage(dependencies);
+
+    expect(summary.referenceLatest).toBe("2026-09-25");
+    expect(summary.sectors).toHaveLength(11);
+    expect(
+      summary.sectors.find(
+        (sector) => sector.code === "communication-services",
+      ),
+    ).toEqual({
+      code: "communication-services",
+      label: "Communication Services",
+      members: 1,
+      withRecentCloses: 1,
+    });
+    expect(
+      summary.sectors.find((sector) => sector.code === "energy"),
+    ).toMatchObject({ members: 1, withRecentCloses: 0 });
   });
 });

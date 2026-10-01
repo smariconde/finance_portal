@@ -102,13 +102,21 @@ test.describe("shell del portal", () => {
     ).toBeVisible();
   });
 
+  test("la sidebar lleva a las matrices por sector", async ({ page }) => {
+    await page.goto(ROUTES.home);
+    await openNavigation(page);
+
+    await page.getByRole("link", { name: "Matrices" }).click();
+    await expect(page).toHaveURL(/\/sectores$/u);
+  });
+
   test("las herramientas planificadas se anuncian como no disponibles", async ({
     page,
   }) => {
     await page.goto(ROUTES.home);
     await openNavigation(page);
 
-    for (const label of ["Empresas", "Matrices", "Argentina", "Agro"]) {
+    for (const label of ["Empresas", "Argentina", "Agro"]) {
       const item = page.getByRole("button", { name: new RegExp(label) });
       // El estado se anuncia con `aria-disabled` para conservar el tooltip que
       // etiqueta el control cuando la sidebar está colapsada.
@@ -130,7 +138,13 @@ test.describe("shell del portal", () => {
   test("cada superficie tiene un único h1 y no saltea niveles de encabezado", async ({
     page,
   }) => {
-    for (const route of [ROUTES.home, ROUTES.configuration, ROUTES.reference]) {
+    for (const route of [
+      ROUTES.home,
+      ROUTES.configuration,
+      ROUTES.reference,
+      ROUTES.sectors,
+      ROUTES.sectorMatrix,
+    ]) {
       await page.goto(route);
 
       const levels = await page

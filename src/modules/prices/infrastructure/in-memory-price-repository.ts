@@ -2,6 +2,7 @@ import type {
   BenchmarkSeriesQuery,
   BenchmarkWriteSummary,
   PriceEventsQuery,
+  RecentCoverageQuery,
   PriceRepository,
   PriceSeriesQuery,
   PriceWriteSummary,
@@ -10,6 +11,7 @@ import {
   benchmarkSeriesQuerySchema,
   priceEventsQuerySchema,
   priceSeriesQuerySchema,
+  recentCoverageQuerySchema,
 } from "../application/price-repository";
 import type { DailyClose, PriceEvent } from "../domain/daily-close";
 import type { BenchmarkClose } from "../domain/declared-benchmarks";
@@ -69,6 +71,27 @@ export class InMemoryPriceRepository implements PriceRepository {
     }
 
     return matches;
+  }
+
+  async listSecuritiesWithClosesSince(
+    query: RecentCoverageQuery,
+  ): Promise<readonly string[]> {
+    const { from, limit } = recentCoverageQuerySchema.parse(query);
+    const ids = [
+      ...new Set(
+        [...this.closes.values()]
+          .filter((close) => close.marketDate >= from)
+          .map((close) => close.securityId),
+      ),
+    ].sort();
+
+    if (ids.length > limit) {
+      throw new Error(
+        `coverage read exceeded its limit of ${limit} securities`,
+      );
+    }
+
+    return ids;
   }
 
   async loadBenchmarkSeries(

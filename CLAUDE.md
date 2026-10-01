@@ -8,7 +8,7 @@ Portal Financiero: a single-owner Next.js 16 portal for researching global compa
 
 The code is public; the data is not. The app is **personal-first**: it serves real data only from a private runtime, and there is no public demo deployment. See [ADR 0004](docs/architecture/adr/0004-personal-first-runtime.md).
 
-The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations kept to a five-fiscal-year window, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, per-source daily request budgets with an owner kill switch, a hand-run refresh that probes `submissions` and re-downloads only the filers that filed something relevant, a deterministic FCFF engine with its reference run, a frozen corpus of real SEC extracts as regression oracle, the declared sector classification with its population resolved at `as_of`, raw daily price series with dated splits and dividends, the CEDEAR registry of both issuers with each CEDEAR as its own security, and a pure `sortino-1.0.0` over a total-return base with the metric catalog it belongs to exist. Scheduled refresh, market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads real observations yet; nothing may be presented in the UI as if it were.
+The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations kept to a five-fiscal-year window, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, per-source daily request budgets with an owner kill switch, a hand-run refresh that probes `submissions` and re-downloads only the filers that filed something relevant, a deterministic FCFF engine with its reference run, a frozen corpus of real SEC extracts as regression oracle, the declared sector classification with its population resolved at `as_of`, raw daily price series with dated splits and dividends, the CEDEAR registry of both issuers with each CEDEAR as its own security, and a pure `sortino-1.0.0` over a total-return base with the metric catalog it belongs to exist. The first surface that reads real data is the sector risk matrix (`/sectores`, `/sectores/[sector]`), which reads stored prices, the sector population and the CEDEAR registry from the personal database at request time. Scheduled refresh, live market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads SEC observations yet; nothing may be presented in the UI as if it were.
 
 `AGENTS.md` holds the full contributor contract and takes precedence over this file where they overlap.
 
@@ -161,6 +161,17 @@ bell and fetched an hour later) — a raw row is immutable, so an intraday price
 stored as a close could never be corrected. Points are securities, the quadrant
 against the reference is `null` when either side lacks a window, and the fit
 (`sector-fit-ols-1.0.0`) excludes the reference, needs 3 points and publishes `n`.
+
+The surface (`src/app/sectores/`) is the first Recharts chart: Recharts draws axes,
+grid and lines, and the points are a custom layer of focusable buttons, because a
+hover tooltip is not an accessible equivalent. The `as_of` is the reference's last
+close on or before the requested date. Without a database the routes render
+`DataUnavailableNotice` — the E2E gate asserts exactly that, since its personal
+server points at a closed port — and the runtime client has **no reconnection
+backoff**: postgres.js's default made the third failing request wait 35 s.
+`/sectores/[sector]` builds as `◐` because it has a dynamic segment, but its shell
+is empty (`hasHtml: false`); `dynamicParams` is not allowed with Cache Components,
+so an unknown sector renders the not-found surface with `noindex` and status 200.
 
 ```bash
 pnpm cedears:record                                # dry run: both issuers, one request each, writes nothing
