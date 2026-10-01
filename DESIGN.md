@@ -300,6 +300,7 @@ Implementado en `src/app/sectores/[sector]/_components/` (`F7-05`). Es el primer
 - **Labels:** `text-xs`, sin superponerse, medidos con `measureText`; los puntos que se tapan comparten una etiqueta («GOOG · GOOGL») y un grupo sin lugar se suma al vecino más cercano con `+n`.
 - **Axes:** dominio robusto redondeado a un paso limpio; las marcas se formatean con los decimales justos (`1`, `0,5`, `0,25`).
 - **Equivalent table:** mismas cifras sin recorte, ordenable por columna con `aria-sort`, números antes que texto para que el mobile lea la respuesta sin desplazar, y los `null` con su motivo e icono, nunca un cero.
+- **Quality reading:** un bloque previo al gráfico muestra nota operativa, cobertura, frescura, comparabilidad, validación interna y acuerdo no evaluable. La nota no absorbe ni oculta el panel de `null`; publica pesos, denominadores y el límite de una sola fuente.
 
 ### Navigation
 
