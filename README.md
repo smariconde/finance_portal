@@ -19,7 +19,9 @@ La aplicación está diseñada para responder preguntas como:
 
 ## Estado actual
 
-Las fases 0 y 1 están cerradas y la **Fase 2 — datos reales SEC y universo S&P 500** está en curso. El universo del S&P 500 está constituido con identidad completa y los hechos XBRL de la SEC se ingieren como observaciones point-in-time: `available_at` desde la aceptación de cada presentación, vintages y re-expresiones preservadas, y cuarentena ante un documento que no se entiende. Una reorganización que cambia el CIK del filer —ExxonMobil en 2026— se declara, se verifica contra la SEC y une las dos historias en la lectura sin reasignar hechos ([ADR 0011](docs/architecture/adr/0011-issuer-succession-reporting-lineage.md)). Un split se confirma con el ratio que declara el filer y la re-expresión de sus propios números en la misma presentación, y la lectura `latest_adjusted` lleva las series por acción a una sola base sin reescribir lo publicado ([ADR 0012](docs/architecture/adr/0012-stock-splits-share-basis.md)). Un traspaso de mercado, un delisting o un renombre se llevan al grafo con la presentación de la SEC que los fecha —Kraft Heinz pasa a NYSE en el instante en que NYSE certifica la admisión— y un cambio de ticker que la SEC no fecha se rechaza con nombre ([ADR 0013](docs/architecture/adr/0013-listing-events-dated-evidence.md)). Las adquisiciones y los cambios de ticker se declaran con evidencia ([ADR 0014](docs/architecture/adr/0014-declared-corporate-events.md)). La ingesta es manual, por ticker o como job durable con lease y reanudación ([ADR 0015](docs/architecture/adr/0015-durable-ingestion-jobs.md)), y guarda cinco ejercicios de historia más el cierre base ([ADR 0017](docs/architecture/adr/0017-sec-history-window.md)) en filas que no repiten lo que se puede reconstruir, a la mitad del tamaño anterior ([ADR 0018](docs/architecture/adr/0018-lighter-observation-rows.md)). La historia que una selección anterior dejó fuera de esa ventana se borra con una poda que deja registrado, por sujeto, hasta dónde llegaba lo que se borró ([ADR 0019](docs/architecture/adr/0019-observation-history-prune.md)). Cada fuente tiene además un presupuesto diario contado en PostgreSQL y un kill switch del owner, aplicados en la única puerta de salida y compartidos por todos los procesos ([ADR 0020](docs/architecture/adr/0020-source-daily-budget-kill-switch.md)). Mantener eso fresco cuesta un request por filer y por vuelta: el refresh le pregunta a `submissions` si apareció una presentación relevante nueva y sólo entonces vuelve a bajar, sobre el conjunto que se define solo —los filers que ya tienen fundamentals publicados— y contra una marca de agua propia que avanza aunque la presentación no publique ningún hecho ([ADR 0021](docs/architecture/adr/0021-refresh-followed-set.md) y [ADR 0022](docs/architecture/adr/0022-companyfacts-refresh-probe.md)). Y para que todo eso no dependa de que un fixture sintético siga pareciéndose al cable, el oráculo de regresión incorpora **extractos reales congelados**: seis filers cuyos submissions y companyfacts se bajaron una vez, se redujeron por una versión declarada y quedaron fijados por `sha256`, con números que se reconcilian contra el filing —los US$ 391.035 millones del 10-K de Apple, el EPS de NVIDIA pasando de 12,05 a 1,21 por el 10:1— ([ADR 0023](docs/architecture/adr/0023-frozen-sec-extracts-rights.md)). Con eso cierra el último casillero de la Fase 2; queda su gate: 30 empresas de arquetipos distintos reconciliadas contra su filing.
+Las fases 0, 1 y 2 están cerradas. La **Fase 7 — matrices sectoriales de riesgo** está en curso: `/sectores` muestra los sectores del S&P 500 y `/sectores/[sector]` compara Sortino a 2 y 5 años contra el S&P 500 Total Return, marca el acceso por CEDEAR y permite descargar un CSV personal con valores exactos, motivos de ausencia, parámetros y fuentes. Al abrir un sector, un job durable pide sólo los precios que faltan. El trabajo y su evidencia se siguen en el [roadmap](docs/finance-portal-masterplan/06_PHASED_ROADMAP.md) y el [backlog](docs/backlog/README.md); el siguiente slice es `F7-07` (degradación, reconciliación y calidad explicable).
+
+Los fundamentals de la SEC conservan `available_at`, vintages y re-expresiones; la identidad separa emisor, security, listing y símbolo, y los programas CEDEAR conectan instrumentos sin fusionarlos. El gate de Fase 2 audita el contrato point-in-time sobre datos reales y reconcilia 30 empresas contra sus filings. La valuación FCFF de referencia sigue siendo sintética y declarada como tal; la corrida por ticker real pertenece a fases posteriores.
 
 Disponible hoy:
 
@@ -36,6 +38,8 @@ Disponible hoy:
 - Identidad separada en entidad legal, security, listing y símbolo, con programas depositarios y consultas `as_known` sin look-ahead.
 - Motor FCFF base en dominio puro con política decimal, policy checks, sensibilidad WACC/g y corridas reproducibles por hash.
 - Corrida de referencia navegable en `/valuacion/referencia`, con provenance, freshness, supuestos, sensibilidad accesible y policy checks.
+- Matriz de riesgo por sector con precios diarios, referencia S&P 500 Total Return, cálculo versionado de Sortino, acceso CEDEAR y CSV de uso personal.
+- Actualización de precios al abrir un sector: job durable, lease por fuente, presupuesto diario y progreso visible.
 - Gate E2E y de accesibilidad sobre el artefacto servido, en escritorio, mobile, tema oscuro y movimiento reducido.
 - Variables de entorno documentadas sin credenciales reales.
 - Tests unitarios, lint, typecheck, formato, build y CI mínima.
@@ -43,7 +47,7 @@ Disponible hoy:
 - PRD, arquitectura ejecutable, registro inicial de fuentes y metodología de valuación derivados del masterplan.
 - Backlog ejecutable con dependencias, criterios de aceptación y trazabilidad de riesgos y deuda visual.
 
-Todavía no están implementados el refresh programado, los datos de mercado, las matrices sectoriales, el tablero argentino ni las funciones de IA, y ninguna superficie de la interfaz expone aún la ingesta, la identidad ni la valuación: esos módulos existen como dominio y persistencia, no como pantallas. Esas capacidades se incorporarán por slices verificables; la interfaz no las presenta como disponibles antes de tiempo.
+Todavía no están implementados el refresh programado, la valuación por ticker real, las divergencias fundamentales, el tablero argentino ni las funciones de IA. Esas capacidades se incorporan por slices verificables; la interfaz no las presenta como disponibles antes de tiempo.
 
 ## Experiencia objetivo
 
@@ -72,7 +76,7 @@ Todavía no están implementados el refresh programado, los datos de mercado, la
 
 - Next.js 16 con App Router y React Server Components por defecto.
 - React 19 y TypeScript estricto.
-- Tailwind CSS 4.
+- Tailwind CSS 4, shadcn/ui y Recharts para la matriz sectorial.
 - Zod para validación en fronteras.
 - Drizzle ORM y Postgres.js para schema, migraciones y runtime personal pooled.
 - Vitest para tests unitarios.
@@ -81,8 +85,8 @@ Todavía no están implementados el refresh programado, los datos de mercado, la
 
 ### Incorporación planificada
 
-- shadcn/ui, Recharts y TanStack Table para la experiencia financiera.
-- Adaptadores reemplazables para SEC, mercado, CEDEAR y macroeconomía argentina.
+- TanStack Table para las futuras superficies que lo necesiten.
+- Adaptadores reemplazables para macroeconomía argentina y otras fuentes futuras.
 - Vercel AI SDK y OpenRouter, solo después de implementar presupuestos, trazabilidad y controles de datos.
 
 ## Arquitectura

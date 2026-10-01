@@ -63,6 +63,15 @@ test.describe("negativa del runtime trabado", () => {
     }
   });
 
+  test("niega la URL directa del CSV antes de leer fuentes", async ({
+    request,
+  }) => {
+    const response = await request.get(`${ROUTES.sectorMatrix}/export`);
+    expect(response.status()).toBe(403);
+    expect(response.headers()["cache-control"]).toContain("no-store");
+    expect(await response.text()).toBe("Export no disponible.");
+  });
+
   test("declara el modo trabado en el shell", async ({ page }) => {
     await page.goto(ROUTES.home);
 

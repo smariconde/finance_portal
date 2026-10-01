@@ -213,6 +213,7 @@ export async function loadSectorRiskMatrix(
         access.status === "program" && first !== undefined
           ? {
               status: "program",
+              sourceId: first.program.sourceId,
               programs: access.programs.length,
               programStatus: first.program.status,
               ratio:

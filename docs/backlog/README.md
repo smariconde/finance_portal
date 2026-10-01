@@ -48,6 +48,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    20 | `F7-04`    | `done`     | Catálogo de métricas acotado a las matrices y `sortino-1.0.0` puro sobre base total return, con los parámetros decididos por el owner.       | `F7-03`       |
 |    21 | `F7-05`    | `done`     | Matriz de riesgo por sector al `as_of`: referencia `^SP500TR` en la misma base, recta nombrada, CEDEAR, nulos con motivo y consulta acotada. | `F7-04`       |
 |    22 | `F7-08`    | `done`     | La matriz es a hoy y, al abrirla, descarga sólo los precios que le faltan, como job durable con progreso, sin bucles y sin pasar la cuota.   | `F7-05`       |
+|    23 | `F7-06`    | `done`     | Descarga CSV personal de la matriz con valores exactos, nulos, definiciones, versiones y atribucion de las fuentes.                          | `F7-05`       |
+|    24 | `F7-07`    | `ready`    | Degradacion, reconciliacion y quality score explicable de la matriz.                                                                         | `F7-05`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -3278,6 +3280,40 @@ Queda registrado:
 - el worker vive en el proceso web, y en serverless (`F6-06`) un sector grande se
   retomaría en varias visitas;
 - no hay `request_id` en la frontera: la explican el ID del job y su bitácora.
+
+#### `F7-06` — export personal de la matriz de riesgo
+
+- Estado: `done` (iniciado y cerrado el 2026-10-01).
+- Fase y dependencia: Fase 7; `F7-05` cerrado, luego de `F7-08`.
+- Controles: `TM-02`, `TM-16`. La ruta directa falla cerrada en `locked`.
+- Contrato: `sector-risk-export-1.0.0`, CSV UTF-8 rectangular, una fila para
+  `^SP500TR` y una por security del sector. Valores numéricos canónicos sin
+  redondeo de presentación; los nulos conservan el motivo y nunca se vuelven cero.
+- Metadatos en cada fila: fecha efectiva y cutoff de identidad, política
+  `as_known`, versiones de clasificación, población, matriz, fórmula y base de
+  retorno; definición de Sortino y de la recta; parámetros, fuente, URL,
+  atribución y nota de derechos. Los CEDEAR conservan emisor y ratio sin fusionar
+  security subyacente y depositaria.
+- Frontera: `GET /sectores/[sector]/export` acepta sólo un sector declarado sin
+  query string; lee la misma matriz que la página. Exige modo `personal` y
+  derechos exportables vigentes de las cuatro fuentes, incluso las dos que
+  respaldan una ausencia CEDEAR. La respuesta es privada y sin caché; rechazos y
+  fallos devuelven texto genérico con `X-Request-Id`. La página mantiene la
+  matriz visible, informa un fallo de descarga y ofrece reintentar.
+
+Evidencia:
+
+- Sobre la base personal, Energy produjo 22 registros de datos: la referencia y
+  21 securities, con columnas rectangulares y un CSV descargable desde la página.
+- Revisión renderizada a 1440 y 390 px: sin overflow horizontal, axe con 0
+  hallazgos serious/critical, fallo 503 mostrado en línea y reintento exitoso.
+  Las capturas no entran al repositorio (ADR 0006).
+- Tests de serialización (derechos, exactitud, nulos, fórmula CSV), ruta
+  (personal, locked, parámetros inválidos, fallo de DB) y E2E para la URL directa
+  en personal sin DB y en locked. format, lint, typecheck, unit, integration,
+  build y gate E2E pasan.
+
+Sigue `F7-07`: degradación, reconciliación y quality score explicable.
 
 ### Fase 8 — divergencias fundamentales
 

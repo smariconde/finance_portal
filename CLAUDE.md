@@ -193,6 +193,18 @@ the source rejects. The action resolves the mode in the request, takes a closed
 schema (a taxonomy code and a boolean, never a ticker or URL), and returns counts
 and codes only. Measured: six sectors, 200 items, 0 failed, 200 requests.
 
+The personal export (`F7-06`) is `GET /sectores/[sector]/export`. It reuses
+`loadSectorRiskMatrix`, so the CSV is the displayed sector at the last stored
+reference close, without a date override. `sector-risk-export-1.0.0` writes one
+reference row and every security row with exact numbers, null reasons, formulas,
+parameters, effective date, `as_known` identity cutoff, provenance and source
+attribution. The route accepts only a declared sector with no query string,
+requires a healthy `personal` runtime and valid export rights for DataHub,
+Yahoo, Comafi and Caja, and returns a private, uncached attachment. Failures
+carry an `X-Request-Id` but no storage details; the download control reports
+them inline and permits retry. The declared source registry is the rights
+authority; the PostgreSQL copy can lag a code change until the next job.
+
 ```bash
 pnpm cedears:record                                # dry run: both issuers, one request each, writes nothing
 pnpm cedears:record --source comafi-cedear --apply # records one issuer's programs and ratios

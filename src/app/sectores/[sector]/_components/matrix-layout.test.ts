@@ -297,6 +297,7 @@ describe("descriptions", () => {
     expect(
       describeCedear({
         status: "program",
+        sourceId: "comafi-cedear",
         programs: 1,
         programStatus: "suspended",
         ratio: { depositaryUnits: "3.1", underlyingUnits: "1" },
