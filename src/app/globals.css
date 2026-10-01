@@ -131,6 +131,33 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  /*
+   * Tailwind v4 deja los botones con el cursor por defecto. Acá todo lo que
+   * responde a un click lo anuncia con la manito; lo deshabilitado, con su
+   * negativa. Una utilidad (`cursor-w-resize`) sigue ganando sobre esta capa.
+   */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  summary,
+  select:not(:disabled),
+  label:has(> input:is([type="checkbox"], [type="radio"]):not(:disabled)),
+  input:is(
+      [type="checkbox"],
+      [type="radio"],
+      [type="file"],
+      [type="submit"],
+      [type="button"]
+    ):not(:disabled),
+  input::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [role="button"][aria-disabled="true"],
+  select:disabled {
+    cursor: not-allowed;
+  }
+
   ::selection {
     background: color-mix(in oklab, var(--primary) 22%, transparent);
   }
