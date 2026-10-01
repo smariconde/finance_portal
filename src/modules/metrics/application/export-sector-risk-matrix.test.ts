@@ -54,6 +54,24 @@ const noHistory: SortinoResult = {
 
 const reading: SectorRiskMatrixReading = {
   requestedAsOf: "2026-10-01",
+  quality: {
+    ruleVersion: "sector-risk-quality-1.0.0",
+    status: "degraded",
+    score: 60,
+    population: 1,
+    computed2y: 1,
+    computed5y: 0,
+    comparable: 0,
+    seriesWithoutRows: 0,
+    daysSinceClose: 1,
+    components: {
+      completeness: 50,
+      freshness: 100,
+      comparability: 0,
+      validation: 100,
+      agreement: null,
+    },
+  },
   population: {
     ruleVersion: "sector-population-1.0.0",
     indexId: "sp500",

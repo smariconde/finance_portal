@@ -28,6 +28,7 @@ import { getUniverseRepository } from "@/server/persistence/get-universe-reposit
 
 import { SectorPriceRefresh } from "./_components/sector-price-refresh";
 import { SectorRiskExport } from "./_components/sector-risk-export";
+import { SectorRiskQuality } from "./_components/sector-risk-quality";
 import { SectorRiskWorkspace } from "./_components/sector-risk-workspace";
 
 /** Ver [ADR 0005](../../../../docs/architecture/adr/0005-request-time-runtime-boundary.md). */
@@ -251,6 +252,8 @@ function MatrixBody({
           </dd>
         </div>
       </dl>
+
+      <SectorRiskQuality quality={reading.quality} />
 
       {reading.seriesWithoutRows > 0 && !refreshing ? (
         <Alert>

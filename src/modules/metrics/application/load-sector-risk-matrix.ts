@@ -30,6 +30,10 @@ import {
   type SectorRiskMatrix,
 } from "../domain/sector-risk-matrix";
 import { SORTINO_WINDOW_YEARS } from "../domain/sortino";
+import {
+  assessSectorRiskQuality,
+  type SectorRiskQuality,
+} from "../domain/sector-risk-quality";
 
 /**
  * Lectura de la matriz de riesgo de un sector (`F7-05`,
@@ -81,6 +85,7 @@ export type LoadSectorRiskMatrixDependencies = {
 
 export type SectorRiskMatrixReading = {
   readonly matrix: SectorRiskMatrix;
+  readonly quality: SectorRiskQuality;
   /** Fecha pedida; `matrix.asOf` es el cierre que se usó. */
   readonly requestedAsOf: string;
   readonly population: {
@@ -247,22 +252,32 @@ export async function loadSectorRiskMatrix(
 
   const [anyMember] = population.members;
 
+  const matrix = buildSectorRiskMatrix({
+    asOf,
+    sector: {
+      code: sector.code,
+      label: sector.label,
+      taxonomyId: SP500_SECTOR_TAXONOMY_ID,
+      taxonomyVersion: anyMember?.taxonomyVersion ?? null,
+    },
+    reference: {
+      benchmarkId: benchmark.benchmarkId,
+      label: benchmark.label,
+      closes: referenceCloses,
+    },
+    members,
+  });
+
   return {
     requestedAsOf,
-    matrix: buildSectorRiskMatrix({
-      asOf,
-      sector: {
-        code: sector.code,
-        label: sector.label,
-        taxonomyId: SP500_SECTOR_TAXONOMY_ID,
-        taxonomyVersion: anyMember?.taxonomyVersion ?? null,
-      },
-      reference: {
-        benchmarkId: benchmark.benchmarkId,
-        label: benchmark.label,
-        closes: referenceCloses,
-      },
-      members,
+    matrix,
+    quality: assessSectorRiskQuality({
+      matrix,
+      populationSecurityIds: population.members.map(
+        (member) => member.securityId,
+      ),
+      requestedAsOf,
+      seriesWithoutRows,
     }),
     population: {
       ruleVersion: population.ruleVersion,
