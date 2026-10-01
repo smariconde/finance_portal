@@ -47,6 +47,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    19 | `F7-03`    | `done`     | Registro CEDEAR de los dos emisores, con cada CEDEAR como security propia y el subyacente resuelto contra el grafo.                          | `F7-02`       |
 |    20 | `F7-04`    | `done`     | Catálogo de métricas acotado a las matrices y `sortino-1.0.0` puro sobre base total return, con los parámetros decididos por el owner.       | `F7-03`       |
 |    21 | `F7-05`    | `done`     | Matriz de riesgo por sector al `as_of`: referencia `^SP500TR` en la misma base, recta nombrada, CEDEAR, nulos con motivo y consulta acotada. | `F7-04`       |
+|    22 | `F7-08`    | `done`     | La matriz es a hoy y, al abrirla, descarga sólo los precios que le faltan, como job durable con progreso, sin bucles y sin pasar la cuota.   | `F7-05`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -2689,6 +2690,7 @@ La especificación de la matriz y sus parámetros abiertos están en
 | `F7-03` | Registro CEDEAR real: programas y ratios versionados desde la fuente aprobada por el owner, con la security subyacente resuelta y sin fusionar instrumentos.                                                          | `F7-02`    | `TM-05`, `TM-06`, `TM-08`          |
 | `F7-04` | Catálogo de métricas acotado a las matrices y la valuación; `sortino` puro y versionado, con parámetros decididos por el owner y tests de nulos, sin downside, historia insuficiente, huecos, negativos y no finitos. | `F7-03`    | `TM-05`, `TM-16`                   |
 | `F7-05` | Matriz de riesgo por sector: Sortino 2Y vs 5Y, referencia S&P 500 en la misma base, recta de ajuste nombrada, CEDEAR vigente sin depender sólo del color, tabla equivalente, nulos con motivo y consulta acotada.     | `F7-04`    | `TM-06`, `TM-07`, `TM-12`, `UI-02` |
+| `F7-08` | Precios al abrir la matriz: siempre a hoy, sólo lo atrasado, job durable con progreso visible, primera Server Action con sus controles cerrados.                                                                      | `F7-05`    | `TM-03`, `TM-10`, `TM-11`, `UI-02` |
 | `F7-06` | Export personal con definiciones, parámetros, fecha, source y atribución.                                                                                                                                             | `F7-05`    | `TM-02`, `TM-16`                   |
 | `F7-07` | Degradación, reconciliación y quality score explicable.                                                                                                                                                               | `F7-05`    | `TM-05`, `TM-16`                   |
 
@@ -3194,6 +3196,88 @@ Queda registrado:
 
 Sigue `F7-06`: export personal de la matriz con definiciones, parámetros, fecha,
 fuente y atribución.
+
+#### `F7-08` — precios del sector al abrir su matriz
+
+- Estado: `done` (iniciado y cerrado el 2026-10-01).
+- Fase y dependencia: Fase 7; `F7-05` cerrado. Entra antes de `F7-06` porque el
+  owner, al probar la superficie, encontró que un sector sin precios no servía
+  para nada sin ir a la terminal.
+- Controles: `TM-03`, `TM-10`, `TM-11`, `UI-02`.
+- Decisión: [ADR 0030](../architecture/adr/0030-sector-prices-on-open.md).
+- Decisiones del owner: el análisis es **siempre a hoy** —sale el selector de
+  fecha—; abrir el sector **es** pedir lo que falte, sin un botón aparte; usar lo
+  guardado, pedir lo mínimo y que sea sólido.
+- No autoriza: refresh programado, descarga de fundamentals desde la web
+  (`F6-05`), ni otra fuente de precios.
+
+Criterios de aceptación:
+
+- la matriz se lee siempre a hoy, y `?asOf` deja de existir;
+- una regla pura y versionada decide qué falta sin calendario de feriados, y un
+  sector al día no crea ningún job ni gasta ninguna request;
+- la referencia se actualiza antes que las securities, y cada security se compara
+  contra la última rueda de la referencia;
+- la descarga es un job durable con lease por fuente, reanudable, que respeta la
+  cuota diaria y el kill switch y no se planea si la fuente está frenada;
+- lo que falló después de la rueda no se replanea solo: la página lo nombra y
+  ofrece reintentar;
+- la Server Action se prueba como endpoint público, y el render no escribe;
+- la página muestra el progreso real y recalcula la matriz al terminar.
+
+Lo que entra:
+
+- **`sector-price-freshness-1.0.0`** (`prices/domain/price-freshness.ts`): rueda
+  asentada a las 22:00 UTC, referencia al día por cierre o por revisión, security
+  al día contra la última rueda de la referencia o por revisión.
+- **`yahoo_prices_refresh`**, migración `0022` con rollback que se niega mientras
+  exista un job de ese kind. Dos fases que nunca van juntas, plan con la versión de
+  la regla y `assertPriceRefreshJob`.
+- **`refreshSectorPrices`**, la primera Server Action: modo en el request, esquema
+  cerrado, worker con `after()`, DTO de conteos y códigos.
+- **`readSectorPriceReadiness`**, la lectura del render, que no escribe.
+- **La línea de estado** sobre la matriz, con barra de progreso, espera por otra
+  descarga, cuota agotada, kill switch, pausa y fallos con «Reintentar».
+- **`observeSourceSignals`** mudado de fundamentals a `ingestion`, con un
+  re-export para no mover a sus usuarios.
+- `/sectores` deja de mandar a la terminal.
+
+Medido sobre la base personal con el dev server:
+
+- **Communication Services, ya al día:** ningún job, ninguna request.
+- **Energy, sin precios:** 21 items, 21 requests al contador de `yahoo-finance`,
+  27 s de punta a punta, 21 puntos. Al reabrirlo, ningún job.
+- **Utilities, Real Estate, Materials, Consumer Staples y Health Care** se
+  descargaron de la misma forma, de 25 a 59 securities cada uno. En total, seis
+  jobs con 200 items, 0 fallados y **200 requests** en el contador del día: ni
+  una de más.
+- **Cerrar la pestaña no frena la descarga:** con el navegador cerrado a los
+  4 items, el job de Utilities siguió con el lease del worker web hasta 31/31.
+- **Otro sector en curso:** Health Care, abierto mientras corría Consumer
+  Staples, mostró la barra del otro job y arrancó el suyo al terminar aquél.
+
+El rollback de `0022` se probó en una réplica en sus tres estados: se niega con un
+job de precios, rehace el tipo sin él y la migración vuelve a aplicarse.
+
+Evidencia:
+
+- **Revisión renderizada** sobre el dev server con datos reales, sin capturas en el
+  repo (ADR 0006): axe con 0 findings serious/critical en 1440 oscuro y 390 claro,
+  descargando y al día, y en `/sectores` a 1440 y 390.
+- **Tests:** 13 casos del servicio, 8 de la regla, 8 de la frontera
+  (`actions.test.ts`) y uno de integración que persiste el kind nuevo.
+- format, lint, typecheck, **1.651 unit**, **165 integration**, build y el gate E2E
+  pasan.
+
+Queda registrado:
+
+- un overflow horizontal de 10 a 16 px a 1440 visto dos veces recién abierta la
+  página durante una descarga, que no se reprodujo en 31 muestras posteriores ni en
+  ningún estado final; causa sin confirmar;
+- `next dev` también bloquea `127.0.0.1`: la revisión local va por `localhost`;
+- el worker vive en el proceso web, y en serverless (`F6-06`) un sector grande se
+  retomaría en varias visitas;
+- no hay `request_id` en la frontera: la explican el ID del job y su bitácora.
 
 ### Fase 8 — divergencias fundamentales
 

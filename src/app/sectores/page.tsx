@@ -80,9 +80,9 @@ export default async function SectorsPage() {
           </h1>
           <p className="max-w-3xl text-sm text-muted-foreground md:text-base">
             Cada matriz compara el Sortino a 2 y a 5 años de las securities de
-            un sector contra el S&amp;P 500 Total Return. Los precios se cargan
-            por sector, a mano: un sector sin precios se ve así, no con una
-            matriz vacía.
+            un sector contra el S&amp;P 500 Total Return, a hoy. Al abrir un
+            sector se descargan sólo los precios que le falten; lo ya guardado
+            no se vuelve a pedir.
           </p>
         </section>
 
@@ -92,11 +92,7 @@ export default async function SectorsPage() {
             <AlertTitle>Sin serie de referencia reciente</AlertTitle>
             <AlertDescription>
               No hay niveles del {summary.referenceLabel} en los últimos{" "}
-              {RECENT_CLOSE_DAYS} días. Se cargan con{" "}
-              <code className="font-mono text-xs">
-                pnpm prices:ingest --benchmark sp500-total-return --apply
-              </code>
-              .
+              {RECENT_CLOSE_DAYS} días. Se descargan al abrir cualquier sector.
             </AlertDescription>
           </Alert>
         ) : null}
@@ -137,7 +133,7 @@ export default async function SectorsPage() {
                         <span className="font-medium">{sector.label}</span>
                         <span className="text-sm text-muted-foreground">
                           {empty
-                            ? "Sin precios cargados"
+                            ? "Sin precios: se descargan al abrirlo"
                             : complete
                               ? "Precios completos"
                               : "Precios parciales"}

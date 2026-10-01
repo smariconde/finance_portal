@@ -382,6 +382,8 @@ export const ingestionJobKind = pgEnum("ingestion_job_kind", [
   // Refresh del conjunto seguido (ADR 0021). Es un kind propio y no un backfill
   // con otro plan: el item empieza por un sondeo y sólo a veces baja.
   "sec_companyfacts_refresh",
+  // Precios de un sector al abrir su matriz (ADR 0030): sólo lo atrasado.
+  "yahoo_prices_refresh",
 ]);
 
 export const ingestionJobStatus = pgEnum("ingestion_job_status", [

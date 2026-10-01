@@ -1,0 +1,1 @@
+ALTER TYPE "public"."ingestion_job_kind" ADD VALUE 'yahoo_prices_refresh';

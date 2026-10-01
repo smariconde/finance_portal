@@ -8,7 +8,7 @@ Portal Financiero: a single-owner Next.js 16 portal for researching global compa
 
 The code is public; the data is not. The app is **personal-first**: it serves real data only from a private runtime, and there is no public demo deployment. See [ADR 0004](docs/architecture/adr/0004-personal-first-runtime.md).
 
-The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations kept to a five-fiscal-year window, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, per-source daily request budgets with an owner kill switch, a hand-run refresh that probes `submissions` and re-downloads only the filers that filed something relevant, a deterministic FCFF engine with its reference run, a frozen corpus of real SEC extracts as regression oracle, the declared sector classification with its population resolved at `as_of`, raw daily price series with dated splits and dividends, the CEDEAR registry of both issuers with each CEDEAR as its own security, and a pure `sortino-1.0.0` over a total-return base with the metric catalog it belongs to exist. The first surface that reads real data is the sector risk matrix (`/sectores`, `/sectores/[sector]`), which reads stored prices, the sector population and the CEDEAR registry from the personal database at request time. Scheduled refresh, live market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads SEC observations yet; nothing may be presented in the UI as if it were.
+The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations kept to a five-fiscal-year window, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, per-source daily request budgets with an owner kill switch, a hand-run refresh that probes `submissions` and re-downloads only the filers that filed something relevant, a deterministic FCFF engine with its reference run, a frozen corpus of real SEC extracts as regression oracle, the declared sector classification with its population resolved at `as_of`, raw daily price series with dated splits and dividends, the CEDEAR registry of both issuers with each CEDEAR as its own security, and a pure `sortino-1.0.0` over a total-return base with the metric catalog it belongs to exist. The first surface that reads real data is the sector risk matrix (`/sectores`, `/sectores/[sector]`), which reads stored prices, the sector population and the CEDEAR registry from the personal database at request time and, when opened, downloads only the prices it is missing through the project's first Server Action. Scheduled refresh, live market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads SEC observations yet; nothing may be presented in the UI as if it were.
 
 `AGENTS.md` holds the full contributor contract and takes precedence over this file where they overlap.
 
@@ -164,14 +164,34 @@ against the reference is `null` when either side lacks a window, and the fit
 
 The surface (`src/app/sectores/`) is the first Recharts chart: Recharts draws axes,
 grid and lines, and the points are a custom layer of focusable buttons, because a
-hover tooltip is not an accessible equivalent. The `as_of` is the reference's last
-close on or before the requested date. Without a database the routes render
+hover tooltip is not an accessible equivalent. The matrix is **always as of
+today**: the `as_of` is the reference's last stored close and there is no date
+parameter. Without a database the routes render
 `DataUnavailableNotice` — the E2E gate asserts exactly that, since its personal
 server points at a closed port — and the runtime client has **no reconnection
 backoff**: postgres.js's default made the third failing request wait 35 s.
 `/sectores/[sector]` builds as `◐` because it has a dynamic segment, but its shell
 is empty (`hasHtml: false`); `dynamicParams` is not allowed with Cache Components,
 so an unknown sector renders the not-found surface with `noindex` and status 200.
+
+Opening a sector **is** asking for what it lacks (`F7-08`,
+[ADR 0030](docs/architecture/adr/0030-sector-prices-on-open.md), migration `0022`).
+The render only reads (`readSectorPriceReadiness`); the client then calls
+`refreshSectorPrices`, the project's **first Server Action**, which is one
+idempotent step: report the open price job, or plan what is missing, or answer
+`fresh`. The worker runs after the response with `after()` and the page polls the
+same action. What is missing is `sector-price-freshness-1.0.0`, with no holiday
+calendar: a session is settled at 22:00 UTC; the reference is current if it has
+the last settled weekday **or** a job checked it after that instant (a holiday);
+a security is current if it has the **reference's last session** or was checked
+after it settled (a halted stock). Two phases never planned together —reference
+first, then only the stale securities— as a `yahoo_prices_refresh` durable job
+reusing the ADR 0015 lease and the ADR 0020 admission, one request per item. A
+failure checked after the session is **not replanned on its own**: the page names
+it and offers «Reintentar» (`retryFailures`), so no visit loops against a symbol
+the source rejects. The action resolves the mode in the request, takes a closed
+schema (a taxonomy code and a boolean, never a ticker or URL), and returns counts
+and codes only. Measured: six sectors, 200 items, 0 failed, 200 requests.
 
 ```bash
 pnpm cedears:record                                # dry run: both issuers, one request each, writes nothing
@@ -513,7 +533,7 @@ drizzle/                          versioned SQL + rollback/ pairs
 tests/integration/                PostgreSQL-backed tests
 ```
 
-Server Components call application services directly — no internal HTTP fetch. Pages read persisted snapshots; they never call providers during render. Everything touching secrets, the DB, providers, or AI imports `"server-only"` (aliased to a stub in both vitest configs).
+Server Components call application services directly — no internal HTTP fetch. Pages read persisted snapshots; they never call providers or write during render — a download is triggered by a Server Action and runs as a durable job. Everything touching secrets, the DB, providers, or AI imports `"server-only"` (aliased to a stub in both vitest configs).
 
 ### Modes are a security boundary, not a feature flag
 

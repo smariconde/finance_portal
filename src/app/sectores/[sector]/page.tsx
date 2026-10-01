@@ -1,4 +1,4 @@
-import { CalendarClock, Info } from "lucide-react";
+import { Info } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -6,9 +6,6 @@ import { notFound } from "next/navigation";
 import { DataUnavailableNotice } from "@/app/_components/data-unavailable-notice";
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 import { listSectors } from "@/modules/classification/domain/sector-taxonomy";
 import { servesRealData } from "@/modules/configuration/domain/config-health";
 import {
@@ -17,21 +14,25 @@ import {
   type SectorRiskMatrixReading,
 } from "@/modules/metrics/application/load-sector-risk-matrix";
 import { SORTINO_PARAMETERS } from "@/modules/metrics/domain/sortino";
-import { calendarDateSchema } from "@/modules/temporal/domain/temporal-version";
+import {
+  readSectorPriceReadiness,
+  type SectorPriceReadiness,
+} from "@/modules/prices/application/sector-price-refresh";
 import { formatCalendarDate } from "@/modules/valuation/domain/display-format";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
 import { getCedearRegistryRepository } from "@/server/persistence/get-cedear-registry-repository";
 import { getClassificationRepository } from "@/server/persistence/get-classification-repository";
+import { getIngestionJobStore } from "@/server/persistence/get-ingestion-job-store";
 import { getPriceRepository } from "@/server/persistence/get-price-repository";
 import { getUniverseRepository } from "@/server/persistence/get-universe-repository";
 
+import { SectorPriceRefresh } from "./_components/sector-price-refresh";
 import { SectorRiskWorkspace } from "./_components/sector-risk-workspace";
 
 /** Ver [ADR 0005](../../../../docs/architecture/adr/0005-request-time-runtime-boundary.md). */
 export const instant = false;
 type PageProps = {
   readonly params: Promise<{ sector: string }>;
-  readonly searchParams: Promise<{ asOf?: string | string[] }>;
 };
 
 export async function generateMetadata({
@@ -55,13 +56,13 @@ function todayUtc(): string {
  * Matriz de riesgo de un sector (`F7-05`,
  * [ADR 0029](../../../../docs/architecture/adr/0029-reference-series-sector-risk-matrix.md)).
  *
- * Todo se lee al mismo corte, el cierre del `as_of`, desde la base personal. La
- * página no llama a ninguna fuente: si faltan precios, lo dice.
+ * Siempre a hoy: el `as_of` es el último cierre guardado de la referencia. Todo
+ * se lee al mismo corte desde la base personal, y el render no sale a la red ni
+ * escribe: si faltan precios, lo dice, y la descarga la dispara el cliente con
+ * la Server Action (`F7-08`,
+ * [ADR 0030](../../../../docs/architecture/adr/0030-sector-prices-on-open.md)).
  */
-export default async function SectorRiskMatrixPage({
-  params,
-  searchParams,
-}: PageProps) {
+export default async function SectorRiskMatrixPage({ params }: PageProps) {
   const health = await getRequestConfigHealth();
 
   if (!servesRealData(health)) {
@@ -73,7 +74,7 @@ export default async function SectorRiskMatrixPage({
     );
   }
 
-  const [{ sector: code }, query] = await Promise.all([params, searchParams]);
+  const { sector: code } = await params;
   const sector = listSectors().find((entry) => entry.code === code);
 
   if (sector === undefined) {
@@ -81,46 +82,54 @@ export default async function SectorRiskMatrixPage({
   }
 
   const today = todayUtc();
-  const rawAsOf = Array.isArray(query.asOf) ? query.asOf[0] : query.asOf;
-  const parsedAsOf =
-    rawAsOf === undefined || rawAsOf === ""
-      ? null
-      : calendarDateSchema.safeParse(rawAsOf);
-  const invalidAsOf =
-    parsedAsOf !== null && (!parsedAsOf.success || parsedAsOf.data > today);
-  const requestedAsOf =
-    parsedAsOf !== null && parsedAsOf.success && !invalidAsOf
-      ? parsedAsOf.data
-      : null;
+  const universe = getUniverseRepository();
+  const classifications = getClassificationRepository();
+  const prices = getPriceRepository();
 
   let reading: SectorRiskMatrixReading | "no_reference";
+  let readiness: SectorPriceReadiness;
 
   try {
-    reading = await loadSectorRiskMatrix(
-      { sectorCode: sector.code, asOf: requestedAsOf },
-      {
-        universe: getUniverseRepository(),
-        classifications: getClassificationRepository(),
-        prices: getPriceRepository(),
-        cedears: getCedearRegistryRepository(),
-        today: () => today,
-      },
-    );
-  } catch (error) {
-    if (
-      error instanceof SectorRiskMatrixError &&
-      error.code === "no_reference_series"
-    ) {
-      reading = "no_reference";
-    } else {
-      // Sólo el tipo: el mensaje puede traer host, puerto o SQL (`TM-02`).
-      console.error(
-        "sector risk matrix read failed",
-        error instanceof Error ? error.name : typeof error,
-      );
+    [readiness, reading] = await Promise.all([
+      readSectorPriceReadiness(
+        { sectorCode: sector.code },
+        {
+          universe,
+          classifications,
+          prices,
+          jobs: getIngestionJobStore(),
+          now: () => new Date().toISOString(),
+        },
+      ),
+      loadSectorRiskMatrix(
+        { sectorCode: sector.code, asOf: null },
+        {
+          universe,
+          classifications,
+          prices,
+          cedears: getCedearRegistryRepository(),
+          today: () => today,
+        },
+      ).catch((error: unknown) => {
+        // Sin referencia no hay matriz, pero sí hay qué descargar.
+        if (
+          error instanceof SectorRiskMatrixError &&
+          error.code === "no_reference_series"
+        ) {
+          return "no_reference" as const;
+        }
 
-      return <DataUnavailableNotice surface="La matriz de riesgo sectorial" />;
-    }
+        throw error;
+      }),
+    ]);
+  } catch (error) {
+    // Sólo el tipo: el mensaje puede traer host, puerto o SQL (`TM-02`).
+    console.error(
+      "sector risk matrix read failed",
+      error instanceof Error ? error.name : typeof error,
+    );
+
+    return <DataUnavailableNotice surface="La matriz de riesgo sectorial" />;
   }
 
   const asOfLabel =
@@ -154,61 +163,32 @@ export default async function SectorRiskMatrixPage({
           </p>
         </section>
 
-        <form
-          method="get"
-          className="flex flex-wrap items-end gap-3"
-          aria-label="Fecha de la matriz"
-        >
-          <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium">Cierre al</span>
-            <Input
-              type="date"
-              name="asOf"
-              max={today}
-              defaultValue={
-                reading === "no_reference" ? undefined : reading.matrix.asOf
-              }
-              className="numeric w-44"
-            />
-          </label>
-          <button
-            type="submit"
-            className={cn(buttonVariants({ variant: "outline" }))}
-          >
-            Ver matriz
-          </button>
-        </form>
-
-        {invalidAsOf ? (
-          <Alert>
-            <CalendarClock aria-hidden="true" />
-            <AlertTitle>Fecha fuera de rango</AlertTitle>
-            <AlertDescription>
-              La fecha pedida no es válida o es posterior a hoy. Se muestra el
-              último cierre guardado.
-            </AlertDescription>
-          </Alert>
-        ) : null}
+        <SectorPriceRefresh
+          sectorCode={sector.code}
+          needsRefresh={readiness.needsRefresh}
+          failed={readiness.failed}
+          targetSessionLabel={
+            readiness.targetSession === null
+              ? null
+              : formatCalendarDate(readiness.targetSession)
+          }
+        />
 
         {reading === "no_reference" ? (
           <Alert>
             <Info aria-hidden="true" />
-            <AlertTitle>Sin serie de referencia para esa fecha</AlertTitle>
+            <AlertTitle>Todavía no hay serie de referencia</AlertTitle>
             <AlertDescription>
-              No hay niveles del S&amp;P 500 Total Return guardados en los días
-              previos a la fecha pedida, y sin referencia no hay contra qué
-              comparar. Se cargan con{" "}
-              <code className="font-mono text-xs">
-                pnpm prices:ingest --benchmark sp500-total-return --apply
-              </code>
-              .
+              No hay niveles recientes del S&amp;P 500 Total Return guardados, y
+              sin referencia no hay contra qué comparar. La matriz aparece
+              cuando termine de descargarse.
             </AlertDescription>
           </Alert>
         ) : (
           <MatrixBody
             reading={reading}
             asOfLabel={asOfLabel!}
-            requested={requestedAsOf !== null}
+            refreshing={readiness.needsRefresh}
           />
         )}
       </div>
@@ -219,15 +199,14 @@ export default async function SectorRiskMatrixPage({
 function MatrixBody({
   reading,
   asOfLabel,
-  requested,
+  refreshing,
 }: {
   readonly reading: SectorRiskMatrixReading;
   readonly asOfLabel: string;
-  /** Si la fecha la eligió el usuario; sin pedido, el cierre es el último. */
-  readonly requested: boolean;
+  /** Hay una descarga por delante: el aviso de faltantes sería prematuro. */
+  readonly refreshing: boolean;
 }) {
   const { matrix } = reading;
-  const moved = requested && reading.requestedAsOf !== matrix.asOf;
 
   return (
     <>
@@ -236,12 +215,9 @@ function MatrixBody({
           <dt className="text-muted-foreground">Cierre de las dos ventanas</dt>
           <dd className="numeric font-medium">
             <time dateTime={matrix.asOf}>{asOfLabel}</time>
-            {moved ? (
-              <span className="block text-xs font-normal text-muted-foreground">
-                Último cierre en o antes del{" "}
-                {formatCalendarDate(reading.requestedAsOf)}
-              </span>
-            ) : null}
+            <span className="block text-xs font-normal text-muted-foreground">
+              Último cierre guardado de la referencia
+            </span>
           </dd>
         </div>
         <div>
@@ -274,19 +250,15 @@ function MatrixBody({
         </div>
       </dl>
 
-      {reading.seriesWithoutRows > 0 ? (
+      {reading.seriesWithoutRows > 0 && !refreshing ? (
         <Alert>
           <Info aria-hidden="true" />
           <AlertTitle>
             {reading.seriesWithoutRows} de {matrix.points.length} securities sin
-            precios cargados
+            precios guardados
           </AlertTitle>
           <AlertDescription>
-            Aparecen en «Sin valor» como «Sin cierre en la fecha». Se cargan con{" "}
-            <code className="font-mono text-xs">
-              pnpm prices:ingest --sector {matrix.sector.code} --apply
-            </code>
-            .
+            Aparecen en «Sin valor» como «Sin cierre en la fecha».
           </AlertDescription>
         </Alert>
       ) : null}
