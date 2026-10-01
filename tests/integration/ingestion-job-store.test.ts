@@ -341,6 +341,23 @@ describe("PostgreSQL ingestion job store", () => {
     },
   );
 
+  it("persiste el kind de precios por sector (migración 0022)", async () => {
+    const sourceId = uniqueSourceId();
+    const store = createPostgresIngestionJobStore(database);
+    const { job } = await store.createJob(
+      {
+        ...planFor(sourceId, [randomUUID(), "sp500-total-return"]),
+        kind: "yahoo_prices_refresh",
+      },
+      { now: at(0) },
+    );
+
+    expect(job.kind).toBe("yahoo_prices_refresh");
+    expect(
+      (await store.listJobs({ sourceId })).map((listed) => listed.kind),
+    ).toEqual(["yahoo_prices_refresh"]);
+  });
+
   it("las invariantes también las sostiene la base", async () => {
     const sourceId = uniqueSourceId();
     const store = createPostgresIngestionJobStore(database);
