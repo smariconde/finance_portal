@@ -51,6 +51,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    23 | `F7-06`    | `done`     | Descarga CSV personal de la matriz con valores exactos, nulos, definiciones, versiones y atribucion de las fuentes.                          | `F7-05`       |
 |    24 | `F7-07`    | `done`     | Degradacion, reconciliacion y quality score explicable de la matriz.                                                                         | `F7-05`       |
 |    25 | `F3-01`    | `done`     | Selector determinista de arquetipo con reglas explícitas, requisitos y rechazo de métodos no admitidos.                                      | Fase 7 `done` |
+|    26 | `F3-02`    | `done`     | Perfil de completitud medido por empresa sobre los datos que existen, sin estimar lo ausente.                                                | `F3-01`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -2684,6 +2685,18 @@ requeridos, confianza y `unsupported_method`. Evidencia: 30 SIC observados con
 explicadas en la [metodología](../valuation/methodology.md#f3-01-incremento-5-señales-desde-datos-reales-y-cierre);
 tests de selector, SIC, serie anual, reglas y servicio, más integración del
 plan SIC con supersesión sobre PostgreSQL.
+
+**`F3-02` — cierre (2026-10-02).** `completeness-profile-1.0.0` mide nueve
+comprobaciones sobre la serie anual —insumos estructurales, años de historia,
+caja y deuda, arrendamientos, I+D, reinversión, impuestos, industria y mix
+geográfico— con estado y faltante nombrado. Reemplaza al preflight booleano del
+selector y `pnpm valuation:assess` lo muestra.
+
+Criterios cumplidos: perfil medido por empresa sobre los datos que existen, sin
+estimar lo ausente. Evidencia: medido sobre las 30 de la muestra del gate
+(historia de cinco años en 22, capex en 12 por conceptos fuera de la selección,
+mix geográfico no ingerido en ninguna); ocho tests unitarios con huecos,
+alternativas de EBIT y ausencias que no valen cero.
 
 ### Fase 4 — motor Damodaran y arquetipos
 

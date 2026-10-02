@@ -336,6 +336,31 @@ mal escrita: la etiqueta del owner nombra un evento dentro de la ventana y el
 selector clasifica al corte. Se conservan como referencia para la próxima versión
 de los umbrales.
 
+### `F3-02`: perfil de completitud
+
+`completeness-profile-1.0.0` mide sobre la serie anual qué existe para valuar la
+empresa. Cada comprobación sale `met`, `partial`, `missing` o `not_evaluated`,
+con lo que faltó nombrado; un dato ausente nunca se completa con cero.
+
+| Comprobación             | `met` exige                                                                                                    |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `structural_inputs`      | ventas, EBIT (o resultado antes de impuestos más intereses), impuesto y acciones diluidas del último ejercicio |
+| `history_years`          | 5 ejercicios consecutivos con ventas y EBIT (`partial` desde 3)                                                |
+| `cash_and_debt`          | caja y alguna partida de deuda en el último balance                                                            |
+| `leases`                 | pasivo por arrendamientos operativos                                                                           |
+| `research_development`   | I+D publicada en 3 ejercicios (`missing` si nunca se publicó)                                                  |
+| `reinvestment_inputs`    | capex y depreciación del último ejercicio                                                                      |
+| `tax_rate_inputs`        | resultado antes de impuestos e impuesto                                                                        |
+| `industry_mapping`       | la industria de Damodaran asignada (`F3-05`); `not_evaluated` hasta entonces                                   |
+| `geographic_revenue_mix` | siempre `missing`: `companyfacts` publica hechos sin dimensiones y el mix por país no llega a la base          |
+
+`structural_inputs` reemplaza al preflight booleano del selector. Medido el
+2026-10-02 sobre la muestra del gate: impuestos y arrendamientos en las 30;
+historia de cinco años en 22 (las otras ocho son financieras o extractivas sin
+EBIT publicado); capex en 12, porque emisores como Amazon lo publican con
+conceptos que `sec-core-concepts-3.0.0` no selecciona. Ese hueco es de la
+selección, no de la empresa, y queda para la normalización de la Fase 4.
+
 ## Normalización
 
 Reported y normalized se preservan en paralelo. Cada ajuste declara monto,

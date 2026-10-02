@@ -5,7 +5,6 @@ import type { SubjectClassification } from "@/modules/classification/domain/subj
 import type { FundamentalRow } from "../domain/annual-fundamentals";
 import {
   assessCompany,
-  fcffPreflight,
   type CompanyAssessmentDependencies,
 } from "./assess-company";
 
@@ -107,7 +106,10 @@ describe("assessCompany", () => {
     );
 
     expect(assessment.sic).toMatchObject({ code: "3571" });
-    expect(assessment.fcffPreflight).toEqual({ complete: true, missing: [] });
+    expect(assessment.completeness.checks[0]).toMatchObject({
+      check: "structural_inputs",
+      status: "met",
+    });
     expect(assessment.selection).toMatchObject({
       status: "selected",
       assetProfile: "non_financial_mature",
@@ -144,8 +146,9 @@ describe("assessCompany", () => {
     );
 
     expect(assessment.fundamentals.series).toBeNull();
-    expect(assessment.fcffPreflight).toEqual({
-      complete: false,
+    expect(assessment.completeness.checks[0]).toMatchObject({
+      check: "structural_inputs",
+      status: "missing",
       missing: ["annual_fundamentals"],
     });
     expect(assessment.selection.requiredInputs).toEqual([
@@ -186,19 +189,5 @@ describe("assessCompany", () => {
     );
 
     expect(assessment.sic).toBeNull();
-  });
-});
-
-describe("fcffPreflight", () => {
-  it("names each structural input that the latest year lacks", () => {
-    expect(
-      fcffPreflight({
-        version: "annual-fundamentals-1.0.0",
-        fiscalYears: [{ fiscalYearEnd: "2025-12-31", items: {} }],
-      }),
-    ).toEqual({
-      complete: false,
-      missing: ["revenue", "operating_income", "income_tax", "diluted_shares"],
-    });
   });
 });
