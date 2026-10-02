@@ -413,4 +413,73 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         "Candidata de Fase 2 y sólo para modo personal. El default `iex` del endpoint no prueba entitlement de la cuenta.",
       recordedAt: RECORDED_AT,
     }),
+    sourceRegistryEntrySchema.parse({
+      sourceId: "damodaran-current-data",
+      displayName: "Damodaran Online — datos actuales",
+      owner: "Aswath Damodaran (NYU Stern)",
+      canonicalUrl:
+        "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datacurrent.html",
+      documentationUrls: [
+        "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/guide.html",
+        "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datacurrent.html",
+      ],
+      datasets: [
+        "damodaran.betas-us",
+        "damodaran.country-risk",
+        "damodaran.implied-erp",
+        "damodaran.synthetic-ratings",
+      ],
+      endpoints: [
+        "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/Betas.html",
+        "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/ctryprem.html",
+        "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/histimpl.html",
+        "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/ratings.html",
+      ],
+      authentication: "none",
+      applicablePlan: null,
+      rateLimit: "sin cuota publicada; el tope diario es interno",
+      attribution: "Aswath Damodaran, Damodaran Online (NYU Stern)",
+      expectedCadence:
+        "a mano, al publicarse la actualización anual de enero y la de riesgo país de julio",
+      freshnessTarget: "la última release publicada al correr",
+      timezone: "America/New_York",
+      units: [],
+      currencies: ["USD"],
+      parserVersion: "damodaran-html-1.0.0",
+      fixturePolicy:
+        "Fixture sintética: los términos no permiten redistribuir los datos, así que ninguna página capturada entra al repositorio.",
+      fallbackSourceIds: [],
+      /**
+       * Los términos (guide.html, leídos el 2026-10-02) autorizan el uso «as part
+       * of your regular occupation or research» con atribución y prohíben
+       * revender los datos. No dicen nada de descargarlos con un programa: eso
+       * lo decidió el owner (`owner_accepted`), acotado a cuatro páginas, una
+       * request cada una y nunca crawling (ADR 0032).
+       */
+      rights: {
+        personalUse: "allowed",
+        automatedAccess: "owner_accepted",
+        // Se normaliza y se descarta: la página nunca se guarda ni se commitea.
+        rawStorage: "restricted",
+        normalizedStorage: "allowed",
+        derivedStorage: "allowed",
+        publicDisplay: "restricted",
+        export: "allowed",
+        aiTransfer: "restricted",
+      },
+      technicalStatus: "integrated",
+      approvalStatus: "approved_personal",
+      reviewedAt: "2026-10-02T00:00:00.000Z",
+      rightsReviewedAt: "2026-10-02T00:00:00.000Z",
+      rightsReviewDueAt: "2027-01-31T00:00:00.000Z",
+      reviewEvidence: [
+        "docs/architecture/adr/0032-damodaran-reference-datasets.md",
+        "docs/data/provider-use-matrix.md",
+      ],
+      retentionClasses: ["R3"],
+      quotaPolicyId: null,
+      ownerNotes:
+        "Decisión del owner del 2026-10-02: owner_accepted acotado para la descarga automatizada. Cuatro páginas HTML —betas de EE. UU., riesgo país, ERP implícita y rating sintético—, una request cada una, a mano. Se guardan filas normalizadas con atribución y nunca la página.",
+      recordedAt: "2026-10-02T00:00:00.000Z",
+    }),
   ]);

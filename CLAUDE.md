@@ -276,6 +276,24 @@ never ingested, since companyfacts has no dimensions) and derives
 the rigor and rejects one written by hand.
 
 ```bash
+pnpm damodaran:record                              # dry run: the four pages, one request each, writes nothing
+pnpm damodaran:record --dataset damodaran.betas-us --apply
+```
+
+Also hand-run (`F3-04`, [ADR 0032](docs/architecture/adr/0032-damodaran-reference-datasets.md),
+migration `0023`). Four Damodaran tables —US industry betas, country risk,
+historical implied ERP and the synthetic-rating table— read from their **HTML**
+pages (the `.xls` would need a new dependency) by `damodaran-html-1.0.0`, which
+checks headers before reading a row. Automated access is `owner_accepted`; the
+terms allow research use with attribution and forbid reselling, so the page is
+never stored and fixtures are synthetic. Each page is a **release**
+(`reference_dataset_releases` + `reference_dataset_rows`) whose `available_at` is
+the observation, because the pages say «January 2026» and still patch rows
+mid-cycle. Same content is a `duplicate` run; new content supersedes; the run's
+idempotency key is the transition, so content that comes back is a new release.
+Read at a cutoff through `readReferenceDataset`. Measured: 370 rows, 240 kB.
+
+```bash
 pnpm fundamentals:ingest --ticker AAPL             # dry run: downloads and builds vintages, writes nothing
 pnpm fundamentals:ingest --ticker AAPL --apply     # records the run, filings and observations
 ```

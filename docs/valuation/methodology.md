@@ -391,6 +391,21 @@ Medido el 2026-10-02 sobre la muestra: las ocho maduras quedan en `screening`
 sólo por `industry_mapping`, que llega con `F3-05`; las 22 restantes son
 `unsupported` con su motivo.
 
+### `F3-04`: datasets Damodaran versionados
+
+La [ADR 0032](../architecture/adr/0032-damodaran-reference-datasets.md) incorpora
+cuatro tablas de Damodaran como **releases** fechadas: betas por industria de
+EE. UU., riesgo país, ERP implícita histórica y rating sintético por cobertura.
+`pnpm damodaran:record` baja cada página con una request, la verifica contra sus
+encabezados y guarda las filas normalizadas; la misma publicación no escribe nada
+y otra supersede a la vigente en la observación.
+
+La disponibilidad es la observación, no el mes que la página escribe: la tabla de
+riesgo país corrige filas a mitad de ciclo, y fecharla en enero sería look-ahead.
+Un costo de capital anterior a la primera captura no tiene parámetros y lo
+declara. La ERP es la implícita de inicio de año junto con la tasa del bono del
+Tesoro de la misma fila; la serie mensual sólo existe en `.xlsx` y no entra.
+
 ## Normalización
 
 Reported y normalized se preservan en paralelo. Cada ajuste declara monto,

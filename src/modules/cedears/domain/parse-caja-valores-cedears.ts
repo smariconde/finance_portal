@@ -9,7 +9,7 @@ import {
   type CedearPublication,
   type CedearRowRejection,
 } from "./cedear-claim";
-import { htmlToText } from "./html-text";
+import { htmlToText } from "@/modules/ingestion/domain/html-text";
 
 /**
  * Parser de la página de CEDEAR de Caja de Valores

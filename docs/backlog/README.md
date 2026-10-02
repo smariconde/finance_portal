@@ -53,6 +53,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    25 | `F3-01`    | `done`     | Selector determinista de arquetipo con reglas explícitas, requisitos y rechazo de métodos no admitidos.                                      | Fase 7 `done` |
 |    26 | `F3-02`    | `done`     | Perfil de completitud medido por empresa sobre los datos que existen, sin estimar lo ausente.                                                | `F3-01`       |
 |    27 | `F3-03`    | `done`     | Nivel de rigor derivado de la completitud y declarado en la corrida, recalculado por el motor.                                               | `F3-02`       |
+|    28 | `F3-04`    | `done`     | Datasets Damodaran versionados y fechados: ERP implícita, betas por industria, riesgo país y rating sintético.                               | Fase 7 `done` |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -2713,6 +2714,22 @@ Criterios cumplidos: nivel derivado de la completitud y declarado en la corrida
 escrito a mano rechazado), la muestra del gate medida (8 `screening` por
 industria pendiente, 22 `unsupported` con motivo) y E2E de la corrida de
 referencia con los hashes nuevos.
+
+**`F3-04` — cierre (2026-10-02).** La
+[ADR 0032](../architecture/adr/0032-damodaran-reference-datasets.md) registra
+`damodaran-current-data` como `approved_personal` (acceso automatizado
+`owner_accepted`, el resto según los términos), con allowlist de cuatro rutas,
+tope de 20 requests por día y parser `damodaran-html-1.0.0` que verifica
+encabezados. `pnpm damodaran:record` guarda cada página como release
+(`reference_dataset_releases` y `reference_dataset_rows`, migración `0023`) con
+disponibilidad igual a la observación; la misma publicación es `duplicate` y otra
+supersede.
+
+Criterios cumplidos: datasets versionados y fechados de ERP implícita, betas por
+industria y CRP (`TM-05`, `TM-16`). Evidencia: 96 industrias, 178 países, 66 años y
+30 bandas, sin rechazos, 240 kB; idempotencia verificada contra la fuente;
+fixtures sintéticas (los términos no permiten redistribuir), 27 tests unitarios y
+3 de integración.
 
 ### Fase 4 — motor Damodaran y arquetipos
 
