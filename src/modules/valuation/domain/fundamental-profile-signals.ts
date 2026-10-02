@@ -462,6 +462,36 @@ const DECLARED_ALTERNATIVE_BASES: ReadonlySet<string> = new Set([
   "liquid_assets_cover_liabilities",
 ]);
 
+/**
+ * Cobertura de intereses para el rating sintético del costo de deuda (`F3-06`):
+ * la del último ejercicio que publica EBIT e intereses. Si el último no publicó
+ * intereses —Apple dejó de hacerlo en 2024—, se toma el anterior más reciente que
+ * sí, y la salida lo dice: es una alternativa, no el dato del año.
+ */
+export function latestInterestCoverage(series: AnnualFundamentals): {
+  readonly value: string;
+  readonly fiscalYearEnd: string;
+  readonly fromLatestFiscalYear: boolean;
+  readonly availableAt: string;
+} | null {
+  for (const [index, year] of series.fiscalYears.entries()) {
+    const coverage = coverageOf(year);
+
+    if (coverage !== null) {
+      return {
+        value: formatDecimal(coverage.value, "interest_coverage"),
+        fiscalYearEnd: year.fiscalYearEnd,
+        fromLatestFiscalYear: index === 0,
+        availableAt: latestOf(
+          coverage.inputs.map((input) => input.availableAt),
+        ),
+      };
+    }
+  }
+
+  return null;
+}
+
 export type FundamentalProfileSignals = {
   readonly version: typeof FUNDAMENTAL_PROFILE_SIGNALS_VERSION;
   readonly signals: readonly FundamentalSignal[];

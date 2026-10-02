@@ -79,6 +79,54 @@ describe("valuation policy checks", () => {
     expect(failed(input, "rigor_admits_valuation")?.status).toBe("failed");
   });
 
+  it("rejects a raw WACC that the dated cost of capital does not derive", () => {
+    const input = draft((candidate) => {
+      for (const period of candidate.periods) period.wacc = "0.1";
+    });
+
+    const check = failed(input, "wacc_built_from_components");
+    expect(check?.status).toBe("failed");
+    // El primer período no arranca en el WACC construido y ninguno queda en el
+    // camino entre ese WACC y el terminal.
+    expect(check?.subjects).toEqual([
+      "periods.0.wacc",
+      ...input.periods.map(
+        (period) => `periods.${period.periodIndex - 1}.wacc`,
+      ),
+    ]);
+  });
+
+  it("rejects a derived WACC edited without its components", () => {
+    const input = draft((candidate) => {
+      candidate.costOfCapital.derived.wacc = "0.08";
+    });
+
+    expect(failed(input, "wacc_built_from_components")?.subjects).toContain(
+      "costOfCapital.derived",
+    );
+  });
+
+  it("rejects a cost of capital in another currency than the valuation", () => {
+    const input = draft((candidate) => {
+      candidate.currency = "EUR";
+      for (const key of [
+        "excessCash",
+        "nonOperatingAssets",
+        "debt",
+        "minorityInterest",
+        "otherClaims",
+      ] as const) {
+        const amount = candidate.bridge[key].amount;
+        if (amount !== null) amount.currency = "EUR";
+      }
+      candidate.baseRevenue.currency = "EUR";
+    });
+
+    expect(failed(input, "wacc_built_from_components")?.subjects).toContain(
+      "costOfCapital.currency",
+    );
+  });
+
   it("rejects a claim denominated in another currency", () => {
     const input = draft((candidate) => {
       candidate.bridge.debt.amount!.currency = "ARS";

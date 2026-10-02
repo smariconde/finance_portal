@@ -17,7 +17,9 @@ import {
   METHOD_SELECTION_VERSION,
   type MethodSelection,
 } from "../domain/method-selection";
+import { buildCostOfCapital } from "../domain/cost-of-capital";
 import { deriveRigorLevel } from "../domain/rigor-level";
+import { fixtureCostOfCapitalReadings } from "./fixture-cost-of-capital-readings";
 import {
   ENGINE_VERSION,
   METHODOLOGY_VERSION,
@@ -43,7 +45,7 @@ import {
  *   `shares_outstanding` queda `license_restricted` y sin valor. El snapshot las
  *   declara desde otro documento en vez de inventar un cero (`TM-05`, `TM-15`).
  */
-export const DEMO_VALUATION_FIXTURE_VERSION = "2026-10-02.1";
+export const DEMO_VALUATION_FIXTURE_VERSION = "2026-10-02.2";
 
 export const DEMO_VALUATION_AS_OF = "2025-06-30";
 
@@ -125,6 +127,41 @@ const DEMO_COMPLETENESS: CompletenessProfile = {
     },
   ],
 };
+
+/**
+ * Costo de capital de `FixtureCo`, **construido** con la misma regla que una
+ * empresa real sobre releases sintéticas. Los parámetros se eligieron para que
+ * el WACC dé el 9 % que la corrida de referencia usaba como input crudo: beta 1
+ * sin deuda, libre de riesgo 4 % y ERP 5 %. El terminal coincide porque la beta
+ * ya está en 1.
+ */
+const DEMO_COST_OF_CAPITAL_RESULT = buildCostOfCapital({
+  currency: "USD",
+  industryKey: "computers-peripherals",
+  listingCountry: "US",
+  ...fixtureCostOfCapitalReadings({
+    treasuryBondRate: "0.04",
+    sovereignDefaultSpread: "0",
+    impliedErp: "0.05",
+    countryRiskPremium: "0",
+    countryDefaultSpread: "0",
+    corporateTaxRate: "0.25",
+    unleveredBeta: "1",
+    debtToEquity: "0",
+  }),
+  coverage: {
+    value: "10",
+    fiscalYearEnd: "2024-12-31",
+    fromLatestFiscalYear: true,
+    availableAt: "2025-02-15T00:00:00.000Z",
+  },
+});
+
+if (DEMO_COST_OF_CAPITAL_RESULT.status !== "computed") {
+  throw new Error("the demo cost of capital must build");
+}
+
+export const DEMO_COST_OF_CAPITAL = DEMO_COST_OF_CAPITAL_RESULT.costOfCapital;
 
 export const DEMO_VALUATION_ASSESSMENT = {
   selection: DEMO_SELECTION,
@@ -253,6 +290,7 @@ function buildInput(baseRevenue: {
     },
     assetProfile: "non_financial_mature",
     assessment: DEMO_VALUATION_ASSESSMENT,
+    costOfCapital: DEMO_COST_OF_CAPITAL,
     method: VALUATION_METHOD,
     engineVersion: ENGINE_VERSION,
     methodologyVersion: METHODOLOGY_VERSION,

@@ -14,6 +14,7 @@ import {
   rateSchema,
 } from "./decimal-policy";
 import { assetProfileSchema, type AssetProfile } from "./asset-profile";
+import { costOfCapitalSchema } from "./cost-of-capital";
 import { valuationAssessmentSchema } from "./valuation-assessment";
 import { ValuationPolicyError } from "./valuation-error";
 
@@ -29,7 +30,7 @@ import { ValuationPolicyError } from "./valuation-error";
 export const VALUATION_METHOD = "fcff_base";
 export const ENGINE_VERSION = "fcff-1.0.0";
 /** Debe seguir a `docs/valuation/methodology.md`. */
-export const METHODOLOGY_VERSION = "0.3.0";
+export const METHODOLOGY_VERSION = "0.4.0";
 
 const currencySchema = z
   .string()
@@ -217,6 +218,12 @@ export const valuationInputSchema = z
      * completitud deriva: un policy check lo recalcula y rechaza la diferencia.
      */
     assessment: valuationAssessmentSchema,
+    /**
+     * WACC construido con componentes fechados (`F3-06`). Los `wacc` de los
+     * períodos y del terminal tienen que ser los que este objeto deriva: un
+     * policy check lo recalcula y rechaza un WACC crudo.
+     */
+    costOfCapital: costOfCapitalSchema,
     method: z.literal(VALUATION_METHOD),
     engineVersion: z.literal(ENGINE_VERSION),
     methodologyVersion: z.literal(METHODOLOGY_VERSION),

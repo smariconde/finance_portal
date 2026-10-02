@@ -1,7 +1,7 @@
 # Metodología de valuación
 
 - Estado: metodología objetivo; motor FCFF base implementado en `src/modules/valuation/`
-- Versión metodológica: 0.3.0 (la corrida lleva selección, completitud y rigor desde `F3-03`)
+- Versión metodológica: 0.4.0 (la corrida lleva selección, completitud y rigor desde `F3-03`, y el costo de capital construido desde `F3-06`)
 - Versión de engine implementada: `fcff-1.0.0` (método `fcff_base`)
 - Fecha: 2026-08-21; motor base entregado el 2026-08-24; niveles de rigor y alcance
   de la IA incorporados el 2026-09-04
@@ -36,8 +36,8 @@ de cuatro quintos del universo y produce números inválidos en el resto.
 | Etapa    | Cobertura                                                             | Estado inicial |
 | -------- | --------------------------------------------------------------------- | -------------- |
 | Fase 1   | FCFF base sobre una empresa fixture para probar el flujo reproducible | `done`         |
-| Fase 3   | selector de arquetipo, completitud de datos y admisibilidad de método | `planned`      |
-| Fase 3   | parámetros Damodaran y costo de capital bottom-up                     | `planned`      |
+| Fase 3   | selector de arquetipo, completitud de datos y admisibilidad de método | `done`         |
+| Fase 3   | parámetros Damodaran y costo de capital bottom-up                     | `done`         |
 | Fase 4   | FCFF multi-etapa con leases e I+D capitalizados                       | `planned`      |
 | Fase 4.1 | bancos y aseguradoras mediante excess return/residual income o DDM    | `planned`      |
 | Fase 4.2 | cíclicas y commodities con normalización de ciclo                     | `planned`      |
@@ -425,6 +425,35 @@ empresa mapeada puede llegar a `standard`. Medido el 2026-10-02 sobre la muestra
 14 mapeadas y 16 ambiguas; Apple y Johnson & Johnson llegan a `standard` y
 declaran `country_risk_by_domicile`, y las seis maduras con SIC ambiguo quedan
 en `screening` hasta una declaración.
+
+### `F3-06`: costo de capital bottom-up
+
+`cost-of-capital-1.0.0` construye el WACC con nueve parámetros fechados de las
+releases de Damodaran, cada uno con su release, fila y campo:
+
+| Componente       | Regla                                                                                                                                                                               |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Libre de riesgo  | tasa del bono del Tesoro de la última fila de ERP implícita menos el default spread del soberano de la moneda (EE. UU. es Aa1)                                                      |
+| Beta             | desapalancada y corregida por caja de la industria mapeada, reapalancada con `βL = βU × (1 + (1 − t) × D/E)` a la D/E de mercado de la industria                                    |
+| Costo del equity | `rf + βL × (ERP implícita + CRP del país del listing primario)`                                                                                                                     |
+| Costo de deuda   | `rf +` spread del rating sintético por cobertura de intereses (tabla de no financieras grandes, piso inclusivo) `+` default spread del país, con escudo a la tasa marginal del país |
+| Pesos            | los de la D/E objetivo de la industria                                                                                                                                              |
+| Terminal         | beta 1 con la misma estructura                                                                                                                                                      |
+
+Sin industria mapeada, sin cobertura de intereses en la ventana o en una moneda
+distinta del dólar, el costo de capital no se construye y nombra lo que falta.
+Un banco, una aseguradora o un REIT no recibe WACC: se valúan sobre el equity.
+
+`ValuationInput.costOfCapital` lleva el objeto entero y el policy check
+`wacc_built_from_components` lo **recalcula** desde sus parámetros: el primer
+período tiene que arrancar en el WACC, el terminal en el WACC terminal y ningún
+período salirse del camino entre los dos. La versión metodológica pasa a `0.4.0`;
+el WACC de `FixtureCo` se construye con releases sintéticas que dan el mismo 9 %,
+así que su valor por acción no cambia y sus hashes sí.
+
+Medido el 2026-10-02: Apple 9,75 % (terminal 8,19 %), Johnson & Johnson 7,86 %.
+Apple dejó de publicar intereses en 2024; su rating sintético sale de la
+cobertura de 2023 y lo declara (`coverage_from_earlier_fiscal_year`).
 
 ## Normalización
 

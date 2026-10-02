@@ -49,6 +49,7 @@ const CHECK_LABELS: Record<string, string> = {
   method_selection_admits_run: "Método elegido por el selector",
   rigor_derived_from_completeness: "Rigor derivado de la completitud",
   rigor_admits_valuation: "Rigor que admite valuar",
+  wacc_built_from_components: "WACC construido con componentes fechados",
   currency_and_unit_consistency: "Moneda y unidad consistentes",
   required_inputs_present: "Inputs requeridos presentes",
   diluted_shares_positive: "Acciones diluidas positivas",

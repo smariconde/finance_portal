@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { SubjectClassification } from "@/modules/classification/domain/subject-classification";
 
 import type { FundamentalRow } from "../domain/annual-fundamentals";
+import { fixtureCostOfCapitalReadings } from "../infrastructure/fixture-cost-of-capital-readings";
 import {
   assessCompany,
   type CompanyAssessmentDependencies,
@@ -75,6 +76,7 @@ function matureRows(): FundamentalRow[] {
     return [
       annual("Revenues", end, String(100 + index * 5)),
       annual("OperatingIncomeLoss", end, "20"),
+      annual("InterestExpense", end, "2"),
       annual("IncomeTaxExpenseBenefit", end, "4"),
       annual("WeightedAverageNumberOfDilutedSharesOutstanding", end, "10"),
       annual("StockholdersEquity", end, "60"),
@@ -91,6 +93,7 @@ function dependencies(
     loadSicAssertions: async () => assertions,
     readFundamentals: async () => rows,
     fiscalYearAnchors: async () => anchors,
+    costOfCapitalReadings: async () => fixtureCostOfCapitalReadings(),
     industryRelease: async () =>
       new Map([
         ["computers-peripherals", "Computers/Peripherals"],
@@ -109,6 +112,7 @@ describe("assessCompany", () => {
         fundamentalsSourceId: "sec-edgar",
         cik: "0000000042",
         industryDeclarations: [],
+        listingCountry: "US",
       },
       dependencies([sic("3571")], matureRows()),
     );
@@ -135,6 +139,7 @@ describe("assessCompany", () => {
       level: "standard",
       declarations: ["country_risk_by_domicile"],
     });
+    expect(assessment.costOfCapital.status).toBe("computed");
   });
 
   it("does not see a SIC observed after the cutoff", async () => {
@@ -145,6 +150,7 @@ describe("assessCompany", () => {
         fundamentalsSourceId: "sec-edgar",
         cik: "0000000042",
         industryDeclarations: [],
+        listingCountry: "US",
       },
       dependencies([sic("3571")], matureRows()),
     );
@@ -164,6 +170,7 @@ describe("assessCompany", () => {
         fundamentalsSourceId: "sec-edgar",
         cik: "0000000042",
         industryDeclarations: [],
+        listingCountry: "US",
       },
       dependencies([sic("3571")], [], []),
     );
@@ -187,6 +194,7 @@ describe("assessCompany", () => {
       query: query("2026-10-03T00:00:00.000Z"),
       fundamentalsSourceId: "sec-edgar",
       cik: "0000000042",
+      listingCountry: "US",
     };
     const ambiguous = await assessCompany(
       { ...request, industryDeclarations: [] },
@@ -233,6 +241,7 @@ describe("assessCompany", () => {
         fundamentalsSourceId: "sec-edgar",
         cik: "0000000042",
         industryDeclarations: [],
+        listingCountry: "US",
       },
       dependencies([sic("6021")], []),
     );
@@ -240,6 +249,11 @@ describe("assessCompany", () => {
     expect(assessment.selection).toMatchObject({
       assetProfile: "bank",
       unsupportedReasons: ["method_not_implemented"],
+    });
+    // Un banco se valúa sobre el equity: no recibe un WACC.
+    expect(assessment.costOfCapital).toMatchObject({
+      status: "unsupported",
+      missing: ["financial_profile_uses_cost_of_equity"],
     });
   });
 
@@ -255,6 +269,7 @@ describe("assessCompany", () => {
         fundamentalsSourceId: "sec-edgar",
         cik: "0000000042",
         industryDeclarations: [],
+        listingCountry: "US",
       },
       dependencies([foreign], matureRows()),
     );

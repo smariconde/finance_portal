@@ -6,6 +6,8 @@ import {
 } from "../infrastructure/demo-valuation-run";
 import { runValuation } from "../application/run-valuation";
 import { DEMO_VALUATION_INPUT } from "../infrastructure/demo-valuation-fixtures";
+import { fixtureCostOfCapitalReadings } from "../infrastructure/fixture-cost-of-capital-readings";
+import { buildCostOfCapital } from "./cost-of-capital";
 import { valuationInputSchema, type ValuationInput } from "./valuation-input";
 import {
   annotateSensitivity,
@@ -18,6 +20,29 @@ import {
 } from "./valuation-report";
 
 const run = buildDemoValuationRun();
+
+function convergingCostOfCapital() {
+  const built = buildCostOfCapital({
+    currency: "USD",
+    industryKey: "computers-peripherals",
+    listingCountry: "US",
+    ...fixtureCostOfCapitalReadings({
+      treasuryBondRate: "0.04",
+      sovereignDefaultSpread: "0",
+      impliedErp: "0.05",
+      countryRiskPremium: "0",
+      countryDefaultSpread: "0",
+      corporateTaxRate: "0.25",
+      unleveredBeta: "1.2",
+      debtToEquity: "0",
+    }),
+    coverage: DEMO_VALUATION_INPUT.costOfCapital.coverage,
+  });
+
+  if (built.status !== "computed")
+    throw new Error("expected a cost of capital");
+  return built.costOfCapital;
+}
 
 function runWith(mutate: (input: ValuationInput) => void) {
   const candidate = structuredClone(DEMO_VALUATION_INPUT);
@@ -243,7 +268,9 @@ describe("annotated sensitivity", () => {
     const annotated = annotateSensitivity(
       runWith((input) => {
         // La grilla reemplaza el WACC de todos los períodos: con un WACC que
-        // varía, ninguna celda reproduce el caso base.
+        // varía, ninguna celda reproduce el caso base. El camino no se escribe
+        // a mano: sale de una beta de 1,2 que converge a 1 (10 % → 9 %).
+        input.costOfCapital = convergingCostOfCapital();
         input.periods[0].wacc = "0.1";
       }),
     );
