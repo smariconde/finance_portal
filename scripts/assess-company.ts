@@ -366,12 +366,16 @@ for (const report of reports) {
       `${signal.state}${signal.basis.length > 0 ? ` · ${signal.basis.join(", ")}` : ""}${signal.missing.length > 0 ? ` · falta ${signal.missing.join(", ")}` : ""}${measures === "" ? "" : ` · ${measures}`}`,
     );
   }
-  log(
-    "preflight FCFF",
-    assessment.fcffPreflight.complete
-      ? "completo"
-      : `falta ${assessment.fcffPreflight.missing.join(", ")}`,
-  );
+  log("completitud", assessment.completeness.version);
+  for (const item of assessment.completeness.checks) {
+    const measures = Object.entries(item.measures)
+      .map(([key, value]) => `${key} ${value}`)
+      .join(", ");
+    log(
+      `  ${item.check}`,
+      `${item.status}${item.missing.length > 0 ? ` · falta ${item.missing.join(", ")}` : ""}${measures === "" ? "" : ` · ${measures}`}`,
+    );
+  }
   log(
     "selección",
     `${selection.status} · ${selection.assetProfile ?? "—"} · ${selection.recommendedMethod ?? "—"}`,

@@ -17,6 +17,12 @@ import {
   type FundamentalRow,
 } from "../domain/annual-fundamentals";
 import {
+  completenessCheck,
+  measureCompleteness,
+  type CompletenessProfile,
+  type IndustryMappingStatus,
+} from "../domain/completeness-profile";
+import {
   assessFundamentalProfileSignals,
   type FundamentalSignal,
 } from "../domain/fundamental-profile-signals";
@@ -63,6 +69,8 @@ export type CompanyAssessmentRequest = {
   readonly query: PointInTimeQueryInput;
   /** Fuente de los fundamentals, para la provenance de la evidencia. */
   readonly fundamentalsSourceId: string;
+  /** Resultado del mapeo a industria (`F3-05`), si ya se evaluó. */
+  readonly industryMapping?: IndustryMappingStatus | null;
 };
 
 export type CompanyAssessment = {
@@ -80,44 +88,9 @@ export type CompanyAssessment = {
   };
   readonly fundamentalSignals: readonly FundamentalSignal[];
   readonly evidence: readonly ProfileEvidence[];
-  readonly fcffPreflight: FcffPreflight;
+  readonly completeness: CompletenessProfile;
   readonly selection: MethodSelection;
 };
-
-export type FcffPreflight = {
-  readonly complete: boolean;
-  readonly missing: readonly string[];
-};
-
-/**
- * Preflight estructural del FCFF base sobre el último ejercicio. Sólo pregunta si
- * existen las partidas sin las cuales el motor no puede ni empezar; cuánto de lo
- * demás falta lo mide el perfil de completitud (`F3-02`).
- */
-export function fcffPreflight(
-  series: AnnualFundamentals | null,
-): FcffPreflight {
-  const latest = series?.fiscalYears[0];
-
-  if (latest === undefined) {
-    return { complete: false, missing: ["annual_fundamentals"] };
-  }
-
-  const missing: string[] = [];
-  const { items } = latest;
-
-  if (items.revenue === undefined) missing.push("revenue");
-  if (
-    items.operating_income === undefined &&
-    (items.pretax_income === undefined || items.interest_expense === undefined)
-  ) {
-    missing.push("operating_income");
-  }
-  if (items.income_tax === undefined) missing.push("income_tax");
-  if (items.diluted_shares === undefined) missing.push("diluted_shares");
-
-  return { complete: missing.length === 0, missing };
-}
 
 function isVisible(
   classification: SubjectClassification,
@@ -186,13 +159,16 @@ export async function assessCompany(
         );
 
   const evidence = [...sicEvidence, ...(fundamental?.evidence ?? [])];
-  const preflight = fcffPreflight(series);
+  const completeness = measureCompleteness(series, {
+    industryMapping: request.industryMapping ?? null,
+  });
 
   const selection = selectValuationMethod({
     legalEntityId,
     knowledge: query,
     evidence,
-    fcffInputsComplete: preflight.complete,
+    fcffInputsComplete:
+      completenessCheck(completeness, "structural_inputs").status === "met",
   });
 
   return {
@@ -210,7 +186,7 @@ export async function assessCompany(
     fundamentals: { anchor, series },
     fundamentalSignals: fundamental?.signals ?? [],
     evidence,
-    fcffPreflight: preflight,
+    completeness,
     selection,
   };
 }
