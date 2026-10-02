@@ -1,5 +1,8 @@
+import { computeContentHash } from "@/modules/ingestion/domain/content-hash";
+
 import { divide, ONE, parseDecimal, ZERO, type Dec } from "./decimal-policy";
 import type { FcffComputation } from "./fcff";
+import { deriveRigorLevel } from "./rigor-level";
 import { ValuationPolicyError } from "./valuation-error";
 import {
   BRIDGE_ITEM_KEYS,
@@ -57,9 +60,45 @@ export function hasValidTerminalSpread(wacc: Dec, growth: Dec): boolean {
   return wacc.gt(growth.plus(parseDecimal(TERMINAL_SPREAD_BUFFER, "buffer")));
 }
 
+/**
+ * Checks de la Fase 3: la corrida valúa lo que el selector eligió, con el rigor
+ * que la completitud deriva. El rigor se **recalcula** desde el snapshot; uno
+ * escrito a mano que no coincide se rechaza, porque el nivel no se elige.
+ */
+function checkAssessment(input: ValuationInput): PolicyCheck[] {
+  const { selection, completeness, rigor } = input.assessment;
+  const derived = deriveRigorLevel(selection, completeness);
+
+  return [
+    check(
+      "method_selection_admits_run",
+      "reject",
+      selection.status === "selected" &&
+        selection.assetProfile === input.assetProfile &&
+        selection.recommendedMethod === input.method,
+      "The run must value the profile and method the selector chose.",
+      ["assessment.selection", "assetProfile", "method"],
+    ),
+    check(
+      "rigor_derived_from_completeness",
+      "reject",
+      computeContentHash(derived) === computeContentHash(rigor),
+      "The rigor level is derived from the completeness profile, never chosen.",
+      ["assessment.rigor"],
+    ),
+    check(
+      "rigor_admits_valuation",
+      "reject",
+      rigor.level !== "unsupported",
+      "An unsupported rigor level does not value; it names what is missing.",
+      ["assessment.rigor.level"],
+    ),
+  ];
+}
+
 /** Checks que dependen sólo del snapshot: corren antes de calcular. */
 export function checkValuationInput(input: ValuationInput): PolicyCheck[] {
-  const checks: PolicyCheck[] = [];
+  const checks: PolicyCheck[] = [...checkAssessment(input)];
 
   const mismatchedCurrency = listMonetaryFacts(input)
     .filter(({ fact }) => fact.currency !== input.currency)

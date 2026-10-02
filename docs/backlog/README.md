@@ -52,6 +52,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    24 | `F7-07`    | `done`     | Degradacion, reconciliacion y quality score explicable de la matriz.                                                                         | `F7-05`       |
 |    25 | `F3-01`    | `done`     | Selector determinista de arquetipo con reglas explícitas, requisitos y rechazo de métodos no admitidos.                                      | Fase 7 `done` |
 |    26 | `F3-02`    | `done`     | Perfil de completitud medido por empresa sobre los datos que existen, sin estimar lo ausente.                                                | `F3-01`       |
+|    27 | `F3-03`    | `done`     | Nivel de rigor derivado de la completitud y declarado en la corrida, recalculado por el motor.                                               | `F3-02`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -2697,6 +2698,21 @@ estimar lo ausente. Evidencia: medido sobre las 30 de la muestra del gate
 (historia de cinco años en 22, capex en 12 por conceptos fuera de la selección,
 mix geográfico no ingerido en ninguna); ocho tests unitarios con huecos,
 alternativas de EBIT y ausencias que no valen cero.
+
+**`F3-03` — cierre (2026-10-02).** `rigor-level-1.0.0` deriva
+`full`/`standard`/`screening`/`unsupported` de la selección y la completitud,
+con `degradedBy` y las aproximaciones declaradas (`country_risk_by_domicile`,
+`invested_capital_not_reconstructed`). `ValuationInput.assessment` lleva
+selección, completitud y rigor a la corrida y al `input_hash`; tres policy checks
+de rechazo exigen que el método sea el elegido, que el rigor coincida con el
+recalculado y que no sea `unsupported`. Metodología `0.3.0`; la corrida de
+referencia cambia de hashes.
+
+Criterios cumplidos: nivel derivado de la completitud y declarado en la corrida
+(`TM-05`, `TM-15`). Evidencia: seis tests del nivel, tres de los checks (uno
+escrito a mano rechazado), la muestra del gate medida (8 `screening` por
+industria pendiente, 22 `unsupported` con motivo) y E2E de la corrida de
+referencia con los hashes nuevos.
 
 ### Fase 4 — motor Damodaran y arquetipos
 

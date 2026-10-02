@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import type {
   AnnualFundamentals,
   FiscalYear,
@@ -39,19 +41,29 @@ export const completenessCheckIds = [
   "geographic_revenue_mix",
 ] as const;
 
-export type CompletenessCheckId = (typeof completenessCheckIds)[number];
+export const completenessCheckIdSchema = z.enum(completenessCheckIds);
 
-export type CompletenessStatus =
-  "met" | "partial" | "missing" | "not_evaluated";
+export type CompletenessCheckId = z.infer<typeof completenessCheckIdSchema>;
 
-export type CompletenessCheck = {
-  readonly check: CompletenessCheckId;
-  readonly status: CompletenessStatus;
+export const completenessStatusSchema = z.enum([
+  "met",
+  "partial",
+  "missing",
+  "not_evaluated",
+]);
+
+export type CompletenessStatus = z.infer<typeof completenessStatusSchema>;
+
+export const completenessCheckSchema = z.object({
+  check: completenessCheckIdSchema,
+  status: completenessStatusSchema,
   /** Partidas o condiciones que faltaron, con nombre estable. */
-  readonly missing: readonly string[];
+  missing: z.array(z.string().trim().min(1).max(96)).max(16),
   /** Medidas que sostienen el estado: años, cantidad de partidas. */
-  readonly measures: Readonly<Record<string, number>>;
-};
+  measures: z.record(z.string().max(32), z.number().int().min(0).max(1000)),
+});
+
+export type CompletenessCheck = z.infer<typeof completenessCheckSchema>;
 
 /** Qué dijo el mapeo a industria; `null` mientras no exista esa evaluación. */
 export type IndustryMappingStatus = "mapped" | "ambiguous" | "unmapped";
@@ -60,11 +72,29 @@ export type CompletenessContext = {
   readonly industryMapping: IndustryMappingStatus | null;
 };
 
-export type CompletenessProfile = {
-  readonly version: typeof COMPLETENESS_PROFILE_VERSION;
-  readonly latestFiscalYearEnd: string | null;
-  readonly checks: readonly CompletenessCheck[];
-};
+export const completenessProfileSchema = z
+  .object({
+    version: z.literal(COMPLETENESS_PROFILE_VERSION),
+    latestFiscalYearEnd: z.iso.date().nullable(),
+    checks: z
+      .array(completenessCheckSchema)
+      .length(completenessCheckIds.length),
+  })
+  .superRefine((profile, context) => {
+    // Una comprobación por id, en el orden declarado: un perfil con una de menos
+    // no puede derivar un rigor que dependa de ella.
+    profile.checks.forEach((item, index) => {
+      if (item.check !== completenessCheckIds[index]) {
+        context.addIssue({
+          code: "custom",
+          path: ["checks", index, "check"],
+          message: "Completeness checks follow the declared order.",
+        });
+      }
+    });
+  });
+
+export type CompletenessProfile = z.infer<typeof completenessProfileSchema>;
 
 /** Años de historia que pide `full` y los que pide `standard`. */
 export const FULL_HISTORY_YEARS = 5;
@@ -89,7 +119,7 @@ function check(
   missing: readonly string[] = [],
   measures: Record<string, number> = {},
 ): CompletenessCheck {
-  return { check: id, status, missing, measures };
+  return { check: id, status, missing: [...missing], measures };
 }
 
 function itemsCheck(

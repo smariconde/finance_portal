@@ -116,6 +116,11 @@ describe("assessCompany", () => {
       recommendedMethod: "fcff_base",
       confidence: "high",
     });
+    // Sin industria mapeada (F3-05) el rigor no pasa de `screening`, y lo dice.
+    expect(assessment.rigor).toMatchObject({
+      level: "screening",
+      degradedBy: ["industry_mapping"],
+    });
   });
 
   it("does not see a SIC observed after the cutoff", async () => {

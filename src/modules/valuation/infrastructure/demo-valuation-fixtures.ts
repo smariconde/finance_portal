@@ -8,7 +8,16 @@ import {
 } from "@/modules/ingestion/infrastructure/demo-ingestion-fixtures";
 import { DEFAULT_SOURCE_POLICY_VERSION } from "@/modules/temporal/domain/point-in-time-query";
 
+import {
+  COMPLETENESS_PROFILE_VERSION,
+  type CompletenessProfile,
+} from "../domain/completeness-profile";
 import { DECIMAL_POLICY } from "../domain/decimal-policy";
+import {
+  METHOD_SELECTION_VERSION,
+  type MethodSelection,
+} from "../domain/method-selection";
+import { deriveRigorLevel } from "../domain/rigor-level";
 import {
   ENGINE_VERSION,
   METHODOLOGY_VERSION,
@@ -34,9 +43,94 @@ import {
  *   `shares_outstanding` queda `license_restricted` y sin valor. El snapshot las
  *   declara desde otro documento en vez de inventar un cero (`TM-05`, `TM-15`).
  */
-export const DEMO_VALUATION_FIXTURE_VERSION = "2026-08-24.1";
+export const DEMO_VALUATION_FIXTURE_VERSION = "2026-10-02.1";
 
 export const DEMO_VALUATION_AS_OF = "2025-06-30";
+
+/**
+ * Evaluación de la Fase 3 de `FixtureCo`, declarada: la empresa no tiene SIC ni
+ * una serie de cinco ejercicios en la fuente sintética, así que la selección y la
+ * completitud se escriben como lo que una evaluación devolvería. El rigor **no**
+ * se escribe: se deriva, igual que lo recalcula el motor.
+ */
+const DEMO_SELECTION: MethodSelection = {
+  version: METHOD_SELECTION_VERSION,
+  status: "selected",
+  assetProfile: "non_financial_mature",
+  recommendedMethod: "fcff_base",
+  alternatives: [],
+  requiredInputs: [],
+  confidence: "high",
+  activatedRules: ["mature_non_financial"],
+  unsupportedReasons: [],
+};
+
+const DEMO_COMPLETENESS: CompletenessProfile = {
+  version: COMPLETENESS_PROFILE_VERSION,
+  latestFiscalYearEnd: "2024-12-31",
+  checks: [
+    {
+      check: "structural_inputs",
+      status: "met",
+      missing: [],
+      measures: { present: 4, required: 4 },
+    },
+    {
+      check: "history_years",
+      status: "missing",
+      missing: ["fiscal_years_with_revenue_and_ebit.5"],
+      measures: { years: 1 },
+    },
+    {
+      check: "cash_and_debt",
+      status: "met",
+      missing: [],
+      measures: { present: 2, required: 2 },
+    },
+    {
+      check: "leases",
+      status: "missing",
+      missing: ["operating_lease_liability"],
+      measures: { present: 0, required: 1 },
+    },
+    {
+      check: "research_development",
+      status: "missing",
+      missing: ["research_development.not_reported"],
+      measures: { years: 0 },
+    },
+    {
+      check: "reinvestment_inputs",
+      status: "missing",
+      missing: ["capital_expenditure", "depreciation_amortization"],
+      measures: { present: 0, required: 2 },
+    },
+    {
+      check: "tax_rate_inputs",
+      status: "missing",
+      missing: ["pretax_income", "income_tax"],
+      measures: { present: 0, required: 2 },
+    },
+    {
+      check: "industry_mapping",
+      status: "not_evaluated",
+      missing: ["industry_mapping"],
+      measures: {},
+    },
+    {
+      check: "geographic_revenue_mix",
+      status: "missing",
+      missing: ["geographic_revenue_mix.not_ingested"],
+      measures: {},
+    },
+  ],
+};
+
+export const DEMO_VALUATION_ASSESSMENT = {
+  selection: DEMO_SELECTION,
+  completeness: DEMO_COMPLETENESS,
+  rigor: deriveRigorLevel(DEMO_SELECTION, DEMO_COMPLETENESS),
+};
 
 const FY2024_DOCUMENT = "fixtureco-fy2024-annual-report";
 const FY2024_AMENDMENT_DOCUMENT = "fixtureco-fy2024-annual-report-amendment";
@@ -158,6 +252,7 @@ function buildInput(baseRevenue: {
       sourcePolicyVersion: DEFAULT_SOURCE_POLICY_VERSION,
     },
     assetProfile: "non_financial_mature",
+    assessment: DEMO_VALUATION_ASSESSMENT,
     method: VALUATION_METHOD,
     engineVersion: ENGINE_VERSION,
     methodologyVersion: METHODOLOGY_VERSION,

@@ -33,6 +33,52 @@ describe("valuation policy checks", () => {
     expect(() => assertNoRejections(checks)).not.toThrowError();
   });
 
+  it("rejects a rigor level written by hand instead of derived", () => {
+    const input = draft((candidate) => {
+      candidate.assessment.rigor = {
+        ...candidate.assessment.rigor,
+        level: "full",
+        degradedBy: [],
+        declarations: [],
+      };
+    });
+
+    expect(failed(input, "rigor_derived_from_completeness")).toMatchObject({
+      status: "failed",
+      subjects: ["assessment.rigor"],
+    });
+  });
+
+  it("rejects a run whose profile or method the selector did not choose", () => {
+    const input = draft((candidate) => {
+      candidate.assessment.selection.assetProfile = "cyclical";
+    });
+
+    expect(failed(input, "method_selection_admits_run")?.status).toBe("failed");
+  });
+
+  it("rejects an unsupported rigor level, even when it is correctly derived", () => {
+    const input = draft((candidate) => {
+      candidate.assessment.completeness.checks[0] = {
+        check: "structural_inputs",
+        status: "partial",
+        missing: ["income_tax"],
+        measures: { present: 3, required: 4 },
+      };
+      candidate.assessment.rigor = {
+        version: "rigor-level-1.0.0",
+        level: "unsupported",
+        degradedBy: ["structural_inputs"],
+        declarations: [],
+      };
+    });
+
+    expect(failed(input, "rigor_derived_from_completeness")?.status).toBe(
+      "passed",
+    );
+    expect(failed(input, "rigor_admits_valuation")?.status).toBe("failed");
+  });
+
   it("rejects a claim denominated in another currency", () => {
     const input = draft((candidate) => {
       candidate.bridge.debt.amount!.currency = "ARS";

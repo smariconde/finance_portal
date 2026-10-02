@@ -392,4 +392,11 @@ for (const report of reports) {
   if (selection.alternatives.length > 0) {
     log("  alternativas", selection.alternatives.join(", "));
   }
+  log(
+    "rigor",
+    `${assessment.rigor.level}${assessment.rigor.degradedBy.length > 0 ? ` · bajó por ${assessment.rigor.degradedBy.join(", ")}` : ""}`,
+  );
+  if (assessment.rigor.declarations.length > 0) {
+    log("  declara", assessment.rigor.declarations.join(", "));
+  }
 }

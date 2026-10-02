@@ -13,6 +13,8 @@ import {
   engineDecimalSchema,
   rateSchema,
 } from "./decimal-policy";
+import { assetProfileSchema, type AssetProfile } from "./asset-profile";
+import { valuationAssessmentSchema } from "./valuation-assessment";
 import { ValuationPolicyError } from "./valuation-error";
 
 /**
@@ -27,7 +29,7 @@ import { ValuationPolicyError } from "./valuation-error";
 export const VALUATION_METHOD = "fcff_base";
 export const ENGINE_VERSION = "fcff-1.0.0";
 /** Debe seguir a `docs/valuation/methodology.md`. */
-export const METHODOLOGY_VERSION = "0.1.0";
+export const METHODOLOGY_VERSION = "0.3.0";
 
 const currencySchema = z
   .string()
@@ -194,25 +196,7 @@ export const sensitivitySpecSchema = z.object({
 
 export type SensitivitySpec = z.infer<typeof sensitivitySpecSchema>;
 
-/**
- * Perfil del activo. El motor de Fase 1 sólo cubre no financieras maduras; el
- * resto devuelve `unsupported_method` con sus inputs requeridos y nunca cae a
- * FCFF en silencio (`docs/valuation/methodology.md`, "Selección de método").
- */
-export const assetProfileSchema = z.enum([
-  "non_financial_mature",
-  "high_growth",
-  "loss_making",
-  "bank",
-  "insurer",
-  "reit",
-  "cyclical",
-  "commodity",
-  "holding",
-  "distressed",
-]);
-
-export type AssetProfile = z.infer<typeof assetProfileSchema>;
+export { assetProfileSchema, type AssetProfile } from "./asset-profile";
 
 export const SUPPORTED_ASSET_PROFILES: readonly AssetProfile[] = Object.freeze([
   "non_financial_mature",
@@ -227,6 +211,12 @@ export const valuationInputSchema = z
     /** Contrato point-in-time con el que se leyeron los hechos (`TM-06`). */
     knowledge: pointInTimeQuerySchema,
     assetProfile: assetProfileSchema,
+    /**
+     * Selección, completitud y rigor de la Fase 3. El perfil y el método de
+     * arriba tienen que ser los que la selección eligió, y el rigor el que la
+     * completitud deriva: un policy check lo recalcula y rechaza la diferencia.
+     */
+    assessment: valuationAssessmentSchema,
     method: z.literal(VALUATION_METHOD),
     engineVersion: z.literal(ENGINE_VERSION),
     methodologyVersion: z.literal(METHODOLOGY_VERSION),

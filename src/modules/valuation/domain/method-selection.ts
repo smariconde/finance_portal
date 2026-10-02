@@ -8,7 +8,7 @@ import {
   temporalVersionShape,
 } from "@/modules/temporal/domain/temporal-version";
 
-import { assetProfileSchema, type AssetProfile } from "./valuation-input";
+import { assetProfileSchema, type AssetProfile } from "./asset-profile";
 
 /**
  * Selección sobre evidencia ya clasificada y fechada (`F3-01`).
@@ -77,11 +77,14 @@ export const methodSelectionInputSchema = z
 
 export type MethodSelectionInput = z.input<typeof methodSelectionInputSchema>;
 
-export type MethodSelectionReason =
-  | "missing_classification_evidence"
-  | "conflicting_evidence"
-  | "method_not_implemented"
-  | "missing_required_input";
+export const methodSelectionReasonSchema = z.enum([
+  "missing_classification_evidence",
+  "conflicting_evidence",
+  "method_not_implemented",
+  "missing_required_input",
+]);
+
+export type MethodSelectionReason = z.infer<typeof methodSelectionReasonSchema>;
 
 /**
  * Confianza **ordinal**, no una probabilidad: dice cuánto de la decisión se apoyó
@@ -98,20 +101,27 @@ export type MethodSelectionReason =
  * Sin perfil identificado —abstención por falta de evidencia o por conflicto— es
  * `null`.
  */
-export type SelectionConfidence = "high" | "medium" | "low";
+export const selectionConfidenceSchema = z.enum(["high", "medium", "low"]);
 
-export type MethodSelection = {
-  version: typeof METHOD_SELECTION_VERSION;
-  status: "selected" | "unsupported_method";
-  assetProfile: AssetProfile | null;
-  recommendedMethod: string | null;
-  alternatives: string[];
-  requiredInputs: string[];
+export type SelectionConfidence = z.infer<typeof selectionConfidenceSchema>;
+
+const codeSchema = z.string().trim().min(1).max(96);
+
+/** La salida del selector como contrato: viaja dentro del snapshot de la corrida. */
+export const methodSelectionSchema = z.object({
+  version: z.literal(METHOD_SELECTION_VERSION),
+  status: z.enum(["selected", "unsupported_method"]),
+  assetProfile: assetProfileSchema.nullable(),
+  recommendedMethod: codeSchema.nullable(),
+  alternatives: z.array(codeSchema).max(16),
+  requiredInputs: z.array(codeSchema).max(32),
   /** Ordinal y nunca una probabilidad; `null` cuando no hay perfil. */
-  confidence: SelectionConfidence | null;
-  activatedRules: string[];
-  unsupportedReasons: MethodSelectionReason[];
-};
+  confidence: selectionConfidenceSchema.nullable(),
+  activatedRules: z.array(codeSchema).max(16),
+  unsupportedReasons: z.array(methodSelectionReasonSchema).max(4),
+});
+
+export type MethodSelection = z.infer<typeof methodSelectionSchema>;
 
 export const PROFILE_METHODS: Readonly<
   Record<

@@ -268,7 +268,12 @@ financial profiles, an unmapped one inside proves nothing) and
 below Damodaran's 1.25 two years running; losses two of three years and 15 %
 compound growth, both project decisions). `confidence` is ordinal
 (`high`/`medium`/`low`), never a probability. A company without ingested
-fundamentals is named (`annual_fundamentals`), not an error.
+fundamentals is named (`annual_fundamentals`), not an error. The assessment also measures
+`completeness-profile-1.0.0` (nine named checks; the geographic revenue mix is
+never ingested, since companyfacts has no dimensions) and derives
+`rigor-level-1.0.0`. A valuation run carries all three in
+`ValuationInput.assessment` (methodology `0.3.0`), and the engine **recomputes**
+the rigor and rejects one written by hand.
 
 ```bash
 pnpm fundamentals:ingest --ticker AAPL             # dry run: downloads and builds vintages, writes nothing
