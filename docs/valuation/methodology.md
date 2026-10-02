@@ -138,11 +138,13 @@ Retorna:
 
 ```ts
 type MethodSelection = {
-  assetProfile: string;
-  recommendedMethod: string;
+  version: string;
+  status: "selected" | "unsupported_method";
+  assetProfile: string | null;
+  recommendedMethod: string | null;
   alternatives: string[];
   requiredInputs: string[];
-  confidence: number; // 0..1
+  confidence: number | null; // null hasta calibrar la escala
   activatedRules: string[];
   unsupportedReasons: string[];
 };
@@ -225,6 +227,26 @@ convierten `Financials` en subtipo ni asignan umbrales de EBIT, crecimiento o
 leverage. `confidence` continúa sin escala calibrada y no debe mostrarse como
 probabilidad de acierto; su regla y las fixtures ejecutables siguen pendientes
 antes de cerrar `F3-01`.
+
+### `F3-01`, incremento 3: selector sobre evidencia explícita
+
+`method-selection-0.1.0` implementa los casos anteriores en dominio puro. Su
+entrada identifica una entidad legal y reúne señales de perfil ya clasificadas
+para ella, cada una con vigencia efectiva, `available_at`, `recorded_at`,
+fuente y hash, más la consulta point-in-time y un preflight estructural de FCFF. Filtra cada señal con el tiempo
+efectivo y el corte de conocimiento; dos afirmaciones de perfiles distintos o
+versiones simultáneas de un mismo perfil producen `conflicting_evidence`.
+Para admitir `fcff_base`, exige evidencia positiva de
+`non_financial_mature`, evidencia negativa explícita para los demás perfiles e
+inputs FCFF verificados. Los otros perfiles conservan su método previsto pero
+devuelven `method_not_implemented`. `confidence=null` en toda salida de esta
+versión: ningún número se presenta como probabilidad sin calibración.
+
+Esta versión no infiere las señales desde EBIT, crecimiento, regulación ni
+sector. El adaptador que las constituya deberá versionar y probar esas reglas,
+sus umbrales y su fuente antes de conectar el selector a una valuación real.
+`F3-01` sigue abierto hasta ese gate y el perfil de completitud de `F3-02`
+no se anticipa con el booleano de preflight.
 
 ## Normalización
 

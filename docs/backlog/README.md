@@ -2653,6 +2653,13 @@ implementarse y `confidence` no tiene escala calibrada. Próximo incremento:
 definir señales y umbrales versionados con evidencia, convertir los casos en
 fixtures ejecutables e implementar el selector puro.
 
+**`F3-01`, incremento 3 (2026-10-02).** `method-selection-0.1.0` implementa
+un selector puro sobre evidencia de perfil versionada. Los siete casos del
+incremento 2 y bordes de conocimiento público, registro local, vigencia,
+solapamiento, entidad legal e inputs FCFF pasan en 12 tests.
+`confidence` queda `null` hasta calibrarla. Sigue `in_progress`: falta constituir señales desde datos reales con
+reglas y umbrales versionados, probarlas y conectar el selector a la corrida.
+
 ### Fase 4 — motor Damodaran y arquetipos
 
 | Issue   | Resultado y aceptación mínima                                                                                | Depende de | Controles                 |
