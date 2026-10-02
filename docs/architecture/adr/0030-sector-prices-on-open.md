@@ -129,6 +129,19 @@ título es región viva: el conteo cambia cada dos segundos y anunciarlo saturar
 un lector de pantalla. Mientras tanto la matriz muestra lo guardado, y al
 terminar se recalcula sola.
 
+## Enmienda — cierre no disponible después de una revisión
+
+`sector-price-freshness-1.1.0` separa dos hechos que la regla original confundía:
+item terminal significa que la fuente fue consultada, no que exista el cierre de
+la rueda de referencia. La revisión sigue frenando el replaneo automático para
+una security suspendida o para un cierre que todavía no publicó Yahoo. Si la
+security continúa sin ese cierre, la página muestra su símbolo y «Reintentar»;
+ese pedido explícito vuelve a planearla incluso cuando el item previo terminó
+`completed`. La misma regla permite reintentar una referencia revisada que siga
+sin la rueda esperada. El estado «Precios al día» sólo se muestra cuando no hay
+cierres faltantes después de la revisión. No cambian el asentamiento a las 22:00
+UTC, la cuota, el lease ni el orden de las dos fases.
+
 ## Medición
 
 El 2026-10-01 sobre la base personal, con el dev server:

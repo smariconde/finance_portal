@@ -1,7 +1,7 @@
 import { subtractDays } from "@/modules/temporal/domain/calendar-date";
 
 /**
- * ¿Hay que descargar algo para ver la matriz de hoy? (`sector-price-freshness-1.0.0`,
+ * ¿Hay que descargar algo para ver la matriz de hoy? (`sector-price-freshness-1.1.0`,
  * [ADR 0030](../../../../docs/architecture/adr/0030-sector-prices-on-open.md)).
  *
  * La regla tiene que decidir sin calendario de feriados y sin bucles:
@@ -14,14 +14,15 @@ import { subtractDays } from "@/modules/temporal/domain/calendar-date";
  * - **Una security** está al día si tiene el cierre de la **última rueda de la
  *   referencia**. El índice opera todas las ruedas que existieron, así que su
  *   última fecha es la rueda que corresponde pedir, sin adivinar feriados. Una
- *   security revisada después de que esa rueda se asentó también está al día: una
- *   suspendida no tiene el cierre y pedirlo de nuevo no lo crea.
+ *   security revisada después de que esa rueda se asentó no se vuelve a pedir
+ *   automáticamente. Si aún falta el cierre, la matriz lo informa y permite
+ *   reintentarla a pedido.
  *
  * Las 22:00 UTC son conservadoras: la sesión regular termina a las 21:00 UTC en
  * horario estándar del Este y a las 20:00 en el de verano, y `settled-session`
  * espera una hora más. Antes de ese instante la rueda del día todavía no cuenta.
  */
-export const PRICE_FRESHNESS_RULE_VERSION = "sector-price-freshness-1.0.0";
+export const PRICE_FRESHNESS_RULE_VERSION = "sector-price-freshness-1.1.0";
 export const SESSION_SETTLED_UTC_HOUR = 22;
 
 /** Instante desde el que la rueda `marketDate` se considera asentada. */

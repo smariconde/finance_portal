@@ -3282,6 +3282,18 @@ Queda registrado:
   retomaría en varias visitas;
 - no hay `request_id` en la frontera: la explican el ID del job y su bitácora.
 
+Corrección posterior de `F7-08` (2026-10-01): el owner abrió Communication
+Services después del asentamiento del 01/10. La referencia tenía esa rueda, pero
+las 24 securities sólo llegaban al 30/09. El job de 24 items había terminado
+`completed` sin publicar el cierre pedido; por eso el estado decía «Precios al
+día» y la matriz dibujaba 0 puntos. `sector-price-freshness-1.1.0` conserva la
+protección contra reintentos automáticos, informa los símbolos sin cierre aun si
+su item fue `completed` y habilita el reintento explícito. La prueba de regresión
+cubre el estado de lectura, la ausencia de un nuevo job automático y el nuevo
+plan a pedido. En el servidor personal, el reintento de Communication Services
+usó 24 requests y publicó 24 cierres del 01/10; la matriz volvió a dibujar 23
+de 24 puntos (el restante sigue sin una ventana histórica completa).
+
 #### `F7-06` — export personal de la matriz de riesgo
 
 - Estado: `done` (iniciado y cerrado el 2026-10-01).
