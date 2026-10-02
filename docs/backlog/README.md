@@ -3293,6 +3293,8 @@ cubre el estado de lectura, la ausencia de un nuevo job automático y el nuevo
 plan a pedido. En el servidor personal, el reintento de Communication Services
 usó 24 requests y publicó 24 cierres del 01/10; la matriz volvió a dibujar 23
 de 24 puntos (el restante sigue sin una ventana histórica completa).
+Validación: formato, lint, tipos, 1.661 unit, 165 integration, build y gate
+E2E (170 pasan, 2 omitidos).
 
 #### `F7-06` — export personal de la matriz de riesgo
 
