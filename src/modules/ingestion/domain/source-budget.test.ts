@@ -47,9 +47,11 @@ describe("topes declarados", () => {
     expect(declaredDailyBudget("yahoo-finance")).toBe(700);
     expect(declaredDailyBudget("comafi-cedear")).toBe(10);
     expect(declaredDailyBudget("caja-valores-cedear")).toBe(10);
+    expect(declaredDailyBudget("damodaran-current-data")).toBe(20);
     expect(Object.keys(SOURCE_DAILY_REQUEST_BUDGETS).sort()).toEqual([
       "caja-valores-cedear",
       "comafi-cedear",
+      "damodaran-current-data",
       "datahub-sp500-pddl",
       "sec-edgar",
       "yahoo-finance",

@@ -11,6 +11,7 @@
 - Revisado el 2026-09-18: la ADR 0020 agregó el límite diario por fuente y el kill switch; `TM-10` pasa a implementado para la SEC y el archivo de constituyentes
 - Revisado el 2026-09-18: las ADR 0021 y 0022 agregaron el refresh del conjunto seguido; `TM-11` pasa a implementado también para el refresh, que reusa el lease y la admisión sin código nuevo. Cron sigue deshabilitado
 - Revisado el 2026-10-01: la ADR 0030 abrió la primera Server Action, `refreshSectorPrices`; `TM-03` pasa a implementado para esa frontera, y `TM-10`/`TM-11` alcanzan a `yahoo-finance` con un job durable propio
+- Revisado el 2026-10-02: la ADR 0032 agregó `damodaran-current-data`, el cuarto proveedor real: fila de derechos aprobada antes de la red, allowlist de cuatro rutas, tope diario y parser que rechaza la página entera ante un encabezado corrido; `TM-05`, `TM-08` y `TM-10` alcanzan a la fuente sin código de frontera nuevo
 - Revisión obligatoria: antes de cada nueva frontera web, proveedor, export, capacidad IA o cambio de exposición
 
 ## Objetivo y método

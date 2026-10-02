@@ -129,6 +129,27 @@ const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
     deadlineMs: 30_000,
     maxRedirects: 0,
   }),
+  egressAllowlistEntrySchema.parse({
+    sourceId: "damodaran-current-data",
+    origins: [
+      {
+        host: "pages.stern.nyu.edu",
+        // Las cuatro páginas, una por una: el host sirve el sitio entero de NYU
+        // Stern y el directorio `datafile/` cientos de tablas que este portal no
+        // usa. Un archivo nuevo es un diff revisable, no un comodín (ADR 0032).
+        pathPrefixes: [
+          "/~adamodar/New_Home_Page/datafile/Betas.html",
+          "/~adamodar/New_Home_Page/datafile/ctryprem.html",
+          "/~adamodar/New_Home_Page/datafile/histimpl.html",
+          "/~adamodar/New_Home_Page/datafile/ratings.html",
+        ],
+      },
+    ],
+    // La página más grande, la de betas, son ~460 KB de HTML exportado por Excel.
+    maxResponseBytes: 4 * 1024 * 1024,
+    deadlineMs: 30_000,
+    maxRedirects: 0,
+  }),
 ]);
 
 const BY_SOURCE_ID: ReadonlyMap<string, EgressAllowlistEntry> = new Map(

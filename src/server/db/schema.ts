@@ -6,6 +6,7 @@ import {
   check,
   customType,
   date,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -1768,6 +1769,81 @@ export const benchmarkPrices = pgTable(
     check(
       "benchmark_prices_benchmark_id_check",
       sql`${table.benchmarkId} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`,
+    ),
+  ],
+);
+
+/**
+ * Releases de datasets de referencia (`F3-04`, ADR 0032): una tabla publicada
+ * —las betas por industria de Damodaran, su riesgo país— observada entera en un
+ * instante. Es una versión temporal: `valid_from` y `available_at` son la
+ * observación, y una observación con otro contenido supersede a la vigente.
+ */
+export const referenceDatasetReleases = pgTable(
+  "reference_dataset_releases",
+  {
+    releaseId: uuid("release_id").primaryKey(),
+    datasetId: varchar("dataset_id", { length: 64 }).notNull(),
+    publishedLabel: varchar("published_label", { length: 64 }),
+    parserVersion: varchar("parser_version", { length: 64 }).notNull(),
+    rowCount: integer("row_count").notNull(),
+    ingestionRunId: uuid("ingestion_run_id").notNull(),
+    ...temporalVersionColumns(),
+  },
+  (table) => [
+    // Nombre explícito: el generado pasa los 63 caracteres de PostgreSQL.
+    foreignKey({
+      name: "reference_dataset_releases_run_fk",
+      columns: [table.ingestionRunId],
+      foreignColumns: [ingestionRuns.runId],
+    }),
+    uniqueIndex("reference_dataset_releases_open_uidx")
+      .on(table.datasetId)
+      .where(openVersion(table)),
+    ...temporalVersionChecks("reference_dataset_releases", table),
+    check(
+      "reference_dataset_releases_dataset_id_check",
+      sql`${table.datasetId} ~ '^[a-z0-9]+([.-][a-z0-9]+)*$'`,
+    ),
+    check(
+      "reference_dataset_releases_row_count_check",
+      sql`${table.rowCount} between 1 and 5000`,
+    ),
+  ],
+);
+
+/**
+ * Filas de una release: una industria, un país, un año o una banda de rating,
+ * con sus valores como decimales canónicos o texto corto. Inmutables: una
+ * corrección de la fuente es otra release, nunca un update.
+ */
+export const referenceDatasetRows = pgTable(
+  "reference_dataset_rows",
+  {
+    releaseId: uuid("release_id").notNull(),
+    rowKey: varchar("row_key", { length: 128 }).notNull(),
+    label: varchar("label", { length: 160 }).notNull(),
+    values: jsonb("values").$type<Record<string, string | null>>().notNull(),
+  },
+  (table) => [
+    primaryKey({
+      name: "reference_dataset_rows_pkey",
+      columns: [table.releaseId, table.rowKey],
+    }),
+    // Nombre explícito: el que genera Drizzle pasa los 63 caracteres y
+    // PostgreSQL lo trunca, así que una migración futura no lo encontraría.
+    foreignKey({
+      name: "reference_dataset_rows_release_fk",
+      columns: [table.releaseId],
+      foreignColumns: [referenceDatasetReleases.releaseId],
+    }),
+    check(
+      "reference_dataset_rows_row_key_check",
+      sql`${table.rowKey} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`,
+    ),
+    check(
+      "reference_dataset_rows_values_check",
+      sql`jsonb_typeof(${table.values}) = 'object'`,
     ),
   ],
 );

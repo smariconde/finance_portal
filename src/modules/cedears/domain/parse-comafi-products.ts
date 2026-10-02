@@ -13,7 +13,7 @@ import {
   type CedearRowRejection,
   type CedearSkippedRow,
 } from "./cedear-claim";
-import { htmlToLines } from "./html-text";
+import { htmlToLines } from "@/modules/ingestion/domain/html-text";
 
 /**
  * Parser del JSON que alimenta la tabla de programas de Comafi

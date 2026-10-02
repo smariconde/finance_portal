@@ -41,7 +41,8 @@
     "gate:reconcile": "tsx --conditions=react-server --env-file=.env.local scripts/reconcile-gate-sample.ts",
     "prices:ingest": "tsx --conditions=react-server --env-file=.env.local scripts/ingest-prices.ts",
     "cedears:record": "tsx --conditions=react-server --env-file=.env.local scripts/record-cedears.ts",
-    "valuation:assess": "tsx --conditions=react-server --env-file=.env.local scripts/assess-company.ts"
+    "valuation:assess": "tsx --conditions=react-server --env-file=.env.local scripts/assess-company.ts",
+    "damodaran:record": "tsx --conditions=react-server --env-file=.env.local scripts/record-damodaran.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

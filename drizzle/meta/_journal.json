@@ -162,6 +162,13 @@
       "when": 1790823219848,
       "tag": "0022_silky_thor_girl",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1790962156290,
+      "tag": "0023_outstanding_lorna_dane",
+      "breakpoints": true
     }
   ]
 }

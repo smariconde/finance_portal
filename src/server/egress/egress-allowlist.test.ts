@@ -18,8 +18,26 @@ describe("egress allowlist", () => {
         "yahoo-finance",
         "comafi-cedear",
         "caja-valores-cedear",
+        "damodaran-current-data",
       ],
     );
+  });
+
+  it("reaches the four Damodaran pages one by one, never the whole site", () => {
+    const entry = findEgressAllowlistEntry("damodaran-current-data");
+
+    expect(entry?.origins).toEqual([
+      {
+        host: "pages.stern.nyu.edu",
+        pathPrefixes: [
+          "/~adamodar/New_Home_Page/datafile/Betas.html",
+          "/~adamodar/New_Home_Page/datafile/ctryprem.html",
+          "/~adamodar/New_Home_Page/datafile/histimpl.html",
+          "/~adamodar/New_Home_Page/datafile/ratings.html",
+        ],
+      },
+    ]);
+    expect(entry?.maxRedirects).toBe(0);
   });
 
   it("returns null for a source that is not listed, with no default", () => {

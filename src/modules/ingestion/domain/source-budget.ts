@@ -48,6 +48,9 @@ export const SOURCE_DAILY_REQUEST_BUDGETS: Readonly<Record<string, number>> =
     // cubren varias corridas de prueba y dejan fuera cualquier bucle.
     "comafi-cedear": 10,
     "caja-valores-cedear": 10,
+    // Cuatro páginas por corrida (ADR 0032). Veinte por día cubren cinco
+    // corridas, que es el tope de la matriz de uso, y dejan fuera cualquier bucle.
+    "damodaran-current-data": 20,
   });
 
 /** Tabla de topes declarados. Los tests inyectan la suya; el runtime usa la de arriba. */

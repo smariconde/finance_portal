@@ -1,10 +1,11 @@
 /**
  * Texto visible de un fragmento de HTML escrito a mano.
  *
- * No es un parser de HTML ni pretende serlo: las dos publicaciones del registro
- * son tablas y listas planas, y lo único que hace falta es sacar las etiquetas,
- * decodificar las entidades que los emisores usan y colapsar los espacios. Un
- * `&nbsp;` que sobrevive rompe una comparación de etiquetas sin que se note.
+ * No es un parser de HTML ni pretende serlo: las publicaciones que lo usan —el
+ * registro CEDEAR y los datasets de Damodaran— son tablas y listas planas, y lo
+ * único que hace falta es sacar las etiquetas, decodificar las entidades que las
+ * fuentes usan y colapsar los espacios. Un `&nbsp;` que sobrevive rompe una
+ * comparación de etiquetas sin que se note.
  */
 const NAMED_ENTITIES: Readonly<Record<string, string>> = Object.freeze({
   amp: "&",
@@ -13,6 +14,8 @@ const NAMED_ENTITIES: Readonly<Record<string, string>> = Object.freeze({
   quot: '"',
   apos: "'",
   nbsp: " ",
+  le: "≤",
+  ge: "≥",
   aacute: "á",
   eacute: "é",
   iacute: "í",

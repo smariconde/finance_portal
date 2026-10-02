@@ -80,6 +80,11 @@ const SELECTORS = [
     () => import("@/server/persistence/get-refresh-state-store"),
     "getRefreshStateStore",
   ],
+  [
+    "reference dataset",
+    () => import("@/server/persistence/get-reference-dataset-repository"),
+    "getReferenceDatasetRepository",
+  ],
 ] as const;
 
 type SelectorImporter = () => Promise<Record<string, unknown>>;
