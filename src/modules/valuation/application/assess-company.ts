@@ -27,7 +27,14 @@ import {
   type IndustryMapping,
 } from "../domain/industry-mapping";
 import {
+  buildCostOfCapital,
+  COST_OF_CAPITAL_VERSION,
+  type CostOfCapitalResult,
+  type ReferenceReading,
+} from "../domain/cost-of-capital";
+import {
   assessFundamentalProfileSignals,
+  latestInterestCoverage,
   type FundamentalSignal,
 } from "../domain/fundamental-profile-signals";
 import {
@@ -74,6 +81,13 @@ export type CompanyAssessmentDependencies = {
   readonly industryRelease: (
     query: PointInTimeQuery,
   ) => Promise<ReadonlyMap<string, string> | null>;
+  /** Las cuatro releases de Damodaran visibles al corte, o `null` cada una (`F3-04`). */
+  readonly costOfCapitalReadings: (query: PointInTimeQuery) => Promise<{
+    readonly betas: ReferenceReading | null;
+    readonly countryRisk: ReferenceReading | null;
+    readonly impliedErp: ReferenceReading | null;
+    readonly ratings: ReferenceReading | null;
+  }>;
 };
 
 export type CompanyAssessmentRequest = {
@@ -85,6 +99,8 @@ export type CompanyAssessmentRequest = {
   readonly cik: string | null;
   /** Industrias declaradas por el owner para SIC ambiguos (`F3-05`). */
   readonly industryDeclarations: readonly IndustryDeclaration[];
+  /** País ISO del listing primario: aproxima el domicilio para el riesgo país. */
+  readonly listingCountry: string | null;
 };
 
 export type CompanyAssessment = {
@@ -108,6 +124,8 @@ export type CompanyAssessment = {
   readonly selection: MethodSelection;
   /** Derivado de la selección y la completitud (`F3-03`), nunca elegido. */
   readonly rigor: RigorAssessment;
+  /** WACC construido con componentes fechados, o lo que faltó (`F3-06`). */
+  readonly costOfCapital: CostOfCapitalResult;
 };
 
 function isVisible(
@@ -119,6 +137,13 @@ function isVisible(
     isKnownAt(classification, query)
   );
 }
+
+/** Perfiles que se valúan sobre el equity: no llevan WACC (`F3-06`). */
+const FINANCIAL_PROFILES: ReadonlySet<string> = new Set([
+  "bank",
+  "insurer",
+  "reit",
+]);
 
 export async function assessCompany(
   request: CompanyAssessmentRequest,
@@ -214,5 +239,23 @@ export async function assessCompany(
     completeness,
     selection,
     rigor: deriveRigorLevel(selection, completeness),
+    costOfCapital: FINANCIAL_PROFILES.has(selection.assetProfile ?? "")
+      ? {
+          // Un banco, una aseguradora o un REIT se valúan sobre el equity: un
+          // WACC con la tabla de no financieras sería un número que engaña.
+          status: "unsupported",
+          version: COST_OF_CAPITAL_VERSION,
+          missing: ["financial_profile_uses_cost_of_equity"],
+        }
+      : buildCostOfCapital({
+          // La moneda de los estados: la del libre de riesgo tiene que coincidir.
+          currency:
+            series?.fiscalYears[0]?.items.revenue?.currency ?? "unknown",
+          industryKey:
+            industry.status === "mapped" ? industry.industryKey : null,
+          listingCountry: request.listingCountry,
+          ...(await dependencies.costOfCapitalReadings(query)),
+          coverage: series === null ? null : latestInterestCoverage(series),
+        }),
   };
 }

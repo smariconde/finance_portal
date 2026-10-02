@@ -55,6 +55,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    27 | `F3-03`    | `done`     | Nivel de rigor derivado de la completitud y declarado en la corrida, recalculado por el motor.                                               | `F3-02`       |
 |    28 | `F3-04`    | `done`     | Datasets Damodaran versionados y fechados: ERP implícita, betas por industria, riesgo país y rating sintético.                               | Fase 7 `done` |
 |    29 | `F3-05`    | `done`     | Mapeo empresa → industria de Damodaran por SIC, con la ambigüedad nombrada y resuelta sólo por declaración del owner.                        | `F3-04`       |
+|    30 | `F3-06`    | `done`     | Costo de capital bottom-up con componentes fechados, recalculado por el motor en cada corrida.                                               | `F3-05`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -2744,6 +2745,26 @@ declarado y no adivinado (`TM-05`, `TM-06`). Evidencia: muestra del gate con 14
 mapeadas y 16 ambiguas; AAPL y JNJ en `standard` declarando riesgo país por
 domicilio; siete tests del mapeo, incluido que toda candidata exista en la
 taxonomía de enero de 2026, y dos del servicio.
+
+**`F3-06` — cierre (2026-10-02).** `cost-of-capital-1.0.0` construye el WACC
+con nueve parámetros fechados de Damodaran: libre de riesgo neto del spread
+soberano, beta de la industria reapalancada con Hamada a su D/E, ERP implícita
+más CRP, costo de deuda por rating sintético y convergencia terminal a beta 1.
+`ValuationInput.costOfCapital` lo lleva a la corrida y el policy check
+`wacc_built_from_components` lo recalcula; metodología `0.4.0`.
+
+Criterios cumplidos: beta desapalancada reapalancada, costo de deuda por spread y
+convergencia terminal (`TM-06`, `TM-16`). Evidencia: catorce tests con valores
+calculados a mano y bordes de banda, D/E cero, moneda y parámetros ausentes; tres
+del check; Apple 9,75 % y JNJ 7,86 % sobre las releases reales; E2E de la corrida
+de referencia con el mismo valor por acción.
+
+**Gate de la Fase 3 — verificado el 2026-10-02.** Sobre las 30 empresas de la
+muestra, evaluadas a demanda con `pnpm valuation:assess`: ninguna queda sin
+arquetipo o sin el input que falta nombrado; el WACC se construye con
+componentes fechados en las ocho no financieras que tienen industria y
+cobertura, y las demás nombran qué falta; Apple y Johnson & Johnson, sin mix
+geográfico, quedan en `standard` y declaran `country_risk_by_domicile`.
 
 ### Fase 4 — motor Damodaran y arquetipos
 

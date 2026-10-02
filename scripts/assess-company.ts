@@ -34,6 +34,12 @@ import {
 import { readReferenceDataset } from "@/modules/reference-data/application/read-reference-dataset";
 import { DECLARED_INDUSTRY_ASSIGNMENTS } from "@/modules/valuation/application/declared-industry-assignments";
 import { annualFundamentalsConcepts } from "@/modules/valuation/domain/annual-fundamentals";
+import {
+  BETAS_DATASET,
+  COUNTRY_RISK_DATASET,
+  IMPLIED_ERP_DATASET,
+  RATINGS_DATASET,
+} from "@/modules/valuation/domain/cost-of-capital";
 import { DAMODARAN_INDUSTRY_TAXONOMY } from "@/modules/valuation/domain/industry-mapping";
 import { getSourceEgressFetch } from "@/server/egress/get-source-egress-fetch";
 import { getClassificationRepository } from "@/server/persistence/get-classification-repository";
@@ -120,6 +126,22 @@ function cikOf(legalEntityId: string): string | null {
   );
 
   return (open ?? assignments[0])?.normalizedValue ?? null;
+}
+
+/** País del listing resuelto, en su versión vigente: aproxima el domicilio. */
+function listingCountryOf(listingId: string | null): string | null {
+  if (listingId === null) {
+    return null;
+  }
+
+  return (
+    state.graph.listings.find(
+      (listing) =>
+        listing.listingId === listingId &&
+        listing.validTo === null &&
+        listing.supersededAt === null,
+    )?.country ?? null
+  );
 }
 
 let probeSource: ReturnType<typeof createLiveCompanyFactsSource> | null = null;
@@ -267,6 +289,7 @@ for (const ticker of values.ticker) {
       fundamentalsSourceId: SEC_SOURCE_ID,
       cik,
       industryDeclarations: DECLARED_INDUSTRY_ASSIGNMENTS,
+      listingCountry: listingCountryOf(resolution.listingId),
     },
     {
       loadSicAssertions: async () => assertions,
@@ -294,6 +317,25 @@ for (const ticker of values.ticker) {
           recordedAt: row.observation.recordedAt,
           sourceDocumentId: row.observation.sourceDocumentId,
         }));
+      },
+      costOfCapitalReadings: async (pointInTime) => {
+        const [betas, countryRisk, impliedErp, ratings] = await Promise.all(
+          [
+            BETAS_DATASET,
+            COUNTRY_RISK_DATASET,
+            IMPLIED_ERP_DATASET,
+            RATINGS_DATASET,
+          ].map((datasetId) =>
+            readReferenceDataset(datasetId, pointInTime, referenceDatasets),
+          ),
+        );
+
+        return {
+          betas: betas ?? null,
+          countryRisk: countryRisk ?? null,
+          impliedErp: impliedErp ?? null,
+          ratings: ratings ?? null,
+        };
       },
       industryRelease: async (pointInTime) => {
         const reading = await readReferenceDataset(
@@ -417,6 +459,26 @@ for (const report of reports) {
   }
   if (selection.alternatives.length > 0) {
     log("  alternativas", selection.alternatives.join(", "));
+  }
+  if (assessment.costOfCapital.status === "computed") {
+    const { derived, coverage } = assessment.costOfCapital.costOfCapital;
+    log(
+      "costo de capital",
+      `WACC ${derived.wacc} · terminal ${derived.terminalWacc}`,
+    );
+    log(
+      "  equity",
+      `rf ${derived.riskFree} + β ${derived.leveredBeta} → ke ${derived.costOfEquity}`,
+    );
+    log(
+      "  deuda",
+      `${derived.syntheticRating} (cobertura ${coverage.value}, ${coverage.fiscalYearEnd}) → kd ${derived.preTaxCostOfDebt} · peso ${derived.debtWeight}`,
+    );
+  } else {
+    log(
+      "costo de capital",
+      `sin construir · falta ${assessment.costOfCapital.missing.join(", ")}`,
+    );
   }
   log(
     "rigor",

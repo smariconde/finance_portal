@@ -2,6 +2,7 @@ import { computeContentHash } from "@/modules/ingestion/domain/content-hash";
 
 import { divide, ONE, parseDecimal, ZERO, type Dec } from "./decimal-policy";
 import type { FcffComputation } from "./fcff";
+import { deriveCostOfCapital } from "./cost-of-capital";
 import { deriveRigorLevel } from "./rigor-level";
 import { ValuationPolicyError } from "./valuation-error";
 import {
@@ -96,9 +97,69 @@ function checkAssessment(input: ValuationInput): PolicyCheck[] {
   ];
 }
 
+/**
+ * El WACC no es un input crudo (`F3-06`): se recalcula desde los componentes
+ * fechados del snapshot, y los períodos tienen que empezar en el WACC de hoy,
+ * terminar en el terminal y no salirse del camino entre los dos.
+ */
+function checkCostOfCapital(input: ValuationInput): PolicyCheck[] {
+  const { costOfCapital } = input;
+  const rebuilt = deriveCostOfCapital(
+    costOfCapital.parameters,
+    costOfCapital.derived.syntheticRating,
+  );
+  const wacc = parseDecimal(costOfCapital.derived.wacc, "costOfCapital.wacc");
+  const terminal = parseDecimal(
+    costOfCapital.derived.terminalWacc,
+    "costOfCapital.terminalWacc",
+  );
+  const low = wacc.lte(terminal) ? wacc : terminal;
+  const high = wacc.lte(terminal) ? terminal : wacc;
+  const first = input.periods[0];
+  const offPath = input.periods
+    .filter((period) => {
+      const value = parseDecimal(period.wacc, "wacc");
+      return value.lt(low) || value.gt(high);
+    })
+    .map((period) => `periods.${period.periodIndex - 1}.wacc`);
+
+  const derivedMatches =
+    computeContentHash(rebuilt) === computeContentHash(costOfCapital.derived);
+  const startsAtWacc =
+    first !== undefined && parseDecimal(first.wacc, "wacc").eq(wacc);
+  const endsAtTerminal = parseDecimal(input.terminal.wacc, "terminal.wacc").eq(
+    terminal,
+  );
+
+  return [
+    check(
+      "wacc_built_from_components",
+      "reject",
+      derivedMatches &&
+        costOfCapital.currency === input.currency &&
+        startsAtWacc &&
+        endsAtTerminal &&
+        offPath.length === 0,
+      "Period and terminal WACC must be the ones the dated cost of capital derives, converging from one to the other.",
+      [
+        ...(derivedMatches ? [] : ["costOfCapital.derived"]),
+        ...(costOfCapital.currency === input.currency
+          ? []
+          : ["costOfCapital.currency"]),
+        ...(startsAtWacc ? [] : ["periods.0.wacc"]),
+        ...(endsAtTerminal ? [] : ["terminal.wacc"]),
+        ...offPath,
+      ],
+    ),
+  ];
+}
+
 /** Checks que dependen sólo del snapshot: corren antes de calcular. */
 export function checkValuationInput(input: ValuationInput): PolicyCheck[] {
-  const checks: PolicyCheck[] = [...checkAssessment(input)];
+  const checks: PolicyCheck[] = [
+    ...checkAssessment(input),
+    ...checkCostOfCapital(input),
+  ];
 
   const mismatchedCurrency = listMonetaryFacts(input)
     .filter(({ fact }) => fact.currency !== input.currency)
