@@ -406,6 +406,26 @@ Un costo de capital anterior a la primera captura no tiene parámetros y lo
 declara. La ERP es la implícita de inicio de año junto con la tasa del bono del
 Tesoro de la misma fila; la serie mensual sólo existe en `.xlsx` y no entra.
 
+### `F3-05`: industria del dataset de betas
+
+`sic-damodaran-industry-1.0.0` lleva cada SIC de la lista oficial de la SEC a las
+industrias de `damodaran.betas-us` que ese código puede ser. Con una sola
+candidata, la empresa queda mapeada; con varias, la evaluación devuelve
+`ambiguous` y **nombra las candidatas** en vez de elegir una. El SIC no
+distingue lo que Damodaran separa: el 6021 es banco money center o regional, el
+7372 tres industrias de software, el 6798 REIT o REIT minorista.
+
+Una ambigüedad sólo se resuelve con una declaración del owner, escrita por CIK y
+con motivo, en `declared-industry-assignments.ts`; el archivo arranca vacío. La
+industria se valida contra la release de betas visible al corte: una que la
+release no tiene es `unmapped` con `industry_not_in_release`.
+
+`industry_mapping` de la completitud toma el estado del mapeo, así que una
+empresa mapeada puede llegar a `standard`. Medido el 2026-10-02 sobre la muestra:
+14 mapeadas y 16 ambiguas; Apple y Johnson & Johnson llegan a `standard` y
+declaran `country_risk_by_domicile`, y las seis maduras con SIC ambiguo quedan
+en `screening` hasta una declaración.
+
 ## Normalización
 
 Reported y normalized se preservan en paralelo. Cada ajuste declara monto,

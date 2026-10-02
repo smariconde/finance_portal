@@ -20,8 +20,12 @@ import {
   completenessCheck,
   measureCompleteness,
   type CompletenessProfile,
-  type IndustryMappingStatus,
 } from "../domain/completeness-profile";
+import {
+  mapIndustry,
+  type IndustryDeclaration,
+  type IndustryMapping,
+} from "../domain/industry-mapping";
 import {
   assessFundamentalProfileSignals,
   type FundamentalSignal,
@@ -63,6 +67,13 @@ export type CompanyAssessmentDependencies = {
   readonly fiscalYearAnchors: (
     subjectIds: readonly string[],
   ) => Promise<readonly string[]>;
+  /**
+   * Industrias de la release de betas de Damodaran visible al corte, por clave,
+   * o `null` si ninguna se conocía todavía (`F3-04`).
+   */
+  readonly industryRelease: (
+    query: PointInTimeQuery,
+  ) => Promise<ReadonlyMap<string, string> | null>;
 };
 
 export type CompanyAssessmentRequest = {
@@ -70,8 +81,10 @@ export type CompanyAssessmentRequest = {
   readonly query: PointInTimeQueryInput;
   /** Fuente de los fundamentals, para la provenance de la evidencia. */
   readonly fundamentalsSourceId: string;
-  /** Resultado del mapeo a industria (`F3-05`), si ya se evaluó. */
-  readonly industryMapping?: IndustryMappingStatus | null;
+  /** CIK vigente: las declaraciones de industria se escriben por CIK. */
+  readonly cik: string | null;
+  /** Industrias declaradas por el owner para SIC ambiguos (`F3-05`). */
+  readonly industryDeclarations: readonly IndustryDeclaration[];
 };
 
 export type CompanyAssessment = {
@@ -83,6 +96,8 @@ export type CompanyAssessment = {
     readonly availableAt: string;
     readonly profiles: SicProfileAssessment;
   } | null;
+  /** Industria del dataset de betas, o la ambigüedad nombrada (`F3-05`). */
+  readonly industry: IndustryMapping;
   readonly fundamentals: {
     readonly anchor: string | null;
     readonly series: AnnualFundamentals | null;
@@ -162,8 +177,14 @@ export async function assessCompany(
         );
 
   const evidence = [...sicEvidence, ...(fundamental?.evidence ?? [])];
+  const industry = mapIndustry({
+    cik: request.cik,
+    sic: visibleSic?.code ?? null,
+    releaseIndustries: await dependencies.industryRelease(query),
+    declarations: request.industryDeclarations,
+  });
   const completeness = measureCompleteness(series, {
-    industryMapping: request.industryMapping ?? null,
+    industryMapping: industry.status,
   });
 
   const selection = selectValuationMethod({
@@ -186,6 +207,7 @@ export async function assessCompany(
             availableAt: visibleSic.availableAt,
             profiles: assessSicProfiles(visibleSic.code),
           },
+    industry,
     fundamentals: { anchor, series },
     fundamentalSignals: fundamental?.signals ?? [],
     evidence,
