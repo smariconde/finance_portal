@@ -24,38 +24,39 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 
 ## Tracker activo
 
-| Orden | Issue      | Estado     | Resultado verificable                                                                                                                        | Dependencias  |
-| ----: | ---------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-|     1 | `F1-01`    | `done`     | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos.                                 | Fase 0 `done` |
-|     2 | `F1-02`    | `done`     | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.                                      | `F1-01`       |
-|     3 | `F1-UI-01` | `done`     | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.                                               | `F1-02`       |
-|     4 | `F1-03`    | `done`     | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.                                               | `F1-UI-01`    |
-|     5 | `F1-04`    | `done`     | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.                                          | `F1-03`       |
-|     6 | `F1-05`    | `done`     | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                                                      | `F1-04`       |
-|     7 | `F1-06`    | `done`     | Superficie de resultado y trazabilidad con fuentes, freshness, supuestos y sensibilidad accesibles.                                          | `F1-05`       |
-|     8 | `F1-07`    | `done`     | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                                                           | `F1-06`       |
-|     9 | `F1-08`    | `deferred` | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.                                               | `F1-07`       |
-|    10 | `F2-01`    | `done`     | Acceso personal remoto habilitado en produccion, con los tests de frontera invertidos a proposito.                                           | ADR 0008      |
-|    11 | `F2-02`    | `done`     | Universo S&P 500 con identidad completa: issuer, security, listing, simbolo vigente y CIK.                                                   | `F2-01`       |
-|    12 | `F2-03`    | `done`     | SEC EDGAR integrada: companyfacts publicado como observaciones point-in-time, con aceptación, vintages y cuarentena.                         | `F2-02`       |
-|    13 | `F2-04`    | `done`     | Corporate actions con vigencia: splits, cambios de símbolo, sucesiones de CIK, delistings y fusiones.                                        | `F2-03`       |
-|    14 | `F2-05`    | `done`     | Backfill y refresh durable con presupuesto, cursor, lease y recuperación verificables.                                                       | `F2-04`       |
-|    15 | `F2-06`    | `done`     | Golden fixtures desde extractos reales congelados, en reemplazo de `FixtureCo` como oráculo de regresión.                                    | `F2-03`       |
-|    16 | `F2-07`    | `done`     | Gate de Fase 2 verificado sobre datos reales: contrato point-in-time auditado, 30 empresas reconciliadas y validación semántica decidida.    | `F2-06`       |
-|    17 | `F7-02`    | `done`     | El sector como clasificación declarada y versionada, con la población resuelta al `as_of`.                                                   | Fase 2        |
-|    18 | `F7-01`    | `done`     | Precios diarios crudos por security, con splits y dividendos fechados y la base de ajuste declarada.                                         | Fase 2        |
-|    19 | `F7-03`    | `done`     | Registro CEDEAR de los dos emisores, con cada CEDEAR como security propia y el subyacente resuelto contra el grafo.                          | `F7-02`       |
-|    20 | `F7-04`    | `done`     | Catálogo de métricas acotado a las matrices y `sortino-1.0.0` puro sobre base total return, con los parámetros decididos por el owner.       | `F7-03`       |
-|    21 | `F7-05`    | `done`     | Matriz de riesgo por sector al `as_of`: referencia `^SP500TR` en la misma base, recta nombrada, CEDEAR, nulos con motivo y consulta acotada. | `F7-04`       |
-|    22 | `F7-08`    | `done`     | La matriz es a hoy y, al abrirla, descarga sólo los precios que le faltan, como job durable con progreso, sin bucles y sin pasar la cuota.   | `F7-05`       |
-|    23 | `F7-06`    | `done`     | Descarga CSV personal de la matriz con valores exactos, nulos, definiciones, versiones y atribucion de las fuentes.                          | `F7-05`       |
-|    24 | `F7-07`    | `done`     | Degradacion, reconciliacion y quality score explicable de la matriz.                                                                         | `F7-05`       |
-|    25 | `F3-01`    | `done`     | Selector determinista de arquetipo con reglas explícitas, requisitos y rechazo de métodos no admitidos.                                      | Fase 7 `done` |
-|    26 | `F3-02`    | `done`     | Perfil de completitud medido por empresa sobre los datos que existen, sin estimar lo ausente.                                                | `F3-01`       |
-|    27 | `F3-03`    | `done`     | Nivel de rigor derivado de la completitud y declarado en la corrida, recalculado por el motor.                                               | `F3-02`       |
-|    28 | `F3-04`    | `done`     | Datasets Damodaran versionados y fechados: ERP implícita, betas por industria, riesgo país y rating sintético.                               | Fase 7 `done` |
-|    29 | `F3-05`    | `done`     | Mapeo empresa → industria de Damodaran por SIC, con la ambigüedad nombrada y resuelta sólo por declaración del owner.                        | `F3-04`       |
-|    30 | `F3-06`    | `done`     | Costo de capital bottom-up con componentes fechados, recalculado por el motor en cada corrida.                                               | `F3-05`       |
+| Orden | Issue      | Estado     | Resultado verificable                                                                                                                         | Dependencias  |
+| ----: | ---------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+|     1 | `F1-01`    | `done`     | Shell y health navegables con estados honestos, sin DB, proveedor real, mutación ni rutas que simulen datos.                                  | Fase 0 `done` |
+|     2 | `F1-02`    | `done`     | PostgreSQL/Drizzle y repositorios base con aislamiento explícito entre fixture demo y storage personal.                                       | `F1-01`       |
+|     3 | `F1-UI-01` | `done`     | Fundación shadcn/Base UI y superficies existentes migradas a un workspace financiero estándar.                                                | `F1-02`       |
+|     4 | `F1-03`    | `done`     | Registro de fuentes, corridas de ingesta y fake provider determinista cubiertos por contratos.                                                | `F1-UI-01`    |
+|     5 | `F1-04`    | `done`     | Una empresa fixture recorre identidad completa, provenance y consulta point-in-time sin look-ahead.                                           | `F1-03`       |
+|     6 | `F1-05`    | `done`     | FCFF base y sensibilidad se calculan en dominio puro con snapshot y hash reproducibles.                                                       | `F1-04`       |
+|     7 | `F1-06`    | `done`     | Superficie de resultado y trazabilidad con fuentes, freshness, supuestos y sensibilidad accesibles.                                           | `F1-05`       |
+|     8 | `F1-07`    | `done`     | Unit, contract y E2E prueban el flujo personal, runtime trabado, teclado y mobile.                                                            | `F1-06`       |
+|     9 | `F1-08`    | `deferred` | Walkthrough del owner sobre el runtime personal registra hallazgos y cierra el gate de Fase 1.                                                | `F1-07`       |
+|    10 | `F2-01`    | `done`     | Acceso personal remoto habilitado en produccion, con los tests de frontera invertidos a proposito.                                            | ADR 0008      |
+|    11 | `F2-02`    | `done`     | Universo S&P 500 con identidad completa: issuer, security, listing, simbolo vigente y CIK.                                                    | `F2-01`       |
+|    12 | `F2-03`    | `done`     | SEC EDGAR integrada: companyfacts publicado como observaciones point-in-time, con aceptación, vintages y cuarentena.                          | `F2-02`       |
+|    13 | `F2-04`    | `done`     | Corporate actions con vigencia: splits, cambios de símbolo, sucesiones de CIK, delistings y fusiones.                                         | `F2-03`       |
+|    14 | `F2-05`    | `done`     | Backfill y refresh durable con presupuesto, cursor, lease y recuperación verificables.                                                        | `F2-04`       |
+|    15 | `F2-06`    | `done`     | Golden fixtures desde extractos reales congelados, en reemplazo de `FixtureCo` como oráculo de regresión.                                     | `F2-03`       |
+|    16 | `F2-07`    | `done`     | Gate de Fase 2 verificado sobre datos reales: contrato point-in-time auditado, 30 empresas reconciliadas y validación semántica decidida.     | `F2-06`       |
+|    17 | `F7-02`    | `done`     | El sector como clasificación declarada y versionada, con la población resuelta al `as_of`.                                                    | Fase 2        |
+|    18 | `F7-01`    | `done`     | Precios diarios crudos por security, con splits y dividendos fechados y la base de ajuste declarada.                                          | Fase 2        |
+|    19 | `F7-03`    | `done`     | Registro CEDEAR de los dos emisores, con cada CEDEAR como security propia y el subyacente resuelto contra el grafo.                           | `F7-02`       |
+|    20 | `F7-04`    | `done`     | Catálogo de métricas acotado a las matrices y `sortino-1.0.0` puro sobre base total return, con los parámetros decididos por el owner.        | `F7-03`       |
+|    21 | `F7-05`    | `done`     | Matriz de riesgo por sector al `as_of`: referencia `^SP500TR` en la misma base, recta nombrada, CEDEAR, nulos con motivo y consulta acotada.  | `F7-04`       |
+|    22 | `F7-08`    | `done`     | La matriz es a hoy y, al abrirla, descarga sólo los precios que le faltan, como job durable con progreso, sin bucles y sin pasar la cuota.    | `F7-05`       |
+|    23 | `F7-06`    | `done`     | Descarga CSV personal de la matriz con valores exactos, nulos, definiciones, versiones y atribucion de las fuentes.                           | `F7-05`       |
+|    24 | `F7-07`    | `done`     | Degradacion, reconciliacion y quality score explicable de la matriz.                                                                          | `F7-05`       |
+|    25 | `F3-01`    | `done`     | Selector determinista de arquetipo con reglas explícitas, requisitos y rechazo de métodos no admitidos.                                       | Fase 7 `done` |
+|    26 | `F3-02`    | `done`     | Perfil de completitud medido por empresa sobre los datos que existen, sin estimar lo ausente.                                                 | `F3-01`       |
+|    27 | `F3-03`    | `done`     | Nivel de rigor derivado de la completitud y declarado en la corrida, recalculado por el motor.                                                | `F3-02`       |
+|    28 | `F3-04`    | `done`     | Datasets Damodaran versionados y fechados: ERP implícita, betas por industria, riesgo país y rating sintético.                                | Fase 7 `done` |
+|    29 | `F3-05`    | `done`     | Mapeo empresa → industria de Damodaran por SIC, con la ambigüedad nombrada y resuelta sólo por declaración del owner.                         | `F3-04`       |
+|    30 | `F3-06`    | `done`     | Costo de capital bottom-up con componentes fechados, recalculado por el motor en cada corrida.                                                | `F3-05`       |
+|    31 | `F5-01`    | `ready`    | Controles de la capa IA antes de la primera llamada: egress `POST` con credencial, fuentes registradas, gasto en dólares, breaker y escalera. | Fase 3 `done` |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -116,6 +117,10 @@ Cambios en el backlog:
 
 Orden de ejecución de las fases: 2 → 7 → 3 → 4 → 5 → 6 → 8 → 9 → 10. Los IDs no
 cambian.
+
+Desde el 2026-10-02 la Fase 5 se ejecuta antes de la Fase 4
+([ADR 0033](../architecture/adr/0033-ai-layer-industry-resolution.md)):
+2 → 7 → 3 → 5 → 4 → 6 → 8 → 9 → 10.
 
 `F1-08` queda `deferred` por ese pivote: mide la comprensión de una superficie
 construida sobre una fixture sintética que deja de ser el producto. Condición de
@@ -2785,13 +2790,31 @@ llevado a gate antes del siguiente. Ninguno agrega IA.
 
 | Issue   | Resultado y aceptación mínima                                                                                          | Depende de | Controles                          |
 | ------- | ---------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------- |
-| `F5-01` | Budget por corrida y por día, límite global, timeout, breaker, kill switch y métricas **antes** de la primera llamada. | Fase 4     | `TM-10`, `TM-16`                   |
+| `F5-01` | Budget por corrida y por día, límite global, timeout, breaker, kill switch y métricas **antes** de la primera llamada. | Fase 3     | `TM-10`, `TM-16`                   |
 | `F5-02` | Guard server-side: la IA sólo existe en `personal`; ninguna clave llega al browser.                                    | `F5-01`    | `TM-01`, `TM-02`, `TM-03`, `TM-14` |
 | `F5-03` | Extracción cualitativa con schema cerrado, evidence IDs obligatorios y secciones dirigidas, no documentos completos.   | `F5-02`    | `TM-09`, `TM-15`                   |
-| `F5-04` | Búsqueda web sobre dominios primarios allowlisted, con defensa SSRF y contenido tratado como no confiable.             | `F5-03`    | `TM-08`, `TM-09`, `TM-12`          |
+| `F5-04` | Búsqueda web por un buscador allowlisted que devuelve el extracto, sin bajar sus URLs, y contenido no confiable.       | `F5-03`    | `TM-08`, `TM-09`, `TM-12`          |
 | `F5-05` | Propuesta de supuestos que respeta locks, cita evidencia y siempre pasa por el policy engine antes del motor.          | `F5-04`    | `TM-09`, `TM-16`                   |
 | `F5-06` | La propuesta se persiste en el snapshot; el replay reproduce ambos hashes sin volver a llamar al modelo.               | `F5-05`    | `TM-16`                            |
 | `F5-07` | Evals de injection, citas, abstención, schema, costo y corrección.                                                     | `F5-06`    | `TM-09`, `TM-10`, `TM-15`          |
+
+**Adelantada el 2026-10-02.** La [ADR 0033](../architecture/adr/0033-ai-layer-industry-resolution.md)
+ejecuta la Fase 5 antes de la Fase 4, con un primer caso cerrado: la industria
+de Damodaran cuando el SIC nombra varias candidatas. Tres incrementos:
+
+1. `F5-01` y `F5-02`: `POST` con credencial agregada por el egress, `openrouter`
+   y `tavily` en el registro, la allowlist y la tabla de topes, libro de gasto en
+   dólares con tope por tarea y por día, breaker, escalera de modelos con dobles
+   de test y una llamada real de humo medida.
+2. `F5-03` y `F5-06` para este caso: secciones dirigidas del último 10-K,
+   `industry-resolution-1.0.0` con policy determinista, resolución persistida
+   como aserción `damodaran-industry` con precedencia owner → IA → SIC, comando
+   `pnpm valuation:resolve-industry` e integración con `valuation:assess`. Se mide
+   sobre las 16 ambiguas de la muestra del gate.
+3. `F5-04`: Tavily como segunda evidencia cuando el 10-K no alcanza.
+
+`F5-05` y `F5-07` conservan su alcance y su orden, y la persistencia de `F5-06`
+se reusa para los supuestos.
 
 ### Fase 6 — corrida por ticker y acceso CEDEAR
 

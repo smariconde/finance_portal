@@ -133,15 +133,15 @@ separada mediante `decidedBy`, fecha, motivo y hash en los términos del evento
 
 ## Inventario diferido
 
-| Source ID          | Uso posible                                      | Fase | Estado técnico       | Aprobación              | Condición de entrada                                                                           |
-| ------------------ | ------------------------------------------------ | ---- | -------------------- | ----------------------- | ---------------------------------------------------------------------------------------------- |
-| `indec-direct`     | releases y series cuya fuente primaria sea INDEC | 6    | `proposed`           | `rights_unreviewed`     | elegir datasets y contratos concretos, no tratar el portal completo como un endpoint           |
-| `byma-cedear`      | contexto oficial de negociación CEDEAR           | 2    | `proposed`           | `rights_unreviewed`     | definir si aporta datos estructurados o evidencia documental                                   |
-| `openfigi`         | reconciliación secundaria de identificadores     | 2    | `technical_reviewed` | `rights_review_pending` | mapping puede devolver múltiples instrumentos; exigir scope/MIC y revisión de matches ambiguos |
-| `chicago-soy-feed` | contrato/futuro de soja Chicago                  | 6    | `proposed`           | `rights_unreviewed`     | seleccionar feed con licencia y política de roll; no hay candidato aprobado                    |
-| `mep-ccl-feed`     | referencias MEP/CCL                              | 6    | `proposed`           | `rights_unreviewed`     | exige fuente contractual y metodología visible                                                 |
-| `openrouter`       | modelos para research y supuestos estructurados  | 7    | `technical_reviewed` | `rights_review_pending` | ZDR, data collection, routing y logging deben aplicarse y verificarse por request              |
-| `tavily`           | búsqueda/extracción cualitativa con allowlist    | 7    | `proposed`           | `rights_unreviewed`     | revisar plan, retención, dominios, costos y contenido transferido                              |
+| Source ID          | Uso posible                                        | Fase | Estado técnico       | Aprobación              | Condición de entrada                                                                                    |
+| ------------------ | -------------------------------------------------- | ---- | -------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------- |
+| `indec-direct`     | releases y series cuya fuente primaria sea INDEC   | 6    | `proposed`           | `rights_unreviewed`     | elegir datasets y contratos concretos, no tratar el portal completo como un endpoint                    |
+| `byma-cedear`      | contexto oficial de negociación CEDEAR             | 2    | `proposed`           | `rights_unreviewed`     | definir si aporta datos estructurados o evidencia documental                                            |
+| `openfigi`         | reconciliación secundaria de identificadores       | 2    | `technical_reviewed` | `rights_review_pending` | mapping puede devolver múltiples instrumentos; exigir scope/MIC y revisión de matches ambiguos          |
+| `chicago-soy-feed` | contrato/futuro de soja Chicago                    | 6    | `proposed`           | `rights_unreviewed`     | seleccionar feed con licencia y política de roll; no hay candidato aprobado                             |
+| `mep-ccl-feed`     | referencias MEP/CCL                                | 6    | `proposed`           | `rights_unreviewed`     | exige fuente contractual y metodología visible                                                          |
+| `openrouter`       | modelos para propuestas cualitativas estructuradas | 5    | `spike_ready`        | `approved_personal`     | ZDR, `data_collection=deny` y `max_price` fijados en código por request; escalera declarada (ADR 0033)  |
+| `tavily`           | búsqueda con extracto como segunda evidencia       | 5    | `spike_ready`        | `approved_personal`     | plan gratuito; consulta con nombre de empresa e industrias candidatas, nunca datos del owner (ADR 0033) |
 
 ## Evidencia primaria revisada
 
