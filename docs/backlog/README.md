@@ -2642,8 +2642,16 @@ depende el selector de arquetipo.
 fija entradas con corte temporal, precedencia de exclusiones de FCFF y cuatro
 motivos de abstención. Es documentación: el selector aún no está implementado,
 los umbrales y la calibración de confianza siguen pendientes y el issue permanece
-`in_progress`. Próximo incremento: cerrar esas reglas con fixtures de arquetipos y
-codificar el selector puro con tests; sólo entonces evaluar el gate de `F3-01`.
+`in_progress`. El incremento siguiente fija casos sintéticos de aceptación;
+el gate de `F3-01` espera un selector puro con tests.
+
+**`F3-01`, incremento 2 (2026-10-02).** La
+[tabla de casos](../valuation/methodology.md#f3-01-incremento-2-casos-de-aceptación)
+fija siete resultados sintéticos: tres subtipos directos, sector insuficiente,
+conflicto, admisión de FCFF y evidencia posterior al corte. El selector sigue sin
+implementarse y `confidence` no tiene escala calibrada. Próximo incremento:
+definir señales y umbrales versionados con evidencia, convertir los casos en
+fixtures ejecutables e implementar el selector puro.
 
 ### Fase 4 — motor Damodaran y arquetipos
 

@@ -202,6 +202,30 @@ ni calibra `confidence`: esas reglas necesitan definición y fixtures antes de
 codificar el selector. El guard actual del motor sigue admitiendo sólo
 `non_financial_mature` con `fcff_base`; este contrato no amplía su cobertura.
 
+### `F3-01`, incremento 2: casos de aceptación
+
+Estos casos sintéticos fijan la salida observable antes de implementar reglas
+numéricas. «Evidencia directa» significa una aserción fechada del subtipo o una
+restricción regulatoria identificada; «descartado» exige evidencia, no la ausencia
+de una fila. Todos usan el mismo tiempo efectivo y corte de conocimiento salvo
+donde se indica otro corte.
+
+| Hechos al corte                                                                    | Resultado esperado                                                              | Regla o motivo                                |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------- |
+| Banco identificado por evidencia directa; los demás perfiles descartados           | `bank`, método de equity; `unsupported_method` mientras ese método no exista    | `bank_regulated`, `method_not_implemented`    |
+| Aseguradora identificada por evidencia directa                                     | `insurer`, método de equity; `unsupported_method` mientras ese método no exista | `insurer_regulated`, `method_not_implemented` |
+| REIT identificado por evidencia directa                                            | `reit`, método con AFFO/NAV; `unsupported_method` mientras ese método no exista | `reit_structure`, `method_not_implemented`    |
+| Sólo consta el sector amplio `Financials`; subtipo desconocido                     | Abstención; no recomendar FCFF ni asumir banco                                  | `missing_classification_evidence`             |
+| Evidencia directa simultánea de banco y REIT, sin resolución                       | Abstención con ambas reglas activadas                                           | `conflicting_evidence`                        |
+| No financiera madura con exclusiones descartadas y inputs de `fcff_base` presentes | `non_financial_mature`, `fcff_base`                                             | `mature_non_financial`                        |
+| La única evidencia de subtipo se publicó después del corte de conocimiento         | Abstención en ese corte; una corrida posterior puede clasificar                 | `missing_classification_evidence`             |
+
+Los casos prueban prioridad, conflicto, ausencia y conocimiento temporal. No
+convierten `Financials` en subtipo ni asignan umbrales de EBIT, crecimiento o
+leverage. `confidence` continúa sin escala calibrada y no debe mostrarse como
+probabilidad de acierto; su regla y las fixtures ejecutables siguen pendientes
+antes de cerrar `F3-01`.
+
 ## Normalización
 
 Reported y normalized se preservan en paralelo. Cada ajuste declara monto,
