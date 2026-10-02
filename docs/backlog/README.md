@@ -2660,6 +2660,14 @@ solapamiento, entidad legal e inputs FCFF pasan en 12 tests.
 `confidence` queda `null` hasta calibrarla. Sigue `in_progress`: falta constituir señales desde datos reales con
 reglas y umbrales versionados, probarlas y conectar el selector a la corrida.
 
+**`F3-01`, incremento 4 (2026-10-02).** `sec-sic-profile-1.0.0`
+constituye señales positivas fechadas de banco, aseguradora y REIT desde el SIC
+del `submissions` de la SEC. La lista de códigos proviene de la SEC; el corpus
+congelado prueba que el SIC `3571` de Apple no fabrica una señal. SIC inválido,
+CIK ajeno y respuesta rota se rechazan. Sigue `in_progress`: falta persistir y
+versionar cambios de SIC, resolver las señales de los demás arquetipos con
+evidencia suficiente e integrar el selector a la corrida.
+
 ### Fase 4 — motor Damodaran y arquetipos
 
 | Issue   | Resultado y aceptación mínima                                                                                | Depende de | Controles                 |

@@ -248,6 +248,35 @@ sus umbrales y su fuente antes de conectar el selector a una valuación real.
 `F3-01` sigue abierto hasta ese gate y el perfil de completitud de `F3-02`
 no se anticipa con el booleano de preflight.
 
+### `F3-01`, incremento 4: señales SIC observadas de la SEC
+
+`sec-sic-profile-1.0.0` lee el SIC del `submissions` de la SEC con el parser
+existente, valida el CIK contra la entidad solicitada y produce una señal
+positiva sólo para los códigos específicos de la
+[lista SIC oficial de la SEC](https://www.sec.gov/search-filings/standard-industrial-classification-sic-code-list):
+
+| Perfil      | SIC admitidos                                  | Límite                                                            |
+| ----------- | ---------------------------------------------- | ----------------------------------------------------------------- |
+| Banco       | `6021`, `6022`, `6029`, `6035`, `6036`         | No incluye servicios financieros o agentes bancarios más amplios. |
+| Aseguradora | `6311`, `6321`, `6331`, `6351`, `6361`, `6399` | No incluye brokers de seguros ni planes médicos ambiguos.         |
+| REIT        | `6798`                                         | `6500` y otros operadores inmobiliarios no prueban ser REIT.      |
+
+Los códigos son categorías publicadas, no umbrales de EBIT, crecimiento ni
+apalancamiento. La regla no genera negativos: un SIC no mapeado o inválido no
+prueba que la empresa no sea banco, aseguradora o REIT. El SIC de
+`submissions` describe el filer **actual** sin inicio histórico defendible; por
+eso `validFrom` y `availableAt` se fijan en `fetchedAt`. Consultas anteriores
+se abstienen. Una nueva captura con SIC distinto debe cerrar o superseder la
+anterior antes de publicarse; este incremento no la persiste ni la conecta aún
+con la corrida.
+
+La elección de un método de equity para bancos y aseguradoras sigue la
+[distinción de Damodaran para firmas financieras](https://pages.stern.nyu.edu/~adamodar/New_Home_Page/littlebook/financialsvccompanies.htm).
+El mapeo SIC es una señal de clasificación, no evidencia de que ya estén
+presentes los inputs del método. Siguen sin definirse umbrales cuantitativos
+para crecimiento, pérdidas persistentes, ciclo y distress; los datos actuales
+no justifican convertirlos en reglas de admisión.
+
 ## Normalización
 
 Reported y normalized se preservan en paralelo. Cada ajuste declara monto,
