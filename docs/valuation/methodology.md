@@ -157,6 +157,51 @@ Reglas mínimas:
 - holdings requieren segmentos y assets suficientes para SOTP;
 - datos insuficientes producen abstención, no un método genérico.
 
+### `F3-01`, incremento 1: contrato de decisión
+
+El selector recibe hechos resueltos para una entidad legal con tiempo efectivo,
+corte de conocimiento, política de revisión y base de ajuste declarados. Cada
+entrada conserva fuente, período y `available_at`: una clasificación o un filing
+conocido después del corte no puede decidir una corrida histórica.
+
+`unknown` es distinto de `false`: la ausencia de un hecho no prueba que una
+empresa carezca de esa característica.
+
+| Entrada                                                        | Uso en la decisión                                                                                  |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Clasificación sectorial versionada, industria y regulación     | Contexto y señales de banco, aseguradora o REIT; el sector amplio por sí solo no prueba el subtipo. |
+| Estructura societaria y segmentos                              | Distinguir holding y verificar si existen piezas para SOTP.                                         |
+| EBIT, net income y FCFF por ejercicio                          | Signo y persistencia; un solo ejercicio negativo no prueba pérdidas persistentes.                   |
+| Crecimiento de ingresos y estabilidad del margen por ejercicio | Distinguir madurez, transición y exposición cíclica sin extrapolar el último año.                   |
+| Dividendos, payout, deuda y restricciones de capital           | Comprobar la admisibilidad de métodos de equity y de FCFF.                                          |
+| Exposición a commodities o ciclos, con evidencia fechada       | Evitar usar spot o margen reciente como estado estable.                                             |
+| Cobertura y calidad de cada entrada anterior                   | Nombrar qué dato falta, está en conflicto o no es comparable.                                       |
+
+La precedencia inicial evalúa primero las exclusiones de FCFF industrial. Una señal
+positiva de banco o aseguradora prevalece sobre la etiqueta sectorial amplia;
+después se examinan REIT, holding y distress; luego commodity, ciclo y pérdidas
+persistentes o alto crecimiento. Sólo tras descartar esos casos con evidencia
+suficiente puede recomendarse `fcff_base` para `non_financial_mature`. Dos señales
+positivas incompatibles no se resuelven por el orden de la lista: producen
+abstención con ambas reglas activadas. La taxonomía
+`sp500-wikipedia-gics-sector` de `F7-02` tiene un solo nivel y no demuestra por
+sí misma que una empresa sea banco, aseguradora o REIT.
+
+| Situación                                                             | Resultado requerido                                                                                        |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Falta un dato necesario para distinguir un arquetipo excluido de FCFF | `unsupported_method` con el input y el motivo `missing_classification_evidence`.                           |
+| Evidencias vigentes incompatibles para el mismo perfil                | `unsupported_method` con ambas reglas y `conflicting_evidence`.                                            |
+| Arquetipo identificado, pero su método aún no está implementado       | `unsupported_method` con el método previsto y `method_not_implemented`; nunca sustituirlo por `fcff_base`. |
+| Falta un input estructural del método identificado                    | `unsupported_method` con el input y `missing_required_input`.                                              |
+
+La salida conserva `assetProfile`, `recommendedMethod`, `alternatives`,
+`requiredInputs`, `confidence`, `activatedRules` y `unsupportedReasons`; las
+razones anteriores son códigos propuestos para su schema. Este incremento
+no fija umbrales numéricos de persistencia, crecimiento, margen o apalancamiento,
+ni calibra `confidence`: esas reglas necesitan definición y fixtures antes de
+codificar el selector. El guard actual del motor sigue admitiendo sólo
+`non_financial_mature` con `fcff_base`; este contrato no amplía su cobertura.
+
 ## Normalización
 
 Reported y normalized se preservan en paralelo. Cada ajuste declara monto,
