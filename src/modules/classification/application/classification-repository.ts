@@ -5,7 +5,7 @@ import { selectPersonalDependency } from "@/modules/configuration/domain/runtime
 
 import { taxonomyIdSchema } from "../domain/subject-classification";
 import type { SubjectClassification } from "../domain/subject-classification";
-import type { SectorClassificationPlan } from "../domain/plan-sector-classification";
+import type { ClassificationPlan } from "../domain/plan-sector-classification";
 
 /**
  * Lectura acotada de las clasificaciones de una taxonomía.
@@ -22,7 +22,7 @@ export const classificationQuerySchema = z.object({
 
 export type ClassificationQuery = z.input<typeof classificationQuerySchema>;
 
-export type SectorClassificationSummary = {
+export type ClassificationPlanSummary = {
   readonly ruleVersion: string;
   readonly taxonomyId: string;
   readonly taxonomyVersion: string;
@@ -47,9 +47,9 @@ export interface ClassificationRepository {
    * sujeto en la misma taxonomía, que es exactamente lo que el índice único
    * declara imposible.
    */
-  applySectorPlan(
-    plan: SectorClassificationPlan,
-  ): Promise<SectorClassificationSummary>;
+  applyClassificationPlan(
+    plan: ClassificationPlan,
+  ): Promise<ClassificationPlanSummary>;
 }
 
 type RepositoryFactories = {

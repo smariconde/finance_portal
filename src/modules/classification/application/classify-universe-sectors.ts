@@ -5,14 +5,14 @@ import { sourceIdSchema } from "@/modules/ingestion/domain/source-registry-entry
 import {
   planSectorClassification,
   type SectorClaim,
-  type SectorClassificationPlan,
+  type ClassificationPlan,
   type SectorSourcePin,
 } from "../domain/plan-sector-classification";
 import { SP500_SECTOR_TAXONOMY_ID } from "../domain/sector-taxonomy";
 
 import type {
   ClassificationRepository,
-  SectorClassificationSummary,
+  ClassificationPlanSummary,
 } from "./classification-repository";
 
 /**
@@ -69,8 +69,8 @@ export type ClassifyUniverseSectorsDependencies = {
 };
 
 export type ClassifyUniverseSectorsOutcome = {
-  readonly plan: SectorClassificationPlan;
-  readonly summary: SectorClassificationSummary | null;
+  readonly plan: ClassificationPlan;
+  readonly summary: ClassificationPlanSummary | null;
   /** Símbolos resueltos cuyo CIK no tiene entidad legal en el grafo. */
   readonly unresolvedSubjects: readonly string[];
   /**
@@ -198,7 +198,7 @@ export async function classifyUniverseSectors(
 
   return {
     plan,
-    summary: await repository.applySectorPlan(plan),
+    summary: await repository.applyClassificationPlan(plan),
     unresolvedSubjects,
     conflicts,
   };

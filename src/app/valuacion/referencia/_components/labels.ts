@@ -107,6 +107,7 @@ export const ADJUSTMENT_POLICY_LABELS: Record<string, string> = {
 export const ASSET_PROFILE_LABELS: Record<string, string> = {
   non_financial_mature: "No financiera madura",
   high_growth: "Alto crecimiento",
+  loss_making: "Pérdidas persistentes",
   bank: "Banco",
   insurer: "Aseguradora",
   reit: "REIT",

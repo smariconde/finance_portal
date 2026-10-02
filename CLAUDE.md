@@ -8,7 +8,7 @@ Portal Financiero: a single-owner Next.js 16 portal for researching global compa
 
 The code is public; the data is not. The app is **personal-first**: it serves real data only from a private runtime, and there is no public demo deployment. See [ADR 0004](docs/architecture/adr/0004-personal-first-runtime.md).
 
-The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations kept to a five-fiscal-year window, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, per-source daily request budgets with an owner kill switch, a hand-run refresh that probes `submissions` and re-downloads only the filers that filed something relevant, a deterministic FCFF engine with its reference run, a frozen corpus of real SEC extracts as regression oracle, the declared sector classification with its population resolved at `as_of`, raw daily price series with dated splits and dividends, the CEDEAR registry of both issuers with each CEDEAR as its own security, and a pure `sortino-1.0.0` over a total-return base with the metric catalog it belongs to exist. The first surface that reads real data is the sector risk matrix (`/sectores`, `/sectores/[sector]`), which reads stored prices, the sector population and the CEDEAR registry from the personal database at request time and, when opened, downloads only the prices it is missing through the project's first Server Action. Scheduled refresh, live market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads SEC observations yet; nothing may be presented in the UI as if it were.
+The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations kept to a five-fiscal-year window, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, per-source daily request budgets with an owner kill switch, a hand-run refresh that probes `submissions` and re-downloads only the filers that filed something relevant, a deterministic FCFF engine with its reference run, a frozen corpus of real SEC extracts as regression oracle, the declared sector classification with its population resolved at `as_of`, raw daily price series with dated splits and dividends, the CEDEAR registry of both issuers with each CEDEAR as its own security, a pure `sortino-1.0.0` over a total-return base with the metric catalog it belongs to, and an on-demand company assessment that observes the SEC SIC and selects an archetype from versioned signals exist. The first surface that reads real data is the sector risk matrix (`/sectores`, `/sectores/[sector]`), which reads stored prices, the sector population and the CEDEAR registry from the personal database at request time and, when opened, downloads only the prices it is missing through the project's first Server Action. Scheduled refresh, live market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads SEC observations yet; nothing may be presented in the UI as if it were.
 
 `AGENTS.md` holds the full contributor contract and takes precedence over this file where they overlap.
 
@@ -245,6 +245,30 @@ without a successor, and a run that would withdraw more than a tenth of an
 issuer's programs is refused (`withdrawal_guard`). Read at a cutoff through
 `resolveCedearAccess`. Measured: 162 programs over 162 distinct index securities,
 320 kB.
+
+```bash
+pnpm valuation:assess --ticker AAPL                # observes its SIC (1 request) and assesses it, writes nothing
+pnpm valuation:assess --ticker AAPL --apply        # also records the observed SIC
+pnpm valuation:assess --ticker AAPL --offline      # stored data only: no network, no writes
+```
+
+The Phase 3 gate is **on demand** (`F3-01`,
+[ADR 0031](docs/architecture/adr/0031-on-demand-company-assessment.md)): a
+company gets its archetype when it is assessed, never by precomputing the
+universe. The SIC comes from the same `submissions` request the refresh probes
+and is stored as a `sec-sic` assertion in `classification_assignments`, dated at
+its observation like the CEDEAR registry: a cutoff before the first capture sees
+no SIC and abstains. `method-selection-0.2.0` applies strict precedence —bank,
+insurer or REIT; holding; distress; commodity; cyclical; persistent losses; high
+growth— and `non_financial_mature` is the **residual**, chosen only when every
+other profile has explicit negative evidence. Signals come from
+`sec-sic-profile-2.0.0` (SEC SIC codes; a SIC outside 6000–6799 rules out the
+financial profiles, an unmapped one inside proves nothing) and
+`fundamental-profile-signals-1.0.0` over `annual-fundamentals-1.0.0` (coverage
+below Damodaran's 1.25 two years running; losses two of three years and 15 %
+compound growth, both project decisions). `confidence` is ordinal
+(`high`/`medium`/`low`), never a probability. A company without ingested
+fundamentals is named (`annual_fundamentals`), not an error.
 
 ```bash
 pnpm fundamentals:ingest --ticker AAPL             # dry run: downloads and builds vintages, writes nothing

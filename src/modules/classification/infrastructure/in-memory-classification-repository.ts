@@ -1,10 +1,10 @@
 import type {
   ClassificationQuery,
   ClassificationRepository,
-  SectorClassificationSummary,
+  ClassificationPlanSummary,
 } from "../application/classification-repository";
 import { classificationQuerySchema } from "../application/classification-repository";
-import type { SectorClassificationPlan } from "../domain/plan-sector-classification";
+import type { ClassificationPlan } from "../domain/plan-sector-classification";
 import {
   isOpenClassification,
   type SubjectClassification,
@@ -43,9 +43,9 @@ export class InMemoryClassificationRepository implements ClassificationRepositor
     return matches.map((row) => ({ ...row }));
   }
 
-  async applySectorPlan(
-    plan: SectorClassificationPlan,
-  ): Promise<SectorClassificationSummary> {
+  async applyClassificationPlan(
+    plan: ClassificationPlan,
+  ): Promise<ClassificationPlanSummary> {
     for (const supersession of plan.supersessions) {
       const target = this.rows.find(
         (row) =>

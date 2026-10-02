@@ -53,7 +53,7 @@ export type SectorPlanRejection = {
  * supersede un renombre anterior a la versión registrada en vez de cerrarlo en
  * el pasado.
  */
-export type SectorSupersession = {
+export type ClassificationSupersession = {
   readonly subjectId: string;
   readonly validFrom: string;
   readonly supersededAt: string;
@@ -61,12 +61,12 @@ export type SectorSupersession = {
   readonly nextCode: string;
 };
 
-export type SectorClassificationPlan = {
+export type ClassificationPlan = {
   readonly ruleVersion: string;
   readonly taxonomyId: string;
   readonly taxonomyVersion: string;
   readonly opened: readonly SubjectClassification[];
-  readonly supersessions: readonly SectorSupersession[];
+  readonly supersessions: readonly ClassificationSupersession[];
   readonly rejections: readonly SectorPlanRejection[];
   readonly counts: {
     readonly claims: number;
@@ -114,7 +114,7 @@ function contentOf(
 
 export function planSectorClassification(
   input: PlanSectorClassificationInput,
-): SectorClassificationPlan {
+): ClassificationPlan {
   const {
     claims,
     stored,
@@ -138,7 +138,7 @@ export function planSectorClassification(
   }
 
   const opened: SubjectClassification[] = [];
-  const supersessions: SectorSupersession[] = [];
+  const supersessions: ClassificationSupersession[] = [];
   const rejections: SectorPlanRejection[] = [];
   const reasserted = new Set<string>();
   let unchanged = 0;

@@ -6,9 +6,9 @@ import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import {
   classificationQuerySchema,
   type ClassificationRepository,
-  type SectorClassificationSummary,
+  type ClassificationPlanSummary,
 } from "@/modules/classification/application/classification-repository";
-import type { SectorClassificationPlan } from "@/modules/classification/domain/plan-sector-classification";
+import type { ClassificationPlan } from "@/modules/classification/domain/plan-sector-classification";
 import { subjectClassificationSchema } from "@/modules/classification/domain/subject-classification";
 
 import * as schema from "./schema";
@@ -60,9 +60,9 @@ export function createPostgresClassificationRepository(
         }),
       );
     },
-    async applySectorPlan(
-      plan: SectorClassificationPlan,
-    ): Promise<SectorClassificationSummary> {
+    async applyClassificationPlan(
+      plan: ClassificationPlan,
+    ): Promise<ClassificationPlanSummary> {
       await database.transaction(async (tx) => {
         for (const supersession of plan.supersessions) {
           const updated = await tx
