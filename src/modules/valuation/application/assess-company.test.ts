@@ -91,6 +91,12 @@ function dependencies(
     loadSicAssertions: async () => assertions,
     readFundamentals: async () => rows,
     fiscalYearAnchors: async () => anchors,
+    industryRelease: async () =>
+      new Map([
+        ["computers-peripherals", "Computers/Peripherals"],
+        ["bank-money-center", "Bank (Money Center)"],
+        ["banks-regional", "Banks (Regional)"],
+      ]),
   };
 }
 
@@ -101,6 +107,8 @@ describe("assessCompany", () => {
         legalEntityId: SUBJECT,
         query: query("2026-10-03T00:00:00.000Z"),
         fundamentalsSourceId: "sec-edgar",
+        cik: "0000000042",
+        industryDeclarations: [],
       },
       dependencies([sic("3571")], matureRows()),
     );
@@ -116,10 +124,16 @@ describe("assessCompany", () => {
       recommendedMethod: "fcff_base",
       confidence: "high",
     });
-    // Sin industria mapeada (F3-05) el rigor no pasa de `screening`, y lo dice.
+    // El SIC mapea a una sola industria, así que el rigor llega a `standard`
+    // y declara el riesgo país por domicilio: no hay mix geográfico.
+    expect(assessment.industry).toMatchObject({
+      status: "mapped",
+      industryKey: "computers-peripherals",
+      basis: "sic",
+    });
     expect(assessment.rigor).toMatchObject({
-      level: "screening",
-      degradedBy: ["industry_mapping"],
+      level: "standard",
+      declarations: ["country_risk_by_domicile"],
     });
   });
 
@@ -129,6 +143,8 @@ describe("assessCompany", () => {
         legalEntityId: SUBJECT,
         query: query("2026-06-30T00:00:00.000Z"),
         fundamentalsSourceId: "sec-edgar",
+        cik: "0000000042",
+        industryDeclarations: [],
       },
       dependencies([sic("3571")], matureRows()),
     );
@@ -146,6 +162,8 @@ describe("assessCompany", () => {
         legalEntityId: SUBJECT,
         query: query("2026-10-03T00:00:00.000Z"),
         fundamentalsSourceId: "sec-edgar",
+        cik: "0000000042",
+        industryDeclarations: [],
       },
       dependencies([sic("3571")], [], []),
     );
@@ -163,12 +181,58 @@ describe("assessCompany", () => {
     ]);
   });
 
+  it("names an ambiguous industry instead of guessing, until the owner declares it", async () => {
+    const request = {
+      legalEntityId: SUBJECT,
+      query: query("2026-10-03T00:00:00.000Z"),
+      fundamentalsSourceId: "sec-edgar",
+      cik: "0000000042",
+    };
+    const ambiguous = await assessCompany(
+      { ...request, industryDeclarations: [] },
+      dependencies([sic("6021")], matureRows()),
+    );
+
+    expect(ambiguous.industry).toEqual({
+      version: "sic-damodaran-industry-1.0.0",
+      status: "ambiguous",
+      sic: "6021",
+      candidates: ["bank-money-center", "banks-regional"],
+    });
+
+    const declared = await assessCompany(
+      {
+        ...request,
+        industryDeclarations: [
+          {
+            cik: "0000000042",
+            ticker: "FIX",
+            industryKey: "banks-regional",
+            decidedBy: "owner",
+            decidedOn: "2026-10-02",
+            rationale:
+              "Synthetic regional bank used to prove the declaration path.",
+          },
+        ],
+      },
+      dependencies([sic("6021")], matureRows()),
+    );
+
+    expect(declared.industry).toMatchObject({
+      status: "mapped",
+      industryKey: "banks-regional",
+      basis: "owner_declaration",
+    });
+  });
+
   it("recognizes a bank from its SIC alone", async () => {
     const assessment = await assessCompany(
       {
         legalEntityId: SUBJECT,
         query: query("2026-10-03T00:00:00.000Z"),
         fundamentalsSourceId: "sec-edgar",
+        cik: "0000000042",
+        industryDeclarations: [],
       },
       dependencies([sic("6021")], []),
     );
@@ -189,6 +253,8 @@ describe("assessCompany", () => {
         legalEntityId: SUBJECT,
         query: query("2026-10-03T00:00:00.000Z"),
         fundamentalsSourceId: "sec-edgar",
+        cik: "0000000042",
+        industryDeclarations: [],
       },
       dependencies([foreign], matureRows()),
     );

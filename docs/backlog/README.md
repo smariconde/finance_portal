@@ -54,6 +54,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    26 | `F3-02`    | `done`     | Perfil de completitud medido por empresa sobre los datos que existen, sin estimar lo ausente.                                                | `F3-01`       |
 |    27 | `F3-03`    | `done`     | Nivel de rigor derivado de la completitud y declarado en la corrida, recalculado por el motor.                                               | `F3-02`       |
 |    28 | `F3-04`    | `done`     | Datasets Damodaran versionados y fechados: ERP implícita, betas por industria, riesgo país y rating sintético.                               | Fase 7 `done` |
+|    29 | `F3-05`    | `done`     | Mapeo empresa → industria de Damodaran por SIC, con la ambigüedad nombrada y resuelta sólo por declaración del owner.                        | `F3-04`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -2730,6 +2731,19 @@ industria y CRP (`TM-05`, `TM-16`). Evidencia: 96 industrias, 178 países, 66 a�
 30 bandas, sin rechazos, 240 kB; idempotencia verificada contra la fuente;
 fixtures sintéticas (los términos no permiten redistribuir), 27 tests unitarios y
 3 de integración.
+
+**`F3-05` — cierre (2026-10-02).** `sic-damodaran-industry-1.0.0` mapea los
+SIC de la SEC a las industrias de `damodaran.betas-us`; un código con varias
+candidatas es `ambiguous` y las nombra. Sólo una declaración del owner por CIK y
+con motivo resuelve una ambigüedad (`declared-industry-assignments.ts`, vacío).
+La industria se valida contra la release visible al corte y alimenta
+`industry_mapping` de la completitud.
+
+Criterios cumplidos: mapeo empresa → industria del dataset con el caso ambiguo
+declarado y no adivinado (`TM-05`, `TM-06`). Evidencia: muestra del gate con 14
+mapeadas y 16 ambiguas; AAPL y JNJ en `standard` declarando riesgo país por
+domicilio; siete tests del mapeo, incluido que toda candidata exista en la
+taxonomía de enero de 2026, y dos del servicio.
 
 ### Fase 4 — motor Damodaran y arquetipos
 

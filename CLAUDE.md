@@ -273,7 +273,10 @@ fundamentals is named (`annual_fundamentals`), not an error. The assessment also
 never ingested, since companyfacts has no dimensions) and derives
 `rigor-level-1.0.0`. A valuation run carries all three in
 `ValuationInput.assessment` (methodology `0.3.0`), and the engine **recomputes**
-the rigor and rejects one written by hand.
+the rigor and rejects one written by hand. The industry comes from
+`sic-damodaran-industry-1.0.0`: a SIC with several Damodaran candidates is
+`ambiguous` and names them; only an owner declaration by CIK with a rationale in
+`declared-industry-assignments.ts` (empty) resolves one.
 
 ```bash
 pnpm damodaran:record                              # dry run: the four pages, one request each, writes nothing

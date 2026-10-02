@@ -31,12 +31,16 @@ import {
   assessCompany,
   type CompanyAssessment,
 } from "@/modules/valuation/application/assess-company";
+import { readReferenceDataset } from "@/modules/reference-data/application/read-reference-dataset";
+import { DECLARED_INDUSTRY_ASSIGNMENTS } from "@/modules/valuation/application/declared-industry-assignments";
 import { annualFundamentalsConcepts } from "@/modules/valuation/domain/annual-fundamentals";
+import { DAMODARAN_INDUSTRY_TAXONOMY } from "@/modules/valuation/domain/industry-mapping";
 import { getSourceEgressFetch } from "@/server/egress/get-source-egress-fetch";
 import { getClassificationRepository } from "@/server/persistence/get-classification-repository";
 import { getCorporateActionRepository } from "@/server/persistence/get-corporate-action-repository";
 import { getIngestionRunRepository } from "@/server/persistence/get-ingestion-run-repository";
 import { getObservationRepository } from "@/server/persistence/get-observation-repository";
+import { getReferenceDatasetRepository } from "@/server/persistence/get-reference-dataset-repository";
 import { getSourceBudgetStore } from "@/server/persistence/get-source-budget-store";
 import { getSourceRegistryRepository } from "@/server/persistence/get-source-registry-repository";
 import { getUniverseRepository } from "@/server/persistence/get-universe-repository";
@@ -95,6 +99,7 @@ const classifications = getClassificationRepository();
 const observations = getObservationRepository();
 const corporateActions = getCorporateActionRepository();
 const ingestionRuns = getIngestionRunRepository();
+const referenceDatasets = getReferenceDatasetRepository();
 const state = await getUniverseRepository().loadState({
   indexId: SP500_INDEX_ID,
   versions: "all",
@@ -260,6 +265,8 @@ for (const ticker of values.ticker) {
       legalEntityId,
       query: queryAt(new Date().toISOString()),
       fundamentalsSourceId: SEC_SOURCE_ID,
+      cik,
+      industryDeclarations: DECLARED_INDUSTRY_ASSIGNMENTS,
     },
     {
       loadSicAssertions: async () => assertions,
@@ -287,6 +294,17 @@ for (const ticker of values.ticker) {
           recordedAt: row.observation.recordedAt,
           sourceDocumentId: row.observation.sourceDocumentId,
         }));
+      },
+      industryRelease: async (pointInTime) => {
+        const reading = await readReferenceDataset(
+          DAMODARAN_INDUSTRY_TAXONOMY,
+          pointInTime,
+          referenceDatasets,
+        );
+
+        return reading === null
+          ? null
+          : new Map(reading.rows.map((row) => [row.key, row.label]));
       },
       fiscalYearAnchors: async (subjectIds) => {
         const anchors = await Promise.all(
@@ -351,6 +369,14 @@ for (const report of reports) {
         .join(" · "),
     );
   }
+  log(
+    "industria",
+    assessment.industry.status === "mapped"
+      ? `${assessment.industry.industryLabel} · ${assessment.industry.basis}`
+      : assessment.industry.status === "ambiguous"
+        ? `ambigua entre ${assessment.industry.candidates.join(", ")}`
+        : `sin mapear · ${assessment.industry.reason}`,
+  );
   log(
     "ejercicios",
     series === null
