@@ -31,6 +31,7 @@ import {
   type MethodSelection,
   type ProfileEvidence,
 } from "../domain/method-selection";
+import { deriveRigorLevel, type RigorAssessment } from "../domain/rigor-level";
 import {
   assessSicProfiles,
   sicProfileEvidence,
@@ -90,6 +91,8 @@ export type CompanyAssessment = {
   readonly evidence: readonly ProfileEvidence[];
   readonly completeness: CompletenessProfile;
   readonly selection: MethodSelection;
+  /** Derivado de la selección y la completitud (`F3-03`), nunca elegido. */
+  readonly rigor: RigorAssessment;
 };
 
 function isVisible(
@@ -188,5 +191,6 @@ export async function assessCompany(
     evidence,
     completeness,
     selection,
+    rigor: deriveRigorLevel(selection, completeness),
   };
 }

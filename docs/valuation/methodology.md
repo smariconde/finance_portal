@@ -1,7 +1,7 @@
 # Metodología de valuación
 
 - Estado: metodología objetivo; motor FCFF base implementado en `src/modules/valuation/`
-- Versión metodológica: 0.2.0
+- Versión metodológica: 0.3.0 (la corrida lleva selección, completitud y rigor desde `F3-03`)
 - Versión de engine implementada: `fcff-1.0.0` (método `fcff_base`)
 - Fecha: 2026-08-21; motor base entregado el 2026-08-24; niveles de rigor y alcance
   de la IA incorporados el 2026-09-04
@@ -360,6 +360,36 @@ historia de cinco años en 22 (las otras ocho son financieras o extractivas sin
 EBIT publicado); capex en 12, porque emisores como Amazon lo publican con
 conceptos que `sec-core-concepts-3.0.0` no selecciona. Ese hueco es de la
 selección, no de la empresa, y queda para la normalización de la Fase 4.
+
+### `F3-03`: nivel de rigor en la corrida
+
+`rigor-level-1.0.0` deriva el nivel de la tabla de arriba desde la selección y el
+perfil de completitud:
+
+| Nivel         | Exige                                                                        |
+| ------------- | ---------------------------------------------------------------------------- |
+| `unsupported` | la selección no admitió el método, o falta un insumo estructural             |
+| `full`        | las nueve comprobaciones `met`, mix geográfico incluido                      |
+| `standard`    | insumos estructurales, tres años de historia como mínimo e industria mapeada |
+| `screening`   | el resto                                                                     |
+
+El nivel viaja con `degradedBy` —las comprobaciones que impidieron el siguiente,
+o `selection.<motivo>`— y con las aproximaciones que obliga a declarar:
+`country_risk_by_domicile` sin mix geográfico, e `invested_capital_not_reconstructed`
+en `screening`.
+
+La corrida lleva la evaluación entera: `ValuationInput.assessment` contiene
+selección, completitud y rigor, y entra en el `input_hash`. Tres policy checks
+nuevos la cierran: `method_selection_admits_run` (el perfil y el método son los
+que el selector eligió), `rigor_derived_from_completeness` (el motor **recalcula**
+el rigor y rechaza uno escrito a mano) y `rigor_admits_valuation` (un nivel
+`unsupported` no valúa). La versión metodológica pasa a `0.3.0` y la corrida de
+referencia de `FixtureCo` cambia de hashes: su evaluación es declarada y su
+rigor, derivado, es `screening`.
+
+Medido el 2026-10-02 sobre la muestra: las ocho maduras quedan en `screening`
+sólo por `industry_mapping`, que llega con `F3-05`; las 22 restantes son
+`unsupported` con su motivo.
 
 ## Normalización
 
