@@ -189,7 +189,11 @@ mismo diff.
 
 ### OpenRouter
 
-- Diferido a Fase 7 y presupuesto efectivo `USD 0` hasta aprobación.
+- Aprobado para uso personal el 2026-10-02 por la
+  [ADR 0033](../architecture/adr/0033-ai-layer-industry-resolution.md): tope de
+  100 requests/día, USD 0,10 por tarea y USD 1,00 por día UTC, en código y en
+  PostgreSQL, más el límite de crédito de la clave en la cuenta. Antes de eso
+  estaba diferido con presupuesto efectivo `USD 0`.
 - OpenRouter declara no conservar prompts/respuestas salvo opt-in, pero guarda metadata.
   ZDR debe exigirse por request y sólo enruta a endpoints compatibles; su definición
   permite cache implícita en memoria.
@@ -203,7 +207,11 @@ mismo diff.
 
 ### Tavily
 
-- Diferido a Fase 7 y presupuesto efectivo `USD 0` hasta aprobación.
+- Aprobado para uso personal el 2026-10-02 por la
+  [ADR 0033](../architecture/adr/0033-ai-layer-industry-resolution.md) en el plan
+  gratuito (1.000 créditos/mes, sin tarjeta): búsqueda básica, tope de 10
+  requests/día, sólo cuando el 10-K no alcanzó. Antes de eso estaba diferido con
+  presupuesto efectivo `USD 0`.
 - Researcher publica 1.000 créditos/mes; search básico cuesta 1 y advanced 2. Development
   publica 100 requests/min, pero términos y privacidad permiten procesamiento amplio del
   input y compartir queries con índices de terceros.
