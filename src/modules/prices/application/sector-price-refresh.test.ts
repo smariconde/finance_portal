@@ -315,6 +315,46 @@ describe("ensureSectorPrices", () => {
     expect(jobs.snapshot().jobs).toHaveLength(2);
   });
 
+  it("un item completo sin el cierre pedido se informa y admite reintento manual", async () => {
+    const { dependencies, jobs, runJob } = await setup({
+      referenceThrough: "2026-09-30",
+      closes: { [FIXTURE]: "2026-09-30" },
+    });
+
+    await ensureSectorPrices({ sectorCode: "energy" }, dependencies);
+    await runJob(jobs.snapshot().jobs[0]!, ingestedEverything);
+
+    expect(
+      await ensureSectorPrices({ sectorCode: "energy" }, dependencies),
+    ).toEqual({
+      status: { state: "fresh", targetSession: "2026-09-30", failed: ["FIXA"] },
+      runJobId: null,
+    });
+    expect(
+      await readSectorPriceReadiness({ sectorCode: "energy" }, dependencies),
+    ).toEqual({
+      needsRefresh: false,
+      targetSession: "2026-09-30",
+      failed: ["FIXA"],
+    });
+    expect(jobs.snapshot().jobs).toHaveLength(1);
+
+    const retried = await ensureSectorPrices(
+      { sectorCode: "energy", retryFailures: true },
+      dependencies,
+    );
+
+    expect(retried.status).toMatchObject({
+      state: "running",
+      phase: "securities",
+      total: 1,
+    });
+    expect(jobs.snapshot().items.map((item) => item.subjectKey)).toEqual([
+      ANDES,
+      ANDES,
+    ]);
+  });
+
   it("una revisión anterior al asentamiento de la rueda no cuenta", async () => {
     const { dependencies, jobs, runJob, setClock } = await setup({
       referenceThrough: "2026-09-29",

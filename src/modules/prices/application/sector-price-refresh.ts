@@ -52,9 +52,9 @@ import type { PriceRepository } from "./price-repository";
  * Es un job durable de la ADR 0015 con dos fases que nunca van juntas: primero
  * la referencia, porque su última rueda es la que se le pide a cada security, y
  * después sólo las securities a las que les falta. Lo guardado no se pide otra
- * vez, y lo que un job ya revisó después de asentarse la rueda —también lo que
- * falló— no se replanea solo: un fallo se reintenta cuando el owner lo pide, no
- * en cada visita.
+ * vez, y lo que un job ya revisó después de asentarse la rueda no se replanea
+ * solo. Si aún falta el cierre, se informa y se reintenta cuando el owner lo
+ * pide, no en cada visita.
  */
 export const PRICE_REFRESH_KIND = "yahoo_prices_refresh";
 
@@ -117,7 +117,7 @@ export type SectorPriceAssessment = {
   readonly targetSession: string | null;
   /** Securities a descargar, en el orden de la población. */
   readonly stale: readonly StaleSecurity[];
-  /** Revisadas después de la rueda y que igual fallaron: no se replanean solas. */
+  /** Revisadas después de la rueda y aún sin cierre: no se replanean solas. */
   readonly failed: readonly StaleSecurity[];
   /** Miembros sin ticker vigente: no hay qué pedirle a la fuente. */
   readonly withoutTicker: number;
@@ -182,7 +182,7 @@ function checkedSince(
     return false;
   }
 
-  return !(retryFailures && check.status !== "completed");
+  return !retryFailures;
 }
 
 export async function assessSectorPrices(
@@ -219,8 +219,7 @@ export async function assessSectorPrices(
   const reference = assessReferenceFreshness({
     latestClose: latestReference,
     lastCheckedAt:
-      referenceCheck === undefined ||
-      (retryFailures && referenceCheck.status !== "completed")
+      referenceCheck === undefined || retryFailures
         ? null
         : referenceCheck.checkedAt,
     now,
@@ -287,8 +286,7 @@ export async function assessSectorPrices(
     return (
       !withTargetClose.has(member.securityId) &&
       check !== undefined &&
-      check.checkedAt >= settled &&
-      check.status !== "completed"
+      check.checkedAt >= settled
     );
   });
 

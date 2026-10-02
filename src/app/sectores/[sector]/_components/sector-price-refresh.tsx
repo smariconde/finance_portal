@@ -17,6 +17,7 @@ import { refreshSectorPrices, type SectorPriceRefreshResult } from "../actions";
 
 type RunningStatus = Extract<SectorPriceRefreshResult, { state: "running" }>;
 type BlockedStatus = Extract<SectorPriceRefreshResult, { state: "blocked" }>;
+type FreshStatus = Extract<SectorPriceRefreshResult, { state: "fresh" }>;
 
 type View =
   | { readonly kind: "idle" }
@@ -24,7 +25,7 @@ type View =
   | { readonly kind: "running"; readonly status: RunningStatus }
   | { readonly kind: "blocked"; readonly status: BlockedStatus }
   | { readonly kind: "unavailable" }
-  | { readonly kind: "done" };
+  | { readonly kind: "done"; readonly status: FreshStatus };
 
 const POLL_MS = 2_000;
 const OTHER_SECTOR_POLL_MS = 4_000;
@@ -49,7 +50,7 @@ function formatClock(instant: string): string {
 
 /**
  * Consulta la acción hasta que no quede nada que esperar. Sólo el primer pedido
- * lleva `retryFailures`: consultar nunca replanea un fallo.
+ * lleva `retryFailures`: consultar nunca replanea un cierre faltante.
  */
 async function pollSectorPrices(options: {
   readonly sectorCode: string;
@@ -83,7 +84,7 @@ async function pollSectorPrices(options: {
 
     onView(
       result.state === "fresh"
-        ? { kind: "done" }
+        ? { kind: "done", status: result }
         : result.state === "blocked"
           ? { kind: "blocked", status: result }
           : { kind: "unavailable" },
@@ -108,7 +109,7 @@ export type SectorPriceRefreshProps = {
  * Al abrir la página, si el servidor vio que falta algo, dispara la Server
  * Action y la consulta hasta que no quede nada; entonces vuelve a pedir la
  * página, que recalcula la matriz con lo guardado. Sólo el primer pedido puede
- * reintentar fallos, y sólo si el owner lo pide: consultar nunca replanea.
+ * reintentar cierres faltantes, y sólo si el owner lo pide: consultar nunca replanea.
  */
 export function SectorPriceRefresh({
   sectorCode,
@@ -161,17 +162,27 @@ export function SectorPriceRefresh({
   }, [needsRefresh, run]);
 
   if (view.kind === "idle" || view.kind === "done") {
-    if (failed.length === 0) {
+    const missing = view.kind === "done" ? view.status.failed : failed;
+
+    if (missing.length === 0) {
       return view.kind === "done" ? (
         <StatusLine icon={CircleCheck} title="Precios al día." />
       ) : null;
     }
 
+    const referenceMissing = missing.includes("^SP500TR");
+    const shown = missing.slice(0, 8).join(", ");
+    const remaining = missing.length - 8;
+
     return (
       <StatusLine
         icon={CircleAlert}
-        title={`${failed.length === 1 ? "Una security sigue" : `${failed.length} securities siguen`} sin el cierre${targetSessionLabel === null ? "" : ` del ${targetSessionLabel}`}`}
-        detail={`Ya se pidieron a Yahoo Finance después de esa rueda y no lo trajeron: ${failed.join(", ")}. Quedan en «Sin valor» con su motivo.`}
+        title={
+          referenceMissing
+            ? "La referencia sigue sin el último cierre"
+            : `${missing.length === 1 ? "Una security sigue" : `${missing.length} securities siguen`} sin el cierre${targetSessionLabel === null ? "" : ` del ${targetSessionLabel}`}`
+        }
+        detail={`Yahoo Finance ya fue consultado, pero ${referenceMissing ? "la referencia" : "estos precios"} siguen sin ese cierre: ${shown}${remaining > 0 ? ` y ${remaining} más` : ""}. La matriz muestra «Sin valor» donde falta el dato.`}
         action={<RetryButton onRetry={() => retry(true)} />}
       />
     );
