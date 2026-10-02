@@ -138,11 +138,13 @@ Retorna:
 
 ```ts
 type MethodSelection = {
-  assetProfile: string;
-  recommendedMethod: string;
+  version: string;
+  status: "selected" | "unsupported_method";
+  assetProfile: string | null;
+  recommendedMethod: string | null;
   alternatives: string[];
   requiredInputs: string[];
-  confidence: number; // 0..1
+  confidence: number | null; // null hasta calibrar la escala
   activatedRules: string[];
   unsupportedReasons: string[];
 };
@@ -156,6 +158,124 @@ Reglas mínimas:
 - pérdidas persistentes no usan P/E ni una perpetuidad base sin transición;
 - holdings requieren segmentos y assets suficientes para SOTP;
 - datos insuficientes producen abstención, no un método genérico.
+
+### `F3-01`, incremento 1: contrato de decisión
+
+El selector recibe hechos resueltos para una entidad legal con tiempo efectivo,
+corte de conocimiento, política de revisión y base de ajuste declarados. Cada
+entrada conserva fuente, período y `available_at`: una clasificación o un filing
+conocido después del corte no puede decidir una corrida histórica.
+
+`unknown` es distinto de `false`: la ausencia de un hecho no prueba que una
+empresa carezca de esa característica.
+
+| Entrada                                                        | Uso en la decisión                                                                                  |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Clasificación sectorial versionada, industria y regulación     | Contexto y señales de banco, aseguradora o REIT; el sector amplio por sí solo no prueba el subtipo. |
+| Estructura societaria y segmentos                              | Distinguir holding y verificar si existen piezas para SOTP.                                         |
+| EBIT, net income y FCFF por ejercicio                          | Signo y persistencia; un solo ejercicio negativo no prueba pérdidas persistentes.                   |
+| Crecimiento de ingresos y estabilidad del margen por ejercicio | Distinguir madurez, transición y exposición cíclica sin extrapolar el último año.                   |
+| Dividendos, payout, deuda y restricciones de capital           | Comprobar la admisibilidad de métodos de equity y de FCFF.                                          |
+| Exposición a commodities o ciclos, con evidencia fechada       | Evitar usar spot o margen reciente como estado estable.                                             |
+| Cobertura y calidad de cada entrada anterior                   | Nombrar qué dato falta, está en conflicto o no es comparable.                                       |
+
+La precedencia inicial evalúa primero las exclusiones de FCFF industrial. Una señal
+positiva de banco o aseguradora prevalece sobre la etiqueta sectorial amplia;
+después se examinan REIT, holding y distress; luego commodity, ciclo y pérdidas
+persistentes o alto crecimiento. Sólo tras descartar esos casos con evidencia
+suficiente puede recomendarse `fcff_base` para `non_financial_mature`. Dos señales
+positivas incompatibles no se resuelven por el orden de la lista: producen
+abstención con ambas reglas activadas. La taxonomía
+`sp500-wikipedia-gics-sector` de `F7-02` tiene un solo nivel y no demuestra por
+sí misma que una empresa sea banco, aseguradora o REIT.
+
+| Situación                                                             | Resultado requerido                                                                                        |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Falta un dato necesario para distinguir un arquetipo excluido de FCFF | `unsupported_method` con el input y el motivo `missing_classification_evidence`.                           |
+| Evidencias vigentes incompatibles para el mismo perfil                | `unsupported_method` con ambas reglas y `conflicting_evidence`.                                            |
+| Arquetipo identificado, pero su método aún no está implementado       | `unsupported_method` con el método previsto y `method_not_implemented`; nunca sustituirlo por `fcff_base`. |
+| Falta un input estructural del método identificado                    | `unsupported_method` con el input y `missing_required_input`.                                              |
+
+La salida conserva `assetProfile`, `recommendedMethod`, `alternatives`,
+`requiredInputs`, `confidence`, `activatedRules` y `unsupportedReasons`; las
+razones anteriores son códigos propuestos para su schema. Este incremento
+no fija umbrales numéricos de persistencia, crecimiento, margen o apalancamiento,
+ni calibra `confidence`: esas reglas necesitan definición y fixtures antes de
+codificar el selector. El guard actual del motor sigue admitiendo sólo
+`non_financial_mature` con `fcff_base`; este contrato no amplía su cobertura.
+
+### `F3-01`, incremento 2: casos de aceptación
+
+Estos casos sintéticos fijan la salida observable antes de implementar reglas
+numéricas. «Evidencia directa» significa una aserción fechada del subtipo o una
+restricción regulatoria identificada; «descartado» exige evidencia, no la ausencia
+de una fila. Todos usan el mismo tiempo efectivo y corte de conocimiento salvo
+donde se indica otro corte.
+
+| Hechos al corte                                                                    | Resultado esperado                                                              | Regla o motivo                                |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------- |
+| Banco identificado por evidencia directa; los demás perfiles descartados           | `bank`, método de equity; `unsupported_method` mientras ese método no exista    | `bank_regulated`, `method_not_implemented`    |
+| Aseguradora identificada por evidencia directa                                     | `insurer`, método de equity; `unsupported_method` mientras ese método no exista | `insurer_regulated`, `method_not_implemented` |
+| REIT identificado por evidencia directa                                            | `reit`, método con AFFO/NAV; `unsupported_method` mientras ese método no exista | `reit_structure`, `method_not_implemented`    |
+| Sólo consta el sector amplio `Financials`; subtipo desconocido                     | Abstención; no recomendar FCFF ni asumir banco                                  | `missing_classification_evidence`             |
+| Evidencia directa simultánea de banco y REIT, sin resolución                       | Abstención con ambas reglas activadas                                           | `conflicting_evidence`                        |
+| No financiera madura con exclusiones descartadas y inputs de `fcff_base` presentes | `non_financial_mature`, `fcff_base`                                             | `mature_non_financial`                        |
+| La única evidencia de subtipo se publicó después del corte de conocimiento         | Abstención en ese corte; una corrida posterior puede clasificar                 | `missing_classification_evidence`             |
+
+Los casos prueban prioridad, conflicto, ausencia y conocimiento temporal. No
+convierten `Financials` en subtipo ni asignan umbrales de EBIT, crecimiento o
+leverage. `confidence` continúa sin escala calibrada y no debe mostrarse como
+probabilidad de acierto; su regla y las fixtures ejecutables siguen pendientes
+antes de cerrar `F3-01`.
+
+### `F3-01`, incremento 3: selector sobre evidencia explícita
+
+`method-selection-0.1.0` implementa los casos anteriores en dominio puro. Su
+entrada identifica una entidad legal y reúne señales de perfil ya clasificadas
+para ella, cada una con vigencia efectiva, `available_at`, `recorded_at`,
+fuente y hash, más la consulta point-in-time y un preflight estructural de FCFF. Filtra cada señal con el tiempo
+efectivo y el corte de conocimiento; dos afirmaciones de perfiles distintos o
+versiones simultáneas de un mismo perfil producen `conflicting_evidence`.
+Para admitir `fcff_base`, exige evidencia positiva de
+`non_financial_mature`, evidencia negativa explícita para los demás perfiles e
+inputs FCFF verificados. Los otros perfiles conservan su método previsto pero
+devuelven `method_not_implemented`. `confidence=null` en toda salida de esta
+versión: ningún número se presenta como probabilidad sin calibración.
+
+Esta versión no infiere las señales desde EBIT, crecimiento, regulación ni
+sector. El adaptador que las constituya deberá versionar y probar esas reglas,
+sus umbrales y su fuente antes de conectar el selector a una valuación real.
+`F3-01` sigue abierto hasta ese gate y el perfil de completitud de `F3-02`
+no se anticipa con el booleano de preflight.
+
+### `F3-01`, incremento 4: señales SIC observadas de la SEC
+
+`sec-sic-profile-1.0.0` lee el SIC del `submissions` de la SEC con el parser
+existente, valida el CIK contra la entidad solicitada y produce una señal
+positiva sólo para los códigos específicos de la
+[lista SIC oficial de la SEC](https://www.sec.gov/search-filings/standard-industrial-classification-sic-code-list):
+
+| Perfil      | SIC admitidos                                  | Límite                                                            |
+| ----------- | ---------------------------------------------- | ----------------------------------------------------------------- |
+| Banco       | `6021`, `6022`, `6029`, `6035`, `6036`         | No incluye servicios financieros o agentes bancarios más amplios. |
+| Aseguradora | `6311`, `6321`, `6331`, `6351`, `6361`, `6399` | No incluye brokers de seguros ni planes médicos ambiguos.         |
+| REIT        | `6798`                                         | `6500` y otros operadores inmobiliarios no prueban ser REIT.      |
+
+Los códigos son categorías publicadas, no umbrales de EBIT, crecimiento ni
+apalancamiento. La regla no genera negativos: un SIC no mapeado o inválido no
+prueba que la empresa no sea banco, aseguradora o REIT. El SIC de
+`submissions` describe el filer **actual** sin inicio histórico defendible; por
+eso `validFrom` y `availableAt` se fijan en `fetchedAt`. Consultas anteriores
+se abstienen. Una nueva captura con SIC distinto debe cerrar o superseder la
+anterior antes de publicarse; este incremento no la persiste ni la conecta aún
+con la corrida.
+
+La elección de un método de equity para bancos y aseguradoras sigue la
+[distinción de Damodaran para firmas financieras](https://pages.stern.nyu.edu/~adamodar/New_Home_Page/littlebook/financialsvccompanies.htm).
+El mapeo SIC es una señal de clasificación, no evidencia de que ya estén
+presentes los inputs del método. Siguen sin definirse umbrales cuantitativos
+para crecimiento, pérdidas persistentes, ciclo y distress; los datos actuales
+no justifican convertirlos en reglas de admisión.
 
 ## Normalización
 
