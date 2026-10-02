@@ -317,6 +317,39 @@ describe("sondeo del refresh", () => {
     expect(probe.document.kind).toBe("submissions");
   });
 
+  it("lee el SIC del mismo payload, sin otro request", async () => {
+    const fetch = egress(
+      routes({
+        [buildSubmissionsUrl(FIXTURE_FILER_CIK)]: {
+          status: 200,
+          body: JSON.stringify({
+            ...(buildFixtureSubmissions() as object),
+            sic: "6021",
+            sicDescription: "National Commercial Banks",
+          }),
+        },
+      }),
+    );
+    const probe = await createLiveCompanyFactsSource({ fetch }).probe(
+      FIXTURE_FILER_CIK,
+    );
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(probe.industry).toStrictEqual({
+      sic: "6021",
+      description: "National Commercial Banks",
+    });
+  });
+
+  it("no inventa un SIC cuando el payload no lo publica", async () => {
+    const fetch = egress(routes());
+    const probe = await createLiveCompanyFactsSource({ fetch }).probe(
+      FIXTURE_FILER_CIK,
+    );
+
+    expect(probe.industry).toBeNull();
+  });
+
   it("devuelve las presentaciones recientes con su aceptación", async () => {
     const fetch = egress(routes());
     const probe = await createLiveCompanyFactsSource({ fetch }).probe(

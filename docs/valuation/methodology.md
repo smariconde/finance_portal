@@ -277,6 +277,65 @@ presentes los inputs del método. Siguen sin definirse umbrales cuantitativos
 para crecimiento, pérdidas persistentes, ciclo y distress; los datos actuales
 no justifican convertirlos en reglas de admisión.
 
+### `F3-01`, incremento 5: señales desde datos reales y cierre
+
+La [ADR 0031](../architecture/adr/0031-on-demand-company-assessment.md) decide
+que la evaluación es **a demanda**: `pnpm valuation:assess --ticker …` observa el
+SIC de la empresa (un request a `submissions`), lo guarda como aserción fechada
+en su observación (`sec-sic-classification-1.0.0`) y la evalúa sobre los
+fundamentals ya ingeridos. El incremento 4 queda reemplazado: la regla vive en el
+dominio y produce también evidencia negativa.
+
+`method-selection-0.2.0` ordena los perfiles —banco, aseguradora o REIT; holding;
+distress; commodity; ciclo; pérdidas persistentes; alto crecimiento— y elige el
+primero con evidencia positiva, siempre que todos los que lo preceden tengan
+evidencia negativa. `non_financial_mature` es el residuo. Dos financieros
+positivos a la vez siguen siendo `conflicting_evidence`.
+
+| Regla                               | Perfil                     | Positivo                                                                                                                 | Negativo                                                                                                                                        |
+| ----------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sec-sic-profile-2.0.0`             | banco / aseguradora / REIT | SIC `6021`, `6022`, `6029`, `6035`, `6036` / `6311`, `6321`, `6331`, `6351`, `6361`, `6399` / `6798`                     | SIC fuera de 6000–6799, o mapeado a otro de los tres                                                                                            |
+| `sec-sic-profile-2.0.0`             | holding                    | ninguno: la lista de la SEC no publica el 6719                                                                           | SIC fuera de 6000–6799 o mapeado                                                                                                                |
+| `sec-sic-profile-2.0.0`             | commodity                  | división B (minería, carbón, petróleo y gas) y `2911` refinación                                                         | cualquier otro SIC válido                                                                                                                       |
+| `sec-sic-profile-2.0.0`             | ciclo                      | bienes durables y de capital, acero y aluminio, autos, aeronaves, transporte aéreo y marítimo, construcción de viviendas | cualquier otro SIC válido                                                                                                                       |
+| `fundamental-profile-signals-1.0.0` | distress                   | cobertura `EBIT / intereses` < 1,25 dos ejercicios seguidos, o patrimonio ≤ 0 con EBIT < 0                               | las dos ramas falsas; o EBIT > 0 dos años con patrimonio > 0; o resultado neto > 0 dos años con patrimonio > 0; o caja que cubre todo el pasivo |
+| `fundamental-profile-signals-1.0.0` | pérdidas persistentes      | EBIT < 0 en dos de los tres últimos ejercicios                                                                           | tres ejercicios conocidos con menos de dos pérdidas                                                                                             |
+| `fundamental-profile-signals-1.0.0` | alto crecimiento           | ventas × 1,15³ o más en tres ejercicios                                                                                  | por debajo, con base positiva y ejercicios consecutivos                                                                                         |
+
+El 1,25 es el borde inferior de `B-` en la
+[tabla de rating sintético de Damodaran](https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/ratings.html)
+para empresas grandes: debajo empiezan `CCC` a `D`. Los «dos de tres» y el 15 %
+son **decisiones del proyecto**: el sistema de valuación pide signo, persistencia
+y crecimiento sin fijar cifras, y ninguna fuente primaria las publica.
+
+La serie anual (`annual-fundamentals-1.0.0`) reconoce un ejercicio por el ancla
+`fp = FY` del linaje (±7 días, para años de 52/53 semanas), descarta los doce
+meses móviles y toma cada partida de conceptos alternativos en orden. El EBIT
+reconstruido, el resultado neto y la liquidez son alternativas declaradas: la
+evidencia queda `declared_alternative` y la confianza baja.
+
+`confidence` es ordinal: `high` si toda la evidencia que decidió es primaria y
+ninguna señal cedió, `medium` con una de las dos cosas, `low` con ambas, `null`
+sin perfil. No es una probabilidad.
+
+Medido el 2026-10-02 sobre la muestra declarada del gate, con el SIC observado de
+las 30 empresas:
+
+| Arquetipo declarado        | Empresas                                    | Resultado del selector                                                                                                                 |
+| -------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| madura                     | AAPL, GOOGL, DUK, JNJ                       | las 4 maduras con `fcff_base`                                                                                                          |
+| banco / aseguradora / REIT | JPM, BAC, USB / PGR, TRV, AFL / PLD, AMT, O | los 9 coinciden, `method_not_implemented`                                                                                              |
+| cíclica / commodity        | CAT, DE, F / XOM, FCX, NEM, DVN             | los 7 coinciden                                                                                                                        |
+| alto crecimiento           | NVDA, AMZN, CRM                             | NVDA coincide; AMZN (×1,39) y CRM (×1,32) crecen por debajo del 15 % y salen maduras                                                   |
+| pérdidas                   | MRNA, CRL, INCY                             | MRNA se abstiene (falta cobertura de intereses para descartar distress); CRL e INCY ya no tienen pérdidas persistentes y salen maduras |
+| holding                    | L                                           | aseguradora: su SIC es `6331`                                                                                                          |
+| distress                   | CCL, NCLH                                   | cíclicas: su distress fue 2020–2022 y hoy la cobertura supera 2                                                                        |
+
+21 de 29 coinciden. Las 8 diferencias son de tiempo o de SIC, no de una regla
+mal escrita: la etiqueta del owner nombra un evento dentro de la ventana y el
+selector clasifica al corte. Se conservan como referencia para la próxima versión
+de los umbrales.
+
 ## Normalización
 
 Reported y normalized se preservan en paralelo. Cada ajuste declara monto,

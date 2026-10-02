@@ -202,6 +202,7 @@ export type SensitivitySpec = z.infer<typeof sensitivitySpecSchema>;
 export const assetProfileSchema = z.enum([
   "non_financial_mature",
   "high_growth",
+  "loss_making",
   "bank",
   "insurer",
   "reit",

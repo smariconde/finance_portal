@@ -1,3 +1,4 @@
+import type { SecSicReading } from "@/modules/classification/domain/sec-sic-classification";
 import type {
   SecCompanyFactsCounts,
   SecFactRowRejection,
@@ -109,6 +110,11 @@ export interface CompanyFactsSource {
  */
 export type CompanyFactsProbe = {
   readonly cik: string;
+  /**
+   * El SIC que el mismo payload publica, para la clasificación de `F3-01`.
+   * `null` si falta o no se entiende: no se adivina.
+   */
+  readonly industry: SecSicReading | null;
   readonly filings: readonly SecFiling[];
   readonly filingRejections: readonly SecFilingRowRejection[];
   readonly fetchedAt: string;

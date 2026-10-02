@@ -1,35 +1,29 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  PROFILE_PRECEDENCE,
   selectValuationMethod,
   type ProfileEvidence,
+  type SignalProfile,
 } from "./method-selection";
-import type { AssetProfile } from "./valuation-input";
 
 const LEGAL_ENTITY_ID = "11111111-1111-4111-8111-111111111111";
 const CUTOFF = "2025-01-01T00:00:00.000Z";
 const AFTER_CUTOFF = "2025-02-01T00:00:00.000Z";
-const PROFILES: AssetProfile[] = [
-  "non_financial_mature",
-  "high_growth",
-  "bank",
-  "insurer",
-  "reit",
-  "cyclical",
-  "commodity",
-  "holding",
-  "distressed",
-];
+const SIGNALS: SignalProfile[] = PROFILE_PRECEDENCE.flat();
 
 function evidence(
-  profile: AssetProfile,
+  profile: SignalProfile,
   present: boolean,
   availableAt = "2024-06-01T00:00:00.000Z",
+  derivation: ProfileEvidence["derivation"] = "primary",
 ): ProfileEvidence {
   return {
     legalEntityId: LEGAL_ENTITY_ID,
     profile,
     present,
+    rule: "fixture-rule-1.0.0",
+    derivation,
     validFrom: "2024-01-01T00:00:00.000Z",
     validTo: null,
     availableAt,
@@ -39,6 +33,11 @@ function evidence(
     sourceDocumentId: "synthetic-case",
     contentHash: "a".repeat(64),
   };
+}
+
+/** Todos los perfiles con evidencia: los nombrados positivos, el resto negativos. */
+function allDecided(...present: SignalProfile[]): ProfileEvidence[] {
+  return SIGNALS.map((profile) => evidence(profile, present.includes(profile)));
 }
 
 function select(
@@ -64,38 +63,39 @@ function select(
   });
 }
 
-describe("method selection 0.1.0", () => {
+describe("method selection 0.2.0", () => {
   it.each([
     ["bank", "excess_return", "bank_regulated"],
     ["insurer", "excess_return", "insurer_regulated"],
     ["reit", "affo_nav", "reit_structure"],
   ] as const)(
-    "recognizes %s but refuses its unimplemented method",
+    "recognizes %s from the first tier alone but refuses its unimplemented method",
     (profile, method, rule) => {
       const selection = select([evidence(profile, true)]);
 
       expect(selection).toMatchObject({
+        version: "method-selection-0.2.0",
         status: "unsupported_method",
         assetProfile: profile,
         recommendedMethod: method,
         activatedRules: [rule],
         unsupportedReasons: ["method_not_implemented"],
-        confidence: null,
+        confidence: "high",
       });
     },
   );
 
-  it("does not infer a subtype from a broad sector with no direct evidence", () => {
+  it("names every undecided profile instead of assuming one from a broad sector", () => {
     expect(select([])).toMatchObject({
       status: "unsupported_method",
       assetProfile: null,
       recommendedMethod: null,
-      requiredInputs: ["profile_evidence"],
+      requiredInputs: SIGNALS.map((profile) => "profile_evidence." + profile),
       unsupportedReasons: ["missing_classification_evidence"],
     });
   });
 
-  it("abstains when two incompatible profiles are positively evidenced", () => {
+  it("abstains when two first-tier profiles are both evidenced", () => {
     expect(
       select([evidence("bank", true), evidence("reit", true)]),
     ).toMatchObject({
@@ -106,20 +106,49 @@ describe("method selection 0.1.0", () => {
     });
   });
 
-  it("admits FCFF only after every excluded profile is explicitly absent", () => {
-    const complete = PROFILES.map((profile) =>
-      evidence(profile, profile === "non_financial_mature"),
+  it("lets a higher-precedence signal win and keeps the yielded one as an alternative", () => {
+    expect(select(allDecided("cyclical", "high_growth"))).toMatchObject({
+      assetProfile: "cyclical",
+      recommendedMethod: "normalized_fcff",
+      alternatives: ["fcff_three_stage"],
+      activatedRules: ["cyclical_exposure", "high_growth"],
+      unsupportedReasons: ["method_not_implemented"],
+    });
+  });
+
+  it("does not repeat the recommended method as its own alternative", () => {
+    expect(select(allDecided("commodity", "cyclical"))).toMatchObject({
+      assetProfile: "commodity",
+      alternatives: [],
+      activatedRules: ["commodity_exposure", "cyclical_exposure"],
+    });
+  });
+
+  it("refuses a lower signal while a profile that precedes it is undecided", () => {
+    const withoutDistress = allDecided("loss_making").filter(
+      (item) => item.profile !== "distressed",
     );
-    expect(select(complete)).toMatchObject({
+
+    expect(select(withoutDistress)).toMatchObject({
+      status: "unsupported_method",
+      assetProfile: null,
+      requiredInputs: ["profile_evidence.distressed"],
+      activatedRules: ["persistent_losses"],
+      unsupportedReasons: ["missing_classification_evidence"],
+    });
+  });
+
+  it("selects the residual mature profile once every signal is explicitly absent", () => {
+    expect(select(allDecided())).toMatchObject({
       status: "selected",
       assetProfile: "non_financial_mature",
       recommendedMethod: "fcff_base",
       activatedRules: ["mature_non_financial"],
       unsupportedReasons: [],
-      confidence: null,
+      confidence: "high",
     });
 
-    const missing = complete.filter((item) => item.profile !== "reit");
+    const missing = allDecided().filter((item) => item.profile !== "reit");
     expect(select(missing)).toMatchObject({
       status: "unsupported_method",
       assetProfile: null,
@@ -128,11 +157,19 @@ describe("method selection 0.1.0", () => {
     });
   });
 
+  it("refuses mature evidence as a signal: maturity is only the residual", () => {
+    expect(() =>
+      select([
+        {
+          ...evidence("bank", true),
+          profile: "non_financial_mature" as SignalProfile,
+        },
+      ]),
+    ).toThrow();
+  });
+
   it("names missing structural FCFF inputs", () => {
-    const complete = PROFILES.map((profile) =>
-      evidence(profile, profile === "non_financial_mature"),
-    );
-    expect(select(complete, { fcffInputsComplete: false })).toMatchObject({
+    expect(select(allDecided(), { fcffInputsComplete: false })).toMatchObject({
       status: "unsupported_method",
       assetProfile: "non_financial_mature",
       requiredInputs: ["fcff_inputs"],
@@ -192,6 +229,33 @@ describe("method selection 0.1.0", () => {
     expect(() => select([mixed])).toThrow(
       "Profile evidence belongs to another legal entity.",
     );
+  });
+
+  it("grades confidence ordinally, never as a probability", () => {
+    expect(select(allDecided("cyclical", "high_growth")).confidence).toBe(
+      "medium",
+    );
+
+    const alternativeNegative = allDecided("cyclical", "high_growth").map(
+      (item) =>
+        item.profile === "distressed"
+          ? evidence("distressed", false, undefined, "declared_alternative")
+          : item,
+    );
+    expect(select(alternativeNegative).confidence).toBe("low");
+
+    // Una alternativa por debajo del perfil elegido no decidió nada.
+    const alternativeBelow = allDecided("cyclical").map((item) =>
+      item.profile === "high_growth"
+        ? evidence("high_growth", false, undefined, "declared_alternative")
+        : item,
+    );
+    expect(select(alternativeBelow).confidence).toBe("high");
+
+    expect(select([]).confidence).toBeNull();
+    expect(
+      select([evidence("bank", true), evidence("reit", true)]).confidence,
+    ).toBeNull();
   });
 
   it("abstains on overlapping evidence for the same profile", () => {

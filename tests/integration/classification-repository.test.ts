@@ -5,6 +5,7 @@ import postgres, { type Sql } from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { classifyUniverseSectors } from "@/modules/classification/application/classify-universe-sectors";
+import { planSecSicClassification } from "@/modules/classification/domain/sec-sic-classification";
 import { SP500_SECTOR_TAXONOMY_ID } from "@/modules/classification/domain/sector-taxonomy";
 import { subjectClassificationSchema } from "@/modules/classification/domain/subject-classification";
 import { createPostgresClassificationRepository } from "@/server/db/postgres-classification-repository";
@@ -230,5 +231,56 @@ describe("subject classifications on PostgreSQL", () => {
         limit: 1,
       }),
     ).rejects.toThrow(/exceeded its limit/u);
+  });
+
+  it("supersedes an observed SIC change and keeps the sector of the same subject", async () => {
+    const repository = createPostgresClassificationRepository(database);
+    await classifyUniverseSectors(command(), dependencies());
+
+    const sicPlan = (
+      code: string,
+      observedAt: string,
+      stored = [] as never[],
+    ) =>
+      planSecSicClassification({
+        observation: {
+          subjectId: EXXON,
+          reading: { sic: code, description: null },
+          observedAt,
+          sourceId: "sec-edgar",
+          sourceDocumentId: "submissions/CIK0000034088.json",
+        },
+        stored,
+        recordedAt: observedAt,
+        taxonomyVersion: "sec-submissions-1.0.0",
+        newId: () => randomUUID(),
+        hashContent: (input: string) =>
+          createHash("sha256").update(input).digest("hex"),
+      });
+
+    await repository.applyClassificationPlan(
+      sicPlan("2911", "2026-10-02T12:00:00.000Z"),
+    );
+    const stored = await repository.loadClassifications({
+      taxonomyId: "sec-sic",
+    });
+    await repository.applyClassificationPlan(
+      sicPlan("1311", "2026-11-02T12:00:00.000Z", stored as never[]),
+    );
+
+    const sic = await repository.loadClassifications({ taxonomyId: "sec-sic" });
+    expect(
+      sic
+        .map((row) => ({ code: row.code, supersededAt: row.supersededAt }))
+        .sort((left, right) => left.code.localeCompare(right.code)),
+    ).toStrictEqual([
+      { code: "1311", supersededAt: null },
+      { code: "2911", supersededAt: "2026-11-02T12:00:00.000Z" },
+    ]);
+
+    const sectors = await repository.loadClassifications({
+      taxonomyId: SP500_SECTOR_TAXONOMY_ID,
+    });
+    expect(sectors.filter((row) => row.subjectId === EXXON)).toHaveLength(1);
   });
 });

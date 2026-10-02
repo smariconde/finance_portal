@@ -63,6 +63,7 @@ function probeSourceFor(
   return {
     probe: vi.fn(async (cik: string): Promise<CompanyFactsProbe> => ({
       cik,
+      industry: null,
       filings,
       filingRejections: [],
       fetchedAt: CLOCK,

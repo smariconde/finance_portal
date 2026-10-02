@@ -4,6 +4,10 @@ import type {
 } from "@/modules/ingestion/application/egress-fetch";
 
 import {
+  readSecSic,
+  type SecSicReading,
+} from "@/modules/classification/domain/sec-sic-classification";
+import {
   parseSecCompanyFacts,
   SEC_COMPANY_FACTS_PARSER_VERSION,
 } from "../domain/parse-sec-company-facts";
@@ -240,14 +244,14 @@ async function loadSubmissions(
     ReturnType<typeof parseSecSubmissions>,
     { ok: true }
   >;
+  readonly industry: SecSicReading | null;
   readonly document: CompanyFactsDocument;
   readonly fetchedAt: string;
 }> {
   const url = buildSubmissionsUrl(cik);
   const fetched = (await fetchDocument(fetch, "submissions", url))!;
-  const submissions = parseSecSubmissions(
-    parseJson("submissions", fetched.text),
-  );
+  const payload = parseJson("submissions", fetched.text);
+  const submissions = parseSecSubmissions(payload);
 
   if (!submissions.ok) {
     throw new CompanyFactsSourceError("payload_schema_invalid", "submissions", {
@@ -261,6 +265,7 @@ async function loadSubmissions(
 
   return {
     submissions,
+    industry: readSecSic(payload),
     document: describe(
       "submissions",
       url,
@@ -286,13 +291,12 @@ export function createLiveCompanyFactsSource(dependencies: {
      */
     async probe(requestedCik: string): Promise<CompanyFactsProbe> {
       const cik = requireCik(requestedCik);
-      const { submissions, document, fetchedAt } = await loadSubmissions(
-        fetch,
-        cik,
-      );
+      const { submissions, industry, document, fetchedAt } =
+        await loadSubmissions(fetch, cik);
 
       return {
         cik,
+        industry,
         filings: submissions.filings,
         filingRejections: submissions.rejections,
         fetchedAt,
