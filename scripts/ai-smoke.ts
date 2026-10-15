@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { parseArgs } from "node:util";
 
 import type { RequestPacingPolicy } from "@/modules/ingestion/application/egress-fetch";
@@ -22,9 +22,7 @@ import {
   AI_MODEL_LADDER_VERSION,
   worstCaseNanoUsd,
 } from "@/modules/ai/domain/model-ladder";
-import { createProviderBreaker } from "@/modules/ai/domain/provider-breaker";
-import { getSourceEgressFetch } from "@/server/egress/get-source-egress-fetch";
-import { getAiSpendStore } from "@/server/persistence/get-ai-spend-store";
+import { getAiLayer } from "@/server/ai/get-ai-layer";
 import { getSourceBudgetStore } from "@/server/persistence/get-source-budget-store";
 import { getSourceRegistryRepository } from "@/server/persistence/get-source-registry-repository";
 
@@ -102,7 +100,8 @@ const now = new Date().toISOString();
 const nonce = `smoke-${randomBytes(6).toString("hex")}`;
 const input = { nonce };
 const messages = SMOKE_TASK.buildMessages(input);
-const spend = getAiSpendStore();
+const layer = getAiLayer();
+const spend = layer.spend;
 const day = await spend.readDay(OPENROUTER_SOURCE_ID, now);
 
 log("tarea", SMOKE_TASK.taskVersion);
@@ -165,13 +164,8 @@ await syncDeclaredSourceRegistry(
 );
 
 const result = await runModelLadder(SMOKE_TASK, input, {
-  fetch: getSourceEgressFetch(AI_SMOKE_PACING),
-  spend,
-  breaker: createProviderBreaker(),
+  ...layer.runDependencies(AI_SMOKE_PACING),
   ladder,
-  now: () => new Date().toISOString(),
-  elapsedMs: () => performance.now(),
-  newId: () => randomUUID(),
 });
 
 console.log("");

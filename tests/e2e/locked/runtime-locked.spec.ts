@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { ROUTES, SENTINEL_VALUES } from "../support/runtime";
+import { expectNoSecretLeaks } from "../support/secrets";
 
 /**
  * Runtime trabado (`F1-07`, `TM-01`, `TM-02`, `TM-04`).
@@ -130,6 +131,12 @@ test.describe("negativa del runtime trabado", () => {
       expect(html).not.toContain("sentinel-direct-password");
       expect(html).not.toContain("postgresql://");
     }
+  });
+
+  test("ningún centinela aparece tampoco en el payload RSC ni en el export", async ({
+    request,
+  }) => {
+    await expectNoSecretLeaks(request);
   });
 
   test("responde 404 con su propia superficie, también trabado", async ({

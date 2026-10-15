@@ -43,7 +43,10 @@ The unit suite runs behind a network guard (`tests/setup/no-network.ts`): `fetch
 
 `pnpm test:e2e` builds once and serves that same artifact under two environments —
 personal and locked — then runs Playwright and `axe-core` across desktop, mobile,
-dark theme, and reduced motion. It needs no PostgreSQL and opens no network. Full
+dark theme, and reduced motion. The build runs with sentinel values in place of
+every secret and fails if any sentinel appears anywhere in `.next/` (except
+`cache/`); both servers are then checked for sentinels in HTML, headers and the
+RSC payload of every route. It needs no PostgreSQL and opens no network. Full
 workflow: [docs/runbooks/e2e-accessibility-gate.md](docs/runbooks/e2e-accessibility-gate.md).
 
 `pnpm walkthrough` is not a gate: it prepares the owner's manual session for `F1-08`
@@ -334,7 +337,11 @@ request; the runner climbs on transport failure, `429`/`5xx`, `4xx`, invalid
 schema, policy rejection or abstention, stops on a rejected key, our own kill
 switch or quota, and three consecutive transport failures open the run's
 breaker. Each attempt stays in the ledger with requested and responding model,
-tokens, cost, latency and reason. Measured: the three rungs answered the smoke
+tokens, cost, latency and reason. Since `F5-02` everything goes through one
+composition root, `getAiLayer()` in `src/server/ai/`, which refuses in a locked
+runtime before opening PostgreSQL or the egress; ESLint keeps `src/app/` from
+importing `@/server/ai` or `@/modules/ai/application`, so no route or action
+reaches a model until a slice opens that boundary with `TM-03`. Measured: the three rungs answered the smoke
 task under ZDR for USD 0.000538 in total, each charge 11–23× below its
 reservation.
 
