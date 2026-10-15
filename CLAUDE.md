@@ -8,7 +8,7 @@ Portal Financiero: a single-owner Next.js 16 portal for researching global compa
 
 The code is public; the data is not. The app is **personal-first**: it serves real data only from a private runtime, and there is no public demo deployment. See [ADR 0004](docs/architecture/adr/0004-personal-first-runtime.md).
 
-The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations kept to a five-fiscal-year window, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, per-source daily request budgets with an owner kill switch, a hand-run refresh that probes `submissions` and re-downloads only the filers that filed something relevant, a deterministic FCFF engine with its reference run, a frozen corpus of real SEC extracts as regression oracle, the declared sector classification with its population resolved at `as_of`, raw daily price series with dated splits and dividends, the CEDEAR registry of both issuers with each CEDEAR as its own security, a pure `sortino-1.0.0` over a total-return base with the metric catalog it belongs to, an on-demand company assessment that observes the SEC SIC, selects an archetype from versioned signals, measures completeness and rigor and builds the cost of capital from dated Damodaran releases, exist. The first surface that reads real data is the sector risk matrix (`/sectores`, `/sectores/[sector]`), which reads stored prices, the sector population and the CEDEAR registry from the personal database at request time and, when opened, downloads only the prices it is missing through the project's first Server Action. Scheduled refresh, live market data, screener, the Argentina dashboard, and AI features are **not** implemented, and no UI surface reads SEC observations yet; nothing may be presented in the UI as if it were.
+The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations kept to a five-fiscal-year window, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, per-source daily request budgets with an owner kill switch, a hand-run refresh that probes `submissions` and re-downloads only the filers that filed something relevant, a deterministic FCFF engine with its reference run, a frozen corpus of real SEC extracts as regression oracle, the declared sector classification with its population resolved at `as_of`, raw daily price series with dated splits and dividends, the CEDEAR registry of both issuers with each CEDEAR as its own security, a pure `sortino-1.0.0` over a total-return base with the metric catalog it belongs to, an on-demand company assessment that observes the SEC SIC, selects an archetype from versioned signals, measures completeness and rigor and builds the cost of capital from dated Damodaran releases, and the AI layer's controls before any task —an egress door that takes `POST` with a credential it adds itself, a dollar spend ledger per task and per day, a breaker and a declared model ladder measured by a smoke call—, exist. The first surface that reads real data is the sector risk matrix (`/sectores`, `/sectores/[sector]`), which reads stored prices, the sector population and the CEDEAR registry from the personal database at request time and, when opened, downloads only the prices it is missing through the project's first Server Action. Scheduled refresh, live market data, screener, the Argentina dashboard, and AI features —no task sends source evidence to a model yet— are **not** implemented, and no UI surface reads SEC observations yet; nothing may be presented in the UI as if it were.
 
 `AGENTS.md` holds the full contributor contract and takes precedence over this file where they overlap.
 
@@ -302,6 +302,41 @@ the observation, because the pages say «January 2026» and still patch rows
 mid-cycle. Same content is a `duplicate` run; new content supersedes; the run's
 idempotency key is the transition, so content that comes back is a new release.
 Read at a cutoff through `readReferenceDataset`. Measured: 370 rows, 240 kB.
+
+```bash
+pnpm ai:smoke                                      # plan: the ladder, each rung's worst case, today's spend; no call
+pnpm ai:smoke --rung 1 --apply                     # one real call: echo a random token, measure it
+pnpm ingestion:sources --source openrouter --spend-limit 0.25 --reason "…" --apply
+```
+
+The AI layer's controls before its first task (`F5-01`,
+[ADR 0033](docs/architecture/adr/0033-ai-layer-industry-resolution.md),
+migration `0024`, [runbook](docs/runbooks/ai-spend.md)). The egress door now
+takes `POST` for a source that declares it: a request-body ceiling, no
+redirects, and a **credential the door adds** from the variable the allowlist
+names, after authorizing the destination, so an adapter never sees the key.
+Sources that identify as the project (`portal-financiero/1.0`) do not get the
+SEC contact, and a runtime without `SEC_USER_AGENT` now builds the client and
+refuses each SEC request instead. `openrouter` and `tavily` are registered,
+allowlisted to one endpoint each and capped at 100 and 10 requests/day;
+`sec-edgar` gained `aiTransfer: allowed`.
+
+Counting requests does not bound a model, so each call **reserves its worst
+case in dollars** in `ai_spend_ledger` before it leaves —request bytes at the
+rung's maximum input price (a BPE token covers at least one byte) plus
+`max_tokens` at its maximum output price, in integer nano-dollars— against USD
+0.10 per task and USD 1.00 per UTC day under a per-source advisory lock, and
+settles with `usage.cost`. A cut transport, an unreadable `2xx` or a missing
+cost keeps counting the worst case. A stored control only lowers the day's cap.
+`ai-model-ladder-1.0.0` holds three families with `zdr`,
+`data_collection: "deny"`, `require_parameters` and `max_price` fixed in the
+request; the runner climbs on transport failure, `429`/`5xx`, `4xx`, invalid
+schema, policy rejection or abstention, stops on a rejected key, our own kill
+switch or quota, and three consecutive transport failures open the run's
+breaker. Each attempt stays in the ledger with requested and responding model,
+tokens, cost, latency and reason. Measured: the three rungs answered the smoke
+task under ZDR for USD 0.000538 in total, each charge 11–23× below its
+reservation.
 
 ```bash
 pnpm fundamentals:ingest --ticker AAPL             # dry run: downloads and builds vintages, writes nothing
@@ -632,7 +667,7 @@ Read [docs/data/identity-model.md](docs/data/identity-model.md) and [docs/data/p
 
 Before adding a Route Handler, Server Action, provider, export, job, or AI capability, read [docs/security/threat-model.md](docs/security/threat-model.md) and close the `TM-*` controls assigned to that surface.
 
-Network egress has exactly one door: `getEgressClient()` in [src/server/egress/](src/server/egress/). It takes a `sourceId` plus a URL that must match that source's allowlisted host **and** path prefix — there is no function that accepts a bare URL, and adding one reopens `TM-08` ([ADR 0009](docs/architecture/adr/0009-egress-boundary.md)). Being on the egress allowlist grants reachability, never the right to ingest: the source registry's rights gate is a separate control. Do not import `node:https`, `fetch`, or an HTTP SDK anywhere else.
+Network egress has exactly one door: `getEgressClient()` in [src/server/egress/](src/server/egress/). It takes a `sourceId` plus a URL that must match that source's allowlisted host **and** path prefix — there is no function that accepts a bare URL, and adding one reopens `TM-08` ([ADR 0009](docs/architecture/adr/0009-egress-boundary.md)). Credentials never travel through a caller: the allowlist names the variable and the door adds the header ([ADR 0033](docs/architecture/adr/0033-ai-layer-industry-resolution.md)). Being on the egress allowlist grants reachability, never the right to ingest: the source registry's rights gate is a separate control. Do not import `node:https`, `fetch`, or an HTTP SDK anywhere else.
 
 That door is metered. `getEgressClient` is ESLint-restricted to `src/server/egress/`; every other caller takes `getSourceEgressFetch`, which pairs the per-run pacing with the daily budget and the kill switch ([ADR 0020](docs/architecture/adr/0020-source-daily-budget-kill-switch.md)). Three controls, none implying another: the allowlist answers "where may a socket open?", the rights gate "do we have a right to this data?", and the budget "is there quota left today?". A source missing from `SOURCE_DAILY_REQUEST_BUDGETS` makes no calls at all.
 

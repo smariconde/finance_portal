@@ -10,6 +10,14 @@ export type EgressFetchRequest = {
   readonly sourceId: string;
   readonly url: string;
   readonly accept?: string;
+  /**
+   * Una fuente que se consulta por `POST` —un modelo, un buscador— lo declara en
+   * la allowlist, y la puerta rechaza cualquier otro (ADR 0033). La credencial
+   * no viaja acá: la agrega la puerta.
+   */
+  readonly method?: "GET" | "POST";
+  readonly body?: Uint8Array;
+  readonly contentType?: string;
 };
 
 export type EgressFetchResponse = {

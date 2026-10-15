@@ -10,7 +10,9 @@ Dos controles sobre la cuota de cada fuente, compartidos por todos los procesos:
   salen en un día, sin importar cuántos comandos se corran;
 - el **kill switch** frena una fuente hasta que el owner la habilite.
 
-Los dos se aplican en la única puerta de salida, antes de abrir el socket.
+Los dos se aplican en la única puerta de salida, antes de abrir el socket. Una
+fuente que cobra por llamada —`openrouter`— tiene además un tope en dólares, que
+se opera con el mismo comando: ver [gasto de la capa IA](ai-spend.md).
 
 ## Ver el estado
 

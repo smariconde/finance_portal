@@ -25,7 +25,7 @@ import * as schema from "./schema";
 
 type Database = PostgresJsDatabase<typeof schema>;
 
-function toDomainControl(
+export function toDomainControl(
   row: typeof schema.ingestionSourceControls.$inferSelect,
 ): SourceControl {
   return sourceControlSchema.parse({
@@ -33,6 +33,7 @@ function toDomainControl(
     sourceId: row.sourceId,
     status: row.status,
     dailyRequestLimit: row.dailyRequestLimit,
+    dailySpendLimitNanoUsd: row.dailySpendLimitNanoUsd,
     reason: row.reason,
     actor: row.actor,
     recordedAt: row.recordedAt.toISOString(),
@@ -176,6 +177,7 @@ export function createPostgresSourceBudgetStore(
             sourceId: parsed.sourceId,
             status: parsed.status,
             dailyRequestLimit: parsed.dailyRequestLimit,
+            dailySpendLimitNanoUsd: parsed.dailySpendLimitNanoUsd,
             reason: parsed.reason,
             actor: parsed.actor,
             recordedAt: new Date(parsed.now),

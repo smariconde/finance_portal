@@ -21,6 +21,8 @@ import { createGuardedLookup, type AddressResolver } from "./guarded-lookup";
  */
 export type EgressHopRequest = {
   readonly url: URL;
+  readonly method?: "GET" | "POST";
+  readonly body?: Uint8Array;
   readonly headers: Readonly<Record<string, string>>;
   readonly maxResponseBytes: number;
   readonly timeoutMs: number;
@@ -141,9 +143,15 @@ export function createHttpsTransport(
       const clientRequest = https.request(
         request.url,
         {
-          method: "GET",
+          method: request.method ?? "GET",
           agent,
-          headers: request.headers,
+          headers:
+            request.body === undefined
+              ? request.headers
+              : {
+                  ...request.headers,
+                  "content-length": String(request.body.byteLength),
+                },
           lookup,
           ...CONNECT_OPTIONS,
           minVersion: "TLSv1.2",
@@ -220,6 +228,11 @@ export function createHttpsTransport(
       });
 
       clientRequest.on("error", fail);
-      clientRequest.end();
+
+      if (request.body === undefined) {
+        clientRequest.end();
+      } else {
+        clientRequest.end(Buffer.from(request.body));
+      }
     });
 }

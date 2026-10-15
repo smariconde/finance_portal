@@ -3,6 +3,7 @@ import "server-only";
 import { getConfigHealth } from "@/modules/configuration/domain/config-health";
 import { selectPersonalDependency } from "@/modules/configuration/domain/runtime-lock";
 
+import { findEgressAllowlistEntry } from "./egress-allowlist";
 import { EgressBlockedError } from "./egress-policy";
 import { resolveEgressUserAgent } from "./egress-user-agent";
 import {
@@ -23,6 +24,12 @@ import { createHttpsTransport } from "./https-transport";
  *
  * El cliente no acepta `userAgent` por parámetro: lo trae de la configuración al
  * construirse. Un llamador no puede presentarse de otra forma ante la fuente.
+ * Tampoco acepta credenciales: la puerta las lee del entorno por el nombre que
+ * declara la allowlist, y un adaptador nunca las ve (ADR 0033).
+ *
+ * Sin `SEC_USER_AGENT` el cliente se construye igual, porque las fuentes que se
+ * presentan como proyecto no lo necesitan; lo que se niega es cada pedido a una
+ * fuente que exige el contacto del owner, antes de abrir un socket.
  */
 export type EgressClient = (
   request: Omit<ApprovedResourceRequest, "userAgent">,
@@ -39,28 +46,34 @@ export function getEgressClient(): EgressClient {
 
   client = selectPersonalDependency(effectiveMode, "egress client", () => {
     const identification = resolveEgressUserAgent(process.env.SEC_USER_AGENT);
-
-    if (!identification.ok) {
-      // Se nombra la variable y el problema, nunca el valor recibido (`TM-02`),
-      // igual que hace el health de configuración.
-      throw new EgressBlockedError(
-        "user_agent_missing",
-        "SEC_USER_AGENT",
-        identification.problem,
-      );
-    }
-
     const transport = createHttpsTransport();
 
-    return (request) =>
-      fetchApprovedResource(
-        { ...request, userAgent: identification.userAgent },
+    return async (request) => {
+      const entry = findEgressAllowlistEntry(request.sourceId);
+
+      if (entry?.identification === "owner_contact" && !identification.ok) {
+        // Se nombra la variable y el problema, nunca el valor recibido
+        // (`TM-02`), igual que hace el health de configuración.
+        throw new EgressBlockedError(
+          "user_agent_missing",
+          "SEC_USER_AGENT",
+          identification.problem,
+        );
+      }
+
+      return fetchApprovedResource(
+        {
+          ...request,
+          userAgent: identification.ok ? identification.userAgent : null,
+        },
         {
           transport,
           now: () => new Date().toISOString(),
           elapsedMs: () => performance.now(),
+          readCredential: (variable) => process.env[variable],
         },
       );
+    };
   });
 
   return client;

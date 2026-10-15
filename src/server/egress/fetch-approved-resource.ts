@@ -16,7 +16,20 @@ import type { EgressTransport } from "./https-transport";
  * proveedor construye el path de su recurso y nada más; no elige a dónde va el
  * socket (`TM-08`).
  */
-export const APPROVED_RESOURCE_CLIENT_VERSION = "egress-client-1.0.0";
+export const APPROVED_RESOURCE_CLIENT_VERSION = "egress-client-1.1.0";
+
+/**
+ * Nombre con el que se presenta el proyecto ante una fuente que no exige
+ * contacto (ADR 0033). Es genérico a propósito: el contacto del owner es un
+ * requisito de la SEC, no algo que tenga que llegarle a un modelo.
+ */
+export const EGRESS_PROJECT_USER_AGENT = "portal-financiero/1.0";
+
+/**
+ * Forma de una credencial aceptable: texto imprimible ASCII sin espacios. El
+ * valor termina en un header, así que un CR o LF partiría el request.
+ */
+const CREDENTIAL_PATTERN = /^[\x21-\x7e]{8,512}$/u;
 
 /** Códigos de redirect que se siguen. Un `GET` sigue siendo `GET` en los cinco. */
 const REDIRECT_STATUSES: ReadonlySet<number> = new Set([
@@ -27,13 +40,19 @@ export type ApprovedResourceRequest = {
   readonly sourceId: string;
   readonly url: string;
   /**
-   * Identificación del cliente. Obligatoria y sin default: la Fair Access de la
-   * SEC exige un contacto real, y un default del repositorio haría que todas las
-   * instancias se presentaran igual. Se lee de la configuración del owner, no de
-   * una constante.
+   * Contacto del owner, para las fuentes que lo exigen (`owner_contact`). Sin
+   * default: la Fair Access de la SEC exige un contacto real, y un default del
+   * repositorio haría que todas las instancias se presentaran igual. Se lee de
+   * la configuración del owner, no de una constante. Una fuente `project` lo
+   * ignora.
    */
-  readonly userAgent: string;
+  readonly userAgent?: string | null;
   readonly accept?: string;
+  /** Debe coincidir con el de la fuente; sin él es `GET`. */
+  readonly method?: "GET" | "POST";
+  /** Sólo en un `POST`, acotado por `maxRequestBytes` de la fuente. */
+  readonly body?: Uint8Array;
+  readonly contentType?: string;
 };
 
 export type ApprovedResourceResponse = {
@@ -54,6 +73,12 @@ export type FetchApprovedResourceDependencies = {
   /** Reloj monótono en milisegundos: mide el presupuesto sin saltos de hora. */
   elapsedMs: () => number;
   findEntry?: (sourceId: string) => EgressAllowlistEntry | null;
+  /**
+   * Lee la credencial de una fuente por el nombre que declara su entrada. Es la
+   * única forma en que un valor secreto entra a un pedido, y entra acá, después
+   * de autorizar el destino.
+   */
+  readCredential?: (variable: string) => string | undefined;
 };
 
 function authorizeOrThrow(
@@ -80,6 +105,7 @@ export async function fetchApprovedResource(
     now,
     elapsedMs,
     findEntry = findEgressAllowlistEntry,
+    readCredential = () => undefined,
   } = dependencies;
 
   const entry = findEntry(request.sourceId);
@@ -88,7 +114,37 @@ export async function fetchApprovedResource(
     throw new EgressBlockedError("source_not_allowlisted", request.sourceId);
   }
 
-  const userAgent = request.userAgent.trim();
+  const method = request.method ?? "GET";
+
+  if (method !== entry.method) {
+    throw new EgressBlockedError("method_not_allowed", entry.sourceId, method);
+  }
+
+  const body = request.body;
+
+  if (method === "GET" && body !== undefined) {
+    throw new EgressBlockedError(
+      "method_not_allowed",
+      entry.sourceId,
+      "GET with a body",
+    );
+  }
+
+  if (
+    method === "POST" &&
+    (body === undefined || body.byteLength > entry.maxRequestBytes)
+  ) {
+    throw new EgressBlockedError(
+      "request_body_too_large",
+      entry.sourceId,
+      `limit ${entry.maxRequestBytes} bytes`,
+    );
+  }
+
+  const userAgent =
+    entry.identification === "project"
+      ? EGRESS_PROJECT_USER_AGENT
+      : (request.userAgent ?? "").trim();
 
   if (userAgent.length === 0) {
     throw new EgressBlockedError("user_agent_missing", entry.sourceId);
@@ -104,9 +160,39 @@ export async function fetchApprovedResource(
     connection: "close",
   };
 
+  if (body !== undefined) {
+    headers["content-type"] = request.contentType ?? "application/json";
+  }
+
   const startedAt = elapsedMs();
   const chain: string[] = [];
   let current = authorizeOrThrow(request.url, entry);
+
+  // La credencial entra después de autorizar el destino, nunca antes: un pedido
+  // a un host fuera de la lista no llega a leerla. El error nombra la variable,
+  // jamás el valor (`TM-02`).
+  if (entry.credential !== null) {
+    const credential = readCredential(entry.credential.variable)?.trim() ?? "";
+
+    if (credential.length === 0) {
+      throw new EgressBlockedError(
+        "credential_missing",
+        entry.sourceId,
+        entry.credential.variable,
+      );
+    }
+
+    if (!CREDENTIAL_PATTERN.test(credential)) {
+      throw new EgressBlockedError(
+        "credential_invalid",
+        entry.sourceId,
+        entry.credential.variable,
+      );
+    }
+
+    headers[entry.credential.header] =
+      `${entry.credential.scheme} ${credential}`;
+  }
 
   for (let hop = 0; hop <= entry.maxRedirects; hop += 1) {
     chain.push(current.target);
@@ -119,6 +205,8 @@ export async function fetchApprovedResource(
 
     const response = await transport({
       url: current.url,
+      method,
+      body,
       headers,
       maxResponseBytes: entry.maxResponseBytes,
       timeoutMs: remainingMs,

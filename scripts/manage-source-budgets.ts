@@ -2,11 +2,17 @@ import { randomUUID } from "node:crypto";
 import { parseArgs } from "node:util";
 
 import {
+  declaredSpendLimits,
+  formatNanoUsd,
+  parseUsdToNanoUsd,
+} from "@/modules/ai/domain/ai-spend";
+import {
   budgetDayOf,
   declaredDailyBudget,
   SOURCE_BUDGET_POLICY_VERSION,
   SOURCE_DAILY_REQUEST_BUDGETS,
 } from "@/modules/ingestion/domain/source-budget";
+import { getAiSpendStore } from "@/server/persistence/get-ai-spend-store";
 import { getSourceBudgetStore } from "@/server/persistence/get-source-budget-store";
 
 /**
@@ -18,12 +24,15 @@ import { getSourceBudgetStore } from "@/server/persistence/get-source-budget-sto
  *   pnpm ingestion:sources --source sec-edgar --disable --reason "…" --apply
  *   pnpm ingestion:sources --source sec-edgar --enable --reason "…" --apply
  *   pnpm ingestion:sources --source sec-edgar --limit 200 --reason "…" --apply
+ *   pnpm ingestion:sources --source openrouter --spend-limit 0.50 --reason "…" --apply
  *
  * Como el resto de los comandos controlados: dry run por defecto, `--reason`
  * obligatorio para escribir, y cada cambio queda en la historia con su actor.
  *
  * El tope declarado en código es el techo. `--limit` sólo puede bajarlo: subir la
- * cuota de una fuente es un diff revisable, no una palanca de runtime.
+ * cuota de una fuente es un diff revisable, no una palanca de runtime. Lo mismo
+ * vale para `--spend-limit`, el tope diario en dólares de una fuente que cobra
+ * por llamada (ADR 0033).
  */
 const { values } = parseArgs({
   options: {
@@ -31,6 +40,7 @@ const { values } = parseArgs({
     disable: { type: "boolean", default: false },
     enable: { type: "boolean", default: false },
     limit: { type: "string" },
+    "spend-limit": { type: "string" },
     days: { type: "string", default: "7" },
     reason: { type: "string" },
     apply: { type: "boolean", default: false },
@@ -64,7 +74,7 @@ log("día UTC", today);
 const actions = [
   values.disable,
   values.enable,
-  values.limit !== undefined,
+  values.limit !== undefined || values["spend-limit"] !== undefined,
 ].filter(Boolean).length;
 
 if (actions === 0) {
@@ -92,6 +102,19 @@ if (actions === 0) {
           : `${state.used} / ${state.effectiveLimit}`,
     );
 
+    if (declaredSpendLimits(sourceId) !== null) {
+      const spend = await getAiSpendStore().readDay(sourceId, now);
+
+      log(
+        "  gasto de hoy",
+        `USD ${formatNanoUsd(spend.countedNanoUsd)} / ${formatNanoUsd(spend.effectiveDailyLimitNanoUsd ?? 0)} (cobrado ${formatNanoUsd(spend.chargedNanoUsd)}, ${spend.attempts} intentos, ${spend.openReservations} abiertos)`,
+      );
+      log(
+        "  tope por tarea",
+        `USD ${formatNanoUsd(spend.declared!.perTaskNanoUsd)}`,
+      );
+    }
+
     if (state.control !== null) {
       log(
         "  control vigente",
@@ -114,7 +137,11 @@ if (actions === 0) {
       for (const control of history) {
         log(
           `  ${control.recordedAt}`,
-          `${control.status} límite ${control.dailyRequestLimit ?? "—"} · ${control.actor}: ${control.reason}`,
+          `${control.status} límite ${control.dailyRequestLimit ?? "—"}${
+            control.dailySpendLimitNanoUsd === null
+              ? ""
+              : ` · USD ${formatNanoUsd(control.dailySpendLimitNanoUsd)}`
+          } · ${control.actor}: ${control.reason}`,
         );
       }
     }
@@ -124,7 +151,7 @@ if (actions === 0) {
 }
 
 if (actions > 1) {
-  fail("Elegí una sola acción: --disable, --enable o --limit.");
+  fail("Elegí una sola acción: --disable, --enable o --limit/--spend-limit.");
 }
 
 if (values.source === undefined) {
@@ -164,6 +191,32 @@ if (values.limit !== undefined) {
   dailyRequestLimit = parsed;
 }
 
+let dailySpendLimitNanoUsd: number | null = null;
+
+if (values["spend-limit"] !== undefined) {
+  const declaredSpend = declaredSpendLimits(sourceId);
+
+  if (declaredSpend === null) {
+    fail(
+      `${sourceId} no tiene tope en dólares declarado: no cobra por llamada.`,
+    );
+  }
+
+  const parsed = parseUsdToNanoUsd(values["spend-limit"]);
+
+  if (parsed === null) {
+    fail("--spend-limit necesita un importe en USD, como 0.50.");
+  }
+
+  if (parsed > declaredSpend.perDayNanoUsd) {
+    fail(
+      `--spend-limit ${values["spend-limit"]} supera el tope declarado de USD ${formatNanoUsd(declaredSpend.perDayNanoUsd)}: subirlo es un cambio de código revisable.`,
+    );
+  }
+
+  dailySpendLimitNanoUsd = parsed;
+}
+
 const current = await store.readState(sourceId, now);
 const status = values.disable ? "disabled" : "enabled";
 
@@ -173,6 +226,15 @@ log("estado actual", current.control?.status ?? "enabled (sin control)");
 log("tope actual", current.effectiveLimit ?? "—");
 log("estado nuevo", status);
 log("tope nuevo", dailyRequestLimit ?? `${declared} (el declarado)`);
+
+if (declaredSpendLimits(sourceId) !== null) {
+  log(
+    "tope en USD nuevo",
+    dailySpendLimitNanoUsd === null
+      ? "el declarado"
+      : formatNanoUsd(dailySpendLimitNanoUsd),
+  );
+}
 log("motivo", reason);
 
 if (DRY_RUN) {
@@ -185,6 +247,7 @@ const control = await store.setControl({
   sourceId,
   status,
   dailyRequestLimit,
+  dailySpendLimitNanoUsd,
   reason,
   actor: "owner",
   now,
