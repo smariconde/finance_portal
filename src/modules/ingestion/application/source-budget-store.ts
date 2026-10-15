@@ -47,6 +47,14 @@ export const sourceControlChangeSchema = z.object({
   status: sourceControlStatusSchema,
   /** `null` deja regir el tope declarado en código; nunca puede subirlo. */
   dailyRequestLimit: z.number().int().min(0).max(1_000_000).nullable(),
+  /** `null` deja regir el tope en dólares declarado (ADR 0033); nunca puede subirlo. */
+  dailySpendLimitNanoUsd: z
+    .number()
+    .int()
+    .min(0)
+    .max(Number.MAX_SAFE_INTEGER)
+    .nullable()
+    .default(null),
   reason: z.string().trim().min(3).max(240),
   actor: z
     .string()
@@ -55,7 +63,7 @@ export const sourceControlChangeSchema = z.object({
   now: z.iso.datetime({ offset: true }),
 });
 
-export type SourceControlChange = z.infer<typeof sourceControlChangeSchema>;
+export type SourceControlChange = z.input<typeof sourceControlChangeSchema>;
 
 export interface SourceBudgetStore {
   readonly storage: "in-memory-fixture" | "personal-postgres";

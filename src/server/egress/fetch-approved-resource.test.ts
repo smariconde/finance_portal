@@ -376,3 +376,229 @@ describe("fetchApprovedResource", () => {
     await expect(operation).rejects.toThrow();
   });
 });
+
+/**
+ * `POST` con credencial (ADR 0033). La credencial la agrega la puerta, después de
+ * autorizar el destino: un adaptador no la ve y no puede mandarla a otro host.
+ */
+describe("fetchApprovedResource with a POST source", () => {
+  const MODEL_ENTRY: EgressAllowlistEntry = egressAllowlistEntrySchema.parse({
+    sourceId: "openrouter",
+    origins: [
+      { host: "openrouter.ai", pathPrefixes: ["/api/v1/chat/completions"] },
+    ],
+    method: "POST",
+    identification: "project",
+    credential: {
+      variable: "OPENROUTER_API_KEY",
+      header: "authorization",
+      scheme: "Bearer",
+    },
+    maxRequestBytes: 4096,
+    maxResponseBytes: 64 * 1024,
+    deadlineMs: 30_000,
+    maxRedirects: 0,
+  });
+  const MODEL_URL = "https://openrouter.ai/api/v1/chat/completions";
+  const SECRET = "sk-or-v1-synthetic-test-credential";
+  const BODY = new TextEncoder().encode('{"model":"x"}');
+
+  function postHarness(
+    responses: readonly EgressHopResponse[],
+    credential: string | undefined = SECRET,
+  ) {
+    const base = harness(responses);
+    const readCredential = vi.fn((variable: string) =>
+      variable === "OPENROUTER_API_KEY" ? credential : undefined,
+    );
+
+    return {
+      ...base,
+      readCredential,
+      dependencies: {
+        ...base.dependencies,
+        findEntry: (sourceId: string) =>
+          sourceId === MODEL_ENTRY.sourceId ? MODEL_ENTRY : null,
+        readCredential,
+      },
+    };
+  }
+
+  it("adds the declared credential and the project identification", async () => {
+    const { dependencies, transport } = postHarness([ok('{"id":"1"}')]);
+
+    await fetchApprovedResource(
+      {
+        sourceId: "openrouter",
+        url: MODEL_URL,
+        method: "POST",
+        body: BODY,
+        // Un contacto pasado de largo no llega a una fuente del proyecto.
+        userAgent: USER_AGENT,
+      },
+      dependencies,
+    );
+
+    const [hop] = transport.mock.calls[0];
+
+    expect(hop.method).toBe("POST");
+    expect(hop.body).toBe(BODY);
+    expect(hop.headers.authorization).toBe(`Bearer ${SECRET}`);
+    expect(hop.headers["content-type"]).toBe("application/json");
+    expect(hop.headers["user-agent"]).toBe("portal-financiero/1.0");
+    expect(JSON.stringify(hop.headers)).not.toContain("owner@example.test");
+  });
+
+  it("does not read the credential for a destination it did not authorize", async () => {
+    const { dependencies, transport, readCredential } = postHarness([ok()]);
+
+    await expectBlocked(
+      fetchApprovedResource(
+        {
+          sourceId: "openrouter",
+          url: "https://attacker.example/api/v1/chat/completions",
+          method: "POST",
+          body: BODY,
+        },
+        dependencies,
+      ),
+      "host_not_allowlisted",
+    );
+
+    expect(readCredential).not.toHaveBeenCalled();
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it("refuses without a credential and names the variable, never a value", async () => {
+    const { dependencies, transport } = postHarness([ok()], "  ");
+
+    const operation = fetchApprovedResource(
+      { sourceId: "openrouter", url: MODEL_URL, method: "POST", body: BODY },
+      dependencies,
+    );
+
+    await expectBlocked(operation, "credential_missing");
+    await operation.catch((error: unknown) => {
+      expect((error as Error).message).toContain("OPENROUTER_API_KEY");
+    });
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it("refuses a credential that would split the header, without echoing it", async () => {
+    const { dependencies, transport } = postHarness(
+      [ok()],
+      "sk-or-v1-abc\r\nx-injected: 1",
+    );
+
+    const operation = fetchApprovedResource(
+      { sourceId: "openrouter", url: MODEL_URL, method: "POST", body: BODY },
+      dependencies,
+    );
+
+    await expectBlocked(operation, "credential_invalid");
+    await operation.catch((error: unknown) => {
+      expect((error as Error).message).not.toContain("sk-or-v1-abc");
+    });
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it("refuses a method the source does not declare, in both directions", async () => {
+    const post = postHarness([ok()]);
+
+    await expectBlocked(
+      fetchApprovedResource(
+        { sourceId: "openrouter", url: MODEL_URL },
+        post.dependencies,
+      ),
+      "method_not_allowed",
+    );
+
+    const get = harness([ok()]);
+
+    await expectBlocked(
+      fetchApprovedResource(
+        {
+          sourceId: "sec-edgar",
+          url: APPROVED_URL,
+          userAgent: USER_AGENT,
+          method: "POST",
+          body: BODY,
+        },
+        get.dependencies,
+      ),
+      "method_not_allowed",
+    );
+
+    expect(post.transport).not.toHaveBeenCalled();
+    expect(get.transport).not.toHaveBeenCalled();
+  });
+
+  it("refuses a body over the source's request ceiling, or none at all", async () => {
+    const { dependencies, transport } = postHarness([ok()]);
+
+    await expectBlocked(
+      fetchApprovedResource(
+        {
+          sourceId: "openrouter",
+          url: MODEL_URL,
+          method: "POST",
+          body: new Uint8Array(4097),
+        },
+        dependencies,
+      ),
+      "request_body_too_large",
+    );
+    await expectBlocked(
+      fetchApprovedResource(
+        { sourceId: "openrouter", url: MODEL_URL, method: "POST" },
+        dependencies,
+      ),
+      "request_body_too_large",
+    );
+
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it("never follows a redirect, so neither body nor credential travel on", async () => {
+    const { dependencies, transport } = postHarness([redirect(MODEL_URL, 307)]);
+
+    await expectBlocked(
+      fetchApprovedResource(
+        { sourceId: "openrouter", url: MODEL_URL, method: "POST", body: BODY },
+        dependencies,
+      ),
+      "too_many_redirects",
+    );
+
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not let an entry declare a POST that follows redirects or sends no body", () => {
+    const base = {
+      sourceId: "openrouter",
+      origins: [{ host: "openrouter.ai", pathPrefixes: ["/api/"] }],
+      method: "POST",
+      maxRequestBytes: 4096,
+      maxResponseBytes: 4096,
+      deadlineMs: 30_000,
+      maxRedirects: 0,
+    };
+
+    expect(egressAllowlistEntrySchema.safeParse(base).success).toBe(true);
+    expect(
+      egressAllowlistEntrySchema.safeParse({ ...base, maxRedirects: 1 })
+        .success,
+    ).toBe(false);
+    expect(
+      egressAllowlistEntrySchema.safeParse({ ...base, maxRequestBytes: 0 })
+        .success,
+    ).toBe(false);
+    expect(
+      egressAllowlistEntrySchema.safeParse({
+        ...base,
+        method: "GET",
+        maxRedirects: 0,
+      }).success,
+    ).toBe(false);
+  });
+});

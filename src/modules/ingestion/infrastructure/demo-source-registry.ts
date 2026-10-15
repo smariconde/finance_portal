@@ -16,10 +16,14 @@ const RECORDED_AT = "2026-08-23T00:00:00.000Z";
 const RIGHTS_REVIEWED_AT = "2026-09-05T00:00:00.000Z";
 
 /**
- * Segunda revisión de `sec-edgar`, la que pedía congelar extractos reales:
- * [ADR 0023](../../../../docs/architecture/adr/0023-frozen-sec-extracts-rights.md).
+ * Revisión de la capa IA ([ADR 0033](../../../../docs/architecture/adr/0033-ai-layer-industry-resolution.md)):
+ * las dos fuentes nuevas y el `aiTransfer` de `sec-edgar`, que no tenía
+ * receptor hasta entonces. Es la tercera revisión de `sec-edgar`; la segunda,
+ * el 2026-09-18, fue la que pedía congelar extractos reales
+ * ([ADR 0023](../../../../docs/architecture/adr/0023-frozen-sec-extracts-rights.md)).
  */
-const SEC_FROZEN_EXTRACTS_RIGHTS_REVIEWED_AT = "2026-09-18T00:00:00.000Z";
+const AI_LAYER_RIGHTS_REVIEWED_AT = "2026-10-02T00:00:00.000Z";
+const AI_LAYER_RIGHTS_REVIEW_DUE_AT = "2027-04-01T00:00:00.000Z";
 
 /**
  * Registro de fuentes del modo demo.
@@ -134,18 +138,19 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         // sigue en `approved_personal`.
         publicDisplay: "allowed",
         export: "allowed",
-        // Sin revisar a propósito: no lo decide la SEC sino el receptor, y no
-        // hay receptor hasta el policy engine de Fase 5.
-        aiTransfer: "unknown",
+        // Mandar un extracto a un modelo es copiarlo, y la SEC autoriza copiar
+        // con cita. Se contestó cuando apareció el receptor (ADR 0033).
+        aiTransfer: "allowed",
       },
       technicalStatus: "integrated",
       approvalStatus: "approved_personal",
       reviewedAt: "2026-09-14T00:00:00.000Z",
-      rightsReviewedAt: SEC_FROZEN_EXTRACTS_RIGHTS_REVIEWED_AT,
+      rightsReviewedAt: AI_LAYER_RIGHTS_REVIEWED_AT,
       rightsReviewDueAt: null,
       reviewEvidence: [
         "docs/data/source-registry.md#sec-edgar",
         "docs/architecture/adr/0023-frozen-sec-extracts-rights.md",
+        "docs/architecture/adr/0033-ai-layer-industry-resolution.md",
         "docs/data/provider-use-matrix.md",
         "docs/architecture/adr/0009-egress-boundary.md",
         "docs/architecture/adr/0010-sec-xbrl-ingestion.md",
@@ -481,5 +486,122 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
       ownerNotes:
         "Decisión del owner del 2026-10-02: owner_accepted acotado para la descarga automatizada. Cuatro páginas HTML —betas de EE. UU., riesgo país, ERP implícita y rating sintético—, una request cada una, a mano. Se guardan filas normalizadas con atribución y nunca la página.",
       recordedAt: "2026-10-02T00:00:00.000Z",
+    }),
+    sourceRegistryEntrySchema.parse({
+      sourceId: "openrouter",
+      displayName: "OpenRouter",
+      owner: "OpenRouter, Inc.",
+      canonicalUrl: "https://openrouter.ai/docs/api/reference/overview",
+      documentationUrls: [
+        "https://openrouter.ai/docs/guides/features/zdr",
+        "https://openrouter.ai/docs/guides/privacy/data-collection",
+        "https://openrouter.ai/docs/guides/routing/provider-selection",
+        "https://openrouter.ai/docs/guides/features/structured-outputs",
+        "https://openrouter.ai/terms",
+      ],
+      datasets: ["openrouter.chat-completions"],
+      endpoints: ["https://openrouter.ai/api/v1/chat/completions"],
+      authentication: "api_key",
+      applicablePlan: "pago por uso con crédito prepago en la cuenta del owner",
+      rateLimit: "según el crédito de la cuenta; el tope diario es interno",
+      attribution: null,
+      expectedCadence: "a demanda, por tarea pedida a mano",
+      freshnessTarget: "no aplica: produce propuestas, no series",
+      timezone: null,
+      units: [],
+      currencies: ["USD"],
+      parserVersion: "openrouter-chat-1.0.0",
+      fixturePolicy:
+        "Dobles de test sintéticos: ninguna respuesta real de un modelo entra al repositorio.",
+      fallbackSourceIds: [],
+      /**
+       * La API existe para ser llamada por programa, y la cuenta es del owner.
+       * Lo que se guarda —la propuesta estructurada y su motivo— no lo concede
+       * nadie: lo decidió el owner (ADR 0033). La fila no recibe datos: decide
+       * qué se le manda el armado del prompt, contra el `aiTransfer` de cada
+       * fuente de origen.
+       */
+      rights: {
+        personalUse: "allowed",
+        automatedAccess: "allowed",
+        rawStorage: "owner_accepted",
+        normalizedStorage: "owner_accepted",
+        derivedStorage: "owner_accepted",
+        publicDisplay: "unknown",
+        export: "unknown",
+        aiTransfer: "unknown",
+      },
+      technicalStatus: "integrated",
+      approvalStatus: "approved_personal",
+      reviewedAt: AI_LAYER_RIGHTS_REVIEWED_AT,
+      rightsReviewedAt: AI_LAYER_RIGHTS_REVIEWED_AT,
+      rightsReviewDueAt: AI_LAYER_RIGHTS_REVIEW_DUE_AT,
+      reviewEvidence: [
+        "docs/architecture/adr/0033-ai-layer-industry-resolution.md",
+        "docs/data/provider-use-matrix.md#openrouter",
+      ],
+      retentionClasses: ["R4"],
+      quotaPolicyId: null,
+      ownerNotes:
+        "Decisión del owner del 2026-10-02. Cada request fija ZDR, data_collection=deny, require_parameters y el precio máximo del escalón; ninguno se relaja por entorno. Gasto acotado en USD por tarea y por día, además del límite de crédito de la clave. Integrada el 2026-10-15: los tres escalones contestaron la tarea de humo bajo ZDR por USD 0,000538 en total.",
+      recordedAt: AI_LAYER_RIGHTS_REVIEWED_AT,
+    }),
+    sourceRegistryEntrySchema.parse({
+      sourceId: "tavily",
+      displayName: "Tavily Search API",
+      owner: "Tavily",
+      canonicalUrl:
+        "https://docs.tavily.com/documentation/api-reference/endpoint/search",
+      documentationUrls: [
+        "https://docs.tavily.com/documentation/api-credits",
+        "https://docs.tavily.com/documentation/rate-limits",
+        "https://www.tavily.com/terms",
+        "https://www.tavily.com/privacy",
+      ],
+      datasets: ["tavily.search"],
+      endpoints: ["https://api.tavily.com/search"],
+      authentication: "api_key",
+      applicablePlan: "Researcher gratuito: 1.000 créditos por mes",
+      rateLimit: "100 requests/min en desarrollo; el tope diario es interno",
+      attribution: null,
+      expectedCadence: "a demanda, sólo cuando el 10-K no alcanzó",
+      freshnessTarget: "no aplica: evidencia puntual de una tarea",
+      timezone: null,
+      units: [],
+      currencies: [],
+      parserVersion: null,
+      fixturePolicy:
+        "Dobles de test sintéticos: ningún resultado real de búsqueda entra al repositorio.",
+      fallbackSourceIds: [],
+      /**
+       * Los términos (leídos el 2026-10-02) no prohíben conservar el resultado
+       * ni exigen atribución; permiten a Tavily entrenar con las consultas
+       * (§9.2), y por eso una consulta lleva sólo datos públicos. Se guarda el
+       * extracto citado, nunca la página.
+       */
+      rights: {
+        personalUse: "allowed",
+        automatedAccess: "allowed",
+        rawStorage: "restricted",
+        normalizedStorage: "owner_accepted",
+        derivedStorage: "owner_accepted",
+        publicDisplay: "unknown",
+        export: "unknown",
+        aiTransfer: "owner_accepted",
+      },
+      technicalStatus: "spike_ready",
+      approvalStatus: "approved_personal",
+      reviewedAt: AI_LAYER_RIGHTS_REVIEWED_AT,
+      rightsReviewedAt: AI_LAYER_RIGHTS_REVIEWED_AT,
+      rightsReviewDueAt: AI_LAYER_RIGHTS_REVIEW_DUE_AT,
+      reviewEvidence: [
+        "docs/architecture/adr/0033-ai-layer-industry-resolution.md",
+        "docs/data/provider-use-matrix.md#tavily",
+      ],
+      retentionClasses: ["R3"],
+      quotaPolicyId: null,
+      ownerNotes:
+        "Decisión del owner del 2026-10-02: búsqueda básica en el plan gratuito, sólo como segunda evidencia. Brave se descartó porque sus términos prohíben almacenar resultados y evaluar modelos con ellos.",
+      recordedAt: AI_LAYER_RIGHTS_REVIEWED_AT,
     }),
   ]);

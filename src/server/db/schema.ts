@@ -705,6 +705,10 @@ export const ingestionSourceControls = pgTable(
     sourceId: varchar("source_id", { length: 64 }).notNull(),
     status: ingestionSourceStatus("status").notNull(),
     dailyRequestLimit: integer("daily_request_limit"),
+    // Tope de gasto del día para una fuente que cobra por llamada (ADR 0033).
+    dailySpendLimitNanoUsd: bigint("daily_spend_limit_nano_usd", {
+      mode: "number",
+    }),
     reason: varchar("reason", { length: 240 }).notNull(),
     actor: varchar("actor", { length: 128 }).notNull(),
     recordedAt: instant("recorded_at").notNull(),
@@ -725,12 +729,85 @@ export const ingestionSourceControls = pgTable(
       sql`${table.dailyRequestLimit} is null or ${table.dailyRequestLimit} >= 0`,
     ),
     check(
+      "ingestion_source_controls_spend_limit_check",
+      sql`${table.dailySpendLimitNanoUsd} is null or ${table.dailySpendLimitNanoUsd} >= 0`,
+    ),
+    check(
       "ingestion_source_controls_timeline_check",
       sql`${table.supersededAt} is null or ${table.supersededAt} >= ${table.recordedAt}`,
     ),
     check(
       "ingestion_source_controls_actor_check",
       sql`${table.actor} ~ '^[A-Za-z0-9._:@/-]{1,128}$'`,
+    ),
+  ],
+);
+
+export const aiSpendStatus = pgEnum("ai_spend_status", [
+  "reserved",
+  "charged",
+  "uncharged",
+  "unsettled",
+]);
+
+/**
+ * Libro de gasto en dólares de la capa IA (ADR 0033): una fila por intento de
+ * llamar a un modelo.
+ *
+ * La fila se escribe **antes** de la llamada con su peor caso (`reserved`) y se
+ * liquida después con lo que pasó. Lo que cuenta contra los topes es lo cobrado
+ * si se conoce y la reserva si no: una llamada en vuelo, un proceso muerto o un
+ * transporte cortado siguen contando su peor caso, porque nadie sabe si se
+ * cobraron. Es también la métrica de la capa —modelo pedido y respondido,
+ * tokens, latencia, motivo— y por eso no se borra.
+ *
+ * Los importes son nanodólares enteros: los precios de la escalera son enteros
+ * en esa unidad y la suma no pasa por un decimal.
+ */
+export const aiSpendLedger = pgTable(
+  "ai_spend_ledger",
+  {
+    reservationId: uuid("reservation_id").primaryKey(),
+    sourceId: varchar("source_id", { length: 64 }).notNull(),
+    taskRunId: uuid("task_run_id").notNull(),
+    taskVersion: varchar("task_version", { length: 64 }).notNull(),
+    ladderVersion: varchar("ladder_version", { length: 64 }).notNull(),
+    rung: integer("rung").notNull(),
+    requestedModel: varchar("requested_model", { length: 128 }).notNull(),
+    respondedModel: varchar("responded_model", { length: 128 }),
+    spendOn: date("spend_on", { mode: "string" }).notNull(),
+    status: aiSpendStatus("status").notNull(),
+    reservedNanoUsd: bigint("reserved_nano_usd", { mode: "number" }).notNull(),
+    chargedNanoUsd: bigint("charged_nano_usd", { mode: "number" }),
+    promptTokens: integer("prompt_tokens"),
+    completionTokens: integer("completion_tokens"),
+    latencyMs: integer("latency_ms"),
+    outcome: varchar("outcome", { length: 64 }),
+    reservedAt: instant("reserved_at").notNull(),
+    settledAt: instant("settled_at"),
+  },
+  (table) => [
+    index("ai_spend_ledger_day_idx").on(table.sourceId, table.spendOn),
+    index("ai_spend_ledger_task_idx").on(table.taskRunId, table.reservedAt),
+    check("ai_spend_ledger_reserved_check", sql`${table.reservedNanoUsd} > 0`),
+    check("ai_spend_ledger_rung_check", sql`${table.rung} between 1 and 16`),
+    // Una reserva abierta no tiene liquidación, y una liquidada sí.
+    check(
+      "ai_spend_ledger_settlement_check",
+      sql`(${table.status} = 'reserved') = (${table.settledAt} is null)`,
+    ),
+    // Un cobro se registra exactamente cuando la fila dice que se cobró.
+    check(
+      "ai_spend_ledger_charge_check",
+      sql`(${table.status} = 'charged') = (${table.chargedNanoUsd} is not null) and (${table.chargedNanoUsd} is null or ${table.chargedNanoUsd} >= 0)`,
+    ),
+    check(
+      "ai_spend_ledger_timeline_check",
+      sql`${table.settledAt} is null or ${table.settledAt} >= ${table.reservedAt}`,
+    ),
+    check(
+      "ai_spend_ledger_day_check",
+      sql`${table.spendOn} = (${table.reservedAt} at time zone 'UTC')::date`,
     ),
   ],
 );

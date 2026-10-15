@@ -17,7 +17,7 @@ import {
  * `www.sec.gov` no sirven los mismos recursos, y acotar el path evita que un bug
  * de construcción de URL termine paseando por el sitio entero de la SEC.
  */
-export const EGRESS_ALLOWLIST_VERSION = "egress-allowlist-1.0.0";
+export const EGRESS_ALLOWLIST_VERSION = "egress-allowlist-1.1.0";
 
 const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
   egressAllowlistEntrySchema.parse({
@@ -147,6 +147,51 @@ const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
     ],
     // La página más grande, la de betas, son ~460 KB de HTML exportado por Excel.
     maxResponseBytes: 4 * 1024 * 1024,
+    deadlineMs: 30_000,
+    maxRedirects: 0,
+  }),
+  egressAllowlistEntrySchema.parse({
+    sourceId: "openrouter",
+    origins: [
+      {
+        host: "openrouter.ai",
+        // Sólo el chat. El modelo no tiene herramientas y no puede pedir una
+        // URL: lo que lee es lo que el proyecto le manda (ADR 0033).
+        pathPrefixes: ["/api/v1/chat/completions"],
+      },
+    ],
+    method: "POST",
+    identification: "project",
+    credential: {
+      variable: "OPENROUTER_API_KEY",
+      header: "authorization",
+      scheme: "Bearer",
+    },
+    // Una resolución con evidencia son ~25.000 tokens de entrada, unos 100 KB.
+    // El techo deja el doble y es también el que acota el peor caso del gasto:
+    // un byte nunca es menos que un token.
+    maxRequestBytes: 256 * 1024,
+    // La respuesta es un JSON chico con un schema cerrado.
+    maxResponseBytes: 1024 * 1024,
+    // Un modelo con 25.000 tokens de entrada puede tardar decenas de segundos
+    // en contestar; más que esto ya es una falla que sube de escalón.
+    deadlineMs: 90_000,
+    maxRedirects: 0,
+  }),
+  egressAllowlistEntrySchema.parse({
+    sourceId: "tavily",
+    origins: [{ host: "api.tavily.com", pathPrefixes: ["/search"] }],
+    method: "POST",
+    identification: "project",
+    credential: {
+      variable: "TAVILY_API_KEY",
+      header: "authorization",
+      scheme: "Bearer",
+    },
+    // La consulta es el nombre de la empresa y las industrias candidatas.
+    maxRequestBytes: 8 * 1024,
+    // Hasta cinco resultados con su extracto.
+    maxResponseBytes: 512 * 1024,
     deadlineMs: 30_000,
     maxRedirects: 0,
   }),

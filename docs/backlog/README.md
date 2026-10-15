@@ -56,7 +56,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    28 | `F3-04`    | `done`     | Datasets Damodaran versionados y fechados: ERP implícita, betas por industria, riesgo país y rating sintético.                                | Fase 7 `done` |
 |    29 | `F3-05`    | `done`     | Mapeo empresa → industria de Damodaran por SIC, con la ambigüedad nombrada y resuelta sólo por declaración del owner.                         | `F3-04`       |
 |    30 | `F3-06`    | `done`     | Costo de capital bottom-up con componentes fechados, recalculado por el motor en cada corrida.                                                | `F3-05`       |
-|    31 | `F5-01`    | `ready`    | Controles de la capa IA antes de la primera llamada: egress `POST` con credencial, fuentes registradas, gasto en dólares, breaker y escalera. | Fase 3 `done` |
+|    31 | `F5-01`    | `done`     | Controles de la capa IA antes de la primera llamada: egress `POST` con credencial, fuentes registradas, gasto en dólares, breaker y escalera. | Fase 3 `done` |
+|    32 | `F5-02`    | `ready`    | Guard server-side de la capa IA: sólo existe en `personal` y ninguna clave llega al browser, probado sobre el build.                          | `F5-01`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -2816,6 +2817,54 @@ de Damodaran cuando el SIC nombra varias candidatas. Tres incrementos:
 `F5-05` y `F5-07` conservan su alcance y su orden, y la persistencia de `F5-06`
 se reusa para los supuestos.
 
+<a id="f5-01"></a>
+
+**`F5-01` — cierre (2026-10-15).** Los controles de la capa IA existen antes de
+que cualquier tarea mande evidencia a un modelo:
+
+- **Puerta `POST` con credencial** (`egress-policy-1.1.0`,
+  `egress-client-1.1.0`): cada fuente declara método, identificación y, si
+  corresponde, qué variable trae su credencial y en qué header va. La puerta la
+  lee **después** de autorizar el destino; un adaptador no la ve. Un `POST`
+  tiene techo de cuerpo y nunca sigue un redirect. Las fuentes del proyecto se
+  presentan como `portal-financiero/1.0` y no reciben el contacto de la SEC, así
+  que un runtime sin `SEC_USER_AGENT` ya no deja de construir el cliente: niega
+  cada pedido a la SEC.
+- **Fuentes registradas**: `openrouter` (`integrated`) y `tavily`
+  (`spike_ready`, primera llamada en `F5-04`) en el registro, la allowlist
+  (`egress-allowlist-1.1.0`, un endpoint exacto cada una) y la tabla de topes
+  (100 y 10 requests/día). `sec-edgar` pasa a `aiTransfer: allowed`.
+- **Gasto en dólares** (`ai-spend-1.0.0`, migración `0024`): `ai_spend_ledger`
+  reserva el peor caso de cada llamada —bytes del pedido al precio máximo de
+  entrada más `max_tokens` al de salida, en nanodólares enteros— contra USD 0,10
+  por tarea y USD 1,00 por día UTC, bajo un lock consultivo por fuente, y lo
+  liquida con `usage.cost`. Un transporte cortado, un `2xx` ilegible o un costo
+  no informado siguen contando el peor caso. `ingestion:sources --spend-limit`
+  baja el tope del día y nunca lo sube; el kill switch vale para las dos.
+- **Escalera y breaker** (`ai-model-ladder-1.0.0`,
+  `model-ladder-runner-1.0.0`, `provider-breaker-1.0.0`): tres familias con
+  `zdr`, `data_collection: "deny"`, `require_parameters` y `max_price` fijados
+  en el pedido; sube ante transporte, `429`/`5xx`, `4xx`, schema inválido,
+  rechazo de la policy o abstención; frena ante una clave rechazada, nuestro
+  kill switch o cuota; tres fallas de transporte seguidas abren el breaker de
+  la corrida. Cada intento queda en el libro con modelo pedido y respondido,
+  tokens, costo, latencia y motivo.
+- **Llamada de humo medida** (`pnpm ai:smoke`, tarea `ai-smoke-1.0.0`): sin
+  datos de ninguna fuente, por los tres escalones.
+
+Criterios cumplidos: presupuesto por corrida y por día, límite global, timeout,
+breaker, kill switch y métricas antes de la primera llamada (`TM-10`, `TM-16`;
+también `TM-02` y `TM-08` para la credencial y el `POST`). Evidencia: los tres
+escalones contestaron bajo ZDR el 2026-10-15 —`deepseek/deepseek-v4.1-flash`
+USD 0,000123 en 1,0 s, `openai/gpt-5.6-luna` USD 0,000041 en 1,8 s,
+`google/gemini-3.8-flash` USD 0,000374 en 4,5 s—, cada cobro entre 11 y 23 veces
+por debajo de su reserva; 53 tests unitarios del módulo `ai`, 10 de la puerta,
+el contrato del libro sobre el doble y sobre PostgreSQL con doce reservas
+concurrentes de las que entran exactamente cinco; rollback de `0024` verificado
+en una réplica (se niega con filas, deshace tabla y columna vacías, re-aplica).
+`F5-02` sigue: el modo ya cierra la puerta y el libro, pero falta probar sobre el
+build que ninguna clave llega al browser.
+
 ### Fase 6 — corrida por ticker y acceso CEDEAR
 
 | Issue   | Resultado y aceptación mínima                                                                                                                                          | Depende de | Controles                          |
@@ -3560,28 +3609,28 @@ Esta matriz evita que una amenaza o deuda visual quede mencionada sin un issue q
 la cierre. La columna “primer cierre” indica el primer slice que debe implementar o
 probar el control; fases posteriores pueden volver a verificarlo.
 
-| Deuda   | Primer cierre                           | Seguimiento posterior                | Estado actual                                                                                                                                                                          |
-| ------- | --------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TM-01` | `F1-02`                                 | `F1-07`, `F2-01`, `F5-02`, `F6-06`   | `done`: composición falla cerrada y el modo se resuelve en el request; el mismo build niega o sirve según su entorno                                                                   |
-| `TM-02` | `F1-02`                                 | cada frontera, `F10-03`              | `done`: DB server-only y URLs pooled/direct separadas probadas                                                                                                                         |
-| `TM-03` | `F6-01`, primera Route Handler real     | `F5-02`, `F10-04`                    | required: la corrida por ticker es la primera frontera real; `F1-07` probó las de composición                                                                                          |
-| `TM-04` | `F1-02`                                 | `F1-07`, `F2-01`, `F10-01`           | `done`: cache namespaced por modo; sólo `personal` construye almacenamiento, verificado sobre el artefacto servido                                                                     |
-| `TM-05` | `F1-03`                                 | `F2-03`, `F3-03`, cada parser/modelo | `done` de ingesta a publicación: vacío y parser roto no publican ni reemplazan                                                                                                         |
-| `TM-06` | `F1-04`                                 | `F2-02`, `F4-01`, cada consulta      | `done` de la consulta a la valuación: dos cortes producen dos corridas distintas                                                                                                       |
-| `TM-07` | `F1-02`                                 | `F1-07`, `F6-01`, `F7-05`            | `done`: Drizzle parametrizado y límite de consulta verificados en PostgreSQL                                                                                                           |
-| `TM-08` | `F2-03`, primer provider real           | `F5-04`, `F9-01`                     | required; no hay egress aún                                                                                                                                                            |
-| `TM-09` | `F5-03`                                 | `F5-04`, `F5-07`, `F10-04`           | required; no hay IA aún                                                                                                                                                                |
-| `TM-10` | `F2-05`                                 | `F5-01`, `F6-05`, `F10-05`           | `done` para la SEC: presupuesto por corrida con reserva del peor caso, señales de la fuente, y límite diario con kill switch (ADR 0020), los tres verificados también sobre el refresh |
-| `TM-11` | `F2-05`                                 | `F6-05`, `F9-01`, `F10-05`           | `done` para el backfill y el refresh de la SEC: lease, `429`, crash y recuperación manual probados sobre los dos kinds (ADR 0015, ADR 0022); cron sigue apagado                        |
-| `TM-12` | `F1-01`                                 | cada UI externa, `F10-06`            | headers base y render seguro verificados                                                                                                                                               |
-| `TM-13` | `F10-07`                                | cada actualización de dependencia    | baseline implementada; scans pendientes                                                                                                                                                |
-| `TM-14` | `F2-01`, antes del primer deploy remoto | `F6-06`, `F10-03`                    | required: `F2-01` habilita produccion; la proteccion del deployment es su precondicion                                                                                                 |
-| `TM-15` | `F3-03`, nivel de rigor declarado       | cada IA/export, `F5-03`, `F6-03`     | rescopeado por ADR 0007: derechos pasan a procedencia informativa; el control ahora es el nivel de rigor declarado                                                                     |
-| `TM-16` | `F1-03`                                 | cada operación y gate                | `done` sobre ingesta y valuación: corridas append-only con hash, versión y error seguro                                                                                                |
-| `UI-01` | Fase `0B.7`                             | revisar copy al cambiar roadmap      | revisar: el copy de la home cita el orden de fases anterior al pivote                                                                                                                  |
-| `UI-02` | `F1-07`                                 | `F6-03`, `F6-06`, `F10-06`           | `done`: revisión renderizada automatizada en 6 proyectos con `axe-core`, teclado, reflow y movimiento reducido                                                                         |
-| `UI-03` | `F1-01`                                 | cada feedback stateful, `F10-06`     | `done`: estados y reduced motion conservan feedback                                                                                                                                    |
-| `UI-04` | `F1-01`                                 | cada extracción visual, `F10-06`     | `done`: escala reusable y token de contraste registrados                                                                                                                               |
+| Deuda   | Primer cierre                           | Seguimiento posterior                | Estado actual                                                                                                                                                                                                                                                                                   |
+| ------- | --------------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TM-01` | `F1-02`                                 | `F1-07`, `F2-01`, `F5-02`, `F6-06`   | `done`: composición falla cerrada y el modo se resuelve en el request; el mismo build niega o sirve según su entorno                                                                                                                                                                            |
+| `TM-02` | `F1-02`                                 | cada frontera, `F10-03`              | `done`: DB server-only y URLs pooled/direct separadas probadas                                                                                                                                                                                                                                  |
+| `TM-03` | `F6-01`, primera Route Handler real     | `F5-02`, `F10-04`                    | required: la corrida por ticker es la primera frontera real; `F1-07` probó las de composición                                                                                                                                                                                                   |
+| `TM-04` | `F1-02`                                 | `F1-07`, `F2-01`, `F10-01`           | `done`: cache namespaced por modo; sólo `personal` construye almacenamiento, verificado sobre el artefacto servido                                                                                                                                                                              |
+| `TM-05` | `F1-03`                                 | `F2-03`, `F3-03`, cada parser/modelo | `done` de ingesta a publicación: vacío y parser roto no publican ni reemplazan                                                                                                                                                                                                                  |
+| `TM-06` | `F1-04`                                 | `F2-02`, `F4-01`, cada consulta      | `done` de la consulta a la valuación: dos cortes producen dos corridas distintas                                                                                                                                                                                                                |
+| `TM-07` | `F1-02`                                 | `F1-07`, `F6-01`, `F7-05`            | `done`: Drizzle parametrizado y límite de consulta verificados en PostgreSQL                                                                                                                                                                                                                    |
+| `TM-08` | `F2-03`, primer provider real           | `F5-04`, `F9-01`                     | required; no hay egress aún                                                                                                                                                                                                                                                                     |
+| `TM-09` | `F5-03`                                 | `F5-04`, `F5-07`, `F10-04`           | required; no hay IA aún                                                                                                                                                                                                                                                                         |
+| `TM-10` | `F2-05`                                 | `F5-01`, `F6-05`, `F10-05`           | `done` para la SEC: presupuesto por corrida con reserva del peor caso, señales de la fuente, y límite diario con kill switch (ADR 0020), los tres verificados también sobre el refresh; `done` para la capa IA (`F5-01`): gasto en dólares reservado por tarea y por día, breaker y kill switch |
+| `TM-11` | `F2-05`                                 | `F6-05`, `F9-01`, `F10-05`           | `done` para el backfill y el refresh de la SEC: lease, `429`, crash y recuperación manual probados sobre los dos kinds (ADR 0015, ADR 0022); cron sigue apagado                                                                                                                                 |
+| `TM-12` | `F1-01`                                 | cada UI externa, `F10-06`            | headers base y render seguro verificados                                                                                                                                                                                                                                                        |
+| `TM-13` | `F10-07`                                | cada actualización de dependencia    | baseline implementada; scans pendientes                                                                                                                                                                                                                                                         |
+| `TM-14` | `F2-01`, antes del primer deploy remoto | `F6-06`, `F10-03`                    | required: `F2-01` habilita produccion; la proteccion del deployment es su precondicion                                                                                                                                                                                                          |
+| `TM-15` | `F3-03`, nivel de rigor declarado       | cada IA/export, `F5-03`, `F6-03`     | rescopeado por ADR 0007: derechos pasan a procedencia informativa; el control ahora es el nivel de rigor declarado                                                                                                                                                                              |
+| `TM-16` | `F1-03`                                 | cada operación y gate                | `done` sobre ingesta y valuación: corridas append-only con hash, versión y error seguro                                                                                                                                                                                                         |
+| `UI-01` | Fase `0B.7`                             | revisar copy al cambiar roadmap      | revisar: el copy de la home cita el orden de fases anterior al pivote                                                                                                                                                                                                                           |
+| `UI-02` | `F1-07`                                 | `F6-03`, `F6-06`, `F10-06`           | `done`: revisión renderizada automatizada en 6 proyectos con `axe-core`, teclado, reflow y movimiento reducido                                                                                                                                                                                  |
+| `UI-03` | `F1-01`                                 | cada feedback stateful, `F10-06`     | `done`: estados y reduced motion conservan feedback                                                                                                                                                                                                                                             |
+| `UI-04` | `F1-01`                                 | cada extracción visual, `F10-06`     | `done`: escala reusable y token de contraste registrados                                                                                                                                                                                                                                        |
 
 ## Plantilla para nuevos issues
 

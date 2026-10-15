@@ -137,13 +137,25 @@ describe("composición del cliente de egress", () => {
     expect(httpsTransport).toHaveBeenCalledTimes(1);
   });
 
-  it("se niega en modo personal cuando no hay identificación declarada", async () => {
+  it("niega cada pedido a la SEC cuando no hay identificación declarada", async () => {
     // Un runtime personal sin `SEC_USER_AGENT` no sale anónimo a la SEC: no
-    // sale. La Fair Access no tiene un modo por defecto.
+    // sale. La Fair Access no tiene un modo por defecto. El cliente se
+    // construye igual porque una fuente del proyecto no necesita ese contacto
+    // (ADR 0033); la negativa llega por pedido y antes del transporte.
     applyEnvironment({ ...PERSONAL_ENVIRONMENT, SEC_USER_AGENT: "" });
     const { getEgressClient } = await loadClient();
+    const client = getEgressClient();
+    const hop = httpsTransport.mock.results[0]?.value as ReturnType<
+      typeof vi.fn
+    >;
 
-    expect(() => getEgressClient()).toThrow(/user_agent_missing/);
+    await expect(
+      client({
+        sourceId: "sec-edgar",
+        url: "https://data.sec.gov/submissions/CIK0000320193.json",
+      }),
+    ).rejects.toThrow(/user_agent_missing/);
+    expect(hop).not.toHaveBeenCalled();
   });
 
   it("no repite el valor rechazado de la identificación en el error", async () => {
@@ -154,8 +166,11 @@ describe("composición del cliente de egress", () => {
     const { getEgressClient } = await loadClient();
 
     try {
-      getEgressClient();
-      expect.unreachable("la composición debía negarse");
+      await getEgressClient()({
+        sourceId: "sec-edgar",
+        url: "https://data.sec.gov/submissions/CIK0000320193.json",
+      });
+      expect.unreachable("el pedido debía negarse");
     } catch (error) {
       // Nombra la variable y el problema, nunca el valor (`TM-02`).
       expect((error as Error).message).toContain("SEC_USER_AGENT");

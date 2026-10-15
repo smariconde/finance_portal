@@ -120,6 +120,7 @@ export function createInMemorySourceBudgetStore(
         sourceId: parsed.sourceId,
         status: parsed.status,
         dailyRequestLimit: parsed.dailyRequestLimit,
+        dailySpendLimitNanoUsd: parsed.dailySpendLimitNanoUsd,
         reason: parsed.reason,
         actor: parsed.actor,
         recordedAt: parsed.now,

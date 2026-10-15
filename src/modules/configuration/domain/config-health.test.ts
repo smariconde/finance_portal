@@ -207,9 +207,6 @@ describe("getConfigHealth", () => {
       "ALPACA_DATA_FEED",
       "SEC_USER_AGENT",
       "OPENROUTER_API_KEY",
-      "OPENROUTER_MODEL_FAST",
-      "OPENROUTER_MODEL_REASONING",
-      "OPENROUTER_PROVIDER_ALLOWLIST",
       "TAVILY_API_KEY",
       "SENTRY_DSN",
     ] as const;

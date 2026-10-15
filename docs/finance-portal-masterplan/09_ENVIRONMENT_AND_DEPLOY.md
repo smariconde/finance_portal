@@ -33,20 +33,15 @@ MARKET_DATA_MAX_REQUESTS_PER_RUN=1000
 # SEC exige identificacion responsable
 SEC_USER_AGENT=PortalFinanciero/0.1 contact@example.com
 
-# IA e investigacion
+# IA e investigacion: solo las claves (ADR 0033)
 OPENROUTER_API_KEY=
-OPENROUTER_MODEL_FAST=
-OPENROUTER_MODEL_REASONING=
-OPENROUTER_ENFORCE_ZDR=true
-OPENROUTER_DATA_COLLECTION=deny
-OPENROUTER_PROVIDER_ALLOWLIST=
 TAVILY_API_KEY=
 
 # Opcionales
 SENTRY_DSN=
 ```
 
-No fijar model IDs en este documento: cambian. La fase que habilita IA consulta la lista actual, elige modelos compatibles con structured outputs, registra costo/capacidades/politica de datos en ADR y valida las variables. Las variables anteriores deben mapearse a controles por request y verificarse en metadata; no son controles por si solas.
+No fijar model IDs en este documento: cambian. Desde la [ADR 0033](../architecture/adr/0033-ai-layer-industry-resolution.md) los modelos, sus precios maximos, ZDR y `data_collection=deny` viven en codigo (`ai-model-ladder-1.0.0`) y no se leen del entorno: una variable no es un control, y relajarlos por configuracion seria justamente lo que se quiere impedir. Del entorno salen solo las claves, que agrega la puerta de salida.
 
 ## Esquema de validacion
 

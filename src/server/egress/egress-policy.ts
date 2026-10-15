@@ -20,7 +20,7 @@ import { classifyIpAddress } from "./ip-address-policy";
  * controles a propósito —uno responde «¿a dónde se puede abrir un socket?» y el
  * otro «¿tenemos derecho a estos datos?»— y ninguno cubre al otro.
  */
-export const EGRESS_POLICY_VERSION = "egress-policy-1.0.0";
+export const EGRESS_POLICY_VERSION = "egress-policy-1.1.0";
 
 export const egressRejectionCodeSchema = z.enum([
   "source_not_allowlisted",
@@ -33,6 +33,10 @@ export const egressRejectionCodeSchema = z.enum([
   "host_not_allowlisted",
   "path_not_allowlisted",
   "user_agent_missing",
+  "method_not_allowed",
+  "request_body_too_large",
+  "credential_missing",
+  "credential_invalid",
   "address_unresolvable",
   "address_not_publicly_routable",
   "redirect_without_location",
@@ -96,19 +100,93 @@ export type EgressOrigin = z.infer<typeof egressOriginSchema>;
 
 export const MAX_EGRESS_URL_LENGTH = 2048;
 
-export const egressAllowlistEntrySchema = z.object({
-  sourceId: sourceIdSchema,
-  origins: z.array(egressOriginSchema).min(1).max(8),
-  /** Techo de bytes leídos del cuerpo; se corta el stream, no se lee y descarta. */
-  maxResponseBytes: z
-    .number()
-    .int()
-    .min(1024)
-    .max(64 * 1024 * 1024),
-  /** Presupuesto de tiempo de la operación completa, redirects incluidos. */
-  deadlineMs: z.number().int().min(1000).max(120_000),
-  maxRedirects: z.number().int().min(0).max(5),
+/**
+ * Método que una fuente admite. Uno solo por fuente: un buscador o un modelo se
+ * consultan con `POST` y no tienen nada que pedir por `GET`, y una fuente de
+ * datos se lee con `GET` y no tiene nada que recibir (ADR 0033).
+ */
+export const egressMethodSchema = z.enum(["GET", "POST"]);
+
+export type EgressMethod = z.infer<typeof egressMethodSchema>;
+
+/**
+ * Con qué se presenta el cliente. La SEC exige un contacto real y lo trae la
+ * configuración del owner; una fuente nueva recibe un nombre genérico del
+ * proyecto, porque ese contacto no tiene por qué llegarle a un modelo.
+ */
+export const egressIdentificationSchema = z.enum(["owner_contact", "project"]);
+
+export type EgressIdentification = z.infer<typeof egressIdentificationSchema>;
+
+/**
+ * Credencial de una fuente: **qué variable** la trae y **en qué header** va,
+ * nunca el valor. La agrega la puerta al salir, así que un adaptador no la ve y
+ * no puede mandarla a otro host (`TM-02`, `TM-08`).
+ */
+export const egressCredentialSchema = z.object({
+  variable: z.string().regex(/^[A-Z][A-Z0-9_]{2,63}$/u),
+  header: z.literal("authorization"),
+  scheme: z.literal("Bearer"),
 });
+
+export type EgressCredential = z.infer<typeof egressCredentialSchema>;
+
+export const egressAllowlistEntrySchema = z
+  .object({
+    sourceId: sourceIdSchema,
+    origins: z.array(egressOriginSchema).min(1).max(8),
+    method: egressMethodSchema.default("GET"),
+    identification: egressIdentificationSchema.default("owner_contact"),
+    credential: egressCredentialSchema.nullable().default(null),
+    /**
+     * Techo del cuerpo **del pedido**. Cero para `GET`: no manda nada. En un
+     * `POST` acota lo que se le puede mandar a la fuente, que es justamente lo
+     * que cuesta en un modelo.
+     */
+    maxRequestBytes: z
+      .number()
+      .int()
+      .min(0)
+      .max(1024 * 1024)
+      .default(0),
+    /** Techo de bytes leídos del cuerpo; se corta el stream, no se lee y descarta. */
+    maxResponseBytes: z
+      .number()
+      .int()
+      .min(1024)
+      .max(64 * 1024 * 1024),
+    /** Presupuesto de tiempo de la operación completa, redirects incluidos. */
+    deadlineMs: z.number().int().min(1000).max(120_000),
+    maxRedirects: z.number().int().min(0).max(5),
+  })
+  .superRefine((entry, context) => {
+    if (entry.method === "GET" && entry.maxRequestBytes !== 0) {
+      context.addIssue({
+        code: "custom",
+        path: ["maxRequestBytes"],
+        message: "A GET source sends no body.",
+      });
+    }
+
+    if (entry.method === "POST" && entry.maxRequestBytes < 1024) {
+      context.addIssue({
+        code: "custom",
+        path: ["maxRequestBytes"],
+        message: "A POST source declares a request body ceiling.",
+      });
+    }
+
+    // Un redirect de un `POST` obliga a decidir si el cuerpo —y la
+    // credencial— se reenvían a otro destino. La respuesta es que no hay
+    // redirect que seguir.
+    if (entry.method === "POST" && entry.maxRedirects !== 0) {
+      context.addIssue({
+        code: "custom",
+        path: ["maxRedirects"],
+        message: "A POST source never follows redirects.",
+      });
+    }
+  });
 
 export type EgressAllowlistEntry = z.infer<typeof egressAllowlistEntrySchema>;
 

@@ -85,6 +85,11 @@ const SELECTORS = [
     () => import("@/server/persistence/get-reference-dataset-repository"),
     "getReferenceDatasetRepository",
   ],
+  [
+    "ai spend",
+    () => import("@/server/persistence/get-ai-spend-store"),
+    "getAiSpendStore",
+  ],
 ] as const;
 
 type SelectorImporter = () => Promise<Record<string, unknown>>;

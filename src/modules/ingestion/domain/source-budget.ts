@@ -51,6 +51,12 @@ export const SOURCE_DAILY_REQUEST_BUDGETS: Readonly<Record<string, number>> =
     // Cuatro páginas por corrida (ADR 0032). Veinte por día cubren cinco
     // corridas, que es el tope de la matriz de uso, y dejan fuera cualquier bucle.
     "damodaran-current-data": 20,
+    // ADR 0033: las 16 ambiguas de la muestra del gate con los tres escalones
+    // y una repetición con búsqueda son 96 llamadas en el peor caso. El gasto
+    // en dólares tiene su propio tope (`ai-spend`), que suele mandar antes.
+    openrouter: 100,
+    // Un tercio de lo que el plan gratuito da por día (1.000 por mes).
+    tavily: 10,
   });
 
 /** Tabla de topes declarados. Los tests inyectan la suya; el runtime usa la de arriba. */
@@ -93,6 +99,18 @@ export const sourceControlSchema = z
      * la cuota es un cambio revisable, no una palanca de runtime.
      */
     dailyRequestLimit: z.number().int().min(0).max(1_000_000).nullable(),
+    /**
+     * Tope de gasto del día en nanodólares, para las fuentes que cobran por
+     * llamada (ADR 0033). Igual que el de requests, sólo puede bajar el
+     * declarado en código.
+     */
+    dailySpendLimitNanoUsd: z
+      .number()
+      .int()
+      .min(0)
+      .max(Number.MAX_SAFE_INTEGER)
+      .nullable()
+      .default(null),
     reason: reasonSchema,
     actor: actorSchema,
     recordedAt: utcTimestampSchema,

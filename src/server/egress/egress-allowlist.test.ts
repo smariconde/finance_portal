@@ -19,8 +19,63 @@ describe("egress allowlist", () => {
         "comafi-cedear",
         "caja-valores-cedear",
         "damodaran-current-data",
+        "openrouter",
+        "tavily",
       ],
     );
+  });
+
+  it("reaches the model and the search engine only by POST, with a credential the door adds", () => {
+    // ADR 0033: un endpoint exacto por fuente, sin redirects, y la credencial
+    // declarada por nombre de variable. El valor no vive en la allowlist.
+    const openrouter = findEgressAllowlistEntry("openrouter")!;
+    const tavily = findEgressAllowlistEntry("tavily")!;
+
+    for (const entry of [openrouter, tavily]) {
+      expect(entry.method).toBe("POST");
+      expect(entry.identification).toBe("project");
+      expect(entry.maxRedirects).toBe(0);
+      expect(entry.credential?.header).toBe("authorization");
+    }
+
+    expect(openrouter.credential?.variable).toBe("OPENROUTER_API_KEY");
+    expect(tavily.credential?.variable).toBe("TAVILY_API_KEY");
+    expect(
+      authorizeEgressUrl(
+        "https://openrouter.ai/api/v1/chat/completions",
+        openrouter,
+      ).allowed,
+    ).toBe(true);
+    expect(
+      authorizeEgressUrl("https://api.tavily.com/search", tavily).allowed,
+    ).toBe(true);
+
+    for (const url of [
+      "https://openrouter.ai/api/v1/models",
+      "https://openrouter.ai/api/v1/keys",
+      "https://openrouter.ai/api/v1/credits",
+    ]) {
+      expect(authorizeEgressUrl(url, openrouter).allowed).toBe(false);
+    }
+
+    for (const url of [
+      "https://api.tavily.com/extract",
+      "https://api.tavily.com/crawl",
+    ]) {
+      expect(authorizeEgressUrl(url, tavily).allowed).toBe(false);
+    }
+  });
+
+  it("keeps every data source on GET with the owner's contact and no credential", () => {
+    for (const entry of listEgressAllowlistEntries()) {
+      if (entry.sourceId === "openrouter" || entry.sourceId === "tavily") {
+        continue;
+      }
+
+      expect(entry.method).toBe("GET");
+      expect(entry.credential).toBeNull();
+      expect(entry.maxRequestBytes).toBe(0);
+    }
   });
 
   it("reaches the four Damodaran pages one by one, never the whole site", () => {
@@ -42,7 +97,6 @@ describe("egress allowlist", () => {
 
   it("returns null for a source that is not listed, with no default", () => {
     expect(findEgressAllowlistEntry("alpaca-market-data")).toBeNull();
-    expect(findEgressAllowlistEntry("openrouter")).toBeNull();
     expect(findEgressAllowlistEntry("")).toBeNull();
   });
 
@@ -65,9 +119,13 @@ describe("egress allowlist", () => {
     // derecho. Responde "¿a dónde se puede abrir un socket?" y nada más.
     for (const entry of listEgressAllowlistEntries()) {
       expect(Object.keys(entry).sort()).toEqual([
+        "credential",
         "deadlineMs",
+        "identification",
         "maxRedirects",
+        "maxRequestBytes",
         "maxResponseBytes",
+        "method",
         "origins",
         "sourceId",
       ]);
@@ -108,8 +166,9 @@ describe("egress allowlist", () => {
     // ADR 0023: los extractos congelados obligaron a contestar por `sec-edgar`.
     expect(findRights("sec-edgar")?.rawStorage).toBe("allowed");
     expect(findRights("sec-edgar")?.publicDisplay).toBe("allowed");
-    // Y no por arrastre: el receptor todavía no existe.
-    expect(findRights("sec-edgar")?.aiTransfer).toBe("unknown");
+    // ADR 0033: mandar un extracto a un modelo es copiarlo, y la SEC autoriza
+    // copiar con cita. Se contestó cuando apareció el receptor.
+    expect(findRights("sec-edgar")?.aiTransfer).toBe("allowed");
 
     // El universo se persiste normalizado y derivado; nadie guardó su payload.
     expect(findRights("datahub-sp500-pddl")?.rawStorage).toBe("unknown");

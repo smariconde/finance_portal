@@ -169,6 +169,8 @@ tiene presupuesto de proveedor igual a cero.
 | `alpaca-market-data` Basic              | 200 requests históricos/min; histórico desde 2016; últimos 15 minutos restringidos | 100 requests/min, concurrencia 2 y 1.000 requests/run                                                                                                                                                             | barras `1Day` multi-symbol, paginación y job EOD                                                                                                                               | breaker al 80% del cap interno o primer `429`; conservar cursor/snapshot                                                                                                                                                                                        |
 | `yahoo-finance`                         | sin cuota publicada                                                                | 1 request/s, concurrencia 1 y 600 requests/run; **700 requests/día por fuente**, contados en PostgreSQL                                                                                                           | una request por security trae cinco años de cierres más splits y dividendos; job a mano, nunca programado                                                                      | el tope diario para la corrida y el contador se repone a las 00:00Z; el owner puede frenar la fuente con `pnpm ingestion:sources --disable`                                                                                                                     |
 | `comafi-cedear` / `caja-valores-cedear` | sin cuota publicada                                                                | 1 request/s, concurrencia 1 y 4 requests/run; **10 requests/día por fuente**, contados en PostgreSQL                                                                                                              | una request por emisor trae su registro entero; job a mano, semanal o ante un aviso del emisor                                                                                 | el tope diario corta la corrida; el owner puede frenar cada fuente con `pnpm ingestion:sources --disable`                                                                                                                                                       |
+| `openrouter`                            | pago por uso sobre el crédito prepago de la clave                                  | 1 request/s, concurrencia 1; **100 requests/día** y **USD 0,10 por tarea, USD 1,00 por día UTC**, reservados antes de cada llamada en PostgreSQL (`ai-spend-1.0.0`)                                               |
+| `tavily`                                | plan gratuito: 1.000 créditos/mes; búsqueda básica = 1                             | **10 requests/día por fuente**, contados en PostgreSQL; sólo búsqueda básica                                                                                                                                      |
 | Caja, BNA y BCR/CAC                     | cuota no confirmada                                                                | cero                                                                                                                                                                                                              | no hay job ni refresh real                                                                                                                                                     | permanecer `disabled`                                                                                                                                                                                                                                           |
 
 Headers más restrictivos siempre mandan. Cada intento futuro escribe en
@@ -194,6 +196,13 @@ mismo diff.
   100 requests/día, USD 0,10 por tarea y USD 1,00 por día UTC, en código y en
   PostgreSQL, más el límite de crédito de la clave en la cuenta. Antes de eso
   estaba diferido con presupuesto efectivo `USD 0`.
+- Ejecutable desde `F5-01` (2026-10-15): cada llamada reserva su peor caso
+  —bytes del pedido al precio máximo de entrada más `max_tokens` al de salida—
+  en `ai_spend_ledger` antes de salir y lo liquida con `usage.cost`; un
+  transporte cortado o un costo no informado siguen contando el peor caso. El
+  owner baja el tope del día con `pnpm ingestion:sources --spend-limit`, nunca
+  lo sube. Medido con `pnpm ai:smoke`: los tres escalones contestaron bajo ZDR
+  por USD 0,000123, 0,000041 y 0,000374, entre 11 y 23 veces menos que su reserva.
 - OpenRouter declara no conservar prompts/respuestas salvo opt-in, pero guarda metadata.
   ZDR debe exigirse por request y sólo enruta a endpoints compatibles; su definición
   permite cache implícita en memoria.
@@ -212,6 +221,8 @@ mismo diff.
   gratuito (1.000 créditos/mes, sin tarjeta): búsqueda básica, tope de 10
   requests/día, sólo cuando el 10-K no alcanzó. Antes de eso estaba diferido con
   presupuesto efectivo `USD 0`.
+- Alcanzable desde `F5-01` (allowlist, credencial y tope diario), sin llamada
+  todavía: la primera es `F5-04`.
 - Researcher publica 1.000 créditos/mes; search básico cuesta 1 y advanced 2. Development
   publica 100 requests/min, pero términos y privacidad permiten procesamiento amplio del
   input y compartir queries con índices de terceros.
