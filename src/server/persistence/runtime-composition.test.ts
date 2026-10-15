@@ -90,6 +90,11 @@ const SELECTORS = [
     () => import("@/server/persistence/get-ai-spend-store"),
     "getAiSpendStore",
   ],
+  [
+    "industry resolution",
+    () => import("@/server/persistence/get-industry-resolution-repository"),
+    "getIndustryResolutionRepository",
+  ],
 ] as const;
 
 type SelectorImporter = () => Promise<Record<string, unknown>>;

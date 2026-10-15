@@ -191,6 +191,39 @@ describe(INDUSTRY_MAPPING_VERSION, () => {
     ).toBe("ambiguous");
   });
 
+  it("lets an AI resolution settle an ambiguity, below the owner and only among the candidates", () => {
+    const aiResolution = {
+      resolutionId: "00000000-0000-4000-8000-0000000000a1",
+      industryKey: "software-internet",
+      availableAt: "2026-10-15T12:00:00.000Z",
+      respondedModel: "deepseek/deepseek-v4.1-flash",
+      evidenceIds: ["E1"],
+    };
+    const declaration = industryDeclarationSchema.parse({
+      cik: "0000000042",
+      ticker: "FIX",
+      industryKey: "software-system-and-application",
+      decidedBy: "owner",
+      decidedOn: "2026-10-02",
+      rationale: "Enterprise application software; licenses and subscriptions.",
+    });
+
+    expect(map("7372", { aiResolution })).toMatchObject({
+      status: "mapped",
+      basis: "ai_resolution",
+      industryKey: "software-internet",
+      resolution: aiResolution,
+    });
+    // El owner pisa a la IA.
+    expect(
+      map("7372", { aiResolution, declarations: [declaration] }),
+    ).toMatchObject({ basis: "owner_declaration" });
+    // Una resolución que ya no es candidata del SIC visible contestó otra pregunta.
+    expect(map("6021", { aiResolution }).status).toBe("ambiguous");
+    // Un SIC con una sola candidata no necesita a la IA.
+    expect(map("3571", { aiResolution })).toMatchObject({ basis: "sic" });
+  });
+
   it("refuses a declaration without a written reason or a public identifier", () => {
     expect(() =>
       industryDeclarationSchema.parse({

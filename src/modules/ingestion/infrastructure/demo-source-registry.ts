@@ -107,6 +107,9 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         "sec.companyfacts",
         "sec.companyconcept",
         "sec.frames",
+        // F5-03: el documento principal del último 10-K, del que salen las
+        // secciones dirigidas que se le mandan a un modelo (ADR 0033).
+        "sec.annual-report-documents",
       ],
       endpoints: [],
       authentication: "none",

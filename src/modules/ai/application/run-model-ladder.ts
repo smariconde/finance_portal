@@ -67,7 +67,10 @@ export type LadderStopCode =
   | "request_budget_exhausted"
   | "egress_refused";
 
-export type LadderResult<Output> =
+export type LadderResult<Output> = {
+  /** Agrupa los intentos en el libro de gasto: es el `task_run_id` de sus filas. */
+  readonly taskRunId: string;
+} & (
   | {
       readonly outcome: "accepted";
       readonly rung: number;
@@ -92,7 +95,8 @@ export type LadderResult<Output> =
       readonly code: LadderStopCode;
       readonly detail: string | null;
       readonly attempts: readonly LadderAttempt[];
-    };
+    }
+);
 
 export type RunModelLadderDependencies = {
   readonly fetch: EgressFetch;
@@ -112,6 +116,33 @@ const TRANSPORT_EGRESS_CODES: ReadonlySet<string> = new Set([
   "transport_error",
   "response_too_large",
 ]);
+
+/**
+ * Qué falló en una salida que no validó: el campo y el código del primer
+ * problema, o `not_json`. Nunca el contenido: el texto del modelo no se guarda
+ * en el libro (`TM-16` sin `TM-02`). Si el modelo cortó por largo, se dice.
+ */
+function describeSchemaFailure(
+  issues:
+    | readonly {
+        readonly path: readonly PropertyKey[];
+        readonly code: string;
+      }[]
+    | null,
+  finishReason: string | null,
+): string {
+  const first = issues?.[0];
+  const what =
+    first === undefined
+      ? "not_json"
+      : `${first.path.map(String).join(".") || "root"}:${first.code}`;
+
+  return (
+    finishReason !== null && finishReason !== "stop"
+      ? `${what}|${finishReason}`
+      : what
+  ).slice(0, 96);
+}
 
 function egressCode(cause: unknown): string | null {
   const code = (cause as { code?: unknown } | null)?.code;
@@ -194,6 +225,7 @@ export async function runModelLadder<Input, Output>(
   for (const rung of ladder) {
     if (breaker.isOpen()) {
       return {
+        taskRunId,
         outcome: "stopped",
         code: "breaker_open",
         detail: `${breaker.consecutiveFailures()} consecutive transport failures`,
@@ -227,6 +259,7 @@ export async function runModelLadder<Input, Output>(
 
     if (verdict.status === "source_disabled") {
       return {
+        taskRunId,
         outcome: "stopped",
         code: "source_disabled",
         detail: verdict.reason,
@@ -236,6 +269,7 @@ export async function runModelLadder<Input, Output>(
 
     if (verdict.status === "spend_undeclared") {
       return {
+        taskRunId,
         outcome: "stopped",
         code: "spend_undeclared",
         detail: null,
@@ -245,6 +279,7 @@ export async function runModelLadder<Input, Output>(
 
     if (verdict.status !== "reserved") {
       return {
+        taskRunId,
         outcome: "abstained",
         reason: "ai_budget_exhausted",
         detail: verdict.status,
@@ -299,6 +334,7 @@ export async function runModelLadder<Input, Output>(
       });
 
       return {
+        taskRunId,
         outcome: "stopped",
         code: call.code,
         detail: call.detail,
@@ -357,6 +393,7 @@ export async function runModelLadder<Input, Output>(
 
       if (result.kind === "unauthorized") {
         return {
+          taskRunId,
           outcome: "stopped",
           code: "provider_unauthorized",
           detail: `status ${result.status}`,
@@ -382,26 +419,31 @@ export async function runModelLadder<Input, Output>(
       latencyMs,
     };
 
-    let output: Output;
+    let json: unknown;
 
     try {
-      const parsed = task.output.schema.safeParse(
-        JSON.parse(result.content ?? ""),
-      );
-
-      if (!parsed.success) {
-        throw parsed.error;
-      }
-
-      output = parsed.data;
+      json = JSON.parse(result.content ?? "");
     } catch {
       await settle({
         ...billing,
         outcome: "schema_invalid",
-        detail: result.finishReason,
+        detail: describeSchemaFailure(null, result.finishReason),
       });
       continue;
     }
+
+    const parsed = task.output.schema.safeParse(json);
+
+    if (!parsed.success) {
+      await settle({
+        ...billing,
+        outcome: "schema_invalid",
+        detail: describeSchemaFailure(parsed.error.issues, result.finishReason),
+      });
+      continue;
+    }
+
+    const output: Output = parsed.data;
 
     const judgement = task.judge(output, input);
 
@@ -409,6 +451,7 @@ export async function runModelLadder<Input, Output>(
       await settle({ ...billing, outcome: "accepted", detail: null });
 
       return {
+        taskRunId,
         outcome: "accepted",
         rung: rung.rung,
         model: result.respondedModel,
@@ -439,12 +482,14 @@ export async function runModelLadder<Input, Output>(
 
   return last?.outcome === "abstained" && lastAbstention !== null
     ? {
+        taskRunId,
         outcome: "abstained",
         reason: lastAbstention,
         detail: null,
         attempts,
       }
     : {
+        taskRunId,
         outcome: "abstained",
         reason: "ladder_exhausted",
         detail: last?.outcome ?? null,

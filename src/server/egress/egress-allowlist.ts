@@ -17,7 +17,7 @@ import {
  * `www.sec.gov` no sirven los mismos recursos, y acotar el path evita que un bug
  * de construcción de URL termine paseando por el sitio entero de la SEC.
  */
-export const EGRESS_ALLOWLIST_VERSION = "egress-allowlist-1.1.0";
+export const EGRESS_ALLOWLIST_VERSION = "egress-allowlist-1.2.0";
 
 const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
   egressAllowlistEntrySchema.parse({
@@ -37,6 +37,10 @@ const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
         pathPrefixes: [
           "/files/company_tickers.json",
           "/files/company_tickers_exchange.json",
+          // Los documentos de una presentación, para leer las secciones
+          // dirigidas de un 10-K (`F5-03`, ADR 0033). El nombre del documento
+          // viene de `submissions` y el localizador lo exige plano, sin barras.
+          "/Archives/edgar/data/",
         ],
       },
     ],

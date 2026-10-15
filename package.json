@@ -43,7 +43,8 @@
     "cedears:record": "tsx --conditions=react-server --env-file=.env.local scripts/record-cedears.ts",
     "valuation:assess": "tsx --conditions=react-server --env-file=.env.local scripts/assess-company.ts",
     "damodaran:record": "tsx --conditions=react-server --env-file=.env.local scripts/record-damodaran.ts",
-    "ai:smoke": "tsx --conditions=react-server --env-file=.env.local scripts/ai-smoke.ts"
+    "ai:smoke": "tsx --conditions=react-server --env-file=.env.local scripts/ai-smoke.ts",
+    "valuation:resolve-industry": "tsx --conditions=react-server --env-file=.env.local scripts/resolve-industry.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
