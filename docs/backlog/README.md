@@ -59,7 +59,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    31 | `F5-01`    | `done`     | Controles de la capa IA antes de la primera llamada: egress `POST` con credencial, fuentes registradas, gasto en dólares, breaker y escalera. | Fase 3 `done` |
 |    32 | `F5-02`    | `done`     | Guard server-side de la capa IA: sólo existe en `personal` y ninguna clave llega al browser, probado sobre el build.                          | `F5-01`       |
 |    33 | `F5-03`    | `done`     | Industria ambigua resuelta con secciones dirigidas del 10-K, policy determinista y aserción persistida, medida sobre las 16 ambiguas.         | `F5-02`       |
-|    34 | `F5-04`    | `ready`    | Tavily como segunda evidencia cuando el 10-K no alcanza; medido el 2026-10-15, alcanzó en las 16 ambiguas.                                    | `F5-03`       |
+|    34 | `F5-04`    | `deferred` | Tavily como segunda evidencia cuando el 10-K no alcanza. Diferido el 2026-10-15: el 10-K alcanzó en las 16 ambiguas.                          | `F5-03`       |
+|    35 | `F5-05`    | `ready`    | Primer caso de supuestos: mix geográfico de ingresos propuesto desde el 10-K, con locks del owner y policy, que pondera el CRP del WACC.      | `F5-03`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -2797,7 +2798,7 @@ llevado a gate antes del siguiente. Ninguno agrega IA.
 | `F5-02` | Guard server-side: la IA sólo existe en `personal`; ninguna clave llega al browser.                                    | `F5-01`    | `TM-01`, `TM-02`, `TM-03`, `TM-14` |
 | `F5-03` | Extracción cualitativa con schema cerrado, evidence IDs obligatorios y secciones dirigidas, no documentos completos.   | `F5-02`    | `TM-09`, `TM-15`                   |
 | `F5-04` | Búsqueda web por un buscador allowlisted que devuelve el extracto, sin bajar sus URLs, y contenido no confiable.       | `F5-03`    | `TM-08`, `TM-09`, `TM-12`          |
-| `F5-05` | Propuesta de supuestos que respeta locks, cita evidencia y siempre pasa por el policy engine antes del motor.          | `F5-04`    | `TM-09`, `TM-16`                   |
+| `F5-05` | Propuesta de supuestos que respeta locks, cita evidencia y siempre pasa por el policy engine antes del motor.          | `F5-03`    | `TM-09`, `TM-16`                   |
 | `F5-06` | La propuesta se persiste en el snapshot; el replay reproduce ambos hashes sin volver a llamar al modelo.               | `F5-05`    | `TM-16`                            |
 | `F5-07` | Evals de injection, citas, abstención, schema, costo y corrección.                                                     | `F5-06`    | `TM-09`, `TM-10`, `TM-15`          |
 
@@ -2943,6 +2944,43 @@ razonando (`not_json|length`) y 2 devolvió salidas incoherentes. Desde este
 corte, cada `schema_invalid` registra campo y código del primer problema,
 nunca el texto. Subir `max_tokens` o cambiar el escalón 1 es una versión nueva
 de la tarea o de la escalera, y la decide `F5-07`.
+
+<a id="f5-04"></a>
+
+**`F5-04` — diferido (2026-10-15).** La búsqueda web era la segunda evidencia
+para cuando el 10-K no alcanzara, y la medición de `F5-03` no encontró ese caso:
+las 16 ambiguas se resolvieron con el Item 1 y la nota de segmentos, sin una
+abstención. Construir el camino ahora sería medirlo forzado, sobre empresas que
+no lo necesitan, y gastar la cuota de Tavily (10 requests/día) en probarlo.
+
+Condición de reingreso: una empresa ambigua dentro del alcance para la que
+`pnpm valuation:resolve-industry` termina en `no_annual_report` o
+`item_1_not_found`, o cuya escalera completa se abstiene con
+`insufficient_evidence`. Ese caso es el que se mide. Nada se retira:
+`tavily` sigue registrada (`spike_ready`), en la allowlist y en la tabla de
+topes, sin llamadas, y su revisión de derechos vence el 2027-04-01. `TM-09`
+sigue `required` para la búsqueda web cuando reingrese.
+
+<a id="f5-05"></a>
+
+**`F5-05` — primer caso: mix geográfico (decidido el 2026-10-15).** Hoy ningún
+`ValuationInput` se arma con datos reales, así que los supuestos de período no
+tienen todavía a qué engancharse. El mix geográfico de ingresos sí: es una
+fila de la tabla cualitativa de la [metodología](../valuation/methodology.md),
+`F5-03` ya recorta la nota de segmentos del 10-K, `cost-of-capital-1.0.0` ya
+suma un CRP —hoy el del país de cotización— y `completeness-profile-1.0.0`
+nombra el mix como el faltante que deja a Apple y Johnson & Johnson en
+`standard`. `F5-05` arranca por ahí y depende de `F5-03`, no de `F5-04`:
+
+- la IA propone pesos por región o país con cita a la evidencia, rango y
+  confianza, como un supuesto `ai_proposed`;
+- un lock del owner gana siempre y la IA no lo puede pisar;
+- la policy rechaza pesos que no suman 100 %, regiones fuera de la release de
+  Damodaran vigente y propuestas sin citas;
+- el costo de capital pondera el CRP por operaciones y el motor lo recalcula.
+
+El diseño —regiones, versión del costo de capital, dónde vive el lock— se
+decide en su ADR antes del código.
 
 ### Fase 6 — corrida por ticker y acceso CEDEAR
 
