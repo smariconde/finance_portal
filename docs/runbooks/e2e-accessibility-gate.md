@@ -24,6 +24,24 @@ oscuro, ancho de teléfono 390×844, y un proyecto con
 referencia, la negativa del runtime trabado, un scan de `axe-core` con umbral cero
 en `serious` y `critical`, y la captura de evidencia.
 
+### Secretos (`F5-02`, `TM-02`)
+
+Dos chequeos, uno sobre el artefacto y otro sobre lo que los servidores
+entregan:
+
+- **El artefacto.** `scripts/run-e2e.ts` compila con valores centinela en el
+  lugar de cada clave —le ganan a `.env.local` porque `@next/env` no pisa una
+  variable ya definida, así que el build del gate nunca ve una clave real— y
+  después busca cada centinela en todo `.next/` salvo `cache/`: chunks del
+  cliente, HTML, RSC y `.body` prerenderizados, y código del servidor. Si
+  aparece uno, el gate falla antes de Playwright nombrando archivo y variable,
+  nunca el valor. Verificado el 2026-10-15 con una sonda: una Route Handler
+  estática que devolvía `OPENROUTER_API_KEY` dejó el centinela en
+  `server/app/<ruta>.body` y el gate salió con error.
+- **Las respuestas.** En los dos servidores, cada ruta —y el export CSV— se pide
+  como documento y como navegación RSC (`RSC: 1`), y ningún centinela puede
+  aparecer en el body ni en los headers.
+
 ## Cómo se corre
 
 ```bash

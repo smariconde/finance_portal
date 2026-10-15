@@ -1,4 +1,8 @@
 import { spawnSync } from "node:child_process";
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
+
+import { SECRET_SENTINELS } from "../tests/e2e/support/runtime";
 
 /**
  * Runner del gate E2E
@@ -16,11 +20,57 @@ import { spawnSync } from "node:child_process";
  *
  * El build es uno solo: los dos entornos —personal y trabado— se sirven desde el
  * mismo artefacto, que es justamente lo que el gate verifica.
+ *
+ * 3. **Secretos en el artefacto** (`F5-02`, `TM-02`). El build corre con los
+ *    centinelas en el lugar de las claves —le ganan a `.env.local`, porque
+ *    `@next/env` no pisa una variable ya definida— y después se busca cada uno
+ *    en todo `.next/`: chunks del cliente, HTML y RSC prerenderizados y código
+ *    del servidor. Un valor que aparece ahí quedó horneado en el artefacto, y
+ *    el de verdad estaría en el mismo lugar.
  */
 const environment = {
   ...process.env,
   NEXT_TELEMETRY_DISABLED: "1",
+  ...SECRET_SENTINELS,
 };
+
+/** `cache/` es del compilador y no se sirve ni se despliega. */
+const SKIPPED_BUILD_DIRECTORIES: ReadonlySet<string> = new Set(["cache"]);
+
+function* buildFiles(directory: string): Generator<string> {
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const full = path.join(directory, entry.name);
+
+    if (entry.isDirectory()) {
+      if (!SKIPPED_BUILD_DIRECTORIES.has(entry.name)) {
+        yield* buildFiles(full);
+      }
+    } else if (entry.isFile()) {
+      yield full;
+    }
+  }
+}
+
+function findSentinelsInBuild(directory: string): string[] {
+  const findings: string[] = [];
+  let scanned = 0;
+
+  for (const file of buildFiles(directory)) {
+    scanned += 1;
+    // `latin1` lee cualquier byte sin fallar; un centinela es ASCII.
+    const content = readFileSync(file).toString("latin1");
+
+    for (const [name, value] of Object.entries(SECRET_SENTINELS)) {
+      if (content.includes(value)) {
+        findings.push(`${path.relative(directory, file)}: ${name}`);
+      }
+    }
+  }
+
+  console.log(`Escaneo de secretos: ${scanned} archivos de .next/ revisados.`);
+
+  return findings;
+}
 
 function run(command: string, args: string[]): number {
   const result = spawnSync(command, args, {
@@ -40,6 +90,16 @@ const buildStatus = run("pnpm", ["exec", "next", "build"]);
 
 if (buildStatus !== 0) {
   process.exit(buildStatus);
+}
+
+const leaks = findSentinelsInBuild(path.resolve(".next"));
+
+if (leaks.length > 0) {
+  // Se nombra el archivo y la variable, nunca el valor.
+  console.error(
+    `El build horneó ${leaks.length} secreto(s) en el artefacto:\n${leaks.join("\n")}`,
+  );
+  process.exit(1);
 }
 
 // Los argumentos posteriores se reenvían tal cual: `pnpm test:e2e --project

@@ -39,6 +39,42 @@ export default defineConfig([
       ],
     },
   },
+  {
+    // F5-02: ninguna ruta llega a un modelo. La primera superficie que lo haga
+    // es una frontera nueva —Route Handler o Server Action— con su propio slice
+    // y `TM-03` cerrado, no un import más (ADR 0033).
+    files: ["src/app/**/*.ts", "src/app/**/*.tsx"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "decimal.js",
+              message:
+                "Usá src/modules/numeric/domain/decimal-policy.ts (ADR 0003).",
+            },
+            {
+              name: "@/server/egress/get-egress-client",
+              message:
+                "Usá getSourceEgressFetch de @/server/egress/get-source-egress-fetch (ADR 0020).",
+            },
+          ],
+          patterns: [
+            {
+              group: [
+                "@/server/ai",
+                "@/server/ai/*",
+                "@/modules/ai/application/*",
+              ],
+              message:
+                "Ninguna ruta llama a un modelo: una superficie con IA es una frontera nueva con su propio slice y TM-03 (F5-02, ADR 0033).",
+            },
+          ],
+        },
+      ],
+    },
+  },
   globalIgnores([
     ".agents/skills/**",
     ".next/**",

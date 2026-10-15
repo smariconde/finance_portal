@@ -90,3 +90,14 @@ export const ROUTES = {
   sectorMatrix: "/sectores/communication-services",
   missing: "/ruta-que-no-existe",
 } as const;
+
+/**
+ * Lo que un servidor entrega por cada ruta, en las tres formas en que un valor
+ * podría salir: el HTML, los headers y el payload RSC de una navegación del
+ * cliente (`F5-02`, `TM-02`). La ruta de export entra aunque no sea una página:
+ * su respuesta de error también es una salida.
+ */
+export const LEAK_SURFACES = [
+  ...Object.values(ROUTES),
+  "/sectores/communication-services/export",
+] as const;

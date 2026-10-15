@@ -57,7 +57,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    29 | `F3-05`    | `done`     | Mapeo empresa → industria de Damodaran por SIC, con la ambigüedad nombrada y resuelta sólo por declaración del owner.                         | `F3-04`       |
 |    30 | `F3-06`    | `done`     | Costo de capital bottom-up con componentes fechados, recalculado por el motor en cada corrida.                                                | `F3-05`       |
 |    31 | `F5-01`    | `done`     | Controles de la capa IA antes de la primera llamada: egress `POST` con credencial, fuentes registradas, gasto en dólares, breaker y escalera. | Fase 3 `done` |
-|    32 | `F5-02`    | `ready`    | Guard server-side de la capa IA: sólo existe en `personal` y ninguna clave llega al browser, probado sobre el build.                          | `F5-01`       |
+|    32 | `F5-02`    | `done`     | Guard server-side de la capa IA: sólo existe en `personal` y ninguna clave llega al browser, probado sobre el build.                          | `F5-01`       |
+|    33 | `F5-03`    | `ready`    | Industria ambigua resuelta con secciones dirigidas del 10-K, policy determinista y aserción persistida, medida sobre las 16 ambiguas.         | `F5-02`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -2864,6 +2865,33 @@ concurrentes de las que entran exactamente cinco; rollback de `0024` verificado
 en una réplica (se niega con filas, deshace tabla y columna vacías, re-aplica).
 `F5-02` sigue: el modo ya cierra la puerta y el libro, pero falta probar sobre el
 build que ninguna clave llega al browser.
+
+<a id="f5-02"></a>
+
+**`F5-02` — cierre (2026-10-15).** La capa IA sólo existe en el servidor y sólo
+en `personal`:
+
+- **Una raíz de composición** (`src/server/ai/get-ai-layer.ts`, `server-only`):
+  `getAiLayer()` entrega el libro de gasto y las dependencias de una corrida
+  —egress medido, ritmo, breaker propio— y en un runtime trabado se niega con
+  `RuntimeLockedError("ai layer")` antes de abrir PostgreSQL o preparar el
+  egress, tenga o no la clave configurada. `pnpm ai:smoke` la usa.
+- **Ninguna ruta llega a un modelo**: ESLint prohíbe importar `@/server/ai` y
+  `@/modules/ai/application` desde `src/app/`. La primera superficie con IA es
+  una frontera nueva con su propio slice y `TM-03`.
+- **El artefacto no lleva claves**: el gate compila con centinelas en lugar de
+  las claves y busca cada uno en todo `.next/` antes de Playwright.
+- **Las respuestas tampoco**: en los dos servidores, cada ruta y el export se
+  piden como documento y como navegación RSC, sin centinelas en body ni headers.
+
+Criterios cumplidos: la IA sólo existe en `personal` y ninguna clave llega al
+browser (`TM-01`, `TM-02`, `TM-03`; `TM-14` queda para el despliegue remoto de
+`F6-06`). Evidencia: 5 tests de la composición (cuatro entornos trabados, uno
+con la clave puesta, sin tocar base ni transporte); la regla de ESLint rechazó
+un import de prueba desde `src/app/`; el escaneo revisó 627 archivos sin
+hallazgos y detectó una fuga deliberada —una Route Handler estática que
+devolvía `OPENROUTER_API_KEY` dejó el centinela en `server/app/<ruta>.body`—;
+1898 unit y 175 E2E.
 
 ### Fase 6 — corrida por ticker y acceso CEDEAR
 
