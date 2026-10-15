@@ -12,11 +12,16 @@ import { z } from "zod";
  * 6021 son JPMorgan y U.S. Bancorp, que Damodaran separa en money center y
  * regional, y el 7372 son tres industrias de software distintas.
  *
- * Una ambigüedad se resuelve sólo con una **declaración del owner** con motivo,
- * igual que una sucesión o la muestra del gate. Un SIC sin fila —cheques en
- * blanco, ADR, gobiernos— es `unmapped`.
+ * Una ambigüedad se resuelve con una **declaración del owner** con motivo,
+ * igual que una sucesión o la muestra del gate, o —desde `1.1.0`— con una
+ * **resolución de la IA** aceptada por su policy
+ * ([ADR 0033](../../../../docs/architecture/adr/0033-ai-layer-industry-resolution.md)).
+ * La precedencia es owner, IA, SIC: el owner corrige a la IA en cualquier
+ * momento, y una resolución sólo vale si su industria sigue siendo candidata
+ * del SIC visible. Un SIC sin fila —cheques en blanco, ADR, gobiernos— es
+ * `unmapped`.
  */
-export const INDUSTRY_MAPPING_VERSION = "sic-damodaran-industry-1.0.0";
+export const INDUSTRY_MAPPING_VERSION = "sic-damodaran-industry-1.1.0";
 export const DAMODARAN_INDUSTRY_TAXONOMY = "damodaran.betas-us";
 
 const MAP: Readonly<Record<string, readonly string[]>> = Object.freeze({
@@ -517,9 +522,11 @@ export type IndustryMapping =
       readonly status: "mapped";
       readonly industryKey: string;
       readonly industryLabel: string;
-      readonly basis: "sic" | "owner_declaration";
+      readonly basis: "sic" | "owner_declaration" | "ai_resolution";
       readonly sic: string | null;
       readonly candidates: readonly string[];
+      /** Sólo con `ai_resolution`: qué resolución decidió y quién respondió. */
+      readonly resolution?: AiIndustryResolutionReading;
     }
   | {
       readonly version: typeof INDUSTRY_MAPPING_VERSION;
@@ -539,6 +546,19 @@ export type IndustryMapping =
       readonly candidates: readonly string[];
     };
 
+/**
+ * Una resolución de la IA tal como la lee la evaluación: la aserción
+ * `damodaran-industry` visible al corte, con lo que hace falta para decir de
+ * dónde salió.
+ */
+export type AiIndustryResolutionReading = {
+  readonly resolutionId: string;
+  readonly industryKey: string;
+  readonly availableAt: string;
+  readonly respondedModel: string | null;
+  readonly evidenceIds: readonly string[];
+};
+
 export type MapIndustryInput = {
   /** CIK vigente de la entidad evaluada, o `null` si no tiene. */
   readonly cik: string | null;
@@ -547,6 +567,8 @@ export type MapIndustryInput = {
   /** Industrias de la release de betas visible al corte, por clave. */
   readonly releaseIndustries: ReadonlyMap<string, string> | null;
   readonly declarations: readonly IndustryDeclaration[];
+  /** La resolución de la IA visible al corte, o `null` (`F5-03`). */
+  readonly aiResolution?: AiIndustryResolutionReading | null;
 };
 
 export function mapIndustry(input: MapIndustryInput): IndustryMapping {
@@ -568,7 +590,10 @@ export function mapIndustry(input: MapIndustryInput): IndustryMapping {
     };
   }
 
-  const resolve = (key: string, basis: "sic" | "owner_declaration") => {
+  const resolve = (
+    key: string,
+    basis: "sic" | "owner_declaration" | "ai_resolution",
+  ) => {
     const label = input.releaseIndustries!.get(key);
 
     return label === undefined
@@ -614,6 +639,22 @@ export function mapIndustry(input: MapIndustryInput): IndustryMapping {
       reason: "sic_not_mapped",
       candidates,
     };
+  }
+
+  const aiResolution = input.aiResolution ?? null;
+
+  // Una resolución vale sólo si su industria sigue siendo candidata del SIC
+  // visible: si la SEC cambió el código, la resolución contestó otra pregunta.
+  if (
+    candidates.length > 1 &&
+    aiResolution !== null &&
+    candidates.includes(aiResolution.industryKey)
+  ) {
+    const resolved = resolve(aiResolution.industryKey, "ai_resolution");
+
+    return resolved.status === "mapped"
+      ? { ...resolved, resolution: aiResolution }
+      : resolved;
   }
 
   if (candidates.length > 1) {

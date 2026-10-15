@@ -194,6 +194,27 @@ describe("runModelLadder", () => {
     ]);
   });
 
+  it("dice qué falló en una salida inválida, sin guardar su contenido", async () => {
+    const { dependencies } = harness([
+      completion("not json at all"),
+      completion(JSON.stringify({ echo: 42 })),
+      echo(NONCE),
+    ]);
+
+    const result = await runModelLadder(
+      SMOKE_TASK,
+      { nonce: NONCE },
+      dependencies,
+    );
+
+    expect(result.attempts.map((attempt) => attempt.detail)).toEqual([
+      "not_json",
+      "echo:invalid_type",
+      null,
+    ]);
+    expect(JSON.stringify(result.attempts)).not.toContain("not json at all");
+  });
+
   it("se abstiene con el motivo del último escalón si todos se abstienen", async () => {
     const task: AiTask<{ nonce: string }, { echo: string }> = {
       ...SMOKE_TASK,

@@ -16,6 +16,66 @@ import { toTemporalFields, toTemporalRow } from "./temporal-row";
 
 type Database = PostgresJsDatabase<typeof schema>;
 
+type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
+
+/**
+ * Aplica un plan de clasificación dentro de una transacción ajena. La usa este
+ * repositorio y la usa el de resoluciones de industria, que tiene que escribir
+ * la resolución y su aserción como una sola operación (ADR 0033).
+ */
+export async function applyClassificationPlanInTransaction(
+  tx: Transaction,
+  plan: ClassificationPlan,
+): Promise<void> {
+  for (const supersession of plan.supersessions) {
+    const updated = await tx
+      .update(schema.classificationAssignments)
+      .set({ supersededAt: new Date(supersession.supersededAt) })
+      .where(
+        and(
+          eq(
+            schema.classificationAssignments.subjectId,
+            supersession.subjectId,
+          ),
+          eq(schema.classificationAssignments.taxonomyId, plan.taxonomyId),
+          eq(
+            schema.classificationAssignments.validFrom,
+            new Date(supersession.validFrom),
+          ),
+          isNull(schema.classificationAssignments.validTo),
+          isNull(schema.classificationAssignments.supersededAt),
+        ),
+      )
+      .returning({
+        subjectId: schema.classificationAssignments.subjectId,
+      });
+
+    // Cero filas significa que la aserción que el plan vio ya no está
+    // abierta: otra corrida la movió entre el plan y la escritura. Se
+    // aborta en vez de abrir la nueva, que dejaría dos vigentes.
+    if (updated.length !== 1) {
+      throw new Error(
+        `expected exactly one open classification to supersede for subject ${supersession.subjectId}, updated ${updated.length}`,
+      );
+    }
+  }
+
+  if (plan.opened.length > 0) {
+    await tx.insert(schema.classificationAssignments).values(
+      plan.opened.map((classification) => ({
+        classificationAssignmentId: classification.classificationAssignmentId,
+        subjectType: classification.subjectType,
+        subjectId: classification.subjectId,
+        taxonomyId: classification.taxonomyId,
+        taxonomyVersion: classification.taxonomyVersion,
+        code: classification.code,
+        label: classification.label,
+        ...toTemporalRow(classification),
+      })),
+    );
+  }
+}
+
 /**
  * Repositorio personal de clasificaciones declaradas (ADR 0025).
  *
@@ -63,59 +123,9 @@ export function createPostgresClassificationRepository(
     async applyClassificationPlan(
       plan: ClassificationPlan,
     ): Promise<ClassificationPlanSummary> {
-      await database.transaction(async (tx) => {
-        for (const supersession of plan.supersessions) {
-          const updated = await tx
-            .update(schema.classificationAssignments)
-            .set({ supersededAt: new Date(supersession.supersededAt) })
-            .where(
-              and(
-                eq(
-                  schema.classificationAssignments.subjectId,
-                  supersession.subjectId,
-                ),
-                eq(
-                  schema.classificationAssignments.taxonomyId,
-                  plan.taxonomyId,
-                ),
-                eq(
-                  schema.classificationAssignments.validFrom,
-                  new Date(supersession.validFrom),
-                ),
-                isNull(schema.classificationAssignments.validTo),
-                isNull(schema.classificationAssignments.supersededAt),
-              ),
-            )
-            .returning({
-              subjectId: schema.classificationAssignments.subjectId,
-            });
-
-          // Cero filas significa que la aserción que el plan vio ya no está
-          // abierta: otra corrida la movió entre el plan y la escritura. Se
-          // aborta en vez de abrir la nueva, que dejaría dos vigentes.
-          if (updated.length !== 1) {
-            throw new Error(
-              `expected exactly one open classification to supersede for subject ${supersession.subjectId}, updated ${updated.length}`,
-            );
-          }
-        }
-
-        if (plan.opened.length > 0) {
-          await tx.insert(schema.classificationAssignments).values(
-            plan.opened.map((classification) => ({
-              classificationAssignmentId:
-                classification.classificationAssignmentId,
-              subjectType: classification.subjectType,
-              subjectId: classification.subjectId,
-              taxonomyId: classification.taxonomyId,
-              taxonomyVersion: classification.taxonomyVersion,
-              code: classification.code,
-              label: classification.label,
-              ...toTemporalRow(classification),
-            })),
-          );
-        }
-      });
+      await database.transaction((tx) =>
+        applyClassificationPlanInTransaction(tx, plan),
+      );
 
       return {
         ruleVersion: plan.ruleVersion,

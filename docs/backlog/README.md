@@ -58,7 +58,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    30 | `F3-06`    | `done`     | Costo de capital bottom-up con componentes fechados, recalculado por el motor en cada corrida.                                                | `F3-05`       |
 |    31 | `F5-01`    | `done`     | Controles de la capa IA antes de la primera llamada: egress `POST` con credencial, fuentes registradas, gasto en dólares, breaker y escalera. | Fase 3 `done` |
 |    32 | `F5-02`    | `done`     | Guard server-side de la capa IA: sólo existe en `personal` y ninguna clave llega al browser, probado sobre el build.                          | `F5-01`       |
-|    33 | `F5-03`    | `ready`    | Industria ambigua resuelta con secciones dirigidas del 10-K, policy determinista y aserción persistida, medida sobre las 16 ambiguas.         | `F5-02`       |
+|    33 | `F5-03`    | `done`     | Industria ambigua resuelta con secciones dirigidas del 10-K, policy determinista y aserción persistida, medida sobre las 16 ambiguas.         | `F5-02`       |
+|    34 | `F5-04`    | `ready`    | Tavily como segunda evidencia cuando el 10-K no alcanza; medido el 2026-10-15, alcanzó en las 16 ambiguas.                                    | `F5-03`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -2893,6 +2894,56 @@ hallazgos y detectó una fuga deliberada —una Route Handler estática que
 devolvía `OPENROUTER_API_KEY` dejó el centinela en `server/app/<ruta>.body`—;
 1898 unit y 175 E2E.
 
+<a id="f5-03"></a>
+
+**`F5-03` — cierre (2026-10-15).** La industria ambigua se resuelve con la capa
+IA y evidencia primaria, y queda guardada (`F5-06` para este caso):
+
+- **El 10-K al corte** (`sec-annual-report-locator-1.0.0`): el `10-K` original
+  más reciente aceptado antes del corte, leído de `submissions` por un lector
+  propio para no cambiar la versión del parser de la ingesta, con fallback al
+  antecesor declarado (ExxonMobil). La allowlist de la SEC suma
+  `/Archives/edgar/data/` (`egress-allowlist-1.2.0`) y el nombre del documento
+  tiene que ser plano.
+- **Secciones dirigidas** (`sec-10k-sections-1.0.0`): el Item 1 es el primer
+  tramo de al menos 2.000 caracteres hasta el Item 1A —el índice no califica y
+  las referencias cruzadas vienen después—, y la nota de segmentos se reconoce
+  por los encabezados que usan los filers. Hasta 20 KB y 8 KB. Medido sobre diez
+  10-K reales antes de gastar en un modelo.
+- **La tarea** (`industry-resolution-1.0.0`): evidencia delimitada y no
+  confiable, respuesta cerrada con schema estricto, policy determinista y
+  `aiTransfer` comprobado por fuente antes de reservar (`ai-transfer-1.0.0`).
+- **Persistencia** (migración `0025`): `industry_resolutions` y
+  `industry_resolution_evidence` guardan toda respuesta con sus extractos y
+  hashes; una resuelta se publica como aserción `damodaran-industry` en la misma
+  transacción, disponible desde que se resolvió.
+- **Precedencia** (`sic-damodaran-industry-1.1.0`): owner → IA → SIC, y una
+  resolución sólo vale mientras su industria siga siendo candidata del SIC
+  visible. `valuation:assess` la lee sin red y dice qué modelo la respondió.
+- **`pnpm valuation:resolve-industry`**: no pregunta dos veces por el mismo SIC y
+  el mismo 10-K salvo con `--again`, y una empresa que no es ambigua no gasta.
+
+Criterios cumplidos: extracción cualitativa con schema cerrado, evidence IDs
+obligatorios y secciones dirigidas (`TM-09`, `TM-15`); el replay de la
+evaluación no vuelve a llamar al modelo. Evidencia: **16 de 16 ambiguas
+resueltas, 0 abstenciones, USD 0,041 en total**: 9 en el escalón 1 y 7 en el 2,
+ninguna en el 3. Ocho no financieras ganaron WACC; CRM sigue sin WACC por la
+cobertura de intereses; las siete financieras tienen industria y siguen en costo
+del equity. Repetir no gasta (`already_asked`). Las respuestas son las
+esperables (GOOGL `software-internet`, JPM y BAC `bank-money-center`, USB
+`banks-regional`, O `retail-reits`, XOM `oil-gas-integrated`), y el owner puede
+corregir cualquiera con una declaración. Tests: 7 de secciones, 5 del
+localizador, 12 de la tarea y la policy, 2 de `aiTransfer`, 5 del plan, 10 del
+orquestador, la precedencia en el mapeo y la evaluación, el contrato del
+repositorio sobre el doble y sobre PostgreSQL, y el rollback de `0025` en una
+réplica.
+
+El escalón 1 falló el schema en 5 de 16 empresas: 3 veces se quedó sin tokens
+razonando (`not_json|length`) y 2 devolvió salidas incoherentes. Desde este
+corte, cada `schema_invalid` registra campo y código del primer problema,
+nunca el texto. Subir `max_tokens` o cambiar el escalón 1 es una versión nueva
+de la tarea o de la escalera, y la decide `F5-07`.
+
 ### Fase 6 — corrida por ticker y acceso CEDEAR
 
 | Issue   | Resultado y aceptación mínima                                                                                                                                          | Depende de | Controles                          |
@@ -3647,7 +3698,7 @@ probar el control; fases posteriores pueden volver a verificarlo.
 | `TM-06` | `F1-04`                                 | `F2-02`, `F4-01`, cada consulta      | `done` de la consulta a la valuación: dos cortes producen dos corridas distintas                                                                                                                                                                                                                |
 | `TM-07` | `F1-02`                                 | `F1-07`, `F6-01`, `F7-05`            | `done`: Drizzle parametrizado y límite de consulta verificados en PostgreSQL                                                                                                                                                                                                                    |
 | `TM-08` | `F2-03`, primer provider real           | `F5-04`, `F9-01`                     | required; no hay egress aún                                                                                                                                                                                                                                                                     |
-| `TM-09` | `F5-03`                                 | `F5-04`, `F5-07`, `F10-04`           | required; no hay IA aún                                                                                                                                                                                                                                                                         |
+| `TM-09` | `F5-03`                                 | `F5-04`, `F5-07`, `F10-04`           | `done` para `industry-resolution-1.0.0`: evidencia delimitada y no confiable, sin herramientas, respuesta cerrada y policy determinista                                                                                                                                                         |
 | `TM-10` | `F2-05`                                 | `F5-01`, `F6-05`, `F10-05`           | `done` para la SEC: presupuesto por corrida con reserva del peor caso, señales de la fuente, y límite diario con kill switch (ADR 0020), los tres verificados también sobre el refresh; `done` para la capa IA (`F5-01`): gasto en dólares reservado por tarea y por día, breaker y kill switch |
 | `TM-11` | `F2-05`                                 | `F6-05`, `F9-01`, `F10-05`           | `done` para el backfill y el refresh de la SEC: lease, `429`, crash y recuperación manual probados sobre los dos kinds (ADR 0015, ADR 0022); cron sigue apagado                                                                                                                                 |
 | `TM-12` | `F1-01`                                 | cada UI externa, `F10-06`            | headers base y render seguro verificados                                                                                                                                                                                                                                                        |

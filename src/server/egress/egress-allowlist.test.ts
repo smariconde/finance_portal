@@ -273,6 +273,8 @@ describe("egress allowlist", () => {
       "https://data.sec.gov/submissions/CIK0000320193.json",
       "https://www.sec.gov/files/company_tickers.json",
       "https://www.sec.gov/files/company_tickers_exchange.json",
+      // F5-03: el documento principal de un 10-K.
+      "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm",
     ]) {
       expect(authorizeEgressUrl(url, entry!).allowed).toBe(true);
     }
@@ -283,7 +285,8 @@ describe("egress allowlist", () => {
 
     for (const url of [
       "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany",
-      "https://www.sec.gov/Archives/edgar/data/320193/index.json",
+      "https://www.sec.gov/Archives/edgar/daily-index/2026/QTR3/",
+      "https://www.sec.gov/Archives/edgar/full-index/company.idx",
       "https://efts.sec.gov/LATEST/search-index?q=test",
       "https://data.sec.gov/api/xbrl/",
     ]) {

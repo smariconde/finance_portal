@@ -8,7 +8,7 @@ Portal Financiero: a single-owner Next.js 16 portal for researching global compa
 
 The code is public; the data is not. The app is **personal-first**: it serves real data only from a private runtime, and there is no public demo deployment. See [ADR 0004](docs/architecture/adr/0004-personal-first-runtime.md).
 
-The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations kept to a five-fiscal-year window, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, per-source daily request budgets with an owner kill switch, a hand-run refresh that probes `submissions` and re-downloads only the filers that filed something relevant, a deterministic FCFF engine with its reference run, a frozen corpus of real SEC extracts as regression oracle, the declared sector classification with its population resolved at `as_of`, raw daily price series with dated splits and dividends, the CEDEAR registry of both issuers with each CEDEAR as its own security, a pure `sortino-1.0.0` over a total-return base with the metric catalog it belongs to, an on-demand company assessment that observes the SEC SIC, selects an archetype from versioned signals, measures completeness and rigor and builds the cost of capital from dated Damodaran releases, and the AI layer's controls before any task —an egress door that takes `POST` with a credential it adds itself, a dollar spend ledger per task and per day, a breaker and a declared model ladder measured by a smoke call—, exist. The first surface that reads real data is the sector risk matrix (`/sectores`, `/sectores/[sector]`), which reads stored prices, the sector population and the CEDEAR registry from the personal database at request time and, when opened, downloads only the prices it is missing through the project's first Server Action. Scheduled refresh, live market data, screener, the Argentina dashboard, and AI features —no task sends source evidence to a model yet— are **not** implemented, and no UI surface reads SEC observations yet; nothing may be presented in the UI as if it were.
+The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations kept to a five-fiscal-year window, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, per-source daily request budgets with an owner kill switch, a hand-run refresh that probes `submissions` and re-downloads only the filers that filed something relevant, a deterministic FCFF engine with its reference run, a frozen corpus of real SEC extracts as regression oracle, the declared sector classification with its population resolved at `as_of`, raw daily price series with dated splits and dividends, the CEDEAR registry of both issuers with each CEDEAR as its own security, a pure `sortino-1.0.0` over a total-return base with the metric catalog it belongs to, an on-demand company assessment that observes the SEC SIC, selects an archetype from versioned signals, measures completeness and rigor and builds the cost of capital from dated Damodaran releases, the AI layer's controls before any task —an egress door that takes `POST` with a credential it adds itself, a dollar spend ledger per task and per day, a breaker and a declared model ladder measured by a smoke call—, and its first task, which resolves an ambiguous Damodaran industry from targeted 10-K sections and stores it as an assertion the assessment reads, exist. The first surface that reads real data is the sector risk matrix (`/sectores`, `/sectores/[sector]`), which reads stored prices, the sector population and the CEDEAR registry from the personal database at request time and, when opened, downloads only the prices it is missing through the project's first Server Action. Scheduled refresh, live market data, screener, the Argentina dashboard, and AI features beyond that one hand-run task are **not** implemented, and no UI surface reads SEC observations yet; nothing may be presented in the UI as if it were.
 
 `AGENTS.md` holds the full contributor contract and takes precedence over this file where they overlap.
 
@@ -344,6 +344,37 @@ importing `@/server/ai` or `@/modules/ai/application`, so no route or action
 reaches a model until a slice opens that boundary with `TM-03`. Measured: the three rungs answered the smoke
 task under ZDR for USD 0.000538 in total, each charge 11–23× below its
 reservation.
+
+```bash
+pnpm valuation:resolve-industry --ticker GOOGL             # asks the ladder and reports, writes nothing (it spends)
+pnpm valuation:resolve-industry --ticker GOOGL --apply     # also stores the resolution and its assertion
+pnpm valuation:resolve-industry --ticker GOOGL --again --apply
+```
+
+The AI layer's first task (`F5-03`, ADR 0033, migration `0025`,
+[runbook](docs/runbooks/industry-resolution.md)): the Damodaran industry of a
+company whose SIC is `ambiguous`. It needs the observed SIC
+(`valuation:assess --apply`). Before spending it checks the work is needed — not
+ambiguous, declared by the owner, or already asked about the **same SIC and the
+same 10-K** all skip, the last one for one `submissions` request and no AI.
+The evidence is the latest original `10-K` accepted by the cutoff
+(`sec-annual-report-locator-1.0.0`, a reader of its own so the ingestion
+parser's version does not move; it falls back to a declared predecessor's CIK,
+which is how ExxonMobil's new filer finds a 10-K), fetched from
+`/Archives/edgar/data/` with a flat document name, cut by
+`sec-10k-sections-1.0.0` to Item 1 (the **first** span of at least 2,000
+characters up to Item 1A, so neither the index nor a later cross-reference
+wins) and the segment note, 20 KB and 8 KB. `aiTransfer` is checked per source
+before any reservation. `industry-resolution-1.0.0` sends fenced, untrusted
+evidence and the candidate keys only; the answer is closed and a deterministic
+policy rejects a key outside the candidates or the release, a missing or
+unknown citation, and treats `low` confidence as an abstention. Every answer is
+stored in `industry_resolutions` with its excerpts and hashes; a resolved one is
+published in the same transaction as a `damodaran-industry` assertion available
+from the instant it was resolved. `sic-damodaran-industry-1.1.0` reads it with
+precedence **owner → AI → SIC**, and only while the key is still a candidate of
+the visible SIC; reading it never calls a model. Measured: 16 of 16 ambiguous
+companies resolved for USD 0.041, 9 on rung 1 and 7 on rung 2.
 
 ```bash
 pnpm fundamentals:ingest --ticker AAPL             # dry run: downloads and builds vintages, writes nothing

@@ -26,6 +26,8 @@ import {
   type IndustryDeclaration,
   type IndustryMapping,
 } from "../domain/industry-mapping";
+import { DAMODARAN_INDUSTRY_ASSERTION_TAXONOMY } from "../domain/industry-resolution";
+import type { IndustryAssertionReading } from "./industry-resolution-repository";
 import {
   buildCostOfCapital,
   COST_OF_CAPITAL_VERSION,
@@ -81,6 +83,13 @@ export type CompanyAssessmentDependencies = {
   readonly industryRelease: (
     query: PointInTimeQuery,
   ) => Promise<ReadonlyMap<string, string> | null>;
+  /**
+   * Aserciones `damodaran-industry` de la capa IA, vigentes o no (`F5-03`). La
+   * evaluación elige la visible al corte; leerlas nunca llama a un modelo.
+   */
+  readonly loadIndustryResolutions?: (
+    legalEntityId: string,
+  ) => Promise<readonly IndustryAssertionReading[]>;
   /** Las cuatro releases de Damodaran visibles al corte, o `null` cada una (`F3-04`). */
   readonly costOfCapitalReadings: (query: PointInTimeQuery) => Promise<{
     readonly betas: ReferenceReading | null;
@@ -202,11 +211,20 @@ export async function assessCompany(
         );
 
   const evidence = [...sicEvidence, ...(fundamental?.evidence ?? [])];
+  const aiResolution =
+    ((await dependencies.loadIndustryResolutions?.(legalEntityId)) ?? []).find(
+      (item) =>
+        item.classification.taxonomyId ===
+          DAMODARAN_INDUSTRY_ASSERTION_TAXONOMY &&
+        item.classification.subjectId === legalEntityId &&
+        isVisible(item.classification, query),
+    )?.reading ?? null;
   const industry = mapIndustry({
     cik: request.cik,
     sic: visibleSic?.code ?? null,
     releaseIndustries: await dependencies.industryRelease(query),
     declarations: request.industryDeclarations,
+    aiResolution,
   });
   const completeness = measureCompleteness(series, {
     industryMapping: industry.status,

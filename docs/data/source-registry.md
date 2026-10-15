@@ -224,7 +224,9 @@ Esas capacidades técnicas no aprueban transferir datos del owner. Desde la
 [ADR 0033](../architecture/adr/0033-ai-layer-industry-resolution.md) cada
 pedido las exige en código, y `F5-01` puso allowlist, credencial, tope diario,
 gasto en dólares y breaker antes de la primera llamada. Qué puede viajar a un
-modelo lo decide el `aiTransfer` de cada fuente de origen: `sec-edgar` pasó a
+modelo lo decide el `aiTransfer` de cada fuente de origen, comprobado por
+`ai-transfer-1.0.0` al armar cada prompt (`F5-03`); el primer dataset que viaja es
+`sec.annual-report-documents`, secciones dirigidas del último 10-K: `sec-edgar` pasó a
 `allowed` (copiar con cita), y Damodaran, Yahoo, Comafi y Caja siguen sin
 poder viajar.
 

@@ -202,7 +202,7 @@ describe("assessCompany", () => {
     );
 
     expect(ambiguous.industry).toEqual({
-      version: "sic-damodaran-industry-1.0.0",
+      version: "sic-damodaran-industry-1.1.0",
       status: "ambiguous",
       sic: "6021",
       candidates: ["bank-money-center", "banks-regional"],
@@ -230,6 +230,57 @@ describe("assessCompany", () => {
       status: "mapped",
       industryKey: "banks-regional",
       basis: "owner_declaration",
+    });
+  });
+
+  it("reads a stored AI resolution only once it is visible at the cutoff, without calling a model", async () => {
+    const resolvedAt = "2026-10-15T12:00:00.000Z";
+    const reading = {
+      classification: {
+        ...sic("6021"),
+        classificationAssignmentId: "00000000-0000-4000-8000-0000000000c1",
+        taxonomyId: "damodaran-industry",
+        taxonomyVersion: "industry-resolution-1.0.0",
+        code: "banks-regional",
+        label: "Banks (Regional)",
+        validFrom: resolvedAt,
+        availableAt: resolvedAt,
+        sourceId: "openrouter",
+        sourceDocumentId:
+          "industry-resolution/00000000-0000-4000-8000-0000000000a1",
+      },
+      reading: {
+        resolutionId: "00000000-0000-4000-8000-0000000000a1",
+        industryKey: "banks-regional",
+        availableAt: resolvedAt,
+        respondedModel: "fixture/model-a",
+        evidenceIds: ["E1"],
+      },
+    };
+    const assess = (at: string) =>
+      assessCompany(
+        {
+          legalEntityId: SUBJECT,
+          query: query(at),
+          fundamentalsSourceId: "sec-edgar",
+          cik: "0000000042",
+          industryDeclarations: [],
+          listingCountry: "US",
+        },
+        {
+          ...dependencies([sic("6021")], matureRows()),
+          loadIndustryResolutions: async () => [reading],
+        },
+      );
+
+    expect((await assess("2026-10-15T11:59:59.000Z")).industry.status).toBe(
+      "ambiguous",
+    );
+    expect((await assess("2026-10-16T00:00:00.000Z")).industry).toMatchObject({
+      status: "mapped",
+      basis: "ai_resolution",
+      industryKey: "banks-regional",
+      resolution: { respondedModel: "fixture/model-a", evidenceIds: ["E1"] },
     });
   });
 

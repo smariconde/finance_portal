@@ -44,6 +44,7 @@ import { DAMODARAN_INDUSTRY_TAXONOMY } from "@/modules/valuation/domain/industry
 import { getSourceEgressFetch } from "@/server/egress/get-source-egress-fetch";
 import { getClassificationRepository } from "@/server/persistence/get-classification-repository";
 import { getCorporateActionRepository } from "@/server/persistence/get-corporate-action-repository";
+import { getIndustryResolutionRepository } from "@/server/persistence/get-industry-resolution-repository";
 import { getIngestionRunRepository } from "@/server/persistence/get-ingestion-run-repository";
 import { getObservationRepository } from "@/server/persistence/get-observation-repository";
 import { getReferenceDatasetRepository } from "@/server/persistence/get-reference-dataset-repository";
@@ -106,6 +107,7 @@ const observations = getObservationRepository();
 const corporateActions = getCorporateActionRepository();
 const ingestionRuns = getIngestionRunRepository();
 const referenceDatasets = getReferenceDatasetRepository();
+const industryResolutions = getIndustryResolutionRepository();
 const state = await getUniverseRepository().loadState({
   indexId: SP500_INDEX_ID,
   versions: "all",
@@ -293,6 +295,9 @@ for (const ticker of values.ticker) {
     },
     {
       loadSicAssertions: async () => assertions,
+      // Lo guardado por `valuation:resolve-industry`: leerlo no llama a un modelo.
+      loadIndustryResolutions: (subjectId) =>
+        industryResolutions.assertionsForSubject(subjectId),
       readFundamentals: async (subjectId, pointInTime) => {
         const selection = await readLineageObservations(
           {
@@ -414,7 +419,11 @@ for (const report of reports) {
   log(
     "industria",
     assessment.industry.status === "mapped"
-      ? `${assessment.industry.industryLabel} · ${assessment.industry.basis}`
+      ? `${assessment.industry.industryLabel} · ${assessment.industry.basis}${
+          assessment.industry.resolution === undefined
+            ? ""
+            : ` (resuelta por IA: ${assessment.industry.resolution.respondedModel ?? "—"}, cita ${assessment.industry.resolution.evidenceIds.join(", ")}, ${assessment.industry.resolution.availableAt})`
+        }`
       : assessment.industry.status === "ambiguous"
         ? `ambigua entre ${assessment.industry.candidates.join(", ")}`
         : `sin mapear · ${assessment.industry.reason}`,

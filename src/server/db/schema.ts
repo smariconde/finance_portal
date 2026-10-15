@@ -812,6 +812,103 @@ export const aiSpendLedger = pgTable(
   ],
 );
 
+export const industryResolutionOutcome = pgEnum("industry_resolution_outcome", [
+  "resolved",
+  "abstained",
+  "stopped",
+]);
+
+/**
+ * Resoluciones de industria de la capa IA (`F5-03`, ADR 0033): una fila por
+ * vez que se le preguntó a la escalera, con la respuesta que haya dado.
+ *
+ * Se guarda también la abstención y el freno, no sólo el acierto: una empresa
+ * que sigue `ambiguous` tiene que poder decir por qué. `resolution_id` es el
+ * `task_run_id` de sus intentos en `ai_spend_ledger`, así que el costo de cada
+ * resolución se lee de ahí y no se copia. Una resolución aceptada se publica
+ * aparte, como aserción en `classification_assignments`; esta tabla es su
+ * evidencia, y no se borra.
+ */
+export const industryResolutions = pgTable(
+  "industry_resolutions",
+  {
+    resolutionId: uuid("resolution_id").primaryKey(),
+    legalEntityId: uuid("legal_entity_id").notNull(),
+    cik: char("cik", { length: 10 }).notNull(),
+    sic: char("sic", { length: 4 }).notNull(),
+    candidates: jsonb("candidates").$type<string[]>().notNull(),
+    taskVersion: varchar("task_version", { length: 64 }).notNull(),
+    promptVersion: varchar("prompt_version", { length: 64 }).notNull(),
+    ladderVersion: varchar("ladder_version", { length: 64 }).notNull(),
+    sectionsVersion: varchar("sections_version", { length: 64 }).notNull(),
+    outcome: industryResolutionOutcome("outcome").notNull(),
+    industryKey: varchar("industry_key", { length: 64 }),
+    confidence: varchar("confidence", { length: 8 }),
+    rationale: text("rationale"),
+    reason: varchar("reason", { length: 64 }),
+    acceptedRung: integer("accepted_rung"),
+    respondedModel: varchar("responded_model", { length: 128 }),
+    citedEvidenceIds: jsonb("cited_evidence_ids").$type<string[]>().notNull(),
+    resolvedAt: instant("resolved_at").notNull(),
+    recordedAt: instant("recorded_at").notNull(),
+  },
+  (table) => [
+    index("industry_resolutions_subject_idx").on(
+      table.legalEntityId,
+      table.resolvedAt,
+    ),
+    check(
+      "industry_resolutions_outcome_check",
+      sql`(${table.outcome} = 'resolved') = (${table.industryKey} is not null) and (${table.outcome} = 'resolved') = (${table.reason} is null)`,
+    ),
+    check(
+      "industry_resolutions_confidence_check",
+      sql`${table.confidence} is null or ${table.confidence} in ('high', 'medium', 'low')`,
+    ),
+    check(
+      "industry_resolutions_timeline_check",
+      sql`${table.recordedAt} >= ${table.resolvedAt}`,
+    ),
+  ],
+);
+
+/**
+ * Cada extracto que se le mandó al modelo, con el documento de la SEC del que
+ * salió y su hash. Es lo que el modelo pudo citar: una cita a un ID que no está
+ * acá la rechazó la policy.
+ */
+export const industryResolutionEvidence = pgTable(
+  "industry_resolution_evidence",
+  {
+    resolutionId: uuid("resolution_id").notNull(),
+    evidenceId: varchar("evidence_id", { length: 8 }).notNull(),
+    sourceId: varchar("source_id", { length: 64 }).notNull(),
+    section: varchar("section", { length: 32 }).notNull(),
+    documentUrl: text("document_url").notNull(),
+    accessionNumber: varchar("accession_number", { length: 20 }).notNull(),
+    documentAcceptedAt: instant("document_accepted_at").notNull(),
+    sha256: char("sha256", { length: 64 }).notNull(),
+    byteLength: integer("byte_length").notNull(),
+    truncated: boolean("truncated").notNull(),
+    excerpt: text("excerpt").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      name: "industry_resolution_evidence_pkey",
+      columns: [table.resolutionId, table.evidenceId],
+    }),
+    foreignKey({
+      name: "industry_resolution_evidence_resolution_fk",
+      columns: [table.resolutionId],
+      foreignColumns: [industryResolutions.resolutionId],
+    }),
+    check(
+      "industry_resolution_evidence_bytes_check",
+      sql`${table.byteLength} > 0`,
+    ),
+  ],
+);
+
 /**
  * Marca de agua del refresh (ADR 0021): hasta qué presentación miró el sondeo a
  * cada sujeto, y cuándo lo miró.
