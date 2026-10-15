@@ -241,7 +241,9 @@ superficie nueva: la evaluación existente la muestra.
    extracción de secciones del 10-K, prompt, policy, persistencia (migración),
    comando e integración con `valuation:assess`. Se mide sobre las 16 ambiguas de
    la muestra.
-3. **Tavily como segunda evidencia** (`F5-04`).
+3. **Tavily como segunda evidencia** (`F5-04`). Diferido el 2026-10-15: el 10-K
+   alcanzó en las 16 ambiguas y no hay caso real que medir. La condición de
+   reingreso está en el [backlog](../../backlog/README.md#f5-04).
 
 ## Consecuencias
 
