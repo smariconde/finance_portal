@@ -1,6 +1,6 @@
 # ADR 0034: riesgo país ponderado por operaciones, con el mix propuesto por la IA
 
-- Estado: propuesto
+- Estado: aceptado
 - Fecha: 2026-10-16
 - Alcance: `F5-05`, primer caso de supuestos —el mix geográfico de ingresos—, y la
   parte de `F5-06` que lo persiste. Decide de dónde salen los CRP regionales,
@@ -57,8 +57,8 @@ releases distintas.
 
 Los campos que lee hoy el costo de capital —`default_spread`,
 `country_risk_premium`, `corporate_tax_rate`— conservan nombre y clave de fila:
-la clave es el nombre normalizado igual que antes, con las entidades HTML
-decodificadas (el Excel escribe `St. Vincent &amp; the Grenadines`). Las 22
+la clave es el nombre normalizado igual que antes —sin acentos, `&` como
+`and`—, así que `cote-d-ivoire` y `st-vincent-and-the-grenadines` no cambian. Las 22
 filas del HTML sin rating —Rusia, Irán, Siria y otras, casi todas con CRP `NA`—
 no están en la hoja y dejan de existir en la release nueva; una empresa que
 opere ahí se resuelve por su región o no se pondera. También se pierde
@@ -94,10 +94,11 @@ estrecho:
   predefinidas y las numéricas, y lee filas y celdas con un tokenizador lineal.
   Acepta celdas numéricas, de string compartido, `inlineStr` y `str` (resultado
   de fórmula); una celda de error (`t="e"`) es `null` con motivo;
-- **números**: el texto de `<v>` se conserva tal cual y se parsea como decimal,
-  nunca pasa por `number`. Lo que el Excel guarda es un double
+- **números**: el texto de `<v>` se lee como texto y se pasa a decimal moviendo
+  el punto, nunca por `number`. Lo que el Excel guarda es un double
   (`4.2000000000000003E-2`), y ese texto **es** el dato de la fuente: la release
-  lo guarda sin redondear, y el costo de capital redondea donde ya redondeaba.
+  guarda `0.042000000000000003`, el mismo valor exacto, y el costo de capital
+  redondea donde ya redondeaba.
 
 El parser de la tabla (`damodaran-xlsx-1.0.0`) verifica los encabezados de cada
 hoja antes de leer una fila, exige las filas testigo (`United States`, `North

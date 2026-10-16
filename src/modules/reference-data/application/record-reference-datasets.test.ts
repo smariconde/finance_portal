@@ -11,6 +11,7 @@ import { findDamodaranDataset } from "../domain/damodaran-datasets";
 import {
   fixtureBetaRows,
   fixtureBetasPage,
+  fixtureCountryRiskWorkbook,
   fixtureRatingsPage,
 } from "../infrastructure/fixture-damodaran-pages";
 import { InMemoryReferenceDatasetRepository } from "../infrastructure/in-memory-reference-dataset-repository";
@@ -238,5 +239,40 @@ describe("createLiveDamodaranSource", () => {
     await expect(broken.load(ratings)).rejects.toMatchObject({
       code: "payload_rejected",
     });
+  });
+
+  it("downloads the country-risk workbook once and reads both datasets from it", async () => {
+    const requests: { url: string; accept: string | undefined }[] = [];
+    const workbook = fixtureCountryRiskWorkbook();
+    const source = createLiveDamodaranSource({
+      sourceRegistry: createInMemorySourceRegistryRepository(),
+      fetch: async (request) => {
+        requests.push({ url: request.url, accept: request.accept });
+        return {
+          status: 200,
+          body: workbook,
+          byteLength: workbook.byteLength,
+          fetchedAt: FIRST,
+        };
+      },
+    });
+
+    const countries = await source.load(
+      findDamodaranDataset("damodaran.country-risk")!,
+    );
+    const regions = await source.load(
+      findDamodaranDataset("damodaran.country-risk-regions")!,
+    );
+
+    expect(requests).toEqual([
+      {
+        url: "https://pages.stern.nyu.edu/~adamodar/pc/datasets/ctrypremJuly26.xlsx",
+        accept:
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      },
+    ]);
+    expect(countries.fetchedAt).toBe(regions.fetchedAt);
+    expect(countries.publication.rows.length).toBeGreaterThan(100);
+    expect(regions.publication.rows).toHaveLength(9);
   });
 });

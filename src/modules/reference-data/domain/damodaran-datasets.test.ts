@@ -4,19 +4,24 @@ import {
   FIXTURE_BETA_HEADERS,
   fixtureBetaRows,
   fixtureBetasPage,
-  fixtureCountryRiskPage,
+  FIXTURE_BREAKDOWN_HEADERS,
+  fixtureCountryRiskWorkbook,
   fixtureImpliedErpPage,
   fixtureRatingsPage,
 } from "../infrastructure/fixture-damodaran-pages";
+import { buildZip } from "../infrastructure/fixture-xlsx";
 import {
+  DAMODARAN_COUNTRY_RISK_WORKBOOK,
+  DAMODARAN_WORKBOOK_PARSER_VERSION,
   findDamodaranDataset,
+  numberTextToDecimal,
   parseDamodaranDataset,
   percentToFraction,
   rowKeyOf,
 } from "./damodaran-datasets";
 
-function parse(datasetId: string, html: string) {
-  return parseDamodaranDataset(findDamodaranDataset(datasetId)!, html);
+function parse(datasetId: string, body: string | Uint8Array) {
+  return parseDamodaranDataset(findDamodaranDataset(datasetId)!, body);
 }
 
 describe("percentToFraction", () => {
@@ -145,22 +150,7 @@ describe("damodaran-html-1.0.0: industry betas", () => {
   });
 });
 
-describe("damodaran-html-1.0.0: country risk, implied ERP and ratings", () => {
-  it("reads the country table after the link table and keeps the update note in the label", () => {
-    const result = parse("damodaran.country-risk", fixtureCountryRiskPage());
-    if (!result.ok) throw new Error(result.code);
-
-    expect(result.publishedLabel).toBe("January 5, 2026");
-    expect(result.rows.find((row) => row.key === "turkey")).toMatchObject({
-      label: "Turkey (updated February 2026)",
-      values: { moodys_rating: "Ba3", country_risk_premium: "0.0466" },
-    });
-    expect(
-      result.rows.find((row) => row.key === "united-states")?.values
-        .sovereign_cds,
-    ).toBeNull();
-  });
-
+describe("damodaran-html-1.0.0: implied ERP and ratings", () => {
   it("reads implied ERP by year and leaves the first year's blank premium null", () => {
     const result = parse("damodaran.implied-erp", fixtureImpliedErpPage());
     if (!result.ok) throw new Error(result.code);
@@ -193,5 +183,163 @@ describe("damodaran-html-1.0.0: country risk, implied ERP and ratings", () => {
     expect(
       result.rows.filter((row) => row.key.startsWith("financial-")),
     ).toHaveLength(15);
+  });
+});
+
+describe("numberTextToDecimal", () => {
+  it.each([
+    ["4.2000000000000003E-2", "0.042000000000000003"],
+    ["2.1863536781947081E-3", "0.0021863536781947081"],
+    ["0.99999999999999989", "0.99999999999999989"],
+    ["1.0000000000000007", "1.0000000000000007"],
+    ["28750956.130731199", "28750956.130731199"],
+    ["0.25", "0.25"],
+    ["1E3", "1000"],
+    ["1.5E+2", "150"],
+    ["-3.1E-2", "-0.031"],
+    ["0", "0"],
+    ["-0", "0"],
+    ["0.000", "0"],
+  ])("writes %s exactly as %s", (text, decimal) => {
+    expect(numberTextToDecimal(text)).toBe(decimal);
+  });
+
+  it.each(["", "NA", "1,5", "1e", "Infinity", "NaN", "1E999"])(
+    "refuses %s instead of guessing",
+    (text) => {
+      expect(numberTextToDecimal(text)).toBeNull();
+    },
+  );
+});
+
+describe("damodaran-xlsx-1.0.0: country risk and its regions", () => {
+  it("reads countries from the breakdown sheet with exact fractions and the pinned label", () => {
+    const result = parse(
+      "damodaran.country-risk",
+      fixtureCountryRiskWorkbook(),
+    );
+    if (!result.ok) throw new Error(result.code);
+
+    expect(result.parserVersion).toBe(DAMODARAN_WORKBOOK_PARSER_VERSION);
+    expect(result.publishedLabel).toBe(
+      DAMODARAN_COUNTRY_RISK_WORKBOOK.publishedLabel,
+    );
+    expect(result.rows).toHaveLength(104);
+    expect(result.rejections).toEqual([]);
+    expect(result.rows.find((row) => row.key === "united-states")).toEqual({
+      key: "united-states",
+      label: "United States",
+      values: {
+        gdp_millions: "28750956.130731199",
+        moodys_rating: "Aa1",
+        sovereign_cds: "0.0055999999999999999",
+        default_spread: "0.0021863536781947081",
+        equity_risk_premium: "0.044200000000000003",
+        country_risk_premium: "0.0021863536781947081",
+        corporate_tax_rate: "0.25",
+        region: "North America",
+      },
+    });
+  });
+
+  it("keeps the keys the HTML gave: accents and ampersands normalize the same way", () => {
+    const result = parse(
+      "damodaran.country-risk",
+      fixtureCountryRiskWorkbook(),
+    );
+    if (!result.ok) throw new Error(result.code);
+
+    const keys = result.rows.map((row) => row.key);
+    expect(keys).toContain("st-vincent-and-the-grenadines");
+    expect(keys).toContain("cote-d-ivoire");
+  });
+
+  it("keeps NA and a formula error as null, never zero", () => {
+    const result = parse(
+      "damodaran.country-risk",
+      fixtureCountryRiskWorkbook(),
+    );
+    if (!result.ok) throw new Error(result.code);
+
+    expect(
+      result.rows.find((row) => row.key === "country-001")?.values
+        .sovereign_cds,
+    ).toBeNull();
+    expect(
+      result.rows.find((row) => row.key === "cote-d-ivoire")?.values
+        .sovereign_cds,
+    ).toBeNull();
+  });
+
+  it("reads only the rows that close a region from the weighted sheet", () => {
+    const result = parse(
+      "damodaran.country-risk-regions",
+      fixtureCountryRiskWorkbook(),
+    );
+    if (!result.ok) throw new Error(result.code);
+
+    expect(result.rows.map((row) => row.key)).toEqual([
+      "africa",
+      "asia",
+      "australia-and-new-zealand",
+      "caribbean",
+      "central-and-south-america",
+      "eastern-europe",
+      "middle-east",
+      "north-america",
+      "western-europe",
+    ]);
+    expect(result.rows.find((row) => row.key === "north-america")).toEqual({
+      key: "north-america",
+      label: "North America",
+      values: {
+        gdp_millions: "8000",
+        default_spread: "0.047486708416285141",
+        equity_risk_premium: "0.11581787578987807",
+        country_risk_premium: "0.002028087891797981",
+        corporate_tax_rate: "0.27390173905276305",
+      },
+    });
+  });
+
+  it("rejects the whole sheet when a column moves", () => {
+    const moved = [...FIXTURE_BREAKDOWN_HEADERS];
+    [moved[5], moved[6]] = [moved[6]!, moved[5]!];
+
+    expect(
+      parse(
+        "damodaran.country-risk",
+        fixtureCountryRiskWorkbook({ breakdownHeaders: moved }),
+      ),
+    ).toEqual({ ok: false, code: "header_mismatch" });
+  });
+
+  it("rejects a truncated sheet", () => {
+    expect(
+      parse(
+        "damodaran.country-risk",
+        fixtureCountryRiskWorkbook({ countries: 10 }),
+      ),
+    ).toEqual({ ok: false, code: "too_few_rows" });
+  });
+
+  it("names what the reader refused, and never reads a workbook as text", () => {
+    expect(parse("damodaran.country-risk", buildZip([]))).toEqual({
+      ok: false,
+      code: "xlsx_part_missing",
+    });
+    expect(parse("damodaran.country-risk", "<html></html>")).toEqual({
+      ok: false,
+      code: "workbook_expected",
+    });
+  });
+
+  it("reads both datasets from the same pinned file", () => {
+    expect(findDamodaranDataset("damodaran.country-risk")!.url).toBe(
+      DAMODARAN_COUNTRY_RISK_WORKBOOK.url,
+    );
+    expect(findDamodaranDataset("damodaran.country-risk-regions")!.url).toBe(
+      DAMODARAN_COUNTRY_RISK_WORKBOOK.url,
+    );
   });
 });

@@ -434,12 +434,13 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
       datasets: [
         "damodaran.betas-us",
         "damodaran.country-risk",
+        "damodaran.country-risk-regions",
         "damodaran.implied-erp",
         "damodaran.synthetic-ratings",
       ],
       endpoints: [
         "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/Betas.html",
-        "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/ctryprem.html",
+        "https://pages.stern.nyu.edu/~adamodar/pc/datasets/ctrypremJuly26.xlsx",
         "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/histimpl.html",
         "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/ratings.html",
       ],

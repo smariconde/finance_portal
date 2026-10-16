@@ -1,3 +1,5 @@
+import { buildXlsx, type CellFixture } from "./fixture-xlsx";
+
 /**
  * Páginas sintéticas con la forma de las de Damodaran (ADR 0032).
  *
@@ -100,58 +102,145 @@ export function fixtureBetasPage(
   );
 }
 
-export function fixtureCountryRiskPage(count = 101): string {
-  const rows = Array.from({ length: count }, (_, index) => [
-    `Country ${String(index + 1).padStart(3, "0")}`,
-    "Baa1",
-    "1.36%",
-    "2.07%",
-    "6.30%",
-    "25.00%",
-    "NA",
-    "NA",
-  ]);
+export const FIXTURE_BREAKDOWN_HEADERS = [
+  "Country",
+  "GDP (in millions) in 2024",
+  "Moody's rating",
+  "Sovereign CDS",
+  "Adj. Default Spread",
+  "Equity Risk Premium",
+  "Country Risk Premium",
+  "Corporate Tax Rate",
+  "Region",
+] as const;
 
-  return page(
-    "<p>Country Default Spreads and Risk Premiums</p><p>Last updated: January 5, 2026</p>",
-    table([
-      ["My paper on equity risk premiums:", "", "", "https://example.invalid"],
-    ]) +
-      table([
-        [
-          "Country",
-          "Moody's rating",
-          "Adj. Default Spread",
-          "Country Risk Premium",
-          "Equity Risk Premium",
-          "Corporate Tax Rate",
-          "Sovereignn CDS",
-          "ERP based on sovereign CDSS",
-        ],
-        ...rows,
-        [
-          "Turkey (updated February 2026)",
-          "Ba3",
-          "3.06%",
-          "4.66%",
-          "8.89%",
-          "25.00%",
-          "2.85%",
-          "8.56%",
-        ],
-        [
-          "United States",
-          "Aa1",
-          "0.23%",
-          "0.35%",
-          "4.58%",
-          "25.00%",
-          "NA",
-          "NA",
-        ],
-        Array(8).fill(""),
-      ]),
+const FIXTURE_REGIONS = [
+  "Africa",
+  "Asia",
+  "Australia & New Zealand",
+  "Caribbean",
+  "Central and South America",
+  "Eastern Europe",
+  "Middle East",
+  "North America",
+  "Western Europe",
+] as const;
+
+/**
+ * El libro de riesgo país, sintético: las dos hojas que se leen con la forma
+ * del archivo de Damodaran —encabezados, filas resumen de región reconocidas
+ * por región vacía y peso 1, agrupaciones al pie— y cifras inventadas.
+ */
+export function fixtureCountryRiskWorkbook(
+  options: {
+    readonly countries?: number;
+    readonly breakdownHeaders?: readonly string[];
+  } = {},
+): Uint8Array {
+  const count = options.countries ?? 101;
+  const countries: CellFixture[][] = Array.from(
+    { length: count },
+    (_, index) => [
+      `Country ${String(index + 1).padStart(3, "0")}`,
+      { n: "1000.5" },
+      "Baa1",
+      "NA",
+      { n: "1.3599999999999999E-2" },
+      { n: "6.3E-2" },
+      { n: "2.07E-2" },
+      { n: "0.25" },
+      FIXTURE_REGIONS[index % FIXTURE_REGIONS.length]!,
+    ],
   );
+
+  const breakdown: CellFixture[][] = [
+    [...(options.breakdownHeaders ?? FIXTURE_BREAKDOWN_HEADERS)],
+    [
+      "St. Vincent & the Grenadines",
+      { n: "1063.5" },
+      "B3",
+      "NA",
+      { n: "5.1747824426647708E-2" },
+      { n: "0.122441761564857" },
+      { n: "8.0441761564857009E-2" },
+      { n: "0.3" },
+      "Caribbean",
+    ],
+    ...countries,
+    [
+      "United States",
+      { n: "28750956.130731199" },
+      "Aa1",
+      { n: "5.5999999999999999E-3" },
+      { n: "2.1863536781947081E-3" },
+      { n: "4.4200000000000003E-2" },
+      { n: "2.1863536781947081E-3" },
+      { n: "0.25" },
+      "North America",
+    ],
+    [
+      "Côte d'Ivoire",
+      { n: "87113.18" },
+      "Ba2",
+      { error: "#N/A" },
+      { n: "2.3955593224632577E-2" },
+      { n: "7.9238862496570334E-2" },
+      { n: "3.7238862496570338E-2" },
+      { n: "0.25" },
+      "Africa",
+    ],
+  ];
+
+  const weighted: CellFixture[][] = [
+    [
+      "Country",
+      "GDP (in millions) in 2024",
+      "Moody's rating",
+      "Adj. Default Spread",
+      "Equity Risk Premium",
+      "Country Risk Premium",
+      "Corporate Tax Rate",
+      "Region",
+      "GDP Weight",
+      "Weight*Default Spread",
+    ],
+  ];
+
+  FIXTURE_REGIONS.forEach((region, index) => {
+    // Un país de detalle, que nombra su región, y la fila que la cierra.
+    weighted.push([
+      `Member of ${region}`,
+      { n: "100" },
+      "A1",
+      { n: "5.614592162023261E-3" },
+      { n: "5.0727858397633677E-2" },
+      { n: "8.727858397633674E-3" },
+      { n: "0.25" },
+      region,
+      { n: "1" },
+      { n: "5.614592162023261E-3" },
+    ]);
+    weighted.push([
+      region,
+      { n: String(1000 * (index + 1)) },
+      null,
+      { n: "4.7486708416285141E-2" },
+      { n: "0.11581787578987807" },
+      { n: index === 7 ? "2.028087891797981E-3" : "7.3817875789878071E-2" },
+      { n: "0.27390173905276305" },
+      null,
+      { n: index % 2 === 0 ? "1.0000000000000007" : "0.99999999999999989" },
+    ]);
+  });
+  // Las agrupaciones del pie no tienen peso: no son filas resumen.
+  weighted.push(["For updating industry averages"], [null, "ERP"]);
+  weighted.push(["Global", { n: "5.503557485521765E-2" }]);
+
+  return buildXlsx([
+    { name: "Explanation and FAQ", rows: [["Read me"]] },
+    { name: "Regional breakdown", rows: breakdown },
+    { name: "Regional Weighted Averages", rows: weighted },
+  ]);
 }
 
 export function fixtureImpliedErpPage(): string {

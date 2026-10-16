@@ -13,10 +13,12 @@ import {
 import type { ReferencePublication } from "../domain/reference-release";
 
 /**
- * Adaptador vivo de las páginas de Damodaran (ADR 0032). Una request por página;
- * la respuesta se normaliza y **no se conserva**: la fila de derechos declara
- * `rawStorage` `restricted`, y el gate se negaría si esta corrida dijera que
- * guarda la página.
+ * Adaptador vivo de las páginas de Damodaran (ADR 0032). Una request por URL:
+ * los dos datasets del riesgo país salen del mismo libro (ADR 0034), que se
+ * baja una vez por adaptador para que un CRP regional y uno de país nunca vengan
+ * de descargas distintas. La respuesta se normaliza y **no se conserva**: la
+ * fila de derechos declara `rawStorage` `restricted`, y el gate se negaría si
+ * esta corrida dijera que guarda la página.
  */
 const RIGHTS_REQUEST: IngestionRightsRequest = {
   storesRawPayload: false,
@@ -60,10 +62,15 @@ export type ReferenceSourceProvider = {
   load(dataset: DamodaranDataset): Promise<FetchedReferencePublication>;
 };
 
+const WORKBOOK_MEDIA_TYPE =
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
 export function createLiveDamodaranSource(dependencies: {
   readonly sourceRegistry: SourceRegistryRepository;
   readonly fetch: EgressFetch;
 }): ReferenceSourceProvider {
+  const downloads = new Map<string, ReturnType<EgressFetch>>();
+
   return {
     async load(dataset) {
       const entry =
@@ -97,11 +104,19 @@ export function createLiveDamodaranSource(dependencies: {
       let response: Awaited<ReturnType<EgressFetch>>;
 
       try {
-        response = await dependencies.fetch({
-          sourceId: DAMODARAN_SOURCE_ID,
-          url: dataset.url,
-          accept: "text/html",
-        });
+        let download = downloads.get(dataset.url);
+
+        if (download === undefined) {
+          download = dependencies.fetch({
+            sourceId: DAMODARAN_SOURCE_ID,
+            url: dataset.url,
+            accept:
+              dataset.shape === "workbook" ? WORKBOOK_MEDIA_TYPE : "text/html",
+          });
+          downloads.set(dataset.url, download);
+        }
+
+        response = await download;
       } catch (cause) {
         throw new ReferenceSourceError(
           "fetch_failed",
@@ -118,10 +133,7 @@ export function createLiveDamodaranSource(dependencies: {
         );
       }
 
-      const publication = parseDamodaranDataset(
-        dataset,
-        new TextDecoder("utf-8").decode(response.body),
-      );
+      const publication = parseDamodaranDataset(dataset, response.body);
 
       if (!publication.ok) {
         throw new ReferenceSourceError(

@@ -296,8 +296,17 @@ pnpm damodaran:record --dataset damodaran.betas-us --apply
 Also hand-run (`F3-04`, [ADR 0032](docs/architecture/adr/0032-damodaran-reference-datasets.md),
 migration `0023`). Four Damodaran tables —US industry betas, country risk,
 historical implied ERP and the synthetic-rating table— read from their **HTML**
-pages (the `.xls` would need a new dependency) by `damodaran-html-1.0.0`, which
-checks headers before reading a row. Automated access is `owner_accepted`; the
+pages by `damodaran-html-1.0.0`, which checks headers before reading a row.
+Since `F5-05` ([ADR 0034](docs/architecture/adr/0034-operations-weighted-country-risk.md))
+country risk and its nine GDP-weighted regions come from the **`.xlsx`** instead
+—one download, two datasets (`damodaran.country-risk`,
+`damodaran.country-risk-regions`), so a regional and a country CRP never come
+from different releases— read by `xlsx-sheet-reader-1.0.0`, an in-repo reader
+over `node:zlib`: central directory only, four known parts, 4 MB per part and
+8 MB in all, CRC32 checked, no ZIP64, encryption or `DOCTYPE`. The file name
+changes with every update and is pinned in `damodaran-datasets.ts`; the
+allowlist opens that exact path. A cell's double (`4.2000000000000003E-2`) is
+moved to a decimal by shifting the point, never through `number`. Automated access is `owner_accepted`; the
 terms allow research use with attribution and forbid reselling, so the page is
 never stored and fixtures are synthetic. Each page is a **release**
 (`reference_dataset_releases` + `reference_dataset_rows`) whose `available_at` is

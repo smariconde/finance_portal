@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { DEMO_SOURCE_REGISTRY } from "@/modules/ingestion/infrastructure/demo-source-registry";
+import { DAMODARAN_COUNTRY_RISK_WORKBOOK } from "@/modules/reference-data/domain/damodaran-datasets";
 import {
   findEgressAllowlistEntry,
   listEgressAllowlistEntries,
@@ -78,7 +79,7 @@ describe("egress allowlist", () => {
     }
   });
 
-  it("reaches the four Damodaran pages one by one, never the whole site", () => {
+  it("reaches the four Damodaran files one by one, never the whole site", () => {
     const entry = findEgressAllowlistEntry("damodaran-current-data");
 
     expect(entry?.origins).toEqual([
@@ -86,13 +87,18 @@ describe("egress allowlist", () => {
         host: "pages.stern.nyu.edu",
         pathPrefixes: [
           "/~adamodar/New_Home_Page/datafile/Betas.html",
-          "/~adamodar/New_Home_Page/datafile/ctryprem.html",
+          "/~adamodar/pc/datasets/ctrypremJuly26.xlsx",
           "/~adamodar/New_Home_Page/datafile/histimpl.html",
           "/~adamodar/New_Home_Page/datafile/ratings.html",
         ],
       },
     ]);
     expect(entry?.maxRedirects).toBe(0);
+    // El pin del libro vive con los datasets: la allowlist abre esa ruta y
+    // ninguna otra del directorio (ADR 0034).
+    expect(entry?.origins[0]?.pathPrefixes).toContain(
+      new URL(DAMODARAN_COUNTRY_RISK_WORKBOOK.url).pathname,
+    );
   });
 
   it("returns null for a source that is not listed, with no default", () => {

@@ -40,6 +40,11 @@ es `approved_personal`.
 | `damodaran.implied-erp`       | `histimpl.html` | ERP implícita y tasa del bono del Tesoro a inicio de cada año                       |
 | `damodaran.synthetic-ratings` | `ratings.html`  | cobertura de intereses → rating → spread, para no financieras grandes y financieras |
 
+**Enmendado por la [ADR 0034](0034-operations-weighted-country-risk.md) el
+2026-10-16:** el riesgo país se lee del `.xlsx` (`ctrypremJuly26.xlsx`), junto
+con sus nueve regiones, con un lector propio y sin dependencia. Las otras tres
+tablas siguen en HTML.
+
 Se lee la versión **HTML**, no el `.xls`: es la misma tabla con los mismos
 encabezados, y el binario pediría una dependencia nueva. El parser
 (`damodaran-html-1.0.0`) verifica los encabezados antes de leer una fila y rechaza
