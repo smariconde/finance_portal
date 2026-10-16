@@ -225,6 +225,21 @@ pnpm valuation:operations-mix --ticker AAPL --apply   # también guarda la propu
 mix declarado o aceptado al corte, y nombra el motivo cuando la propuesta se
 rechazó.
 
+## Medición del incremento 3 (2026-10-16)
+
+Sobre las 17 no financieras con tabla, `operations-mix-policy-1.0.0` aceptó 10.
+La `1.1.0` corrige tres rigideces que la medición mostró, sin aflojar ninguna
+regla de origen: un nombre puede ser una **lista** de lugares declarados («Asia,
+Africa, Oceania, and Middle East») o un «Rest of» de uno, con alias nuevos
+(`greater-china`, `eame`, `oceania`, `cis`); las comillas y guiones tipográficos
+se comparan como los de teclado; una raya sola es cero. La tolerancia del total
+contra los ingresos pasa de 2 % a 5 %, porque ExxonMobil publica «Sales and other
+operating revenue» y sus `Revenues` suman otros ingresos. El prompt `1.1.0` pide
+la fila consolidada cuando la tabla se abre por segmento. Resultado: **13 de 17**
+por USD 0,40 en las dos vueltas, con JNJ entre ellas. AAPL, CAT, DE y GOOGL siguen
+sin mix porque los escalones 1 y 3 agotan los tokens de salida razonando; es
+evidencia para `F5-07`, que decide techo y escalera.
+
 ## Incrementos
 
 1. **Lector y datasets**: `xlsx-sheet-reader-1.0.0`, `damodaran-xlsx-1.0.0`, el

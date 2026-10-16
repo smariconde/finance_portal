@@ -154,6 +154,40 @@ const FINANCIAL_PROFILES: ReadonlySet<string> = new Set([
   "reit",
 ]);
 
+/**
+ * La serie anual del linaje al corte: las filas que la consulta elige, ancladas
+ * en el último cierre anual que registró la ingesta. Sin ancla —el sujeto no
+ * tiene fundamentals ingeridos— la serie es `null`.
+ */
+export async function readAnnualFundamentals(
+  legalEntityId: string,
+  query: PointInTimeQuery,
+  readers: Pick<
+    CompanyAssessmentDependencies,
+    "readFundamentals" | "fiscalYearAnchors"
+  >,
+): Promise<{
+  readonly anchor: string | null;
+  readonly series: AnnualFundamentals | null;
+}> {
+  const rows = await readers.readFundamentals(legalEntityId, query);
+  const lineageSubjects = [
+    ...new Set([legalEntityId, ...rows.map((row) => row.subjectId)]),
+  ];
+  const anchor = chooseFiscalYearAnchor(
+    await readers.fiscalYearAnchors(lineageSubjects),
+    rows,
+  );
+
+  return {
+    anchor,
+    series:
+      anchor === null
+        ? null
+        : buildAnnualFundamentals(rows, anchor, query.effectiveAt.slice(0, 10)),
+  };
+}
+
 export async function assessCompany(
   request: CompanyAssessmentRequest,
   dependencies: CompanyAssessmentDependencies,
@@ -188,18 +222,11 @@ export async function assessCompany(
     isVisible(classification, query),
   );
 
-  const rows = await dependencies.readFundamentals(legalEntityId, query);
-  const lineageSubjects = [
-    ...new Set([legalEntityId, ...rows.map((row) => row.subjectId)]),
-  ];
-  const anchor = chooseFiscalYearAnchor(
-    await dependencies.fiscalYearAnchors(lineageSubjects),
-    rows,
+  const { anchor, series } = await readAnnualFundamentals(
+    legalEntityId,
+    query,
+    dependencies,
   );
-  const series =
-    anchor === null
-      ? null
-      : buildAnnualFundamentals(rows, anchor, query.effectiveAt.slice(0, 10));
 
   const fundamental =
     series === null

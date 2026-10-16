@@ -386,6 +386,29 @@ the visible SIC; reading it never calls a model. Measured: 16 of 16 ambiguous
 companies resolved for USD 0.041, 9 on rung 1 and 7 on rung 2.
 
 ```bash
+pnpm valuation:operations-mix --ticker JNJ                 # transcribes the 10-K geographic revenue table and reports (it spends)
+pnpm valuation:operations-mix --ticker JNJ --apply         # also stores the proposal, its lines and evidence
+```
+
+The first assumption the AI proposes (`F5-05`,
+[ADR 0034](docs/architecture/adr/0034-operations-weighted-country-risk.md),
+migration `0026`, [runbook](docs/runbooks/operations-mix.md)): the geographic
+revenue mix that weights the CRP by operations. The AI **transcribes and maps,
+never weights**: `sec-10k-geographic-revenue-1.0.0` cuts the table (its own
+version, so the industry task's sections version does not move), and
+`operations-mix-1.0.0` copies every line as printed with a verbatim quote and
+maps it to Damodaran countries or regions. `operations-mix-policy-1.1.0`
+rejects any amount not in its quote, any quote not in the evidence, lines that
+do not add up to the total (0.5 %), a total that is not the fiscal year's
+revenue (5 %, which catches the wrong table or unit), keys outside the release,
+and a name match that is neither the key, a declared alias nor a list of them.
+Weights are computed by code (`operations-mix-weights-1.0.0`); reconciling items
+do not weigh. An owner declaration by CIK in `declared-operations-mixes.ts`
+(empty) is the lock: the model is not asked. Measured: 13 of 17 non-financials
+accepted for USD 0.40; AAPL, CAT, DE and GOOGL run out of output tokens on
+rungs 1 and 3, which is `F5-07`'s call.
+
+```bash
 pnpm fundamentals:ingest --ticker AAPL             # dry run: downloads and builds vintages, writes nothing
 pnpm fundamentals:ingest --ticker AAPL --apply     # records the run, filings and observations
 ```

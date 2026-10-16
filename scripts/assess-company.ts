@@ -7,8 +7,6 @@ import {
   SEC_SIC_TAXONOMY_ID,
 } from "@/modules/classification/domain/sec-sic-classification";
 import type { SubjectClassification } from "@/modules/classification/domain/subject-classification";
-import { readLineageObservations } from "@/modules/corporate-actions/application/read-lineage-observations";
-import { COMPANY_FACTS_DATASET_ID } from "@/modules/fundamentals/application/ingest-company-facts";
 import {
   createLiveCompanyFactsSource,
   SEC_SOURCE_ID,
@@ -33,7 +31,6 @@ import {
 } from "@/modules/valuation/application/assess-company";
 import { readReferenceDataset } from "@/modules/reference-data/application/read-reference-dataset";
 import { DECLARED_INDUSTRY_ASSIGNMENTS } from "@/modules/valuation/application/declared-industry-assignments";
-import { annualFundamentalsConcepts } from "@/modules/valuation/domain/annual-fundamentals";
 import {
   BETAS_DATASET,
   COUNTRY_RISK_DATASET,
@@ -43,14 +40,12 @@ import {
 import { DAMODARAN_INDUSTRY_TAXONOMY } from "@/modules/valuation/domain/industry-mapping";
 import { getSourceEgressFetch } from "@/server/egress/get-source-egress-fetch";
 import { getClassificationRepository } from "@/server/persistence/get-classification-repository";
-import { getCorporateActionRepository } from "@/server/persistence/get-corporate-action-repository";
 import { getIndustryResolutionRepository } from "@/server/persistence/get-industry-resolution-repository";
-import { getIngestionRunRepository } from "@/server/persistence/get-ingestion-run-repository";
-import { getObservationRepository } from "@/server/persistence/get-observation-repository";
 import { getReferenceDatasetRepository } from "@/server/persistence/get-reference-dataset-repository";
 import { getSourceBudgetStore } from "@/server/persistence/get-source-budget-store";
 import { getSourceRegistryRepository } from "@/server/persistence/get-source-registry-repository";
 import { getUniverseRepository } from "@/server/persistence/get-universe-repository";
+import { createFundamentalReaders } from "@/server/valuation/fundamental-readers";
 
 /**
  * Evaluación a demanda de una empresa (`F3-01`, gate de la Fase 3).
@@ -103,9 +98,6 @@ const NOW = new Date().toISOString();
 const query = queryAt(NOW);
 
 const classifications = getClassificationRepository();
-const observations = getObservationRepository();
-const corporateActions = getCorporateActionRepository();
-const ingestionRuns = getIngestionRunRepository();
 const referenceDatasets = getReferenceDatasetRepository();
 const industryResolutions = getIndustryResolutionRepository();
 const state = await getUniverseRepository().loadState({
@@ -113,6 +105,7 @@ const state = await getUniverseRepository().loadState({
   versions: "all",
 });
 const identity = createGraphIdentityResolver(() => state.graph);
+const fundamentalReaders = createFundamentalReaders(cikOf);
 
 /** El CIK vigente o, para un antecesor del linaje, el último que tuvo. */
 function cikOf(legalEntityId: string): string | null {
@@ -298,31 +291,7 @@ for (const ticker of values.ticker) {
       // Lo guardado por `valuation:resolve-industry`: leerlo no llama a un modelo.
       loadIndustryResolutions: (subjectId) =>
         industryResolutions.assertionsForSubject(subjectId),
-      readFundamentals: async (subjectId, pointInTime) => {
-        const selection = await readLineageObservations(
-          {
-            legalEntityId: subjectId,
-            metricIds: [...annualFundamentalsConcepts()],
-          },
-          pointInTime,
-          { corporateActions, observations },
-        );
-
-        return selection.rows.map((row) => ({
-          observationId: row.observation.observationId,
-          subjectId: row.observation.subjectId,
-          concept: row.observation.concept,
-          periodType: row.observation.periodType,
-          asOf: row.observation.asOf,
-          periodStart: row.observation.periodStart,
-          unit: row.observation.unit,
-          currency: row.observation.currency,
-          value: row.value,
-          availableAt: row.observation.availableAt,
-          recordedAt: row.observation.recordedAt,
-          sourceDocumentId: row.observation.sourceDocumentId,
-        }));
-      },
+      ...fundamentalReaders,
       costOfCapitalReadings: async (pointInTime) => {
         const [betas, countryRisk, impliedErp, ratings] = await Promise.all(
           [
@@ -352,27 +321,6 @@ for (const ticker of values.ticker) {
         return reading === null
           ? null
           : new Map(reading.rows.map((row) => [row.key, row.label]));
-      },
-      fiscalYearAnchors: async (subjectIds) => {
-        const anchors = await Promise.all(
-          subjectIds.map(async (subjectId) => {
-            const subjectCik = cikOf(subjectId);
-
-            if (subjectCik === null) {
-              return null;
-            }
-
-            const run = await ingestionRuns.findLatestAnchored(
-              SEC_SOURCE_ID,
-              COMPANY_FACTS_DATASET_ID,
-              subjectCik,
-            );
-
-            return run?.selectionAnchorOn ?? null;
-          }),
-        );
-
-        return anchors.filter((anchor): anchor is string => anchor !== null);
       },
     },
   );
