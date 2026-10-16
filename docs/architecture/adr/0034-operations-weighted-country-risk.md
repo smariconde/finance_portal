@@ -116,11 +116,23 @@ La IA no propone pesos. **Transcribe** la tabla geográfica de ingresos del 10-K
 y **mapea** cada línea a exposiciones de Damodaran; los pesos los calcula el
 código.
 
-Evidencia: `sec-10k-sections-1.1.0` agrega una tercera sección dirigida, la
-tabla de ingresos por geografía, que puede estar en la nota de segmentos (Apple,
-Ford), en la desagregación de ingresos (Salesforce, Norwegian, Moderna) o en una
-nota de información geográfica (Incyte). Se mide sobre los 30 10-K de la muestra
-**antes** de gastar en un modelo, como en `F5-03`. Al modelo viajan la sección
+Evidencia: `sec-10k-geographic-revenue-1.0.0`, un recorte dirigido de la tabla
+de ingresos por geografía, con versión propia para no mover
+`sec-10k-sections-1.0.0`, que la industria guarda con su respuesta. La tabla
+puede estar en la nota de segmentos (Apple, Ford), en la desagregación de
+ingresos (Salesforce, Norwegian, Moderna), en una nota de información geográfica
+(Incyte) o lejos del encabezado de su nota (Johnson & Johnson). La regla es
+declarada y determinista: cada mención geográfica —o una fila de Estados Unidos
+con monto— propone una tabla, el título tiene que hablar de ingresos, y gana la
+que tiene más **lugares distintos** con un monto de tabla en los 1.200
+caracteres que siguen; un título que nombra unidades, empleados o pasajeros, o
+activos antes que ingresos, pierde. Se recortan 6 KB.
+
+Medido el 2026-10-16 sobre los 30 10-K de la muestra, **antes** de gastar en un
+modelo: las 17 no financieras que publican la tabla caen en ella, con la cifra
+del último ejercicio y su total; Duke y Devon no publican tabla —son
+domésticas— y quedan con el CRP de Estados Unidos; las once financieras, REITs
+y holdings no reciben WACC, así que su mix no se pide. Al modelo viajan la sección
 delimitada como no confiable, el nombre de la empresa y las claves candidatas
 —los 157 países y las nueve regiones por nombre—. Ningún CRP, PBI ni otro valor
 de Damodaran viaja: `aiTransfer` de esa fuente es `restricted`, y un nombre de
@@ -218,7 +230,8 @@ rechazó.
 1. **Lector y datasets**: `xlsx-sheet-reader-1.0.0`, `damodaran-xlsx-1.0.0`, el
    pin del archivo, la allowlist y las dos releases; medido con
    `pnpm damodaran:record --apply`.
-2. **Evidencia**: `sec-10k-sections-1.1.0` medido sobre los 30 10-K, sin modelo.
+2. **Evidencia**: `sec-10k-geographic-revenue-1.0.0` medido sobre los 30 10-K,
+   sin modelo.
 3. **La tarea**: `operations-mix-1.0.0`, la policy, la migración `0026`, el lock
    y el comando, medidos sobre la muestra.
 4. **El motor**: `cost-of-capital-1.1.0`, el check que recalcula,
