@@ -1,7 +1,7 @@
 # Metodología de valuación
 
 - Estado: metodología objetivo; motor FCFF base implementado en `src/modules/valuation/`
-- Versión metodológica: 0.4.0 (la corrida lleva selección, completitud y rigor desde `F3-03`, y el costo de capital construido desde `F3-06`)
+- Versión metodológica: 0.5.0 (la corrida lleva selección, completitud y rigor desde `F3-03`, el costo de capital construido desde `F3-06` y el riesgo país ponderado por operaciones desde `F5-05`)
 - Versión de engine implementada: `fcff-1.0.0` (método `fcff_base`)
 - Fecha: 2026-08-21; motor base entregado el 2026-08-24; niveles de rigor y alcance
   de la IA incorporados el 2026-09-04
@@ -454,6 +454,39 @@ así que su valor por acción no cambia y sus hashes sí.
 Medido el 2026-10-02: Apple 9,75 % (terminal 8,19 %), Johnson & Johnson 7,86 %.
 Apple dejó de publicar intereses en 2024; su rating sintético sale de la
 cobertura de 2023 y lo declara (`coverage_from_earlier_fiscal_year`).
+
+### `F5-05`: riesgo país ponderado por operaciones
+
+`cost-of-capital-1.1.0` ([ADR 0034](../architecture/adr/0034-operations-weighted-country-risk.md))
+reemplaza, en la prima del equity, el CRP del país del listing por el **CRP por
+operaciones** cuando hay mix:
+
+`CRP = Σ peso × CRP de la exposición`
+
+- **Peso**: los ingresos de cada línea geográfica del 10-K sobre la suma de las
+  geográficas, calculados por código desde la transcripción que la policy aceptó
+  (`operations-mix-weights-1.0.0`), o los pesos que declaró el owner, que ganan
+  siempre.
+- **CRP de la exposición**: el de su fila, de país o de región, de la release de
+  riesgo país del `.xlsx` de Damodaran. Varias filas se combinan por el PBI de
+  cada una en la misma release (`regions_combined_by_gdp`); el resto del mundo es
+  la combinación de las nueve regiones (`rest_of_world_as_global`).
+- **Lo que no cambia**: el default spread y la tasa marginal siguen siendo del
+  domicilio, porque la deuda la emite la casa matriz.
+
+Sin mix, el costo de capital es el de `1.0.0` y declara
+`country_risk_by_primary_listing`: la falta de mix nunca es un CRP cero. Una
+clave del mix que la release no tiene deja el WACC sin construir y la nombra.
+`costOfCapital.operationsExposure` lleva cada componente con su release, fila,
+CRP y PBI, y `wacc_built_from_components` recalcula el CRP desde ahí.
+`completeness-profile-1.1.0` da el mix geográfico por presente cuando hay mix al
+corte. La versión metodológica pasa a `0.5.0`; `FixtureCo` no tiene mix, así que
+su valor por acción no cambia y sus hashes sí.
+
+Medido el 2026-10-16: nueve no financieras de la muestra llevan CRP por
+operaciones en su WACC. Johnson & Johnson pasa de 7,86 % a 8,39 % (CRP 0,81 %
+contra 0,22 % de EE. UU.) y su rigor sube de `standard` a `full`; ExxonMobil, de
+5,10 % a 5,27 %.
 
 ## Normalización
 

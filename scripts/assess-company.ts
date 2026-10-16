@@ -31,9 +31,13 @@ import {
 } from "@/modules/valuation/application/assess-company";
 import { readReferenceDataset } from "@/modules/reference-data/application/read-reference-dataset";
 import { DECLARED_INDUSTRY_ASSIGNMENTS } from "@/modules/valuation/application/declared-industry-assignments";
+import { DECLARED_OPERATIONS_MIXES } from "@/modules/valuation/application/declared-operations-mixes";
+import { readOperationsMix } from "@/modules/valuation/application/read-operations-mix";
+import { operationsCountryRiskPremium } from "@/modules/valuation/domain/cost-of-capital";
 import {
   BETAS_DATASET,
   COUNTRY_RISK_DATASET,
+  COUNTRY_RISK_REGIONS_DATASET,
   IMPLIED_ERP_DATASET,
   RATINGS_DATASET,
 } from "@/modules/valuation/domain/cost-of-capital";
@@ -41,6 +45,7 @@ import { DAMODARAN_INDUSTRY_TAXONOMY } from "@/modules/valuation/domain/industry
 import { getSourceEgressFetch } from "@/server/egress/get-source-egress-fetch";
 import { getClassificationRepository } from "@/server/persistence/get-classification-repository";
 import { getIndustryResolutionRepository } from "@/server/persistence/get-industry-resolution-repository";
+import { getOperationsMixRepository } from "@/server/persistence/get-operations-mix-repository";
 import { getReferenceDatasetRepository } from "@/server/persistence/get-reference-dataset-repository";
 import { getSourceBudgetStore } from "@/server/persistence/get-source-budget-store";
 import { getSourceRegistryRepository } from "@/server/persistence/get-source-registry-repository";
@@ -100,6 +105,7 @@ const query = queryAt(NOW);
 const classifications = getClassificationRepository();
 const referenceDatasets = getReferenceDatasetRepository();
 const industryResolutions = getIndustryResolutionRepository();
+const operationsMixes = getOperationsMixRepository();
 const state = await getUniverseRepository().loadState({
   indexId: SP500_INDEX_ID,
   versions: "all",
@@ -293,24 +299,39 @@ for (const ticker of values.ticker) {
         industryResolutions.assertionsForSubject(subjectId),
       ...fundamentalReaders,
       costOfCapitalReadings: async (pointInTime) => {
-        const [betas, countryRisk, impliedErp, ratings] = await Promise.all(
-          [
-            BETAS_DATASET,
-            COUNTRY_RISK_DATASET,
-            IMPLIED_ERP_DATASET,
-            RATINGS_DATASET,
-          ].map((datasetId) =>
-            readReferenceDataset(datasetId, pointInTime, referenceDatasets),
-          ),
-        );
+        const [betas, countryRisk, impliedErp, ratings, regions] =
+          await Promise.all(
+            [
+              BETAS_DATASET,
+              COUNTRY_RISK_DATASET,
+              IMPLIED_ERP_DATASET,
+              RATINGS_DATASET,
+              COUNTRY_RISK_REGIONS_DATASET,
+            ].map((datasetId) =>
+              readReferenceDataset(datasetId, pointInTime, referenceDatasets),
+            ),
+          );
 
         return {
           betas: betas ?? null,
           countryRisk: countryRisk ?? null,
           impliedErp: impliedErp ?? null,
           ratings: ratings ?? null,
+          regions: regions ?? null,
         };
       },
+      // Lo guardado por `valuation:operations-mix` o declarado por el owner:
+      // leerlo no llama a un modelo.
+      loadOperationsMix: (subjectId, pointInTime) =>
+        readOperationsMix(
+          {
+            legalEntityId: subjectId,
+            cik,
+            query: pointInTime,
+            declarations: DECLARED_OPERATIONS_MIXES,
+          },
+          operationsMixes,
+        ),
       industryRelease: async (pointInTime) => {
         const reading = await readReferenceDataset(
           DAMODARAN_INDUSTRY_TAXONOMY,
@@ -418,7 +439,8 @@ for (const report of reports) {
     log("  alternativas", selection.alternatives.join(", "));
   }
   if (assessment.costOfCapital.status === "computed") {
-    const { derived, coverage } = assessment.costOfCapital.costOfCapital;
+    const { derived, coverage, operationsExposure } =
+      assessment.costOfCapital.costOfCapital;
     log(
       "costo de capital",
       `WACC ${derived.wacc} · terminal ${derived.terminalWacc}`,
@@ -430,6 +452,12 @@ for (const report of reports) {
     log(
       "  deuda",
       `${derived.syntheticRating} (cobertura ${coverage.value}, ${coverage.fiscalYearEnd}) → kd ${derived.preTaxCostOfDebt} · peso ${derived.debtWeight}`,
+    );
+    log(
+      "  riesgo país",
+      operationsExposure === null || operationsExposure === undefined
+        ? "CRP del domicilio (sin mix de operaciones)"
+        : `CRP por operaciones ${operationsCountryRiskPremium(operationsExposure).toFixed(6)} · ${operationsExposure.source === "owner_declaration" ? "declarado por el owner" : `propuesta ${operationsExposure.proposalId}`} · ${operationsExposure.exposures.length} exposiciones`,
     );
   } else {
     log(

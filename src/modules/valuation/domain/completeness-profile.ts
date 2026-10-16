@@ -18,7 +18,15 @@ import type {
  * todavía no puede hacer —la industria antes de `F3-05`— es `not_evaluated`, que
  * tampoco es un `met`.
  */
-export const COMPLETENESS_PROFILE_VERSION = "completeness-profile-1.0.0";
+/**
+ * `1.1.0` (`F5-05`, ADR 0034): el mix geográfico deja de ser siempre faltante;
+ * está cuando el owner lo declaró o la IA lo propuso y la policy lo aceptó.
+ */
+export const COMPLETENESS_PROFILE_VERSION = "completeness-profile-1.1.0";
+const COMPLETENESS_PROFILE_VERSIONS = [
+  "completeness-profile-1.0.0",
+  COMPLETENESS_PROFILE_VERSION,
+] as const;
 
 export const completenessCheckIds = [
   /** Lo mínimo para que el motor FCFF empiece, en el último ejercicio. */
@@ -70,11 +78,13 @@ export type IndustryMappingStatus = "mapped" | "ambiguous" | "unmapped";
 
 export type CompletenessContext = {
   readonly industryMapping: IndustryMappingStatus | null;
+  /** De dónde salió el mix de operaciones visible al corte, o `null` si no hay. */
+  readonly operationsMix?: "owner_declaration" | "ai_proposal" | null;
 };
 
 export const completenessProfileSchema = z
   .object({
-    version: z.literal(COMPLETENESS_PROFILE_VERSION),
+    version: z.enum(COMPLETENESS_PROFILE_VERSIONS),
     latestFiscalYearEnd: z.iso.date().nullable(),
     checks: z
       .array(completenessCheckSchema)
@@ -252,11 +262,13 @@ export function measureCompleteness(
             ? []
             : [`industry_mapping.${context.industryMapping}`],
         ),
-    // companyfacts publica hechos sin dimensiones: el mix por país no llega a la
-    // base por ningún camino, y decirlo es distinto de decir que no existe.
-    check("geographic_revenue_mix", "missing", [
-      "geographic_revenue_mix.not_ingested",
-    ]),
+    // companyfacts publica hechos sin dimensiones: el mix sale del 10-K, por
+    // declaración del owner o por una propuesta de la IA aceptada por la policy.
+    context.operationsMix === undefined || context.operationsMix === null
+      ? check("geographic_revenue_mix", "missing", [
+          "geographic_revenue_mix.no_accepted_proposal",
+        ])
+      : check("geographic_revenue_mix", "met"),
   ];
 
   return {

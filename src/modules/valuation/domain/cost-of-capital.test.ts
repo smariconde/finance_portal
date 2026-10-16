@@ -7,7 +7,9 @@ import {
 import {
   buildCostOfCapital,
   COST_OF_CAPITAL_VERSION,
+  COUNTRY_RISK_REGIONS_DATASET,
   deriveCostOfCapital,
+  operationsCountryRiskPremium,
   type CoverageEvidence,
 } from "./cost-of-capital";
 
@@ -178,5 +180,162 @@ describe(COST_OF_CAPITAL_VERSION, () => {
     expect(() =>
       deriveCostOfCapital(cost.parameters.slice(1), "Aaa/AAA"),
     ).toThrow("treasury_bond_rate");
+  });
+});
+
+describe(`${COST_OF_CAPITAL_VERSION}: country risk weighted by operations`, () => {
+  const base = fixtureCostOfCapitalReadings();
+  const countryRisk = {
+    ...base.countryRisk,
+    rows: [
+      ...base.countryRisk.rows,
+      {
+        key: "japan",
+        label: "Japan",
+        values: { country_risk_premium: "0.01", gdp_millions: "4000" },
+      },
+      {
+        key: "china",
+        label: "China",
+        values: { country_risk_premium: "0.02", gdp_millions: "18000" },
+      },
+      {
+        key: "taiwan",
+        label: "Taiwan",
+        values: { country_risk_premium: "0.01", gdp_millions: "2000" },
+      },
+    ],
+  };
+  const regions = {
+    release: {
+      ...base.countryRisk.release,
+      datasetId: COUNTRY_RISK_REGIONS_DATASET,
+      releaseId: "00000000-0000-4000-8000-0000000000c2",
+    },
+    rows: [
+      {
+        key: "north-america",
+        label: "North America",
+        values: { country_risk_premium: "0.002", gdp_millions: "30000" },
+      },
+      {
+        key: "asia",
+        label: "Asia",
+        values: { country_risk_premium: "0.014", gdp_millions: "34000" },
+      },
+      {
+        key: "africa",
+        label: "Africa",
+        values: { country_risk_premium: "0.074", gdp_millions: "2000" },
+      },
+    ],
+  };
+
+  function weighted(
+    exposures: { exposureKeys: string[]; weight: string }[],
+    source: "owner_declaration" | "ai_proposal" = "ai_proposal",
+  ) {
+    return build({
+      countryRisk,
+      regions,
+      operationsMix: {
+        source,
+        proposalId:
+          source === "ai_proposal"
+            ? "00000000-0000-4000-8000-0000000000a1"
+            : null,
+        weightsVersion: "operations-mix-weights-1.0.0",
+        exposures,
+      },
+    });
+  }
+
+  it("weights each exposure's premium by revenue and combines several rows by GDP", () => {
+    const result = weighted([
+      { exposureKeys: ["united-states"], weight: "0.5" },
+      { exposureKeys: ["japan"], weight: "0.2" },
+      // (18000 × 2 % + 2000 × 1 %) / 20000 = 1,9 %
+      { exposureKeys: ["china", "taiwan"], weight: "0.2" },
+      // (30000 × 0,2 % + 34000 × 1,4 % + 2000 × 7,4 %) / 66000 = 1,0364 %
+      { exposureKeys: [], weight: "0.1" },
+    ]);
+    if (result.status !== "computed") throw new Error(result.missing.join());
+
+    const crp = operationsCountryRiskPremium(
+      result.costOfCapital.operationsExposure!,
+    );
+    // 0,5 × 0,23 % + 0,2 × 1 % + 0,2 × 1,9 % + 0,1 × 1,03636… %
+    expect(crp.toFixed(10)).toBe("0.0079863636");
+    expect(result.costOfCapital.declarations).toEqual(
+      expect.arrayContaining([
+        "country_risk_by_operations",
+        "regions_combined_by_gdp",
+        "rest_of_world_as_global",
+      ]),
+    );
+    expect(result.costOfCapital.declarations).not.toContain(
+      "country_risk_by_primary_listing",
+    );
+    // ke = rf + βL × (ERP + CRP por operaciones)
+    expect(result.costOfCapital.derived.costOfEquity).toBe(
+      deriveCostOfCapital(
+        result.costOfCapital.parameters,
+        "Aaa/AAA",
+        result.costOfCapital.operationsExposure!,
+      ).costOfEquity,
+    );
+    expect(Number(result.costOfCapital.derived.costOfEquity)).toBeGreaterThan(
+      Number(computed().derived.costOfEquity),
+    );
+  });
+
+  it("keeps the domicile's default spread and tax rate for debt", () => {
+    const result = weighted([{ exposureKeys: ["japan"], weight: "1" }]);
+    if (result.status !== "computed") throw new Error(result.missing.join());
+
+    expect(result.costOfCapital.derived.preTaxCostOfDebt).toBe(
+      computed().derived.preTaxCostOfDebt,
+    );
+  });
+
+  it("names an exposure the release does not have instead of using the domicile", () => {
+    expect(
+      weighted([
+        { exposureKeys: ["united-states"], weight: "0.5" },
+        { exposureKeys: ["atlantis"], weight: "0.5" },
+      ]),
+    ).toMatchObject({
+      status: "unsupported",
+      missing: ["operations_exposure.atlantis"],
+    });
+  });
+
+  it("needs every row's GDP to combine several, and none for one", () => {
+    expect(
+      weighted([{ exposureKeys: ["united-states", "japan"], weight: "1" }]),
+    ).toMatchObject({
+      status: "unsupported",
+      missing: ["operations_exposure_gdp.united-states"],
+    });
+    expect(
+      weighted([{ exposureKeys: ["united-states"], weight: "1" }]).status,
+    ).toBe("computed");
+  });
+
+  it("refuses weights that do not add up to one", () => {
+    expect(() =>
+      weighted([
+        { exposureKeys: ["united-states"], weight: "0.5" },
+        { exposureKeys: ["japan"], weight: "0.4" },
+      ]),
+    ).toThrow();
+  });
+
+  it("leaves the cost of capital exactly as before without a mix", () => {
+    const { derived, operationsExposure, declarations } = computed();
+
+    expect(operationsExposure).toBeNull();
+    expect(declarations).toContain("country_risk_by_primary_listing");
+    expect(derived.wacc).toBe("0.0974946327662014911106862932517683");
   });
 });

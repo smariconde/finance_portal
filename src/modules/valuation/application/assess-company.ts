@@ -33,6 +33,7 @@ import {
   COST_OF_CAPITAL_VERSION,
   type CostOfCapitalResult,
   type ReferenceReading,
+  type OperationsMixReading,
 } from "../domain/cost-of-capital";
 import {
   assessFundamentalProfileSignals,
@@ -90,13 +91,24 @@ export type CompanyAssessmentDependencies = {
   readonly loadIndustryResolutions?: (
     legalEntityId: string,
   ) => Promise<readonly IndustryAssertionReading[]>;
-  /** Las cuatro releases de Damodaran visibles al corte, o `null` cada una (`F3-04`). */
+  /** Las releases de Damodaran visibles al corte, o `null` cada una (`F3-04`). */
   readonly costOfCapitalReadings: (query: PointInTimeQuery) => Promise<{
     readonly betas: ReferenceReading | null;
     readonly countryRisk: ReferenceReading | null;
     readonly impliedErp: ReferenceReading | null;
     readonly ratings: ReferenceReading | null;
+    /** Las nueve regiones de la misma descarga que el riesgo país (`F5-05`). */
+    readonly regions?: ReferenceReading | null;
   }>;
+  /**
+   * El mix de operaciones visible al corte —la declaración del owner, o la
+   * propuesta aceptada más reciente— con sus pesos, o `null` (`F5-05`). Leerlo
+   * nunca llama a un modelo.
+   */
+  readonly loadOperationsMix?: (
+    legalEntityId: string,
+    query: PointInTimeQuery,
+  ) => Promise<OperationsMixReading | null>;
 };
 
 export type CompanyAssessmentRequest = {
@@ -253,8 +265,11 @@ export async function assessCompany(
     declarations: request.industryDeclarations,
     aiResolution,
   });
+  const operationsMix =
+    (await dependencies.loadOperationsMix?.(legalEntityId, query)) ?? null;
   const completeness = measureCompleteness(series, {
     industryMapping: industry.status,
+    operationsMix: operationsMix?.source ?? null,
   });
 
   const selection = selectValuationMethod({
@@ -301,6 +316,7 @@ export async function assessCompany(
           listingCountry: request.listingCountry,
           ...(await dependencies.costOfCapitalReadings(query)),
           coverage: series === null ? null : latestInterestCoverage(series),
+          operationsMix,
         }),
   };
 }

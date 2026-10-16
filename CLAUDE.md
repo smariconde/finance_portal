@@ -406,7 +406,11 @@ Weights are computed by code (`operations-mix-weights-1.0.0`); reconciling items
 do not weigh. An owner declaration by CIK in `declared-operations-mixes.ts`
 (empty) is the lock: the model is not asked. Measured: 13 of 17 non-financials
 accepted for USD 0.40; AAPL, CAT, DE and GOOGL run out of output tokens on
-rungs 1 and 3, which is `F5-07`'s call.
+rungs 1 and 3, which is `F5-07`'s call. `cost-of-capital-1.1.0` puts the operations-weighted
+CRP in the equity premium —rows combined by GDP, the rest of the world as the
+nine regions— and keeps the domicile's default spread and tax rate; without a mix
+it is exactly `1.0.0`. `costOfCapital.operationsExposure` carries every
+component and `wacc_built_from_components` recomputes it (methodology `0.5.0`).
 
 ```bash
 pnpm fundamentals:ingest --ticker AAPL             # dry run: downloads and builds vintages, writes nothing

@@ -240,6 +240,16 @@ por USD 0,40 en las dos vueltas, con JNJ entre ellas. AAPL, CAT, DE y GOOGL sigu
 sin mix porque los escalones 1 y 3 agotan los tokens de salida razonando; es
 evidencia para `F5-07`, que decide techo y escalera.
 
+## Medición del incremento 4 (2026-10-16)
+
+`cost-of-capital-1.1.0`, `completeness-profile-1.1.0` y metodología `0.5.0`.
+Nueve no financieras de la muestra llevan CRP por operaciones en su WACC: AMZN,
+CCL, CRL, F, INCY, JNJ, NCLH, NVDA y XOM. Otras cuatro con mix —CAT, CRM, FCX y
+NEM— no construyen WACC por la cobertura de intereses, una causa ajena al mix.
+Johnson & Johnson pasa de 7,86 % a 8,39 % y de rigor `standard` a `full`. Apple
+sigue en `standard`: su mix es de los cuatro que agotan tokens, y el owner puede
+declararlo.
+
 ## Incrementos
 
 1. **Lector y datasets**: `xlsx-sheet-reader-1.0.0`, `damodaran-xlsx-1.0.0`, el
