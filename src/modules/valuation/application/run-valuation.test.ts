@@ -39,12 +39,12 @@ describe("runValuation", () => {
       status: "computed",
       method: "fcff_base",
       engineVersion: "fcff-1.0.0",
-      methodologyVersion: "0.4.0",
+      methodologyVersion: "0.5.0",
       currency: "USD",
       inputHash:
-        "c01ffc4b902ab028971464c72376a0d7ca54f1a5717fbd866ff3e5eca1c434e2",
+        "e0bc6598a7600998aeaed9890da2dadb3a9fd165e7f089124336130eabed40d8",
       resultHash:
-        "45089a5b656f0191ca23218c5fd54eb4d09d8c7136e7b67b873110d2af0faee5",
+        "6c938beb304891dad9b74b416df25d8b3251141e26adca287887e1f36dad6d02",
       failure: null,
     });
     expect(outcome.result?.valuePerShare).toBe(

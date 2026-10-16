@@ -1,15 +1,21 @@
 import { htmlToText } from "@/modules/ingestion/domain/html-text";
 
 import type { ReferencePublication, ReferenceRow } from "./reference-release";
+import {
+  readXlsxSheets,
+  type XlsxCell,
+  type XlsxRow,
+} from "./xlsx-sheet-reader";
 
 /**
  * Los datasets de Damodaran que la Fase 3 usa (`F3-04`, ADR 0032): betas por
  * industria de EE. UU., riesgo país, ERP implícita histórica y la tabla de
  * rating sintético por cobertura de intereses.
  *
- * Se leen de la versión **HTML** de cada página, la misma tabla que el `.xls`:
- * leer el `.xls` exigiría una dependencia nueva para un formato binario, y la
- * página publica las mismas cifras con los mismos encabezados.
+ * Betas, ERP y ratings se leen de la versión **HTML** de cada página, la misma
+ * tabla que el `.xls`. El riesgo país se lee del `.xlsx` (ADR 0034): las regiones
+ * sólo se publican ahí, y países y regiones tienen que salir de la misma
+ * descarga. El libro lo abre un lector propio, sin dependencia.
  *
  * Cada parser **verifica los encabezados** antes de leer una fila, como el de
  * Caja de Valores: una columna agregada o corrida haría leer la beta de la
@@ -17,8 +23,23 @@ import type { ReferencePublication, ReferenceRow } from "./reference-release";
  */
 export const DAMODARAN_SOURCE_ID = "damodaran-current-data";
 export const DAMODARAN_PARSER_VERSION = "damodaran-html-1.0.0";
+/** El riesgo país y sus regiones, leídos del `.xlsx` (ADR 0034). */
+export const DAMODARAN_WORKBOOK_PARSER_VERSION = "damodaran-xlsx-1.0.0";
 
 const BASE = "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/";
+const WORKBOOK_BASE = "https://pages.stern.nyu.edu/~adamodar/pc/datasets/";
+
+/**
+ * El archivo vigente del riesgo país. Cambia de nombre en cada actualización
+ * (`ctryprem.xlsx` en enero, `ctrypremApr26.xlsx`, `ctrypremJuly26.xlsx`):
+ * cambiarlo es un diff revisable, como el pin del universo, y el runtime nunca
+ * resuelve «el último» por su cuenta. La allowlist abre esta ruta exacta.
+ */
+export const DAMODARAN_COUNTRY_RISK_WORKBOOK = Object.freeze({
+  url: `${WORKBOOK_BASE}ctrypremJuly26.xlsx`,
+  /** Cómo lo nombra el índice de datasets; nunca es la disponibilidad. */
+  publishedLabel: "July 2026",
+});
 
 type FieldKind = "decimal" | "percent" | "integer" | "text";
 
@@ -47,7 +68,36 @@ type RatingsDataset = {
   readonly minimumRows: number;
 };
 
-export type DamodaranDataset = TableDataset | RatingsDataset;
+type WorkbookFieldKind = "decimal" | "text";
+
+type WorkbookColumn = {
+  /** Prefijo del encabezado, en minúsculas y sin espacios repetidos. */
+  readonly header: string;
+  /** `null`: la columna se verifica pero no se guarda. */
+  readonly field: string | null;
+  readonly kind: WorkbookFieldKind;
+};
+
+type WorkbookDataset = {
+  readonly datasetId: string;
+  readonly url: string;
+  readonly shape: "workbook";
+  readonly sheet: string;
+  readonly keyHeader: string;
+  /** Las columnas desde la B, en orden. */
+  readonly columns: readonly WorkbookColumn[];
+  /**
+   * `detail`: las filas de país, que nombran su región. `region_summary`: las
+   * filas que cierran cada región —región vacía y peso total 1—, reconocidas
+   * por eso y no por su posición.
+   */
+  readonly selection: "detail" | "region_summary";
+  readonly requiredKey: string;
+  readonly minimumRows: number;
+  readonly publishedLabel: string;
+};
+
+export type DamodaranDataset = TableDataset | RatingsDataset | WorkbookDataset;
 
 export const DAMODARAN_DATASETS: readonly DamodaranDataset[] = Object.freeze([
   {
@@ -92,39 +142,76 @@ export const DAMODARAN_DATASETS: readonly DamodaranDataset[] = Object.freeze([
   },
   {
     datasetId: "damodaran.country-risk",
-    url: `${BASE}ctryprem.html`,
-    shape: "table",
+    url: DAMODARAN_COUNTRY_RISK_WORKBOOK.url,
+    shape: "workbook",
+    sheet: "Regional breakdown",
     keyHeader: "country",
+    selection: "detail",
     requiredKey: "united-states",
     minimumRows: 100,
-    fields: [
-      { field: "moodys_rating", header: "moody's rating", kind: "text" },
+    publishedLabel: DAMODARAN_COUNTRY_RISK_WORKBOOK.publishedLabel,
+    columns: [
+      { header: "gdp (in millions)", field: "gdp_millions", kind: "decimal" },
+      { header: "moody's rating", field: "moodys_rating", kind: "text" },
+      { header: "sovereign cds", field: "sovereign_cds", kind: "decimal" },
       {
-        field: "default_spread",
         header: "adj. default spread",
-        kind: "percent",
+        field: "default_spread",
+        kind: "decimal",
       },
       {
-        field: "country_risk_premium",
-        header: "country risk premium",
-        kind: "percent",
-      },
-      {
-        field: "equity_risk_premium",
         header: "equity risk premium",
-        kind: "percent",
+        field: "equity_risk_premium",
+        kind: "decimal",
       },
       {
-        field: "corporate_tax_rate",
+        header: "country risk premium",
+        field: "country_risk_premium",
+        kind: "decimal",
+      },
+      {
         header: "corporate tax rate",
-        kind: "percent",
+        field: "corporate_tax_rate",
+        kind: "decimal",
       },
-      { field: "sovereign_cds", header: "sovereign", kind: "percent" },
+      { header: "region", field: "region", kind: "text" },
+    ],
+  },
+  {
+    datasetId: "damodaran.country-risk-regions",
+    url: DAMODARAN_COUNTRY_RISK_WORKBOOK.url,
+    shape: "workbook",
+    sheet: "Regional Weighted Averages",
+    keyHeader: "country",
+    selection: "region_summary",
+    requiredKey: "north-america",
+    minimumRows: 9,
+    publishedLabel: DAMODARAN_COUNTRY_RISK_WORKBOOK.publishedLabel,
+    columns: [
+      { header: "gdp (in millions)", field: "gdp_millions", kind: "decimal" },
+      { header: "moody's rating", field: null, kind: "text" },
       {
-        field: "equity_risk_premium_cds",
-        header: "erp based on sovereign",
-        kind: "percent",
+        header: "adj. default spread",
+        field: "default_spread",
+        kind: "decimal",
       },
+      {
+        header: "equity risk premium",
+        field: "equity_risk_premium",
+        kind: "decimal",
+      },
+      {
+        header: "country risk premium",
+        field: "country_risk_premium",
+        kind: "decimal",
+      },
+      {
+        header: "corporate tax rate",
+        field: "corporate_tax_rate",
+        kind: "decimal",
+      },
+      { header: "region", field: null, kind: "text" },
+      { header: "gdp weight", field: null, kind: "decimal" },
     ],
   },
   {
@@ -430,10 +517,206 @@ function parseRatings(
   };
 }
 
+/**
+ * El número de una celda como decimal canónico, moviendo el punto sin pasar por
+ * `number`: `4.2000000000000003E-2` es `0.042000000000000003`, el mismo valor
+ * exacto que el Excel guarda.
+ */
+export function numberTextToDecimal(text: string): string | null {
+  const match = /^(-?)([0-9]+)(?:\.([0-9]*))?(?:[eE]([+-]?[0-9]{1,2}))?$/u.exec(
+    text.trim(),
+  );
+
+  if (match === null) return null;
+
+  const [, sign, whole, fraction = "", exponent = "0"] = match;
+  const digits = `${whole}${fraction}`;
+  const point = whole!.length + Number(exponent);
+  const padded =
+    point <= 0
+      ? `0.${"0".repeat(-point)}${digits}`
+      : point >= digits.length
+        ? digits + "0".repeat(point - digits.length)
+        : `${digits.slice(0, point)}.${digits.slice(point)}`;
+  const [integer = "0", decimals = ""] = padded.split(".");
+  const trimmedInteger = integer.replace(/^0+(?=[0-9])/u, "");
+  const trimmedDecimals = decimals.replace(/0+$/u, "");
+  const value =
+    trimmedDecimals === ""
+      ? trimmedInteger
+      : `${trimmedInteger}.${trimmedDecimals}`;
+
+  if (value.length > 60) return null;
+
+  return sign === "-" && value !== "0" ? `-${value}` : value;
+}
+
+function workbookCell(
+  cell: XlsxCell | undefined,
+  kind: WorkbookFieldKind,
+): { ok: true; value: string | null } | { ok: false } {
+  // Vacía, `NA` o un error de fórmula (`#N/A`): la fuente no lo da.
+  if (cell === undefined || cell.kind === "error") {
+    return { ok: true, value: null };
+  }
+
+  const text = cell.text.trim();
+
+  if (cell.kind === "string" && (text === "" || text.toUpperCase() === "NA")) {
+    return { ok: true, value: null };
+  }
+
+  if (kind === "text") {
+    return cell.kind === "string" && text.length <= 64
+      ? { ok: true, value: text }
+      : { ok: false };
+  }
+
+  const value = cell.kind === "number" ? numberTextToDecimal(text) : null;
+
+  return value === null ? { ok: false } : { ok: true, value };
+}
+
+/** Letra de la columna `index` contando desde la A (0). */
+function columnLetter(index: number): string {
+  return String.fromCharCode(65 + index);
+}
+
+function isWholeWeight(cell: XlsxCell | undefined): boolean {
+  // Un control, no un valor guardado: el peso sumado es 1 salvo el error de
+  // redondeo del double (`0.99999999999999989`).
+  return cell?.kind === "number" && Math.abs(Number(cell.text) - 1) < 1e-9;
+}
+
+export function parseDamodaranWorkbookDataset(
+  dataset: WorkbookDataset,
+  rows: readonly XlsxRow[],
+): ReferencePublication {
+  const textOf = (row: XlsxRow, column: string) => {
+    const cell = row.cells.get(column);
+    return cell?.kind === "string" ? normalizeHeader(cell.text) : "";
+  };
+  const headerIndex = rows.findIndex(
+    (row) => textOf(row, "A") === dataset.keyHeader,
+  );
+
+  if (headerIndex < 0) {
+    return { ok: false, code: "header_row_missing" };
+  }
+
+  const header = rows[headerIndex]!;
+  const headersMatch = dataset.columns.every((column, index) =>
+    textOf(header, columnLetter(index + 1)).startsWith(column.header),
+  );
+
+  if (!headersMatch) {
+    return { ok: false, code: "header_mismatch" };
+  }
+
+  const columnOf = (headerName: string) =>
+    columnLetter(
+      dataset.columns.findIndex((column) => column.header === headerName) + 1,
+    );
+  const regionColumn = columnOf("region");
+  const weightColumn =
+    dataset.selection === "region_summary" ? columnOf("gdp weight") : null;
+  const parsed: ReferenceRow[] = [];
+  const rejections: { row: number; field: string }[] = [];
+  const seen = new Set<string>();
+
+  for (const row of rows.slice(headerIndex + 1)) {
+    const labelCell = row.cells.get("A");
+    const label = labelCell?.kind === "string" ? labelCell.text.trim() : "";
+
+    if (label === "") continue;
+
+    const region = row.cells.get(regionColumn);
+    const named = region?.kind === "string" && region.text.trim() !== "";
+    const selected =
+      dataset.selection === "detail"
+        ? named
+        : !named && isWholeWeight(row.cells.get(weightColumn!));
+
+    if (!selected) continue;
+
+    if (parsed.length >= MAX_ROWS) {
+      return { ok: false, code: "too_many_rows" };
+    }
+
+    const key = rowKeyOf(label);
+
+    if (key === "" || seen.has(key)) {
+      rejections.push({ row: row.index, field: "key" });
+      continue;
+    }
+
+    const values: Record<string, string | null> = {};
+    let rejected = false;
+
+    for (const [index, column] of dataset.columns.entries()) {
+      if (column.field === null) continue;
+
+      const cell = workbookCell(
+        row.cells.get(columnLetter(index + 1)),
+        column.kind,
+      );
+
+      if (!cell.ok) {
+        rejections.push({ row: row.index, field: column.field });
+        rejected = true;
+        break;
+      }
+
+      values[column.field] = cell.value;
+    }
+
+    if (rejected) continue;
+
+    seen.add(key);
+    parsed.push({ key, label: label.slice(0, 160), values });
+  }
+
+  if (parsed.length < dataset.minimumRows || !seen.has(dataset.requiredKey)) {
+    return { ok: false, code: "too_few_rows" };
+  }
+
+  return {
+    ok: true,
+    datasetId: dataset.datasetId,
+    parserVersion: DAMODARAN_WORKBOOK_PARSER_VERSION,
+    publishedLabel: dataset.publishedLabel,
+    rows: parsed,
+    rejections,
+  };
+}
+
+/**
+ * Lee una descarga de Damodaran: la página HTML de su tabla o el libro `.xlsx`
+ * del riesgo país. El libro rechaza la publicación entera con el código del
+ * lector si no se pudo abrir (`xlsx_*`).
+ */
 export function parseDamodaranDataset(
   dataset: DamodaranDataset,
-  html: string,
+  body: Uint8Array | string,
 ): ReferencePublication {
+  if (dataset.shape === "workbook") {
+    if (typeof body === "string") {
+      return { ok: false, code: "workbook_expected" };
+    }
+
+    const workbook = readXlsxSheets(body, [dataset.sheet]);
+
+    return workbook.ok
+      ? parseDamodaranWorkbookDataset(
+          dataset,
+          workbook.sheets.get(dataset.sheet)!,
+        )
+      : { ok: false, code: `xlsx_${workbook.code}` };
+  }
+
+  const html =
+    typeof body === "string" ? body : new TextDecoder("utf-8").decode(body);
+
   return dataset.shape === "table"
     ? parseTable(dataset, html)
     : parseRatings(dataset, html);

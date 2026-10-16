@@ -37,11 +37,25 @@ import {
  * - **Convergencia**: en estado estable la beta va a 1 con la misma estructura.
  *
  * Todo en decimal: ningún componente pasa por `number`.
+ *
+ * `1.1.0` (`F5-05`, [ADR 0034](../../../../docs/architecture/adr/0034-operations-weighted-country-risk.md)):
+ * con un mix de operaciones —declarado por el owner o propuesto por la IA y
+ * aceptado por la policy—, la prima del equity lleva el CRP **ponderado por
+ * operaciones** en lugar del del domicilio: cada exposición toma el CRP de su
+ * fila, varias filas se combinan por el PBI de cada una en la misma release, y
+ * el resto del mundo es la combinación de las nueve regiones. El default spread
+ * y la tasa marginal siguen siendo del domicilio. Sin mix, todo queda como en
+ * `1.0.0`: la falta de mix nunca es un CRP cero.
  */
-export const COST_OF_CAPITAL_VERSION = "cost-of-capital-1.0.0";
+export const COST_OF_CAPITAL_VERSION = "cost-of-capital-1.1.0";
+const COST_OF_CAPITAL_VERSIONS = [
+  "cost-of-capital-1.0.0",
+  COST_OF_CAPITAL_VERSION,
+] as const;
 
 export const BETAS_DATASET = "damodaran.betas-us";
 export const COUNTRY_RISK_DATASET = "damodaran.country-risk";
+export const COUNTRY_RISK_REGIONS_DATASET = "damodaran.country-risk-regions";
 export const IMPLIED_ERP_DATASET = "damodaran.implied-erp";
 export const RATINGS_DATASET = "damodaran.synthetic-ratings";
 
@@ -126,17 +140,76 @@ export const costOfCapitalDeclarationSchema = z.enum([
   "synthetic_rating_large_nonfinancial",
   "coverage_from_earlier_fiscal_year",
   "terminal_beta_converges_to_one",
+  "country_risk_by_operations",
+  "regions_combined_by_gdp",
+  "rest_of_world_as_global",
 ]);
 
+/** Una fila de riesgo país o de región que entra al CRP de una exposición. */
+export const exposureComponentSchema = z.object({
+  datasetId: z.string().max(64),
+  releaseId: z.uuid(),
+  rowKey: z.string().max(128),
+  countryRiskPremium: engineDecimalSchema,
+  /** PBI de la fila: pesa sólo cuando la exposición combina varias. */
+  gdpMillions: engineDecimalSchema.nullable(),
+});
+
+export type ExposureComponent = z.infer<typeof exposureComponentSchema>;
+
+/**
+ * El mix de operaciones con el que se ponderó el CRP: de dónde salió y, por
+ * exposición, su peso y las filas que la componen. El motor recalcula el CRP
+ * desde acá.
+ */
+export const operationsExposureSchema = z
+  .object({
+    source: z.enum(["owner_declaration", "ai_proposal"]),
+    /** La propuesta aceptada; `null` para una declaración del owner. */
+    proposalId: z.uuid().nullable(),
+    weightsVersion: z.string().min(1).max(64),
+    exposures: z
+      .array(
+        z.object({
+          /** Vacías: el resto del mundo, las nueve regiones. */
+          exposureKeys: z.array(z.string().max(64)).max(12),
+          weight: engineDecimalSchema,
+          components: z.array(exposureComponentSchema).min(1).max(200),
+        }),
+      )
+      .min(1)
+      .max(40),
+  })
+  .superRefine((exposure, context) => {
+    const total = exposure.exposures.reduce(
+      (sum: Dec, item) => sum.plus(parseDecimal(item.weight, "weight")),
+      ZERO,
+    );
+
+    // Pesos calculados por división a precisión del motor: suman 1 salvo el
+    // último dígito.
+    if (total.minus(ONE).abs().greaterThan("1e-24")) {
+      context.addIssue({
+        code: "custom",
+        path: ["exposures"],
+        message: "Operations weights add up to one.",
+      });
+    }
+  });
+
+export type OperationsExposure = z.infer<typeof operationsExposureSchema>;
+
 export const costOfCapitalSchema = z.object({
-  version: z.literal(COST_OF_CAPITAL_VERSION),
+  version: z.enum(COST_OF_CAPITAL_VERSIONS),
   currency: z.literal(SUPPORTED_CURRENCY),
   industryKey: z.string().max(128),
   countryKey: z.string().max(128),
   parameters: z.array(costOfCapitalParameterSchema).length(9),
   coverage: coverageEvidenceSchema,
   derived: costOfCapitalDerivedSchema,
-  declarations: z.array(costOfCapitalDeclarationSchema).max(8),
+  declarations: z.array(costOfCapitalDeclarationSchema).max(12),
+  /** Ausente en `1.0.0`; `null` en `1.1.0` cuando no hubo mix. */
+  operationsExposure: operationsExposureSchema.nullable().optional(),
 });
 
 export type CostOfCapital = z.infer<typeof costOfCapitalSchema>;
@@ -157,6 +230,21 @@ export type CostOfCapitalRequest = {
   readonly impliedErp: ReferenceReading | null;
   readonly ratings: ReferenceReading | null;
   readonly coverage: CoverageEvidence | null;
+  /** Las nueve regiones de la misma descarga que el riesgo país (`1.1.0`). */
+  readonly regions?: ReferenceReading | null;
+  /** El mix de operaciones visible al corte, o `null` (`1.1.0`). */
+  readonly operationsMix?: OperationsMixReading | null;
+};
+
+/** El mix que entra al costo de capital, ya con sus pesos calculados. */
+export type OperationsMixReading = {
+  readonly source: "owner_declaration" | "ai_proposal";
+  readonly proposalId: string | null;
+  readonly weightsVersion: string;
+  readonly exposures: readonly {
+    readonly exposureKeys: readonly string[];
+    readonly weight: string;
+  }[];
 };
 
 export type CostOfCapitalResult =
@@ -247,6 +335,134 @@ function latestMarketYear(reading: ReferenceReading): ReferenceRow | null {
   );
 }
 
+function componentOf(
+  reading: ReferenceReading,
+  row: ReferenceRow,
+): ExposureComponent | null {
+  const crp = row.values.country_risk_premium;
+  const gdp = row.values.gdp_millions;
+
+  if (typeof crp !== "string" || !engineDecimalSchema.safeParse(crp).success) {
+    return null;
+  }
+
+  return {
+    datasetId: reading.release.datasetId,
+    releaseId: reading.release.releaseId,
+    rowKey: row.key,
+    countryRiskPremium: crp,
+    gdpMillions:
+      typeof gdp === "string" && engineDecimalSchema.safeParse(gdp).success
+        ? gdp
+        : null,
+  };
+}
+
+/**
+ * Las filas de cada exposición: un país, una región o —sin claves— las nueve
+ * regiones. Una clave que la release no tiene, o una fila sin CRP o sin PBI, se
+ * nombra en `missing`: nunca se completa con el domicilio.
+ */
+export function resolveOperationsExposure(
+  mix: OperationsMixReading,
+  countries: ReferenceReading | null,
+  regions: ReferenceReading | null,
+): { exposure: OperationsExposure | null; missing: string[] } {
+  const missing: string[] = [];
+
+  if (countries === null || regions === null) {
+    return { exposure: null, missing: ["country_risk_regions"] };
+  }
+
+  const exposures = mix.exposures.map((item) => {
+    const keys =
+      item.exposureKeys.length === 0
+        ? regions.rows.map((row) => row.key)
+        : item.exposureKeys;
+    const components = keys.flatMap((key) => {
+      const country = rowOf(countries, key);
+      const region = country === null ? rowOf(regions, key) : null;
+      const component =
+        country !== null
+          ? componentOf(countries, country)
+          : region !== null
+            ? componentOf(regions, region)
+            : null;
+
+      if (component === null) {
+        missing.push(`operations_exposure.${key}`);
+        return [];
+      }
+
+      return [component];
+    });
+
+    // Combinar filas pide el PBI de cada una: sin él no hay ponderación.
+    if (components.length > 1) {
+      for (const component of components) {
+        if (component.gdpMillions === null) {
+          missing.push(`operations_exposure_gdp.${component.rowKey}`);
+        }
+      }
+    }
+
+    return {
+      exposureKeys: [...item.exposureKeys],
+      weight: item.weight,
+      components,
+    };
+  });
+
+  if (missing.length > 0) {
+    return { exposure: null, missing };
+  }
+
+  return {
+    exposure: operationsExposureSchema.parse({
+      source: mix.source,
+      proposalId: mix.proposalId,
+      weightsVersion: mix.weightsVersion,
+      exposures,
+    }),
+    missing,
+  };
+}
+
+/** El CRP ponderado por operaciones: Σ peso × CRP de la exposición. */
+export function operationsCountryRiskPremium(
+  exposure: OperationsExposure,
+): Dec {
+  return exposure.exposures.reduce((total: Dec, item) => {
+    const gdpOf = (component: ExposureComponent) => {
+      if (component.gdpMillions === null) {
+        throw new Error(`exposure row ${component.rowKey} has no GDP`);
+      }
+      return parseDecimal(component.gdpMillions, "gdp_millions");
+    };
+    const crp =
+      item.components.length === 1
+        ? parseDecimal(item.components[0]!.countryRiskPremium, "crp")
+        : divide(
+            item.components.reduce(
+              (sum: Dec, component) =>
+                sum.plus(
+                  gdpOf(component).times(
+                    parseDecimal(component.countryRiskPremium, "crp"),
+                  ),
+                ),
+              ZERO,
+            ),
+            item.components.reduce(
+              (sum: Dec, component) => sum.plus(gdpOf(component)),
+              ZERO,
+            ),
+            "operations_crp",
+          );
+
+    return total.plus(parseDecimal(item.weight, "weight").times(crp));
+  }, ZERO);
+}
+
 export function buildCostOfCapital(
   request: CostOfCapitalRequest,
 ): CostOfCapitalResult {
@@ -289,6 +505,17 @@ export function buildCostOfCapital(
       : ratingBand(request.ratings, parseDecimal(coverage.value, "coverage")),
     "synthetic_rating",
   );
+
+  const operations =
+    request.operationsMix === undefined || request.operationsMix === null
+      ? null
+      : resolveOperationsExposure(
+          request.operationsMix,
+          request.countryRisk,
+          request.regions ?? null,
+        );
+
+  missing.push(...(operations?.missing ?? []));
 
   if (
     missing.length > 0 ||
@@ -366,6 +593,7 @@ export function buildCostOfCapital(
   const parameters = candidates as CostOfCapitalParameter[];
   const rating =
     typeof band.values.rating === "string" ? band.values.rating : "unrated";
+  const exposure = operations?.exposure ?? null;
 
   return {
     status: "computed",
@@ -376,13 +604,26 @@ export function buildCostOfCapital(
       countryKey: domicileRow.key,
       parameters,
       coverage,
-      derived: deriveCostOfCapital(parameters, rating),
+      derived: deriveCostOfCapital(parameters, rating, exposure),
+      operationsExposure: exposure,
       declarations: [
         "riskfree_net_of_sovereign_default_spread",
         "erp_implied_at_start_of_year",
         "industry_beta_us",
         "target_structure_industry_average",
-        "country_risk_by_primary_listing",
+        ...(exposure === null
+          ? ["country_risk_by_primary_listing"]
+          : [
+              "country_risk_by_operations",
+              ...(exposure.exposures.some((item) => item.components.length > 1)
+                ? ["regions_combined_by_gdp"]
+                : []),
+              ...(exposure.exposures.some(
+                (item) => item.exposureKeys.length === 0,
+              )
+                ? ["rest_of_world_as_global"]
+                : []),
+            ]),
         "synthetic_rating_large_nonfinancial",
         ...(coverage.fromLatestFiscalYear
           ? []
@@ -400,6 +641,8 @@ export function buildCostOfCapital(
 export function deriveCostOfCapital(
   parameters: readonly CostOfCapitalParameter[],
   syntheticRating: string,
+  /** El mix de `1.1.0`: reemplaza el CRP del domicilio en la prima del equity. */
+  operationsExposure: OperationsExposure | null = null,
 ): CostOfCapitalDerived {
   const value = (name: CostOfCapitalParameterName): Dec => {
     const found = parameters.find((candidate) => candidate.name === name);
@@ -416,7 +659,11 @@ export function deriveCostOfCapital(
   );
   const tax = value("marginal_tax_rate");
   const debtToEquity = value("target_debt_to_equity");
-  const premium = value("implied_erp").plus(value("country_risk_premium"));
+  const premium = value("implied_erp").plus(
+    operationsExposure === null
+      ? value("country_risk_premium")
+      : operationsCountryRiskPremium(operationsExposure),
+  );
   const leveredBeta = value("unlevered_beta").times(
     ONE.plus(ONE.minus(tax).times(debtToEquity)),
   );

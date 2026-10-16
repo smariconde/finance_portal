@@ -183,6 +183,13 @@
       "when": 1792099799286,
       "tag": "0025_steady_angel",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792162637987,
+      "tag": "0026_yielding_plazm",
+      "breakpoints": true
     }
   ]
 }

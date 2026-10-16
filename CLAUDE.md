@@ -296,8 +296,17 @@ pnpm damodaran:record --dataset damodaran.betas-us --apply
 Also hand-run (`F3-04`, [ADR 0032](docs/architecture/adr/0032-damodaran-reference-datasets.md),
 migration `0023`). Four Damodaran tables —US industry betas, country risk,
 historical implied ERP and the synthetic-rating table— read from their **HTML**
-pages (the `.xls` would need a new dependency) by `damodaran-html-1.0.0`, which
-checks headers before reading a row. Automated access is `owner_accepted`; the
+pages by `damodaran-html-1.0.0`, which checks headers before reading a row.
+Since `F5-05` ([ADR 0034](docs/architecture/adr/0034-operations-weighted-country-risk.md))
+country risk and its nine GDP-weighted regions come from the **`.xlsx`** instead
+—one download, two datasets (`damodaran.country-risk`,
+`damodaran.country-risk-regions`), so a regional and a country CRP never come
+from different releases— read by `xlsx-sheet-reader-1.0.0`, an in-repo reader
+over `node:zlib`: central directory only, four known parts, 4 MB per part and
+8 MB in all, CRC32 checked, no ZIP64, encryption or `DOCTYPE`. The file name
+changes with every update and is pinned in `damodaran-datasets.ts`; the
+allowlist opens that exact path. A cell's double (`4.2000000000000003E-2`) is
+moved to a decimal by shifting the point, never through `number`. Automated access is `owner_accepted`; the
 terms allow research use with attribution and forbid reselling, so the page is
 never stored and fixtures are synthetic. Each page is a **release**
 (`reference_dataset_releases` + `reference_dataset_rows`) whose `available_at` is
@@ -375,6 +384,33 @@ from the instant it was resolved. `sic-damodaran-industry-1.1.0` reads it with
 precedence **owner → AI → SIC**, and only while the key is still a candidate of
 the visible SIC; reading it never calls a model. Measured: 16 of 16 ambiguous
 companies resolved for USD 0.041, 9 on rung 1 and 7 on rung 2.
+
+```bash
+pnpm valuation:operations-mix --ticker JNJ                 # transcribes the 10-K geographic revenue table and reports (it spends)
+pnpm valuation:operations-mix --ticker JNJ --apply         # also stores the proposal, its lines and evidence
+```
+
+The first assumption the AI proposes (`F5-05`,
+[ADR 0034](docs/architecture/adr/0034-operations-weighted-country-risk.md),
+migration `0026`, [runbook](docs/runbooks/operations-mix.md)): the geographic
+revenue mix that weights the CRP by operations. The AI **transcribes and maps,
+never weights**: `sec-10k-geographic-revenue-1.0.0` cuts the table (its own
+version, so the industry task's sections version does not move), and
+`operations-mix-1.0.0` copies every line as printed with a verbatim quote and
+maps it to Damodaran countries or regions. `operations-mix-policy-1.1.0`
+rejects any amount not in its quote, any quote not in the evidence, lines that
+do not add up to the total (0.5 %), a total that is not the fiscal year's
+revenue (5 %, which catches the wrong table or unit), keys outside the release,
+and a name match that is neither the key, a declared alias nor a list of them.
+Weights are computed by code (`operations-mix-weights-1.0.0`); reconciling items
+do not weigh. An owner declaration by CIK in `declared-operations-mixes.ts`
+(empty) is the lock: the model is not asked. Measured: 13 of 17 non-financials
+accepted for USD 0.40; AAPL, CAT, DE and GOOGL run out of output tokens on
+rungs 1 and 3, which is `F5-07`'s call. `cost-of-capital-1.1.0` puts the operations-weighted
+CRP in the equity premium —rows combined by GDP, the rest of the world as the
+nine regions— and keeps the domicile's default spread and tax rate; without a mix
+it is exactly `1.0.0`. `costOfCapital.operationsExposure` carries every
+component and `wacc_built_from_components` recomputes it (methodology `0.5.0`).
 
 ```bash
 pnpm fundamentals:ingest --ticker AAPL             # dry run: downloads and builds vintages, writes nothing

@@ -30,7 +30,7 @@ import { ValuationPolicyError } from "./valuation-error";
 export const VALUATION_METHOD = "fcff_base";
 export const ENGINE_VERSION = "fcff-1.0.0";
 /** Debe seguir a `docs/valuation/methodology.md`. */
-export const METHODOLOGY_VERSION = "0.4.0";
+export const METHODOLOGY_VERSION = "0.5.0";
 
 const currencySchema = z
   .string()

@@ -106,6 +106,35 @@ describe("valuation policy checks", () => {
     );
   });
 
+  it("rejects an operations mix added to the snapshot without rebuilding the premium", () => {
+    const input = draft((candidate) => {
+      candidate.costOfCapital.operationsExposure = {
+        source: "ai_proposal",
+        proposalId: "00000000-0000-4000-8000-0000000000a1",
+        weightsVersion: "operations-mix-weights-1.0.0",
+        exposures: [
+          {
+            exposureKeys: ["argentina"],
+            weight: "1",
+            components: [
+              {
+                datasetId: "damodaran.country-risk",
+                releaseId: "00000000-0000-4000-8000-0000000000c1",
+                rowKey: "argentina",
+                countryRiskPremium: "0.0928",
+                gdpMillions: "638365",
+              },
+            ],
+          },
+        ],
+      };
+    });
+
+    expect(failed(input, "wacc_built_from_components")?.subjects).toContain(
+      "costOfCapital.derived",
+    );
+  });
+
   it("rejects a cost of capital in another currency than the valuation", () => {
     const input = draft((candidate) => {
       candidate.currency = "EUR";

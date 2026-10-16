@@ -22,7 +22,7 @@ function candidate(mutate: (input: ValuationInput) => void) {
 describe("valuation input snapshot", () => {
   it("hashes the same snapshot to the same value", () => {
     expect(computeValuationInputHash(DEMO_VALUATION_INPUT)).toBe(
-      "c01ffc4b902ab028971464c72376a0d7ca54f1a5717fbd866ff3e5eca1c434e2",
+      "e0bc6598a7600998aeaed9890da2dadb3a9fd165e7f089124336130eabed40d8",
     );
   });
 

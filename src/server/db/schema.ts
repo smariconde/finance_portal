@@ -909,6 +909,146 @@ export const industryResolutionEvidence = pgTable(
   ],
 );
 
+export const operationsMixOutcome = pgEnum("operations_mix_outcome", [
+  "accepted",
+  "abstained",
+  "stopped",
+]);
+
+/**
+ * Propuestas de mix de operaciones de la capa IA (`F5-05`, ADR 0034): una fila
+ * por vez que se le preguntó a la escalera por la tabla geográfica de un 10-K.
+ *
+ * Como `industry_resolutions`, se guarda también la abstención y el freno.
+ * `proposal_id` es el `task_run_id` de sus intentos en `ai_spend_ledger`. No
+ * publica una aserción: la evaluación lee la aceptada más reciente al corte.
+ * Es la evidencia de un supuesto de una corrida, y no se borra.
+ */
+export const operationsMixProposals = pgTable(
+  "operations_mix_proposals",
+  {
+    proposalId: uuid("proposal_id").primaryKey(),
+    legalEntityId: uuid("legal_entity_id").notNull(),
+    cik: char("cik", { length: 10 }).notNull(),
+    accessionNumber: varchar("accession_number", { length: 20 }).notNull(),
+    fiscalYearEnd: date("fiscal_year_end", { mode: "string" }).notNull(),
+    taskVersion: varchar("task_version", { length: 64 }).notNull(),
+    promptVersion: varchar("prompt_version", { length: 64 }).notNull(),
+    policyVersion: varchar("policy_version", { length: 64 }).notNull(),
+    ladderVersion: varchar("ladder_version", { length: 64 }).notNull(),
+    extractVersion: varchar("extract_version", { length: 64 }).notNull(),
+    countryReleaseId: uuid("country_release_id").notNull(),
+    regionReleaseId: uuid("region_release_id").notNull(),
+    outcome: operationsMixOutcome("outcome").notNull(),
+    unit: varchar("unit", { length: 16 }),
+    printedTotal: varchar("printed_total", { length: 32 }),
+    expectedRevenue: numeric("expected_revenue", { mode: "string" }).notNull(),
+    confidence: varchar("confidence", { length: 8 }),
+    rationale: text("rationale"),
+    reason: varchar("reason", { length: 64 }),
+    acceptedRung: integer("accepted_rung"),
+    respondedModel: varchar("responded_model", { length: 128 }),
+    proposedAt: instant("proposed_at").notNull(),
+    recordedAt: instant("recorded_at").notNull(),
+  },
+  (table) => [
+    index("operations_mix_proposals_subject_idx").on(
+      table.legalEntityId,
+      table.proposedAt,
+    ),
+    check(
+      "operations_mix_proposals_outcome_check",
+      sql`(${table.outcome} = 'accepted') = (${table.reason} is null) and (${table.outcome} = 'accepted') = (${table.unit} is not null and ${table.printedTotal} is not null)`,
+    ),
+    check(
+      "operations_mix_proposals_unit_check",
+      sql`${table.unit} is null or ${table.unit} in ('units', 'thousands', 'millions', 'billions')`,
+    ),
+    check(
+      "operations_mix_proposals_confidence_check",
+      sql`${table.confidence} is null or ${table.confidence} in ('high', 'medium', 'low')`,
+    ),
+    check(
+      "operations_mix_proposals_accession_check",
+      sql`${table.accessionNumber} ~ '^[0-9]{10}-[0-9]{2}-[0-9]{6}$'`,
+    ),
+    check(
+      "operations_mix_proposals_timeline_check",
+      sql`${table.recordedAt} >= ${table.proposedAt}`,
+    ),
+  ],
+);
+
+/**
+ * Las líneas de una propuesta aceptada: la etiqueta y el monto como se
+ * imprimieron, el monto exacto que leyó la policy, la base del mapeo y las
+ * claves de Damodaran. Los pesos no se guardan: se recalculan de acá.
+ */
+export const operationsMixLines = pgTable(
+  "operations_mix_lines",
+  {
+    proposalId: uuid("proposal_id").notNull(),
+    ordinal: integer("ordinal").notNull(),
+    label: varchar("label", { length: 120 }).notNull(),
+    printedAmount: varchar("printed_amount", { length: 32 }).notNull(),
+    amount: numeric("amount", { mode: "string" }).notNull(),
+    basis: varchar("basis", { length: 24 }).notNull(),
+    exposureKeys: jsonb("exposure_keys").$type<string[]>().notNull(),
+    quote: text("quote").notNull(),
+    evidenceId: varchar("evidence_id", { length: 8 }).notNull(),
+    definitionQuote: text("definition_quote"),
+  },
+  (table) => [
+    primaryKey({
+      name: "operations_mix_lines_pkey",
+      columns: [table.proposalId, table.ordinal],
+    }),
+    foreignKey({
+      name: "operations_mix_lines_proposal_fk",
+      columns: [table.proposalId],
+      foreignColumns: [operationsMixProposals.proposalId],
+    }),
+    check(
+      "operations_mix_lines_basis_check",
+      sql`${table.basis} in ('name_match', 'filing_definition', 'rest_of_world', 'unallocated')`,
+    ),
+    check(
+      "operations_mix_lines_definition_check",
+      sql`${table.basis} <> 'filing_definition' or ${table.definitionQuote} is not null`,
+    ),
+  ],
+);
+
+/** Cada extracto que se le mandó al modelo, como en las resoluciones de industria. */
+export const operationsMixEvidence = pgTable(
+  "operations_mix_evidence",
+  {
+    proposalId: uuid("proposal_id").notNull(),
+    evidenceId: varchar("evidence_id", { length: 8 }).notNull(),
+    sourceId: varchar("source_id", { length: 64 }).notNull(),
+    section: varchar("section", { length: 32 }).notNull(),
+    documentUrl: text("document_url").notNull(),
+    accessionNumber: varchar("accession_number", { length: 20 }).notNull(),
+    documentAcceptedAt: instant("document_accepted_at").notNull(),
+    sha256: char("sha256", { length: 64 }).notNull(),
+    byteLength: integer("byte_length").notNull(),
+    truncated: boolean("truncated").notNull(),
+    excerpt: text("excerpt").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      name: "operations_mix_evidence_pkey",
+      columns: [table.proposalId, table.evidenceId],
+    }),
+    foreignKey({
+      name: "operations_mix_evidence_proposal_fk",
+      columns: [table.proposalId],
+      foreignColumns: [operationsMixProposals.proposalId],
+    }),
+    check("operations_mix_evidence_bytes_check", sql`${table.byteLength} > 0`),
+  ],
+);
+
 /**
  * Marca de agua del refresh (ADR 0021): hasta qué presentación miró el sondeo a
  * cada sujeto, y cuándo lo miró.

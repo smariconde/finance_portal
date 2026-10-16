@@ -65,7 +65,7 @@ function fiveYears(items: readonly LineItemId[]): AnnualFundamentals {
 }
 
 describe(COMPLETENESS_PROFILE_VERSION, () => {
-  it("meets every check a company can meet today, and names the geographic mix as not ingested", () => {
+  it("names the geographic mix as missing while no proposal was accepted", () => {
     const profile = measureCompleteness(fiveYears(COMPLETE), {
       industryMapping: "mapped",
     });
@@ -75,10 +75,25 @@ describe(COMPLETENESS_PROFILE_VERSION, () => {
         .filter((item) => item.status !== "met")
         .map((item) => [item.check, item.missing]),
     ).toEqual([
-      ["geographic_revenue_mix", ["geographic_revenue_mix.not_ingested"]],
+      [
+        "geographic_revenue_mix",
+        ["geographic_revenue_mix.no_accepted_proposal"],
+      ],
     ]);
     expect(profile.latestFiscalYearEnd).toBe("2025-12-31");
   });
+
+  it.each(["owner_declaration", "ai_proposal"] as const)(
+    "meets every check with a mix from %s",
+    (operationsMix) => {
+      const profile = measureCompleteness(fiveYears(COMPLETE), {
+        industryMapping: "mapped",
+        operationsMix,
+      });
+
+      expect(profile.checks.every((item) => item.status === "met")).toBe(true);
+    },
+  );
 
   it("names every structural input the latest year lacks", () => {
     const profile = measureCompleteness(

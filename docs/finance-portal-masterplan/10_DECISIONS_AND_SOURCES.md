@@ -139,7 +139,7 @@ La instancia es una herramienta personal sin ejecucion de operaciones ni servici
 - Commodity value drivers: https://pages.stern.nyu.edu/adamodar/New_Home_Page/littlebook/commodityvaluedrivers.htm
 - Financial services value drivers: https://pages.stern.nyu.edu/adamodar/New_Home_Page/littlebook/bankvaluedriver.htm
 - Current datasets: https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datacurrent.html
-- Country risk premiums: https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/ctryprem.html
+- Country risk premiums: https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/ctryprem.html (desde la ADR 0034 se lee el `.xlsx` del índice de datasets, que trae también las regiones)
 - Historical implied ERP: https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/histimpl.html
 
 Principios incorporados: metodo segun empresa/lifecycle; normalizacion a lo largo de un ciclo; excess return para financieras; conexion narrativa-numeros; riesgo, reinversion y terminal coherentes; ERP/CRP con fecha.
