@@ -2,6 +2,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { parseArgs } from "node:util";
 
+import { rejudgeAttempt } from "@/modules/ai-evals/application/rejudge-attempt";
 import { runEvalCase } from "@/modules/ai-evals/application/run-eval-case";
 import {
   DECLARED_INDUSTRY_GOLD,
@@ -54,6 +55,7 @@ import { getSourceRegistryRepository } from "@/server/persistence/get-source-reg
  *   pnpm ai:eval --task mix --rung 1 --apply        # mide lo pendiente de ese escalón (gasta)
  *   pnpm ai:eval --variant ai-eval-low-effort-1.0.0 --task mix --rung 1 --apply
  *   pnpm ai:eval --summary                          # lee el reporte; no llama ni abre la base
+ *   pnpm ai:eval --summary --rejudge                # lo grabado, juzgado por la policy vigente
  *   pnpm ai:eval --summary --ladder ai-model-ladder-1.0.0#2,ai-model-ladder-1.0.0#1
  *
  * Cada caso va a **un** escalón por vez. El reporte es un JSONL en `.ai-evals/`
@@ -74,6 +76,7 @@ const { values } = parseArgs({
     ladder: { type: "string", multiple: true, default: [] },
     apply: { type: "boolean", default: false },
     summary: { type: "boolean", default: false },
+    rejudge: { type: "boolean", default: false },
     json: { type: "boolean", default: false },
   },
 });
@@ -105,7 +108,14 @@ const measured = readReport();
 if (values.summary) {
   const scores: EvalAttemptScore[] = measured
     .filter((attempt) => caseById.has(attempt.caseId))
-    .map((attempt) => scoreAttempt(caseById.get(attempt.caseId)!, attempt));
+    .map((attempt) => {
+      const evalCase = caseById.get(attempt.caseId)!;
+      // Con --rejudge, la policy vigente juzga otra vez lo grabado.
+      return scoreAttempt(
+        evalCase,
+        values.rejudge ? rejudgeAttempt(evalCase, attempt) : attempt,
+      );
+    });
   const pct = (part: number, whole: number) =>
     whole === 0 ? "—" : `${Math.round((part / whole) * 100)}%`;
   const row = (label: string, s: EvalSummary) =>
@@ -178,6 +188,10 @@ if (values.summary) {
   }
 
   log("puntuación", AI_EVAL_SCORING_VERSION);
+  log(
+    "veredictos",
+    values.rejudge ? "policy vigente (--rejudge)" : "los grabados",
+  );
   log("intentos en el reporte", measured.length);
   log(
     "gold sin revisar",
