@@ -1,7 +1,7 @@
 # Metodología de valuación
 
 - Estado: metodología objetivo; motor FCFF base implementado en `src/modules/valuation/`
-- Versión metodológica: 0.5.0 (la corrida lleva selección, completitud y rigor desde `F3-03`, el costo de capital construido desde `F3-06` y el riesgo país ponderado por operaciones desde `F5-05`)
+- Versión metodológica: 0.6.0 (la corrida lleva selección, completitud y rigor desde `F3-03`, el costo de capital construido desde `F3-06`, el riesgo país ponderado por operaciones desde `F5-05` y las decisiones cualitativas con la propuesta de la IA desde `F5-06`)
 - Versión de engine implementada: `fcff-1.0.0` (método `fcff_base`)
 - Fecha: 2026-08-21; motor base entregado el 2026-08-24; niveles de rigor y alcance
   de la IA incorporados el 2026-09-04
@@ -488,6 +488,54 @@ operaciones en su WACC. Johnson & Johnson pasa de 7,86 % a 8,39 % (CRP 0,81 %
 contra 0,22 % de EE. UU.) y su rigor sube de `standard` a `full`; ExxonMobil, de
 5,10 % a 5,27 %.
 
+### `F5-06`: decisiones cualitativas en el snapshot
+
+`ValuationInput.qualitativeDecisions` (`qualitative-decisions-1.0.0`) congela lo
+que movió la beta y el CRP, con lo que lo sostiene:
+
+- **Industria**: la base (`sic`, `owner_declaration` o `ai_resolution`), la
+  versión del mapeo, el SIC y sus candidatas. Una declaración del owner lleva
+  fecha y motivo, sin ticker. Una resolución de la IA lleva su ID, las versiones
+  de tarea, prompt, escalera y secciones, el modelo que respondió, el escalón, la
+  confianza, el motivo, las citas y la evidencia **resumida**: documento,
+  accession, aceptación, `sha256`, tamaño y si se truncó. El extracto no viaja:
+  queda en `industry_resolution_evidence` y lo identifica su hash.
+- **Mix de operaciones**: la declaración del owner con sus pesos exactos, o la
+  propuesta aceptada con sus versiones, el 10-K, el ejercicio, las releases cuyas
+  claves se ofrecieron, la unidad, el total impreso, los ingresos esperados, el
+  modelo, **cada línea como se imprimió con su cita** y la evidencia resumida.
+
+Los pesos del CRP se **derivan** de la decisión (`operations-mix-weights-1.0.0`) y
+la evaluación construye el costo de capital desde ella. El check
+`qualitative_decisions_drive_cost_of_capital` (`reject`) lo repite en cada
+corrida: la industria del costo de capital es la de la decisión; las candidatas
+son las de la tabla del SIC; el monto de cada línea sale de lo impreso y lo
+impreso está en su cita; y fuente, propuesta, claves y pesos de
+`operationsExposure` son los que la decisión deriva. Una corrida sin decisión de
+industria se rechaza.
+
+Así el snapshot se explica solo. `replayValuationRun` (`valuation-replay-1.0.0`)
+vuelve a calcular una corrida guardada desde su snapshot, con su reloj y su ID, y
+compara `input_hash`, `result_hash` y estado; `pnpm valuation:replay` lo hace sobre
+`valuation_runs` sin construir el egress ni la capa IA y sin leer las tablas de
+propuestas. El replay es del motor y la metodología vigentes: el schema fija
+ambas versiones, así que una corrida de `0.5.0` no se lee con este código y
+reproducirla pide el código de su versión. Hoy `valuation_runs` no tiene corridas
+reales —la corrida por ticker es `F6-01`—, así que ninguna queda afuera. La
+versión metodológica pasa a `0.6.0`. `FixtureCo` declara su
+industria y no tiene mix, así que su valor por acción no cambia y sus hashes sí.
+
+Medido el 2026-10-16 en una réplica de la base personal: las seis empresas con
+industria **y** mix de la IA que tienen costo de capital —AMZN, CRL, INCY, CCL,
+NCLH y XOM— se valuaron con supuestos de proyección declarados en un script de
+evidencia (construirlos es `F6-01` y la Fase 4). Tres corridas `computed` y tres
+`rejected`: CCL, NCLH y XOM no son `non_financial_mature`. Con
+`industry_resolutions`, `operations_mix_*`, las releases de Damodaran y las
+aserciones `damodaran-industry` vaciadas, y sin `OPENROUTER_API_KEY` ni
+`SEC_USER_AGENT`, el replay reprodujo **seis de seis**. Un monto transcripto
+editado en el JSONB guardado diverge en los dos hashes y en el estado. El
+snapshot pesa entre 13,8 y 16,3 kB.
+
 ## Normalización
 
 Reported y normalized se preservan en paralelo. Cada ajuste declara monto,
@@ -649,6 +697,7 @@ correlaciones, seed persistido y tests.
 | margen terminal                  | `require_review` fuera del rango sectorial sin evidencia |
 | tax rate y leverage              | `require_review` fuera de rango defendible               |
 | exposición país                  | `reject` si los pesos no suman 100% dentro de tolerancia |
+| decisiones cualitativas          | `reject` si industria o pesos no salen de la decisión    |
 | freshness e inputs               | `reject` o `require_review` según el método              |
 | peso del terminal                | diagnóstico visible si excede el umbral versionado       |
 
@@ -732,9 +781,10 @@ risk-free ni la ERP —eso son datasets fechados— y no toca el puente EV-equit
 
 ### Por qué la propuesta se persiste
 
-La corrida guarda la propuesta como parte del snapshot de entrada, no como una
-llamada que se repite. Un replay un año después lee la propuesta persistida y
-reproduce el mismo hash sin volver a contactar al modelo. Sin eso, la
+La corrida guarda la propuesta como parte del snapshot de entrada
+(`qualitativeDecisions`, desde `F5-06`), no como una llamada que se repite. Un
+replay un año después lee la propuesta persistida y reproduce el mismo hash sin
+volver a contactar al modelo ni leer las tablas de propuestas. Sin eso, la
 no-determinación del modelo se propaga al resultado y `input_hash` deja de
 significar algo.
 

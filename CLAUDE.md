@@ -8,7 +8,7 @@ Portal Financiero: a single-owner Next.js 16 portal for researching global compa
 
 The code is public; the data is not. The app is **personal-first**: it serves real data only from a private runtime, and there is no public demo deployment. See [ADR 0004](docs/architecture/adr/0004-personal-first-runtime.md).
 
-The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations kept to a five-fiscal-year window, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, per-source daily request budgets with an owner kill switch, a hand-run refresh that probes `submissions` and re-downloads only the filers that filed something relevant, a deterministic FCFF engine with its reference run, a frozen corpus of real SEC extracts as regression oracle, the declared sector classification with its population resolved at `as_of`, raw daily price series with dated splits and dividends, the CEDEAR registry of both issuers with each CEDEAR as its own security, a pure `sortino-1.0.0` over a total-return base with the metric catalog it belongs to, an on-demand company assessment that observes the SEC SIC, selects an archetype from versioned signals, measures completeness and rigor and builds the cost of capital from dated Damodaran releases, the AI layer's controls before any task —an egress door that takes `POST` with a credential it adds itself, a dollar spend ledger per task and per day, a breaker and a declared model ladder measured by a smoke call—, and its first task, which resolves an ambiguous Damodaran industry from targeted 10-K sections and stores it as an assertion the assessment reads, exist. The first surface that reads real data is the sector risk matrix (`/sectores`, `/sectores/[sector]`), which reads stored prices, the sector population and the CEDEAR registry from the personal database at request time and, when opened, downloads only the prices it is missing through the project's first Server Action. Scheduled refresh, live market data, screener, the Argentina dashboard, and AI features beyond that one hand-run task are **not** implemented, and no UI surface reads SEC observations yet; nothing may be presented in the UI as if it were.
+The application is early: shell, config health, security headers, the PostgreSQL/Drizzle persistence base, the persisted identity graph with its universe-constitution rule, SEC companyfacts ingestion into point-in-time observations kept to a five-fiscal-year window, issuer succession with a read-time reporting lineage, rule-verified stock splits with a `latest_adjusted` read, venue transfers, delistings and renames reconciled against dated SEC evidence, declared acquisitions and ticker changes, durable ingestion jobs with a per-source lease driving a hand-run universe backfill, per-source daily request budgets with an owner kill switch, a hand-run refresh that probes `submissions` and re-downloads only the filers that filed something relevant, a deterministic FCFF engine with its reference run, a frozen corpus of real SEC extracts as regression oracle, the declared sector classification with its population resolved at `as_of`, raw daily price series with dated splits and dividends, the CEDEAR registry of both issuers with each CEDEAR as its own security, a pure `sortino-1.0.0` over a total-return base with the metric catalog it belongs to, an on-demand company assessment that observes the SEC SIC, selects an archetype from versioned signals, measures completeness and rigor and builds the cost of capital from dated Damodaran releases, the AI layer's controls before any task —an egress door that takes `POST` with a credential it adds itself, a dollar spend ledger per task and per day, a breaker and a declared model ladder measured by a smoke call—, its first task, which resolves an ambiguous Damodaran industry from targeted 10-K sections and stores it as an assertion the assessment reads, the operations mix it transcribes from the 10-K to weight the country risk premium, and a valuation snapshot that carries those qualitative decisions so a stored run replays both hashes without the model, exist. The first surface that reads real data is the sector risk matrix (`/sectores`, `/sectores/[sector]`), which reads stored prices, the sector population and the CEDEAR registry from the personal database at request time and, when opened, downloads only the prices it is missing through the project's first Server Action. Scheduled refresh, live market data, screener, the Argentina dashboard, and AI features beyond that one hand-run task are **not** implemented, and no UI surface reads SEC observations yet; nothing may be presented in the UI as if it were.
 
 `AGENTS.md` holds the full contributor contract and takes precedence over this file where they overlap.
 
@@ -411,6 +411,26 @@ CRP in the equity premium —rows combined by GDP, the rest of the world as the
 nine regions— and keeps the domicile's default spread and tax rate; without a mix
 it is exactly `1.0.0`. `costOfCapital.operationsExposure` carries every
 component and `wacc_built_from_components` recomputes it (methodology `0.5.0`).
+
+```bash
+pnpm valuation:replay --run <uuid>                 # recomputes a stored run from its snapshot; no network, no AI, no writes
+pnpm valuation:replay --ticker AMZN --json         # every stored run of the company (up to 200)
+```
+
+The proposal lives in the snapshot (`F5-06`, methodology `0.6.0`).
+`ValuationInput.qualitativeDecisions` (`qualitative-decisions-1.0.0`) freezes
+the industry with its basis —SIC, owner or AI, the AI one with its resolution,
+versions, model and evidence **digests** (`sha256`, never the excerpt)— and the
+operations mix as the owner's declaration or the accepted proposal with every
+line as printed and its quote. The CRP weights are **derived** from the decision
+(`operationsMixReadingOf`), and `qualitative_decisions_drive_cost_of_capital`
+recomputes them, the industry, the SIC's candidates and each amount against its
+quote. `replayValuationRun` (`valuation-replay-1.0.0`) recomputes from the
+snapshot with the run's clock and ID and compares `input_hash`, `result_hash`
+and status; it never reads the proposal tables. A replay is of the current
+engine and methodology: the schema pins both versions. Measured on a replica:
+six real runs with an AI industry and mix replayed six of six with the proposal
+tables and Damodaran releases emptied and no keys.
 
 ```bash
 pnpm fundamentals:ingest --ticker AAPL             # dry run: downloads and builds vintages, writes nothing

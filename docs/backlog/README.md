@@ -61,7 +61,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    33 | `F5-03`    | `done`     | Industria ambigua resuelta con secciones dirigidas del 10-K, policy determinista y aserción persistida, medida sobre las 16 ambiguas.                                   | `F5-02`       |
 |    34 | `F5-04`    | `deferred` | Tavily como segunda evidencia cuando el 10-K no alcanza. Diferido el 2026-10-15: el 10-K alcanzó en las 16 ambiguas.                                                    | `F5-03`       |
 |    35 | `F5-05`    | `done`     | Mix geográfico de ingresos transcripto del 10-K por la IA con policy determinista y lock del owner; el CRP del WACC se pondera por operaciones y el motor lo recalcula. | `F5-03`       |
-|    36 | `F5-06`    | `ready`    | Replay de una corrida con industria y mix propuestos por la IA: reproduce ambos hashes desde el snapshot sin volver a llamar al modelo.                                 | `F5-05`       |
+|    36 | `F5-06`    | `done`     | Replay de una corrida con industria y mix propuestos por la IA: reproduce ambos hashes desde el snapshot sin volver a llamar al modelo.                                 | `F5-05`       |
+|    37 | `F5-07`    | `ready`    | Evals de injection, citas, abstención, schema, costo y corrección sobre las dos tareas de la capa IA.                                                                   | `F5-06`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -3014,6 +3015,47 @@ policy, 9 del orquestador, 3 de la lectura, 6 del costo de capital y el check
 del motor que rechaza un mix agregado a mano; contrato del repositorio sobre
 PostgreSQL; rollback de `0026` verificado en una réplica. AAPL, CAT, DE y GOOGL
 agotan los tokens de salida en los escalones 1 y 3: evidencia para `F5-07`.
+
+<a id="f5-06"></a>
+
+**`F5-06` — cierre (2026-10-16).** La propuesta de la IA viaja en el snapshot y
+el replay no la necesita de ningún otro lado:
+
+- **Decisiones cualitativas** (`qualitative-decisions-1.0.0`,
+  `ValuationInput.qualitativeDecisions`, metodología `0.6.0`): la industria con
+  su base —SIC, owner o IA— y, si es de la IA, la resolución entera salvo el
+  texto de los extractos, que representa su `sha256`; el mix con la declaración
+  del owner o la propuesta aceptada, con cada línea como se imprimió y su cita.
+  Sin ticker ni CIK: el snapshot sigue nombrando entidades.
+- **Los pesos salen de la decisión**: `readOperationsMix` devuelve la decisión,
+  `operationsMixReadingOf` deriva los pesos con `operations-mix-weights-1.0.0` y
+  la evaluación arma el costo de capital desde ahí. Una industria de la IA cuya
+  resolución guardada no aparece (`findResolution`) no se congela.
+- **El motor lo repite**: `qualitative_decisions_drive_cost_of_capital`
+  (`reject`) comprueba la industria, las candidatas de la tabla del SIC, que cada
+  monto salga de lo impreso y lo impreso de su cita, y que fuente, propuesta,
+  claves y pesos de `operationsExposure` sean los que la decisión deriva.
+- **Replay** (`valuation-replay-1.0.0`): `replayValuationRun` recalcula desde el
+  snapshot con el reloj y el ID de la corrida y compara `input_hash`,
+  `result_hash` y estado; `ValuationRunRepository.findById` y
+  `pnpm valuation:replay --run|--ticker`, que no construye egress ni capa IA, no
+  escribe y sale con 1 si algo diverge o si no había nada que reproducir.
+
+Criterios cumplidos: la propuesta se persiste en el snapshot y el replay
+reproduce ambos hashes sin volver a llamar al modelo (`TM-16`). Evidencia: en una
+réplica de la base personal, las seis empresas con industria y mix de la IA que
+tienen costo de capital (AMZN, CRL, INCY, CCL, NCLH, XOM) se valuaron con
+supuestos de proyección declarados en un script de evidencia —tres `computed`,
+tres `rejected` por arquetipo—; con las tablas de propuestas, las releases de
+Damodaran y las aserciones `damodaran-industry` vaciadas y sin
+`OPENROUTER_API_KEY` ni `SEC_USER_AGENT`, el replay reprodujo seis de seis, y un
+monto transcripto editado en el JSONB divergió en los dos hashes y el estado.
+Snapshots de 13,8 a 16,3 kB. CRM queda afuera: no publica intereses y no tiene
+costo de capital. 19 tests de las decisiones, 5 del replay, 2 de la evaluación,
+`findResolution` en el contrato del repositorio y el replay sobre PostgreSQL;
+2121 unit, 189 de integración y 175 E2E. Límite declarado: el replay es del motor
+y la metodología vigentes; hoy `valuation_runs` no tiene corridas reales, así que
+ninguna queda afuera.
 
 ### Fase 6 — corrida por ticker y acceso CEDEAR
 
