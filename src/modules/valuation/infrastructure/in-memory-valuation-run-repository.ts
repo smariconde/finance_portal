@@ -48,6 +48,11 @@ export function createInMemoryValuationRunRepository(
     async findByReplayKey(key) {
       return findStored(valuationReplayKeySchema.parse(key));
     },
+    async findById(valuationRunId) {
+      return (
+        stored.find((run) => run.valuationRunId === valuationRunId) ?? null
+      );
+    },
     async list(query) {
       const parsedQuery = valuationRunListQuerySchema.parse(query);
 

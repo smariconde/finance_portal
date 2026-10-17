@@ -49,6 +49,8 @@ export interface ValuationRunRepository {
    */
   record(run: ValuationRun): Promise<ValuationRun>;
   findByReplayKey(key: ValuationReplayKey): Promise<ValuationRun | null>;
+  /** Una corrida por su ID, para volver a calcularla (`F5-06`). */
+  findById(valuationRunId: string): Promise<ValuationRun | null>;
   list(query: ValuationRunListQuery): Promise<ValuationRun[]>;
 }
 

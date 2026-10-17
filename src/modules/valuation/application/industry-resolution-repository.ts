@@ -38,6 +38,10 @@ export interface IndustryResolutionRepository {
   latestForSubject(
     legalEntityId: string,
   ): Promise<StoredIndustryResolution | null>;
+  /** Una resolución por su ID, con su evidencia (`F5-06`). */
+  findResolution(
+    resolutionId: string,
+  ): Promise<StoredIndustryResolution | null>;
   /** Aserciones `damodaran-industry` del sujeto, vigentes o no, con su resolución. */
   assertionsForSubject(
     legalEntityId: string,

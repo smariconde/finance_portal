@@ -99,6 +99,13 @@ export function createInMemoryIndustryResolutionRepository(): IndustryResolution
           )[0] ?? null
       );
     },
+    async findResolution(resolutionId) {
+      return (
+        resolutions.find(
+          (stored) => stored.resolution.resolutionId === resolutionId,
+        ) ?? null
+      );
+    },
     async assertionsForSubject(legalEntityId) {
       return assertions
         .filter(

@@ -233,6 +233,45 @@ describe("assessCompany", () => {
     });
   });
 
+  const stored = {
+    resolution: {
+      resolutionId: "00000000-0000-4000-8000-0000000000a1",
+      legalEntityId: SUBJECT,
+      cik: "0000000042",
+      sic: "6021",
+      candidates: ["bank-money-center", "banks-regional"],
+      taskVersion: "industry-resolution-1.0.0",
+      promptVersion: "industry-resolution-prompt-1.0.0",
+      ladderVersion: "ai-model-ladder-1.0.0",
+      sectionsVersion: "sec-10k-sections-1.0.0",
+      outcome: "resolved" as const,
+      industryKey: "banks-regional",
+      confidence: "high" as const,
+      rationale: "A regional bank in the Midwest.",
+      reason: null,
+      acceptedRung: 1,
+      respondedModel: "fixture/model-a",
+      citedEvidenceIds: ["E1"],
+      resolvedAt: "2026-10-15T12:00:00.000Z",
+      recordedAt: "2026-10-15T12:00:00.000Z",
+    },
+    evidence: [
+      {
+        evidenceId: "E1",
+        sourceId: "sec-edgar",
+        section: "item_1_business" as const,
+        documentUrl:
+          "https://www.sec.gov/Archives/edgar/data/42/000000004226000001/fix-20251231.htm",
+        accessionNumber: "0000000042-26-000001",
+        documentAcceptedAt: "2026-02-20T21:00:00.000Z",
+        sha256: "a".repeat(64),
+        byteLength: 31,
+        truncated: false,
+        excerpt: "Fixture Bancorp, a regional bank",
+      },
+    ],
+  };
+
   it("reads a stored AI resolution only once it is visible at the cutoff, without calling a model", async () => {
     const resolvedAt = "2026-10-15T12:00:00.000Z";
     const reading = {
@@ -270,18 +309,95 @@ describe("assessCompany", () => {
         {
           ...dependencies([sic("6021")], matureRows()),
           loadIndustryResolutions: async () => [reading],
+          loadIndustryResolution: async (resolutionId) =>
+            resolutionId === stored.resolution.resolutionId ? stored : null,
         },
       );
 
-    expect((await assess("2026-10-15T11:59:59.000Z")).industry.status).toBe(
-      "ambiguous",
-    );
-    expect((await assess("2026-10-16T00:00:00.000Z")).industry).toMatchObject({
+    const before = await assess("2026-10-15T11:59:59.000Z");
+    expect(before.industry.status).toBe("ambiguous");
+    expect(before.qualitativeDecisions.industry).toBeNull();
+
+    const after = await assess("2026-10-16T00:00:00.000Z");
+    expect(after.industry).toMatchObject({
       status: "mapped",
       basis: "ai_resolution",
       industryKey: "banks-regional",
       resolution: { respondedModel: "fixture/model-a", evidenceIds: ["E1"] },
     });
+    // Lo que una corrida congela: la resolución con la evidencia resumida.
+    expect(after.qualitativeDecisions.industry).toEqual({
+      basis: "ai_resolution",
+      mappingVersion: "sic-damodaran-industry-1.1.0",
+      industryKey: "banks-regional",
+      sic: "6021",
+      candidates: ["bank-money-center", "banks-regional"],
+      resolution: {
+        resolutionId: stored.resolution.resolutionId,
+        taskVersion: "industry-resolution-1.0.0",
+        promptVersion: "industry-resolution-prompt-1.0.0",
+        ladderVersion: "ai-model-ladder-1.0.0",
+        sectionsVersion: "sec-10k-sections-1.0.0",
+        respondedModel: "fixture/model-a",
+        acceptedRung: 1,
+        confidence: "high",
+        rationale: "A regional bank in the Midwest.",
+        citedEvidenceIds: ["E1"],
+        resolvedAt,
+        evidence: [
+          {
+            evidenceId: "E1",
+            sourceId: "sec-edgar",
+            section: "item_1_business",
+            documentUrl: stored.evidence[0]!.documentUrl,
+            accessionNumber: "0000000042-26-000001",
+            documentAcceptedAt: "2026-02-20T21:00:00.000Z",
+            sha256: "a".repeat(64),
+            byteLength: 31,
+            truncated: false,
+          },
+        ],
+      },
+    });
+  });
+
+  it("refuses to freeze an AI industry whose stored resolution is gone", async () => {
+    const resolvedAt = "2026-10-15T12:00:00.000Z";
+
+    await expect(
+      assessCompany(
+        {
+          legalEntityId: SUBJECT,
+          query: query("2026-10-16T00:00:00.000Z"),
+          fundamentalsSourceId: "sec-edgar",
+          cik: "0000000042",
+          industryDeclarations: [],
+          listingCountry: "US",
+        },
+        {
+          ...dependencies([sic("6021")], matureRows()),
+          loadIndustryResolutions: async () => [
+            {
+              classification: {
+                ...sic("6021"),
+                taxonomyId: "damodaran-industry",
+                code: "banks-regional",
+                validFrom: resolvedAt,
+                availableAt: resolvedAt,
+              },
+              reading: {
+                resolutionId: stored.resolution.resolutionId,
+                industryKey: "banks-regional",
+                availableAt: resolvedAt,
+                respondedModel: "fixture/model-a",
+                evidenceIds: ["E1"],
+              },
+            },
+          ],
+          loadIndustryResolution: async () => null,
+        },
+      ),
+    ).rejects.toThrow("An AI-resolved industry needs its stored resolution.");
   });
 
   it("recognizes a bank from its SIC alone", async () => {

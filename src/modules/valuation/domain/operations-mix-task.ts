@@ -383,7 +383,7 @@ const UNIT_FACTOR: Readonly<Record<string, string>> = {
  * ¿Aparece el monto en la cita? Se comparan las cifras: `$ 9,034` impreso como
  * `$9,034` en la cita es el mismo monto.
  */
-function quoteHolds(quote: string, amount: string): boolean {
+export function quoteHolds(quote: string, amount: string): boolean {
   const digits = amount.replace(/[$\s()-]/gu, "");
   return digits.length > 0 && quote.replace(/[$\s]/gu, "").includes(digits);
 }

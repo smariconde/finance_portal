@@ -297,6 +297,8 @@ for (const ticker of values.ticker) {
       // Lo guardado por `valuation:resolve-industry`: leerlo no llama a un modelo.
       loadIndustryResolutions: (subjectId) =>
         industryResolutions.assertionsForSubject(subjectId),
+      loadIndustryResolution: (resolutionId) =>
+        industryResolutions.findResolution(resolutionId),
       ...fundamentalReaders,
       costOfCapitalReadings: async (pointInTime) => {
         const [betas, countryRisk, impliedErp, ratings, regions] =

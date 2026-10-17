@@ -3,6 +3,7 @@ import { computeContentHash } from "@/modules/ingestion/domain/content-hash";
 import { divide, ONE, parseDecimal, ZERO, type Dec } from "./decimal-policy";
 import type { FcffComputation } from "./fcff";
 import { deriveCostOfCapital } from "./cost-of-capital";
+import { qualitativeDecisionMismatches } from "./qualitative-decisions";
 import { deriveRigorLevel } from "./rigor-level";
 import { ValuationPolicyError } from "./valuation-error";
 import {
@@ -155,11 +156,34 @@ function checkCostOfCapital(input: ValuationInput): PolicyCheck[] {
   ];
 }
 
+/**
+ * La industria y los pesos del CRP son los que las decisiones congeladas en el
+ * snapshot derivan (`F5-06`): el replay no consulta las tablas de propuestas,
+ * así que el snapshot tiene que explicarse solo.
+ */
+function checkQualitativeDecisions(input: ValuationInput): PolicyCheck[] {
+  const mismatches = qualitativeDecisionMismatches(
+    input.qualitativeDecisions,
+    input.costOfCapital,
+  );
+
+  return [
+    check(
+      "qualitative_decisions_drive_cost_of_capital",
+      "reject",
+      mismatches.length === 0,
+      "Industry and operations weights must be the ones the recorded qualitative decisions derive.",
+      mismatches,
+    ),
+  ];
+}
+
 /** Checks que dependen sólo del snapshot: corren antes de calcular. */
 export function checkValuationInput(input: ValuationInput): PolicyCheck[] {
   const checks: PolicyCheck[] = [
     ...checkAssessment(input),
     ...checkCostOfCapital(input),
+    ...checkQualitativeDecisions(input),
   ];
 
   const mismatchedCurrency = listMonetaryFacts(input)

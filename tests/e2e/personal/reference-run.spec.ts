@@ -16,9 +16,9 @@ import { ROUTES } from "../support/runtime";
  * cualquier cosa menos lo que dice el nombre del test.
  */
 const INPUT_HASH =
-  "e0bc6598a7600998aeaed9890da2dadb3a9fd165e7f089124336130eabed40d8";
+  "f3e523ea4c733b8d4e252535e349ba08ac72911a64ee5526357c592c137b895b";
 const RESULT_HASH =
-  "6c938beb304891dad9b74b416df25d8b3251141e26adca287887e1f36dad6d02";
+  "04bdee47f25ddd9b6e010907ad617f1dd80d2ee6087ede31ce8ad74582c1ff23";
 
 function cardWithHeading(page: Page, name: string | RegExp) {
   return page

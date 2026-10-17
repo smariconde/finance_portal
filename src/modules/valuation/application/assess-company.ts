@@ -27,14 +27,23 @@ import {
   type IndustryMapping,
 } from "../domain/industry-mapping";
 import { DAMODARAN_INDUSTRY_ASSERTION_TAXONOMY } from "../domain/industry-resolution";
-import type { IndustryAssertionReading } from "./industry-resolution-repository";
+import type {
+  IndustryAssertionReading,
+  StoredIndustryResolution,
+} from "./industry-resolution-repository";
 import {
   buildCostOfCapital,
   COST_OF_CAPITAL_VERSION,
   type CostOfCapitalResult,
   type ReferenceReading,
-  type OperationsMixReading,
 } from "../domain/cost-of-capital";
+import {
+  industryDecisionOf,
+  operationsMixReadingOf,
+  QUALITATIVE_DECISIONS_VERSION,
+  type OperationsMixDecision,
+  type QualitativeDecisions,
+} from "../domain/qualitative-decisions";
 import {
   assessFundamentalProfileSignals,
   latestInterestCoverage,
@@ -91,6 +100,13 @@ export type CompanyAssessmentDependencies = {
   readonly loadIndustryResolutions?: (
     legalEntityId: string,
   ) => Promise<readonly IndustryAssertionReading[]>;
+  /**
+   * La resolución guardada con su evidencia, para congelarla en la decisión
+   * (`F5-06`). Una industria de la IA sin ella no se puede explicar.
+   */
+  readonly loadIndustryResolution?: (
+    resolutionId: string,
+  ) => Promise<StoredIndustryResolution | null>;
   /** Las releases de Damodaran visibles al corte, o `null` cada una (`F3-04`). */
   readonly costOfCapitalReadings: (query: PointInTimeQuery) => Promise<{
     readonly betas: ReferenceReading | null;
@@ -102,13 +118,13 @@ export type CompanyAssessmentDependencies = {
   }>;
   /**
    * El mix de operaciones visible al corte —la declaración del owner, o la
-   * propuesta aceptada más reciente— con sus pesos, o `null` (`F5-05`). Leerlo
-   * nunca llama a un modelo.
+   * propuesta aceptada más reciente— como decisión, o `null` (`F5-05`). Leerlo
+   * nunca llama a un modelo; los pesos se derivan de la decisión.
    */
   readonly loadOperationsMix?: (
     legalEntityId: string,
     query: PointInTimeQuery,
-  ) => Promise<OperationsMixReading | null>;
+  ) => Promise<OperationsMixDecision | null>;
 };
 
 export type CompanyAssessmentRequest = {
@@ -147,6 +163,11 @@ export type CompanyAssessment = {
   readonly rigor: RigorAssessment;
   /** WACC construido con componentes fechados, o lo que faltó (`F3-06`). */
   readonly costOfCapital: CostOfCapitalResult;
+  /**
+   * Industria y mix con lo que los sostiene, tal como una corrida los congela
+   * en su snapshot (`F5-06`).
+   */
+  readonly qualitativeDecisions: QualitativeDecisions;
 };
 
 function isVisible(
@@ -265,8 +286,30 @@ export async function assessCompany(
     declarations: request.industryDeclarations,
     aiResolution,
   });
-  const operationsMix =
+  const operationsMixDecision =
     (await dependencies.loadOperationsMix?.(legalEntityId, query)) ?? null;
+  const operationsMix =
+    operationsMixDecision === null
+      ? null
+      : operationsMixReadingOf(operationsMixDecision);
+  const qualitativeDecisions: QualitativeDecisions = {
+    version: QUALITATIVE_DECISIONS_VERSION,
+    industry: industryDecisionOf(industry, {
+      declaration:
+        industry.status === "mapped" && industry.basis === "owner_declaration"
+          ? (request.industryDeclarations.find(
+              (declaration) => declaration.cik === request.cik,
+            ) ?? null)
+          : null,
+      resolution:
+        industry.status === "mapped" && industry.resolution !== undefined
+          ? ((await dependencies.loadIndustryResolution?.(
+              industry.resolution.resolutionId,
+            )) ?? null)
+          : null,
+    }),
+    operationsMix: operationsMixDecision,
+  };
   const completeness = measureCompleteness(series, {
     industryMapping: industry.status,
     operationsMix: operationsMix?.source ?? null,
@@ -299,6 +342,7 @@ export async function assessCompany(
     completeness,
     selection,
     rigor: deriveRigorLevel(selection, completeness),
+    qualitativeDecisions,
     costOfCapital: FINANCIAL_PROFILES.has(selection.assetProfile ?? "")
       ? {
           // Un banco, una aseguradora o un REIT se valúan sobre el equity: un

@@ -6,8 +6,10 @@ import postgres, { type Sql } from "postgres";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { DEMO_IDENTITY_IDS } from "@/modules/identity/infrastructure/demo-identity-fixtures";
+import { replayValuationRun } from "@/modules/valuation/application/replay-valuation-run";
 import { runValuation } from "@/modules/valuation/application/run-valuation";
 import { toReplayKey } from "@/modules/valuation/application/valuation-run-repository";
+import { DEMO_AI_VALUATION_INPUT } from "@/modules/valuation/infrastructure/demo-ai-valuation-fixtures";
 import {
   DEMO_VALUATION_INPUT,
   DEMO_VALUATION_INPUT_BEFORE_AMENDMENT,
@@ -259,6 +261,36 @@ describe("PostgreSQL valuation runs", () => {
         await repository.findByReplayKey(toReplayKey(valuation())),
       ).not.toBeNull();
       expect(repository.storage).toBe("personal-postgres");
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it("reads a run with an AI industry and mix back by ID and replays both hashes", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    try {
+      const repository = createPostgresValuationRunRepository(database);
+      const runId = randomUUID();
+      const recorded = await repository.record(
+        valuation(DEMO_AI_VALUATION_INPUT, { runId }),
+      );
+      const stored = await repository.findById(runId);
+
+      expect(recorded.valuationRunId).toBe(runId);
+      expect(stored?.input.qualitativeDecisions).toStrictEqual(
+        DEMO_AI_VALUATION_INPUT.qualitativeDecisions,
+      );
+      // JSONB reordena claves: el hash canónico no depende de ese orden.
+      expect(replayValuationRun(stored!)).toMatchObject({
+        outcome: "reproduced",
+        replayed: {
+          inputHash: recorded.inputHash,
+          resultHash: recorded.resultHash,
+        },
+      });
+      expect(await repository.findById(randomUUID())).toBeNull();
       expect(fetchSpy).not.toHaveBeenCalled();
     } finally {
       fetchSpy.mockRestore();
