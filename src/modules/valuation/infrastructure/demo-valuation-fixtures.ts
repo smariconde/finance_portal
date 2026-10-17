@@ -18,6 +18,10 @@ import {
   type MethodSelection,
 } from "../domain/method-selection";
 import { buildCostOfCapital } from "../domain/cost-of-capital";
+import {
+  QUALITATIVE_DECISIONS_VERSION,
+  qualitativeDecisionsSchema,
+} from "../domain/qualitative-decisions";
 import { deriveRigorLevel } from "../domain/rigor-level";
 import { fixtureCostOfCapitalReadings } from "./fixture-cost-of-capital-readings";
 import {
@@ -135,7 +139,7 @@ const DEMO_COMPLETENESS: CompletenessProfile = {
  * sin deuda, libre de riesgo 4 % y ERP 5 %. El terminal coincide porque la beta
  * ya está en 1.
  */
-const DEMO_COST_OF_CAPITAL_RESULT = buildCostOfCapital({
+export const DEMO_COST_OF_CAPITAL_REQUEST = {
   currency: "USD",
   industryKey: "computers-peripherals",
   listingCountry: "US",
@@ -155,13 +159,36 @@ const DEMO_COST_OF_CAPITAL_RESULT = buildCostOfCapital({
     fromLatestFiscalYear: true,
     availableAt: "2025-02-15T00:00:00.000Z",
   },
-});
+} as const;
+
+const DEMO_COST_OF_CAPITAL_RESULT = buildCostOfCapital(
+  DEMO_COST_OF_CAPITAL_REQUEST,
+);
 
 if (DEMO_COST_OF_CAPITAL_RESULT.status !== "computed") {
   throw new Error("the demo cost of capital must build");
 }
 
 export const DEMO_COST_OF_CAPITAL = DEMO_COST_OF_CAPITAL_RESULT.costOfCapital;
+
+/**
+ * La industria de `FixtureCo` la declara la fixture —no tiene SIC observado— y
+ * no hay mix de operaciones: el CRP es el del domicilio (`F5-06`).
+ */
+export const DEMO_QUALITATIVE_DECISIONS = qualitativeDecisionsSchema.parse({
+  version: QUALITATIVE_DECISIONS_VERSION,
+  industry: {
+    basis: "owner_declaration",
+    mappingVersion: "sic-damodaran-industry-1.1.0",
+    industryKey: DEMO_COST_OF_CAPITAL.industryKey,
+    sic: null,
+    candidates: [],
+    declaredOn: "2026-10-02",
+    rationale:
+      "FixtureCo is a synthetic hardware maker declared for the reference run.",
+  },
+  operationsMix: null,
+});
 
 export const DEMO_VALUATION_ASSESSMENT = {
   selection: DEMO_SELECTION,
@@ -291,6 +318,7 @@ function buildInput(baseRevenue: {
     assetProfile: "non_financial_mature",
     assessment: DEMO_VALUATION_ASSESSMENT,
     costOfCapital: DEMO_COST_OF_CAPITAL,
+    qualitativeDecisions: DEMO_QUALITATIVE_DECISIONS,
     method: VALUATION_METHOD,
     engineVersion: ENGINE_VERSION,
     methodologyVersion: METHODOLOGY_VERSION,

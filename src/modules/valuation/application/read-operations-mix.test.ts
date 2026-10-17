@@ -9,6 +9,7 @@ import {
   lineRecordsOf,
   operationsMixDeclarationSchema,
 } from "../domain/operations-mix";
+import { operationsMixReadingOf } from "../domain/qualitative-decisions";
 import { createInMemoryOperationsMixRepository } from "../infrastructure/in-memory-operations-mix-repository";
 
 import { readOperationsMix } from "./read-operations-mix";
@@ -96,18 +97,33 @@ async function repositoryWithProposal() {
 describe("readOperationsMix", () => {
   it("reads the accepted proposal known at the cutoff, with weights computed by code", async () => {
     const repository = await repositoryWithProposal();
+    const decision = await readOperationsMix(
+      {
+        legalEntityId: SUBJECT,
+        cik: CIK,
+        query: at("2026-10-17T00:00:00.000Z"),
+        declarations: [],
+      },
+      repository,
+    );
 
-    expect(
-      await readOperationsMix(
-        {
-          legalEntityId: SUBJECT,
-          cik: CIK,
-          query: at("2026-10-17T00:00:00.000Z"),
-          declarations: [],
-        },
-        repository,
-      ),
-    ).toEqual({
+    expect(decision).toMatchObject({
+      source: "ai_proposal",
+      proposal: {
+        proposalId: "00000000-0000-4000-8000-0000000000a1",
+        respondedModel: "fixture/model-b",
+        accessionNumber: "0000000042-26-000001",
+      },
+      lines: [
+        { label: "United States", printedAmount: "$ 300", amount: "300" },
+        { label: "Other", printedAmount: "100", amount: "100" },
+      ],
+    });
+    // La evidencia viaja resumida: el extracto queda en la tabla.
+    expect(decision?.source === "ai_proposal" && decision.evidence[0]).toEqual(
+      expect.not.objectContaining({ excerpt: expect.anything() }),
+    );
+    expect(operationsMixReadingOf(decision!)).toEqual({
       source: "ai_proposal",
       proposalId: "00000000-0000-4000-8000-0000000000a1",
       weightsVersion: "operations-mix-weights-1.0.0",
@@ -157,6 +173,9 @@ describe("readOperationsMix", () => {
         },
         repository,
       ),
-    ).toMatchObject({ source: "owner_declaration", proposalId: null });
+    ).toMatchObject({
+      source: "owner_declaration",
+      exposures: [{ exposureKeys: ["japan"], weight: "1" }],
+    });
   });
 });

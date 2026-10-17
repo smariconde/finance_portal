@@ -2,6 +2,7 @@ import "server-only";
 
 import { and, desc, eq } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
+import { z } from "zod";
 
 import {
   toReplayKey,
@@ -155,6 +156,20 @@ export function createPostgresValuationRunRepository(
       const row = await findRow(valuationReplayKeySchema.parse(key));
 
       return row === null ? null : toDomainRun(row);
+    },
+    async findById(valuationRunId) {
+      const [row] = await database
+        .select()
+        .from(schema.valuationRuns)
+        .where(
+          eq(
+            schema.valuationRuns.valuationRunId,
+            z.uuid().parse(valuationRunId),
+          ),
+        )
+        .limit(1);
+
+      return row === undefined ? null : toDomainRun(row);
     },
     async list(query) {
       const parsedQuery = valuationRunListQuerySchema.parse(query);

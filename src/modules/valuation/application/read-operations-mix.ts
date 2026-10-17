@@ -1,12 +1,11 @@
 import type { PointInTimeQuery } from "@/modules/temporal/domain/point-in-time-query";
 
-import type { OperationsMixReading } from "../domain/cost-of-capital";
+import type { OperationsMixDeclaration } from "../domain/operations-mix";
 import {
-  OPERATIONS_MIX_WEIGHTS_VERSION,
-  weightsOfDeclaration,
-  weightsOfProposal,
-  type OperationsMixDeclaration,
-} from "../domain/operations-mix";
+  operationsMixDecisionOfDeclaration,
+  operationsMixDecisionOfProposal,
+  type OperationsMixDecision,
+} from "../domain/qualitative-decisions";
 
 import type { OperationsMixRepository } from "./operations-mix-repository";
 
@@ -15,6 +14,10 @@ import type { OperationsMixRepository } from "./operations-mix-repository";
  * ADR 0034, decisión 6): la declaración del owner gana siempre —es el lock— y,
  * sin ella, la propuesta aceptada más reciente que ya existía al corte. Leerlo
  * nunca llama a un modelo.
+ *
+ * Devuelve la decisión entera, con las líneas transcriptas y la evidencia
+ * resumida, porque es lo que la corrida congela en su snapshot (`F5-06`); los
+ * pesos se derivan de ella con `operationsMixReadingOf`.
  */
 export async function readOperationsMix(
   request: {
@@ -24,19 +27,14 @@ export async function readOperationsMix(
     readonly declarations: readonly OperationsMixDeclaration[];
   },
   repository: Pick<OperationsMixRepository, "acceptedAsKnown">,
-): Promise<OperationsMixReading | null> {
+): Promise<OperationsMixDecision | null> {
   const declaration =
     request.cik === null
       ? undefined
       : request.declarations.find((candidate) => candidate.cik === request.cik);
 
   if (declaration !== undefined) {
-    return {
-      source: "owner_declaration",
-      proposalId: null,
-      weightsVersion: OPERATIONS_MIX_WEIGHTS_VERSION,
-      exposures: weightsOfDeclaration(declaration),
-    };
+    return operationsMixDecisionOfDeclaration(declaration);
   }
 
   const accepted = await repository.acceptedAsKnown(
@@ -44,12 +42,5 @@ export async function readOperationsMix(
     request.query.knownAt ?? request.query.effectiveAt,
   );
 
-  return accepted === null
-    ? null
-    : {
-        source: "ai_proposal",
-        proposalId: accepted.proposal.proposalId,
-        weightsVersion: OPERATIONS_MIX_WEIGHTS_VERSION,
-        exposures: weightsOfProposal(accepted.lines),
-      };
+  return accepted === null ? null : operationsMixDecisionOfProposal(accepted);
 }

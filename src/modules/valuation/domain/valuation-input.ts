@@ -15,6 +15,7 @@ import {
 } from "./decimal-policy";
 import { assetProfileSchema, type AssetProfile } from "./asset-profile";
 import { costOfCapitalSchema } from "./cost-of-capital";
+import { qualitativeDecisionsSchema } from "./qualitative-decisions";
 import { valuationAssessmentSchema } from "./valuation-assessment";
 import { ValuationPolicyError } from "./valuation-error";
 
@@ -30,7 +31,7 @@ import { ValuationPolicyError } from "./valuation-error";
 export const VALUATION_METHOD = "fcff_base";
 export const ENGINE_VERSION = "fcff-1.0.0";
 /** Debe seguir a `docs/valuation/methodology.md`. */
-export const METHODOLOGY_VERSION = "0.5.0";
+export const METHODOLOGY_VERSION = "0.6.0";
 
 const currencySchema = z
   .string()
@@ -224,6 +225,13 @@ export const valuationInputSchema = z
      * policy check lo recalcula y rechaza un WACC crudo.
      */
     costOfCapital: costOfCapitalSchema,
+    /**
+     * Industria y mix de operaciones con lo que los sostiene (`F5-06`): la
+     * propuesta de la IA viaja en el snapshot, así que un replay no vuelve a
+     * llamar al modelo ni lee las tablas de propuestas. Un policy check
+     * recalcula desde acá la industria y los pesos del costo de capital.
+     */
+    qualitativeDecisions: qualitativeDecisionsSchema,
     method: z.literal(VALUATION_METHOD),
     engineVersion: z.literal(ENGINE_VERSION),
     methodologyVersion: z.literal(METHODOLOGY_VERSION),

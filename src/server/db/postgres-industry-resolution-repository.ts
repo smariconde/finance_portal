@@ -4,7 +4,10 @@ import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 
 import { subjectClassificationSchema } from "@/modules/classification/domain/subject-classification";
-import type { IndustryResolutionRepository } from "@/modules/valuation/application/industry-resolution-repository";
+import type {
+  IndustryResolutionRepository,
+  StoredIndustryResolution,
+} from "@/modules/valuation/application/industry-resolution-repository";
 import {
   DAMODARAN_INDUSTRY_ASSERTION_TAXONOMY,
   industryEvidenceRecordSchema,
@@ -67,6 +70,23 @@ function toEvidence(
 export function createPostgresIndustryResolutionRepository(
   database: Database,
 ): IndustryResolutionRepository {
+  async function withEvidence(
+    row: typeof schema.industryResolutions.$inferSelect,
+  ): Promise<StoredIndustryResolution> {
+    const evidence = await database
+      .select()
+      .from(schema.industryResolutionEvidence)
+      .where(
+        eq(schema.industryResolutionEvidence.resolutionId, row.resolutionId),
+      )
+      .orderBy(asc(schema.industryResolutionEvidence.evidenceId));
+
+    return {
+      resolution: toResolution(row),
+      evidence: evidence.map(toEvidence),
+    };
+  }
+
   return {
     storage: "personal-postgres",
     async record({ resolution, evidence, plan }) {
@@ -133,22 +153,16 @@ export function createPostgresIndustryResolutionRepository(
         .orderBy(desc(schema.industryResolutions.resolvedAt))
         .limit(1);
 
-      if (row === undefined) {
-        return null;
-      }
-
-      const evidence = await database
+      return row === undefined ? null : withEvidence(row);
+    },
+    async findResolution(resolutionId) {
+      const [row] = await database
         .select()
-        .from(schema.industryResolutionEvidence)
-        .where(
-          eq(schema.industryResolutionEvidence.resolutionId, row.resolutionId),
-        )
-        .orderBy(asc(schema.industryResolutionEvidence.evidenceId));
+        .from(schema.industryResolutions)
+        .where(eq(schema.industryResolutions.resolutionId, resolutionId))
+        .limit(1);
 
-      return {
-        resolution: toResolution(row),
-        evidence: evidence.map(toEvidence),
-      };
+      return row === undefined ? null : withEvidence(row);
     },
     async assertionsForSubject(legalEntityId) {
       const rows = await database

@@ -100,6 +100,11 @@ export function describeIndustryResolutionRepositoryContract(
         resolution,
         evidence: evidence(),
       });
+      expect(await repository.findResolution(resolution.resolutionId)).toEqual({
+        resolution,
+        evidence: evidence(),
+      });
+      expect(await repository.findResolution(randomUUID())).toBeNull();
       expect(await repository.assertionsForSubject(subject)).toEqual([
         expect.objectContaining({
           classification: expect.objectContaining({
