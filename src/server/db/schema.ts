@@ -750,6 +750,8 @@ export const aiSpendStatus = pgEnum("ai_spend_status", [
   "unsettled",
 ]);
 
+export const aiSpendPurpose = pgEnum("ai_spend_purpose", ["task", "eval"]);
+
 /**
  * Libro de gasto en dólares de la capa IA (ADR 0033): una fila por intento de
  * llamar a un modelo.
@@ -763,6 +765,9 @@ export const aiSpendStatus = pgEnum("ai_spend_status", [
  *
  * Los importes son nanodólares enteros: los precios de la escalera son enteros
  * en esa unidad y la suma no pasa por un decimal.
+ *
+ * `purpose` separa los evals de `F5-07` (ADR 0035): cuentan contra los mismos
+ * topes, pero no son la métrica de producción.
  */
 export const aiSpendLedger = pgTable(
   "ai_spend_ledger",
@@ -770,6 +775,7 @@ export const aiSpendLedger = pgTable(
     reservationId: uuid("reservation_id").primaryKey(),
     sourceId: varchar("source_id", { length: 64 }).notNull(),
     taskRunId: uuid("task_run_id").notNull(),
+    purpose: aiSpendPurpose("purpose").notNull().default("task"),
     taskVersion: varchar("task_version", { length: 64 }).notNull(),
     ladderVersion: varchar("ladder_version", { length: 64 }).notNull(),
     rung: integer("rung").notNull(),

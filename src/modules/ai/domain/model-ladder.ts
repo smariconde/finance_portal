@@ -24,7 +24,15 @@ export type ModelRung = {
    */
   readonly maxPromptNanoUsdPerToken: number;
   readonly maxCompletionNanoUsdPerToken: number;
+  /**
+   * Esfuerzo de razonamiento pedido, para modelos que razonan antes de
+   * contestar. OpenRouter lo normaliza por proveedor y `require_parameters`
+   * excluye a los endpoints que no lo respetan. Sin él, decide el modelo.
+   */
+  readonly reasoning?: { readonly effort: ReasoningEffort };
 };
+
+export type ReasoningEffort = "minimal" | "low" | "medium" | "high";
 
 export const AI_MODEL_LADDER: readonly ModelRung[] = Object.freeze([
   Object.freeze({

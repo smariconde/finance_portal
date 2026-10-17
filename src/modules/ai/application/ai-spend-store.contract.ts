@@ -54,6 +54,7 @@ export function describeAiSpendStoreContract(
         overrides: Partial<AiSpendReservationRequest> = {},
       ): AiSpendReservationRequest => ({
         reservationId: randomUUID(),
+        purpose: "task",
         sourceId,
         taskRunId: randomUUID(),
         taskVersion: "ai-smoke-1.0.0",
@@ -224,6 +225,23 @@ export function describeAiSpendStoreContract(
         [2, "reserved", "2026-10-15"],
         [3, "reserved", "2026-10-15"],
       ]);
+    });
+
+    it("un eval cuenta contra el mismo día que una tarea y queda marcado", async () => {
+      const { sourceId, store, reservation } = withLimits(1000, 1500);
+      const evalRun = reservation({ purpose: "eval", worstCaseNanoUsd: 1000 });
+
+      await store.reserve(evalRun);
+
+      expect(
+        await store.reserve(reservation({ worstCaseNanoUsd: 600 })),
+      ).toMatchObject({ status: "daily_budget_exhausted", spentNanoUsd: 1000 });
+      expect(
+        (await store.listTaskAttempts(evalRun.taskRunId)).map(
+          (entry) => entry.purpose,
+        ),
+      ).toEqual(["eval"]);
+      expect((await store.readDay(sourceId, SPEND_T0)).attempts).toBe(1);
     });
 
     it("niega una fuente sin tope en dólares declarado", async () => {

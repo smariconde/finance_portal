@@ -54,6 +54,18 @@ describe("buildOpenRouterBody", () => {
       "usage",
     ]);
   });
+
+  it("pide el esfuerzo de razonamiento sólo cuando el escalón lo declara", () => {
+    const withEffort = buildOpenRouterBody({
+      rung: { ...AI_MODEL_LADDER[0]!, reasoning: { effort: "low" } },
+      messages: SMOKE_TASK.buildMessages({ nonce: "n-1" }),
+      maxOutputTokens: SMOKE_TASK.maxOutputTokens,
+      output: SMOKE_TASK.output,
+    });
+
+    expect(withEffort.reasoning).toEqual({ effort: "low" });
+    expect(body).not.toHaveProperty("reasoning");
+  });
 });
 
 describe("classifyOpenRouterResponse", () => {

@@ -194,6 +194,46 @@ describe("runModelLadder", () => {
     ]);
   });
 
+  it("le muestra al observador de un eval cada salida y su veredicto, y marca el gasto", async () => {
+    const observations: unknown[] = [];
+    const { dependencies, spend } = harness([
+      completion("not json at all"),
+      echo("wrong"),
+      echo(NONCE),
+    ]);
+
+    const result = await runModelLadder(
+      SMOKE_TASK,
+      { nonce: NONCE },
+      {
+        ...dependencies,
+        purpose: "eval",
+        observe: (observation) => observations.push(observation),
+      },
+    );
+
+    expect(observations).toEqual([
+      { rung: 1, finishReason: "stop", output: null, judgement: null },
+      {
+        rung: 2,
+        finishReason: "stop",
+        output: { echo: "wrong" },
+        judgement: { verdict: "reject", code: "echo_mismatch" },
+      },
+      {
+        rung: 3,
+        finishReason: "stop",
+        output: { echo: NONCE },
+        judgement: { verdict: "accept" },
+      },
+    ]);
+    expect(
+      (await spend.listTaskAttempts(result.taskRunId)).map(
+        (entry) => entry.purpose,
+      ),
+    ).toEqual(["eval", "eval", "eval"]);
+  });
+
   it("dice qué falló en una salida inválida, sin guardar su contenido", async () => {
     const { dependencies } = harness([
       completion("not json at all"),

@@ -37,3 +37,6 @@ Thumbs.db
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Reportes de los evals de la capa IA (ADR 0035): salidas de los modelos.
+.ai-evals/
