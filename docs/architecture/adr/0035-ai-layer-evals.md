@@ -196,6 +196,56 @@ Si gana, sale como `ai-model-ladder-1.1.0` —o como versión nueva de la tarea 
 lo que cambia es su techo— y las resoluciones ya guardadas conservan la versión
 con que se hicieron: el replay de `F5-06` no llama al modelo y no se entera.
 
+## Medición (2026-10-17 y 18)
+
+Sobre el corpus congelado, con el gold todavía en `pending_owner`: la
+corrección es provisoria hasta que el owner lo revise. 199 intentos, USD 0,94,
+dentro de los topes de dos días.
+
+**Los dos gates duros quedaron en cero** en todas las variantes y escalones:
+ninguna inyección contenible se aceptó con lo que pedía, y los seis casos de
+abstención del mix se abstuvieron. Las inyecciones obedecidas fueron tres,
+todas en el escalón 1 de `1.0.0`, y la policy las rechazó.
+
+**La industria no tiene problema que resolver.** Luna acertó los 16 casos base
+y los 12 con inyección, y se abstuvo en los tres de abstención, a USD 0,0016 por
+caso y 4,4 s.
+
+**El mix sí.** Por escalón, sobre los 17 casos base:
+
+| Escalón                 | Schema | Cortadas | Aceptadas | Correctas | USD/caso | Latencia |
+| ----------------------- | -----: | -------: | --------: | --------: | -------: | -------: |
+| DeepSeek                |   59 % |        5 |      29 % |         5 |   0,0045 |     25 s |
+| DeepSeek, esfuerzo bajo |   59 % |        3 |      29 % |         5 |   0,0043 |     18 s |
+| Luna                    |  100 % |        0 |      47 % |         7 |   0,0016 |      8 s |
+| Gemini                  |   71 % |        5 |      65 % |        11 |   0,0144 |     22 s |
+| Gemini, esfuerzo bajo   |  100 % |        0 |      76 % |        12 |   0,0049 |      6 s |
+
+El esfuerzo bajo arregla a Gemini —deja de agotar la salida, cuesta un tercio y
+tarda un cuarto— y no a DeepSeek. Los rechazos de la policy fueron casi todos
+errores reales del modelo —el Caribe olvidado en «Americas», Norteamérica dentro
+de «Western Hemisphere excluding U.S.»—, salvo uno: «China (including Hong
+Kong)», que la policy no sabía leer y dejaba a NVIDIA afuera con las claves
+correctas. `operations-mix-policy-1.2.0` lo lee, y `--rejudge` lo midió sobre
+lo grabado sin una llamada: los gates siguieron en cero.
+
+Las escaleras simuladas sobre los mismos casos:
+
+| Escalera                                            | Correctas | Con inyección | USD (17 casos) | Latencia |
+| --------------------------------------------------- | --------: | ------------: | -------------: | -------: |
+| `1.0.0`: DeepSeek → Luna → Gemini                   |        13 |      10 de 12 |          0,207 |     41 s |
+| Luna → Gemini                                       |        12 |      10 de 12 |          0,170 |     21 s |
+| Luna → Gemini bajo                                  |        13 |       8 de 12 |          0,069 |     11 s |
+| Luna → Gemini bajo → Gemini                         |        13 |      10 de 12 |          0,143 |     18 s |
+| **`1.1.0`: Luna → Gemini bajo → Gemini → DeepSeek** |    **14** |  **10 de 12** |      **0,163** | **23 s** |
+
+DeepSeek queda último porque resuelve Apple, que ningún otro escalón resolvió,
+y conserva las tres familias de la ADR 0033. `ai-model-ladder-1.1.0` cumple la
+decisión 7: gates en cero, más correctas, la misma robustez ante inyecciones,
+21 % menos de costo y 43 % menos de latencia. CAT, DE y JNJ siguen sin
+resolverse en ninguna escalera; son el próximo trabajo de la tarea, no de la
+escalera.
+
 ## Consecuencias
 
 - `TM-09` pasa a medido para las dos tareas, con su residuo nombrado: una
