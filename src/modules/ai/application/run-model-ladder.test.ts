@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 
 import { SMOKE_TASK, type AiTask } from "@/modules/ai/domain/ai-task";
+import { AI_MODEL_LADDER_1_0_0 } from "@/modules/ai/domain/model-ladder";
 import { createProviderBreaker } from "@/modules/ai/domain/provider-breaker";
 import { createInMemoryAiSpendStore } from "@/modules/ai/infrastructure/in-memory-ai-spend-store";
 import {
@@ -94,6 +95,9 @@ function harness(
       fetch,
       spend,
       breaker,
+      // La mecánica se prueba sobre una escalera fija de tres escalones; la
+      // vigente la afirma su propio test.
+      ladder: AI_MODEL_LADDER_1_0_0,
       now: () => NOW,
       elapsedMs: () => {
         clock += 250;

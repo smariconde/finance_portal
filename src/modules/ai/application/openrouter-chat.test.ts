@@ -27,12 +27,12 @@ describe("buildOpenRouterBody", () => {
       zdr: true,
       data_collection: "deny",
       require_parameters: true,
-      max_price: { prompt: 0.6, completion: 2.4 },
+      max_price: { prompt: 0.25, completion: 1.5 },
     });
   });
 
   it("pide salida con JSON Schema estricto y un techo de tokens", () => {
-    expect(body.model).toBe("deepseek/deepseek-v4.1-flash");
+    expect(body.model).toBe("openai/gpt-5.6-luna");
     expect(body.max_tokens).toBe(SMOKE_TASK.maxOutputTokens);
     expect(body.response_format).toEqual({
       type: "json_schema",

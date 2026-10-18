@@ -1,8 +1,11 @@
 import {
   AI_MODEL_LADDER,
+  AI_MODEL_LADDER_1_0_0,
   AI_MODEL_LADDER_VERSION,
   type ModelRung,
 } from "@/modules/ai/domain/model-ladder";
+
+import type { RungRef } from "./eval-scoring";
 
 /**
  * Las escaleras que los evals comparan (`F5-07`,
@@ -19,22 +22,39 @@ export type EvalVariant = {
   readonly variantId: string;
   readonly description: string;
   readonly ladder: readonly ModelRung[];
+  /**
+   * Para una escalera armada con escalones ya medidos en otras variantes: de
+   * dónde sale cada uno al simularla, sin volver a medirlo.
+   */
+  readonly simulatedFrom?: readonly RungRef[];
 };
 
 export const EVAL_VARIANTS: readonly EvalVariant[] = Object.freeze([
   {
-    variantId: AI_MODEL_LADDER_VERSION,
-    description: "La escalera vigente, sin esfuerzo de razonamiento pedido.",
-    ladder: AI_MODEL_LADDER,
+    variantId: "ai-model-ladder-1.0.0",
+    description: "La escalera de F5-01, sin esfuerzo de razonamiento pedido.",
+    ladder: AI_MODEL_LADDER_1_0_0,
   },
   {
     variantId: "ai-eval-low-effort-1.0.0",
     description:
       "Los mismos tres modelos con esfuerzo de razonamiento bajo: el libro mostró que los escalones 1 y 3 agotan la salida razonando.",
-    ladder: AI_MODEL_LADDER.map((rung) => ({
+    ladder: AI_MODEL_LADDER_1_0_0.map((rung) => ({
       ...rung,
       reasoning: { effort: "low" as const },
     })),
+  },
+  {
+    variantId: AI_MODEL_LADDER_VERSION,
+    description:
+      "La vigente: Luna, Gemini con esfuerzo bajo, Gemini y DeepSeek, cada escalón medido antes en las otras dos.",
+    ladder: AI_MODEL_LADDER,
+    simulatedFrom: [
+      { variantId: "ai-model-ladder-1.0.0", rung: 2 },
+      { variantId: "ai-eval-low-effort-1.0.0", rung: 3 },
+      { variantId: "ai-model-ladder-1.0.0", rung: 3 },
+      { variantId: "ai-model-ladder-1.0.0", rung: 1 },
+    ],
   },
 ]);
 

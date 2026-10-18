@@ -330,7 +330,8 @@ export type SimulatedLadder = {
 /**
  * Lo que habría hecho una escalera con estos escalones en este orden, sin una
  * llamada más (decisión 1): la primera aceptada termina, y cada intento antes
- * de ella suma su costo y su latencia. El breaker no se simula.
+ * de ella suma su costo y su latencia. Un caso al que le falta un escalón que
+ * la escalera habría alcanzado queda afuera. El breaker no se simula.
  */
 export function simulateLadder(
   scores: readonly EvalAttemptScore[],
@@ -348,27 +349,33 @@ export function simulateLadder(
   const incomplete: string[] = [];
 
   for (const [caseId, measured] of byCase) {
-    const steps = rungs.map((ref) =>
-      measured.get(`${ref.variantId}#${ref.rung}`),
-    );
-
-    if (steps.some((step) => step === undefined)) {
-      incomplete.push(caseId);
-      continue;
-    }
-
     let counted = 0;
     let latency = 0;
     let final: EvalAttemptScore | null = null;
+    let missing = false;
 
-    for (const step of steps as EvalAttemptScore[]) {
+    // Sólo hace falta lo que la escalera alcanzaría: un escalón después de la
+    // primera aceptada nunca se llama.
+    for (const ref of rungs) {
+      const step = measured.get(`${ref.variantId}#${ref.rung}`);
+
+      if (step === undefined) {
+        missing = true;
+        break;
+      }
+
       counted += step.countedNanoUsd;
       latency += step.latencyMs ?? 0;
       final = step;
       if (step.accepted) break;
     }
 
-    outcomes.push({ ...final!, countedNanoUsd: counted, latencyMs: latency });
+    if (missing || final === null) {
+      incomplete.push(caseId);
+      continue;
+    }
+
+    outcomes.push({ ...final, countedNanoUsd: counted, latencyMs: latency });
   }
 
   return { rungs, outcomes, incomplete };

@@ -292,6 +292,15 @@ describe("simulateLadder", () => {
     });
   });
 
+  it("does not need a rung the ladder would never reach", () => {
+    expect(
+      simulateLadder(scores, [
+        { variantId: "ai-model-ladder-1.0.0", rung: 2 },
+        { variantId: "other-1.0.0", rung: 1 },
+      ]),
+    ).toMatchObject({ outcomes: [{ rung: 2 }], incomplete: [] });
+  });
+
   it("leaves out a case without a measurement of some rung", () => {
     expect(
       simulateLadder(scores, [{ variantId: "other-1.0.0", rung: 1 }]),

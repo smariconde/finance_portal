@@ -70,7 +70,7 @@ const { values } = parseArgs({
     rung: { type: "string", multiple: true, default: [] },
     kind: { type: "string", multiple: true, default: [] },
     case: { type: "string", multiple: true, default: [] },
-    variant: { type: "string", default: EVAL_VARIANTS[0]!.variantId },
+    variant: { type: "string", default: "ai-model-ladder-1.0.0" },
     limit: { type: "string" },
     report: { type: "string", default: ".ai-evals/attempts.jsonl" },
     ladder: { type: "string", multiple: true, default: [] },
@@ -205,12 +205,14 @@ if (values.summary) {
     console.log(row(key, summarize(group)));
   }
 
-  const ladders: RungRef[][] = [
-    ...EVAL_VARIANTS.map((variant) =>
-      variant.ladder.map((rung) => ({
-        variantId: variant.variantId,
-        rung: rung.rung,
-      })),
+  const ladders: (readonly RungRef[])[] = [
+    ...EVAL_VARIANTS.map(
+      (variant) =>
+        variant.simulatedFrom ??
+        variant.ladder.map((rung) => ({
+          variantId: variant.variantId,
+          rung: rung.rung,
+        })),
     ),
     ...values.ladder.map((spec) =>
       spec.split(",").map((ref) => {
