@@ -15,21 +15,23 @@ import type {
  *
  * La propuso el agente leyendo el extracto congelado —sembrada desde lo que la
  * policy aceptó en `F5-03` y `F5-05`, verificada columna por columna, y escrita a
- * mano para AAPL, CAT, DE y GOOGL, que ninguna corrida transcribió—. Cada
- * entrada queda en `pending_owner` hasta que el owner la confirma: hasta
- * entonces la corrección que mide el reporte es provisoria.
+ * mano para AAPL, CAT, DE y GOOGL, que ninguna corrida transcribió—. El owner
+ * lo confirmó entero tal como está el 2026-10-19, con la «Europe» de Apple
+ * leída como Europa —su definición no está en el extracto— y la comparación de
+ * regiones estricta. Una entrada nueva vuelve a `pending_owner` hasta que la
+ * confirme.
  *
  * El mix se escribe como una respuesta completa, con sus citas, para que la
  * misma policy que juzga al modelo juzgue al gold. Las citas son fragmentos del
  * extracto con los espacios colapsados, que es como la policy los compara.
  */
-const pending = "pending_owner" as const;
+const reviewed = "owner_reviewed" as const;
 
 const industry = (
   cik: string,
   industryKey: string,
   rationale: string,
-): IndustryGold => ({ cik, industryKey, rationale, review: pending });
+): IndustryGold => ({ cik, industryKey, rationale, review: reviewed });
 
 export const DECLARED_INDUSTRY_GOLD: readonly IndustryGold[] = Object.freeze([
   industry(
@@ -152,7 +154,7 @@ const mix = (
   cik: string,
   output: OperationsMixOutput,
   rationale: string,
-): MixGold => ({ cik, output, rationale, review: pending });
+): MixGold => ({ cik, output, rationale, review: reviewed });
 
 const US = ["united-states"];
 const EUROPE = ["western-europe", "eastern-europe"];
