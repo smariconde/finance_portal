@@ -336,6 +336,54 @@ describe("PostgreSQL observation prune", () => {
     ).toHaveLength(3);
   });
 
+  it("conserva la historia de un grupo de conceptos con su propio corte y la registra", async () => {
+    const research = "us-gaap:ResearchAndDevelopmentExpense";
+
+    await observations.publish({
+      ingestionRunId: staleRunId,
+      supersessions: [],
+      observations: [
+        observation({
+          asOf: "2015-09-26",
+          runId: staleRunId,
+          datasetId: FACTS_DATASET,
+          concept: research,
+        }),
+        observation({
+          asOf: "2014-09-27",
+          runId: staleRunId,
+          datasetId: FACTS_DATASET,
+          concept: research,
+        }),
+      ],
+    });
+
+    const plan = observationPrunePlanSchema.parse({
+      ...PLAN,
+      conceptCuts: [
+        { periodsEndingBefore: "2015-09-13", concepts: [research] },
+      ],
+    });
+    const record = await observations.prune({
+      ...request(),
+      ruleVersion: "sec-history-prune-1.1.0",
+      plan,
+    });
+
+    const survivors = await observations.list({
+      subjectType: "legal_entity",
+      subjectId: SUBJECT_ID,
+    });
+
+    expect(
+      survivors
+        .filter((row) => row.concept === research)
+        .map((row) => row.asOf),
+    ).toEqual(["2015-09-26"]);
+    expect(record.conceptCuts).toEqual(plan.conceptCuts);
+    expect(record.deletedCount).toBe(4);
+  });
+
   it("no toca otro sujeto de la misma corrida", async () => {
     await observations.prune(request());
 

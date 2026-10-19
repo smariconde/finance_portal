@@ -131,6 +131,26 @@ industria es sobre taxonomía, sujeto, código y resolución— y ninguna corrid
 valuación de la base personal lo congeló en su snapshot. Las réplicas donde se
 midió `F5-06` no se tocan: una corrida guardada se reproduce con lo que vio.
 
+## Enmienda (2026-10-19, `F4-01`): marcadores de fecha, `1.1.0`
+
+Extender la historia de I+D a diez ejercicios (ADR 0037) hizo que la ingesta
+leyera los históricos más viejos de Incyte y NVIDIA, y los dos quedaron en
+cuarentena con `submissions_history_acceptance_clock_undetermined`. Estaban
+corridos sin duda desde 2003; lo que los volvía indeterminados eran sus filas
+de los noventa. Hasta ~2002 EDGAR publica sólo la fecha de aceptación, y la fila
+trae como marcador la **medianoche de Nueva York**, que con el bug aparece a las
+10:00Z o 08:00Z: fuera de horario en las dos lecturas. 157 marcadores en Incyte
+y 74 en NVIDIA; ningún archivo moderno de los sondeados tiene uno.
+
+Un marcador no es evidencia del reloj, y contarlo también era peligroso en el
+otro sentido: en un archivo sano, corregido cae a las 19:00 o 20:00 del día
+anterior, dentro de horario, y empujaría a corregir de más. `1.1.0` aparta de
+la evidencia toda aceptación que sea exactamente medianoche de Nueva York en
+alguna de las dos lecturas, la cuenta en `datePlaceholders` y la corrige igual
+que las demás (vuelve a ser la medianoche de su día). Sin ninguna aceptación
+con hora, el archivo es `no_acceptances`. Sobre los 30 archivos reales, ahora
+**695 de 695** aceptaciones coinciden con lo guardado.
+
 ## Consecuencias
 
 - La ingesta, el refresh, los eventos corporativos y las tareas de IA vuelven a

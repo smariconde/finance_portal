@@ -33,6 +33,7 @@ describe("readSecAcceptanceClock", () => {
       version: SEC_ACCEPTANCE_CLOCK_VERSION,
       clock: "published_utc",
       acceptances: 30,
+      datePlaceholders: 0,
       outsideAsPublished: 0,
       // Corrigiendo, las mañanas caerían a las 2:30 y 3:30.
       outsideCorrected: 10,
@@ -95,6 +96,46 @@ describe("readSecAcceptanceClock", () => {
       clock: "undetermined",
       outsideAsPublished: 20,
       outsideCorrected: 20,
+    });
+  });
+
+  describe("date placeholders (1.1.0)", () => {
+    // Hasta ~2002 EDGAR publica sólo la fecha: medianoche de Nueva York.
+    const placeholders = filings(15, "05:00:00.000", "1999-01-04");
+
+    it("decides a shifted history file by its timed rows, not by its date-only ones", () => {
+      const reading = readSecAcceptanceClock(
+        [...placeholders, ...published].map(applyNewYorkOffsetTwice),
+      );
+
+      expect(reading).toMatchObject({
+        clock: "new_york_offset_applied_twice",
+        acceptances: 45,
+        datePlaceholders: 15,
+        outsideCorrected: 0,
+      });
+      // Corregido, el marcador vuelve a ser la medianoche de su día.
+      expect(
+        correctSecAcceptance(
+          applyNewYorkOffsetTwice(placeholders[0]!),
+          "new_york_offset_applied_twice",
+        ),
+      ).toBe("1999-01-04T05:00:00.000Z");
+    });
+
+    it("does not let the placeholders of a sound file argue for a correction", () => {
+      // Corregido, cada marcador caería a las 19:00 del día anterior, dentro
+      // del horario: contarlo sería evidencia falsa del offset doble.
+      const reading = readSecAcceptanceClock([
+        ...placeholders,
+        ...filings(10, "19:00:00.000"),
+      ]);
+
+      expect(reading).toMatchObject({
+        clock: "published_utc",
+        datePlaceholders: 15,
+        outsideAsPublished: 0,
+      });
     });
   });
 

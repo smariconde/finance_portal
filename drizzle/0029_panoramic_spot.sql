@@ -1,0 +1,2 @@
+ALTER TABLE "observation_prunes" ADD COLUMN "concept_cuts" jsonb DEFAULT '[]'::jsonb NOT NULL;--> statement-breakpoint
+ALTER TABLE "observation_prunes" ADD CONSTRAINT "observation_prunes_concept_cuts_check" CHECK (jsonb_typeof("observation_prunes"."concept_cuts") = 'array');

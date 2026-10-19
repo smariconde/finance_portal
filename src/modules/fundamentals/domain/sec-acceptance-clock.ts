@@ -23,8 +23,18 @@
  * claramente contradicha—, conserva lo publicado cuando encaja aunque nada lo
  * confirme (un filer chico que presenta siempre a media tarde) y rechaza el
  * archivo con nombre únicamente cuando ninguna lectura encaja.
+ *
+ * `1.1.0`: hasta ~2002 EDGAR publica sólo la fecha de aceptación, y la fila
+ * trae como marcador la medianoche de Nueva York. Un marcador no dice nada del
+ * reloj —EDGAR está cerrado a esa hora en las dos lecturas— y la `1.0.0` lo
+ * contaba: los históricos de Incyte y NVIDIA, corridos sin duda desde 2003,
+ * quedaban indeterminados por sus filas de los noventa. Peor, en un archivo
+ * sano el marcador corregido cae a las 19:00 o 20:00 del día anterior y
+ * empujaría a corregir de más. Una aceptación que es exactamente medianoche de
+ * Nueva York en alguna de las dos lecturas se aparta de la evidencia y se
+ * cuenta en `datePlaceholders`; se corrige igual que las demás.
  */
-export const SEC_ACCEPTANCE_CLOCK_VERSION = "sec-acceptance-clock-1.0.0";
+export const SEC_ACCEPTANCE_CLOCK_VERSION = "sec-acceptance-clock-1.1.0";
 
 export type SecAcceptanceClock =
   /**
@@ -34,7 +44,7 @@ export type SecAcceptanceClock =
   | "published_utc"
   /** El offset de Nueva York está aplicado dos veces y se resta. */
   | "new_york_offset_applied_twice"
-  /** No hay aceptaciones que leer: no hay nada que corregir. */
+  /** No hay aceptaciones con hora que leer: no hay nada que corregir. */
   | "no_acceptances"
   /** Ninguna lectura encaja: el archivo no se usa. */
   | "undetermined";
@@ -43,6 +53,8 @@ export type SecAcceptanceClockReading = {
   readonly version: string;
   readonly clock: SecAcceptanceClock;
   readonly acceptances: number;
+  /** Marcadores de fecha sin hora: no son evidencia del reloj. */
+  readonly datePlaceholders: number;
   /** Aceptaciones fuera del horario de EDGAR leídas como se publican. */
   readonly outsideAsPublished: number;
   /** Las mismas, después de restar el offset de Nueva York. */
@@ -125,31 +137,45 @@ export function readSecAcceptanceClock(
 ): SecAcceptanceClockReading {
   let outsideAsPublished = 0;
   let outsideCorrected = 0;
+  let datePlaceholders = 0;
 
   for (const instant of instants) {
     const published = Date.parse(instant);
+    const corrected = removeNewYorkOffset(published);
+
+    if (
+      newYorkClock(published).secondOfDay === 0 ||
+      newYorkClock(corrected).secondOfDay === 0
+    ) {
+      datePlaceholders += 1;
+      continue;
+    }
 
     if (!withinEdgarHours(published)) {
       outsideAsPublished += 1;
     }
 
-    if (!withinEdgarHours(removeNewYorkOffset(published))) {
+    if (!withinEdgarHours(corrected)) {
       outsideCorrected += 1;
     }
   }
 
+  const evidence = instants.length - datePlaceholders;
   const reading = {
     version: SEC_ACCEPTANCE_CLOCK_VERSION,
     acceptances: instants.length,
+    datePlaceholders,
     outsideAsPublished,
     outsideCorrected,
   };
 
-  if (instants.length === 0) {
+  // Sin ninguna aceptación con hora no hay reloj que decidir ni nada que la
+  // lectura cambie de orden: un marcador corrido o no sigue siendo un día.
+  if (evidence === 0) {
     return { ...reading, clock: "no_acceptances" };
   }
 
-  const fits = (outside: number) => outside <= tolerance(instants.length);
+  const fits = (outside: number) => outside <= tolerance(evidence);
 
   // Corregir exige que lo publicado quede claramente contradicho, no sólo que
   // la corrección encaje: con pocas filas a media tarde encajan las dos.

@@ -221,6 +221,10 @@ for (const target of targets) {
     );
     if (window !== null) {
       log("  evidencia de splits desde", window.evidencePeriodsEndingFrom);
+      log(
+        "  historia de capitalización desde",
+        window.capitalizationPeriodsEndingFrom,
+      );
     }
     log("  puntos en la ventana", `${counts.kept}/${counts.points}`);
   }

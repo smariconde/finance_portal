@@ -47,6 +47,24 @@ describe("planSecHistoryPrune", () => {
     expect(decision.ruleVersion).toBe(SEC_HISTORY_PRUNE_RULE_VERSION);
   });
 
+  it("conserva los diez ejercicios de I+D que la ventana trae para capitalizarla", () => {
+    const decision = planSecHistoryPrune(SUBJECT, ANCHOR);
+    const window = buildSecHistoryWindow(
+      ANCHOR.selectionAnchorOn,
+      "annual_report",
+    );
+
+    expect(decision.status === "planned" && decision.plan.conceptCuts).toEqual([
+      {
+        periodsEndingBefore: window.capitalizationPeriodsEndingFrom,
+        concepts: [
+          "us-gaap:ResearchAndDevelopmentExpense",
+          "us-gaap:ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost",
+        ],
+      },
+    ]);
+  });
+
   it("conserva el ejercicio extra de los seis conceptos sensibles a splits", () => {
     const decision = planSecHistoryPrune(SUBJECT, ANCHOR);
 
