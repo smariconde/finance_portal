@@ -1,6 +1,9 @@
 import { formatDecimal, parseDecimal, ZERO, type Dec } from "./decimal-policy";
 import { computeFcff } from "./fcff";
-import { hasValidTerminalSpread } from "./policy-checks";
+import {
+  hasValidTerminalSpread,
+  isGrowthWithinRiskFree,
+} from "./policy-checks";
 import {
   isValuationPolicyError,
   ValuationPolicyError,
@@ -95,6 +98,12 @@ export function buildSensitivityGrid(input: ValuationInput): SensitivityGrid {
     input.sensitivity.terminalGrowth,
     "sensitivity.terminalGrowth",
   );
+  // El eje de WACC no mueve la libre de riesgo: es la del costo de capital de
+  // la corrida, así que el techo de `g` es una columna, no un triángulo.
+  const riskFree = parseDecimal(
+    input.costOfCapital.derived.riskFree,
+    "costOfCapital.derived.riskFree",
+  );
 
   const rows = waccValues.map((wacc) => {
     const waccText = formatDecimal(wacc, "sensitivity.wacc");
@@ -103,7 +112,16 @@ export function buildSensitivityGrid(input: ValuationInput): SensitivityGrid {
       wacc: waccText,
       cells: growthValues.map((growth): SensitivityCell => {
         // La celda inválida se declara; no se rellena con el valor vecino ni
-        // con un guion que el lector deba interpretar.
+        // con un guion que el lector deba interpretar. La regla económica va
+        // primero: una columna por encima de la libre de riesgo se lee entera
+        // con un solo motivo, aunque alguna celda viole también el buffer.
+        if (!isGrowthWithinRiskFree(growth, riskFree)) {
+          return {
+            status: "rejected",
+            reason: "terminal_growth_versus_risk_free",
+          };
+        }
+
         if (!hasValidTerminalSpread(wacc, growth)) {
           return {
             status: "rejected",

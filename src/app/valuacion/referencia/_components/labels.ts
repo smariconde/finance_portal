@@ -58,6 +58,8 @@ const CHECK_LABELS: Record<string, string> = {
   discount_factor_defined: "Factor de descuento definido",
   sales_to_capital_positive: "Sales-to-capital positivo",
   reinvestment_convention_bridge: "Puente entre convenciones de reinversión",
+  terminal_growth_versus_risk_free:
+    "Crecimiento terminal hasta la libre de riesgo",
   terminal_growth_versus_wacc: "Crecimiento terminal por debajo del WACC",
   terminal_reinvestment_coherence: "Reinversión terminal coherente",
   tax_rate_range: "Tasa impositiva dentro de rango",
@@ -82,6 +84,8 @@ export function qualityFlagLabel(flag: string): string {
 }
 
 const SENSITIVITY_REJECTION_LABELS: Record<string, string> = {
+  terminal_growth_versus_risk_free:
+    "El crecimiento terminal supera la libre de riesgo: ninguna empresa crece a perpetuidad más rápido que su economía.",
   terminal_growth_versus_wacc:
     "El crecimiento terminal alcanza al WACC: la perpetuidad no está definida.",
   division_by_zero: "División por cero en este escenario.",

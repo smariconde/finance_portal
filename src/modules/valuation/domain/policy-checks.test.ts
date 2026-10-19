@@ -8,6 +8,7 @@ import {
   checkValuationOutput,
   failedChecks,
   hasValidTerminalSpread,
+  isGrowthWithinRiskFree,
   TERMINAL_SPREAD_BUFFER,
 } from "./policy-checks";
 import { parseDecimal } from "./decimal-policy";
@@ -225,6 +226,79 @@ describe("valuation policy checks", () => {
         parseDecimal("0.03", "g"),
       ),
     ).toBe(false);
+  });
+
+  it("rejects a terminal growth above the risk-free rate of the run", () => {
+    // La libre de riesgo de FixtureCo es 0,04: el bono a 0,04 sin default
+    // spread del soberano. El WACC terminal (0,09) sigue despejando el buffer,
+    // así que lo único que falla es la regla económica.
+    expect(DEMO_VALUATION_INPUT.costOfCapital.derived.riskFree).toBe("0.04");
+
+    const atRiskFree = draft((candidate) => {
+      candidate.terminal.growth = "0.04";
+    });
+    const aboveRiskFree = draft((candidate) => {
+      candidate.terminal.growth = "0.0401";
+    });
+
+    // El borde es inclusivo: crecer exactamente a la libre de riesgo se admite.
+    expect(
+      failed(atRiskFree, "terminal_growth_versus_risk_free"),
+    ).toMatchObject({ mode: "reject", status: "passed" });
+    expect(
+      failed(aboveRiskFree, "terminal_growth_versus_risk_free"),
+    ).toMatchObject({
+      mode: "reject",
+      status: "failed",
+      subjects: ["terminal.growth", "costOfCapital.derived.riskFree"],
+    });
+    expect(failed(aboveRiskFree, "terminal_growth_versus_wacc")?.status).toBe(
+      "passed",
+    );
+  });
+
+  it("binds growth even when the buffer against the wacc would allow it", () => {
+    // WACC terminal muy alto: el buffer no ve nada raro en g = 0,06, pero
+    // ninguna empresa crece a perpetuidad por encima de su economía.
+    const input = draft((candidate) => {
+      candidate.terminal.growth = "0.06";
+      candidate.terminal.wacc = "0.2";
+    });
+
+    expect(failed(input, "terminal_growth_versus_wacc")?.status).toBe("passed");
+    expect(failed(input, "terminal_growth_versus_risk_free")?.status).toBe(
+      "failed",
+    );
+    expect(() => assertNoRejections(checkValuationInput(input))).toThrowError(
+      /terminal_growth_versus_risk_free/,
+    );
+  });
+
+  it("reads the ceiling from the cost of capital, not from a constant", () => {
+    // Una libre de riesgo editada a mano también rompe el WACC recalculado;
+    // acá sólo importa que el techo de `g` se mueva con ella.
+    const input = draft((candidate) => {
+      candidate.costOfCapital.derived.riskFree = "0.015";
+    });
+
+    expect(failed(input, "terminal_growth_versus_risk_free")?.status).toBe(
+      "failed",
+    );
+    expect(failed(input, "wacc_built_from_components")?.status).toBe("failed");
+  });
+
+  it("holds a negative risk-free rate to the same ceiling", () => {
+    const riskFree = parseDecimal("-0.005", "rf");
+
+    expect(isGrowthWithinRiskFree(parseDecimal("0", "g"), riskFree)).toBe(
+      false,
+    );
+    expect(isGrowthWithinRiskFree(parseDecimal("-0.005", "g"), riskFree)).toBe(
+      true,
+    );
+    expect(isGrowthWithinRiskFree(parseDecimal("-0.01", "g"), riskFree)).toBe(
+      true,
+    );
   });
 
   it("rejects a terminal reinvestment the growth cannot sustain", () => {

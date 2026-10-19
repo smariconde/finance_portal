@@ -309,6 +309,16 @@ including `ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost`, which
 is Johnson & Johnson's recurring R&D. `pnpm valuation:assess --offline` prints
 the bridge.
 
+Terminal growth is capped by the risk-free rate (`F4-02`, engine `fcff-1.2.0`,
+methodology `0.8.0`): `terminal_growth_versus_risk_free` rejects
+`terminal.growth > costOfCapital.derived.riskFree` —the run's own dated
+risk-free, the Treasury net of the currency's sovereign default spread, never a
+constant—, inclusive at the edge. It is Damodaran's economic rule and does
+**not** replace the `0.005` buffer against the WACC, which stays as the
+arithmetic guard; both always run. The sensitivity grid applies it first, so a
+growth above the ceiling rejects the whole column with one reason. Measured:
+3.96 % in dollars; `valuation:assess --offline` prints it.
+
 ```bash
 pnpm damodaran:record                              # dry run: the four pages, one request each, writes nothing
 pnpm damodaran:record --dataset damodaran.betas-us --apply
