@@ -123,6 +123,35 @@ export function describeIndustryResolutionRepositoryContract(
       ]);
     });
 
+    it("keeps a web search result as evidence without a filing (F5-04)", async () => {
+      const repository = harness.createRepository();
+      const subject = randomUUID();
+      const resolution = record(subject);
+      // Sintético: ningún resultado real de búsqueda entra al repositorio.
+      const withWeb: IndustryEvidenceRecord[] = [
+        ...evidence(),
+        {
+          evidenceId: "E3",
+          sourceId: "tavily",
+          section: "web_search",
+          documentUrl: "https://example.com/fixture-bancorp",
+          accessionNumber: null,
+          documentAcceptedAt: null,
+          sha256: "b".repeat(64),
+          byteLength: 40,
+          truncated: false,
+          excerpt: "Fixture Bancorp is a regional bank in Ohio",
+        },
+      ];
+
+      await repository.record({ resolution, evidence: withWeb, plan: null });
+
+      expect(await repository.findResolution(resolution.resolutionId)).toEqual({
+        resolution,
+        evidence: withWeb,
+      });
+    });
+
     it("records an abstention without asserting anything", async () => {
       const repository = harness.createRepository();
       const subject = randomUUID();

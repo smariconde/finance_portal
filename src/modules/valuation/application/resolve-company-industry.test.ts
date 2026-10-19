@@ -256,7 +256,7 @@ describe("resolveCompanyIndustry", () => {
       CIK,
       PREDECESSOR,
     ]);
-    expect(result.status === "asked" && result.annualReport.cik).toBe(
+    expect(result.status === "asked" && result.annualReport?.cik).toBe(
       PREDECESSOR,
     );
   });
@@ -318,5 +318,138 @@ describe("resolveCompanyIndustry", () => {
       resolveCompanyIndustry(request(), { ...dependencies, registry }),
     ).rejects.toThrow(/aiTransfer/);
     expect(runLadder).not.toHaveBeenCalled();
+  });
+
+  describe("web search as the last resort (F5-04)", () => {
+    // Resultados sintéticos: ninguno real entra al repositorio.
+    const WEB = [
+      {
+        url: "https://example.com/fixture-bancorp",
+        title: "Fixture Bancorp",
+        excerpt: "Fixture Bancorp is a regional bank in the Midwest.",
+        truncated: false,
+      },
+    ];
+    const abstaining = (
+      taskRunId: string,
+    ): LadderResult<IndustryResolutionOutput> => ({
+      taskRunId,
+      outcome: "abstained",
+      reason: "insufficient_evidence",
+      detail: null,
+      attempts: [],
+    });
+
+    it("does not search while the 10-K is enough", async () => {
+      const { dependencies, request } = harness();
+      const searchWeb = vi.fn(async () => WEB);
+
+      const result = await resolveCompanyIndustry(request(), {
+        ...dependencies,
+        searchWeb,
+      });
+
+      expect(searchWeb).not.toHaveBeenCalled();
+      expect(result).toMatchObject({ status: "asked", webSearch: null });
+    });
+
+    it("asks once more with the results after an abstention for insufficient evidence", async () => {
+      const { dependencies, request, runLadder, repository } = harness();
+      runLadder
+        .mockImplementationOnce(async () => abstaining(randomUUID()))
+        .mockImplementationOnce(async () => accepted(randomUUID()));
+      const searchWeb = vi.fn(async () => WEB);
+
+      const result = await resolveCompanyIndustry(request(), {
+        ...dependencies,
+        searchWeb,
+      });
+
+      expect(searchWeb).toHaveBeenCalledWith(
+        "Fixture Bancorp primary business: bank money center, banks regional",
+      );
+      expect(runLadder).toHaveBeenCalledTimes(2);
+      const second = runLadder.mock.calls[1] as unknown as [
+        unknown,
+        { evidence: { evidenceId: string; sourceId: string }[] },
+      ];
+      expect(
+        second[1].evidence.map((item) => [item.evidenceId, item.sourceId]),
+      ).toEqual([
+        ["E1", "sec-edgar"],
+        ["E2", "sec-edgar"],
+        ["E3", "tavily"],
+      ]);
+      expect(result).toMatchObject({
+        status: "asked",
+        record: { outcome: "resolved" },
+        webSearch: { trigger: "insufficient_evidence", results: 1 },
+      });
+
+      const stored = await repository.latestForSubject(SUBJECT);
+      expect(stored?.evidence.at(-1)).toMatchObject({
+        evidenceId: "E3",
+        sourceId: "tavily",
+        section: "web_search",
+        documentUrl: "https://example.com/fixture-bancorp",
+        accessionNumber: null,
+        documentAcceptedAt: null,
+      });
+    });
+
+    it("resolves from the web alone when there is no 10-K, and keeps the abstention when the search does not come back", async () => {
+      const { dependencies, request, loadAnnualReport } = harness({
+        current: null,
+        predecessor: null,
+      });
+
+      const found = await resolveCompanyIndustry(request(), {
+        ...dependencies,
+        searchWeb: async () => WEB,
+      });
+
+      expect(loadAnnualReport).not.toHaveBeenCalled();
+      expect(found).toMatchObject({
+        status: "asked",
+        annualReport: null,
+        webSearch: { trigger: "no_annual_report", results: 1 },
+      });
+
+      const { dependencies: again, request: retry } = harness({
+        current: null,
+        predecessor: null,
+      });
+
+      expect(
+        await resolveCompanyIndustry(retry(), {
+          ...again,
+          searchWeb: async () => null,
+        }),
+      ).toMatchObject({ status: "skipped", reason: "no_annual_report" });
+    });
+
+    it("refuses before any spend when the web results may not reach a model", async () => {
+      const { dependencies, request, runLadder } = harness({
+        current: null,
+        predecessor: null,
+      });
+      const registry = DEMO_SOURCE_REGISTRY.map((entry) =>
+        entry.sourceId === "tavily"
+          ? {
+              ...entry,
+              rights: { ...entry.rights, aiTransfer: "unknown" as const },
+            }
+          : entry,
+      );
+
+      await expect(
+        resolveCompanyIndustry(request(), {
+          ...dependencies,
+          registry,
+          searchWeb: async () => WEB,
+        }),
+      ).rejects.toThrow(/aiTransfer/);
+      expect(runLadder).not.toHaveBeenCalled();
+    });
   });
 });

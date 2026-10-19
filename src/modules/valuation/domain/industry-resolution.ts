@@ -29,18 +29,41 @@ export const INDUSTRY_ASSERTION_RULE_VERSION = "industry-assertion-1.0.0";
 /** La fuente de la aserción es el proveedor que propuso la respuesta. */
 export const INDUSTRY_RESOLUTION_SOURCE_ID = "openrouter";
 
-export const industryEvidenceRecordSchema = z.object({
-  evidenceId: z.string().regex(/^E[0-9]{1,2}$/u),
-  sourceId: z.string().min(3).max(64),
-  section: z.enum(["item_1_business", "segment_note"]),
-  documentUrl: z.url(),
-  accessionNumber: z.string().regex(/^[0-9]{10}-[0-9]{2}-[0-9]{6}$/u),
-  documentAcceptedAt: z.iso.datetime({ offset: true }),
-  sha256: z.string().regex(/^[0-9a-f]{64}$/u),
-  byteLength: z.number().int().min(1),
-  truncated: z.boolean(),
-  excerpt: z.string().min(1),
-});
+/**
+ * Un extracto que viajó al modelo. Desde `F5-04` puede ser un resultado de
+ * búsqueda web (`web_search`, de `tavily`): su `documentUrl` es la procedencia
+ * que nunca se abrió, y no tiene `accession` ni instante de aceptación.
+ */
+export const industryEvidenceRecordSchema = z
+  .object({
+    evidenceId: z.string().regex(/^E[0-9]{1,2}$/u),
+    sourceId: z.string().min(3).max(64),
+    section: z.enum(["item_1_business", "segment_note", "web_search"]),
+    documentUrl: z.url(),
+    accessionNumber: z
+      .string()
+      .regex(/^[0-9]{10}-[0-9]{2}-[0-9]{6}$/u)
+      .nullable(),
+    documentAcceptedAt: z.iso.datetime({ offset: true }).nullable(),
+    sha256: z.string().regex(/^[0-9a-f]{64}$/u),
+    byteLength: z.number().int().min(1),
+    truncated: z.boolean(),
+    excerpt: z.string().min(1),
+  })
+  .superRefine((record, context) => {
+    const web = record.section === "web_search";
+
+    if (
+      web !== (record.accessionNumber === null) ||
+      web !== (record.documentAcceptedAt === null)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["accessionNumber"],
+        message: "A filing excerpt names its filing; a web result has none.",
+      });
+    }
+  });
 
 export type IndustryEvidenceRecord = z.infer<
   typeof industryEvidenceRecordSchema

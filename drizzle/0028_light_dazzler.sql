@@ -1,0 +1,3 @@
+ALTER TABLE "industry_resolution_evidence" ALTER COLUMN "accession_number" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "industry_resolution_evidence" ALTER COLUMN "document_accepted_at" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "industry_resolution_evidence" ADD CONSTRAINT "industry_resolution_evidence_filing_check" CHECK (("industry_resolution_evidence"."section" = 'web_search') = ("industry_resolution_evidence"."accession_number" is null) and ("industry_resolution_evidence"."section" = 'web_search') = ("industry_resolution_evidence"."document_accepted_at" is null));

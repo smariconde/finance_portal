@@ -59,7 +59,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    31 | `F5-01`    | `done`     | Controles de la capa IA antes de la primera llamada: egress `POST` con credencial, fuentes registradas, gasto en dólares, breaker y escalera.                           | Fase 3 `done` |
 |    32 | `F5-02`    | `done`     | Guard server-side de la capa IA: sólo existe en `personal` y ninguna clave llega al browser, probado sobre el build.                                                    | `F5-01`       |
 |    33 | `F5-03`    | `done`     | Industria ambigua resuelta con secciones dirigidas del 10-K, policy determinista y aserción persistida, medida sobre las 16 ambiguas.                                   | `F5-02`       |
-|    34 | `F5-04`    | `deferred` | Tavily como segunda evidencia cuando el 10-K no alcanza. Diferido el 2026-10-15: el 10-K alcanzó en las 16 ambiguas.                                                    | `F5-03`       |
+|    34 | `F5-04`    | `done`     | Tavily como último recurso de la industria cuando el 10-K no alcanza: extractos sin abrir URLs, evidencia no confiable y medida con los evals.                          | `F5-03`       |
 |    35 | `F5-05`    | `done`     | Mix geográfico de ingresos transcripto del 10-K por la IA con policy determinista y lock del owner; el CRP del WACC se pondera por operaciones y el motor lo recalcula. | `F5-03`       |
 |    36 | `F5-06`    | `done`     | Replay de una corrida con industria y mix propuestos por la IA: reproduce ambos hashes desde el snapshot sin volver a llamar al modelo.                                 | `F5-05`       |
 |    37 | `F5-07`    | `done`     | Evals de injection, citas, abstención, schema, costo y corrección sobre las dos tareas de la capa IA.                                                                   | `F5-06`       |
@@ -2962,6 +2962,50 @@ Condición de reingreso: una empresa ambigua dentro del alcance para la que
 `tavily` sigue registrada (`spike_ready`), en la allowlist y en la tabla de
 topes, sin llamadas, y su revisión de derechos vence el 2027-04-01. `TM-09`
 sigue `required` para la búsqueda web cuando reingrese.
+
+**`F5-04` — cierre (2026-10-19).** Reingresó por decisión del owner, sin
+esperar la condición de reingreso: la Fase 5 se cierra entera. El caso que
+faltaba medir lo dieron los evals de `F5-07`, cuyos casos de abstención son
+exactamente un 10-K que no alcanza
+([ADR 0033](../architecture/adr/0033-ai-layer-industry-resolution.md),
+incremento 3):
+
+- **Adaptador** (`tavily-search-1.0.0`): búsqueda básica de cinco resultados,
+  sin respuesta generada, contenido crudo ni imágenes; extractos de hasta
+  1.500 bytes; la URL de un resultado nunca se abre (`TM-08`). `tavily` pasa a
+  `integrated`.
+- **Último recurso** (`resolveCompanyIndustry`): sólo sin 10-K, sin Item 1 o
+  tras una abstención por `insufficient_evidence`, y la tarea se repite una sola
+  vez. La consulta (`industry-web-query-1.0.0`) es el nombre y las candidatas.
+  `aiTransfer` de `tavily` se comprueba antes de reservar; una búsqueda que no
+  sale no frena la tarea. `--no-web` la apaga.
+- **Prompt** `industry-resolution-prompt-1.1.0`: los resultados web son tan no
+  confiables como un filing, con el mismo cerco.
+- **Persistencia** (migración `0028`): evidencia `web_search` sin `accession`,
+  con una restricción que sólo a ella se lo permite;
+  `qualitative-decisions-1.1.0` la congela y sigue leyendo `1.0.0`.
+- **Evals** (`ai-eval-cases-1.1.0`): casos `web` con búsquedas reales cacheadas
+  junto al reporte local, nunca en el repositorio.
+
+Criterios cumplidos: búsqueda por un buscador allowlisted que devuelve el
+extracto, sin bajar las URLs, con contenido no confiable (`TM-08`, `TM-09`,
+`TM-12`: ninguna superficie muestra un resultado). Evidencia: con las búsquedas
+reales de Salesforce, Charles River y Realty Income, Luna resolvió las tres
+abstenciones correctamente en el primer escalón de `ai-model-ladder-1.1.0`
+(USD 0,0020; Gemini en sus dos variantes también, DeepSeek una); el prompt
+`1.1.0` no movió los 31 casos de industria (16 de 16, 12 de 12, tres
+abstenciones). 5 tests del adaptador, 4 del último recurso en el orquestador,
+3 del schema, 3 offline de casos web y el contrato del repositorio con evidencia
+web sobre PostgreSQL; rollback de `0028` verificado. 2297 unit y 191 de
+integración.
+
+**Gate de la Fase 5 (2026-10-19).** Ninguna cifra del resultado sale de texto
+libre del modelo —la industria es una clave cerrada y el mix se transcribe con
+citas que la policy comprueba—; el replay reproduce ambos hashes sin red ni
+modelo (`F5-06`); una propuesta sin evidencia citada es rechazada; el costo por
+corrida y la tasa de rechazo están en el libro de gasto, separados de los evals
+por `purpose`, y medidos por los evals (`F5-07`). La fase cierra con `F5-01` a
+`F5-07` en `done`. Sigue la Fase 4.
 
 <a id="f5-05"></a>
 

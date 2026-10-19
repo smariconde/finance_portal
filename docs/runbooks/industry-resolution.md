@@ -18,6 +18,7 @@ pnpm valuation:assess --ticker GOOGL --apply                # antes: registra el
 pnpm valuation:resolve-industry --ticker GOOGL              # pregunta y reporta, no escribe (sí gasta)
 pnpm valuation:resolve-industry --ticker GOOGL --apply      # también guarda la resolución
 pnpm valuation:resolve-industry --ticker GOOGL --again --apply
+pnpm valuation:resolve-industry --ticker GOOGL --no-web --apply   # sin el último recurso de Tavily
 ```
 
 Conviene usar `--apply` directamente: el dry run paga la misma llamada y no deja
@@ -39,15 +40,24 @@ siguiente.
 3. **Recorta las secciones dirigidas** (`sec-10k-sections-1.0.0`): el Item 1
    (hasta 20 KB) y la nota de segmentos (hasta 8 KB). Nunca el documento entero.
 4. **Comprueba `aiTransfer`** (`ai-transfer-1.0.0`) de cada fuente de la
-   evidencia antes de reservar un centavo. Hoy sólo viaja `sec-edgar`.
-5. **Corre la escalera** con `industry-resolution-1.0.0`. La evidencia va
+   evidencia antes de reservar un centavo: `sec-edgar` y, si se buscó, `tavily`.
+5. **Corre la escalera** con `industry-resolution-1.0.0` (prompt `1.1.0`). La evidencia va
    delimitada y marcada como no confiable, y el modelo no tiene herramientas. La
    policy rechaza una industria que no sea candidata o que no esté en la release
    de betas, una respuesta sin citas o con citas desconocidas, y trata la
    confianza `low` como una abstención.
-6. **Guarda** en `industry_resolutions` (migración `0025`) toda respuesta
+6. **Busca en la web, como último recurso** (`F5-04`). Sólo si no hubo 10-K
+   (`no_annual_report`), no hubo Item 1 (`item_1_not_found`) o la escalera se
+   abstuvo con `insufficient_evidence`: una búsqueda de Tavily
+   (`tavily-search-1.0.0`, una de sus 10 requests diarias) con el nombre de la
+   empresa y las candidatas, y la tarea **una vez más** con hasta cinco
+   extractos agregados. Las URLs de los resultados se guardan y nunca se abren.
+   Si la búsqueda no sale —tope, kill switch, error— lo dice y sigue con lo que
+   tenía. La salida muestra `búsqueda web` con el motivo y la cantidad.
+7. **Guarda** en `industry_resolutions` (migración `0025`) toda respuesta
    —resuelta, abstenida o frenada— con sus extractos, su hash y el 10-K del que
-   salieron. Sólo una resuelta se publica como aserción `damodaran-industry`,
+   salieron; un resultado web queda como `web_search` con su URL y sin
+   `accession` (migración `0028`). Sólo una resuelta se publica como aserción `damodaran-industry`,
    disponible desde el instante en que se resolvió. El costo está en
    `ai_spend_ledger`, con el mismo id.
 

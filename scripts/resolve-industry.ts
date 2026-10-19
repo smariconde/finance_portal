@@ -2,6 +2,10 @@ import { createHash, randomUUID } from "node:crypto";
 import { parseArgs } from "node:util";
 
 import { runModelLadder } from "@/modules/ai/application/run-model-ladder";
+import {
+  searchTavily,
+  TAVILY_SOURCE_ID,
+} from "@/modules/ai/application/tavily-search";
 import { formatNanoUsd } from "@/modules/ai/domain/ai-spend";
 import { SEC_SIC_TAXONOMY_ID } from "@/modules/classification/domain/sec-sic-classification";
 import { DECLARED_SUCCESSIONS } from "@/modules/corporate-actions/application/declared-successions";
@@ -50,12 +54,17 @@ import { getUniverseRepository } from "@/server/persistence/get-universe-reposit
  * empresa: dos requests a la SEC —`submissions` y el 10-K— y la escalera. No
  * vuelve a preguntar si ya se preguntó por el mismo SIC y el mismo 10-K, salvo
  * con `--again`. Una empresa que no es ambigua no gasta nada.
+ *
+ * Desde `F5-04`, si no hay 10-K o Item 1, o la escalera se abstiene por
+ * evidencia insuficiente, busca una vez en Tavily (un crédito, una de sus 10
+ * requests diarias) y repite la tarea con los resultados. `--no-web` lo apaga.
  */
 const { values } = parseArgs({
   options: {
     ticker: { type: "string", multiple: true, default: [] },
     apply: { type: "boolean", default: false },
     again: { type: "boolean", default: false },
+    "no-web": { type: "boolean", default: false },
     json: { type: "boolean", default: false },
   },
 });
@@ -127,6 +136,45 @@ const classifications = getClassificationRepository();
 const referenceDatasets = getReferenceDatasetRepository();
 const repository = getIndustryResolutionRepository();
 const secFetch: EgressFetch = getSourceEgressFetch(SEC_REQUEST_PACING);
+// Una búsqueda por empresa como mucho, de a una.
+const webFetch: EgressFetch = getSourceEgressFetch({
+  minIntervalMs: 1000,
+  maxRequests: values.ticker.length,
+});
+const tavilyEntry = DEMO_SOURCE_REGISTRY.find(
+  (candidate) => candidate.sourceId === TAVILY_SOURCE_ID,
+);
+const tavilyRights =
+  tavilyEntry === undefined
+    ? null
+    : evaluateIngestionRights(tavilyEntry, {
+        storesRawPayload: false,
+        storesNormalizedValues: true,
+        publicDisplay: false,
+      });
+const webEnabled = !values["no-web"] && tavilyRights?.allowed === true;
+
+/**
+ * La búsqueda nunca frena la tarea: un tope agotado, el kill switch o un error
+ * dejan seguir con la evidencia que hay, y se dice.
+ */
+async function searchWeb(webQuery: string) {
+  try {
+    const result = await searchTavily(webFetch, webQuery);
+
+    if (result.kind !== "completed") {
+      console.log(`  búsqueda web: ${result.kind} (status ${result.status})`);
+      return null;
+    }
+
+    return result.results;
+  } catch (cause) {
+    console.log(
+      `  búsqueda web: no salió (${(cause as { code?: string }).code ?? (cause as Error).message})`,
+    );
+    return null;
+  }
+}
 const layer = getAiLayer();
 // Una sola corrida para todas las empresas: el breaker y el techo del proceso
 // cubren el comando entero, no cada empresa por separado.
@@ -235,6 +283,7 @@ for (const ticker of values.ticker) {
       now: () => new Date().toISOString(),
       newId: () => randomUUID(),
       sha256: (text) => createHash("sha256").update(text).digest("hex"),
+      ...(webEnabled ? { searchWeb } : {}),
     },
   );
 
@@ -280,12 +329,21 @@ for (const { ticker, cik, result } of reports) {
     continue;
   }
 
-  const { record, ladder, annualReport, evidence } = result;
+  const { record, ladder, annualReport, evidence, webSearch } = result;
 
   log(
     "10-K",
-    `${annualReport.accessionNumber} · aceptado ${annualReport.acceptedAt}`,
+    annualReport === null
+      ? "—"
+      : `${annualReport.accessionNumber} · aceptado ${annualReport.acceptedAt}`,
   );
+
+  if (webSearch !== null) {
+    log(
+      "búsqueda web",
+      `${webSearch.trigger} · ${webSearch.results === null ? "no salió" : `${webSearch.results} resultados`} · «${webSearch.query}»`,
+    );
+  }
   log(
     "evidencia",
     evidence
