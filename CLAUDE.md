@@ -479,6 +479,15 @@ through the persisted graph) and `SEC_USER_AGENT`. Calls go out one at a time at
 2 requests/s with a per-run budget. Semantics —acceptance as `available_at`,
 vintages, subject resolved by CIK at download time, `year_to_date`— are in
 [ADR 0010](docs/architecture/adr/0010-sec-xbrl-ingestion.md).
+Since October 2026 the SEC regenerates `submissions` files with the New York
+offset applied **twice** (+4/+5 h), so `sec-acceptance-clock-1.0.0` decides each
+file's clock —the `recent` block and every history file— by EDGAR's 6:00–22:00
+hours and subtracts the offset only on decisive evidence: correcting a sound file
+would be look-ahead, leaving a shifted one only makes it late. A file neither
+reading fits is refused (`acceptance_clock_undetermined`), a run that read a
+corrected one carries `acceptance_clock_corrected`, and the parser and pipeline
+versions do not move, because the corrected acceptance is the one they always
+read ([ADR 0036](docs/architecture/adr/0036-sec-acceptance-clock.md)).
 
 Only a **history window** is stored (`sec-history-5fy-1.0.0`,
 [ADR 0017](docs/architecture/adr/0017-sec-history-window.md)): facts whose period

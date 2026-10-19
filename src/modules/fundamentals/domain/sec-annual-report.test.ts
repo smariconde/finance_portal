@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { applyNewYorkOffsetTwice } from "../infrastructure/fixture-sec-filer";
 import {
   buildAnnualReportUrl,
   locateLatestAnnualReport,
@@ -91,6 +92,81 @@ describe("locateLatestAnnualReport", () => {
     ).toEqual({
       status: "not_found",
       reason: "no_annual_report_known",
+    });
+  });
+
+  describe("acceptance clock (ADR 0036)", () => {
+    // Form 4 a las 18:30 de Nueva York: la evidencia de que el archivo está
+    // corrido cuando la SEC aplica el offset dos veces.
+    const evenings = Array.from(
+      { length: 8 },
+      (_, index) =>
+        [
+          "4",
+          `0000320193-26-00090${index}`,
+          `2026-03-0${index + 1}T23:30:00.000Z`,
+          "form4.xml",
+        ] as [string, string, string, string],
+    );
+    // Aceptado a las 18:44:31 de Nueva York; la SEC lo publica a las 23:44:31.
+    const annual: [string, string, string, string] = [
+      "10-K",
+      "0000320193-26-000004",
+      "2026-02-05T23:44:31.000Z",
+      "annual.htm",
+    ];
+    const shifted = (rows: (typeof annual)[]) =>
+      submissions(
+        rows.map(
+          ([form, accession, accepted, document]) =>
+            [form, accession, applyNewYorkOffsetTwice(accepted), document] as [
+              string,
+              string,
+              string,
+              string,
+            ],
+        ),
+      );
+
+    it("reads the true acceptance, so a cutoff between it and the shifted one already sees the 10-K", () => {
+      const result = locateLatestAnnualReport(
+        shifted([annual, ...evenings]),
+        CIK,
+        // Una hora después de la aceptación real, cuatro antes de la publicada.
+        "2026-02-06T00:44:31.000Z",
+      );
+
+      expect(result).toMatchObject({
+        status: "found",
+        report: {
+          accessionNumber: "0000320193-26-000004",
+          acceptedAt: "2026-02-05T23:44:31.000Z",
+        },
+      });
+    });
+
+    it("locates nothing in a file whose clock it cannot decide", () => {
+      const result = locateLatestAnnualReport(
+        submissions([
+          annual,
+          ...evenings.map(
+            ([form, accession, , document]) =>
+              [form, accession, "2026-03-02T09:30:00.000Z", document] as [
+                string,
+                string,
+                string,
+                string,
+              ],
+          ),
+        ]),
+        CIK,
+        "2026-10-15T00:00:00.000Z",
+      );
+
+      expect(result).toEqual({
+        status: "not_found",
+        reason: "acceptance_clock_undetermined",
+      });
     });
   });
 

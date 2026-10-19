@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import {
+  correctSecAcceptance,
+  readSecAcceptanceClock,
+} from "./sec-acceptance-clock";
+
 /**
  * El último 10-K conocido al corte (`F5-03`,
  * [ADR 0033](../../../../docs/architecture/adr/0033-ai-layer-industry-resolution.md),
@@ -13,9 +18,14 @@ import { z } from "zod";
  * Sólo cuenta el `10-K` original. Una enmienda `10-K/A` suele traer únicamente
  * la Parte III y no el Item 1, y un `10-KT` es un período de transición; los dos
  * se ignoran en vez de citarse como si describieran el negocio.
+ *
+ * `1.1.0` lee la aceptación con `sec-acceptance-clock-1.0.0` (ADR 0036): un
+ * archivo con el offset de Nueva York aplicado dos veces se corrige antes de
+ * comparar contra el corte, y uno cuyo reloj no se puede decidir no localiza
+ * ningún 10-K.
  */
 export const SEC_ANNUAL_REPORT_LOCATOR_VERSION =
-  "sec-annual-report-locator-1.0.0";
+  "sec-annual-report-locator-1.1.0";
 
 const ANNUAL_REPORT_FORM = "10-K";
 
@@ -62,7 +72,10 @@ export type LocateAnnualReportResult =
   | { readonly status: "found"; readonly report: SecAnnualReport }
   | {
       readonly status: "not_found";
-      readonly reason: "columns_missing" | "no_annual_report_known";
+      readonly reason:
+        | "columns_missing"
+        | "acceptance_clock_undetermined"
+        | "no_annual_report_known";
     };
 
 /**
@@ -83,6 +96,22 @@ export function locateLatestAnnualReport(
 
   const recent = parsed.data.filings.recent;
   const cutoff = Date.parse(knownAt);
+  // El reloj se lee sobre todo el archivo, no sólo sobre los 10-K: son pocos
+  // para decidir, y el error es del archivo entero.
+  const acceptanceClock = readSecAcceptanceClock(
+    recent.acceptanceDateTime.filter(
+      (value): value is string =>
+        typeof value === "string" &&
+        ACCEPTANCE.test(value) &&
+        !Number.isNaN(Date.parse(value)),
+    ),
+  );
+  const { clock } = acceptanceClock;
+
+  if (clock === "undetermined") {
+    return { status: "not_found", reason: "acceptance_clock_undetermined" };
+  }
+
   let latest: SecAnnualReport | null = null;
 
   for (let row = 0; row < recent.form.length; row += 1) {
@@ -104,7 +133,10 @@ export function locateLatestAnnualReport(
       continue;
     }
 
-    const acceptedAt = new Date(rawAcceptance).toISOString();
+    const acceptedAt = correctSecAcceptance(
+      new Date(rawAcceptance).toISOString(),
+      clock,
+    );
 
     if (Date.parse(acceptedAt) > cutoff) {
       continue;

@@ -55,6 +55,7 @@ import {
   type SecCompanyFactsCounts,
 } from "../domain/parse-sec-company-facts";
 import { SEC_SUBMISSIONS_PARSER_VERSION } from "../domain/parse-sec-submissions";
+import { acceptanceClockFlags } from "../domain/sec-acceptance-clock";
 import { SEC_CONCEPT_SELECTION_VERSION } from "../domain/sec-concept-selection";
 import { SEC_FACT_RULES_VERSION } from "../domain/sec-fact-rules";
 import type {
@@ -274,6 +275,10 @@ export async function ingestCompanyFacts(
     selectionAnchorOn?: string | null;
   };
 
+  // Se llena al bajar: un archivo de `submissions` corregido por el reloj de
+  // aceptaciones (ADR 0036) lo declara cualquier corrida que lo haya leído.
+  let clockFlags: string[] = [];
+
   const record = async (fields: RunFields): Promise<IngestionRun> => {
     const finishedAt = now();
     const run = ingestionRunSchema.parse({
@@ -294,7 +299,7 @@ export async function ingestCompanyFacts(
       counts: fields.counts,
       contentHash: fields.contentHash,
       failure: fields.failure,
-      qualityFlags: fields.qualityFlags,
+      qualityFlags: [...fields.qualityFlags, ...clockFlags],
       replayOfRunId: fields.replayOfRunId ?? null,
       recordedAt: finishedAt,
     });
@@ -404,6 +409,7 @@ export async function ingestCompanyFacts(
     if (
       cause instanceof CompanyFactsSourceError &&
       (cause.code === "payload_schema_invalid" ||
+        cause.code === "acceptance_clock_undetermined" ||
         cause.code === "subject_mismatch")
     ) {
       // Un documento que no se entiende se cuarentena: no publica y no reemplaza
@@ -432,6 +438,10 @@ export async function ingestCompanyFacts(
       ...blank,
     };
   }
+
+  clockFlags = acceptanceClockFlags(
+    download.documents.map((document) => document.acceptanceClock),
+  );
 
   if (download.status === "no_company_facts") {
     return {

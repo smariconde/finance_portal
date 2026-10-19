@@ -389,6 +389,14 @@ Reglas implementadas en `F2-03` ([ADR 0010](../architecture/adr/0010-sec-xbrl-in
   sólo para formularios periódicos o corrientes, `available_at` es el primer
   instante del día siguiente al filing en Nueva York con offset EST (`05:00Z`) más
   `availability_inferred`: puede llegar tarde, nunca antes.
+- **Reloj por archivo** ([ADR 0036](../architecture/adr/0036-sec-acceptance-clock.md)).
+  Desde octubre de 2026 la SEC regenera los archivos de `submissions` con el
+  offset de Nueva York aplicado dos veces (+4/+5 horas). `sec-acceptance-clock-1.0.0`
+  decide el reloj de cada bloque —el `recent` y cada histórico— por el horario de
+  EDGAR y resta el offset sólo con evidencia decisiva: corregir un archivo que
+  estaba bien sería look-ahead, no corregir uno corrido sólo atrasa. Un bloque
+  que no encaja en ninguna lectura se rechaza (`acceptance_clock_undetermined`), y
+  una corrida que leyó uno corregido lleva `acceptance_clock_corrected`.
 - **Vintages.** Un hecho es `(taxonomía, concepto, unidad, inicio, fin)`. Un
   re-reporte del mismo valor no crea revisión; un valor distinto en una
   presentación posterior sí, con el `available_at` de la primera presentación que

@@ -342,3 +342,21 @@ export function buildFixtureSubmissions(
 export function buildFixtureSubmissionsHistory(): unknown {
   return columns(HISTORY_FILINGS);
 }
+
+/**
+ * Lo que hace hoy la SEC con un archivo regenerado: toma los dígitos UTC como
+ * hora de Nueva York y los vuelve a convertir. Con el offset de invierno (5 h)
+ * o el de verano (4 h), según el instante resultante.
+ */
+export function applyNewYorkOffsetTwice(instant: string): string {
+  const winter = Date.parse(instant) + 5 * 3_600_000;
+  const summer = Date.parse(instant) + 4 * 3_600_000;
+  const isSummer = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    timeZoneName: "short",
+  })
+    .format(new Date(summer))
+    .endsWith("EDT");
+
+  return new Date(isSummer ? summer : winter).toISOString();
+}

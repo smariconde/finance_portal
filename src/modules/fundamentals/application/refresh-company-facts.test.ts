@@ -73,6 +73,7 @@ function probeSourceFor(
         fetchedAt: CLOCK,
         byteLength: 1024,
         parserVersion: "sec-submissions-1.0.0",
+        acceptanceClock: null,
       },
     })),
   };
