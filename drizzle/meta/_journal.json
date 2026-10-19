@@ -204,6 +204,13 @@
       "when": 1792438784817,
       "tag": "0028_light_dazzler",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1792447899886,
+      "tag": "0029_panoramic_spot",
+      "breakpoints": true
     }
   ]
 }

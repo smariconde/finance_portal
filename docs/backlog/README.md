@@ -63,6 +63,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    35 | `F5-05`    | `done`     | Mix geográfico de ingresos transcripto del 10-K por la IA con policy determinista y lock del owner; el CRP del WACC se pondera por operaciones y el motor lo recalcula. | `F5-03`       |
 |    36 | `F5-06`    | `done`     | Replay de una corrida con industria y mix propuestos por la IA: reproduce ambos hashes desde el snapshot sin volver a llamar al modelo.                                 | `F5-05`       |
 |    37 | `F5-07`    | `done`     | Evals de injection, citas, abstención, schema, costo y corrección sobre las dos tareas de la capa IA.                                                                   | `F5-06`       |
+|    38 | `F4-01`    | `done`     | Capitalización de arrendamientos operativos e I+D con puente auditable sobre EBIT, capital invertido y deuda, recalculado por el motor.                                 | Fase 3        |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -2787,6 +2788,44 @@ geográfico, quedan en `standard` y declaran `country_risk_by_domicile`.
 | `F4-04` | Escenarios bear/base/bull como conjuntos coherentes de supuestos, no multiplicadores sobre el resultado.     | `F4-03`    | `TM-16`                   |
 | `F4-05` | Probabilidad de fracaso y overhang de opciones incorporados a la dilución y al puente EV-equity.             | `F4-03`    | `TM-05`, `TM-16`          |
 | `F4-06` | Arquetipos por slice: bancos/aseguradoras, cíclicas, pérdidas/high growth, REIT, holdings/SOTP.              | `F4-04`    | `TM-05`, `TM-06`, `TM-15` |
+
+<a id="f4-01"></a>
+
+**`F4-01` — capitalización de arrendamientos e I+D (cerrado el 2026-10-19).** [ADR 0037](../architecture/adr/0037-lease-rd-capitalization.md),
+con tres decisiones del owner: el pasivo de ASC 842 como deuda con su interés
+implícito al costo de deuda antes de impuestos; la vida de la I+D de la hoja
+«Amortizable Lives Look-up Table» de Damodaran mapeada a las 96 industrias, con
+diez ejercicios de I+D en la ventana; y un umbral de materialidad del 1 % de
+las ventas. Tres incrementos:
+
+1. **Historia** (hecho el 2026-10-19): `sec-history-5fy-2.0.0` y
+   `sec-core-concepts-4.0.0` conservan diez ejercicios de I+D, incluida
+   `ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost`, que es la I+D
+   recurrente de Johnson & Johnson; la poda `sec-history-prune-1.1.0` conoce el
+   corte nuevo (migración `0029`, rollback que se niega con cortes registrados).
+   Reingesta de los 31 filers: diez con once ejercicios de I+D, Moderna con diez
+   y JNJ con once. Los históricos viejos de Incyte y NVIDIA destaparon los
+   marcadores de fecha de EDGAR, que `sec-acceptance-clock-1.1.0` aparta de la
+   evidencia (enmienda de la ADR 0036; 695 de 695 aceptaciones coinciden).
+2. **Dominio** (hecho): `lease-capitalization-1.0.0`, `rd-capitalization-1.0.0`
+   y `rd-amortizable-life-1.0.0`, puros. El ejemplo de Amgen del paper es el
+   oráculo (activo 13.283,6, amortización 1.694,1, cronograma fila por fila) y
+   un test transcribe la hoja de vidas y exige cada vida de su fila; casos nulos,
+   cero, negativos, sin industria, sin historia, con un ejercicio faltante y con
+   años de 52/53 semanas.
+3. **Corrida** (hecho): `ValuationInput.capitalization`
+   (`capitalization-bridge-1.0.0`), la claim `leaseDebt` del puente EV-equity,
+   el check `capitalization_recomputed`, `fcff-1.1.0` y metodología `0.7.0`.
+   `pnpm valuation:assess --offline` imprime el puente; medido sobre la muestra
+   (tabla en la metodología). Medir destapó dos defectos de la serie anual,
+   corregidos en `annual-fundamentals-1.1.0`: cierres duplicados a un día de
+   distancia (Deere) y la parte no corriente del pasivo tomada por el total.
+
+Criterios cumplidos: el puente es auditable —hechos con provenance, regla,
+versión y cronograma— sobre EBIT, capital invertido y deuda (`TM-05`: ningún
+faltante vale cero; `TM-06`: los hechos son del cierre base al corte; `TM-16`:
+el motor recalcula y rechaza un número escrito a mano). FixtureCo conserva su
+valor por acción. Siguiente: `F4-02`.
 
 Cada arquetipo de `F4-06` es un slice propio con selector, inputs, fórmulas,
 fixtures independientes, diagnósticos y estado `experimental | reviewed | production`,

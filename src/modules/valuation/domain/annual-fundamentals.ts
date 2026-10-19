@@ -12,8 +12,19 @@ import { z } from "zod";
  *
  * No normaliza ni suma conceptos: componer la deuda o el EBIT a partir de varias
  * partidas es una regla de quien consume la serie, con su propia versión.
+ *
+ * `1.1.0` (`F4-01`, ADR 0037): la I+D prefiere la que excluye la adquirida en
+ * proceso, que es una compra —Johnson & Johnson publica la recurrente sólo
+ * así—, y el pasivo por arrendamientos operativos deja de aceptar la parte no
+ * corriente sola como si fuera el total. Las dos partes son partidas propias;
+ * sumarlas es de la capitalización, que exige las dos del mismo cierre. Y dos
+ * cierres a menos de un ejercicio de distancia son el mismo ejercicio: Deere
+ * etiquetó su año de 52/53 semanas como 2016-10-30 en una presentación y como
+ * 2016-10-31 en otra, con valores apenas distintos, y la serie contaba dos
+ * años. Gana el cierre publicado último, que es la vista más reciente de ese
+ * ejercicio.
  */
-export const ANNUAL_FUNDAMENTALS_VERSION = "annual-fundamentals-1.0.0";
+export const ANNUAL_FUNDAMENTALS_VERSION = "annual-fundamentals-1.1.0";
 
 export const lineItemIdSchema = z.enum([
   "revenue",
@@ -36,6 +47,8 @@ export const lineItemIdSchema = z.enum([
   "debt_current",
   "short_term_borrowings",
   "operating_lease_liability",
+  "operating_lease_liability_current",
+  "operating_lease_liability_noncurrent",
   "minority_interest",
   "shares_outstanding",
 ]);
@@ -113,7 +126,10 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
   {
     item: "research_development",
     periodType: "annual",
-    concepts: ["us-gaap:ResearchAndDevelopmentExpense"],
+    concepts: [
+      "us-gaap:ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost",
+      "us-gaap:ResearchAndDevelopmentExpense",
+    ],
   },
   {
     item: "diluted_shares",
@@ -170,10 +186,17 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
   {
     item: "operating_lease_liability",
     periodType: "instant",
-    concepts: [
-      "us-gaap:OperatingLeaseLiability",
-      "us-gaap:OperatingLeaseLiabilityNoncurrent",
-    ],
+    concepts: ["us-gaap:OperatingLeaseLiability"],
+  },
+  {
+    item: "operating_lease_liability_current",
+    periodType: "instant",
+    concepts: ["us-gaap:OperatingLeaseLiabilityCurrent"],
+  },
+  {
+    item: "operating_lease_liability_noncurrent",
+    periodType: "instant",
+    concepts: ["us-gaap:OperatingLeaseLiabilityNoncurrent"],
   },
   {
     item: "minority_interest",
@@ -324,6 +347,57 @@ export function chooseFiscalYearAnchor(
 }
 
 /**
+ * Un cierre por ejercicio. Cierres a menos de un ejercicio del primero de su
+ * grupo son el mismo año; gana el publicado último y, a igual publicación, el
+ * más tardío. Más reciente primero.
+ */
+function chooseFiscalYearEnds(
+  latestPublication: ReadonlyMap<string, string>,
+): string[] {
+  const ends = [...latestPublication.keys()].sort((left, right) =>
+    right.localeCompare(left),
+  );
+  const chosen: string[] = [];
+  let group: string[] = [];
+
+  const close = () => {
+    if (group.length > 0) {
+      chosen.push(
+        [...group].sort(
+          (left, right) =>
+            latestPublication
+              .get(right)!
+              .localeCompare(latestPublication.get(left)!) ||
+            right.localeCompare(left),
+        )[0]!,
+      );
+    }
+  };
+
+  for (const end of ends) {
+    const first = group[0];
+
+    if (
+      first !== undefined &&
+      (Date.parse(`${first}T00:00:00.000Z`) -
+        Date.parse(`${end}T00:00:00.000Z`)) /
+        DAY_MS <
+        MIN_FISCAL_YEAR_DAYS
+    ) {
+      group.push(end);
+      continue;
+    }
+
+    close();
+    group = [end];
+  }
+
+  close();
+
+  return chosen;
+}
+
+/**
  * Arma la serie. `anchor` es el cierre anual con `fp = FY` que registró la
  * ingesta (ADR 0017), elegido a lo largo del linaje; `cutoffDate` es la fecha
  * efectiva de la consulta, y ningún ejercicio que cierre después entra.
@@ -348,13 +422,17 @@ export function buildAnnualFundamentals(
         left.observationId.localeCompare(right.observationId),
     );
 
-  const fiscalYearEnds = [
-    ...new Set(
-      usable
-        .filter((row) => isFiscalYearRow(row, anchor))
-        .map((row) => row.asOf),
-    ),
-  ].sort((left, right) => right.localeCompare(left));
+  // Lo más reciente que se publicó con cada cierre candidato. `usable` ya
+  // viene ordenado por disponibilidad, así que el primero que aparece gana.
+  const latestPublication = new Map<string, string>();
+
+  for (const row of usable) {
+    if (isFiscalYearRow(row, anchor) && !latestPublication.has(row.asOf)) {
+      latestPublication.set(row.asOf, row.availableAt);
+    }
+  }
+
+  const fiscalYearEnds = chooseFiscalYearEnds(latestPublication);
 
   const fiscalYears = fiscalYearEnds.map((fiscalYearEnd) => {
     const items: Partial<Record<LineItemId, LineItemValue>> = {};

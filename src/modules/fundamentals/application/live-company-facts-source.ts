@@ -23,6 +23,7 @@ import {
 import type { SecAcceptanceClockReading } from "../domain/sec-acceptance-clock";
 import {
   isSelectedSecConcept,
+  isCapitalizationHistoryConcept,
   isSplitEvidenceConcept,
 } from "../domain/sec-concept-selection";
 import { applySecHistoryWindow } from "../domain/sec-history-window";
@@ -366,6 +367,7 @@ export function createLiveCompanyFactsSource(dependencies: {
       const windowed = applySecHistoryWindow(
         companyFacts.facts,
         isSplitEvidenceConcept,
+        isCapitalizationHistoryConcept,
       );
 
       const known = new Set(

@@ -224,6 +224,7 @@ export function createInMemoryObservationRepository(
         evidencePeriodsEndingBefore:
           parsedRequest.plan.evidencePeriodsEndingBefore,
         evidenceConcepts: parsedRequest.plan.evidenceConcepts,
+        conceptCuts: parsedRequest.plan.conceptCuts,
         deletedCount: counts.deleted,
         keptCount: counts.kept,
         deletedMinAsOf: counts.deletedMinAsOf,

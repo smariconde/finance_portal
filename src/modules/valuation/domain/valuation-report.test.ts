@@ -154,6 +154,11 @@ describe("reported facts and declared absences", () => {
           "FixtureCo no reporta activos no operativos separables en FY2024.",
       },
       {
+        id: "bridge.leaseDebt",
+        rationale:
+          "FixtureCo es dueña de sus plantas y no reporta arrendamientos operativos en FY2024.",
+      },
+      {
         id: "bridge.minorityInterest",
         rationale: "FixtureCo consolida sin participaciones no controlantes.",
       },

@@ -4,6 +4,7 @@ import {
 } from "@/modules/observations/domain/observation-prune";
 
 import {
+  listCapitalizationHistoryConcepts,
   listSplitEvidenceConcepts,
   SEC_CONCEPT_SELECTION_VERSION,
 } from "./sec-concept-selection";
@@ -23,8 +24,11 @@ import { secHistoryCutsFrom } from "./sec-history-window";
  * describe otra ventana —la versión declara sus componentes—, así que tampoco
  * sirve. En los dos casos la salida es la misma: ingerir el filer otra vez, que
  * cuesta dos o tres requests y deja el ancla vigente.
+ *
+ * `1.1.0` (ADR 0037) suma el corte de la historia de capitalización: la I+D que
+ * la ventana conserva diez ejercicios no la borra la poda.
  */
-export const SEC_HISTORY_PRUNE_RULE_VERSION = "sec-history-prune-1.0.0";
+export const SEC_HISTORY_PRUNE_RULE_VERSION = "sec-history-prune-1.1.0";
 
 export type SecHistoryPruneRejectionCode =
   /** El sujeto no tiene ninguna corrida con ancla registrada. */
@@ -97,6 +101,12 @@ export function planSecHistoryPrune(
       periodsEndingBefore: cuts.periodsEndingFrom,
       evidencePeriodsEndingBefore: cuts.evidencePeriodsEndingFrom,
       evidenceConcepts: listSplitEvidenceConcepts(),
+      conceptCuts: [
+        {
+          periodsEndingBefore: cuts.capitalizationPeriodsEndingFrom,
+          concepts: listCapitalizationHistoryConcepts(),
+        },
+      ],
     }),
   };
 }

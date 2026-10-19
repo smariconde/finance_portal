@@ -9,6 +9,7 @@ import {
 } from "@/modules/temporal/domain/temporal-version";
 
 import { decimalPolicySchema, engineDecimalSchema } from "./decimal-policy";
+import { listCapitalizationFacts } from "./capitalization-bridge";
 import { VALUATION_ERROR_CODES } from "./valuation-error";
 import {
   assetProfileSchema,
@@ -123,7 +124,9 @@ export const valuationResultSchema = z.object({
   periods: z.array(periodProjectionSchema).min(1).max(20),
   terminal: terminalProjectionSchema,
   enterpriseValue: engineDecimalSchema,
-  bridgeComponents: z.array(bridgeComponentSchema).length(5),
+  bridgeComponents: z
+    .array(bridgeComponentSchema)
+    .length(BRIDGE_ITEM_KEYS.length),
   equityValue: engineDecimalSchema,
   dilutedShares: engineDecimalSchema,
   valuePerShare: engineDecimalSchema,
@@ -244,6 +247,7 @@ export function collectValuationProvenance(
     ...BRIDGE_ITEM_KEYS.map((key) => input.bridge[key].amount).filter(
       (amount) => amount !== null,
     ),
+    ...listCapitalizationFacts(input.capitalization).map(({ fact }) => fact),
   ];
 
   return valuationProvenanceSchema.parse({

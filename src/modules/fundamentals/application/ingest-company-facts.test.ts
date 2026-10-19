@@ -253,17 +253,18 @@ describe("ingestCompanyFacts", () => {
       datasetId: "sec.companyfacts",
       parserVersion: "sec-companyfacts-1.0.0",
       subjectKey: FIXTURE_FILER_CIK,
-      selectionVersion: "sec-core-concepts-3.0.0",
+      selectionVersion: "sec-core-concepts-4.0.0",
       selectionAnchorOn: "2009-12-31",
       counts: { fetched: 7, accepted: 7, rejected: 0, duplicate: 0 },
     });
     expect(outcome.window).toStrictEqual({
       window: {
-        version: "sec-history-5fy-1.0.0",
+        version: "sec-history-5fy-2.0.0",
         anchorOn: "2009-12-31",
         anchorBasis: "annual_report",
         periodsEndingFrom: "2004-12-17",
         evidencePeriodsEndingFrom: "2003-12-17",
+        capitalizationPeriodsEndingFrom: "1999-12-17",
       },
       counts: { points: 8, kept: 8, outside: 0 },
     });

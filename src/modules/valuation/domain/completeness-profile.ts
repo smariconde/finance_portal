@@ -22,9 +22,14 @@ import type {
  * `1.1.0` (`F5-05`, ADR 0034): el mix geográfico deja de ser siempre faltante;
  * está cuando el owner lo declaró o la IA lo propuso y la policy lo aceptó.
  */
-export const COMPLETENESS_PROFILE_VERSION = "completeness-profile-1.1.0";
+/**
+ * `1.2.0` (`F4-01`, ADR 0037): el pasivo por arrendamientos está con el total o
+ * con sus dos partes del mismo cierre; la parte no corriente sola ya no cuenta.
+ */
+export const COMPLETENESS_PROFILE_VERSION = "completeness-profile-1.2.0";
 const COMPLETENESS_PROFILE_VERSIONS = [
   "completeness-profile-1.0.0",
+  "completeness-profile-1.1.0",
   COMPLETENESS_PROFILE_VERSION,
 ] as const;
 
@@ -225,7 +230,12 @@ export function measureCompleteness(
       ],
     ]),
     itemsCheck("leases", latest, [
-      ["operating_lease_liability", has(latest, "operating_lease_liability")],
+      [
+        "operating_lease_liability",
+        has(latest, "operating_lease_liability") ||
+          (has(latest, "operating_lease_liability_current") &&
+            has(latest, "operating_lease_liability_noncurrent")),
+      ],
     ]),
     check(
       "research_development",

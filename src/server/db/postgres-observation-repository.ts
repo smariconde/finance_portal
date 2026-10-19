@@ -107,15 +107,36 @@ function pruneScope(
 
 /**
  * Corte de la poda, estricto: la fila se borra si su fin de período es anterior
- * al corte que le toca. Los conceptos de evidencia usan el suyo, más viejo.
+ * al corte que le toca. Cada grupo de conceptos usa el suyo, más viejo; un
+ * concepto en dos grupos toma el más viejo, como `pruneCutFor`.
  */
 function prunedBy(plan: ObservationPrunePlan): SQL {
+  const groups = [
+    ...(plan.evidenceConcepts.length === 0
+      ? []
+      : [
+          {
+            concepts: plan.evidenceConcepts,
+            periodsEndingBefore: plan.evidencePeriodsEndingBefore,
+          },
+        ]),
+    ...plan.conceptCuts,
+  ]
+    // El más viejo primero: el primer `when` que coincide decide.
+    .sort((left, right) =>
+      left.periodsEndingBefore.localeCompare(right.periodsEndingBefore),
+    );
+
   const cut =
-    plan.evidenceConcepts.length === 0
+    groups.length === 0
       ? sql`${plan.periodsEndingBefore}::date`
-      : sql`case when ${inArray(schema.observations.concept, [...plan.evidenceConcepts])}
-          then ${plan.evidencePeriodsEndingBefore}::date
-          else ${plan.periodsEndingBefore}::date end`;
+      : sql`case ${sql.join(
+          groups.map(
+            (group) =>
+              sql`when ${inArray(schema.observations.concept, [...group.concepts])} then ${group.periodsEndingBefore}::date`,
+          ),
+          sql` `,
+        )} else ${plan.periodsEndingBefore}::date end`;
 
   return sql`${schema.observations.asOf} < ${cut}`;
 }
@@ -136,6 +157,7 @@ function toDomainPrune(
     periodsEndingBefore: row.periodsEndingBefore,
     evidencePeriodsEndingBefore: row.evidencePeriodsEndingBefore,
     evidenceConcepts: row.evidenceConcepts,
+    conceptCuts: row.conceptCuts,
     deletedCount: row.deletedCount,
     keptCount: row.keptCount,
     deletedMinAsOf: row.deletedMinAsOf,
@@ -464,6 +486,10 @@ export function createPostgresObservationRepository(
             periodsEndingBefore: plan.periodsEndingBefore,
             evidencePeriodsEndingBefore: plan.evidencePeriodsEndingBefore,
             evidenceConcepts: [...plan.evidenceConcepts],
+            conceptCuts: plan.conceptCuts.map((cut) => ({
+              periodsEndingBefore: cut.periodsEndingBefore,
+              concepts: [...cut.concepts],
+            })),
             deletedCount: deleted.length,
             keptCount: survivors?.kept ?? 0,
             deletedMinAsOf: ends.at(0) ?? null,

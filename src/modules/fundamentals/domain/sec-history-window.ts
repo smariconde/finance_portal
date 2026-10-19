@@ -37,6 +37,10 @@ import { classifySecPeriod } from "./sec-fact-rules";
  *   no se confirma, o se confirma en una presentación posterior y ajusta dos veces
  *   lo que ya estaba en base nueva. Medido sobre NVIDIA (4:1 de 2021) y GE (1:8 de
  *   2021). Ese ejercicio extra es evidencia, no historia de análisis.
+ * - **Historia de capitalización** (`2.0.0`, ADR 0037): la I+D conserva diez
+ *   ejercicios antes del ancla, porque capitalizarla con una vida de `n` años
+ *   pide el ejercicio base y los `n` anteriores, y la vida más larga de la
+ *   tabla de Damodaran es 10. Es un concepto anual: once puntos en vez de seis.
  *
  * La ventana se aplica sobre los hechos seleccionados, antes de armar vintages y
  * antes de elegir los archivos históricos de submissions: lo que queda afuera no
@@ -44,13 +48,16 @@ import { classifySecPeriod } from "./sec-fact-rules";
  * firma fiscal de una accession— ve sólo los hechos de la ventana, igual que hoy
  * ve sólo los conceptos seleccionados.
  */
-export const SEC_HISTORY_WINDOW_VERSION = "sec-history-5fy-1.0.0";
+export const SEC_HISTORY_WINDOW_VERSION = "sec-history-5fy-2.0.0";
 
 /** Ejercicios completos después del cierre base. */
 export const HISTORY_FISCAL_YEARS = 5;
 
 /** Ejercicios adicionales de los conceptos que prueban un split. */
 export const SPLIT_EVIDENCE_EXTRA_FISCAL_YEARS = 1;
+
+/** Ejercicios adicionales de los conceptos que la capitalización amortiza. */
+export const CAPITALIZATION_HISTORY_EXTRA_FISCAL_YEARS = 5;
 
 /** Movimiento máximo del cierre de un ejercicio de 52/53 semanas, con margen. */
 export const FISCAL_YEAR_END_TOLERANCE_DAYS = 14;
@@ -69,6 +76,8 @@ export type SecHistoryWindow = {
   readonly periodsEndingFrom: string;
   /** Primer fin de período que se conserva para los conceptos de evidencia. */
   readonly evidencePeriodsEndingFrom: string;
+  /** Primer fin de período que se conserva para la historia de capitalización. */
+  readonly capitalizationPeriodsEndingFrom: string;
 };
 
 export type SecHistoryWindowSelection = {
@@ -115,7 +124,9 @@ export function resolveSecHistoryAnchor(facts: readonly SecReportedFact[]): {
 
 export type SecHistoryCuts = Pick<
   SecHistoryWindow,
-  "periodsEndingFrom" | "evidencePeriodsEndingFrom"
+  | "periodsEndingFrom"
+  | "evidencePeriodsEndingFrom"
+  | "capitalizationPeriodsEndingFrom"
 >;
 
 /**
@@ -136,6 +147,9 @@ export function secHistoryCutsFrom(anchorOn: string): SecHistoryCuts {
     evidencePeriodsEndingFrom: from(
       HISTORY_FISCAL_YEARS + SPLIT_EVIDENCE_EXTRA_FISCAL_YEARS,
     ),
+    capitalizationPeriodsEndingFrom: from(
+      HISTORY_FISCAL_YEARS + CAPITALIZATION_HISTORY_EXTRA_FISCAL_YEARS,
+    ),
   };
 }
 
@@ -155,18 +169,26 @@ export function isInSecHistoryWindow(
   fact: Pick<SecReportedFact, "end">,
   window: SecHistoryWindow,
   evidenceConcept: boolean,
+  capitalizationConcept = false,
 ): boolean {
-  return (
-    fact.end >=
-    (evidenceConcept
-      ? window.evidencePeriodsEndingFrom
-      : window.periodsEndingFrom)
-  );
+  // El corte más ancho que le toque al concepto: un concepto de los dos grupos
+  // conserva la historia más larga.
+  const cuts = [
+    window.periodsEndingFrom,
+    ...(evidenceConcept ? [window.evidencePeriodsEndingFrom] : []),
+    ...(capitalizationConcept ? [window.capitalizationPeriodsEndingFrom] : []),
+  ].sort();
+
+  return fact.end >= cuts[0]!;
 }
 
 export function applySecHistoryWindow(
   facts: readonly SecReportedFact[],
   isEvidenceConcept: (taxonomy: string, concept: string) => boolean,
+  isCapitalizationConcept: (
+    taxonomy: string,
+    concept: string,
+  ) => boolean = () => false,
 ): SecHistoryWindowSelection {
   const anchor = resolveSecHistoryAnchor(facts);
 
@@ -184,6 +206,7 @@ export function applySecHistoryWindow(
       fact,
       window,
       isEvidenceConcept(fact.taxonomy, fact.concept),
+      isCapitalizationConcept(fact.taxonomy, fact.concept),
     ),
   );
 

@@ -1,8 +1,8 @@
 # Metodología de valuación
 
 - Estado: metodología objetivo; motor FCFF base implementado en `src/modules/valuation/`
-- Versión metodológica: 0.6.0 (la corrida lleva selección, completitud y rigor desde `F3-03`, el costo de capital construido desde `F3-06`, el riesgo país ponderado por operaciones desde `F5-05` y las decisiones cualitativas con la propuesta de la IA desde `F5-06`)
-- Versión de engine implementada: `fcff-1.0.0` (método `fcff_base`)
+- Versión metodológica: 0.7.0 (la corrida lleva selección, completitud y rigor desde `F3-03`, el costo de capital construido desde `F3-06`, el riesgo país ponderado por operaciones desde `F5-05`, las decisiones cualitativas con la propuesta de la IA desde `F5-06` y la capitalización de arrendamientos e I+D desde `F4-01`)
+- Versión de engine implementada: `fcff-1.1.0` (método `fcff_base`)
 - Fecha: 2026-08-21; motor base entregado el 2026-08-24; niveles de rigor y alcance
   de la IA incorporados el 2026-09-04
 - Alcance inicial: FCFF para no financieras maduras o en transición
@@ -38,7 +38,8 @@ de cuatro quintos del universo y produce números inválidos en el resto.
 | Fase 1   | FCFF base sobre una empresa fixture para probar el flujo reproducible | `done`         |
 | Fase 3   | selector de arquetipo, completitud de datos y admisibilidad de método | `done`         |
 | Fase 3   | parámetros Damodaran y costo de capital bottom-up                     | `done`         |
-| Fase 4   | FCFF multi-etapa con leases e I+D capitalizados                       | `planned`      |
+| Fase 4   | leases e I+D capitalizados con puente sobre EBIT, capital y deuda     | `done`         |
+| Fase 4   | FCFF multi-etapa: regla terminal, normalización y escenarios          | `planned`      |
 | Fase 4.1 | bancos y aseguradoras mediante excess return/residual income o DDM    | `planned`      |
 | Fase 4.2 | cíclicas y commodities con normalización de ciclo                     | `planned`      |
 | Fase 4.3 | pérdidas/high growth con revenue-to-margin y supervivencia            | `planned`      |
@@ -65,7 +66,11 @@ El nivel se deriva de la completitud medida, no se elige. La corrida persiste qu
 comprobación bajó el nivel, de modo que conseguir ese dato más adelante y volver a
 correr sea una acción concreta y no una intuición.
 
-## Motor implementado: `fcff-1.0.0`
+## Motor implementado: `fcff-1.1.0`
+
+`fcff-1.1.0` (`F4-01`) agrega al puente EV-equity la claim `leaseDebt`, la deuda
+por arrendamientos operativos que deriva la capitalización; el resto del motor
+es el de `fcff-1.0.0`.
 
 El método `fcff_base` cubre `non_financial_mature` con N períodos explícitos
 —hasta 20— más un valor terminal. Cualquier otro `assetProfile` devuelve
@@ -88,8 +93,8 @@ parte del audit trail (`TM-16`). El índice único sobre `input_hash` más engin
 metodología hace que un replay exacto sea la misma corrida, no una fila nueva.
 
 Fuera del alcance de esta versión y diferido a Fase 4: escenarios bear/base/bull
-como conjuntos coherentes de supuestos, normalización reported/adjusted, selector
-automático de método y WACC que converge entre etapas.
+como conjuntos coherentes de supuestos, normalización reported/adjusted y WACC
+que converge entre etapas.
 
 ## Política numérica
 
@@ -535,6 +540,66 @@ aserciones `damodaran-industry` vaciadas, y sin `OPENROUTER_API_KEY` ni
 `SEC_USER_AGENT`, el replay reprodujo **seis de seis**. Un monto transcripto
 editado en el JSONB guardado diverge en los dos hashes y en el estado. El
 snapshot pesa entre 13,8 y 16,3 kB.
+
+### `F4-01`: arrendamientos e I+D capitalizados
+
+[ADR 0037](../architecture/adr/0037-lease-rd-capitalization.md).
+`ValuationInput.capitalization` (`capitalization-bridge-1.0.0`) lleva los hechos
+del ejercicio base —EBIT reportado, pasivo por arrendamientos, I+D de cada
+ejercicio—, lo que derivan las dos reglas y el puente:
+
+```text
+lease_debt          = pasivo por arrendamientos operativos (ASC 842) al cierre base
+imputed_interest    = lease_debt × pre_tax_cost_of_debt
+research_asset      = Σ_{t=0..n-1} rd_{-t} × (n − t) / n
+amortization        = Σ_{t=1..n}   rd_{-t} / n
+adjusted_ebit       = ebit + imputed_interest + rd_0 − amortization
+Δ invested_capital  = lease_debt + research_asset
+Δ debt              = lease_debt              (claim leaseDebt del puente)
+```
+
+- **Arrendamientos** (`lease-capitalization-1.0.0`): el total publicado o la
+  suma de sus dos partes del mismo cierre; una parte sola no es el pasivo. El
+  interés va al costo de deuda antes de impuestos de la propia corrida.
+- **I+D** (`rd-capitalization-1.0.0`): la vida sale de
+  `rd-amortizable-life-1.0.0`, que asigna a cada una de las 96 industrias del
+  dataset de betas una fila de la hoja de vidas de Damodaran (`R&DConv.xls`), con
+  la fila citada; un test exige que cada vida sea la de su fila. Sin ajuste
+  fiscal. Se capitaliza desde el 1 % de las ventas. Si no, queda reportada con
+  `not_reported`, `rd_negative`, `industry_unassigned`, `life_not_declared`,
+  `revenue_unavailable`, `immaterial` o `insufficient_history`; nunca se la
+  completa con cero ni se acorta la vida.
+- **Historia**: la ventana conserva diez ejercicios de I+D
+  (`sec-history-5fy-2.0.0`), y la serie anual prefiere la I+D que excluye la
+  adquirida en proceso (`annual-fundamentals-1.1.0`).
+
+El check `capitalization_recomputed` recalcula todo desde los hechos, con la
+industria y el costo de deuda de la corrida; exige que los hechos sean del
+cierre base, y que la deuda por arrendamientos sea exactamente la claim
+`leaseDebt`. El margen y la reinversión siguen siendo supuestos: el margen EBIT
+ajustado del año base viaja al lado para que su base sea visible. FixtureCo no
+tiene arrendamientos (claim declarada ausente) ni I+D, y su valor por acción no
+cambia.
+
+Medido el 2026-10-19 con `pnpm valuation:assess --offline`, que ahora imprime el
+puente:
+
+| Empresa | Arrendamientos (M) | I+D                                          | EBIT reportado → ajustado (M) |
+| ------- | -----------------: | -------------------------------------------- | ----------------------------- |
+| AAPL    |             12.490 | vida 5, activo 92.478                        | 133.050 → 142.532             |
+| GOOGL   |             15.954 | vida 3, activo 109.113                       | 129.039 → 146.106             |
+| NVDA    |              2.944 | vida 5, activo 38.022                        | 130.387 → 141.395             |
+| INCY    |                 20 | vida 10, activo 9.936                        | 1.515 → 2.143                 |
+| JNJ     |              1.400 | vida 10, activo 77.590 (I+D recurrente)      | no publicado                  |
+| DE      |                314 | vida 10, activo 10.851                       | no publicado                  |
+| F       |              2.402 | vida 10, activo 44.480                       | −9.169 → −6.842               |
+| AMZN    |             89.252 | `not_reported`                               | 79.975 → 84.063               |
+| XOM     |              6.834 | `immaterial` (0,36 %)                        | no publicado                  |
+| MRNA    | sin costo de deuda | `insufficient_history` (10 de 11 ejercicios) | −3.074                        |
+| CAT     | sin costo de deuda | vida 10, activo 10.506                       | 11.151 → 11.450               |
+
+Sin costo de deuda (CRM, CAT, NEM, MRNA no tienen cobertura de intereses para
+el rating sintético) los arrendamientos quedan `cost_of_debt_missing`.
 
 ## Normalización
 

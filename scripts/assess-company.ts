@@ -467,6 +467,37 @@ for (const report of reports) {
       `sin construir · falta ${assessment.costOfCapital.missing.join(", ")}`,
     );
   }
+  const { capitalization } = assessment;
+  if (capitalization === null) {
+    log("capitalización", "sin serie anual o sin ventas del año base");
+  } else {
+    const { leases, researchAndDevelopment, ledger } = capitalization;
+    const lease = leases.result;
+    const rd = researchAndDevelopment.result;
+    log("capitalización", `año base ${capitalization.baseFiscalYearEnd}`);
+    log(
+      "  arrendamientos",
+      lease.status === "capitalized"
+        ? `deuda ${lease.leaseDebt} (${lease.liabilityBasis}) · interés implícito ${lease.imputedInterest}`
+        : `sin capitalizar · ${lease.reason}`,
+    );
+    log(
+      "  I+D",
+      rd.status === "capitalized"
+        ? `vida ${rd.life.years} (${rd.life.lookupRow}) · I+D/ventas ${rd.rdToRevenue} · activo ${rd.researchAsset} · amortización ${rd.amortization}`
+        : `sin capitalizar · ${rd.reason}${rd.life === null ? "" : ` · vida ${rd.life.years}`} · ${rd.fiscalYearsAvailable} ejercicios${rd.rdToRevenue === null ? "" : ` · I+D/ventas ${rd.rdToRevenue}`}`,
+    );
+    log(
+      "  EBIT",
+      ledger.ebit.reported === null
+        ? "no publicado"
+        : `${ledger.ebit.reported} + ${ledger.ebit.leaseAdjustment} + ${ledger.ebit.rdAdjustment} = ${ledger.ebit.adjusted} · margen ${ledger.ebit.adjustedMargin}`,
+    );
+    log(
+      "  Δ capital · Δ deuda",
+      `${ledger.investedCapitalDelta.total} · ${ledger.debtDelta.leases}`,
+    );
+  }
   log(
     "rigor",
     `${assessment.rigor.level}${assessment.rigor.degradedBy.length > 0 ? ` · bajó por ${assessment.rigor.degradedBy.join(", ")}` : ""}`,

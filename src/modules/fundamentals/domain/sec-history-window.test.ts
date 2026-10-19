@@ -99,13 +99,14 @@ describe("resolveSecHistoryAnchor", () => {
 });
 
 describe("buildSecHistoryWindow", () => {
-  it("keeps five fiscal years and the base close, plus one for split evidence", () => {
+  it("keeps five fiscal years and the base close, one more for split evidence and five more for capitalization", () => {
     expect(buildSecHistoryWindow("2025-12-31", "annual_report")).toEqual({
       version: SEC_HISTORY_WINDOW_VERSION,
       anchorOn: "2025-12-31",
       anchorBasis: "annual_report",
       periodsEndingFrom: "2020-12-17",
       evidencePeriodsEndingFrom: "2019-12-17",
+      capitalizationPeriodsEndingFrom: "2015-12-17",
     });
   });
 
@@ -118,6 +119,35 @@ describe("buildSecHistoryWindow", () => {
 });
 
 describe("applySecHistoryWindow", () => {
+  it("keeps ten fiscal years before the anchor for a capitalization concept, and only for it", () => {
+    const rdIsCapitalization = (_taxonomy: string, concept: string) =>
+      concept === "ResearchAndDevelopmentExpense";
+    const rd = (start: string, end: string) =>
+      fact({ concept: "ResearchAndDevelopmentExpense", start, end });
+    const selection = applySecHistoryWindow(
+      [
+        fact({ start: "2025-01-01", end: "2025-12-31" }),
+        // Base de una vida de 10 años: el cierre 2015.
+        rd("2015-01-01", "2015-12-31"),
+        rd("2014-01-01", "2014-12-31"),
+        // El mismo cierre 2015 de otro concepto queda afuera.
+        fact({ start: "2015-01-01", end: "2015-12-31" }),
+      ],
+      noEvidence,
+      rdIsCapitalization,
+    );
+
+    expect(selection.window?.capitalizationPeriodsEndingFrom).toBe(
+      "2015-12-17",
+    );
+    expect(
+      selection.facts.map((kept) => `${kept.concept} ${kept.end}`),
+    ).toEqual([
+      "NetIncomeLoss 2025-12-31",
+      "ResearchAndDevelopmentExpense 2015-12-31",
+    ]);
+  });
+
   it("keeps the base fiscal year and its close, and nothing before", () => {
     // Calendario: el ancla es el cierre 2025 y la base, el cierre 2020.
     const facts = [

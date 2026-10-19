@@ -13,6 +13,7 @@ import {
   type CompletenessProfile,
 } from "../domain/completeness-profile";
 import { DECIMAL_POLICY } from "../domain/decimal-policy";
+import { buildCapitalization } from "../domain/capitalization-bridge";
 import {
   METHOD_SELECTION_VERSION,
   type MethodSelection,
@@ -271,6 +272,9 @@ const BRIDGE = {
     }),
     rationale: null,
   },
+  leaseDebt: declaredAbsent(
+    "FixtureCo es dueña de sus plantas y no reporta arrendamientos operativos en FY2024.",
+  ),
   minorityInterest: declaredAbsent(
     "FixtureCo consolida sin participaciones no controlantes.",
   ),
@@ -289,6 +293,36 @@ const DILUTED_SHARES = {
   observationId: null,
   qualityFlags: [],
 };
+
+/**
+ * La capitalización de FixtureCo (`F4-01`): EBIT reportado, sin arrendamientos
+ * ni I+D publicados. Los dos quedan sin capitalizar con su motivo, así que el
+ * valor por acción no cambia; el puente existe y el motor lo recalcula.
+ */
+function buildDemoCapitalization(baseRevenue: string) {
+  return buildCapitalization(
+    {
+      baseFiscalYearEnd: "2024-12-31",
+      reportedEbit: monetary({
+        value: "17280000",
+        asOf: "2024-12-31",
+        availableAt: FY2024_AVAILABLE_AT,
+        sourceDocumentId: FY2024_DOCUMENT,
+      }),
+      leases: {
+        totalLiability: null,
+        currentLiability: null,
+        noncurrentLiability: null,
+      },
+      researchAndDevelopment: { fiscalYears: [] },
+    },
+    {
+      baseRevenue,
+      industryKey: DEMO_COST_OF_CAPITAL.industryKey,
+      preTaxCostOfDebt: DEMO_COST_OF_CAPITAL.derived.preTaxCostOfDebt,
+    },
+  );
+}
 
 function buildInput(baseRevenue: {
   value: string;
@@ -318,6 +352,7 @@ function buildInput(baseRevenue: {
     assessment: DEMO_VALUATION_ASSESSMENT,
     costOfCapital: DEMO_COST_OF_CAPITAL,
     qualitativeDecisions: DEMO_QUALITATIVE_DECISIONS,
+    capitalization: buildDemoCapitalization(baseRevenue.value),
     method: VALUATION_METHOD,
     engineVersion: ENGINE_VERSION,
     methodologyVersion: METHODOLOGY_VERSION,

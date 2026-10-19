@@ -33,6 +33,7 @@ const PRUNE = {
   periodsEndingBefore: PLAN.periodsEndingBefore,
   evidencePeriodsEndingBefore: PLAN.evidencePeriodsEndingBefore,
   evidenceConcepts: [EVIDENCE],
+  conceptCuts: [],
   deletedCount: 2,
   keptCount: 5,
   deletedMinAsOf: "2016-12-31",
@@ -43,6 +44,38 @@ const PRUNE = {
 };
 
 describe("plan de poda", () => {
+  it("le da a un grupo de conceptos su corte, y a un concepto en dos grupos el más viejo", () => {
+    const plan = observationPrunePlanSchema.parse({
+      ...PLAN,
+      conceptCuts: [
+        {
+          periodsEndingBefore: "2015-09-13",
+          concepts: ["us-gaap:ResearchAndDevelopmentExpense", EVIDENCE],
+        },
+      ],
+    });
+
+    expect(pruneCutFor(plan, "us-gaap:ResearchAndDevelopmentExpense")).toBe(
+      "2015-09-13",
+    );
+    expect(pruneCutFor(plan, EVIDENCE)).toBe("2015-09-13");
+    expect(pruneCutFor(plan, "us-gaap:Assets")).toBe("2020-09-13");
+  });
+
+  it("rechaza un corte de grupo más nuevo que el general", () => {
+    expect(() =>
+      observationPrunePlanSchema.parse({
+        ...PLAN,
+        conceptCuts: [
+          {
+            periodsEndingBefore: "2021-09-13",
+            concepts: ["us-gaap:ResearchAndDevelopmentExpense"],
+          },
+        ],
+      }),
+    ).toThrow(/keeps more history, never less/u);
+  });
+
   it("borra lo anterior al corte y conserva el corte mismo", () => {
     expect(
       isPruned(PLAN, { concept: "us-gaap:Assets", asOf: "2020-09-12" }),

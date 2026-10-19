@@ -24,13 +24,16 @@ import { SEC_HISTORY_WINDOW_VERSION } from "./sec-history-window";
  *   a correr el CIK publica sólo lo nuevo. No sube la versión del parser, porque
  *   filtrar no cambia el contenido de un hecho ya publicado.
  */
-export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-3.0.0";
+export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-4.0.0";
 
 /**
  * Qué decide la versión. La 1.0.0 eran los mismos conceptos con toda la historia
  * XBRL; la 2.0.0 los recorta a la ventana de cinco ejercicios (ADR 0017), cuyo
  * ancla sale de cada descarga y queda en la corrida (`selection_anchor_on`). La
- * 3.0.0 suma el **numerador de la EPS**, que faltaba. Con la versión y el ancla,
+ * 3.0.0 suma el **numerador de la EPS**, que faltaba. La 4.0.0 son los mismos
+ * conceptos con la ventana `sec-history-5fy-2.0.0`, que conserva diez ejercicios
+ * de I+D para capitalizarla, y la I+D sin la adquirida en proceso (ADR 0037).
+ * Con la versión y el ancla,
  * un período anterior al corte sigue siendo «no se fue a buscar». El test fija
  * los componentes: cambiar uno sin subir la versión lo rompe.
  */
@@ -54,6 +57,10 @@ const US_GAAP = [
   // Resultado: gastos operativos y EBIT. I+D se guarda separado porque la
   // metodología lo capitaliza (Fase 4).
   "ResearchAndDevelopmentExpense",
+  // La I+D recurrente de quien separa la adquirida en proceso, que es una
+  // compra (4.0.0). Johnson & Johnson publica la recurrente sólo con este
+  // concepto: con `ResearchAndDevelopmentExpense` declara la adquirida.
+  "ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost",
   "SellingGeneralAndAdministrativeExpense",
   "OperatingExpenses",
   "OperatingIncomeLoss",
@@ -153,6 +160,27 @@ export function listSelectedSecConcepts(): readonly string[] {
   return [...SELECTED].flatMap(([taxonomy, concepts]) =>
     [...concepts].map((concept) => `${taxonomy}:${concept}`),
   );
+}
+
+/**
+ * Conceptos que conservan la historia que pide la capitalización (ADR 0037): la
+ * I+D se amortiza sobre su vida, y la vida más larga de la tabla es 10 años.
+ */
+const CAPITALIZATION_HISTORY: ReadonlySet<string> = new Set([
+  "us-gaap:ResearchAndDevelopmentExpense",
+  "us-gaap:ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost",
+]);
+
+export function isCapitalizationHistoryConcept(
+  taxonomy: string,
+  concept: string,
+): boolean {
+  return CAPITALIZATION_HISTORY.has(`${taxonomy}:${concept}`);
+}
+
+/** Los conceptos de historia de capitalización, calificados y ordenados. */
+export function listCapitalizationHistoryConcepts(): readonly string[] {
+  return [...CAPITALIZATION_HISTORY].sort();
 }
 
 export function isSplitEvidenceConcept(

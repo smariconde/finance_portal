@@ -1315,6 +1315,12 @@ export const observationPrunes = pgTable(
       .$type<string[]>()
       .notNull()
       .default(emptyJsonArray),
+    // Cortes más anchos por grupo de conceptos (`sec-history-prune-1.1.0`,
+    // ADR 0037). Las podas de `1.0.0` lo tienen vacío.
+    conceptCuts: jsonb("concept_cuts")
+      .$type<{ periodsEndingBefore: string; concepts: string[] }[]>()
+      .notNull()
+      .default(emptyJsonArray),
     deletedCount: integer("deleted_count").notNull(),
     keptCount: integer("kept_count").notNull(),
     deletedMinAsOf: date("deleted_min_as_of", { mode: "string" }),
@@ -1355,6 +1361,10 @@ export const observationPrunes = pgTable(
     check(
       "observation_prunes_evidence_concepts_check",
       sql`jsonb_typeof(${table.evidenceConcepts}) = 'array'`,
+    ),
+    check(
+      "observation_prunes_concept_cuts_check",
+      sql`jsonb_typeof(${table.conceptCuts}) = 'array'`,
     ),
     check(
       "observation_prunes_actor_check",

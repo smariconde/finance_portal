@@ -25,9 +25,10 @@ import { observationSubjectTypeSchema } from "./observation";
  * trajo. Para un sujeto podado, la respuesta a «¿por qué falta este período?» es
  * la poda, que es la afirmación más reciente y más estricta.
  *
- * El plan es genérico a propósito: un corte por fin de período, y un corte más
- * ancho para una lista de conceptos que son evidencia de otra regla. Qué ancla
- * ese corte lo decide cada fuente; para la SEC, `plan-sec-history-prune.ts`.
+ * El plan es genérico a propósito: un corte por fin de período, y cortes más
+ * anchos para listas de conceptos que otra regla necesita con más historia —la
+ * evidencia de splits, la I+D que se capitaliza (ADR 0037)—. Qué ancla esos
+ * cortes lo decide cada fuente; para la SEC, `plan-sec-history-prune.ts`.
  */
 export const OBSERVATION_PRUNE_ACTOR_PATTERN = /^[A-Za-z0-9._:@/-]{1,128}$/u;
 
@@ -55,6 +56,48 @@ const ruleVersionSchema = z
  * `as_of >= periodsEndingBefore` queda, exactamente al revés de la ventana que
  * gobierna la ingesta, para que las dos reglas no puedan discrepar en el borde.
  */
+/**
+ * Un corte más ancho para un grupo de conceptos (`sec-history-prune-1.1.0`). La
+ * evidencia de splits conserva su par de campos para que las podas ya
+ * registradas se sigan leyendo igual.
+ */
+export const observationPruneConceptCutSchema = z
+  .object({
+    periodsEndingBefore: calendarDateSchema,
+    concepts: z.array(z.string().trim().min(1).max(128)).min(1).max(64),
+  })
+  .superRefine((cut, context) => {
+    if (new Set(cut.concepts).size !== cut.concepts.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["concepts"],
+        message: "A concept cut must not repeat a concept.",
+      });
+    }
+  });
+
+export type ObservationPruneConceptCut = z.infer<
+  typeof observationPruneConceptCutSchema
+>;
+
+function checkConceptCuts(
+  cuts: readonly ObservationPruneConceptCut[],
+  periodsEndingBefore: string,
+  context: z.RefinementCtx,
+  path: string,
+): void {
+  cuts.forEach((cut, index) => {
+    if (cut.periodsEndingBefore > periodsEndingBefore) {
+      context.addIssue({
+        code: "custom",
+        path: [path, index, "periodsEndingBefore"],
+        message:
+          "A concept cut must not be newer than the general cut: it keeps more history, never less.",
+      });
+    }
+  });
+}
+
 export const observationPrunePlanSchema = z
   .object({
     sourceId: sourceIdSchema,
@@ -68,8 +111,16 @@ export const observationPrunePlanSchema = z
       .array(z.string().trim().min(1).max(128))
       .max(64)
       .default([]),
+    conceptCuts: z.array(observationPruneConceptCutSchema).max(8).default([]),
   })
   .superRefine((plan, context) => {
+    checkConceptCuts(
+      plan.conceptCuts,
+      plan.periodsEndingBefore,
+      context,
+      "conceptCuts",
+    );
+
     if (plan.evidencePeriodsEndingBefore > plan.periodsEndingBefore) {
       context.addIssue({
         code: "custom",
@@ -156,6 +207,7 @@ export const observationPruneSchema = z
     periodsEndingBefore: calendarDateSchema,
     evidencePeriodsEndingBefore: calendarDateSchema,
     evidenceConcepts: z.array(z.string().trim().min(1).max(128)).max(64),
+    conceptCuts: z.array(observationPruneConceptCutSchema).max(8),
     deletedCount: z.number().int().min(0),
     keptCount: z.number().int().min(0),
     deletedMinAsOf: calendarDateSchema.nullable(),
@@ -165,6 +217,12 @@ export const observationPruneSchema = z
     executedAt: utcTimestampSchema,
   })
   .superRefine((prune, context) => {
+    checkConceptCuts(
+      prune.conceptCuts,
+      prune.periodsEndingBefore,
+      context,
+      "conceptCuts",
+    );
     observationPruneCountsSchema.parse({
       deleted: prune.deletedCount,
       kept: prune.keptCount,
@@ -206,14 +264,26 @@ export const observationPruneSchema = z
 
 export type ObservationPrune = z.infer<typeof observationPruneSchema>;
 
-/** El corte que le toca a un concepto: el de evidencia, o el general. */
+/**
+ * El corte que le toca a un concepto: el más viejo de los grupos que lo
+ * nombran, o el general. Un concepto en dos grupos conserva la historia más
+ * larga, igual que en la ventana.
+ */
 export function pruneCutFor(
   plan: ObservationPrunePlan,
   concept: string,
 ): string {
-  return plan.evidenceConcepts.includes(concept)
-    ? plan.evidencePeriodsEndingBefore
-    : plan.periodsEndingBefore;
+  const cuts = [
+    plan.periodsEndingBefore,
+    ...(plan.evidenceConcepts.includes(concept)
+      ? [plan.evidencePeriodsEndingBefore]
+      : []),
+    ...plan.conceptCuts
+      .filter((cut) => cut.concepts.includes(concept))
+      .map((cut) => cut.periodsEndingBefore),
+  ].sort();
+
+  return cuts[0]!;
 }
 
 /** `true` cuando la fila queda afuera de la ventana y la poda la borra. */
