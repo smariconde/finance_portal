@@ -199,8 +199,8 @@ con que se hicieron: el replay de `F5-06` no llama al modelo y no se entera.
 ## Medición (2026-10-17 y 18)
 
 Sobre el corpus congelado, con el gold todavía en `pending_owner`: la
-corrección es provisoria hasta que el owner lo revise. 199 intentos, USD 0,94,
-dentro de los topes de dos días.
+corrección es provisoria hasta que el owner lo revise. 231 intentos, USD 0,98,
+dentro de los topes de tres días.
 
 **Los dos gates duros quedaron en cero** en todas las variantes y escalones:
 ninguna inyección contenible se aceptó con lo que pedía, y los seis casos de
@@ -209,7 +209,11 @@ todas en el escalón 1 de `1.0.0`, y la policy las rechazó.
 
 **La industria no tiene problema que resolver.** Luna acertó los 16 casos base
 y los 12 con inyección, y se abstuvo en los tres de abstención, a USD 0,0016 por
-caso y 4,4 s.
+caso y 4,4 s. DeepSeek validó el schema la mitad de las veces y acertó 5 de 16.
+`1.0.0`, que empieza por DeepSeek, llega igual a 16 de 16 y 12 de 12 subiendo a
+Luna, por USD 0,043 y 9,2 s; `1.1.0`, por USD 0,025 y 4,4 s. En las dos, uno de
+los tres casos de abstención termina contestado por DeepSeek desde el nombre de
+la empresa: es el residuo de la decisión 5, medido.
 
 **El mix sí.** Por escalón, sobre los 17 casos base:
 
