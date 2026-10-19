@@ -64,6 +64,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    36 | `F5-06`    | `done`     | Replay de una corrida con industria y mix propuestos por la IA: reproduce ambos hashes desde el snapshot sin volver a llamar al modelo.                                 | `F5-05`       |
 |    37 | `F5-07`    | `done`     | Evals de injection, citas, abstención, schema, costo y corrección sobre las dos tareas de la capa IA.                                                                   | `F5-06`       |
 |    38 | `F4-01`    | `done`     | Capitalización de arrendamientos operativos e I+D con puente auditable sobre EBIT, capital invertido y deuda, recalculado por el motor.                                 | Fase 3        |
+|    39 | `F4-02`    | `done`     | Regla terminal `g <= risk_free_rate` en el check y en cada celda de la sensibilidad, con la libre de riesgo de la corrida; `fcff-1.2.0` sin reescribir corridas.        | `F4-01`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -2826,6 +2827,28 @@ versión y cronograma— sobre EBIT, capital invertido y deuda (`TM-05`: ningún
 faltante vale cero; `TM-06`: los hechos son del cierre base al corte; `TM-16`:
 el motor recalcula y rechaza un número escrito a mano). FixtureCo conserva su
 valor por acción. Siguiente: `F4-02`.
+
+<a id="f4-02"></a>
+
+**`F4-02` — regla terminal contra la libre de riesgo (cerrado el 2026-10-19).**
+`fcff-1.2.0` y metodología `0.8.0`. El check `terminal_growth_versus_risk_free`
+(`reject`) exige `terminal.growth <= costOfCapital.derived.riskFree`: la libre
+de riesgo es la que el costo de capital de la propia corrida deriva —bono del
+Tesoro neto del default spread del soberano de la moneda—, así que el techo está
+fechado, en la moneda de la valuación y en el snapshot. Borde inclusivo. El
+buffer contra el WACC sigue como defensa aritmética: los dos checks corren y
+cada uno nombra su motivo. La sensibilidad aplica la misma regla, antes que el
+buffer, y rechaza la columna entera por encima del techo.
+
+Criterios cumplidos: la regla rige además del buffer (un test con WACC terminal
+de 20 % y `g` de 6 % pasa el buffer y se rechaza por la regla); incrementa
+`engine_version` sin reescribir corridas —las de `fcff-1.1.0` conservan fila y
+hashes y no se leen con este código—; `TM-16`: una corrida rechazada por la
+regla se persiste con el check y las rutas de campo, sin valores. Medido con
+`pnpm valuation:assess --offline`, que ahora imprime el techo: 3,96 % en dólares
+(AAPL, JNJ, XOM). FixtureCo (libre de riesgo 4 %, `g` 2 %, eje hasta 4 %)
+conserva su valor por acción y cada celda; cambian sus hashes por la versión.
+Siguiente: `F4-03`.
 
 Cada arquetipo de `F4-06` es un slice propio con selector, inputs, fórmulas,
 fixtures independientes, diagnósticos y estado `experimental | reviewed | production`,

@@ -461,6 +461,9 @@ for (const report of reports) {
         ? "CRP del domicilio (sin mix de operaciones)"
         : `CRP por operaciones ${operationsCountryRiskPremium(operationsExposure).toFixed(6)} · ${operationsExposure.source === "owner_declaration" ? "declarado por el owner" : `propuesta ${operationsExposure.proposalId}`} · ${operationsExposure.exposures.length} exposiciones`,
     );
+    // El techo de `fcff-1.2.0` (`F4-02`): una corrida con g terminal por
+    // encima de esta libre de riesgo se rechaza.
+    log("  g terminal", `≤ rf ${derived.riskFree}`);
   } else {
     log(
       "costo de capital",

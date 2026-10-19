@@ -38,10 +38,12 @@ export const VALUATION_METHOD = "fcff_base";
 /**
  * `fcff-1.1.0` (`F4-01`, ADR 0037): el puente resta la deuda por
  * arrendamientos operativos como claim propia, la que la capitalización deriva.
+ * `fcff-1.2.0` (`F4-02`): el crecimiento terminal no supera la libre de riesgo
+ * de la corrida, en el check y en cada celda de la sensibilidad.
  */
-export const ENGINE_VERSION = "fcff-1.1.0";
+export const ENGINE_VERSION = "fcff-1.2.0";
 /** Debe seguir a `docs/valuation/methodology.md`. */
-export const METHODOLOGY_VERSION = "0.7.0";
+export const METHODOLOGY_VERSION = "0.8.0";
 
 const rationaleSchema = z.string().trim().min(1).max(512);
 

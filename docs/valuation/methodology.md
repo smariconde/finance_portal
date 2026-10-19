@@ -1,8 +1,8 @@
 # Metodología de valuación
 
 - Estado: metodología objetivo; motor FCFF base implementado en `src/modules/valuation/`
-- Versión metodológica: 0.7.0 (la corrida lleva selección, completitud y rigor desde `F3-03`, el costo de capital construido desde `F3-06`, el riesgo país ponderado por operaciones desde `F5-05`, las decisiones cualitativas con la propuesta de la IA desde `F5-06` y la capitalización de arrendamientos e I+D desde `F4-01`)
-- Versión de engine implementada: `fcff-1.1.0` (método `fcff_base`)
+- Versión metodológica: 0.8.0 (la corrida lleva selección, completitud y rigor desde `F3-03`, el costo de capital construido desde `F3-06`, el riesgo país ponderado por operaciones desde `F5-05`, las decisiones cualitativas con la propuesta de la IA desde `F5-06` la capitalización de arrendamientos e I+D desde `F4-01` y el techo del crecimiento terminal en la libre de riesgo desde `F4-02`)
+- Versión de engine implementada: `fcff-1.2.0` (método `fcff_base`)
 - Fecha: 2026-08-21; motor base entregado el 2026-08-24; niveles de rigor y alcance
   de la IA incorporados el 2026-09-04
 - Alcance inicial: FCFF para no financieras maduras o en transición
@@ -66,23 +66,25 @@ El nivel se deriva de la completitud medida, no se elige. La corrida persiste qu
 comprobación bajó el nivel, de modo que conseguir ese dato más adelante y volver a
 correr sea una acción concreta y no una intuición.
 
-## Motor implementado: `fcff-1.1.0`
+## Motor implementado: `fcff-1.2.0`
 
 `fcff-1.1.0` (`F4-01`) agrega al puente EV-equity la claim `leaseDebt`, la deuda
-por arrendamientos operativos que deriva la capitalización; el resto del motor
-es el de `fcff-1.0.0`.
+por arrendamientos operativos que deriva la capitalización. `fcff-1.2.0`
+(`F4-02`) agrega la regla terminal `g <= risk_free_rate` (ver "Terminal
+value"); el resto del motor es el de `fcff-1.0.0`.
 
 El método `fcff_base` cubre `non_financial_mature` con N períodos explícitos
 —hasta 20— más un valor terminal. Cualquier otro `assetProfile` devuelve
 `unsupported_method`; el motor no lo valúa con el método equivocado.
 
-| Umbral versionado               | Valor   | Modo             | Efecto                                               |
-| ------------------------------- | ------- | ---------------- | ---------------------------------------------------- |
-| buffer WACC contra `g` terminal | `0.005` | `reject`         | también decide qué celda de sensibilidad es inválida |
-| peso del terminal sobre el EV   | `0.85`  | `require_review` | diagnóstico visible, no bloqueo                      |
-| techo de tax rate sin motivo    | `0.5`   | `require_review` | por período y en el terminal                         |
-| techo de margen terminal        | `0.6`   | `require_review` | sin evidencia sectorial                              |
-| puntos por eje de sensibilidad  | `11`    | `reject`         | acota la grilla a 121 celdas                         |
+| Umbral versionado                   | Valor                | Modo             | Efecto                                               |
+| ----------------------------------- | -------------------- | ---------------- | ---------------------------------------------------- |
+| buffer WACC contra `g` terminal     | `0.005`              | `reject`         | también decide qué celda de sensibilidad es inválida |
+| `g` terminal contra libre de riesgo | `≤`, borde inclusivo | `reject`         | también; rechaza la columna entera de la grilla      |
+| peso del terminal sobre el EV       | `0.85`               | `require_review` | diagnóstico visible, no bloqueo                      |
+| techo de tax rate sin motivo        | `0.5`                | `require_review` | por período y en el terminal                         |
+| techo de margen terminal            | `0.6`                | `require_review` | sin evidencia sectorial                              |
+| puntos por eje de sensibilidad      | `11`                 | `reject`         | acota la grilla a 121 celdas                         |
 
 Estos umbrales forman parte de `engine_version`. Cambiarlos incrementa la versión
 y no reescribe corridas históricas.
@@ -694,8 +696,39 @@ Precondiciones:
 - margen, beta y leverage convergen a valores defendibles;
 - terminal value share excesivo genera diagnóstico visible.
 
-El motor `fcff-1.0.0` implementa hoy sólo el buffer. Incorporar la regla contra el
-risk-free incrementa la versión del engine y no reescribe corridas históricas.
+`fcff-1.2.0` (`F4-02`) implementa las dos primeras. El check
+`terminal_growth_versus_risk_free` (`reject`) exige
+`terminal.growth <= costOfCapital.derived.riskFree`:
+
+- **Qué libre de riesgo.** La que el costo de capital de la propia corrida
+  deriva —el bono del Tesoro de la release de ERP implícita menos el default
+  spread del soberano de la moneda—, no una constante del motor. Por eso está
+  fechada, es la de la moneda de la valuación (`wacc_built_from_components` ya
+  exige que el costo de capital esté en esa moneda y la recalcula desde sus
+  parámetros) y un replay la lee del snapshot.
+- **Borde inclusivo.** Crecer exactamente a la libre de riesgo es el caso límite
+  que Damodaran admite; `g = rf + ε` se rechaza.
+- **No reemplaza al buffer.** Con un WACC terminal muy alto el buffer admite
+  cualquier `g`; esta regla no. Y con una libre de riesgo alta y un WACC bajo
+  puede ocurrir lo inverso. Los dos checks corren siempre y cada uno nombra su
+  motivo.
+- **En la sensibilidad** el eje de WACC no mueve la libre de riesgo, así que la
+  regla rechaza una columna entera con `terminal_growth_versus_risk_free`. Se
+  evalúa antes que el buffer: una celda que viola las dos lleva el motivo
+  económico, y la columna se lee con uno solo.
+
+Medido el 2026-10-19 con `pnpm valuation:assess --offline`, que ahora imprime el
+techo: la libre de riesgo en dólares de la release vigente es 3,96 % (AAPL, JNJ
+y XOM comparten la release). La de `FixtureCo` es 4 %, su `g` es 2 % y su eje de
+crecimiento llega a 4 %: ninguna celda nueva queda rechazada y su valor por
+acción no cambia; cambian sus hashes, porque la versión del motor está en el
+snapshot.
+
+La versión del motor está en el esquema de la corrida: una corrida guardada con
+`fcff-1.1.0` no se reescribe ni se migra —conserva su fila y sus hashes—, no se
+lee con este código y reproducirla pide el código de su versión; nunca se la
+recalcula en silencio con la regla nueva. La versión metodológica pasa a
+`0.8.0`.
 
 ### Puente EV-equity
 
@@ -737,7 +770,9 @@ qué. Las probabilidades son opcionales y sólo se muestran con base defendible.
 La sensitivity WACC/g:
 
 - mantiene constantes los demás inputs;
-- rechaza celdas donde WACC no supera `g + buffer`;
+- rechaza celdas donde `g` supera la libre de riesgo de la corrida
+  (`terminal_growth_versus_risk_free`) y, después, donde WACC no supera
+  `g + buffer` (`terminal_growth_versus_wacc`);
 - muestra unidad, rango y step;
 - no se interpreta como distribución de probabilidad.
 
@@ -755,6 +790,7 @@ correlaciones, seed persistido y tests.
 | Check                            | Resultado mínimo                                         |
 | -------------------------------- | -------------------------------------------------------- |
 | WACC versus crecimiento terminal | `reject` si viola el buffer                              |
+| crecimiento terminal versus rf   | `reject` si `g` supera la libre de riesgo de la corrida  |
 | acciones diluidas                | `reject` si no son positivas o comparables               |
 | valores finitos                  | `reject` para NaN/Infinity/división inválida             |
 | moneda y unidad                  | `reject` si se combinan sin conversión trazable          |

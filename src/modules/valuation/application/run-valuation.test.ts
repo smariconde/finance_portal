@@ -38,13 +38,13 @@ describe("runValuation", () => {
     expect(outcome).toMatchObject({
       status: "computed",
       method: "fcff_base",
-      engineVersion: "fcff-1.1.0",
-      methodologyVersion: "0.7.0",
+      engineVersion: "fcff-1.2.0",
+      methodologyVersion: "0.8.0",
       currency: "USD",
       inputHash:
-        "c9641ee6cc36ad80268a30a058781978fe52bf39e02e7034582bf27e6d19b494",
+        "1592cd1a3a12f0cef72dba0147d6813a1663bb417420d335394524264799655a",
       resultHash:
-        "41fffedd6a9d1dfd108f4e092fab9858ebc62bff690fed194ef9f0f441aea6ee",
+        "a6810e7e450a54bad555ca643a4a36e13f6c829fb68a5428a1a7ea6be8e5dec2",
       failure: null,
     });
     expect(outcome.result?.valuePerShare).toBe(
@@ -113,6 +113,27 @@ describe("runValuation", () => {
     // El input queda igualmente registrado: una corrida rechazada también debe
     // poder explicarse (`TM-16`).
     expect(outcome.inputHash).toHaveLength(64);
+  });
+
+  it("records a terminal growth above the risk-free rate as a rejected run", () => {
+    const outcome = run(
+      draft((input) => {
+        input.terminal.growth = "0.045";
+        input.terminal.returnOnCapital = "0.12";
+      }),
+    );
+
+    expect(outcome).toMatchObject({
+      status: "rejected",
+      result: null,
+      failure: {
+        code: "policy_check_failed",
+        subjects: ["terminal.growth", "costOfCapital.derived.riskFree"],
+      },
+    });
+    expect(outcome.failure?.message).toContain(
+      "terminal_growth_versus_risk_free",
+    );
   });
 
   it("rejects an unimplemented profile instead of valuing it with FCFF", () => {

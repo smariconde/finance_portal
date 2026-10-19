@@ -64,6 +64,21 @@ export function hasValidTerminalSpread(wacc: Dec, growth: Dec): boolean {
 }
 
 /**
+ * `terminal_growth <= risk_free` (`F4-02`, `fcff-1.2.0`). Es la regla
+ * económica de Damodaran: ninguna empresa crece a perpetuidad más rápido que
+ * la economía de su moneda, y la libre de riesgo nominal es el techo observable
+ * de esa economía. La libre de riesgo es la que el costo de capital de la
+ * corrida deriva —el bono del Tesoro neto del default spread del soberano de la
+ * moneda—, así que el techo está fechado y en la moneda de la valuación. El
+ * borde es inclusivo: crecer exactamente a la libre de riesgo es el caso límite
+ * que Damodaran admite. El buffer contra el WACC sigue siendo la defensa
+ * aritmética; no reemplaza a esta regla ni esta a él.
+ */
+export function isGrowthWithinRiskFree(growth: Dec, riskFree: Dec): boolean {
+  return growth.lte(riskFree);
+}
+
+/**
  * Checks de la Fase 3: la corrida valúa lo que el selector eligió, con el rigor
  * que la completitud deriva. El rigor se **recalcula** desde el snapshot; uno
  * escrito a mano que no coincide se rechaza, porque el nivel no se elige.
@@ -326,6 +341,20 @@ export function checkValuationInput(input: ValuationInput): PolicyCheck[] {
 
   const terminalGrowth = parseDecimal(input.terminal.growth, "terminal.growth");
   const terminalWacc = parseDecimal(input.terminal.wacc, "terminal.wacc");
+  const riskFree = parseDecimal(
+    input.costOfCapital.derived.riskFree,
+    "costOfCapital.derived.riskFree",
+  );
+
+  checks.push(
+    check(
+      "terminal_growth_versus_risk_free",
+      "reject",
+      isGrowthWithinRiskFree(terminalGrowth, riskFree),
+      "Terminal growth must not exceed the risk-free rate of the valuation currency.",
+      ["terminal.growth", "costOfCapital.derived.riskFree"],
+    ),
+  );
 
   checks.push(
     check(

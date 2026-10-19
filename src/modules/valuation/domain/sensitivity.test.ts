@@ -69,6 +69,42 @@ describe("WACC and terminal growth sensitivity", () => {
     });
   });
 
+  it("rejects every cell whose growth exceeds the run's risk-free rate", () => {
+    // Libre de riesgo editada en el snapshot para que el techo caiga dentro del
+    // eje; la grilla no recalcula el WACC, sólo lee el techo de la corrida.
+    const capped = buildSensitivityGrid(
+      draft((candidate) => {
+        candidate.costOfCapital.derived.riskFree = "0.025";
+      }),
+    );
+
+    for (const row of capped.rows) {
+      // g de 0,03 y 0,04 superan 0,025: la columna entera, en todo WACC.
+      expect(row.cells.slice(3)).toStrictEqual([
+        { status: "rejected", reason: "terminal_growth_versus_risk_free" },
+        { status: "rejected", reason: "terminal_growth_versus_risk_free" },
+      ]);
+      expect(row.cells.slice(0, 3).map((cell) => cell.status)).not.toContain(
+        "rejected",
+      );
+    }
+  });
+
+  it("admits growth exactly at the risk-free rate", () => {
+    const atCeiling = buildSensitivityGrid(
+      draft((candidate) => {
+        candidate.costOfCapital.derived.riskFree = "0.03";
+      }),
+    );
+    const base = atCeiling.rows.find((row) => row.wacc === "0.09")!;
+
+    expect(base.cells[3]?.status).toBe("computed");
+    expect(base.cells[4]).toStrictEqual({
+      status: "rejected",
+      reason: "terminal_growth_versus_risk_free",
+    });
+  });
+
   it("contains the base case as one of its own cells", () => {
     // El snapshot demo usa un costo de capital plano justamente para que la
     // tabla no contradiga al número principal.
