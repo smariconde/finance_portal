@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import { applyNewYorkOffsetTwice } from "../infrastructure/fixture-sec-filer";
 import {
   normalizeCik,
   parseSecFilingColumns,
   parseSecSubmissions,
 } from "./parse-sec-submissions";
+import { SEC_ACCEPTANCE_CLOCK_VERSION } from "./sec-acceptance-clock";
 
 /**
  * Payload sintético con la forma del cable real: columnas paralelas, `cik` como
@@ -132,6 +134,58 @@ describe("parseSecSubmissions", () => {
     expect(result.ok && result.filings[0]).toMatchObject({
       reportDate: null,
       acceptedAt: null,
+    });
+  });
+
+  describe("acceptance clock (ADR 0036)", () => {
+    // Diez presentaciones a las 18:30 de Nueva York, en enero de 2026.
+    const published = Array.from(
+      { length: 10 },
+      (_, index) =>
+        `2026-01-${String(index + 5).padStart(2, "0")}T23:30:00.000Z`,
+    );
+    const columns = (acceptances: readonly string[]) => ({
+      accessionNumber: acceptances.map(
+        (_, index) => `0000000042-26-00000${index}`,
+      ),
+      form: acceptances.map(() => "8-K"),
+      filingDate: acceptances.map((instant) => instant.slice(0, 10)),
+      reportDate: acceptances.map(() => ""),
+      acceptanceDateTime: [...acceptances],
+    });
+
+    it("corrects every acceptance of a block published with the New York offset applied twice", () => {
+      const result = parseSecFilingColumns(
+        columns(published.map(applyNewYorkOffsetTwice)),
+      );
+
+      expect(result.ok && result.acceptanceClock).toMatchObject({
+        version: SEC_ACCEPTANCE_CLOCK_VERSION,
+        clock: "new_york_offset_applied_twice",
+        acceptances: 10,
+      });
+      expect(
+        result.ok && result.filings.map((filing) => filing.acceptedAt),
+      ).toEqual(published);
+    });
+
+    it("leaves a block in UTC as published and says so", () => {
+      const result = parseSecFilingColumns(columns(published));
+
+      expect(result.ok && result.acceptanceClock.clock).toBe("published_utc");
+      expect(
+        result.ok && result.filings.map((filing) => filing.acceptedAt),
+      ).toEqual(published);
+    });
+
+    it("rejects a block whose clock fits EDGAR's hours under neither reading", () => {
+      expect(
+        parseSecFilingColumns(
+          columns(
+            published.map((instant) => instant.replace("23:30", "09:30")),
+          ),
+        ),
+      ).toEqual({ ok: false, code: "acceptance_clock_undetermined" });
     });
   });
 

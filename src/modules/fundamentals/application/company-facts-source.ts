@@ -8,6 +8,7 @@ import type {
   SecFiling,
   SecFilingRowRejection,
 } from "../domain/parse-sec-submissions";
+import type { SecAcceptanceClockReading } from "../domain/sec-acceptance-clock";
 import type {
   SecHistoryWindow,
   SecHistoryWindowSelection,
@@ -31,6 +32,11 @@ export type CompanyFactsDocument = {
   readonly fetchedAt: string;
   readonly byteLength: number;
   readonly parserVersion: string;
+  /**
+   * Reloj de las aceptaciones de un archivo de `submissions` (ADR 0036);
+   * `null` para companyfacts, que no publica aceptaciones.
+   */
+  readonly acceptanceClock: SecAcceptanceClockReading | null;
 };
 
 export type CompanyFactsDownload =
@@ -65,6 +71,12 @@ export type CompanyFactsSourceFailureCode =
   | "unexpected_status"
   /** El documento no tiene la forma que el parser declara entender. */
   | "payload_schema_invalid"
+  /**
+   * Un archivo de `submissions` cuyo reloj de aceptaciones no se puede decidir
+   * (ADR 0036): se entiende, pero ninguna disponibilidad que diera sería
+   * defendible.
+   */
+  | "acceptance_clock_undetermined"
   /** El documento describe a otro filer que el pedido. */
   | "subject_mismatch"
   /** Harían falta más archivos históricos que el techo por empresa. */

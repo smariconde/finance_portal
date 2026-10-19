@@ -20,6 +20,7 @@ import {
   type SecFilingRowRejection,
   type SecSubmissionsHistoryFile,
 } from "../domain/parse-sec-submissions";
+import type { SecAcceptanceClockReading } from "../domain/sec-acceptance-clock";
 import {
   isSelectedSecConcept,
   isSplitEvidenceConcept,
@@ -211,6 +212,7 @@ function describe(
   url: string,
   fetched: Fetched,
   parserVersion: string,
+  acceptanceClock: SecAcceptanceClockReading | null = null,
 ): CompanyFactsDocument {
   return {
     kind,
@@ -218,6 +220,7 @@ function describe(
     fetchedAt: fetched.response.fetchedAt,
     byteLength: fetched.response.byteLength,
     parserVersion,
+    acceptanceClock,
   };
 }
 
@@ -254,9 +257,11 @@ async function loadSubmissions(
   const submissions = parseSecSubmissions(payload);
 
   if (!submissions.ok) {
-    throw new CompanyFactsSourceError("payload_schema_invalid", "submissions", {
-      detail: submissions.code,
-    });
+    throw submissions.code === "acceptance_clock_undetermined"
+      ? new CompanyFactsSourceError(submissions.code, "submissions")
+      : new CompanyFactsSourceError("payload_schema_invalid", "submissions", {
+          detail: submissions.code,
+        });
   }
 
   if (submissions.cik !== cik) {
@@ -271,6 +276,7 @@ async function loadSubmissions(
       url,
       fetched,
       SEC_SUBMISSIONS_PARSER_VERSION,
+      submissions.acceptanceClock,
     ),
     fetchedAt: fetched.response.fetchedAt,
   };
@@ -407,11 +413,13 @@ export function createLiveCompanyFactsSource(dependencies: {
         );
 
         if (!history.ok) {
-          throw new CompanyFactsSourceError(
-            "payload_schema_invalid",
-            "submissions_history",
-            { detail: history.code },
-          );
+          throw history.code === "acceptance_clock_undetermined"
+            ? new CompanyFactsSourceError(history.code, "submissions_history")
+            : new CompanyFactsSourceError(
+                "payload_schema_invalid",
+                "submissions_history",
+                { detail: history.code },
+              );
         }
 
         filings.push(...history.filings);
@@ -422,6 +430,7 @@ export function createLiveCompanyFactsSource(dependencies: {
             url,
             fetched,
             SEC_SUBMISSIONS_PARSER_VERSION,
+            history.acceptanceClock,
           ),
         );
       }

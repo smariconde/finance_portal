@@ -20,10 +20,23 @@
  *   cuatro y cinco horas, que es look-ahead;
  * - `reportDate` puede venir vacío.
  *
+ * Desde octubre de 2026 la SEC regenera algunos archivos con el offset de Nueva
+ * York aplicado dos veces. Cada bloque de columnas —`recent` y cada histórico—
+ * pasa por `sec-acceptance-clock-1.0.0`, que lo detecta sobre el archivo entero
+ * y lo corrige, o lo rechaza si no puede decidir (ADR 0036). La versión de este
+ * parser no cambia: con la regla, la aceptación es la misma que leía cuando la
+ * SEC publicaba en UTC.
+ *
  * Igual que los parsers del universo, un envelope que no se entiende es un parser
  * roto y cuarentena el documento entero (`TM-05`), mientras que una fila inválida
  * se rechaza nombrando su posición y su campo, nunca su valor (`TM-02`).
  */
+import {
+  correctSecAcceptance,
+  readSecAcceptanceClock,
+  type SecAcceptanceClockReading,
+} from "./sec-acceptance-clock";
+
 export const SEC_SUBMISSIONS_PARSER_VERSION = "sec-submissions-1.0.0";
 
 export type SecFiling = {
@@ -47,6 +60,7 @@ export type SecSubmissionsPayloadRejectionCode =
   | "filings_missing"
   | "column_missing"
   | "column_length_mismatch"
+  | "acceptance_clock_undetermined"
   | "history_files_invalid";
 
 export type SecFilingRowRejection = {
@@ -75,10 +89,14 @@ export type SecFilingColumnsResult =
       readonly ok: true;
       readonly filings: readonly SecFiling[];
       readonly rejections: readonly SecFilingRowRejection[];
+      readonly acceptanceClock: SecAcceptanceClockReading;
     }
   | {
       readonly ok: false;
-      readonly code: "column_missing" | "column_length_mismatch";
+      readonly code:
+        | "column_missing"
+        | "column_length_mismatch"
+        | "acceptance_clock_undetermined";
     };
 
 export type SecSubmissionsParseResult =
@@ -95,6 +113,8 @@ export type SecSubmissionsParseResult =
       readonly filings: readonly SecFiling[];
       readonly historyFiles: readonly SecSubmissionsHistoryFile[];
       readonly rejections: readonly SecFilingRowRejection[];
+      /** Lectura del reloj de `filings.recent`. */
+      readonly acceptanceClock: SecAcceptanceClockReading;
     }
   | {
       readonly ok: false;
@@ -244,7 +264,34 @@ export function parseSecFilingColumns(
     });
   }
 
-  return { ok: true, filings, rejections };
+  // El reloj es una propiedad del archivo, no de la fila: se lee sobre todas
+  // las aceptaciones válidas y recién entonces se corrige cada una.
+  const acceptanceClock = readSecAcceptanceClock(
+    filings.flatMap((filing) =>
+      filing.acceptedAt === null ? [] : [filing.acceptedAt],
+    ),
+  );
+  const { clock } = acceptanceClock;
+
+  if (clock === "undetermined") {
+    return { ok: false, code: "acceptance_clock_undetermined" };
+  }
+
+  return {
+    ok: true,
+    filings:
+      clock === "new_york_offset_applied_twice"
+        ? filings.map((filing) => ({
+            ...filing,
+            acceptedAt:
+              filing.acceptedAt === null
+                ? null
+                : correctSecAcceptance(filing.acceptedAt, clock),
+          }))
+        : filings,
+    rejections,
+    acceptanceClock,
+  };
 }
 
 export function parseSecSubmissions(
@@ -318,5 +365,6 @@ export function parseSecSubmissions(
     filings: recent.filings,
     historyFiles,
     rejections: recent.rejections,
+    acceptanceClock: recent.acceptanceClock,
   };
 }

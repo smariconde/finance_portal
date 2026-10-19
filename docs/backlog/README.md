@@ -3141,11 +3141,17 @@ contiene el modelo (uno de tres casos de abstención, por DeepSeek, en las dos
 escaleras). CAT, DE y JNJ no se resuelven con ninguna escalera: es trabajo de la
 tarea. 2278 unit, 190 de integración y 175 E2E; rollback de `0027` verificado.
 
-Hallazgo fuera del slice: el mismo 10-K de NCLH y GOOGL quedó guardado con
-instantes de aceptación separados por 5 horas entre la corrida de industria
-(2026-10-15) y la del mix (2026-10-16); `submissions` parece haber cambiado el
-valor entre un día y otro. Toca el contrato point-in-time y queda para revisar
-aparte.
+Hallazgo fuera del slice, **resuelto el 2026-10-19**
+([ADR 0036](../architecture/adr/0036-sec-acceptance-clock.md)): el mismo 10-K de
+NCLH y GOOGL quedó guardado con aceptaciones separadas por 5 horas entre la
+corrida de industria (2026-10-15) y la del mix (2026-10-16). Era la SEC: desde
+~2026-10-05 regenera cada archivo de `submissions` de un filer que presenta algo
+con el offset de Nueva York aplicado dos veces (19 de 25 filers sondeados, con
+sus históricos). `sec-acceptance-clock-1.0.0` decide el reloj por archivo con el
+horario de EDGAR y corrige sólo con evidencia decisiva; sobre 28 archivos reales,
+650 de 650 aceptaciones coinciden con lo guardado en septiembre, que la página
+índice de EDGAR confirma. Las 30 filas de evidencia de IA corridas se
+repararon contra `source_documents`.
 
 ### Fase 6 — corrida por ticker y acceso CEDEAR
 

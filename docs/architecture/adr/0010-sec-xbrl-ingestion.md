@@ -35,6 +35,10 @@ La evidencia es el horario operativo de EDGAR (6:00 a 22:00 de Nueva York). Sobr
 las 1.000 presentaciones recientes del filer 320193, leído como UTC, 998 caen
 dentro; leyendo los dígitos como hora local caen 339. El `Z` es UTC.
 
+> Desde octubre de 2026 la SEC regenera archivos con el offset de Nueva York
+> aplicado dos veces; el reloj se decide por archivo con la misma prueba del
+> horario de EDGAR ([ADR 0036](0036-sec-acceptance-clock.md)).
+
 Sin aceptación publicada, y **sólo** para formularios cuya fecha de filing nunca
 precede a la diseminación (10-K, 10-Q, 8-K, 20-F, 40-F, 6-K, sus transiciones y
 enmiendas), `available_at` es el primer instante del día siguiente en Nueva York con

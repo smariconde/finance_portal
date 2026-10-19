@@ -22,6 +22,7 @@ import {
 } from "@/modules/ingestion/domain/ingestion-run";
 import { evaluateIngestionRights } from "@/modules/ingestion/domain/source-registry-entry";
 
+import { acceptanceClockFlags } from "../domain/sec-acceptance-clock";
 import {
   decideFilerRefresh,
   SEC_REFRESH_PROBE_VERSION,
@@ -148,6 +149,10 @@ export async function refreshCompanyFacts(
   const startedAt = now();
   const runId = newId();
 
+  // Un índice corregido por el reloj de aceptaciones (ADR 0036) lo declara la
+  // corrida del sondeo que lo leyó.
+  let clockFlags: string[] = [];
+
   const record = async (fields: {
     status: IngestionRunStatus;
     counts: typeof EMPTY_COUNTS;
@@ -186,7 +191,7 @@ export async function refreshCompanyFacts(
       counts: fields.counts,
       contentHash: fields.contentHash,
       failure: fields.failure,
-      qualityFlags: fields.qualityFlags ?? [],
+      qualityFlags: [...(fields.qualityFlags ?? []), ...clockFlags],
       replayOfRunId: fields.replayOfRunId ?? null,
       recordedAt: finishedAt,
     });
@@ -267,6 +272,7 @@ export async function refreshCompanyFacts(
     if (
       cause instanceof CompanyFactsSourceError &&
       (cause.code === "payload_schema_invalid" ||
+        cause.code === "acceptance_clock_undetermined" ||
         cause.code === "subject_mismatch")
     ) {
       // Un índice que no se entiende se cuarentena: no mueve la marca y no
@@ -291,6 +297,8 @@ export async function refreshCompanyFacts(
 
     return failed("provider_error", cause);
   }
+
+  clockFlags = acceptanceClockFlags([probe.document.acceptanceClock]);
 
   // 3. Decisión, en dominio.
   const decision = decideFilerRefresh({

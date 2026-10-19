@@ -17,8 +17,10 @@ import { pointInTimeQuerySchema } from "@/modules/temporal/domain/point-in-time-
 
 import { SEC_COMPANY_FACTS_PARSER_VERSION } from "../domain/parse-sec-company-facts";
 import { SEC_SUBMISSIONS_PARSER_VERSION } from "../domain/parse-sec-submissions";
+import { ACCEPTANCE_CLOCK_CORRECTED_FLAG } from "../domain/sec-acceptance-clock";
 import { SEC_FACT_RULES_VERSION } from "../domain/sec-fact-rules";
 import {
+  applyNewYorkOffsetTwice,
   buildFixtureCompanyFactsText,
   buildFixtureFilerGraph,
   buildFixtureSubmissions,
@@ -428,6 +430,126 @@ describe("ingestCompanyFacts", () => {
     await expect(harness.observations.list(SUBJECT)).resolves.toStrictEqual(
       before,
     );
+  });
+
+  describe("acceptance clock (ADR 0036)", () => {
+    type Columns = Record<string, unknown[]>;
+
+    /**
+     * Ocho Form 4 a las 18:30 de Nueva York: con el offset aplicado dos veces
+     * caen a las 23:30, fuera de horario, que es la evidencia que la regla pide.
+     */
+    function padded(columns: Columns, acceptedAtUtc = "23:30:00.000"): Columns {
+      const fillers = Array.from({ length: 8 }, (_, index) => index + 1);
+
+      return {
+        accessionNumber: [
+          ...columns.accessionNumber!,
+          ...fillers.map((n) => `0000000042-10-90000${n}`),
+        ],
+        filingDate: [
+          ...columns.filingDate!,
+          ...fillers.map((n) => `2010-03-0${n}`),
+        ],
+        reportDate: [...columns.reportDate!, ...fillers.map(() => "")],
+        acceptanceDateTime: [
+          ...columns.acceptanceDateTime!,
+          ...fillers.map((n) => `2010-03-0${n}T${acceptedAtUtc}Z`),
+        ],
+        act: [...columns.act!, ...fillers.map(() => "")],
+        form: [...columns.form!, ...fillers.map(() => "4")],
+        size: [...columns.size!, ...fillers.map(() => 1)],
+      };
+    }
+
+    function shifted(columns: Columns): Columns {
+      return {
+        ...columns,
+        acceptanceDateTime: columns.acceptanceDateTime!.map((instant) =>
+          applyNewYorkOffsetTwice(instant as string),
+        ),
+      };
+    }
+
+    function served(transform: (columns: Columns) => Columns) {
+      const submissions = buildFixtureSubmissions() as {
+        filings: { recent: Columns };
+      };
+
+      return {
+        submissions: JSON.stringify({
+          ...submissions,
+          filings: {
+            ...submissions.filings,
+            recent: transform(submissions.filings.recent),
+          },
+        }),
+        history: JSON.stringify(
+          transform(buildFixtureSubmissionsHistory() as Columns),
+        ),
+      };
+    }
+
+    it("publishes the filing's true acceptance from a file with the New York offset applied twice, and flags the run", async () => {
+      const harness = createHarness();
+      harness.serve(served((columns) => shifted(padded(columns))));
+
+      const outcome = await harness.ingest();
+
+      expect(outcome.run).toMatchObject({
+        status: "succeeded",
+        qualityFlags: [ACCEPTANCE_CLOCK_CORRECTED_FLAG],
+      });
+      expect(
+        outcome.documents
+          .filter((document) => document.kind !== "companyfacts")
+          .map((document) => document.acceptanceClock?.clock),
+      ).toEqual([
+        "new_york_offset_applied_twice",
+        "new_york_offset_applied_twice",
+      ]);
+
+      const [annual] = await harness.sourceDocuments.findByIds({
+        sourceId: "sec-edgar",
+        sourceDocumentIds: [FIXTURE_ACCESSIONS.annual],
+      });
+
+      expect(annual).toMatchObject({
+        acceptedAt: FIXTURE_ACCEPTED_AT.annual,
+        availableAt: FIXTURE_ACCEPTED_AT.annual,
+      });
+    });
+
+    it("records a re-download after the source shifted its clock as a duplicate, not as a restatement", async () => {
+      const harness = createHarness();
+      harness.serve(served(padded));
+      const first = await harness.ingest();
+
+      harness.serve(served((columns) => shifted(padded(columns))));
+      const second = await harness.ingest();
+
+      expect(first.run.qualityFlags).toEqual([]);
+      expect(second.run).toMatchObject({
+        status: "duplicate",
+        replayOfRunId: first.run.runId,
+      });
+      expect(second.publication).toMatchObject({ published: 0 });
+    });
+
+    it("quarantines a file whose clock fits EDGAR's hours under neither reading", async () => {
+      const harness = createHarness();
+      // 4:30 de Nueva York leído como se publica, 23:30 de la víspera corregido.
+      harness.serve(served((columns) => padded(columns, "09:30:00.000")));
+
+      const outcome = await harness.ingest();
+
+      expect(outcome.run).toMatchObject({
+        status: "quarantined",
+        qualityFlags: ["submissions_acceptance_clock_undetermined"],
+      });
+      expect(outcome.publication).toBeNull();
+      await expect(harness.observations.list(SUBJECT)).resolves.toEqual([]);
+    });
   });
 
   it("chains an amendment that arrives in a later download", async () => {
