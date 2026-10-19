@@ -11,7 +11,9 @@
  * de esto se lee del entorno: ni el modelo, ni el precio máximo, ni los
  * requisitos de privacidad del pedido.
  */
-export const AI_MODEL_LADDER_VERSION = "ai-model-ladder-1.0.0";
+export const AI_MODEL_LADDER_VERSION = "ai-model-ladder-1.1.0";
+
+export type ReasoningEffort = "minimal" | "low" | "medium" | "high";
 
 export type ModelRung = {
   readonly rung: number;
@@ -24,27 +26,59 @@ export type ModelRung = {
    */
   readonly maxPromptNanoUsdPerToken: number;
   readonly maxCompletionNanoUsdPerToken: number;
+  /**
+   * Esfuerzo de razonamiento pedido, para modelos que razonan antes de
+   * contestar. OpenRouter lo normaliza por proveedor y `require_parameters`
+   * excluye a los endpoints que no lo respetan. Sin él, decide el modelo.
+   */
+  readonly reasoning?: { readonly effort: ReasoningEffort };
 };
 
+const DEEPSEEK = Object.freeze({
+  model: "deepseek/deepseek-v4.1-flash",
+  maxPromptNanoUsdPerToken: 600,
+  maxCompletionNanoUsdPerToken: 2_400,
+});
+const GPT_LUNA = Object.freeze({
+  model: "openai/gpt-5.6-luna",
+  maxPromptNanoUsdPerToken: 250,
+  maxCompletionNanoUsdPerToken: 1_500,
+});
+const GEMINI_FLASH = Object.freeze({
+  model: "google/gemini-3.8-flash",
+  maxPromptNanoUsdPerToken: 1_350,
+  maxCompletionNanoUsdPerToken: 6_750,
+});
+
+/**
+ * `ai-model-ladder-1.0.0`, la de `F5-01`. Ya no es la vigente: se conserva
+ * porque las resoluciones guardadas la nombran y porque los evals la miden
+ * como base de comparación.
+ */
+export const AI_MODEL_LADDER_1_0_0: readonly ModelRung[] = Object.freeze([
+  Object.freeze({ rung: 1, ...DEEPSEEK }),
+  Object.freeze({ rung: 2, ...GPT_LUNA }),
+  Object.freeze({ rung: 3, ...GEMINI_FLASH }),
+]);
+
+/**
+ * `ai-model-ladder-1.1.0`, decidida por los evals de `F5-07`
+ * ([ADR 0035](../../../../docs/architecture/adr/0035-ai-layer-evals.md),
+ * medición). Luna primero: acertó las 31 de industria y es la más barata.
+ * Gemini con esfuerzo bajo después: dejó de agotar la salida razonando. Gemini
+ * sin tope de esfuerzo y DeepSeek quedan de último recurso: cada uno resolvió
+ * casos que los anteriores no —DeepSeek, el de Apple— y mantienen las tres
+ * familias.
+ */
 export const AI_MODEL_LADDER: readonly ModelRung[] = Object.freeze([
-  Object.freeze({
-    rung: 1,
-    model: "deepseek/deepseek-v4.1-flash",
-    maxPromptNanoUsdPerToken: 600,
-    maxCompletionNanoUsdPerToken: 2_400,
-  }),
+  Object.freeze({ rung: 1, ...GPT_LUNA }),
   Object.freeze({
     rung: 2,
-    model: "openai/gpt-5.6-luna",
-    maxPromptNanoUsdPerToken: 250,
-    maxCompletionNanoUsdPerToken: 1_500,
+    ...GEMINI_FLASH,
+    reasoning: Object.freeze({ effort: "low" as const }),
   }),
-  Object.freeze({
-    rung: 3,
-    model: "google/gemini-3.8-flash",
-    maxPromptNanoUsdPerToken: 1_350,
-    maxCompletionNanoUsdPerToken: 6_750,
-  }),
+  Object.freeze({ rung: 3, ...GEMINI_FLASH }),
+  Object.freeze({ rung: 4, ...DEEPSEEK }),
 ]);
 
 /**

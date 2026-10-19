@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 
 import { SMOKE_TASK, type AiTask } from "@/modules/ai/domain/ai-task";
+import { AI_MODEL_LADDER_1_0_0 } from "@/modules/ai/domain/model-ladder";
 import { createProviderBreaker } from "@/modules/ai/domain/provider-breaker";
 import { createInMemoryAiSpendStore } from "@/modules/ai/infrastructure/in-memory-ai-spend-store";
 import {
@@ -94,6 +95,9 @@ function harness(
       fetch,
       spend,
       breaker,
+      // La mecánica se prueba sobre una escalera fija de tres escalones; la
+      // vigente la afirma su propio test.
+      ladder: AI_MODEL_LADDER_1_0_0,
       now: () => NOW,
       elapsedMs: () => {
         clock += 250;
@@ -192,6 +196,46 @@ describe("runModelLadder", () => {
       [2, "abstained"],
       [3, "accepted"],
     ]);
+  });
+
+  it("le muestra al observador de un eval cada salida y su veredicto, y marca el gasto", async () => {
+    const observations: unknown[] = [];
+    const { dependencies, spend } = harness([
+      completion("not json at all"),
+      echo("wrong"),
+      echo(NONCE),
+    ]);
+
+    const result = await runModelLadder(
+      SMOKE_TASK,
+      { nonce: NONCE },
+      {
+        ...dependencies,
+        purpose: "eval",
+        observe: (observation) => observations.push(observation),
+      },
+    );
+
+    expect(observations).toEqual([
+      { rung: 1, finishReason: "stop", output: null, judgement: null },
+      {
+        rung: 2,
+        finishReason: "stop",
+        output: { echo: "wrong" },
+        judgement: { verdict: "reject", code: "echo_mismatch" },
+      },
+      {
+        rung: 3,
+        finishReason: "stop",
+        output: { echo: NONCE },
+        judgement: { verdict: "accept" },
+      },
+    ]);
+    expect(
+      (await spend.listTaskAttempts(result.taskRunId)).map(
+        (entry) => entry.purpose,
+      ),
+    ).toEqual(["eval", "eval", "eval"]);
   });
 
   it("dice qué falló en una salida inválida, sin guardar su contenido", async () => {

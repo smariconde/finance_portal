@@ -433,6 +433,31 @@ six real runs with an AI industry and mix replayed six of six with the proposal
 tables and Damodaran releases emptied and no keys.
 
 ```bash
+pnpm ai:eval-capture --apply                       # freezes the eval corpus: one SEC request per declared 10-K
+pnpm ai:eval --task mix --rung 2 --apply           # sends each eval case to one rung (it spends, resumable)
+pnpm ai:eval --summary --rejudge                   # scores the report with the current policy; no call
+```
+
+The AI layer's evals (`F5-07`,
+[ADR 0035](docs/architecture/adr/0035-ai-layer-evals.md), migration `0027`,
+[runbook](docs/runbooks/ai-evals.md)). The cases are a **frozen corpus** under
+ADR 0023 —25 declared 10-K cut by the tasks' own readers, 481 kB, every extract
+identical to what production read— plus deterministic injections
+(`ai-eval-injections-1.0.0`) and abstentions, scored by `ai-eval-scoring-1.0.0`
+against a gold the agent proposed and the owner confirms (`pending_owner` until
+then: correctness is provisional). Offline, `pnpm test` checks the hashes, that
+every gold passes the policy on its own evidence, that no injection closes the
+fence and that the policy rejects what an obedient model would answer. Live,
+each case goes to **one** rung of a declared variant, against the same caps as
+a task, marked `purpose = 'eval'` in the ledger; any ladder is then simulated
+from those measurements without another call. Two hard gates, both zero:
+`leaked` and an accepted mix abstention. Measured: 231 attempts for USD 0.98;
+the evals chose `ai-model-ladder-1.1.0` (Luna → Gemini with low reasoning
+effort → Gemini → DeepSeek): 14 of 17 mixes right against 13, 21 % cheaper and
+43 % faster, all 16 industries on its first rung; `operations-mix-policy-1.2.0`
+reads «China (including Hong Kong)».
+
+```bash
 pnpm fundamentals:ingest --ticker AAPL             # dry run: downloads and builds vintages, writes nothing
 pnpm fundamentals:ingest --ticker AAPL --apply     # records the run, filings and observations
 ```

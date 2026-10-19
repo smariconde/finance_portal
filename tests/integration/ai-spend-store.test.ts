@@ -75,6 +75,7 @@ describe("libro de gasto bajo concurrencia real", () => {
             limits,
           ).reserve({
             reservationId: randomUUID(),
+            purpose: "task",
             sourceId,
             taskRunId: randomUUID(),
             taskVersion: "ai-smoke-1.0.0",

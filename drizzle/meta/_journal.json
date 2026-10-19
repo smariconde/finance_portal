@@ -190,6 +190,13 @@
       "when": 1792162637987,
       "tag": "0026_yielding_plazm",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1792204802487,
+      "tag": "0027_thick_selene",
+      "breakpoints": true
     }
   ]
 }

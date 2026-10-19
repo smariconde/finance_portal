@@ -162,8 +162,20 @@ export const modelIdSchema = z
   .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9.:_-]*$/u)
   .max(128);
 
+/**
+ * Para qué se llamó al modelo (`F5-07`,
+ * [ADR 0035](../../../../docs/architecture/adr/0035-ai-layer-evals.md),
+ * decisión 6). Un eval gasta contra los mismos topes que una tarea, pero sus
+ * intentos —inyecciones hechas a propósito incluidas— no son la métrica de
+ * producción.
+ */
+export const aiSpendPurposeSchema = z.enum(["task", "eval"]);
+
+export type AiSpendPurpose = z.infer<typeof aiSpendPurposeSchema>;
+
 export const aiSpendReservationRequestSchema = z.object({
   reservationId: z.uuid(),
+  purpose: aiSpendPurposeSchema,
   sourceId: sourceIdSchema,
   taskRunId: z.uuid(),
   taskVersion: versionSchema,
@@ -300,6 +312,7 @@ export type AiSpendEntry = {
   readonly reservationId: string;
   readonly sourceId: string;
   readonly taskRunId: string;
+  readonly purpose: AiSpendPurpose;
   readonly taskVersion: string;
   readonly ladderVersion: string;
   readonly rung: number;

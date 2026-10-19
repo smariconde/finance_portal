@@ -1,9 +1,10 @@
 import {
   providerCostToNanoUsd,
   type AiAttemptOutcome,
+  type AiSpendPurpose,
   type AiSpendStatus,
 } from "@/modules/ai/domain/ai-spend";
-import type { AiTask } from "@/modules/ai/domain/ai-task";
+import type { AiTask, AiTaskJudgement } from "@/modules/ai/domain/ai-task";
 import {
   AI_MODEL_LADDER,
   AI_MODEL_LADDER_VERSION,
@@ -98,12 +99,28 @@ export type LadderResult<Output> = {
     }
 );
 
+/**
+ * Lo que vio un intento que obtuvo respuesta: la salida validada —también la
+ * que la policy rechazó— y el veredicto. Sólo lo leen los evals de `F5-07`
+ * (ADR 0035): el libro nunca guarda el texto del modelo.
+ */
+export type LadderObservation = {
+  readonly rung: number;
+  readonly finishReason: string | null;
+  /** `null` si no validó contra el schema. */
+  readonly output: unknown;
+  readonly judgement: AiTaskJudgement | null;
+};
+
 export type RunModelLadderDependencies = {
   readonly fetch: EgressFetch;
   readonly spend: AiSpendStore;
   readonly breaker: ProviderBreaker;
   readonly ladder?: readonly ModelRung[];
   readonly ladderVersion?: string;
+  /** `task` salvo en un eval; los dos gastan contra los mismos topes. */
+  readonly purpose?: AiSpendPurpose;
+  readonly observe?: (observation: LadderObservation) => void;
   readonly now: () => string;
   /** Reloj monótono: mide la latencia. */
   readonly elapsedMs: () => number;
@@ -213,6 +230,8 @@ export async function runModelLadder<Input, Output>(
     breaker,
     ladder = AI_MODEL_LADDER,
     ladderVersion = AI_MODEL_LADDER_VERSION,
+    purpose = "task",
+    observe,
     now,
     elapsedMs,
     newId,
@@ -247,6 +266,7 @@ export async function runModelLadder<Input, Output>(
     const reservationId = newId();
     const verdict = await spend.reserve({
       reservationId,
+      purpose,
       sourceId: OPENROUTER_SOURCE_ID,
       taskRunId,
       taskVersion: task.taskVersion,
@@ -424,6 +444,12 @@ export async function runModelLadder<Input, Output>(
     try {
       json = JSON.parse(result.content ?? "");
     } catch {
+      observe?.({
+        rung: rung.rung,
+        finishReason: result.finishReason,
+        output: null,
+        judgement: null,
+      });
       await settle({
         ...billing,
         outcome: "schema_invalid",
@@ -435,6 +461,12 @@ export async function runModelLadder<Input, Output>(
     const parsed = task.output.schema.safeParse(json);
 
     if (!parsed.success) {
+      observe?.({
+        rung: rung.rung,
+        finishReason: result.finishReason,
+        output: null,
+        judgement: null,
+      });
       await settle({
         ...billing,
         outcome: "schema_invalid",
@@ -446,6 +478,13 @@ export async function runModelLadder<Input, Output>(
     const output: Output = parsed.data;
 
     const judgement = task.judge(output, input);
+
+    observe?.({
+      rung: rung.rung,
+      finishReason: result.finishReason,
+      output,
+      judgement,
+    });
 
     if (judgement.verdict === "accept") {
       await settle({ ...billing, outcome: "accepted", detail: null });

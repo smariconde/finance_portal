@@ -1,0 +1,808 @@
+{
+  "corpusVersion": "ai-eval-corpus-1.0.0",
+  "sourceId": "sec-edgar",
+  "attribution": "U.S. Securities and Exchange Commission, EDGAR (https://www.sec.gov/edgar). Informacion publica copiada con cita, sin el sello ni los logos de la SEC y sin afiliacion.",
+  "exposureKeys": {
+    "countryReleaseId": "fbee0696-211a-4399-836f-2f5ea7039362",
+    "regionReleaseId": "c3da7dce-3e5b-4727-b7b5-70cd4e89b209",
+    "publishedLabel": "July 2026",
+    "countries": [
+      "abu-dhabi",
+      "albania",
+      "andorra-principality-of",
+      "angola",
+      "argentina",
+      "armenia",
+      "aruba",
+      "australia",
+      "austria",
+      "azerbaijan",
+      "bahamas",
+      "bahrain",
+      "bangladesh",
+      "barbados",
+      "belarus",
+      "belgium",
+      "belize",
+      "benin",
+      "bermuda",
+      "bolivia",
+      "bosnia-and-herzegovina",
+      "botswana",
+      "brazil",
+      "bulgaria",
+      "burkina-faso",
+      "cambodia",
+      "cameroon",
+      "canada",
+      "cape-verde",
+      "cayman-islands",
+      "chile",
+      "china",
+      "colombia",
+      "congo-democratic-republic-of",
+      "congo-republic-of",
+      "cook-islands",
+      "costa-rica",
+      "cote-d-ivoire",
+      "croatia",
+      "cuba",
+      "curacao",
+      "cyprus",
+      "czech-republic",
+      "denmark",
+      "dominican-republic",
+      "ecuador",
+      "egypt",
+      "el-salvador",
+      "estonia",
+      "ethiopia",
+      "fiji",
+      "finland",
+      "france",
+      "gabon",
+      "georgia",
+      "germany",
+      "ghana",
+      "greece",
+      "guatemala",
+      "guernsey-states-of",
+      "honduras",
+      "hong-kong",
+      "hungary",
+      "iceland",
+      "india",
+      "indonesia",
+      "iraq",
+      "ireland",
+      "isle-of-man",
+      "israel",
+      "italy",
+      "jamaica",
+      "japan",
+      "jersey-states-of",
+      "jordan",
+      "kazakhstan",
+      "kenya",
+      "korea",
+      "kuwait",
+      "kyrgyzstan",
+      "laos",
+      "latvia",
+      "lebanon",
+      "liechtenstein",
+      "lithuania",
+      "luxembourg",
+      "macao",
+      "macedonia",
+      "malaysia",
+      "maldives",
+      "mali",
+      "malta",
+      "mauritius",
+      "mexico",
+      "moldova",
+      "mongolia",
+      "montenegro",
+      "montserrat",
+      "morocco",
+      "mozambique",
+      "namibia",
+      "nepal",
+      "netherlands",
+      "new-zealand",
+      "nicaragua",
+      "niger",
+      "nigeria",
+      "norway",
+      "oman",
+      "pakistan",
+      "panama",
+      "papua-new-guinea",
+      "paraguay",
+      "peru",
+      "philippines",
+      "poland",
+      "portugal",
+      "qatar",
+      "ras-al-khaimah-emirate-of",
+      "romania",
+      "rwanda",
+      "saudi-arabia",
+      "senegal",
+      "serbia",
+      "sharjah",
+      "singapore",
+      "slovakia",
+      "slovenia",
+      "solomon-islands",
+      "south-africa",
+      "spain",
+      "sri-lanka",
+      "st-maarten",
+      "st-vincent-and-the-grenadines",
+      "suriname",
+      "swaziland",
+      "sweden",
+      "switzerland",
+      "taiwan",
+      "tajikistan",
+      "tanzania",
+      "thailand",
+      "togo",
+      "trinidad-and-tobago",
+      "tunisia",
+      "turkey",
+      "turks-and-caicos-islands",
+      "uganda",
+      "ukraine",
+      "united-arab-emirates",
+      "united-kingdom",
+      "united-states",
+      "uruguay",
+      "uzbekistan",
+      "venezuela",
+      "vietnam",
+      "zambia"
+    ],
+    "regions": [
+      "africa",
+      "asia",
+      "australia-and-new-zealand",
+      "caribbean",
+      "central-and-south-america",
+      "eastern-europe",
+      "middle-east",
+      "north-america",
+      "western-europe"
+    ]
+  },
+  "documents": [
+    {
+      "cik": "0000004977",
+      "accessionNumber": "0001628280-26-011402",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/4977/000162828026011402/afl-20251231.htm",
+      "fetchedAt": "2026-10-17T02:45:18.735Z",
+      "rawBytes": 8903509,
+      "rawSha256": "6bdeb218cca551ffc2811b4470d16d3246827459a9f1bba2e2aed8ad337940a0",
+      "extracts": [
+        {
+          "section": "item_1_business",
+          "path": "0000004977/item_1_business.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 19999,
+          "sha256": "07ebd43b290ade46c59c54b4c683790451936edeb6f9a14c5eb0e69437d5aedf",
+          "truncated": true
+        },
+        {
+          "section": "segment_note",
+          "path": "0000004977/segment_note.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 7999,
+          "sha256": "cfa44300fe865bc14d89f122a1532eefccdaad4e8e7b8ee8b8628e391e3a654e",
+          "truncated": true
+        }
+      ]
+    },
+    {
+      "cik": "0000018230",
+      "accessionNumber": "0000018230-26-000008",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/18230/000001823026000008/cat-20251231.htm",
+      "fetchedAt": "2026-10-17T02:45:21.703Z",
+      "rawBytes": 6100581,
+      "rawSha256": "5170504c5767bf0a8eb2acab7aac664ee33b47f25b3bb142b18f6506131c7fc6",
+      "extracts": [
+        {
+          "section": "geographic_revenue",
+          "path": "0000018230/geographic_revenue.txt",
+          "readerVersion": "sec-10k-geographic-revenue-1.0.0",
+          "bytes": 6000,
+          "sha256": "c5f16ec5349cb0100296d6d17551d21a6fa0947c815965b436ac310fc8da293e",
+          "truncated": true
+        }
+      ]
+    },
+    {
+      "cik": "0000019617",
+      "accessionNumber": "0001628280-26-008131",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/19617/000162828026008131/jpm-20251231.htm",
+      "fetchedAt": "2026-10-17T02:45:26.145Z",
+      "rawBytes": 12927437,
+      "rawSha256": "afdc6332328d4858406cd891a4e4186bab5c48fed2992f5bb59ee7b9fac6cacc",
+      "extracts": [
+        {
+          "section": "item_1_business",
+          "path": "0000019617/item_1_business.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 20000,
+          "sha256": "b82c475aeba8e53abcae684b4c92a50d1cb61e1d2d910f08e4e567b36ecdc638",
+          "truncated": true
+        },
+        {
+          "section": "segment_note",
+          "path": "0000019617/segment_note.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 7999,
+          "sha256": "7615d067edec1a0d2f804772aa5c679b536cfa3165da9cf9f66212e88ce3182c",
+          "truncated": true
+        }
+      ]
+    },
+    {
+      "cik": "0000036104",
+      "accessionNumber": "0000036104-26-000011",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/36104/000003610426000011/usb-20251231.htm",
+      "fetchedAt": "2026-10-17T02:45:27.091Z",
+      "rawBytes": 972718,
+      "rawSha256": "a14e83926600aca3404647b50ab670898ca48f6ff5567ad645ba8a5501bbb100",
+      "extracts": [
+        {
+          "section": "item_1_business",
+          "path": "0000036104/item_1_business.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 20000,
+          "sha256": "531c84863e6165b0d08c56c24655502e1c4531d07dd597009cac26c2ef243b3e",
+          "truncated": true
+        }
+      ]
+    },
+    {
+      "cik": "0000037996",
+      "accessionNumber": "0000037996-26-000015",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/37996/000003799626000015/f-20251231.htm",
+      "fetchedAt": "2026-10-17T02:45:28.560Z",
+      "rawBytes": 5281614,
+      "rawSha256": "8b739fb400fd344d8e6c1a23e1e6dbfcda09c962aafd283cd7bea22748949958",
+      "extracts": [
+        {
+          "section": "geographic_revenue",
+          "path": "0000037996/geographic_revenue.txt",
+          "readerVersion": "sec-10k-geographic-revenue-1.0.0",
+          "bytes": 3280,
+          "sha256": "ad0d0f080f49a0dcdd369b805d217605d8ba779727214a483759518b69e17547",
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "cik": "0000070858",
+      "accessionNumber": "0000070858-26-000157",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/70858/000007085826000157/bac-20251231.htm",
+      "fetchedAt": "2026-10-17T02:45:32.537Z",
+      "rawBytes": 12819172,
+      "rawSha256": "5ea298d6cfd3ece09070f34a9e163a214bcfcb27b38a992c3b95d1284110bcbf",
+      "extracts": [
+        {
+          "section": "item_1_business",
+          "path": "0000070858/item_1_business.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 20000,
+          "sha256": "ce4746d6a21ad11395afbb623f072ff662d38f6ef3709d1626973bd3b763e6a2",
+          "truncated": true
+        },
+        {
+          "section": "segment_note",
+          "path": "0000070858/segment_note.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 7999,
+          "sha256": "86241be20410c67428c1cadcac5441e58d8b8b660fca33fae184686c8b4f39f7",
+          "truncated": true
+        }
+      ]
+    },
+    {
+      "cik": "0000200406",
+      "accessionNumber": "0000200406-26-000016",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/200406/000020040626000016/jnj-20251228.htm",
+      "fetchedAt": "2026-10-17T02:45:34.171Z",
+      "rawBytes": 3701699,
+      "rawSha256": "5ef3cf2a03f70e0962167eb766dcf98a0f550ea3d4fb179ab3f3c6584bd3df28",
+      "extracts": [
+        {
+          "section": "geographic_revenue",
+          "path": "0000200406/geographic_revenue.txt",
+          "readerVersion": "sec-10k-geographic-revenue-1.0.0",
+          "bytes": 6000,
+          "sha256": "2d5bfe662334d90fbf35ed84b0742ec04e6abf5383c163adf19ef1cc91f1620b",
+          "truncated": true
+        }
+      ]
+    },
+    {
+      "cik": "0000315189",
+      "accessionNumber": "0001104659-25-122321",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/315189/000110465925122321/de-20251102x10k.htm",
+      "fetchedAt": "2026-10-17T02:45:37.953Z",
+      "rawBytes": 10743916,
+      "rawSha256": "ee0a885b50ab590eb5b72d369c82d46f8a57348910bb8548fa2180df1e39dc60",
+      "extracts": [
+        {
+          "section": "geographic_revenue",
+          "path": "0000315189/geographic_revenue.txt",
+          "readerVersion": "sec-10k-geographic-revenue-1.0.0",
+          "bytes": 5999,
+          "sha256": "ca0409be8e61ac59a6c8e4d50504e29842f5d42c8fcde5109cd303322b9d5dc9",
+          "truncated": true
+        }
+      ]
+    },
+    {
+      "cik": "0000320193",
+      "accessionNumber": "0000320193-25-000079",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm",
+      "fetchedAt": "2026-10-17T02:45:38.682Z",
+      "rawBytes": 1520320,
+      "rawSha256": "63d29bf57dcc4a938a3517f215a7ff18c6dcc1a43cfa3e874524d3e09f21235a",
+      "extracts": [
+        {
+          "section": "geographic_revenue",
+          "path": "0000320193/geographic_revenue.txt",
+          "readerVersion": "sec-10k-geographic-revenue-1.0.0",
+          "bytes": 6000,
+          "sha256": "cdf4f452f58bf444921ffe2c21e8cdcf31df800882b23bc6746bdad7dae508c4",
+          "truncated": true
+        }
+      ]
+    },
+    {
+      "cik": "0000726728",
+      "accessionNumber": "0000726728-26-000011",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/726728/000072672826000011/o-20251231.htm",
+      "fetchedAt": "2026-10-17T02:45:39.844Z",
+      "rawBytes": 4098072,
+      "rawSha256": "6f3e34acbea8a2b5e97c4ef732eb757ac4344e26eec95866622b06fd3263a5fd",
+      "extracts": [
+        {
+          "section": "item_1_business",
+          "path": "0000726728/item_1_business.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 3760,
+          "sha256": "48384f8f5b2a446da8f512db238aa735c147346d31096817672c1a8bdc450d4c",
+          "truncated": false
+        },
+        {
+          "section": "segment_note",
+          "path": "0000726728/segment_note.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 8000,
+          "sha256": "582dc64266887a6fbe41e2ca365103c53c504d5bb289a78685ed35c253ab34de",
+          "truncated": true
+        }
+      ]
+    },
+    {
+      "cik": "0000815097",
+      "accessionNumber": "0000815097-26-000007",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/815097/000081509726000007/ccl-20251130.htm",
+      "fetchedAt": "2026-10-17T02:45:40.662Z",
+      "rawBytes": 2101827,
+      "rawSha256": "d66db8a34c056655aa9c2462a8730fab17d5541f680dd6bde1ba2dea9e815793",
+      "extracts": [
+        {
+          "section": "item_1_business",
+          "path": "0000815097/item_1_business.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 20000,
+          "sha256": "c8bff52f71f5af5b555b2f2280dd318a8c9817adceedc2fdb7b3ffd76d5d133c",
+          "truncated": true
+        },
+        {
+          "section": "segment_note",
+          "path": "0000815097/segment_note.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 7999,
+          "sha256": "d2359beed57faff45f3922913d99bb310ad1e149d66beca6c3edcb3f5ae09cc6",
+          "truncated": true
+        },
+        {
+          "section": "geographic_revenue",
+          "path": "0000815097/geographic_revenue.txt",
+          "readerVersion": "sec-10k-geographic-revenue-1.0.0",
+          "bytes": 6000,
+          "sha256": "37eaaef615b9dccc7e2b8fc8c2c22c3c9d79238134d8f49e9bb2274e6a31a277",
+          "truncated": true
+        }
+      ]
+    },
+    {
+      "cik": "0000831259",
+      "accessionNumber": "0000831259-26-000012",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/831259/000083125926000012/fcx-20251231.htm",
+      "fetchedAt": "2026-10-17T02:45:42.721Z",
+      "rawBytes": 6347590,
+      "rawSha256": "854604e7c07258ca79815f082cd50985cfd56293dd3bfba0593aab8e5661f2de",
+      "extracts": [
+        {
+          "section": "geographic_revenue",
+          "path": "0000831259/geographic_revenue.txt",
+          "readerVersion": "sec-10k-geographic-revenue-1.0.0",
+          "bytes": 6000,
+          "sha256": "295b2550d757655b354c6ef0a683cedac15cfdf222c599e1cada0104ada6c827",
+          "truncated": true
+        }
+      ]
+    },
+    {
+      "cik": "0000879169",
+      "accessionNumber": "0000879169-26-000010",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/879169/000087916926000010/incy-20251231.htm",
+      "fetchedAt": "2026-10-17T02:45:43.713Z",
+      "rawBytes": 2295530,
+      "rawSha256": "61066d3151c84f8ae463cb025f17a58fa6c2c1bacbf56bd17039a36ba38fe33a",
+      "extracts": [
+        {
+          "section": "item_1_business",
+          "path": "0000879169/item_1_business.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 20000,
+          "sha256": "2b143b0978f0af9ad96baba636ad98b1762a0abb747e031df1bc1278d7a7cd9b",
+          "truncated": true
+        },
+        {
+          "section": "segment_note",
+          "path": "0000879169/segment_note.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 7999,
+          "sha256": "eafa39269027b69568e0ed6e4b7c648a2ab5758fa4dde90b080029c03242bc9f",
+          "truncated": true
+        },
+        {
+          "section": "geographic_revenue",
+          "path": "0000879169/geographic_revenue.txt",
+          "readerVersion": "sec-10k-geographic-revenue-1.0.0",
+          "bytes": 5999,
+          "sha256": "6cd98489eb6d1a3fedc369e23c04b75f923dfa835e4216f1964b03016ffacd3d",
+          "truncated": true
+        }
+      ]
+    },
+    {
+      "cik": "0001018724",
+      "accessionNumber": "0001018724-26-000004",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1018724/000101872426000004/amzn-20251231.htm",
+      "fetchedAt": "2026-10-17T02:45:44.545Z",
+      "rawBytes": 1968454,
+      "rawSha256": "bc9f4a845ab9de2d1c123021bb745c7546bd2c2dc454021cc57843012d0272ca",
+      "extracts": [
+        {
+          "section": "item_1_business",
+          "path": "0001018724/item_1_business.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 13580,
+          "sha256": "3c6935a6c7a902d3a6c1efe594a857515abd25009f119781c7e078591303e783",
+          "truncated": false
+        },
+        {
+          "section": "segment_note",
+          "path": "0001018724/segment_note.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 8000,
+          "sha256": "dee9df6fd3efc0aebfa0dcf81fd8f326ec3f15d3099f7e1e08e002dd261e37a8",
+          "truncated": true
+        },
+        {
+          "section": "geographic_revenue",
+          "path": "0001018724/geographic_revenue.txt",
+          "readerVersion": "sec-10k-geographic-revenue-1.0.0",
+          "bytes": 6000,
+          "sha256": "58c18e7ba207318d2107bbbeadcc87363b22f39fd194bdd62e41d8b1cc06a1a5",
+          "truncated": true
+        }
+      ]
+    },
+    {
+      "cik": "0001045609",
+      "accessionNumber": "0001193125-26-051453",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1045609/000119312526051453/pld-20251231.htm",
+      "fetchedAt": "2026-10-17T02:45:49.525Z",
+      "rawBytes": 11507390,
+      "rawSha256": "b2b1d6f33f176c324c13eddff8d2f75432a764725fc0c0edfdd80b65c1f3de34",
+      "extracts": [
+        {
+          "section": "item_1_business",
+          "path": "0001045609/item_1_business.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 20000,
+          "sha256": "ec28db733f05d2ff5f23234a63f69748ed0a08393447c518ae47ecaf0125053a",
+          "truncated": true
+        },
+        {
+          "section": "segment_note",
+          "path": "0001045609/segment_note.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 8000,
+          "sha256": "271ff48d94497eab44e47ef115d2179e81f3afe4951be9c1d5f0ad4fe8a81ca4",
+          "truncated": true
+        }
+      ]
+    },
+    {
+      "cik": "0001045810",
+      "accessionNumber": "0001045810-26-000021",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000021/nvda-20260125.htm",
+      "fetchedAt": "2026-10-17T02:45:50.598Z",
+      "rawBytes": 1967928,
+      "rawSha256": "49efd4ef2b09b8d81ddeca9fbaa9036bfb8311d92dbd1e2c232b5dde34509608",
+      "extracts": [
+        {
+          "section": "geographic_revenue",
+          "path": "0001045810/geographic_revenue.txt",
+          "readerVersion": "sec-10k-geographic-revenue-1.0.0",
+          "bytes": 5999,
+          "sha256": "275708344155df0932db77a3a80849829ecf4c8a547be3401cc02379a391194d",
+          "truncated": true
+        }
+      ]
+    },
+    {
+      "cik": "0001053507",
+      "accessionNumber": "0001053507-26-000035",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1053507/000105350726000035/amt-20251231.htm",
+      "fetchedAt": "2026-10-17T02:45:52.790Z",
+      "rawBytes": 4332536,
+      "rawSha256": "3f4f26f80b3ff9bdc480c8c06f4f5c5395bdeaa9a183bc0ade3240eb94e04702",
+      "extracts": [
+        {
+          "section": "item_1_business",
+          "path": "0001053507/item_1_business.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 19999,
+          "sha256": "48aea004c6e26d5230ba298c29e6ac9b1cda1952bd1f9c9954d36f4f2f3d3546",
+          "truncated": true
+        },
+        {
+          "section": "segment_note",
+          "path": "0001053507/segment_note.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 8000,
+          "sha256": "734b31218a53851e5b26f4f7c538ef0d51c0d8855b0f5e4488d0d36c109939ac",
+          "truncated": true
+        }
+      ]
+    },
+    {
+      "cik": "0001100682",
+      "accessionNumber": "0001100682-26-000022",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1100682/000110068226000022/crl-20251227.htm",
+      "fetchedAt": "2026-10-17T02:45:54.853Z",
+      "rawBytes": 3107679,
+      "rawSha256": "0ac0df00b6d5d357d4c444dac5d671f29ec9be5a8885eaf5f5a75598c6335ae3",
+      "extracts": [
+        {
+          "section": "item_1_business",
+          "path": "0001100682/item_1_business.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 20000,
+          "sha256": "fd17e0dbbbf8e032ede93e80835807c246df0490d9b49207bbc8ec19e3e2852f",
+          "truncated": true
+        },
+        {
+          "section": "segment_note",
+          "path": "0001100682/segment_note.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 8000,
+          "sha256": "fdccafcad78ce1874a883a6f9062486053f6fb3998e3605a113ecd1087136c89",
+          "truncated": true
+        },
+        {
+          "section": "geographic_revenue",
+          "path": "0001100682/geographic_revenue.txt",
+          "readerVersion": "sec-10k-geographic-revenue-1.0.0",
+          "bytes": 6000,
+          "sha256": "eb141de9fa719035bd572c1a0bfe7db59c9b2a4db1e18211d42eee2a563eb050",
+          "truncated": true
+        }
+      ]
+    },
+    {
+      "cik": "0001108524",
+      "accessionNumber": "0001108524-26-000060",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1108524/000110852426000060/crm-20260131.htm",
+      "fetchedAt": "2026-10-17T02:45:55.814Z",
+      "rawBytes": 2570390,
+      "rawSha256": "edea95aa5aac0839bb33dc052960b1961625df1eab8769dfff3bd12d4650bfd2",
+      "extracts": [
+        {
+          "section": "item_1_business",
+          "path": "0001108524/item_1_business.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 20000,
+          "sha256": "162cfeeafdf722a708311775604907db97c41602b052b7112858ed6b8b2d1df2",
+          "truncated": true
+        },
+        {
+          "section": "geographic_revenue",
+          "path": "0001108524/geographic_revenue.txt",
+          "readerVersion": "sec-10k-geographic-revenue-1.0.0",
+          "bytes": 6000,
+          "sha256": "008454dc33843fdd92f79c4f3f17935ae07fcb6ebb4985d16de7f5d3d1044dae",
+          "truncated": true
+        }
+      ]
+    },
+    {
+      "cik": "0001164727",
+      "accessionNumber": "0001164727-26-000010",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1164727/000116472726000010/nem-20251231.htm",
+      "fetchedAt": "2026-10-17T02:45:59.205Z",
+      "rawBytes": 9143818,
+      "rawSha256": "9ecf0a7e9b90b92c4d364971586fd0f50a45bb2e12e58f363650325e8581833d",
+      "extracts": [
+        {
+          "section": "geographic_revenue",
+          "path": "0001164727/geographic_revenue.txt",
+          "readerVersion": "sec-10k-geographic-revenue-1.0.0",
+          "bytes": 6000,
+          "sha256": "d088c87ba21cf83081343bf35b1e667fdfa7c5d4d640e003546a8cf22a38649d",
+          "truncated": true
+        }
+      ]
+    },
+    {
+      "cik": "0001326160",
+      "accessionNumber": "0001326160-26-000014",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1326160/000132616026000014/duk-20251231.htm",
+      "fetchedAt": "2026-10-17T02:46:05.068Z",
+      "rawBytes": 16080288,
+      "rawSha256": "7130d5665856951d83d895689e4fae1ff3de8a63d57ba8c7bb5442c700e9180d",
+      "extracts": [
+        {
+          "section": "item_1_business",
+          "path": "0001326160/item_1_business.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 20000,
+          "sha256": "94e8f50a098c8aef4d4a9c01291072f011c352194268f3691005c10646abb8e0",
+          "truncated": true
+        },
+        {
+          "section": "segment_note",
+          "path": "0001326160/segment_note.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 8000,
+          "sha256": "72a8b5ee650977d08771cd60e213ade6bd3a49c40970786384f7964608cb6f9c",
+          "truncated": true
+        }
+      ]
+    },
+    {
+      "cik": "0001513761",
+      "accessionNumber": "0001104659-26-022067",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1513761/000110465926022067/nclh-20251231x10k.htm",
+      "fetchedAt": "2026-10-17T02:46:07.127Z",
+      "rawBytes": 3670958,
+      "rawSha256": "d17e2b67da70b5b35a022a453a7d0a5a5bb11c103053d75bcbd0041186ec01fa",
+      "extracts": [
+        {
+          "section": "item_1_business",
+          "path": "0001513761/item_1_business.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 19999,
+          "sha256": "e29b8bb0ce8377c4299252f23fce4d2120065c9a3982fc918a8d8b7af26d85a4",
+          "truncated": true
+        },
+        {
+          "section": "segment_note",
+          "path": "0001513761/segment_note.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 8000,
+          "sha256": "56606922782e851ee7ad5789b75a1e3b0b20d4256a61dc9e10c9bd3900138c0e",
+          "truncated": true
+        },
+        {
+          "section": "geographic_revenue",
+          "path": "0001513761/geographic_revenue.txt",
+          "readerVersion": "sec-10k-geographic-revenue-1.0.0",
+          "bytes": 5999,
+          "sha256": "2c94e2af2535a35e1774bb6245c5f5fa1e57d53d704f68ed83eedbf4e5308a75",
+          "truncated": true
+        }
+      ]
+    },
+    {
+      "cik": "0001652044",
+      "accessionNumber": "0001652044-26-000018",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1652044/000165204426000018/goog-20251231.htm",
+      "fetchedAt": "2026-10-17T02:46:08.160Z",
+      "rawBytes": 2616611,
+      "rawSha256": "8cee92a0ca058d3ad69c7621f076a8d0ca9da4041b2c80f5e523e94675f89f6c",
+      "extracts": [
+        {
+          "section": "item_1_business",
+          "path": "0001652044/item_1_business.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 17196,
+          "sha256": "1287e779ac4ae3636c9f1ca84ff7a0747b1beb156dd93b3c2bf77740c59253e9",
+          "truncated": false
+        },
+        {
+          "section": "segment_note",
+          "path": "0001652044/segment_note.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 8000,
+          "sha256": "2076084153ae4f9a6b5fd5f650721decd7865f36dd7b5fe177931623c7fbbc6f",
+          "truncated": true
+        },
+        {
+          "section": "geographic_revenue",
+          "path": "0001652044/geographic_revenue.txt",
+          "readerVersion": "sec-10k-geographic-revenue-1.0.0",
+          "bytes": 6000,
+          "sha256": "4379cd23c30aa76d2c85765f933c95176004789477d8a1ef364d3eca045bb9ca",
+          "truncated": true
+        }
+      ]
+    },
+    {
+      "cik": "0001682852",
+      "accessionNumber": "0001682852-26-000033",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1682852/000168285226000033/mrna-20251231.htm",
+      "fetchedAt": "2026-10-17T02:46:09.953Z",
+      "rawBytes": 2677524,
+      "rawSha256": "4596f4697da892532b61b8c3964bdc418ba0d704d0b479645395058324002971",
+      "extracts": [
+        {
+          "section": "geographic_revenue",
+          "path": "0001682852/geographic_revenue.txt",
+          "readerVersion": "sec-10k-geographic-revenue-1.0.0",
+          "bytes": 6000,
+          "sha256": "e05801a47e3738eeaf70db16823f3db3ed43c4e4e8da5cac00fce237ba50ec72",
+          "truncated": true
+        }
+      ]
+    },
+    {
+      "cik": "0002115436",
+      "accessionNumber": "0000034088-26-000045",
+      "sourceUrl": "https://www.sec.gov/Archives/edgar/data/34088/000003408826000045/xom-20251231.htm",
+      "fetchedAt": "2026-10-17T02:46:13.030Z",
+      "rawBytes": 5591180,
+      "rawSha256": "e37e9ab0d6e1e295b3be4131d66e7020c8529ff22ccf72831490c0ae05ce2e97",
+      "extracts": [
+        {
+          "section": "item_1_business",
+          "path": "0002115436/item_1_business.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 6653,
+          "sha256": "ee31fab5155e47639cf696360ca705aa74aaeddfffba5dc34d693b9457d478d8",
+          "truncated": false
+        },
+        {
+          "section": "segment_note",
+          "path": "0002115436/segment_note.txt",
+          "readerVersion": "sec-10k-sections-1.0.0",
+          "bytes": 8000,
+          "sha256": "76ada62380a3dc88facf532b6ab84c99943a2d179178331b782dc4f8e7d2a589",
+          "truncated": true
+        },
+        {
+          "section": "geographic_revenue",
+          "path": "0002115436/geographic_revenue.txt",
+          "readerVersion": "sec-10k-geographic-revenue-1.0.0",
+          "bytes": 6000,
+          "sha256": "b357acac814bee5beb776bda18a6f94a4e7dc46bb7845b93ce0ee2a2957f8e33",
+          "truncated": true
+        }
+      ]
+    }
+  ]
+}

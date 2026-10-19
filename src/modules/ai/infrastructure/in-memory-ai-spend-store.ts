@@ -75,6 +75,7 @@ export function createInMemoryAiSpendStore(
         reservationId: parsed.reservationId,
         sourceId: parsed.sourceId,
         taskRunId: parsed.taskRunId,
+        purpose: parsed.purpose,
         taskVersion: parsed.taskVersion,
         ladderVersion: parsed.ladderVersion,
         rung: parsed.rung,

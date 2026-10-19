@@ -43,6 +43,9 @@ export function buildOpenRouterBody(
       content: message.content,
     })),
     max_tokens: request.maxOutputTokens,
+    ...(request.rung.reasoning === undefined
+      ? {}
+      : { reasoning: { effort: request.rung.reasoning.effort } }),
     response_format: {
       type: "json_schema",
       json_schema: {

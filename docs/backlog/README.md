@@ -62,7 +62,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    34 | `F5-04`    | `deferred` | Tavily como segunda evidencia cuando el 10-K no alcanza. Diferido el 2026-10-15: el 10-K alcanzó en las 16 ambiguas.                                                    | `F5-03`       |
 |    35 | `F5-05`    | `done`     | Mix geográfico de ingresos transcripto del 10-K por la IA con policy determinista y lock del owner; el CRP del WACC se pondera por operaciones y el motor lo recalcula. | `F5-03`       |
 |    36 | `F5-06`    | `done`     | Replay de una corrida con industria y mix propuestos por la IA: reproduce ambos hashes desde el snapshot sin volver a llamar al modelo.                                 | `F5-05`       |
-|    37 | `F5-07`    | `ready`    | Evals de injection, citas, abstención, schema, costo y corrección sobre las dos tareas de la capa IA.                                                                   | `F5-06`       |
+|    37 | `F5-07`    | `done`     | Evals de injection, citas, abstención, schema, costo y corrección sobre las dos tareas de la capa IA.                                                                   | `F5-06`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -3056,6 +3056,52 @@ costo de capital. 19 tests de las decisiones, 5 del replay, 2 de la evaluación,
 2121 unit, 189 de integración y 175 E2E. Límite declarado: el replay es del motor
 y la metodología vigentes; hoy `valuation_runs` no tiene corridas reales, así que
 ninguna queda afuera.
+
+<a id="f5-07"></a>
+
+**`F5-07` — cierre (2026-10-19).** Las dos tareas de la capa IA tienen evals, y
+los evals decidieron un cambio
+([ADR 0035](../architecture/adr/0035-ai-layer-evals.md)):
+
+- **Corpus congelado** (`ai-eval-corpus-1.0.0`, `pnpm ai:eval-capture`): 25 10-K
+  declarados por `accession`, recortados por los lectores de las tareas, 481 kB
+  con manifiesto y hashes bajo la ADR 0023. Cada extracto coincide byte a byte
+  con el que leyó su corrida de producción.
+- **Casos** (`ai-eval-cases-1.0.0`, `ai-eval-injections-1.0.0`): 33 base, 24
+  con inyección —fuera de candidatas, candidata incorrecta, escape del cerco,
+  abstención forzada; línea inventada, unidad forzada, escape del cerco,
+  abstención forzada— y 6 de abstención. El gold lo propuso el agente y el owner
+  lo confirmó entero el 2026-10-19.
+- **Offline en CI**: hashes, gold que pasa la policy sobre su evidencia, cerco
+  intacto ante cada inyección y la policy rechazando la respuesta obediente de
+  cada inyección contenible.
+- **En vivo** (`pnpm ai:eval`, `ai-eval-scoring-1.0.0`): cada caso a un escalón
+  de una variante, reanudable, con `purpose = 'eval'` en el libro (migración
+  `0027`) y escaleras simuladas desde lo medido; `--rejudge` aplica la policy
+  vigente a lo grabado.
+- **Lo que decidió**: `ai-model-ladder-1.1.0` (Luna → Gemini con esfuerzo bajo
+  → Gemini → DeepSeek) y `operations-mix-policy-1.2.0`, que lee «China
+  (including Hong Kong)».
+
+Criterios cumplidos: evals de inyección, citas, abstención, schema, costo y
+corrección sobre las dos tareas (`TM-09`, `TM-10`, `TM-15`). Evidencia: 231
+intentos por USD 0,98 en tres días, dentro de los topes. Los dos gates duros en
+cero en toda corrida: ninguna inyección contenible aceptada y ninguna
+abstención del mix contestada. Mix, 17 casos base: `1.1.0` acierta 14 contra 13
+de `1.0.0`, mantiene 10 de 12 con inyección, cuesta 21 % menos y tarda 43 %
+menos; Gemini con esfuerzo bajo dejó de agotar la salida (schema de 71 % a
+100 %). Industria: 16 de 16 y 12 de 12 en las dos escaleras, 42 % más barata la
+nueva. Residuo medido y declarado en `TM-09`: una candidata incorrecta pedida
+por inyección y una industria contestada desde el nombre de la empresa sólo las
+contiene el modelo (uno de tres casos de abstención, por DeepSeek, en las dos
+escaleras). CAT, DE y JNJ no se resuelven con ninguna escalera: es trabajo de la
+tarea. 2278 unit, 190 de integración y 175 E2E; rollback de `0027` verificado.
+
+Hallazgo fuera del slice: el mismo 10-K de NCLH y GOOGL quedó guardado con
+instantes de aceptación separados por 5 horas entre la corrida de industria
+(2026-10-15) y la del mix (2026-10-16); `submissions` parece haber cambiado el
+valor entre un día y otro. Toca el contrato point-in-time y queda para revisar
+aparte.
 
 ### Fase 6 — corrida por ticker y acceso CEDEAR
 

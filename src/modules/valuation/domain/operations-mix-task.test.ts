@@ -360,11 +360,18 @@ describe("namedExposureKeys", () => {
     ["EAME", ["western-europe", "eastern-europe", "middle-east", "africa"]],
     ["Trinidad and Tobago", ["trinidad-and-tobago"]],
     ["United States (2)", ["united-states"]],
+    ["China (including Hong Kong)", ["china", "hong-kong"]],
   ])("names %s as its keys", (label, keys) => {
     expect(namedExposureKeys(label, known)).toEqual(keys);
   });
 
-  it.each(["Japan and Elsewhere", "Rest of world", "Other Americas"])(
+  it.each([
+    "Japan and Elsewhere",
+    "Rest of world",
+    "Other Americas",
+    "Asia (including Elsewhere)",
+    "Asia (excluding Japan)",
+  ])(
     "names nothing for %s, which needs a definition or the residual basis",
     (label) => {
       expect(namedExposureKeys(label, known)).toBeNull();

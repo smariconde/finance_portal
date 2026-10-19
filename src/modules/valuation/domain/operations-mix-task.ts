@@ -21,7 +21,7 @@ import { parseDecimal, ZERO, type Dec } from "./decimal-policy";
  */
 export const OPERATIONS_MIX_TASK_VERSION = "operations-mix-1.0.0";
 export const OPERATIONS_MIX_PROMPT_VERSION = "operations-mix-prompt-1.1.0";
-export const OPERATIONS_MIX_POLICY_VERSION = "operations-mix-policy-1.1.0";
+export const OPERATIONS_MIX_POLICY_VERSION = "operations-mix-policy-1.2.0";
 
 /** Las líneas de una suma no pueden diferir del total más que el redondeo. */
 export const LINES_TO_TOTAL_TOLERANCE = "0.005";
@@ -306,11 +306,27 @@ export const EXPOSURE_ALIASES: Readonly<Record<string, readonly string[]>> =
  * queda tras «Rest of» («Rest of Asia Pacific»). Una etiqueta que es un país con
  * «and» en el nombre se reconoce entera antes de partirla. `null` si alguna
  * parte no nombra un lugar declarado.
+ *
+ * `1.2.0`: «China (including Hong Kong)» nombra la base y lo que incluye. Los
+ * evals de `F5-07` (ADR 0035) midieron que NVIDIA quedaba rechazada en los
+ * tres escalones con las claves correctas. Un «excluding» sigue sin nombrar
+ * nada: restar un lugar no se puede expresar con claves.
  */
 export function namedExposureKeys(
   label: string,
   known: ReadonlySet<string>,
 ): readonly string[] | null {
+  const including = /^(.+?)\s*\(\s*including\s+(.+?)\s*\)\s*$/iu.exec(label);
+
+  if (including !== null) {
+    const base = namedExposureKeys(including[1]!, known);
+    const added = namedExposureKeys(including[2]!, known);
+
+    return base === null || added === null
+      ? null
+      : [...new Set([...base, ...added])];
+  }
+
   const single = (text: string): readonly string[] | null => {
     const key = labelKey(text.replace(/\([a-z0-9]{1,2}\)/giu, ""));
     return EXPOSURE_ALIASES[key] ?? (known.has(key) ? [key] : null);
