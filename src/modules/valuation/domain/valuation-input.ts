@@ -1,12 +1,8 @@
 import { z } from "zod";
 
 import { computeContentHash } from "@/modules/ingestion/domain/content-hash";
-import { sourceIdSchema } from "@/modules/ingestion/domain/source-registry-entry";
 import { pointInTimeQuerySchema } from "@/modules/temporal/domain/point-in-time-query";
-import {
-  calendarDateSchema,
-  utcTimestampSchema,
-} from "@/modules/temporal/domain/temporal-version";
+import { calendarDateSchema } from "@/modules/temporal/domain/temporal-version";
 
 import {
   decimalPolicySchema,
@@ -14,6 +10,16 @@ import {
   rateSchema,
 } from "./decimal-policy";
 import { assetProfileSchema, type AssetProfile } from "./asset-profile";
+import {
+  capitalizationSchema,
+  listCapitalizationFacts,
+} from "./capitalization-bridge";
+import {
+  currencySchema,
+  factProvenanceShape,
+  monetaryFactSchema,
+  type MonetaryFact,
+} from "./valuation-facts";
 import { costOfCapitalSchema } from "./cost-of-capital";
 import { qualitativeDecisionsSchema } from "./qualitative-decisions";
 import { valuationAssessmentSchema } from "./valuation-assessment";
@@ -29,14 +35,13 @@ import { ValuationPolicyError } from "./valuation-error";
  * el mismo snapshot canónico producen el mismo resultado y el mismo hash.
  */
 export const VALUATION_METHOD = "fcff_base";
-export const ENGINE_VERSION = "fcff-1.0.0";
+/**
+ * `fcff-1.1.0` (`F4-01`, ADR 0037): el puente resta la deuda por
+ * arrendamientos operativos como claim propia, la que la capitalización deriva.
+ */
+export const ENGINE_VERSION = "fcff-1.1.0";
 /** Debe seguir a `docs/valuation/methodology.md`. */
-export const METHODOLOGY_VERSION = "0.6.0";
-
-const currencySchema = z
-  .string()
-  .trim()
-  .regex(/^[A-Z]{3}$/u);
+export const METHODOLOGY_VERSION = "0.7.0";
 
 const rationaleSchema = z.string().trim().min(1).max(512);
 
@@ -54,24 +59,7 @@ export const valuationSubjectSchema = z.object({
 
 export type ValuationSubject = z.infer<typeof valuationSubjectSchema>;
 
-/** Provenance mínima de cada hecho: sin ella el valor no es explicable. */
-const factProvenanceShape = {
-  asOf: calendarDateSchema,
-  availableAt: utcTimestampSchema,
-  sourceId: sourceIdSchema,
-  sourceDocumentId: z.string().trim().min(1).max(256).nullable(),
-  observationId: z.uuid().nullable(),
-  qualityFlags: z.array(z.string().trim().min(1).max(64)).max(16),
-} as const;
-
-export const monetaryFactSchema = z.object({
-  ...factProvenanceShape,
-  value: engineDecimalSchema,
-  currency: currencySchema,
-  unit: z.literal("monetary"),
-});
-
-export type MonetaryFact = z.infer<typeof monetaryFactSchema>;
+export { monetaryFactSchema, type MonetaryFact } from "./valuation-facts";
 
 export const shareCountFactSchema = z.object({
   ...factProvenanceShape,
@@ -124,6 +112,12 @@ export const equityBridgeSchema = z.object({
   excessCash: bridgeItemSchema,
   nonOperatingAssets: bridgeItemSchema,
   debt: bridgeItemSchema,
+  /**
+   * Deuda por arrendamientos operativos (`F4-01`): la que deriva la
+   * capitalización, nunca mezclada en `debt`, donde se contaría dos veces o
+   * ninguna. Un policy check la exige igual a la del puente.
+   */
+  leaseDebt: bridgeItemSchema,
   minorityInterest: bridgeItemSchema,
   otherClaims: bridgeItemSchema,
 });
@@ -134,6 +128,7 @@ export const BRIDGE_ITEM_KEYS = [
   "excessCash",
   "nonOperatingAssets",
   "debt",
+  "leaseDebt",
   "minorityInterest",
   "otherClaims",
 ] as const;
@@ -232,6 +227,12 @@ export const valuationInputSchema = z
      * recalcula desde acá la industria y los pesos del costo de capital.
      */
     qualitativeDecisions: qualitativeDecisionsSchema,
+    /**
+     * Arrendamientos e I+D capitalizados con su puente sobre EBIT, capital
+     * invertido y deuda (`F4-01`). Un policy check lo recalcula desde sus
+     * hechos y exige la deuda por arrendamientos en el puente EV-equity.
+     */
+    capitalization: capitalizationSchema,
     method: z.literal(VALUATION_METHOD),
     engineVersion: z.literal(ENGINE_VERSION),
     methodologyVersion: z.literal(METHODOLOGY_VERSION),
@@ -307,6 +308,8 @@ export function listMonetaryFacts(
       facts.push({ path: `bridge.${key}.amount`, fact: item.amount });
     }
   }
+
+  facts.push(...listCapitalizationFacts(input.capitalization));
 
   return facts;
 }

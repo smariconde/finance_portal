@@ -40,7 +40,7 @@ function row(
   };
 }
 
-describe("annual fundamentals 1.0.0", () => {
+describe("annual fundamentals 1.1.0", () => {
   it("reads only the declared concepts, well under the lineage read ceiling", () => {
     const concepts = annualFundamentalsConcepts();
     expect(new Set(concepts).size).toBe(concepts.length);
@@ -61,6 +61,72 @@ describe("annual fundamentals 1.0.0", () => {
       "2024-09-28",
       "2023-09-30",
     ]);
+  });
+
+  it("reads one fiscal year when two filings date its close a day apart (1.1.0)", () => {
+    // Deere: el ejercicio 2016 etiquetado 2016-10-31 en una presentación y
+    // 2016-10-30 en otra, con valores apenas distintos.
+    const rows = [
+      row("ResearchAndDevelopmentExpense", "2017-10-29", "1373"),
+      row("ResearchAndDevelopmentExpense", "2016-10-31", "1389.1", {
+        availableAt: "2017-12-15T21:00:00.000Z",
+      }),
+      row("ResearchAndDevelopmentExpense", "2016-10-30", "1393.7", {
+        availableAt: "2018-12-14T21:00:00.000Z",
+      }),
+    ];
+
+    const series = buildAnnualFundamentals(rows, "2017-10-29", "2018-12-31");
+
+    expect(
+      series.fiscalYears.map((year) => [
+        year.fiscalYearEnd,
+        year.items.research_development?.value,
+      ]),
+    ).toEqual([
+      ["2017-10-29", "1373"],
+      // Gana la publicada último, que es la vista más reciente del ejercicio.
+      ["2016-10-30", "1393.7"],
+    ]);
+  });
+
+  it("prefers recurring R&D over R&D that includes acquired in-process R&D (1.1.0)", () => {
+    const series = buildAnnualFundamentals(
+      [
+        row("ResearchAndDevelopmentExpense", "2025-12-28", "109"),
+        row(
+          "ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost",
+          "2025-12-28",
+          "14665",
+        ),
+      ],
+      "2025-12-28",
+      "2026-06-30",
+    );
+
+    expect(series.fiscalYears[0]?.items.research_development).toMatchObject({
+      concept:
+        "us-gaap:ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost",
+      value: "14665",
+    });
+  });
+
+  it("does not take the noncurrent lease liability for the total (1.1.0)", () => {
+    const series = buildAnnualFundamentals(
+      [
+        row("Revenues", "2025-12-31", "100"),
+        row("OperatingLeaseLiabilityNoncurrent", "2025-12-31", "80", {
+          periodType: "instant",
+          periodStart: null,
+        }),
+      ],
+      "2025-12-31",
+      "2026-06-30",
+    );
+    const items = series.fiscalYears[0]?.items;
+
+    expect(items?.operating_lease_liability).toBeUndefined();
+    expect(items?.operating_lease_liability_noncurrent?.value).toBe("80");
   });
 
   it("takes alternatives in declared order and names the concept used", () => {

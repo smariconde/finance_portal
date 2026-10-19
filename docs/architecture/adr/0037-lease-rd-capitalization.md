@@ -82,12 +82,13 @@ La vida `n` sale de `rd-amortizable-life-1.0.0`, una tabla declarada que asigna
 a cada una de las 96 industrias del dataset de betas una fila de la hoja de
 Damodaran, con la fila citada: «Drugs (Pharmaceutical)» y «Drugs
 (Biotechnology)» toman «Drug» (10), «Software (System & Application)» toma
-«Computer Software & Svcs» (3), «Semiconductor» toma «Semiconductor» (5). Las
-industrias que la hoja no nombra toman su categoría genérica (servicio no
-tecnológico 2, servicio tecnológico o minorista 3, manufactura liviana 5,
-manufactura pesada 10, investigación con patentes 10), y la tabla dice cuál.
-Sin industria asignada no hay vida, y la I+D queda sin capitalizar con
-`industry_unassigned`.
+«Computer Software & Svcs» (3), «Semiconductor» toma «Semiconductor» (5). Al implementarla, las 94 industrias reales encontraron una fila propia de la
+hoja (las categorías genéricas —servicio no tecnológico 2, servicio
+tecnológico o minorista 3, manufactura liviana 5, manufactura pesada 10,
+investigación con patentes 10— no hicieron falta); `total-market` y su variante
+sin financieras son agregados y no tienen vida. Un test transcribe la hoja
+entera y exige que cada vida declarada sea la de su fila. Sin industria
+asignada no hay vida, y la I+D queda sin capitalizar con `industry_unassigned`.
 
 Las condiciones, en orden; la primera que falla deja la I+D **reportada** y la
 nombra, nunca la completa con cero:
@@ -95,7 +96,10 @@ nombra, nunca la completa con cero:
 | Código                 | Cuándo                                                      |
 | ---------------------- | ----------------------------------------------------------- |
 | `not_reported`         | el emisor no publica I+D en el ejercicio base               |
+| `rd_negative`          | algún ejercicio publica I+D negativa                        |
 | `industry_unassigned`  | no hay industria de Damodaran visible al corte              |
+| `life_not_declared`    | la industria no tiene vida en la tabla                      |
+| `revenue_unavailable`  | sin ventas positivas del ejercicio base no hay materialidad |
 | `immaterial`           | `rd_0 / ventas_0 < 1 %` (umbral decidido por el owner)      |
 | `insufficient_history` | falta alguno de los `n` ejercicios anteriores, consecutivos |
 
@@ -159,6 +163,30 @@ reescriben (no hay ninguna real en la base personal). La metodología pasa a
 el margen EBIT ajustado del ejercicio base al lado de ellos para que la base sea
 visible, pero no los fija. Fijarlos es la normalización (`F4-03`) y los
 escenarios (`F4-04`).
+
+## Medición (2026-10-19)
+
+El ejemplo de Amgen del paper es el oráculo del test: activo 13.283,6,
+amortización 1.694,1 y el cronograma fila por fila. Sobre la base personal,
+`pnpm valuation:assess --offline` imprime el puente: Apple pasa de un EBIT de
+133.050 M a 142.532 M con un activo de I+D de 92.478 M y 12.490 M de deuda por
+arrendamientos; Amazon suma 89.252 M de deuda por arrendamientos y no publica
+I+D; Johnson & Johnson capitaliza su I+D recurrente con vida 10; ExxonMobil y
+Newmont quedan `immaterial`; Moderna, `insufficient_history` (su historia
+empieza en 2016). La tabla completa está en la metodología.
+
+Medir destapó dos defectos de la serie anual, corregidos en
+`annual-fundamentals-1.1.0`:
+
+- **Cierres duplicados.** Deere etiquetó su ejercicio de 52/53 semanas como
+  2016-10-30 en una presentación y como 2016-10-31 en otra, con valores apenas
+  distintos, y la serie contaba dos años; la I+D quedaba con diez ejercicios en
+  vez de once. Dos cierres a menos de un ejercicio de distancia son el mismo, y
+  gana el publicado último.
+- **Una parte por el todo.** La partida del pasivo por arrendamientos aceptaba
+  `OperatingLeaseLiabilityNoncurrent` sola como si fuera el total. Ahora las dos
+  partes son partidas propias y la completitud (`completeness-profile-1.2.0`)
+  pide el total o las dos.
 
 ## Consecuencias
 

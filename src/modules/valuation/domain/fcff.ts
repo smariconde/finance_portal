@@ -84,6 +84,7 @@ const BRIDGE_SIGNS: Record<BridgeItemKey, "add" | "subtract"> = {
   excessCash: "add",
   nonOperatingAssets: "add",
   debt: "subtract",
+  leaseDebt: "subtract",
   minorityInterest: "subtract",
   otherClaims: "subtract",
 };

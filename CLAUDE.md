@@ -288,6 +288,27 @@ beta 1); banks, insurers and REITs get none. A run carries it in
 `wacc_built_from_components` recomputes it: period and terminal WACC are never
 raw inputs.
 
+The engine capitalizes operating leases and R&D (`F4-01`,
+[ADR 0037](docs/architecture/adr/0037-lease-rd-capitalization.md), engine
+`fcff-1.1.0`, methodology `0.7.0`). Leases use the reported ASC 842 liability
+—the total, or both parts of the same close, never one part— as debt and add
+`liability × preTaxCostOfDebt` to EBIT (`lease-capitalization-1.0.0`). R&D uses
+Damodaran's straight-line research asset with a life per industry from
+`rd-amortizable-life-1.0.0`, which maps each of the 96 betas industries to a row
+of his `R&DConv.xls` look-up sheet (a test checks every life against its row);
+it capitalizes from 1 % of sales and otherwise names why it stays reported
+(`immaterial`, `insufficient_history`, …), never zero and never a shortened
+life. `ValuationInput.capitalization` carries the dated facts and the bridge
+over EBIT, invested capital (as a delta: reported capital is `F4-03`) and debt;
+`capitalization_recomputed` recomputes it with the run's industry and cost of
+debt and requires the lease debt to be the bridge's own `leaseDebt` claim,
+never folded into `debt`. Margins and reinvestment remain assumptions. The
+window keeps ten fiscal years of R&D (`sec-core-concepts-4.0.0`,
+`sec-history-5fy-2.0.0`, prune `1.1.0` with `concept_cuts`, migration `0029`),
+including `ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost`, which
+is Johnson & Johnson's recurring R&D. `pnpm valuation:assess --offline` prints
+the bridge.
+
 ```bash
 pnpm damodaran:record                              # dry run: the four pages, one request each, writes nothing
 pnpm damodaran:record --dataset damodaran.betas-us --apply

@@ -2,6 +2,7 @@ import { computeContentHash } from "@/modules/ingestion/domain/content-hash";
 
 import { divide, ONE, parseDecimal, ZERO, type Dec } from "./decimal-policy";
 import type { FcffComputation } from "./fcff";
+import { capitalizationMismatches } from "./capitalization-bridge";
 import { deriveCostOfCapital } from "./cost-of-capital";
 import { qualitativeDecisionMismatches } from "./qualitative-decisions";
 import { deriveRigorLevel } from "./rigor-level";
@@ -178,12 +179,58 @@ function checkQualitativeDecisions(input: ValuationInput): PolicyCheck[] {
   ];
 }
 
+/**
+ * La capitalización no es un input crudo (`F4-01`, ADR 0037): se recalcula
+ * desde sus hechos con la industria y el costo de deuda de la corrida, sus
+ * hechos son del cierre del año base, y la deuda por arrendamientos que deriva
+ * es exactamente la claim `leaseDebt` del puente EV-equity.
+ */
+function checkCapitalization(input: ValuationInput): PolicyCheck[] {
+  const { capitalization, costOfCapital } = input;
+  const mismatches = capitalizationMismatches(capitalization, {
+    baseRevenue: input.baseRevenue.value,
+    industryKey: costOfCapital.industryKey,
+    preTaxCostOfDebt: costOfCapital.derived.preTaxCostOfDebt,
+  });
+
+  if (input.baseRevenue.asOf !== capitalization.baseFiscalYearEnd) {
+    mismatches.push("capitalization.baseFiscalYearEnd");
+  }
+
+  const leases = capitalization.leases.result;
+  const claim = input.bridge.leaseDebt;
+  const claimMatches =
+    leases.status === "capitalized"
+      ? claim.status === "reported" &&
+        claim.amount !== null &&
+        claim.amount.asOf === capitalization.baseFiscalYearEnd &&
+        parseDecimal(claim.amount.value, "bridge.leaseDebt").eq(
+          parseDecimal(leases.leaseDebt, "capitalization.leases.leaseDebt"),
+        )
+      : claim.status !== "reported";
+
+  if (!claimMatches) {
+    mismatches.push("bridge.leaseDebt");
+  }
+
+  return [
+    check(
+      "capitalization_recomputed",
+      "reject",
+      mismatches.length === 0,
+      "Capitalized leases and R&D must be the ones their dated facts derive, and the lease debt must be the bridge's leaseDebt claim.",
+      mismatches,
+    ),
+  ];
+}
+
 /** Checks que dependen sólo del snapshot: corren antes de calcular. */
 export function checkValuationInput(input: ValuationInput): PolicyCheck[] {
   const checks: PolicyCheck[] = [
     ...checkAssessment(input),
     ...checkCostOfCapital(input),
     ...checkQualitativeDecisions(input),
+    ...checkCapitalization(input),
   ];
 
   const mismatchedCurrency = listMonetaryFacts(input)

@@ -11,6 +11,11 @@ import {
 } from "@/modules/temporal/domain/temporal-version";
 
 import {
+  buildCapitalization,
+  capitalizationFactsFromSeries,
+  type Capitalization,
+} from "../domain/capitalization-bridge";
+import {
   buildAnnualFundamentals,
   chooseFiscalYearAnchor,
   type AnnualFundamentals,
@@ -168,6 +173,11 @@ export type CompanyAssessment = {
    * en su snapshot (`F5-06`).
    */
   readonly qualitativeDecisions: QualitativeDecisions;
+  /**
+   * Arrendamientos e I+D capitalizados con su puente (`F4-01`), tal como una
+   * corrida los congela. `null` sin serie anual o sin ventas del año base.
+   */
+  readonly capitalization: Capitalization | null;
 };
 
 function isVisible(
@@ -323,6 +333,26 @@ export async function assessCompany(
       completenessCheck(completeness, "structural_inputs").status === "met",
   });
 
+  const costOfCapital: CostOfCapitalResult = FINANCIAL_PROFILES.has(
+    selection.assetProfile ?? "",
+  )
+    ? {
+        // Un banco, una aseguradora o un REIT se valúan sobre el equity: un
+        // WACC con la tabla de no financieras sería un número que engaña.
+        status: "unsupported",
+        version: COST_OF_CAPITAL_VERSION,
+        missing: ["financial_profile_uses_cost_of_equity"],
+      }
+    : buildCostOfCapital({
+        // La moneda de los estados: la del libre de riesgo tiene que coincidir.
+        currency: series?.fiscalYears[0]?.items.revenue?.currency ?? "unknown",
+        industryKey: industry.status === "mapped" ? industry.industryKey : null,
+        listingCountry: request.listingCountry,
+        ...(await dependencies.costOfCapitalReadings(query)),
+        coverage: series === null ? null : latestInterestCoverage(series),
+        operationsMix,
+      });
+
   return {
     legalEntityId,
     query,
@@ -343,24 +373,53 @@ export async function assessCompany(
     selection,
     rigor: deriveRigorLevel(selection, completeness),
     qualitativeDecisions,
-    costOfCapital: FINANCIAL_PROFILES.has(selection.assetProfile ?? "")
-      ? {
-          // Un banco, una aseguradora o un REIT se valúan sobre el equity: un
-          // WACC con la tabla de no financieras sería un número que engaña.
-          status: "unsupported",
-          version: COST_OF_CAPITAL_VERSION,
-          missing: ["financial_profile_uses_cost_of_equity"],
-        }
-      : buildCostOfCapital({
-          // La moneda de los estados: la del libre de riesgo tiene que coincidir.
-          currency:
-            series?.fiscalYears[0]?.items.revenue?.currency ?? "unknown",
-          industryKey:
-            industry.status === "mapped" ? industry.industryKey : null,
-          listingCountry: request.listingCountry,
-          ...(await dependencies.costOfCapitalReadings(query)),
-          coverage: series === null ? null : latestInterestCoverage(series),
-          operationsMix,
-        }),
+    costOfCapital,
+    capitalization: assessCapitalization(
+      series,
+      request.fundamentalsSourceId,
+      industry.status === "mapped" ? industry.industryKey : null,
+      costOfCapital.status === "computed"
+        ? costOfCapital.costOfCapital.derived.preTaxCostOfDebt
+        : null,
+    ),
   };
+}
+
+/**
+ * La capitalización que una corrida congelaría al corte (`F4-01`): los hechos
+ * de la serie con la provenance de su fuente, la industria y el costo de deuda
+ * de la evaluación. Sin ventas del ejercicio base no hay materialidad que medir
+ * ni margen que publicar.
+ */
+function assessCapitalization(
+  series: AnnualFundamentals | null,
+  sourceId: string,
+  industryKey: string | null,
+  preTaxCostOfDebt: string | null,
+): Capitalization | null {
+  const revenue = series?.fiscalYears[0]?.items.revenue;
+
+  if (series === null || revenue === undefined) {
+    return null;
+  }
+
+  const facts = capitalizationFactsFromSeries(series, (item) => ({
+    value: item.value,
+    currency: item.currency ?? "USD",
+    unit: "monetary",
+    asOf: item.asOf,
+    availableAt: item.availableAt,
+    sourceId,
+    sourceDocumentId: item.sourceDocumentId,
+    observationId: item.observationId,
+    qualityFlags: [],
+  }));
+
+  return facts === null
+    ? null
+    : buildCapitalization(facts, {
+        baseRevenue: revenue.value,
+        industryKey,
+        preTaxCostOfDebt,
+      });
 }
