@@ -18,10 +18,7 @@ import {
   type MethodSelection,
 } from "../domain/method-selection";
 import { buildCostOfCapital } from "../domain/cost-of-capital";
-import {
-  QUALITATIVE_DECISIONS_VERSION,
-  qualitativeDecisionsSchema,
-} from "../domain/qualitative-decisions";
+import { qualitativeDecisionsSchema } from "../domain/qualitative-decisions";
 import { deriveRigorLevel } from "../domain/rigor-level";
 import { fixtureCostOfCapitalReadings } from "./fixture-cost-of-capital-readings";
 import {
@@ -176,7 +173,9 @@ export const DEMO_COST_OF_CAPITAL = DEMO_COST_OF_CAPITAL_RESULT.costOfCapital;
  * no hay mix de operaciones: el CRP es el del domicilio (`F5-06`).
  */
 export const DEMO_QUALITATIVE_DECISIONS = qualitativeDecisionsSchema.parse({
-  version: QUALITATIVE_DECISIONS_VERSION,
+  // Un snapshot `1.0.0`, sin evidencia web: la `1.1.0` lo sigue leyendo y la
+  // corrida de referencia conserva sus hashes.
+  version: "qualitative-decisions-1.0.0",
   industry: {
     basis: "owner_declaration",
     mappingVersion: "sic-damodaran-industry-1.1.0",

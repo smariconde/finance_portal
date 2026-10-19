@@ -58,7 +58,7 @@ function toEvidence(
     section: row.section,
     documentUrl: row.documentUrl,
     accessionNumber: row.accessionNumber,
-    documentAcceptedAt: row.documentAcceptedAt.toISOString(),
+    documentAcceptedAt: row.documentAcceptedAt?.toISOString() ?? null,
     sha256: row.sha256,
     byteLength: row.byteLength,
     truncated: row.truncated,
@@ -131,7 +131,10 @@ export function createPostgresIndustryResolutionRepository(
               section: item.section,
               documentUrl: item.documentUrl,
               accessionNumber: item.accessionNumber,
-              documentAcceptedAt: new Date(item.documentAcceptedAt),
+              documentAcceptedAt:
+                item.documentAcceptedAt === null
+                  ? null
+                  : new Date(item.documentAcceptedAt),
               sha256: item.sha256,
               byteLength: item.byteLength,
               truncated: item.truncated,

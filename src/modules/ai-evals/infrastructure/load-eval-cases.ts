@@ -8,7 +8,11 @@ import {
   DECLARED_INDUSTRY_GOLD,
   DECLARED_MIX_GOLD,
 } from "../application/declared-eval-gold";
-import { buildEvalCases, type EvalCase } from "../domain/eval-cases";
+import {
+  buildEvalCases,
+  type EvalCase,
+  type EvalWebResult,
+} from "../domain/eval-cases";
 
 import {
   loadEvalCorpusManifest,
@@ -21,7 +25,9 @@ import {
  * manifiesto que no es el `accession` declarado es un corpus viejo: se niega
  * antes de armar nada, para no medir contra otra evidencia que la que se cree.
  */
-export function loadEvalCases(): {
+export function loadEvalCases(
+  webResults?: ReadonlyMap<string, readonly EvalWebResult[]>,
+): {
   readonly manifest: EvalCorpusManifest;
   readonly cases: readonly EvalCase[];
 } {
@@ -54,6 +60,7 @@ export function loadEvalCases(): {
       exposureKeys: manifest.exposureKeys,
       industryGold: DECLARED_INDUSTRY_GOLD,
       mixGold: DECLARED_MIX_GOLD,
+      ...(webResults === undefined ? {} : { webResults }),
     }),
   };
 }

@@ -891,14 +891,20 @@ export const industryResolutionEvidence = pgTable(
     sourceId: varchar("source_id", { length: 64 }).notNull(),
     section: varchar("section", { length: 32 }).notNull(),
     documentUrl: text("document_url").notNull(),
-    accessionNumber: varchar("accession_number", { length: 20 }).notNull(),
-    documentAcceptedAt: instant("document_accepted_at").notNull(),
+    /** `null` para un resultado de búsqueda web (`F5-04`): no tiene filing. */
+    accessionNumber: varchar("accession_number", { length: 20 }),
+    documentAcceptedAt: instant("document_accepted_at"),
     sha256: char("sha256", { length: 64 }).notNull(),
     byteLength: integer("byte_length").notNull(),
     truncated: boolean("truncated").notNull(),
     excerpt: text("excerpt").notNull(),
   },
   (table) => [
+    // Un extracto de un filing nombra su filing; un resultado web, ninguno.
+    check(
+      "industry_resolution_evidence_filing_check",
+      sql`(${table.section} = 'web_search') = (${table.accessionNumber} is null) and (${table.section} = 'web_search') = (${table.documentAcceptedAt} is null)`,
+    ),
     primaryKey({
       name: "industry_resolution_evidence_pkey",
       columns: [table.resolutionId, table.evidenceId],

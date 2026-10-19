@@ -593,7 +593,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         export: "unknown",
         aiTransfer: "owner_accepted",
       },
-      technicalStatus: "spike_ready",
+      technicalStatus: "integrated",
       approvalStatus: "approved_personal",
       reviewedAt: AI_LAYER_RIGHTS_REVIEWED_AT,
       rightsReviewedAt: AI_LAYER_RIGHTS_REVIEWED_AT,

@@ -1,5 +1,9 @@
 import { assertAiTransferable } from "@/modules/ai/domain/ai-transfer";
 import type { LadderResult } from "@/modules/ai/application/run-model-ladder";
+import {
+  TAVILY_SOURCE_ID,
+  type WebSearchResult,
+} from "@/modules/ai/application/tavily-search";
 import type { AiTask } from "@/modules/ai/domain/ai-task";
 import { AI_MODEL_LADDER_VERSION } from "@/modules/ai/domain/model-ladder";
 import { SEC_SIC_TAXONOMY_ID } from "@/modules/classification/domain/sec-sic-classification";
@@ -31,6 +35,7 @@ import {
 import {
   INDUSTRY_RESOLUTION_PROMPT_VERSION,
   INDUSTRY_RESOLUTION_TASK,
+  industryWebQuery,
   type IndustryResolutionInput,
   type IndustryResolutionOutput,
 } from "../domain/industry-resolution-task";
@@ -55,6 +60,11 @@ import type {
  * Toda respuesta se guarda con `apply`, también la abstención; sólo una
  * aceptada se publica como aserción. Un dry run llama al modelo y no escribe,
  * como cualquier dry run de este proyecto gasta cuota.
+ *
+ * Desde `F5-04` la búsqueda web es el **último recurso**: entra sólo si no hay
+ * 10-K o Item 1 al corte, o si la escalera se abstuvo por evidencia
+ * insuficiente, y en ese caso la tarea se repite **una vez** con hasta cinco
+ * resultados agregados. La consulta lleva el nombre y las candidatas.
  */
 export const SEC_SOURCE_ID = "sec-edgar";
 
@@ -94,6 +104,24 @@ export type ResolveCompanyIndustryDependencies = {
   readonly now: () => string;
   readonly newId: () => string;
   readonly sha256: (text: string) => string;
+  /**
+   * La búsqueda web (`F5-04`). `null` si no salió —tope, kill switch, error—:
+   * la tarea sigue con lo que tiene. Sin esta dependencia no se busca.
+   */
+  readonly searchWeb?: (
+    query: string,
+  ) => Promise<readonly WebSearchResult[] | null>;
+};
+
+/** Por qué se buscó en la web: lo que el 10-K no dio. */
+export type WebSearchTrigger =
+  "no_annual_report" | "item_1_not_found" | "insufficient_evidence";
+
+export type WebSearchUse = {
+  readonly trigger: WebSearchTrigger;
+  readonly query: string;
+  /** `null` si la búsqueda no salió. */
+  readonly results: number | null;
 };
 
 export type SkipReason =
@@ -120,7 +148,9 @@ export type ResolveCompanyIndustryResult =
       readonly record: IndustryResolutionRecord;
       readonly evidence: readonly IndustryEvidenceRecord[];
       readonly ladder: LadderResult<IndustryResolutionOutput>;
-      readonly annualReport: SecAnnualReport;
+      /** `null` cuando la evidencia es sólo de la web. */
+      readonly annualReport: SecAnnualReport | null;
+      readonly webSearch: WebSearchUse | null;
       readonly written: boolean;
     };
 
@@ -212,67 +242,154 @@ export async function resolveCompanyIndustry(
     }
   }
 
-  if (annualReport === null) {
-    return skip("no_annual_report", base);
-  }
-
   const previous = await dependencies.repository.latestForSubject(
     request.legalEntityId,
   );
+  if (annualReport === null && dependencies.searchWeb === undefined) {
+    return skip("no_annual_report", base);
+  }
 
-  if (
-    !request.again &&
+  const askedBefore =
     previous !== null &&
     previous.resolution.sic === sic.code &&
-    previous.evidence.some(
-      (item) => item.accessionNumber === annualReport!.accessionNumber,
-    )
-  ) {
+    (annualReport === null
+      ? previous.evidence.every((item) => item.section === "web_search")
+      : previous.evidence.some(
+          (item) => item.accessionNumber === annualReport!.accessionNumber,
+        ));
+
+  if (!request.again && askedBefore) {
     return skip("already_asked", { ...base, previous, annualReport });
   }
 
-  const sections = extractTenKSections(
-    await dependencies.loadAnnualReport(annualReport),
-  );
+  const sections =
+    annualReport === null
+      ? null
+      : extractTenKSections(await dependencies.loadAnnualReport(annualReport));
+  const missing: WebSearchTrigger | null =
+    annualReport === null
+      ? "no_annual_report"
+      : sections!.business === null
+        ? "item_1_not_found"
+        : null;
 
-  if (sections.business === null) {
-    return skip("item_1_not_found", { ...base, annualReport });
+  if (missing !== null && dependencies.searchWeb === undefined) {
+    return skip(missing, { ...base, annualReport });
   }
 
-  const evidence: IndustryEvidenceRecord[] = [
-    sections.business,
-    ...(sections.segments === null ? [] : [sections.segments]),
-  ].map((section, index) => ({
-    evidenceId: `E${index + 1}`,
-    sourceId: SEC_SOURCE_ID,
-    section: section.section,
-    documentUrl: annualReport!.url,
-    accessionNumber: annualReport!.accessionNumber,
-    documentAcceptedAt: annualReport!.acceptedAt,
-    sha256: dependencies.sha256(section.text),
-    byteLength: section.byteLength,
-    truncated: section.truncated,
-    excerpt: section.text,
-  }));
+  const filingEvidence: IndustryEvidenceRecord[] =
+    missing !== null
+      ? []
+      : [
+          sections!.business!,
+          ...(sections!.segments === null ? [] : [sections!.segments]),
+        ].map((section, index) => ({
+          evidenceId: `E${index + 1}`,
+          sourceId: SEC_SOURCE_ID,
+          section: section.section,
+          documentUrl: annualReport!.url,
+          accessionNumber: annualReport!.accessionNumber,
+          documentAcceptedAt: annualReport!.acceptedAt,
+          sha256: dependencies.sha256(section.text),
+          byteLength: section.byteLength,
+          truncated: section.truncated,
+          excerpt: section.text,
+        }));
+  const ladderInput = (evidence: readonly IndustryEvidenceRecord[]) => {
+    // Antes de reservar nada: cada pieza tiene que poder viajar a un modelo.
+    assertAiTransferable(
+      evidence.map((item) => item.sourceId),
+      dependencies.registry,
+    );
 
-  // Antes de reservar nada: cada pieza tiene que poder viajar a un modelo.
-  assertAiTransferable(
-    evidence.map((item) => item.sourceId),
-    dependencies.registry,
-  );
+    return {
+      companyName: request.companyName,
+      sic: {
+        code: sic.code,
+        description: sicDescription(sic.label, sic.code),
+      },
+      candidates: mapping.candidates,
+      releaseIndustryKeys: new Set(release!.keys()),
+      evidence: evidence.map((item) => ({
+        evidenceId: item.evidenceId,
+        sourceId: item.sourceId,
+        section: item.section,
+        text: item.excerpt,
+      })),
+    };
+  };
+  const webQuery = industryWebQuery(request.companyName, mapping.candidates);
+  const webEvidence = async (
+    after: number,
+  ): Promise<{
+    readonly results: number | null;
+    readonly evidence: IndustryEvidenceRecord[];
+  }> => {
+    const results = await dependencies.searchWeb!(webQuery);
 
-  const ladder = await dependencies.runLadder(INDUSTRY_RESOLUTION_TASK, {
-    companyName: request.companyName,
-    sic: { code: sic.code, description: sicDescription(sic.label, sic.code) },
-    candidates: mapping.candidates,
-    releaseIndustryKeys: new Set(release!.keys()),
-    evidence: evidence.map((item) => ({
-      evidenceId: item.evidenceId,
-      sourceId: item.sourceId,
-      section: item.section,
-      text: item.excerpt,
-    })),
-  });
+    return {
+      results: results === null ? null : results.length,
+      evidence: (results ?? []).map((result, index) => ({
+        evidenceId: `E${after + index + 1}`,
+        sourceId: TAVILY_SOURCE_ID,
+        section: "web_search" as const,
+        documentUrl: result.url,
+        accessionNumber: null,
+        documentAcceptedAt: null,
+        sha256: dependencies.sha256(result.excerpt),
+        byteLength: new TextEncoder().encode(result.excerpt).byteLength,
+        truncated: result.truncated,
+        excerpt: result.excerpt,
+      })),
+    };
+  };
+
+  let evidence = filingEvidence;
+  let webSearch: WebSearchUse | null = null;
+  let ladder: LadderResult<IndustryResolutionOutput>;
+
+  if (missing !== null) {
+    const web = await webEvidence(0);
+    webSearch = { trigger: missing, query: webQuery, results: web.results };
+
+    if (web.evidence.length === 0) {
+      return skip(missing, { ...base, annualReport });
+    }
+
+    evidence = web.evidence;
+    ladder = await dependencies.runLadder(
+      INDUSTRY_RESOLUTION_TASK,
+      ladderInput(evidence),
+    );
+  } else {
+    ladder = await dependencies.runLadder(
+      INDUSTRY_RESOLUTION_TASK,
+      ladderInput(evidence),
+    );
+
+    if (
+      dependencies.searchWeb !== undefined &&
+      ladder.outcome === "abstained" &&
+      ladder.reason === "insufficient_evidence"
+    ) {
+      const web = await webEvidence(filingEvidence.length);
+      webSearch = {
+        trigger: "insufficient_evidence",
+        query: webQuery,
+        results: web.results,
+      };
+
+      if (web.evidence.length > 0) {
+        // La tarea se repite una sola vez. Los intentos de la primera quedan
+        // en el libro bajo su propio `task_run_id`.
+        evidence = [...filingEvidence, ...web.evidence];
+        ladder = await dependencies.runLadder(
+          INDUSTRY_RESOLUTION_TASK,
+          ladderInput(evidence),
+        );
+      }
+    }
+  }
 
   const resolvedAt = dependencies.now();
   const accepted = ladder.outcome === "accepted" ? ladder : null;
@@ -315,6 +432,7 @@ export async function resolveCompanyIndustry(
       evidence,
       ladder,
       annualReport,
+      webSearch,
       written: false,
     };
   }
@@ -342,6 +460,7 @@ export async function resolveCompanyIndustry(
     evidence,
     ladder,
     annualReport,
+    webSearch,
     written: true,
   };
 }

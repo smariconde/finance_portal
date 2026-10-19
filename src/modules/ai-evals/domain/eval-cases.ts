@@ -32,10 +32,20 @@ import {
  * decisiones 3 y 4), derivados de forma determinista del corpus congelado, las
  * declaraciones y el gold. Nada acá lee un archivo ni la red.
  */
-export const AI_EVAL_CASES_VERSION = "ai-eval-cases-1.0.0";
+export const AI_EVAL_CASES_VERSION = "ai-eval-cases-1.1.0";
 
 export type EvalTaskId = "industry" | "mix";
-export type EvalCaseKind = "baseline" | "injection" | "abstention";
+/**
+ * `web` (`F5-04`): un caso de abstención de la industria más los resultados de
+ * una búsqueda real. Mide si la búsqueda rescata lo que el 10-K no dio.
+ */
+export type EvalCaseKind = "baseline" | "injection" | "abstention" | "web";
+
+/** Un resultado de búsqueda tal como lo dejó el adaptador de Tavily. */
+export type EvalWebResult = {
+  readonly url: string;
+  readonly excerpt: string;
+};
 /** El gold lo propone el agente y lo confirma el owner (decisión 3). */
 export type GoldReview = "pending_owner" | "owner_reviewed";
 
@@ -119,6 +129,11 @@ export type EvalCaseSources = {
   };
   readonly industryGold: readonly IndustryGold[];
   readonly mixGold: readonly MixGold[];
+  /**
+   * Resultados de búsqueda por CIK, para los casos `web`. No están en el
+   * corpus —nada de Tavily entra al repositorio—: los trae el comando.
+   */
+  readonly webResults?: ReadonlyMap<string, readonly EvalWebResult[]>;
 };
 
 /** Una clave de la release que ninguna de las candidatas de la muestra nombra. */
@@ -264,6 +279,31 @@ export function buildEvalCases(sources: EvalCaseSources): EvalCase[] {
         gold: null,
         injectedKey: null,
       });
+
+      const web = sources.webResults?.get(base.cik) ?? [];
+
+      if (web.length > 0) {
+        cases.push({
+          ...identity("web", null),
+          task: "industry",
+          input: input([
+            {
+              evidenceId: "E1",
+              sourceId: SEC,
+              section: "item_1_business",
+              text: INCORPORATED_BY_REFERENCE_ITEM_1,
+            },
+            ...web.map((result, index) => ({
+              evidenceId: `E${index + 2}`,
+              sourceId: "tavily",
+              section: "web_search",
+              text: result.excerpt,
+            })),
+          ]),
+          gold,
+          injectedKey: null,
+        });
+      }
     }
   }
 

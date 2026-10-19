@@ -220,7 +220,7 @@ async function productionHashes(
   const industry = await industryRepository.latestForSubject(legalEntityId);
 
   for (const item of industry?.evidence ?? []) {
-    hashes.set(item.section, item.sha256);
+    if (item.section !== "web_search") hashes.set(item.section, item.sha256);
   }
 
   const mix = await mixRepository.latestForSubject(legalEntityId);

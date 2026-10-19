@@ -1,7 +1,18 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
-import { dirname } from "node:path";
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, join } from "node:path";
 import { parseArgs } from "node:util";
 
+import {
+  DECLARED_EVAL_DOCUMENTS,
+  DECLARED_EVAL_TARGETS,
+  DECLARED_INDUSTRY_EVAL_BASES,
+} from "@/modules/ai-evals/application/declared-eval-cases";
 import { rejudgeAttempt } from "@/modules/ai-evals/application/rejudge-attempt";
 import { runEvalCase } from "@/modules/ai-evals/application/run-eval-case";
 import {
@@ -11,6 +22,7 @@ import {
 import {
   AI_EVAL_CASES_VERSION,
   type EvalCase,
+  type EvalWebResult,
 } from "@/modules/ai-evals/domain/eval-cases";
 import { AI_EVAL_INJECTIONS_VERSION } from "@/modules/ai-evals/domain/eval-injections";
 import {
@@ -33,6 +45,10 @@ import {
   encodeOpenRouterBody,
   OPENROUTER_SOURCE_ID,
 } from "@/modules/ai/application/openrouter-chat";
+import {
+  searchTavily,
+  TAVILY_SOURCE_ID,
+} from "@/modules/ai/application/tavily-search";
 import { formatNanoUsd } from "@/modules/ai/domain/ai-spend";
 import { assertAiTransferable } from "@/modules/ai/domain/ai-transfer";
 import { worstCaseNanoUsd } from "@/modules/ai/domain/model-ladder";
@@ -41,9 +57,14 @@ import { syncDeclaredSourceRegistry } from "@/modules/ingestion/application/sync
 import { describeSourceRefusal } from "@/modules/ingestion/domain/source-budget";
 import { evaluateIngestionRights } from "@/modules/ingestion/domain/source-registry-entry";
 import { DEMO_SOURCE_REGISTRY } from "@/modules/ingestion/infrastructure/demo-source-registry";
-import { INDUSTRY_RESOLUTION_TASK } from "@/modules/valuation/domain/industry-resolution-task";
+import { industryCandidates } from "@/modules/valuation/domain/industry-mapping";
+import {
+  INDUSTRY_RESOLUTION_TASK,
+  industryWebQuery,
+} from "@/modules/valuation/domain/industry-resolution-task";
 import { OPERATIONS_MIX_TASK } from "@/modules/valuation/domain/operations-mix-task";
 import { getAiLayer } from "@/server/ai/get-ai-layer";
+import { getSourceEgressFetch } from "@/server/egress/get-source-egress-fetch";
 import { getSourceBudgetStore } from "@/server/persistence/get-source-budget-store";
 import { getSourceRegistryRepository } from "@/server/persistence/get-source-registry-repository";
 
@@ -63,6 +84,11 @@ import { getSourceRegistryRepository } from "@/server/persistence/get-source-reg
  * que avanza, así que una corrida que frena un tope se retoma sin repetir lo
  * medido. Gasta contra los mismos topes que una tarea —USD 0,10 por caso, USD
  * 1,00 y 100 requests por día—, marcado `eval` en el libro.
+ *
+ * Los casos `web` (`F5-04`) necesitan una búsqueda real por empresa: la primera
+ * corrida con `--apply` la hace (una request de Tavily cada una, de sus 10
+ * diarias) y la guarda junto al reporte, así cada escalón mide la misma
+ * evidencia. Ningún resultado de búsqueda entra al repositorio.
  */
 const { values } = parseArgs({
   options: {
@@ -90,8 +116,24 @@ function log(label: string, value: unknown): void {
   console.log(`${label.padEnd(26)} ${String(value)}`);
 }
 
-const { cases } = loadEvalCases();
-const caseById = new Map(cases.map((evalCase) => [evalCase.caseId, evalCase]));
+const WEB_CACHE = join(dirname(values.report), "web-results.json");
+
+function readWebCache(): Map<string, readonly EvalWebResult[]> {
+  if (!existsSync(WEB_CACHE)) return new Map();
+
+  return new Map(
+    Object.entries(
+      JSON.parse(readFileSync(WEB_CACHE, "utf8")) as Record<
+        string,
+        EvalWebResult[]
+      >,
+    ),
+  );
+}
+
+const webCache = readWebCache();
+let { cases } = loadEvalCases(webCache);
+let caseById = new Map(cases.map((evalCase) => [evalCase.caseId, evalCase]));
 
 function readReport(): EvalAttempt[] {
   if (!existsSync(values.report)) return [];
@@ -233,7 +275,12 @@ if (values.summary) {
       .join(" → ");
 
     for (const task of ["industry", "mix"] as const) {
-      for (const kind of ["baseline", "injection", "abstention"] as const) {
+      for (const kind of [
+        "baseline",
+        "injection",
+        "abstention",
+        "web",
+      ] as const) {
         const simulated = simulateLadder(
           scores.filter((s) => s.task === task && s.kind === kind),
           ladder,
@@ -288,25 +335,36 @@ for (const rung of rungs) {
 const done = new Set(
   measured.map((a) => `${a.variantId}|${a.caseId}|${a.rung}`),
 );
-const selected = cases.filter(
-  (evalCase) =>
-    tasks.includes(evalCase.task) &&
-    (values.kind.length === 0 || values.kind.includes(evalCase.kind)) &&
-    (values.case.length === 0 ||
-      values.case.some((prefix) => evalCase.caseId.startsWith(prefix))),
-);
-let work: { evalCase: EvalCase; rung: number }[] = rungs.flatMap((rung) =>
-  selected
-    .filter(
-      (evalCase) =>
-        !done.has(`${variant.variantId}|${evalCase.caseId}|${rung}`),
-    )
-    .map((evalCase) => ({ evalCase, rung })),
-);
+function planWork(): { evalCase: EvalCase; rung: number }[] {
+  const selected = cases.filter(
+    (evalCase) =>
+      tasks.includes(evalCase.task) &&
+      (values.kind.length === 0 || values.kind.includes(evalCase.kind)) &&
+      (values.case.length === 0 ||
+        values.case.some((prefix) => evalCase.caseId.startsWith(prefix))),
+  );
+  const pending = rungs.flatMap((rung) =>
+    selected
+      .filter(
+        (evalCase) =>
+          !done.has(`${variant!.variantId}|${evalCase.caseId}|${rung}`),
+      )
+      .map((evalCase) => ({ evalCase, rung })),
+  );
 
-if (values.limit !== undefined) {
-  work = work.slice(0, Number(values.limit));
+  return values.limit === undefined
+    ? pending
+    : pending.slice(0, Number(values.limit));
 }
+
+let work = planWork();
+const missingWeb =
+  tasks.includes("industry") &&
+  (values.kind.length === 0 || values.kind.includes("web"))
+    ? DECLARED_EVAL_TARGETS.industryAbstentions.filter(
+        (cik) => !webCache.has(cik),
+      )
+    : [];
 
 function worstCase(evalCase: EvalCase, rung: number): number {
   const step = variant!.ladder.find((candidate) => candidate.rung === rung)!;
@@ -335,8 +393,13 @@ log("corpus", AI_EVAL_CORPUS_VERSION);
 log("casos", `${AI_EVAL_CASES_VERSION} · ${AI_EVAL_INJECTIONS_VERSION}`);
 log("variante", variant.variantId);
 log("tareas · escalones", `${tasks.join(", ")} · ${rungs.join(", ")}`);
-log("ya medidos (se saltean)", selected.length * rungs.length - work.length);
 log("pendientes", work.length);
+log(
+  "búsquedas web pendientes",
+  missingWeb.length === 0
+    ? "ninguna"
+    : `${missingWeb.length} (sus casos web se suman al buscarlas)`,
+);
 log(
   "peor caso de lo pendiente",
   `USD ${formatNanoUsd(work.reduce((sum, item) => sum + worstCase(item.evalCase, item.rung), 0))}`,
@@ -354,7 +417,7 @@ if (!values.apply) {
   process.exit(0);
 }
 
-if (work.length === 0) {
+if (work.length === 0 && missingWeb.length === 0) {
   console.log("\nNada pendiente.");
   process.exit(0);
 }
@@ -396,6 +459,59 @@ await syncDeclaredSourceRegistry(
   DEMO_SOURCE_REGISTRY,
   getSourceRegistryRepository(),
 );
+
+// --------------------------------------------------------- búsquedas web
+if (missingWeb.length > 0) {
+  const webVerdict = await checkSourceBudget(
+    getSourceBudgetStore(),
+    TAVILY_SOURCE_ID,
+    missingWeb.length,
+    now,
+  );
+
+  if (webVerdict.status !== "allowed") {
+    fail(describeSourceRefusal(TAVILY_SOURCE_ID, webVerdict));
+  }
+
+  const webFetch = getSourceEgressFetch({
+    minIntervalMs: 1000,
+    maxRequests: missingWeb.length,
+  });
+
+  for (const cik of missingWeb) {
+    const document = DECLARED_EVAL_DOCUMENTS.find((d) => d.cik === cik)!;
+    const base = DECLARED_INDUSTRY_EVAL_BASES.find((b) => b.cik === cik)!;
+    const query = industryWebQuery(
+      document.companyName,
+      industryCandidates(base.sic.code) ?? [],
+    );
+    const result = await searchTavily(webFetch, query);
+
+    if (result.kind !== "completed") {
+      fail(
+        `Tavily respondió ${result.kind} (${result.status}) para ${document.ticker}.`,
+      );
+    }
+
+    webCache.set(
+      cik,
+      result.results.map((item) => ({ url: item.url, excerpt: item.excerpt })),
+    );
+    console.log(
+      `  búsqueda ${document.ticker.padEnd(6)} ${result.results.length} resultados · «${query}»`,
+    );
+  }
+
+  mkdirSync(dirname(WEB_CACHE), { recursive: true });
+  writeFileSync(
+    WEB_CACHE,
+    `${JSON.stringify(Object.fromEntries(webCache), null, 2)}\n`,
+    "utf8",
+  );
+  ({ cases } = loadEvalCases(webCache));
+  caseById = new Map(cases.map((evalCase) => [evalCase.caseId, evalCase]));
+  work = planWork();
+}
 
 // ------------------------------------------------------------------ medición
 mkdirSync(dirname(values.report), { recursive: true });

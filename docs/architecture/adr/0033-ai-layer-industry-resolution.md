@@ -241,9 +241,46 @@ superficie nueva: la evaluación existente la muestra.
    extracción de secciones del 10-K, prompt, policy, persistencia (migración),
    comando e integración con `valuation:assess`. Se mide sobre las 16 ambiguas de
    la muestra.
-3. **Tavily como segunda evidencia** (`F5-04`). Diferido el 2026-10-15: el 10-K
-   alcanzó en las 16 ambiguas y no hay caso real que medir. La condición de
-   reingreso está en el [backlog](../../backlog/README.md#f5-04).
+3. **Tavily como segunda evidencia** (`F5-04`). Diferido el 2026-10-15 porque
+   el 10-K alcanzó en las 16 ambiguas; reingresado por decisión del owner el
+   2026-10-19 y medido con los casos de abstención de los evals de la
+   [ADR 0035](0035-ai-layer-evals.md).
+
+## Incremento 3 — la búsqueda web (2026-10-19)
+
+Lo que la decisión 6 dejó dicho, precisado al implementarlo:
+
+- **Cuándo.** Sólo si no hay 10-K al corte (`no_annual_report`), si no tiene
+  Item 1 (`item_1_not_found`) o si la escalera se abstuvo con
+  `insufficient_evidence`. En los dos primeros la tarea corre con la web sola;
+  en el tercero se repite **una vez** con los resultados agregados después del
+  10-K, y los intentos de la primera vuelta quedan en el libro con su propio
+  `task_run_id`. Una búsqueda que no sale —tope, kill switch, error— no frena
+  la tarea: sigue con lo que tiene.
+- **La consulta** (`industry-web-query-1.0.0`): el nombre de la empresa y las
+  candidatas en palabras, nada más.
+- **El adaptador** (`tavily-search-1.0.0`): búsqueda básica de cinco resultados
+  sin respuesta generada, contenido crudo ni imágenes, fijados en código. Cada
+  extracto se recorta a 1.500 bytes; un resultado sin `https` o sin contenido se
+  descarta. **La URL nunca se abre**: es procedencia (`TM-08`).
+- **El prompt** (`industry-resolution-prompt-1.1.0`) nombra los resultados web
+  tan no confiables como un filing y prefiere el filing si discrepan; el cerco
+  es el mismo.
+- **Persistencia** (migración `0028`): un resultado web es evidencia
+  `web_search` de `tavily`, con su URL y sin `accession` ni instante de
+  aceptación, y una restricción exige que sólo ella no tenga filing.
+  `qualitative-decisions-1.1.0` lo congela en el snapshot igual; un snapshot
+  `1.0.0` se sigue leyendo con el mismo hash.
+
+**Medición.** Sobre los tres casos de abstención del corpus —el Item 1 de
+Salesforce, Charles River y Realty Income remitido a otro documento—, más sus
+búsquedas reales (tres requests de Tavily): Luna, el escalón 1 de
+`ai-model-ladder-1.1.0`, resolvió los tres correctamente; Gemini con esfuerzo
+bajo y Gemini, también; DeepSeek, uno. La escalera vigente los resuelve en su
+primer escalón por USD 0,0020 en total. El prompt `1.1.0` no movió nada en los
+31 casos de industria: 16 de 16, 12 de 12 con inyección y las tres abstenciones
+sin búsqueda se siguen absteniendo. Ningún resultado de búsqueda entra al
+repositorio: la medición queda en el reporte local de los evals.
 
 ## Consecuencias
 

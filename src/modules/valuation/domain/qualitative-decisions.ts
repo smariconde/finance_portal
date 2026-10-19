@@ -47,7 +47,15 @@ import { parsePrintedAmount, quoteHolds } from "./operations-mix-task";
  * diferencia: ninguna cifra del resultado sale de texto libre del modelo, y la
  * que sale de una propuesta se puede seguir hasta su cita.
  */
-export const QUALITATIVE_DECISIONS_VERSION = "qualitative-decisions-1.0.0";
+/**
+ * `1.1.0` (`F5-04`): la evidencia puede ser un resultado de búsqueda web, sin
+ * `accession`. Un snapshot `1.0.0` se sigue leyendo igual y su hash no cambia.
+ */
+export const QUALITATIVE_DECISIONS_VERSION = "qualitative-decisions-1.1.0";
+const READABLE_VERSIONS = [
+  "qualitative-decisions-1.0.0",
+  QUALITATIVE_DECISIONS_VERSION,
+] as const;
 
 const keySchema = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u);
 const sicSchema = z.string().regex(/^[0-9]{4}$/u);
@@ -56,17 +64,37 @@ const timestampSchema = z.iso.datetime({ offset: true });
 const versionSchema = z.string().min(1).max(64);
 
 /** Un extracto mandado al modelo, sin su texto: lo identifica su hash. */
-export const evidenceDigestSchema = z.object({
-  evidenceId: z.string().regex(/^E[0-9]{1,2}$/u),
-  sourceId: z.string().min(3).max(64),
-  section: z.enum(["item_1_business", "segment_note", "geographic_revenue"]),
-  documentUrl: z.url(),
-  accessionNumber: accessionSchema,
-  documentAcceptedAt: timestampSchema,
-  sha256: z.string().regex(/^[0-9a-f]{64}$/u),
-  byteLength: z.number().int().min(1),
-  truncated: z.boolean(),
-});
+export const evidenceDigestSchema = z
+  .object({
+    evidenceId: z.string().regex(/^E[0-9]{1,2}$/u),
+    sourceId: z.string().min(3).max(64),
+    section: z.enum([
+      "item_1_business",
+      "segment_note",
+      "geographic_revenue",
+      "web_search",
+    ]),
+    documentUrl: z.url(),
+    accessionNumber: accessionSchema.nullable(),
+    documentAcceptedAt: timestampSchema.nullable(),
+    sha256: z.string().regex(/^[0-9a-f]{64}$/u),
+    byteLength: z.number().int().min(1),
+    truncated: z.boolean(),
+  })
+  .superRefine((item, context) => {
+    const web = item.section === "web_search";
+
+    if (
+      web !== (item.accessionNumber === null) ||
+      web !== (item.documentAcceptedAt === null)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["accessionNumber"],
+        message: "A filing excerpt names its filing; a web result has none.",
+      });
+    }
+  });
 
 export type EvidenceDigest = z.infer<typeof evidenceDigestSchema>;
 
@@ -236,7 +264,7 @@ export const operationsMixDecisionSchema = z
 export type OperationsMixDecision = z.infer<typeof operationsMixDecisionSchema>;
 
 export const qualitativeDecisionsSchema = z.object({
-  version: z.literal(QUALITATIVE_DECISIONS_VERSION),
+  version: z.enum(READABLE_VERSIONS),
   /** `null` cuando la industria no quedó mapeada: entonces no hay WACC. */
   industry: industryDecisionSchema.nullable(),
   /** `null` sin mix: el CRP es el del domicilio, nunca cero. */
@@ -250,8 +278,8 @@ function digestOf(item: {
   readonly sourceId: string;
   readonly section: EvidenceDigest["section"];
   readonly documentUrl: string;
-  readonly accessionNumber: string;
-  readonly documentAcceptedAt: string;
+  readonly accessionNumber: string | null;
+  readonly documentAcceptedAt: string | null;
   readonly sha256: string;
   readonly byteLength: number;
   readonly truncated: boolean;
