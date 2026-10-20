@@ -2939,9 +2939,9 @@ transcripción por IA y denominador básicas + RSU. Hecho: el dominio puro
 (incremento 1), la transcripción medida sobre diez 10-K reales con migración
 `0030` y `pnpm valuation:employee-equity` (incremento 2, salvo sus casos en el
 corpus de evals), y las opciones en la corrida (`fcff-1.5.0`, metodología
-`0.11.0`). Pendiente: cablear la probabilidad de fracaso —el servidor de
-Damodaran no entrega la planilla Ginzu con la tabla por rating; el owner
-decidió cablear las opciones primero— y completar los evals.
+`0.11.0`). Pendiente: cablear la probabilidad de fracaso —en la medición
+anterior no pudo descargarse la planilla Ginzu con la tabla por rating; el owner
+decidió cablear las opciones primero— y confirmar el gold de los evals ya medidos.
 
 Incremento de evals (2026-10-20): `employee-equity-eval-cases-1.0.0` arma
 base, inyecciones aplicables y abstención a partir de una nota y gold explícitos;
@@ -2957,6 +2957,35 @@ Validación: 16 tests nuevos y 170 tests de evals pasan; la suite completa antes
 del último caso pasó con 2.538 tests; tipos, lint, formato y diff pasan.
 El build queda sin verificar en esta sesión: Turbopack no pudo abrir su puerto
 local aun con escalación y Webpack falló leyendo `tsc --showConfig`.
+
+Incremento de corpus y medición (2026-10-20): `ai-eval-corpus-1.1.0`
+agrega diez notas SEC recortadas por `sec-10k-equity-compensation-1.0.0` y
+veinte corroboraciones `companyconcept` del mismo filing y cierre, con URL,
+instante, bytes, hash y versión del parser. Se recapturaron los 25 10-K con
+45 requests en total: ninguna diferencia con producción y ningún extracto
+anterior modificado; el corpus completo ocupa 598,1 kB. Las propuestas de
+opciones medidas en una réplica anterior no están en la base personal: el gold
+se escribió leyendo estas notas y quedó `pending_owner`, sin sembrarlo de una
+respuesta del modelo. `ai-eval-cases-1.2.0` carga diez bases, nueve inyecciones
+y tres abstenciones. La simulación admite la escalera vigente medida
+directamente, además de las mediciones históricas que la seleccionaron.
+
+Medición provisional de `ai-model-ladder-1.1.0`: 34 intentos, USD 0,080276 en
+total. Las diez bases y las nueve inyecciones terminan aceptadas y coinciden
+con el gold propuesto: ocho bases y ocho inyecciones en el escalón 1, las
+restantes en el 2. Los tres casos sin nota se midieron en los cuatro escalones:
+ninguno fue aceptado (once abstenciones y una respuesta inválida por schema,
+JNJ en el escalón 4). Inyección filtrada = 0, aceptación sin evidencia = 0.
+No se cambió prompt, policy ni escalera. La corrección **no cierra el gate**
+hasta que el owner confirme las diez respuestas. Límites explícitos del gold:
+Ford conserva el strike desconocido y XOM transcribe el saldo total que no
+separa las unidades liquidadas en efectivo.
+
+Validación de este incremento: 217 tests de evals y 2.586 unit pasan, tipos,
+lint, formato y diff pasan; build de producción con `next build --webpack`
+pasa fuera del sandbox. El comando habitual con Turbopack sigue fallando al
+abrir su puerto local en este entorno. Sin cambios de UI ni migración.
+Siguiente: confirmar el gold y continuar con la tabla de fracaso.
 
 Cada arquetipo de `F4-06` es un slice propio con selector, inputs, fórmulas,
 fixtures independientes, diagnósticos y estado `experimental | reviewed | production`,

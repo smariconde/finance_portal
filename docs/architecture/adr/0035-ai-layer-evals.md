@@ -276,3 +276,23 @@ escalera.
   para ahorrar un día de espera.
 - **Juez de prosa por otro modelo.** Las dos tareas tienen respuesta cerrada y
   una cifra comprobable: no hay nada que un juez sepa mejor que una igualdad.
+
+## Extensión F4-05: opciones de empleados (2026-10-20)
+
+La ADR 0040 extiende el mismo contrato a `employee-equity-1.2.0`:
+
+- diez notas declaradas por filing, leídas con
+  `sec-10k-equity-compensation-1.0.0`, y veinte extractos reducidos de
+  `companyconcept` para corroborar cantidad y strike del mismo filing/cierre;
+- `ai-eval-corpus-1.1.0` conserva URL, instante, bytes, hash y versión de lector
+  o parser, sin guardar el documento ni el JSON completo;
+- `ai-eval-cases-1.2.0`: diez bases, nueve inyecciones y tres abstenciones;
+- `ai-eval-scoring-1.1.0` compara las cantidades normalizadas, strike y su
+  base, plazo y unidades; `lk` y `awe` de esta tarea son gates duros;
+- gold propuesto por lectura directa de las notas, `pending_owner` hasta
+  confirmación; las mediciones contra él se declaran provisorias;
+- misma escalera, mismo libro y mismos topes; se miden también todos los
+  escalones que un caso sin evidencia puede alcanzar.
+
+Los 63 casos previos no cambian; son 85 sin los casos web. No se propone
+cambiar la escalera por esta extensión.

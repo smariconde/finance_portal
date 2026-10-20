@@ -8,8 +8,8 @@
   [resolución de industria](industry-resolution.md),
   [mix de operaciones](operations-mix.md), [corpus congelado](golden-corpus.md)
 
-Los evals miden las dos tareas de la capa IA —`industry-resolution-1.0.0` y
-`operations-mix-1.0.0`— sobre un corpus congelado de extractos de 10-K: si
+Los evals miden las tres tareas de la capa IA —industria, mix de operaciones y
+opciones/unidades de empleados— sobre un corpus congelado de extractos de 10-K: si
 validan el schema, si aciertan contra un gold declarado, si citan bien, si se
 abstienen cuando la evidencia no alcanza, si un texto hostil las desvía y cuánto
 cuestan. Hay dos niveles:
@@ -27,8 +27,10 @@ pnpm ai:eval-capture             # el plan: documentos, secciones y requests; si
 pnpm ai:eval-capture --apply     # baja cada 10-K declarado, lo recorta y lo congela
 ```
 
-Una request a la SEC por documento (25). Cada 10-K se recorta con los lectores de
-las tareas —`sec-10k-sections-1.0.0` y `sec-10k-geographic-revenue-1.0.0`— y sólo
+Una request a la SEC por documento (25), más dos `companyconcept` por cada uno
+de los diez casos de opciones (20): **45 requests**. Cada 10-K se recorta con
+los lectores de las tareas —`sec-10k-sections-1.0.0`,
+`sec-10k-geographic-revenue-1.0.0` y `sec-10k-equity-compensation-1.0.0`— y sólo
 se guardan las secciones que algún caso lee; el documento entero no. El comando
 dice si algún extracto difiere del que guardó la corrida de producción
 (`distinto de producción`): si pasa, o el filer reemplazó el documento o un
@@ -58,9 +60,11 @@ pnpm ai:eval --task industry --kind injection --apply          # sólo los casos
 pnpm ai:eval --case mix/AAPL --apply                           # los casos de una empresa
 ```
 
-Cada caso va a **un** escalón. Son 63 casos, así que un escalón de las dos tareas
-son 63 requests contra los 100 diarios de `openrouter`, y la escalera vigente
-entera, 189: un barrido se reparte en varios días. El reporte
+Cada caso va a **un** escalón. Son 85 casos sin los casos web: 31 de industria,
+32 de mix y 22 de opciones. Un escalón completo son 85 requests contra los
+100 diarios de `openrouter`; los cuatro escalones de la vigente serían 340.
+Un barrido se reparte en varios días; se puede medir sólo una tarea o continuar
+con los casos que el escalón anterior no aceptó. El reporte
 (`.ai-evals/attempts.jsonl`, ignorado por git) se escribe a medida que avanza;
 cuando un tope frena la corrida, el mismo comando la retoma sin repetir lo
 medido. En el libro de gasto los intentos quedan con `purpose = 'eval'` y la
@@ -105,19 +109,36 @@ costo por caso aceptado sin empeorar lo demás (ADR 0035, decisión 7). Si gana,
 sale como versión nueva de la escalera, y las resoluciones guardadas conservan
 la versión con que se hicieron.
 
-## Extensión a opciones de empleados (`F4-05`, en curso)
+## Opciones de empleados (`F4-05`)
 
-El ejecutor y el rejuicio admiten `employee-equity`; su puntuación compara la
-lectura financiera normalizada: opciones, strike y su base, plazo y unidades
-sin consolidar. No compara la prosa ni exige idéntico formato decimal.
+```sh
+pnpm ai:eval --task employee-equity --variant ai-model-ladder-1.1.0 --rung 1 --report .ai-evals/employee-equity-attempts.jsonl
+pnpm ai:eval --task employee-equity --variant ai-model-ladder-1.1.0 --rung 1 --report .ai-evals/employee-equity-attempts.jsonl --apply
+pnpm ai:eval --summary --report .ai-evals/employee-equity-attempts.jsonl
+```
 
-`buildEmployeeEquityEvalCases` valida cada gold contra la policy y conserva su
-estado de revisión. Agrega inyecciones de unidades inventadas y plazo excesivo
-sólo si la respuesta base tiene esos campos, y una coerción de abstención.
-La aceptación de una inyección contenible o de un caso sin evidencia se mide
-como falla. Los casos sintéticos de tests prueban esa infraestructura sin red.
+El corpus `ai-eval-corpus-1.1.0` incluye las diez notas elegidas en
+`DECLARED_EMPLOYEE_EQUITY_EVAL_BASES`. Sus veinte corroboraciones XBRL guardan
+URL, instante de captura, bytes, hash y versión del parser; sólo conservan los
+valores del mismo `accession` y cierre fiscal. El archivo completo no se guarda.
+Un concepto ausente o con valores en conflicto es desconocido, nunca cero.
 
-Esta extensión todavía no se carga desde el corpus de producción: el comando
-sigue midiendo industria y mix. Faltan captura declarada de las notas reales,
-manifiesto, gold confirmado por el owner y medición en vivo. `--task employee-equity` falla con un motivo explícito mientras no tenga casos
-cargados; no informa una medición vacía como si hubiera pasado.
+El gold está en `declared-employee-equity-gold.ts`, con citas de las notas y
+`pending_owner` hasta confirmación explícita. El resumen sólo cuenta gold sin
+revisar de las tareas presentes en el reporte. La comparación usa opciones,
+strike y su base, plazo y unidades sin consolidar, normalizados por el mismo
+lector de la tarea. No compara prosa ni exige idéntico formato decimal.
+
+Son diez casos base, nueve inyecciones sobre JNJ, Ford e Incyte y tres
+abstenciones que reemplazan la nota por su extracto geográfico congelado.
+Las inyecciones conservan la nota original y piden inventar unidades, estirar
+la vida a 99 años o abstenerse. La policy debe contener las dos primeras;
+la tercera no mueve cifras. `lk` y `awe` de opciones deben permanecer en cero.
+Para probar el fallback también se miden los tres casos de abstención en los
+cuatro escalones. La simulación de la escalera usa sólo los escalones que
+habría alcanzado y suma costo y latencia de los intentos previos.
+
+Los tests offline verifican hashes, corroboraciones, gold contra su evidencia,
+lecturas esperadas, cerco de evidencia y respuestas sintéticas que obedecen
+las inyecciones. No llaman a un modelo. Las mediciones en vivo permanecen en
+el reporte local ignorado por Git; su resumen y limitaciones van al backlog.

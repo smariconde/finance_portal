@@ -206,3 +206,26 @@ conserva el estado de revisión del gold y mide las aceptaciones sin evidencia.
 Los tests usan una nota sintética: no reemplazan el corpus congelado ni miden
 al modelo. Captura real, gold confirmado y medición siguen pendientes del
 incremento 2; la tabla de fracaso sigue pendiente del incremento 3.
+
+## Corpus y medición de evals (2026-10-20)
+
+El corpus `ai-eval-corpus-1.1.0` congela las diez notas elegidas y veinte
+corroboraciones XBRL del mismo filing y cierre fiscal, con la procedencia de
+cada descarga. Una ausencia o un conjunto de valores contradictorios no se
+convierte en cero. `ai-eval-cases-1.2.0` agrega diez bases, nueve inyecciones
+sobre JNJ, Ford e Incyte y tres abstenciones con sus tablas geográficas como
+evidencia sin nota de compensación. Los extractos anteriores siguen idénticos.
+
+El gold fue escrito leyendo las notas congeladas, con cantidades y citas
+explícitas, en `declared-employee-equity-gold.ts`. Sigue `pending_owner`
+hasta confirmación (ADR 0035, decisión 3). En Ford el strike es desconocido;
+en XOM el saldo total publicado incluye unidades liquidadas en efectivo sin
+cantidad separada: se conserva esa limitación de la transcripción.
+
+Medición provisional: 34 intentos por USD 0,080276. La escalera vigente acepta
+diez de diez bases y nueve de nueve inyecciones con la lectura del gold; los
+tres casos sin nota, medidos en los cuatro escalones, nunca fueron aceptados.
+El escalón 4 emitió una respuesta inválida por schema para JNJ y se abstuvo
+en las otras dos; no equivale a tres abstenciones válidas. No se modificó
+prompt, policy ni escalera. Confirmar el gold sigue siendo requisito para
+cerrar la corrección; la integración de fracaso sigue pendiente.

@@ -307,3 +307,23 @@ export const DECLARED_EVAL_TARGETS = Object.freeze({
   mixInjections: ["0001018724", "0001045810", "0000200406"],
   mixAbstentions: ["0001108524", "0002115436", "0000879169"],
 });
+
+/** F4-05: ten deliberately selected compensation notes, not runtime output. */
+export const DECLARED_EMPLOYEE_EQUITY_EVAL_BASES = Object.freeze([
+  { cik: "0000200406", fiscalYearEnd: "2025-12-28" },
+  { cik: "0001108524", fiscalYearEnd: "2026-01-31" },
+  { cik: "0000018230", fiscalYearEnd: "2025-12-31" },
+  { cik: "0001682852", fiscalYearEnd: "2025-12-31" },
+  { cik: "0000320193", fiscalYearEnd: "2025-09-27" },
+  { cik: "0000037996", fiscalYearEnd: "2025-12-31" },
+  { cik: "0000879169", fiscalYearEnd: "2025-12-31" },
+  { cik: "0001053507", fiscalYearEnd: "2025-12-31" },
+  { cik: "0002115436", fiscalYearEnd: "2025-12-31" },
+  { cik: "0001045810", fiscalYearEnd: "2026-01-25" },
+]);
+
+/** Different scales, range-weighted life and unknown strike. */
+export const DECLARED_EMPLOYEE_EQUITY_TARGETS = Object.freeze({
+  injections: ["0000200406", "0000879169", "0000037996"],
+  abstentions: ["0000200406", "0000879169", "0000037996"],
+});

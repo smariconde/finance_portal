@@ -18,6 +18,7 @@
 - Revisado el 2026-10-15: `F5-03` mandó por primera vez evidencia de una fuente a un modelo —secciones dirigidas del 10-K—; `TM-09` pasa a implementado para esa tarea. La allowlist de la SEC suma `/Archives/edgar/data/` para los documentos de una presentación, con el nombre del documento exigido plano
 - Revisado el 2026-10-18: la ADR 0035 mide `TM-09` con evals de inyección, citas y abstención sobre las dos tareas; los evals gastan contra los mismos topes de `TM-10`, separados en el libro por `purpose`
 - Revisado el 2026-10-19: `F5-04` integra Tavily como último recurso de la industria; `TM-09` alcanza a la búsqueda web, `TM-08` se sostiene porque la URL de un resultado es procedencia y nunca se abre, y `TM-12` porque ninguna superficie muestra un resultado
+- Revisado el 2026-10-20: los evals de opciones (`F4-05`, ADR 0040) congelan diez notas SEC y corroboraciones del mismo filing, prueban inyecciones y ausencia de evidencia sobre la escalera vigente y mantienen gasto de eval en el libro existente; `TM-09`, `TM-10` y `TM-16` sin nueva frontera web. El gold sigue pendiente de confirmación del owner
 - Revisión obligatoria: antes de cada nueva frontera web, proveedor, export, capacidad IA o cambio de exposición
 
 ## Objetivo y método

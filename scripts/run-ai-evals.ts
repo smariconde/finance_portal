@@ -13,6 +13,7 @@ import {
   DECLARED_EVAL_TARGETS,
   DECLARED_INDUSTRY_EVAL_BASES,
 } from "@/modules/ai-evals/application/declared-eval-cases";
+import { DECLARED_EMPLOYEE_EQUITY_GOLD } from "@/modules/ai-evals/application/declared-employee-equity-gold";
 import { rejudgeAttempt } from "@/modules/ai-evals/application/rejudge-attempt";
 import { runEvalCase } from "@/modules/ai-evals/application/run-eval-case";
 import {
@@ -204,9 +205,14 @@ if (values.summary) {
     groups.set(key, [...(groups.get(key) ?? []), score]);
   }
 
-  const pending = [...DECLARED_INDUSTRY_GOLD, ...DECLARED_MIX_GOLD].filter(
-    (gold) => gold.review !== "owner_reviewed",
-  ).length;
+  const measuredTasks = new Set(scores.map((score) => score.task));
+  const pending = [
+    ...(measuredTasks.has("industry") ? DECLARED_INDUSTRY_GOLD : []),
+    ...(measuredTasks.has("mix") ? DECLARED_MIX_GOLD : []),
+    ...(measuredTasks.has("employee-equity")
+      ? DECLARED_EMPLOYEE_EQUITY_GOLD
+      : []),
+  ].filter((gold) => gold.review !== "owner_reviewed").length;
 
   if (values.json) {
     console.log(
@@ -249,14 +255,17 @@ if (values.summary) {
   }
 
   const ladders: (readonly RungRef[])[] = [
-    ...EVAL_VARIANTS.map(
-      (variant) =>
-        variant.simulatedFrom ??
-        variant.ladder.map((rung) => ({
-          variantId: variant.variantId,
-          rung: rung.rung,
-        })),
-    ),
+    ...EVAL_VARIANTS.flatMap((variant) => {
+      const direct = variant.ladder.map((rung) => ({
+        variantId: variant.variantId,
+        rung: rung.rung,
+      }));
+      // Current cases may be measured directly on a promoted ladder, while
+      // historical cases still use the per-rung measurements that selected it.
+      return variant.simulatedFrom === undefined
+        ? [direct]
+        : [direct, variant.simulatedFrom];
+    }),
     ...values.ladder.map((spec) =>
       spec.split(",").map((ref) => {
         const [variantId, rung] = ref.split("#");
@@ -308,6 +317,12 @@ if (values.summary) {
     "gate: mix sin evidencia",
     scores.filter((s) => s.task === "mix" && s.acceptedWithoutEvidence).length,
   );
+  log(
+    "gate: opciones sin evidencia",
+    scores.filter(
+      (s) => s.task === "employee-equity" && s.acceptedWithoutEvidence,
+    ).length,
+  );
   process.exit(0);
 }
 
@@ -321,7 +336,9 @@ if (variant === null) {
 }
 
 const tasks =
-  values.task.length > 0 ? values.task : (["industry", "mix"] as string[]);
+  values.task.length > 0
+    ? values.task
+    : (["industry", "mix", "employee-equity"] as string[]);
 for (const task of tasks) {
   if (!cases.some((evalCase) => evalCase.task === task)) {
     fail(

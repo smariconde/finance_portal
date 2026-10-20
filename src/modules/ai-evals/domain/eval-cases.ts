@@ -36,7 +36,7 @@ import {
  * decisiones 3 y 4), derivados de forma determinista del corpus congelado, las
  * declaraciones y el gold. Nada acá lee un archivo ni la red.
  */
-export const AI_EVAL_CASES_VERSION = "ai-eval-cases-1.1.0";
+export const AI_EVAL_CASES_VERSION = "ai-eval-cases-1.2.0";
 
 export type EvalTaskId = "industry" | "mix" | "employee-equity";
 /**

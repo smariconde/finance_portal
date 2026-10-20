@@ -26,7 +26,7 @@ import { z } from "zod";
  * El corpus **no vuelve a la red**: actualizarlo es correr
  * `pnpm ai:eval-capture --apply` y revisar el diff.
  */
-export const AI_EVAL_CORPUS_VERSION = "ai-eval-corpus-1.0.0";
+export const AI_EVAL_CORPUS_VERSION = "ai-eval-corpus-1.1.0";
 
 const CORPUS_DIR = join(dirname(fileURLToPath(import.meta.url)), "corpus");
 
@@ -36,6 +36,7 @@ export const EVAL_EXTRACT_SECTIONS = [
   "item_1_business",
   "segment_note",
   "geographic_revenue",
+  "equity_compensation",
 ] as const;
 
 export type EvalExtractSection = (typeof EVAL_EXTRACT_SECTIONS)[number];
@@ -69,6 +70,30 @@ export const evalCorpusDocumentSchema = z.object({
 
 export type EvalCorpusDocument = z.infer<typeof evalCorpusDocumentSchema>;
 
+/** Reduced companyconcept corroboration; only rows of the declared filing/end. */
+export const evalEmployeeXbrlSchema = z
+  .object({
+    cik: z.string().regex(/^[0-9]{10}$/u),
+    accessionNumber: z.string().regex(/^[0-9]{10}-[0-9]{2}-[0-9]{6}$/u),
+    fiscalYearEnd: z.iso.date(),
+    field: z.enum(["optionsOutstanding", "weightedStrike"]),
+    sourceUrl: z.url(),
+    fetchedAt: z.iso.datetime(),
+    status: z.union([z.literal(200), z.literal(404)]),
+    rawBytes: z.number().int().nonnegative(),
+    rawSha256: sha256Schema,
+    parserVersion: z.string().min(1),
+    values: z.array(z.string().regex(/^-?[0-9]+(?:\.[0-9]+)?$/u)),
+  })
+  .superRefine((row, ctx) => {
+    if (row.status === 404 && row.values.length > 0)
+      ctx.addIssue({
+        code: "custom",
+        path: ["values"],
+        message: "A missing concept carries no values.",
+      });
+  });
+
 export const evalCorpusManifestSchema = z.object({
   corpusVersion: z.literal(AI_EVAL_CORPUS_VERSION),
   sourceId: z.literal("sec-edgar"),
@@ -82,6 +107,7 @@ export const evalCorpusManifestSchema = z.object({
     regions: z.array(keySchema).min(1),
   }),
   documents: z.array(evalCorpusDocumentSchema),
+  employeeEquityXbrl: z.array(evalEmployeeXbrlSchema).default([]),
 });
 
 export type EvalCorpusManifest = z.infer<typeof evalCorpusManifestSchema>;
