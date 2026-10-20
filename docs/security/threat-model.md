@@ -21,6 +21,7 @@
 - Revisado el 2026-10-20: los evals de opciones (`F4-05`, ADR 0040) congelan diez notas SEC y corroboraciones del mismo filing, prueban inyecciones y ausencia de evidencia sobre la escalera vigente y mantienen gasto de eval en el libro existente; `TM-09`, `TM-10` y `TM-16` sin nueva frontera web. El owner confirmó las diez entradas del gold; el resumen offline cierra el gate con `lk = awe = 0`, sin nuevas llamadas
 - Revisado el 2026-10-20: `F4-05` incorpora la tabla de fracaso de Ginzu por una ruta exacta de Damodaran, normalizada y fechada sin conservar el libro (`TM-05`, `TM-08`, `TM-10`); el snapshot congela el parámetro y el motor lo aplica de nuevo en cada escenario y sensibilidad (`TM-06`, `TM-16`), con ausencia explícita para ratings fuera de la tabla
 - Revisión obligatoria: antes de cada nueva frontera web, proveedor, export, capacidad IA o cambio de exposición
+- Revisado el 2026-10-20: `F4-06` agrega un comando local de equity financiero desde un snapshot privado explícito, con schema cerrado y tamaño máximo de 512 kB; no abre egress ni llama a IA. `--apply` usa el guard personal y el repositorio append-only existentes (`TM-01`, `TM-06`, `TM-16`); escenarios y sensibilidad pasan los mismos checks. Sin frontera web nueva.
 
 ## Objetivo y método
 

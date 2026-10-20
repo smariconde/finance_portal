@@ -19,7 +19,7 @@ La aplicación está diseñada para responder preguntas como:
 
 ## Estado actual
 
-Las fases 0, 1 y 2 están cerradas. La **Fase 7 — matrices sectoriales de riesgo** está cerrada: `/sectores` muestra los sectores del S&P 500 y `/sectores/[sector]` compara Sortino a 2 y 5 años contra el S&P 500 Total Return, marca el acceso por CEDEAR y permite descargar un CSV personal con valores exactos, motivos de ausencia, parámetros y fuentes. Al abrir un sector, un job durable pide sólo los precios que faltan. El trabajo y su evidencia se siguen en el [roadmap](docs/finance-portal-masterplan/06_PHASED_ROADMAP.md) y el [backlog](docs/backlog/README.md); la matriz muestra una calidad operativa explicable con reconciliación interna. El siguiente slice es `F3-01` (selector determinista de arquetipo).
+Las fases 0, 1, 2, 7, 3 y 5 están cerradas. La **Fase 4 — motor Damodaran y arquetipos** está en curso: FCFF incorpora normalización, capitalización, escenarios, opciones y supervivencia; `F4-06` incorpora exceso de retorno experimental para bancos y aseguradoras. `/sectores` y `/sectores/[sector]` ofrecen la matriz Sortino a 2 y 5 años, referencia S&P 500 Total Return, acceso CEDEAR y export CSV personal; al abrir un sector, un job durable pide sólo los precios faltantes. El trabajo y su evidencia se siguen en el [roadmap](docs/finance-portal-masterplan/06_PHASED_ROADMAP.md) y el [backlog](docs/backlog/README.md).
 
 Los fundamentals de la SEC conservan `available_at`, vintages y re-expresiones; la identidad separa emisor, security, listing y símbolo, y los programas CEDEAR conectan instrumentos sin fusionarlos. El gate de Fase 2 audita el contrato point-in-time sobre datos reales y reconcilia 30 empresas contra sus filings. La valuación FCFF de referencia sigue siendo sintética y declarada como tal; la corrida por ticker real pertenece a fases posteriores.
 
@@ -37,6 +37,7 @@ Disponible hoy:
 - Splits verificados contra la SEC y lectura de series por acción en la última base conocible, con cada re-expresión clasificada como split o restatement.
 - Identidad separada en entidad legal, security, listing y símbolo, con programas depositarios y consultas `as_known` sin look-ahead.
 - Motor FCFF base en dominio puro con política decimal, policy checks, sensibilidad WACC/g y corridas reproducibles por hash.
+- Motor experimental de equity para bancos y aseguradoras, con escenarios y sensibilidad: `pnpm valuation:financial --file <snapshot-privado.json>`, sin red ni IA; `--apply` persiste en personal. La [ADR 0041](docs/architecture/adr/0041-financial-equity-excess-return.md) declara sus límites y rigor `screening`.
 - Corrida de referencia navegable en `/valuacion/referencia`, con provenance, freshness, supuestos, sensibilidad accesible y policy checks.
 - Matriz de riesgo por sector con precios diarios, referencia S&P 500 Total Return, cálculo versionado de Sortino, acceso CEDEAR y CSV de uso personal.
 - Actualización de precios al abrir un sector: job durable, lease por fuente, presupuesto diario y progreso visible.
@@ -47,7 +48,7 @@ Disponible hoy:
 - PRD, arquitectura ejecutable, registro inicial de fuentes y metodología de valuación derivados del masterplan.
 - Backlog ejecutable con dependencias, criterios de aceptación y trazabilidad de riesgos y deuda visual.
 
-Todavía no están implementados el refresh programado, la valuación por ticker real, las divergencias fundamentales, el tablero argentino ni las funciones de IA. Esas capacidades se incorporan por slices verificables; la interfaz no las presenta como disponibles antes de tiempo.
+Todavía no están implementados el refresh programado, el flujo de valuación por ticker real, las divergencias fundamentales ni el tablero argentino. La capa IA ya resuelve industria y mix geográfico bajo policy determinista y tiene evals; su uso desde la interfaz pertenece a slices posteriores. La interfaz sólo presenta las capacidades que tienen una superficie implementada.
 
 ## Experiencia objetivo
 
