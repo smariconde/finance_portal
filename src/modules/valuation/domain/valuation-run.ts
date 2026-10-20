@@ -151,7 +151,7 @@ export const valuationResultSchema = z.object({
     .array(bridgeComponentSchema)
     .length(BRIDGE_ITEM_KEYS.length),
   equityValue: engineDecimalSchema,
-  dilutedShares: engineDecimalSchema,
+  shareCount: engineDecimalSchema,
   valuePerShare: engineDecimalSchema,
   terminalValueShare: engineDecimalSchema.nullable(),
   sensitivity: sensitivityGridSchema.nullable(),
@@ -267,7 +267,7 @@ export function collectValuationProvenance(
 ): ValuationProvenance {
   const facts = [
     input.baseRevenue,
-    input.dilutedShares,
+    input.employeeEquity.sharesOutstanding,
     ...BRIDGE_ITEM_KEYS.map((key) => input.bridge[key].amount).filter(
       (amount) => amount !== null,
     ),

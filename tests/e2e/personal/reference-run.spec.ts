@@ -11,14 +11,14 @@ import { ROUTES } from "../support/runtime";
  * y que la evidencia que sostiene el número llegue completa al HTML.
  *
  * Los localizadores se anclan a la card o a la tabla que corresponde y no a un
- * texto suelto: varios valores —`13,55` entre ellos— aparecen a propósito en más
+ * texto suelto: varios valores —`13,39` entre ellos— aparecen a propósito en más
  * de un lugar de la página, y afirmar sobre el primero que aparezca probaría
  * cualquier cosa menos lo que dice el nombre del test.
  */
 const INPUT_HASH =
-  "df9ca00ad76e3f27a6ffa4966e0399c1be3e11a7fa78295c58b09b7c35c22ae0";
+  "0c888aaca4caf8f84d748c1f4f79fd4d7643f930ed1f577fe050a4977b370002";
 const RESULT_HASH =
-  "815f2f1c56cfa54ab249c7ccfccc2dd74f6faa64d4667ddaff80a595111e14c1";
+  "c52e22212614bc0d89b1415d7171047e037d8a15bec52c5ddb725e7de7729437";
 
 function cardWithHeading(page: Page, name: string | RegExp) {
   return page
@@ -63,10 +63,10 @@ test.describe("corrida de referencia", () => {
     await expect(
       headline.getByText("Valor por acción", { exact: true }),
     ).toBeVisible();
-    await expect(headline.getByText("13,55", { exact: true })).toBeVisible();
+    await expect(headline.getByText("13,39", { exact: true })).toBeVisible();
     // El valor redondeado es para leer; el exacto es para auditar. Los dos están.
     await expect(
-      headline.getByText("13.54613115387460161790309586190624"),
+      headline.getByText("13.38595823089633093010436561532236"),
     ).toBeVisible();
   });
 
@@ -98,8 +98,8 @@ test.describe("corrida de referencia", () => {
     // es una corrección de la primera corrida: son dos corridas.
     await expect(comparison.getByText("100.000.000")).toBeVisible();
     await expect(comparison.getByText("96.000.000")).toBeVisible();
-    await expect(comparison.getByText("14,17")).toBeVisible();
-    await expect(comparison.getByText("13,55")).toBeVisible();
+    await expect(comparison.getByText("14,01")).toBeVisible();
+    await expect(comparison.getByText("13,39")).toBeVisible();
 
     const shortHashes = await comparison
       .locator("code.numeric")
@@ -196,9 +196,9 @@ test.describe("corrida de referencia", () => {
         has: page.getByRole("rowheader", { name, exact: true }),
       });
 
-    await expect(rowOf("Bear")).toContainText("9,54");
-    await expect(rowOf("Base")).toContainText("13,55");
-    await expect(rowOf("Bull")).toContainText("17,56");
+    await expect(rowOf("Bear")).toContainText("9,38");
+    await expect(rowOf("Base")).toContainText("13,39");
+    await expect(rowOf("Bull")).toContainText("17,40");
     await expect(scenarios).toContainText(
       "Bear, base y bull quedan ordenados en valor por acción.",
     );

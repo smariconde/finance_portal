@@ -22,7 +22,7 @@ function candidate(mutate: (input: ValuationInput) => void) {
 describe("valuation input snapshot", () => {
   it("hashes the same snapshot to the same value", () => {
     expect(computeValuationInputHash(DEMO_VALUATION_INPUT)).toBe(
-      "df9ca00ad76e3f27a6ffa4966e0399c1be3e11a7fa78295c58b09b7c35c22ae0",
+      "0c888aaca4caf8f84d748c1f4f79fd4d7643f930ed1f577fe050a4977b370002",
     );
   });
 
@@ -82,11 +82,11 @@ describe("valuation input snapshot", () => {
       sourceId: "fixture-demo-fundamentals",
       qualityFlags: ["restated_by_source"],
     });
-    // Las acciones diluidas no salen del dataset que las restringe por
+    // Las acciones en circulación no salen del dataset que las restringe por
     // licencia: vienen de otro documento y lo dicen.
-    expect(DEMO_VALUATION_INPUT.dilutedShares.sourceDocumentId).toBe(
-      "fixtureco-2025-share-register",
-    );
+    expect(
+      DEMO_VALUATION_INPUT.employeeEquity.sharesOutstanding.sourceDocumentId,
+    ).toBe("fixtureco-2025-share-register");
   });
 
   it("refuses a claim amount without a reported status", () => {

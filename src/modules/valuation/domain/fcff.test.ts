@@ -58,11 +58,34 @@ describe("FCFF base engine", () => {
   it("bridges enterprise value to equity and to a per share value", () => {
     expect(base).toMatchObject({
       enterpriseValue: "187326639.423432520223788698273828",
-      equityValue: "169326639.423432520223788698273828",
-      dilutedShares: "12500000",
-      valuePerShare: "13.54613115387460161790309586190624",
+      // 187.326.639,42 + 12.000.000 de caja − 30.000.000 de deuda
+      // − 2.002.161,54 de opciones de empleados (`F4-05`).
+      equityValue: "167324477.8862041366263045701915295",
+      shareCount: "12500000",
+      valuePerShare: "13.38595823089633093010436561532236",
       terminalValueShare: "0.7303480805870639556002439680545067",
     });
+  });
+
+  it("subtracts exactly the employee option value that employeeEquity derives", () => {
+    const options = base.bridgeComponents.find(
+      (component) => component.key === "employeeOptions",
+    );
+
+    expect(options).toMatchObject({
+      status: "reported",
+      sign: "subtract",
+      value: DEMO_VALUATION_INPUT.employeeEquity.derived.options!.totalValue,
+    });
+  });
+
+  it("divides by shares outstanding plus unvested units, not by options", () => {
+    // 12.300.000 en circulación + 200.000 RSU; las 300.000 opciones ya
+    // restaron su valor del equity y no entran al denominador.
+    expect(DEMO_VALUATION_INPUT.employeeEquity.derived.shareCount).toBe(
+      "12500000",
+    );
+    expect(base.shareCount).toBe("12500000");
   });
 
   it("records a declared absence as an explicit zero with its rationale", () => {

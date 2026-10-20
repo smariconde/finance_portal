@@ -4,11 +4,9 @@ import {
   ZERO,
   type DecimalErrorCode,
 } from "@/modules/numeric/domain/decimal-policy";
-import {
-  calendarDaysBetween,
-  subtractCalendarYears,
-} from "@/modules/temporal/domain/calendar-date";
+import { subtractCalendarYears } from "@/modules/temporal/domain/calendar-date";
 
+import { MAX_GAP_CALENDAR_DAYS, selectCalendarWindow } from "./calendar-window";
 import { MetricInputError } from "./metric-input-error";
 import {
   TOTAL_RETURN_FORMULA_VERSION,
@@ -59,7 +57,7 @@ export const SORTINO_PARAMETERS = Object.freeze({
    * cierre extraordinario del mercado. Más que eso es `missing_period`, nunca un
    * retorno compuesto sobre una semana que falta.
    */
-  maxGapCalendarDays: 5,
+  maxGapCalendarDays: MAX_GAP_CALENDAR_DAYS,
 } as const);
 
 export const SORTINO_WINDOW_YEARS = [2, 5] as const;
@@ -135,34 +133,17 @@ export function sortino(input: SortinoInput): SortinoResult {
     marketDate,
   });
 
-  const known = [...input.closes]
-    .filter((close) => close.marketDate <= input.asOf)
-    .sort((left, right) => (left.marketDate < right.marketDate ? -1 : 1));
+  const selected = selectCalendarWindow({
+    asOf: input.asOf,
+    windowYears: input.windowYears,
+    closes: input.closes,
+  });
 
-  if (known.at(-1)?.marketDate !== input.asOf) {
-    return unavailable("no_close_at_as_of", known.at(-1)?.marketDate ?? null);
+  if (selected.status === "null") {
+    return unavailable(selected.reason, selected.marketDate);
   }
 
-  const baseIndex = known.findLastIndex(
-    (close) => close.marketDate <= window.windowStart,
-  );
-
-  if (baseIndex === -1) {
-    return unavailable("insufficient_history", known[0]?.marketDate ?? null);
-  }
-
-  const inWindow = known.slice(baseIndex);
-
-  for (let index = 1; index < inWindow.length; index += 1) {
-    const gap = calendarDaysBetween(
-      inWindow[index - 1]!.marketDate,
-      inWindow[index]!.marketDate,
-    );
-
-    if (gap > SORTINO_PARAMETERS.maxGapCalendarDays) {
-      return unavailable("missing_period", inWindow[index]!.marketDate);
-    }
-  }
+  const inWindow = selected.closes;
 
   const series = totalReturns(
     inWindow,

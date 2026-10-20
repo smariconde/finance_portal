@@ -1,8 +1,8 @@
 # Metodología de valuación
 
 - Estado: metodología objetivo; motor FCFF base implementado en `src/modules/valuation/`
-- Versión metodológica: 0.10.0 (la corrida lleva selección, completitud y rigor desde `F3-03`, el costo de capital construido desde `F3-06`, el riesgo país ponderado por operaciones desde `F5-05`, las decisiones cualitativas con la propuesta de la IA desde `F5-06` la capitalización de arrendamientos e I+D desde `F4-01` el techo del crecimiento terminal en la libre de riesgo desde `F4-02` la normalización reported/adjusted del ejercicio base desde `F4-03` y los escenarios bear/base/bull desde `F4-04`)
-- Versión de engine implementada: `fcff-1.4.0` (método `fcff_base`)
+- Versión metodológica: 0.11.0 (la corrida lleva selección, completitud y rigor desde `F3-03`, el costo de capital construido desde `F3-06`, el riesgo país ponderado por operaciones desde `F5-05`, las decisiones cualitativas con la propuesta de la IA desde `F5-06` la capitalización de arrendamientos e I+D desde `F4-01` el techo del crecimiento terminal en la libre de riesgo desde `F4-02` la normalización reported/adjusted del ejercicio base desde `F4-03` los escenarios bear/base/bull desde `F4-04` y las opciones y unidades de empleados desde `F4-05`)
+- Versión de engine implementada: `fcff-1.5.0` (método `fcff_base`)
 - Fecha: 2026-08-21; motor base entregado el 2026-08-24; niveles de rigor y alcance
   de la IA incorporados el 2026-09-04
 - Alcance inicial: FCFF para no financieras maduras o en transición
@@ -66,15 +66,17 @@ El nivel se deriva de la completitud medida, no se elige. La corrida persiste qu
 comprobación bajó el nivel, de modo que conseguir ese dato más adelante y volver a
 correr sea una acción concreta y no una intuición.
 
-## Motor implementado: `fcff-1.4.0`
+## Motor implementado: `fcff-1.5.0`
 
 `fcff-1.1.0` (`F4-01`) agrega al puente EV-equity la claim `leaseDebt`, la deuda
 por arrendamientos operativos que deriva la capitalización. `fcff-1.2.0`
 (`F4-02`) agrega la regla terminal `g <= risk_free_rate` (ver "Terminal
 value"). `fcff-1.3.0` (`F4-03`) exige que la deuda y la caja excedente del
 puente sean las que deriva la normalización. `fcff-1.4.0` (`F4-04`) valúa
-bear y bull enteros desde sus supuestos (ver "Escenarios y sensibilidad"); el
-resto del motor es el de `fcff-1.0.0`.
+bear y bull enteros desde sus supuestos (ver "Escenarios y sensibilidad").
+`fcff-1.5.0` (`F4-05`) resta las opciones de empleados vivas y divide por
+acciones en circulación más unidades no consolidadas (ver "Puente EV-equity");
+el resto del motor es el de `fcff-1.0.0`.
 
 El método `fcff_base` cubre `non_financial_mature` con N períodos explícitos
 —hasta 20— más un valor terminal. Cualquier otro `assetProfile` devuelve
@@ -805,13 +807,41 @@ equity_value = enterprise_value
              + excess_cash
              + non_operating_assets
              - debt
+             - lease_debt
              - minority_interest
              - other_claims
-value_per_share = equity_value / diluted_shares
+             - employee_options
+value_per_share = equity_value / (shares_outstanding + unvested_units)
 ```
 
 Las acciones deben ser positivas, ajustadas de forma compatible y fechadas. Una
 claim faltante no se presume cero sin evidencia.
+
+Desde `fcff-1.5.0` (`F4-05`, [ADR 0040](../architecture/adr/0040-failure-probability-employee-options.md),
+`employee-equity-claim-1.0.0`) el denominador ya no son las acciones diluidas
+del filing, que por treasury stock cuentan sólo las opciones en el dinero al
+precio promedio y nada de su valor temporal. Como Damodaran:
+
+- las **opciones vivas** se valúan con Black-Scholes, rendimiento de
+  dividendos y el precio ajustado por dilución (`option-value-dilution-1.0.0`),
+  con la volatilidad de cinco años de la serie de precios
+  (`equity-volatility-1.0.0`) y la libre de riesgo de la corrida, y se restan
+  como claim `employeeOptions`;
+- el denominador son las **acciones en circulación** de la carátula más
+  reciente (`shares-outstanding-cover-1.0.0`) más las **unidades no
+  consolidadas** (RSU y PSU); las opciones no entran, porque ya restaron su
+  valor;
+- cantidades, strike, plazo y unidades los transcribe la IA de la nota de
+  compensación en acciones del 10-K con cita literal, corroborados con el XBRL
+  del mismo 10-K (`employee-equity-1.2.0`); el código escala, promedia y
+  valúa. La transcripción aceptada se congela en el snapshot.
+
+`employee_equity_recomputed` (`reject`) recalcula el valor de las opciones y el
+denominador con la libre de riesgo de la corrida y exige que la claim del
+puente sea exactamente ese valor. Medido sobre seis empresas reales con su
+cotización de octubre de 2026: las opciones restan del 0,01 % (American Tower)
+al 6,05 % (Moderna) de la capitalización, y las unidades suman hasta un 4,64 %
+al denominador (Incyte).
 
 ## Costo de capital
 
@@ -878,7 +908,7 @@ correlaciones, seed persistido y tests.
 | WACC versus crecimiento terminal | `reject` si viola el buffer                                           |
 | crecimiento terminal versus rf   | `reject` si `g` supera la libre de riesgo de la corrida               |
 | normalización                    | `reject` si el libro o deuda y caja del puente no salen de sus hechos |
-| acciones diluidas                | `reject` si no son positivas o comparables                            |
+| acciones del denominador         | `reject` si no son positivas o comparables                            |
 | valores finitos                  | `reject` para NaN/Infinity/división inválida                          |
 | moneda y unidad                  | `reject` si se combinan sin conversión trazable                       |
 | reinversión y crecimiento        | `require_review` o `reject` si no son coherentes                      |
@@ -890,6 +920,7 @@ correlaciones, seed persistido y tests.
 | peso del terminal                | diagnóstico visible si excede el umbral versionado                    |
 | drivers de escenario             | `reject` si no cubren los períodos, la convención o no cambian nada   |
 | orden de escenarios              | `require_review` si no se cumple `bear <= base <= bull`               |
+| opciones y unidades              | `reject` si su valor o el denominador no salen de la transcripción    |
 
 Modos permitidos: `reject`, `require_review` y `autocorrect_with_trace`. Ninguna
 corrección es silenciosa; registra valor original, regla, valor nuevo y motivo.

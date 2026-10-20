@@ -87,7 +87,7 @@ describe("PostgreSQL valuation runs", () => {
     expect(stored.status).toBe("computed");
     // El decimal vuelve exactamente como se calculó: sin float intermedio.
     expect(stored.result?.valuePerShare).toBe(
-      "13.54613115387460161790309586190624",
+      "13.38595823089633093010436561532236",
     );
     expect(stored.result?.terminal.reinvestmentRate).toBe(
       "0.1666666666666666666666666666666667",

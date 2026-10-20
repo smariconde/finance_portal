@@ -187,12 +187,14 @@ describe("valuation policy checks", () => {
     });
   });
 
-  it.each(["0", "-1"])("rejects %s diluted shares", (shares) => {
+  it.each(["0", "-1"])("rejects a share count of %s", (shares) => {
     const input = draft((candidate) => {
-      candidate.dilutedShares.value = shares;
+      candidate.employeeEquity.derived.shareCount = shares;
     });
 
-    expect(failed(input, "diluted_shares_positive")?.status).toBe("failed");
+    // Escrito a mano no coincide con lo derivado, y además no es positivo.
+    expect(failed(input, "employee_equity_recomputed")?.status).toBe("failed");
+    expect(failed(input, "share_count_positive")?.status).toBe("failed");
   });
 
   it("rejects a terminal wacc that does not clear growth by the buffer", () => {
@@ -497,22 +499,23 @@ describe("valuation policy checks", () => {
 
   it("stops the run naming the failed checks and their field paths", () => {
     const input = draft((candidate) => {
-      candidate.dilutedShares.value = "0";
+      candidate.employeeEquity.derived.shareCount = "0";
       candidate.bridge.debt.amount!.currency = "ARS";
     });
     const checks = checkValuationInput(input);
 
-    expect(failedChecks(checks, "reject")).toHaveLength(2);
+    expect(failedChecks(checks, "reject")).toHaveLength(3);
 
     try {
       assertNoRejections(checks);
       throw new Error("Expected the rejections to stop the run.");
     } catch (error) {
       expect(isValuationPolicyError(error, "policy_check_failed")).toBe(true);
-      expect((error as Error).message).toContain("diluted_shares_positive");
+      expect((error as Error).message).toContain("share_count_positive");
       expect((error as { subjects: string[] }).subjects).toStrictEqual([
+        "employeeEquity.derived",
         "bridge.debt.amount",
-        "dilutedShares.value",
+        "employeeEquity.derived.shareCount",
       ]);
     }
   });

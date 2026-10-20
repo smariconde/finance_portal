@@ -37,8 +37,8 @@ test.describe("negativa del runtime trabado", () => {
     // contenido de la corrida puede aparecer, ni siquiera en el payload RSC.
     for (const leaked of [
       "FixtureCo",
-      "13,55",
-      "13.54613115387460161790309586190624",
+      "13,39",
+      "13.38595823089633093010436561532236",
       "fb0277d0",
       "b0c831f0",
       "Sensibilidad",

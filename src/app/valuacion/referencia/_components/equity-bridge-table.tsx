@@ -121,9 +121,9 @@ export function EquityBridgeTable({ run }: { run: ValuationRun }) {
               <TableCell className="text-muted-foreground whitespace-normal">
                 Dividido por{" "}
                 <span className="numeric text-foreground">
-                  {formatShares(result.dilutedShares)}
+                  {formatShares(result.shareCount)}
                 </span>{" "}
-                acciones diluidas da{" "}
+                acciones —en circulación más unidades no consolidadas— da{" "}
                 <span className="numeric text-foreground">
                   {formatAmount(result.valuePerShare)} {run.currency}
                 </span>{" "}

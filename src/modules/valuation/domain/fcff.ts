@@ -68,7 +68,8 @@ export type FcffComputation = {
   enterpriseValue: string;
   bridgeComponents: readonly BridgeComponent[];
   equityValue: string;
-  dilutedShares: string;
+  /** Acciones en circulación más unidades no consolidadas (`F4-05`). */
+  shareCount: string;
   valuePerShare: string;
   /** `null` cuando el enterprise value es cero y la proporción no existe. */
   terminalValueShare: string | null;
@@ -87,6 +88,7 @@ const BRIDGE_SIGNS: Record<BridgeItemKey, "add" | "subtract"> = {
   leaseDebt: "subtract",
   minorityInterest: "subtract",
   otherClaims: "subtract",
+  employeeOptions: "subtract",
 };
 
 export function computeFcff(
@@ -238,11 +240,15 @@ export function computeFcff(
     });
   }
 
-  const dilutedShares = parseDecimal(
-    input.dilutedShares.value,
-    "dilutedShares.value",
+  const shareCount = parseDecimal(
+    input.employeeEquity.derived.shareCount,
+    "employeeEquity.derived.shareCount",
   );
-  const valuePerShare = divide(equityValue, dilutedShares, "dilutedShares");
+  const valuePerShare = divide(
+    equityValue,
+    shareCount,
+    "employeeEquity.derived.shareCount",
+  );
 
   return {
     periods,
@@ -267,7 +273,7 @@ export function computeFcff(
     enterpriseValue: formatDecimal(enterpriseValue, "enterpriseValue"),
     bridgeComponents,
     equityValue: formatDecimal(equityValue, "equityValue"),
-    dilutedShares: formatDecimal(dilutedShares, "dilutedShares"),
+    shareCount: formatDecimal(shareCount, "shareCount"),
     valuePerShare: formatDecimal(valuePerShare, "valuePerShare"),
     terminalValueShare: enterpriseValue.isZero()
       ? null
