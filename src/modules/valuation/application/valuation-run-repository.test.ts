@@ -154,7 +154,7 @@ describe("valuation run repository contract", () => {
     expect(createValuationCacheIdentity("locked", inputHash)).toStrictEqual([
       "valuation",
       "locked",
-      "fcff-1.2.0",
+      "fcff-1.3.0",
       inputHash,
     ]);
     expect(

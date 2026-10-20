@@ -16,10 +16,16 @@ import {
   type Capitalization,
 } from "../domain/capitalization-bridge";
 import {
+  buildNormalization,
+  normalizationFactsFromSeries,
+  type Normalization,
+} from "../domain/normalization";
+import {
   buildAnnualFundamentals,
   chooseFiscalYearAnchor,
   type AnnualFundamentals,
   type FundamentalRow,
+  type LineItemValue,
 } from "../domain/annual-fundamentals";
 import {
   completenessCheck,
@@ -39,9 +45,11 @@ import type {
 import {
   buildCostOfCapital,
   COST_OF_CAPITAL_VERSION,
+  marginalTaxRateOf,
   type CostOfCapitalResult,
   type ReferenceReading,
 } from "../domain/cost-of-capital";
+import type { MonetaryFact } from "../domain/valuation-facts";
 import {
   industryDecisionOf,
   operationsMixReadingOf,
@@ -178,6 +186,12 @@ export type CompanyAssessment = {
    * corrida los congela. `null` sin serie anual o sin ventas del año base.
    */
   readonly capitalization: Capitalization | null;
+  /**
+   * La normalización del ejercicio base (`F4-03`), tal como una corrida la
+   * congela: capital invertido, deuda, caja, tasa y cargos no recurrentes.
+   * `null` sin capitalización.
+   */
+  readonly normalization: Normalization | null;
 };
 
 function isVisible(
@@ -353,6 +367,15 @@ export async function assessCompany(
         operationsMix,
       });
 
+  const capitalization = assessCapitalization(
+    series,
+    request.fundamentalsSourceId,
+    industry.status === "mapped" ? industry.industryKey : null,
+    costOfCapital.status === "computed"
+      ? costOfCapital.costOfCapital.derived.preTaxCostOfDebt
+      : null,
+  );
+
   return {
     legalEntityId,
     query,
@@ -374,14 +397,60 @@ export async function assessCompany(
     rigor: deriveRigorLevel(selection, completeness),
     qualitativeDecisions,
     costOfCapital,
-    capitalization: assessCapitalization(
+    capitalization,
+    normalization: assessNormalization(
       series,
       request.fundamentalsSourceId,
-      industry.status === "mapped" ? industry.industryKey : null,
+      capitalization,
       costOfCapital.status === "computed"
-        ? costOfCapital.costOfCapital.derived.preTaxCostOfDebt
+        ? marginalTaxRateOf(costOfCapital.costOfCapital)
         : null,
     ),
+  };
+}
+
+/**
+ * La normalización que una corrida congelaría al corte (`F4-03`): los mismos
+ * hechos de la serie, con su concepto, sobre la capitalización de la
+ * evaluación. Sin costo de capital no hay tasa marginal y la base lo nombra.
+ */
+function assessNormalization(
+  series: AnnualFundamentals | null,
+  sourceId: string,
+  capitalization: Capitalization | null,
+  marginalTaxRate: string | null,
+): Normalization | null {
+  const revenue = series?.fiscalYears[0]?.items.revenue;
+
+  if (series === null || revenue === undefined || capitalization === null) {
+    return null;
+  }
+
+  const facts = normalizationFactsFromSeries(series, (item) =>
+    seriesFact(item, sourceId),
+  );
+
+  return facts === null
+    ? null
+    : buildNormalization(facts, {
+        baseRevenue: revenue.value,
+        marginalTaxRate,
+        capitalization,
+      });
+}
+
+/** Una partida de la serie como hecho con la provenance de su fuente. */
+function seriesFact(item: LineItemValue, sourceId: string): MonetaryFact {
+  return {
+    value: item.value,
+    currency: item.currency ?? "USD",
+    unit: "monetary",
+    asOf: item.asOf,
+    availableAt: item.availableAt,
+    sourceId,
+    sourceDocumentId: item.sourceDocumentId,
+    observationId: item.observationId,
+    qualityFlags: [],
   };
 }
 
@@ -403,17 +472,9 @@ function assessCapitalization(
     return null;
   }
 
-  const facts = capitalizationFactsFromSeries(series, (item) => ({
-    value: item.value,
-    currency: item.currency ?? "USD",
-    unit: "monetary",
-    asOf: item.asOf,
-    availableAt: item.availableAt,
-    sourceId,
-    sourceDocumentId: item.sourceDocumentId,
-    observationId: item.observationId,
-    qualityFlags: [],
-  }));
+  const facts = capitalizationFactsFromSeries(series, (item) =>
+    seriesFact(item, sourceId),
+  );
 
   return facts === null
     ? null

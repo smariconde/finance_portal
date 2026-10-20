@@ -24,7 +24,7 @@ import { SEC_HISTORY_WINDOW_VERSION } from "./sec-history-window";
  *   a correr el CIK publica sólo lo nuevo. No sube la versión del parser, porque
  *   filtrar no cambia el contenido de un hecho ya publicado.
  */
-export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-4.0.0";
+export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-5.0.0";
 
 /**
  * Qué decide la versión. La 1.0.0 eran los mismos conceptos con toda la historia
@@ -33,6 +33,9 @@ export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-4.0.0";
  * 3.0.0 suma el **numerador de la EPS**, que faltaba. La 4.0.0 son los mismos
  * conceptos con la ventana `sec-history-5fy-2.0.0`, que conserva diez ejercicios
  * de I+D para capitalizarla, y la I+D sin la adquirida en proceso (ADR 0037).
+ * La 5.0.0 suma los cargos de reestructuración y deterioro que la normalización
+ * revierte cuando no se repiten, y la deuda no corriente que incluye los
+ * arrendamientos financieros (ADR 0038).
  * Con la versión y el ancla,
  * un período anterior al corte sigue siendo «no se fue a buscar». El test fija
  * los componentes: cambiar uno sin subir la versión lo rompe.
@@ -64,6 +67,15 @@ const US_GAAP = [
   "SellingGeneralAndAdministrativeExpense",
   "OperatingExpenses",
   "OperatingIncomeLoss",
+  // Resultado: cargos que la normalización revierte cuando no se repiten
+  // (5.0.0, ADR 0038). Los de deterioro se solapan entre filers —el agregado
+  // incluye el goodwill en unos y no en otros—, así que la regla toma uno solo
+  // por ejercicio y nunca los suma.
+  "RestructuringCharges",
+  "AssetImpairmentCharges",
+  "GoodwillAndIntangibleAssetImpairment",
+  "ImpairmentOfLongLivedAssetsHeldForUse",
+  "GoodwillImpairmentLoss",
   // Resultado: debajo del EBIT.
   "InterestExpense",
   "InterestExpenseNonoperating",
@@ -120,6 +132,9 @@ const US_GAAP = [
   "LongTermDebt",
   "LongTermDebtCurrent",
   "LongTermDebtNoncurrent",
+  // La no corriente con los arrendamientos financieros adentro: Exxon, American
+  // Tower y Charles River publican su deuda así (5.0.0).
+  "LongTermDebtAndCapitalLeaseObligations",
   "DebtCurrent",
   "CommercialPaper",
   "ShortTermBorrowings",

@@ -1,8 +1,8 @@
 # Metodología de valuación
 
 - Estado: metodología objetivo; motor FCFF base implementado en `src/modules/valuation/`
-- Versión metodológica: 0.8.0 (la corrida lleva selección, completitud y rigor desde `F3-03`, el costo de capital construido desde `F3-06`, el riesgo país ponderado por operaciones desde `F5-05`, las decisiones cualitativas con la propuesta de la IA desde `F5-06` la capitalización de arrendamientos e I+D desde `F4-01` y el techo del crecimiento terminal en la libre de riesgo desde `F4-02`)
-- Versión de engine implementada: `fcff-1.2.0` (método `fcff_base`)
+- Versión metodológica: 0.9.0 (la corrida lleva selección, completitud y rigor desde `F3-03`, el costo de capital construido desde `F3-06`, el riesgo país ponderado por operaciones desde `F5-05`, las decisiones cualitativas con la propuesta de la IA desde `F5-06` la capitalización de arrendamientos e I+D desde `F4-01` el techo del crecimiento terminal en la libre de riesgo desde `F4-02` y la normalización reported/adjusted del ejercicio base desde `F4-03`)
+- Versión de engine implementada: `fcff-1.3.0` (método `fcff_base`)
 - Fecha: 2026-08-21; motor base entregado el 2026-08-24; niveles de rigor y alcance
   de la IA incorporados el 2026-09-04
 - Alcance inicial: FCFF para no financieras maduras o en transición
@@ -66,12 +66,14 @@ El nivel se deriva de la completitud medida, no se elige. La corrida persiste qu
 comprobación bajó el nivel, de modo que conseguir ese dato más adelante y volver a
 correr sea una acción concreta y no una intuición.
 
-## Motor implementado: `fcff-1.2.0`
+## Motor implementado: `fcff-1.3.0`
 
 `fcff-1.1.0` (`F4-01`) agrega al puente EV-equity la claim `leaseDebt`, la deuda
 por arrendamientos operativos que deriva la capitalización. `fcff-1.2.0`
 (`F4-02`) agrega la regla terminal `g <= risk_free_rate` (ver "Terminal
-value"); el resto del motor es el de `fcff-1.0.0`.
+value"). `fcff-1.3.0` (`F4-03`) exige que la deuda y la caja excedente del
+puente sean las que deriva la normalización; el resto del motor es el de
+`fcff-1.0.0`.
 
 El método `fcff_base` cubre `non_financial_mature` con N períodos explícitos
 —hasta 20— más un valor terminal. Cualquier otro `assetProfile` devuelve
@@ -603,7 +605,71 @@ puente:
 Sin costo de deuda (CRM, CAT, NEM, MRNA no tienen cobertura de intereses para
 el rating sintético) los arrendamientos quedan `cost_of_debt_missing`.
 
+### `F4-03`: normalización reported/adjusted
+
+[ADR 0038](../architecture/adr/0038-reported-adjusted-normalization.md).
+`ValuationInput.normalization` (`normalization-1.0.0`) lleva los hechos del
+ejercicio base con provenance **y concepto**, lo que derivan cuatro reglas y un
+libro de ajustes:
+
+```text
+debt                     = primera receta que cierra (reported-debt-1.0.0)
+excess_cash              = caja + inversiones líquidas + títulos no corrientes
+invested_capital         = equity + minority_interest + debt − excess_cash
+invested_capital_adj     = invested_capital + Δ capitalización (F4-01)
+ebit_adj                 = ebit + arrendamientos + I+D + cargos no recurrentes
+nopat_adj                = ebit_adj × (1 − tasa efectiva, o la marginal)
+roic_adj                 = nopat_adj / invested_capital_adj
+sales_to_capital_adj     = ventas / invested_capital_adj
+```
+
+- **Deuda** (`reported-debt-1.0.0`): tres recetas que no se solapan, la
+  primera que cierra; los arrendamientos financieros se suman salvo que la no
+  corriente ya los incluya, y un préstamo igual al centavo a los vencimientos
+  corrientes es el mismo saldo dos veces. Sin receta, `unresolved`.
+- **Caja** (`excess-cash-1.0.0`): toda es excedente, títulos no corrientes
+  incluidos.
+- **Capital invertido** (`invested-capital-1.0.0`): lado de la financiación,
+  con goodwill, al cierre del ejercicio base.
+- **Tasa** (`base-tax-rate-1.0.0`): efectiva del año base; sin ella —resultado
+  antes de impuestos no positivo o tasa fuera de `[0, 1]`—, la marginal.
+- **Cargos** (`non-recurring-charge-1.0.0`): reestructuración y deterioro, un
+  concepto por ejercicio, revertidos sólo si ninguno de los cuatro ejercicios
+  anteriores tuvo uno.
+- **Compensación en acciones**: gasto; el libro la declara `not_applied` con su
+  monto.
+
+Cada entrada del libro declara destino (`ebit`, `invested_capital`, `debt`),
+estado, motivo, monto, ejercicio, regla con versión y las rutas de su
+evidencia. Los ajustes de arrendamientos e I+D se toman de la capitalización.
+El check `normalization_recomputed` (`reject`) recalcula todo desde los hechos
+con las ventas, la tasa marginal y la capitalización de la corrida, exige cada
+hecho de su cierre, y exige que `bridge.debt` y `bridge.excessCash` sean
+exactamente la deuda y la caja derivadas; sin ellas la claim no puede ser
+`reported`. Los ratios ajustados informan los supuestos, no los fijan.
+
+Medido el 2026-10-19 con `pnpm valuation:assess --offline` sobre 20 no
+financieras de la muestra (montos en millones):
+
+| Empresa | Deuda (receta)                    | Caja excedente | Capital ajustado | Cargos                       | EBIT → ajustado   |
+| ------- | --------------------------------- | -------------: | ---------------: | ---------------------------- | ----------------- |
+| AAPL    | 99.909 (total + corto plazo)      |        132.420 |          146.190 | —                            | 133.050 → 142.532 |
+| AMZN    | 81.577 (total + corto plazo)      |        123.029 |          458.865 | deterioro recurrente         | 79.975 → 84.063   |
+| NVDA    | 8.468 (corriente + no corriente)  |         10.605 |          196.122 | —                            | 130.387 → 141.395 |
+| CRM     | 14.974 (total + corto plazo)      |          7.327 |           78.079 | reestructuración recurrente  | 8.331 → 9.173     |
+| XOM     | 43.537 (corriente + no corriente) |         10.681 |          306.316 | —                            | no publicado      |
+| DVN     | 8.412 (duplicado excluido)        |          1.384 |           22.556 | deterioro de 254 revertido   | no publicado      |
+| F       | `unresolved`                      |         38.487 |     sin resolver | deterioro de 9.435 revertido | −9.169 → 2.593    |
+
+La deuda se resuelve en 14 de 20; Ford, Caterpillar, Deere, Incyte, Moderna y
+Norwegian no publican sin dimensiones lo que una receta necesita, y no se
+valúan hasta una declaración del owner con monto. FixtureCo deriva su deuda
+(30 M) y su caja (12 M) de su balance sintético y conserva su valor por acción.
+
 ## Normalización
+
+Implementada en `F4-03` (sección anterior) para el ejercicio base; la
+normalización a lo largo de un ciclo es de `F4-06` (cíclicas).
 
 Reported y normalized se preservan en paralelo. Cada ajuste declara monto,
 moneda, período, evidencia, regla y transformación versionada.
@@ -787,20 +853,21 @@ correlaciones, seed persistido y tests.
 
 ## Policy checks
 
-| Check                            | Resultado mínimo                                         |
-| -------------------------------- | -------------------------------------------------------- |
-| WACC versus crecimiento terminal | `reject` si viola el buffer                              |
-| crecimiento terminal versus rf   | `reject` si `g` supera la libre de riesgo de la corrida  |
-| acciones diluidas                | `reject` si no son positivas o comparables               |
-| valores finitos                  | `reject` para NaN/Infinity/división inválida             |
-| moneda y unidad                  | `reject` si se combinan sin conversión trazable          |
-| reinversión y crecimiento        | `require_review` o `reject` si no son coherentes         |
-| margen terminal                  | `require_review` fuera del rango sectorial sin evidencia |
-| tax rate y leverage              | `require_review` fuera de rango defendible               |
-| exposición país                  | `reject` si los pesos no suman 100% dentro de tolerancia |
-| decisiones cualitativas          | `reject` si industria o pesos no salen de la decisión    |
-| freshness e inputs               | `reject` o `require_review` según el método              |
-| peso del terminal                | diagnóstico visible si excede el umbral versionado       |
+| Check                            | Resultado mínimo                                                      |
+| -------------------------------- | --------------------------------------------------------------------- |
+| WACC versus crecimiento terminal | `reject` si viola el buffer                                           |
+| crecimiento terminal versus rf   | `reject` si `g` supera la libre de riesgo de la corrida               |
+| normalización                    | `reject` si el libro o deuda y caja del puente no salen de sus hechos |
+| acciones diluidas                | `reject` si no son positivas o comparables                            |
+| valores finitos                  | `reject` para NaN/Infinity/división inválida                          |
+| moneda y unidad                  | `reject` si se combinan sin conversión trazable                       |
+| reinversión y crecimiento        | `require_review` o `reject` si no son coherentes                      |
+| margen terminal                  | `require_review` fuera del rango sectorial sin evidencia              |
+| tax rate y leverage              | `require_review` fuera de rango defendible                            |
+| exposición país                  | `reject` si los pesos no suman 100% dentro de tolerancia              |
+| decisiones cualitativas          | `reject` si industria o pesos no salen de la decisión                 |
+| freshness e inputs               | `reject` o `require_review` según el método                           |
+| peso del terminal                | diagnóstico visible si excede el umbral versionado                    |
 
 Modos permitidos: `reject`, `require_review` y `autocorrect_with_trace`. Ninguna
 corrección es silenciosa; registra valor original, regla, valor nuevo y motivo.

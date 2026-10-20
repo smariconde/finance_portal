@@ -65,6 +65,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    37 | `F5-07`    | `done`     | Evals de injection, citas, abstención, schema, costo y corrección sobre las dos tareas de la capa IA.                                                                   | `F5-06`       |
 |    38 | `F4-01`    | `done`     | Capitalización de arrendamientos operativos e I+D con puente auditable sobre EBIT, capital invertido y deuda, recalculado por el motor.                                 | Fase 3        |
 |    39 | `F4-02`    | `done`     | Regla terminal `g <= risk_free_rate` en el check y en cada celda de la sensibilidad, con la libre de riesgo de la corrida; `fcff-1.2.0` sin reescribir corridas.        | `F4-01`       |
+|    40 | `F4-03`    | `done`     | Normalización reported/adjusted del ejercicio base: capital invertido, deuda, caja, tasa y cargos no recurrentes con libro de ajustes; el puente sale del libro.        | `F4-01`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -2849,6 +2850,51 @@ regla se persiste con el check y las rutas de campo, sin valores. Medido con
 (AAPL, JNJ, XOM). FixtureCo (libre de riesgo 4 %, `g` 2 %, eje hasta 4 %)
 conserva su valor por acción y cada celda; cambian sus hashes por la versión.
 Siguiente: `F4-03`.
+
+<a id="f4-03"></a>
+
+**`F4-03` — normalización reported/adjusted (cerrado el 2026-10-19).**
+[ADR 0038](../architecture/adr/0038-reported-adjusted-normalization.md), con
+cuatro decisiones del owner: capital invertido por el lado de la financiación,
+toda la caja como excedente, cargos de reestructuración y deterioro ingeridos y
+revertidos sólo si no se repiten, y deuda y caja del puente derivadas del libro.
+Tres incrementos:
+
+1. **Datos**: `sec-core-concepts-5.0.0` suma cinco conceptos de cargos y la no
+   corriente con arrendamientos financieros, elegidos con un sondeo de los 31
+   companyfacts que midió los solapamientos (el agregado de deterioro incluye
+   el goodwill en Carnival y no en otros; Norwegian etiqueta un acumulado como
+   cargo del año; Devon publica sus vencimientos dos veces).
+   `annual-fundamentals-1.2.0` agrega partidas propias para la deuda por
+   componente, los cargos, los títulos no corrientes y la compensación en
+   acciones, sin tocar las que leen la completitud. Reingesta de los 31 filers:
+   114 requests.
+2. **Dominio**: `reported-debt-1.0.0` (tres recetas que no se solapan),
+   `non-recurring-charge-1.0.0` (cuatro ejercicios sin el cargo),
+   `excess-cash-1.0.0`, `invested-capital-1.0.0`, `base-tax-rate-1.0.0` y el
+   libro `normalization-1.0.0`, puros, con casos de las formas medidas, nulos,
+   ceros, negativos y capital no positivo.
+3. **Corrida**: `ValuationInput.normalization`, el check
+   `normalization_recomputed` que exige `bridge.debt` y `bridge.excessCash`
+   iguales a los derivados, `fcff-1.3.0` y metodología `0.9.0`;
+   `pnpm valuation:assess --offline` imprime el libro.
+
+Criterios cumplidos: reported y ajustado en paralelo, y cada ajuste con monto,
+moneda, ejercicio, evidencia, regla y versión, también los que no se hacen
+(`TM-05`: deuda sin receta, caja ausente o tasa inexistente son `unresolved` o
+`null` con motivo, nunca cero; `TM-06`: cada hecho es del cierre que dice;
+`TM-16`: el motor recalcula y rechaza un monto escrito a mano). Medido sobre 20
+no financieras: deuda resuelta en 14, deterioro de Ford revertido (9.435 M) y
+la reestructuración de Salesforce leída como recurrente. FixtureCo conserva su
+valor por acción.
+
+Al cerrar, `pnpm gate:point-in-time` destapó 91 filas del sujeto de ExxonMobil
+con la aceptación corrida +4 h contra su documento guardado: 89 las publicó la
+reingesta de `F4-01` y 2 la de `F4-03`. El `submissions` del filer nuevo
+(CIK 0002115436) vino corrido sin ninguna aceptación fuera del horario de
+EDGAR, y `sec-acceptance-clock-1.1.0` lo leyó como sano; en una reingesta eso
+no sólo atrasa, publica revisiones con el mismo valor. Se arregla en un slice
+propio antes de `F4-04`.
 
 Cada arquetipo de `F4-06` es un slice propio con selector, inputs, fórmulas,
 fixtures independientes, diagnósticos y estado `experimental | reviewed | production`,

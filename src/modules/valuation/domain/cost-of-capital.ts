@@ -214,6 +214,19 @@ export const costOfCapitalSchema = z.object({
 
 export type CostOfCapital = z.infer<typeof costOfCapitalSchema>;
 
+/** La tasa marginal fechada del costo de capital: la del terminal y del escudo. */
+export function marginalTaxRateOf(costOfCapital: CostOfCapital): string {
+  const found = costOfCapital.parameters.find(
+    (parameter) => parameter.name === "marginal_tax_rate",
+  );
+
+  if (found === undefined) {
+    throw new Error("cost of capital parameter marginal_tax_rate is missing");
+  }
+
+  return found.value;
+}
+
 export type ReferenceReading = {
   readonly release: ReferenceRelease;
   readonly rows: readonly ReferenceRow[];

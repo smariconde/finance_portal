@@ -3,7 +3,8 @@ import { computeContentHash } from "@/modules/ingestion/domain/content-hash";
 import { divide, ONE, parseDecimal, ZERO, type Dec } from "./decimal-policy";
 import type { FcffComputation } from "./fcff";
 import { capitalizationMismatches } from "./capitalization-bridge";
-import { deriveCostOfCapital } from "./cost-of-capital";
+import { deriveCostOfCapital, marginalTaxRateOf } from "./cost-of-capital";
+import { normalizationMismatches } from "./normalization";
 import { qualitativeDecisionMismatches } from "./qualitative-decisions";
 import { deriveRigorLevel } from "./rigor-level";
 import { ValuationPolicyError } from "./valuation-error";
@@ -239,6 +240,65 @@ function checkCapitalization(input: ValuationInput): PolicyCheck[] {
   ];
 }
 
+/**
+ * La normalización no es un input crudo (`F4-03`, ADR 0038): se recalcula
+ * desde sus hechos con las ventas, la tasa marginal y la capitalización de la
+ * corrida, y la deuda y la caja del puente EV-equity son exactamente las que
+ * deriva. Sin deuda o caja resuelta la claim no puede ser `reported`: queda
+ * `missing`, que se rechaza, o declarada ausente por el owner con motivo.
+ */
+function checkNormalization(input: ValuationInput): PolicyCheck[] {
+  const { normalization } = input;
+  const mismatches = normalizationMismatches(normalization, {
+    baseRevenue: input.baseRevenue.value,
+    marginalTaxRate: marginalTaxRateOf(input.costOfCapital),
+    capitalization: input.capitalization,
+  });
+  const base = normalization.facts.baseFiscalYearEnd;
+
+  if (input.baseRevenue.asOf !== base) {
+    mismatches.push("normalization.facts.baseFiscalYearEnd");
+  }
+
+  const claimMatches = (
+    claim: ValuationInput["bridge"]["debt"],
+    derived: { status: "resolved"; total: string } | { status: "unresolved" },
+    path: string,
+  ) =>
+    derived.status === "resolved"
+      ? claim.status === "reported" &&
+        claim.amount !== null &&
+        claim.amount.asOf === base &&
+        parseDecimal(claim.amount.value, path).eq(
+          parseDecimal(derived.total, "normalization.total"),
+        )
+      : claim.status !== "reported";
+
+  if (!claimMatches(input.bridge.debt, normalization.debt, "bridge.debt")) {
+    mismatches.push("bridge.debt");
+  }
+
+  if (
+    !claimMatches(
+      input.bridge.excessCash,
+      normalization.excessCash,
+      "bridge.excessCash",
+    )
+  ) {
+    mismatches.push("bridge.excessCash");
+  }
+
+  return [
+    check(
+      "normalization_recomputed",
+      "reject",
+      mismatches.length === 0,
+      "The normalized base must be the one its dated facts derive, and debt and excess cash must be the bridge's claims.",
+      [...new Set(mismatches)],
+    ),
+  ];
+}
+
 /** Checks que dependen sólo del snapshot: corren antes de calcular. */
 export function checkValuationInput(input: ValuationInput): PolicyCheck[] {
   const checks: PolicyCheck[] = [
@@ -246,6 +306,7 @@ export function checkValuationInput(input: ValuationInput): PolicyCheck[] {
     ...checkCostOfCapital(input),
     ...checkQualitativeDecisions(input),
     ...checkCapitalization(input),
+    ...checkNormalization(input),
   ];
 
   const mismatchedCurrency = listMonetaryFacts(input)
