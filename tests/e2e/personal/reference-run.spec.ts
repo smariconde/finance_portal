@@ -16,9 +16,9 @@ import { ROUTES } from "../support/runtime";
  * cualquier cosa menos lo que dice el nombre del test.
  */
 const INPUT_HASH =
-  "dfaf340e216cca2e4e0f8e622dd1d479d642268aaf8b6f5dac52eb2289074e40";
+  "df9ca00ad76e3f27a6ffa4966e0399c1be3e11a7fa78295c58b09b7c35c22ae0";
 const RESULT_HASH =
-  "66e6ef2bc250a052a6255af255eb5ccf6788e3907353ccb8f733ab288fcc0a1d";
+  "815f2f1c56cfa54ab249c7ccfccc2dd74f6faa64d4667ddaff80a595111e14c1";
 
 function cardWithHeading(page: Page, name: string | RegExp) {
   return page
@@ -185,19 +185,39 @@ test.describe("corrida de referencia", () => {
     );
   });
 
-  test("marca bear, base y bull como planificados en vez de fabricarlos", async ({
+  test("muestra bear, base y bull valuados con los drivers que cambian", async ({
     page,
   }) => {
-    const scenarios = page
-      .locator("section")
-      .filter({
-        has: page.getByRole("heading", {
-          name: "Escenarios bear, base y bull",
-        }),
-      })
-      .first();
+    const scenarios = cardWithHeading(page, "Escenarios bear, base y bull");
+    // La primera tabla de la card es el rango; cada escenario tiene la suya.
+    const range = scenarios.locator("table").first();
+    const rowOf = (name: string) =>
+      range.getByRole("row").filter({
+        has: page.getByRole("rowheader", { name, exact: true }),
+      });
 
-    await expect(scenarios.getByText("Estado: Planificado")).toBeVisible();
+    await expect(rowOf("Bear")).toContainText("9,54");
+    await expect(rowOf("Base")).toContainText("13,55");
+    await expect(rowOf("Bull")).toContainText("17,56");
+    await expect(scenarios).toContainText(
+      "Bear, base y bull quedan ordenados en valor por acción.",
+    );
+    await expect(scenarios).toContainText("No son probabilidades");
+
+    const bearDrivers = scenarios.locator("section").filter({
+      has: page.getByRole("heading", { name: "Qué cambia en el bear" }),
+    });
+    const terminalRoic = bearDrivers.getByRole("row").filter({
+      has: page.getByRole("rowheader", {
+        name: "Retorno sobre el capital terminal",
+      }),
+    });
+
+    await expect(terminalRoic).toContainText("12,0 %");
+    await expect(terminalRoic).toContainText("9,0 %");
+    await expect(terminalRoic).toContainText(
+      "el retorno sobre el capital converge al costo de capital",
+    );
   });
 
   test("las tablas anchas desplazan dentro de su contenedor", async ({

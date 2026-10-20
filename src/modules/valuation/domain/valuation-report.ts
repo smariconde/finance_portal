@@ -1,4 +1,9 @@
 import { formatDecimal, parseDecimal } from "./decimal-policy";
+import {
+  materializeScenario,
+  type ScenarioDriverKey,
+  type ScenarioKey,
+} from "./scenarios";
 import { BRIDGE_ITEM_KEYS, type BridgeItemKey } from "./valuation-input";
 import type { ValuationRun } from "./valuation-run";
 
@@ -374,5 +379,149 @@ export function annotateSensitivity(
     rows,
     baseIsComparable,
     baseValuePerShare,
+  };
+}
+
+export type ScenarioReadingRow = {
+  key: ScenarioKey | "base";
+  valuePerShare: string;
+  /** Diferencia contra la base en valor por acción; `null` para la base. */
+  deltaVsBase: string | null;
+  enterpriseValue: string;
+  equityValue: string;
+  terminalValueShare: string | null;
+  /** IDs de los checks de revisión que no pasaron en ese conjunto. */
+  reviewCheckIds: readonly string[];
+};
+
+export type ScenarioDriverReading = {
+  driver: ScenarioDriverKey;
+  /** Un valor por período explícito, o uno solo para un driver terminal. */
+  baseValues: readonly string[];
+  scenarioValues: readonly string[];
+  rationale: string;
+};
+
+export type ScenarioReading = {
+  version: string;
+  /** Bear, base y bull, en ese orden. */
+  rows: readonly ScenarioReadingRow[];
+  drivers: Record<
+    ScenarioKey,
+    { thesis: string; changes: readonly ScenarioDriverReading[] }
+  >;
+  orderCheck: {
+    status: "passed" | "failed";
+    subjects: readonly string[];
+  } | null;
+};
+
+function driverValues(
+  input: ValuationRun["input"],
+  driver: ScenarioDriverKey,
+): string[] {
+  switch (driver) {
+    case "revenueGrowth":
+      return input.periods.map((period) => period.revenueGrowth);
+    case "ebitMargin":
+      return input.periods.map((period) => period.ebitMargin);
+    case "salesToCapital":
+    case "returnOnCapital":
+      return input.periods.map((period) =>
+        period.reinvestment.convention === "sales_to_capital"
+          ? period.reinvestment.salesToCapital
+          : period.reinvestment.returnOnCapital,
+      );
+    case "terminalGrowth":
+      return [input.terminal.growth];
+    case "terminalEbitMargin":
+      return [input.terminal.ebitMargin];
+    case "terminalReturnOnCapital":
+      return [input.terminal.returnOnCapital];
+  }
+}
+
+/**
+ * Lectura de bear/base/bull (`F4-04`): el valor de cada conjunto, su
+ * diferencia contra la base y, por escenario, cada driver que cambia con el
+ * valor de la base al lado. Los valores del escenario se leen del snapshot
+ * materializado, el mismo que el motor valuó, así que la tabla no puede
+ * mostrar un supuesto distinto del que produjo el número.
+ */
+export function readScenarios(run: ValuationRun): ScenarioReading | null {
+  const result = run.result;
+  const declared = run.input.scenarios;
+
+  if (result === null || result.scenarios === null || declared === null) {
+    return null;
+  }
+
+  const base = parseDecimal(result.valuePerShare, "valuePerShare");
+  const reviewIds = (
+    checks: readonly { id: string; mode: string; status: string }[],
+  ) =>
+    checks
+      .filter(
+        (entry) => entry.mode === "require_review" && entry.status === "failed",
+      )
+      .map((entry) => entry.id);
+
+  const scenarioRow = (key: ScenarioKey): ScenarioReadingRow => {
+    const outcome = result.scenarios![key];
+
+    return {
+      key,
+      valuePerShare: outcome.valuePerShare,
+      deltaVsBase: formatDecimal(
+        parseDecimal(outcome.valuePerShare, `scenarios.${key}`).minus(base),
+        `scenarios.${key}.deltaVsBase`,
+      ),
+      enterpriseValue: outcome.enterpriseValue,
+      equityValue: outcome.equityValue,
+      terminalValueShare: outcome.terminalValueShare,
+      reviewCheckIds: reviewIds(outcome.checks),
+    };
+  };
+
+  const driverChanges = (key: ScenarioKey) => {
+    const scenario = declared[key];
+    const materialized = materializeScenario(run.input, scenario);
+
+    return {
+      thesis: scenario.thesis,
+      changes: scenario.drivers.map((driver) => ({
+        driver: driver.driver,
+        baseValues: driverValues(run.input, driver.driver),
+        scenarioValues: driverValues(materialized, driver.driver),
+        rationale: driver.rationale,
+      })),
+    };
+  };
+
+  const orderCheck =
+    result.checks.find((entry) => entry.id === "scenario_value_order") ?? null;
+
+  return {
+    version: result.scenarios.version,
+    rows: [
+      scenarioRow("bear"),
+      {
+        key: "base",
+        valuePerShare: result.valuePerShare,
+        deltaVsBase: null,
+        enterpriseValue: result.enterpriseValue,
+        equityValue: result.equityValue,
+        terminalValueShare: result.terminalValueShare,
+        reviewCheckIds: reviewIds(
+          result.checks.filter((entry) => entry.id !== "scenario_value_order"),
+        ),
+      },
+      scenarioRow("bull"),
+    ],
+    drivers: { bear: driverChanges("bear"), bull: driverChanges("bull") },
+    orderCheck:
+      orderCheck === null
+        ? null
+        : { status: orderCheck.status, subjects: orderCheck.subjects },
   };
 }

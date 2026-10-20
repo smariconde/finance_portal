@@ -23,6 +23,7 @@ import {
 import { costOfCapitalSchema } from "./cost-of-capital";
 import { listNormalizationFacts, normalizationSchema } from "./normalization";
 import { qualitativeDecisionsSchema } from "./qualitative-decisions";
+import { scenarioSetSchema } from "./scenarios";
 import { valuationAssessmentSchema } from "./valuation-assessment";
 import { ValuationPolicyError } from "./valuation-error";
 
@@ -43,10 +44,13 @@ export const VALUATION_METHOD = "fcff_base";
  * de la corrida, en el check y en cada celda de la sensibilidad.
  * `fcff-1.3.0` (`F4-03`, ADR 0038): la deuda y la caja del puente EV-equity
  * son las que deriva la normalización del ejercicio base.
+ * `fcff-1.4.0` (`F4-04`, ADR 0039): bear y bull se valúan enteros desde sus
+ * supuestos, con los mismos checks que la base, y un desorden de los tres
+ * valores por acción pide revisión.
  */
-export const ENGINE_VERSION = "fcff-1.3.0";
+export const ENGINE_VERSION = "fcff-1.4.0";
 /** Debe seguir a `docs/valuation/methodology.md`. */
-export const METHODOLOGY_VERSION = "0.9.0";
+export const METHODOLOGY_VERSION = "0.10.0";
 
 const rationaleSchema = z.string().trim().min(1).max(512);
 
@@ -260,6 +264,12 @@ export const valuationInputSchema = z
     bridge: equityBridgeSchema,
     dilutedShares: shareCountFactSchema,
     sensitivity: sensitivitySpecSchema.nullable(),
+    /**
+     * Bear y bull como conjuntos de supuestos (`F4-04`): cada uno declara qué
+     * drivers cambian respecto de esta base y por qué, y el motor lo valúa
+     * entero. `null` es una corrida con un único conjunto de supuestos.
+     */
+    scenarios: scenarioSetSchema.nullable(),
   })
   .superRefine((input, context) => {
     input.periods.forEach((period, index) => {

@@ -38,13 +38,13 @@ describe("runValuation", () => {
     expect(outcome).toMatchObject({
       status: "computed",
       method: "fcff_base",
-      engineVersion: "fcff-1.3.0",
-      methodologyVersion: "0.9.0",
+      engineVersion: "fcff-1.4.0",
+      methodologyVersion: "0.10.0",
       currency: "USD",
       inputHash:
-        "dfaf340e216cca2e4e0f8e622dd1d479d642268aaf8b6f5dac52eb2289074e40",
+        "df9ca00ad76e3f27a6ffa4966e0399c1be3e11a7fa78295c58b09b7c35c22ae0",
       resultHash:
-        "66e6ef2bc250a052a6255af255eb5ccf6788e3907353ccb8f733ab288fcc0a1d",
+        "815f2f1c56cfa54ab249c7ccfccc2dd74f6faa64d4667ddaff80a595111e14c1",
       failure: null,
     });
     expect(outcome.result?.valuePerShare).toBe(
@@ -196,5 +196,127 @@ describe("runValuation", () => {
     expect(outcome.startedAt).toBe(NOW);
     expect(outcome.finishedAt).toBe(NOW);
     expect(outcome.recordedAt).toBe(NOW);
+  });
+
+  it("publishes bear and bull next to the base, with the order check", () => {
+    const outcome = run(DEMO_VALUATION_INPUT);
+
+    expect(outcome.result?.scenarios).toMatchObject({
+      version: "scenario-set-1.0.0",
+      bear: { valuePerShare: "9.53681466156146091340177144930788" },
+      bull: { valuePerShare: "17.56482234163726604980159520148048" },
+    });
+    expect(
+      outcome.result?.checks.find(
+        (check) => check.id === "scenario_value_order",
+      ),
+    ).toMatchObject({ status: "passed" });
+    // La sensibilidad sigue siendo de la base: su número es una celda de ella.
+    expect(outcome.result?.sensitivity).not.toBeNull();
+  });
+
+  it("publishes no scenarios and no order check for a single set of assumptions", () => {
+    const outcome = run(
+      draft((input) => {
+        input.scenarios = null;
+      }),
+    );
+
+    expect(outcome.status).toBe("computed");
+    expect(outcome.result?.scenarios).toBeNull();
+    expect(outcome.result?.checks.map((check) => check.id)).not.toContain(
+      "scenario_value_order",
+    );
+    expect(outcome.result?.valuePerShare).toBe(
+      run(DEMO_VALUATION_INPUT).result?.valuePerShare,
+    );
+  });
+
+  it("records a scenario a check rejects as a rejected run naming the scenario", () => {
+    const outcome = run(
+      draft((input) => {
+        input.scenarios!.bull.drivers[2] = {
+          driver: "terminalGrowth",
+          value: "0.045",
+          rationale: "Above the risk-free rate.",
+        };
+      }),
+    );
+
+    expect(outcome).toMatchObject({
+      status: "rejected",
+      result: null,
+      failure: {
+        code: "policy_check_failed",
+        subjects: [
+          "scenarios.bull:terminal.growth",
+          "scenarios.bull:costOfCapital.derived.riskFree",
+        ],
+      },
+    });
+    expect(outcome.failure?.message).toContain("Scenario bull");
+    expect(outcome.failure?.message).toContain(
+      "terminal_growth_versus_risk_free",
+    );
+  });
+
+  it("records an undeclarable driver as a rejected run", () => {
+    const outcome = run(
+      draft((input) => {
+        input.scenarios!.bear.drivers[0] = {
+          driver: "revenueGrowth",
+          values: ["0.05"],
+          rationale: "One value for five periods.",
+        };
+      }),
+    );
+
+    expect(outcome.failure).toMatchObject({
+      code: "policy_check_failed",
+      subjects: ["scenarios.bear.drivers.0.values"],
+    });
+    expect(outcome.failure?.message).toContain("scenario_drivers_declared");
+  });
+
+  it("asks for review when the values are not ordered", () => {
+    const outcome = run(
+      draft((input) => {
+        const { bear, bull } = input.scenarios!;
+        input.scenarios!.bear = bull;
+        input.scenarios!.bull = bear;
+      }),
+    );
+
+    expect(outcome.status).toBe("requires_review");
+    expect(
+      outcome.result?.checks.filter((check) => check.status === "failed"),
+    ).toStrictEqual([
+      expect.objectContaining({
+        id: "scenario_value_order",
+        mode: "require_review",
+      }),
+    ]);
+  });
+
+  it("asks for review when only a scenario needs it", () => {
+    const outcome = run(
+      draft((input) => {
+        input.scenarios!.bull.drivers[3] = {
+          driver: "terminalEbitMargin",
+          value: "0.65",
+          rationale: "Above the review ceiling.",
+        };
+      }),
+    );
+
+    expect(outcome.status).toBe("requires_review");
+    expect(
+      outcome.result?.checks.filter((check) => check.status === "failed"),
+    ).toStrictEqual([]);
+    expect(
+      outcome.result?.scenarios?.bull.checks.find(
+        (check) => check.id === "terminal_margin_range",
+      ),
+    ).toMatchObject({ status: "failed" });
   });
 });

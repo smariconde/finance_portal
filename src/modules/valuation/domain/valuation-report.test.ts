@@ -17,6 +17,7 @@ import {
   FRESHNESS_POLICY_VERSION,
   listTransformations,
   resolveKnowledgeCutoff,
+  readScenarios,
 } from "./valuation-report";
 
 const run = buildDemoValuationRun();
@@ -336,5 +337,82 @@ describe("demo run determinism", () => {
 
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
+  });
+});
+
+describe("readScenarios", () => {
+  const runOf = (input: ValuationInput) =>
+    runValuation(input, {
+      now: () => "2026-08-24T12:00:00.000Z",
+      newValuationRunId: () => "11111111-2222-4333-8444-555555555555",
+    });
+
+  it("reads bear, base and bull in that order, with deltas against the base", () => {
+    const reading = readScenarios(run)!;
+
+    expect(reading.rows.map((row) => row.key)).toStrictEqual([
+      "bear",
+      "base",
+      "bull",
+    ]);
+    expect(reading.rows[1]).toMatchObject({
+      valuePerShare: run.result!.valuePerShare,
+      deltaVsBase: null,
+      reviewCheckIds: [],
+    });
+    expect(reading.rows[0]!.deltaVsBase).toBe(
+      "-4.00931649231314070450132441259836",
+    );
+    expect(reading.orderCheck).toStrictEqual({
+      status: "passed",
+      subjects: [],
+    });
+  });
+
+  it("shows each declared driver next to the base value it replaces", () => {
+    const reading = readScenarios(run)!;
+
+    expect(reading.drivers.bear.changes[0]).toMatchObject({
+      driver: "revenueGrowth",
+      baseValues: ["0.08", "0.07", "0.06", "0.05", "0.04"],
+      scenarioValues: ["0.05", "0.045", "0.04", "0.035", "0.03"],
+    });
+    expect(
+      reading.drivers.bull.changes.find(
+        (change) => change.driver === "terminalReturnOnCapital",
+      ),
+    ).toMatchObject({ baseValues: ["0.12"], scenarioValues: ["0.15"] });
+  });
+
+  it("names a scenario's own review checks without blaming the base", () => {
+    const candidate = structuredClone(DEMO_VALUATION_INPUT);
+    candidate.scenarios!.bull.drivers[3] = {
+      driver: "terminalEbitMargin",
+      value: "0.65",
+      rationale: "Por encima del techo de revisión.",
+    };
+    const reading = readScenarios(
+      runOf(valuationInputSchema.parse(candidate)),
+    )!;
+
+    expect(reading.rows.map((row) => row.reviewCheckIds)).toStrictEqual([
+      [],
+      [],
+      // Un margen terminal de 65 % también lleva el terminal por encima del
+      // 85 % del EV: los dos checks de revisión son del bull, no de la base.
+      ["terminal_margin_range", "terminal_value_share"],
+    ]);
+  });
+
+  it("is null for a run without scenarios or without a result", () => {
+    const single = structuredClone(DEMO_VALUATION_INPUT);
+    single.scenarios = null;
+    const rejected = structuredClone(DEMO_VALUATION_INPUT);
+    rejected.terminal.growth = "0.045";
+
+    expect(readScenarios(runOf(valuationInputSchema.parse(single)))).toBeNull();
+    expect(
+      readScenarios(runOf(valuationInputSchema.parse(rejected))),
+    ).toBeNull();
   });
 });

@@ -6,6 +6,7 @@ import {
   failedChecks,
   type PolicyCheck,
 } from "../domain/policy-checks";
+import { valueScenarios } from "../domain/scenario-valuation";
 import { buildSensitivityGrid } from "../domain/sensitivity";
 import { isValuationPolicyError } from "../domain/valuation-error";
 import {
@@ -72,7 +73,15 @@ export function runValuation(
     const outputChecks = checkValuationOutput(computation);
     assertNoRejections(outputChecks);
 
-    const checks: PolicyCheck[] = [...inputChecks, ...outputChecks];
+    // Bear y bull se valúan enteros con los mismos checks (`F4-04`): un
+    // rechazo en cualquiera de los dos rechaza la corrida.
+    const scenarios = valueScenarios(input, computation);
+
+    const checks: PolicyCheck[] = [
+      ...inputChecks,
+      ...outputChecks,
+      ...(scenarios === null ? [] : [scenarios.orderCheck]),
+    ];
     const result = valuationResultSchema.parse({
       periods: computation.periods,
       terminal: computation.terminal,
@@ -84,8 +93,22 @@ export function runValuation(
       terminalValueShare: computation.terminalValueShare,
       sensitivity:
         input.sensitivity === null ? null : buildSensitivityGrid(input),
+      scenarios:
+        scenarios === null
+          ? null
+          : {
+              version: scenarios.version,
+              bear: scenarios.bear,
+              bull: scenarios.bull,
+            },
       checks,
     });
+    const reviewChecks = [
+      ...checks,
+      ...(scenarios === null
+        ? []
+        : [...scenarios.bear.checks, ...scenarios.bull.checks]),
+    ];
 
     const finishedAt = dependencies.now();
 
@@ -93,7 +116,7 @@ export function runValuation(
       ...identity,
       // Una revisión pendiente no se esconde detrás de un número calculado.
       status:
-        failedChecks(checks, "require_review").length > 0
+        failedChecks(reviewChecks, "require_review").length > 0
           ? "requires_review"
           : "computed",
       resultHash: computeValuationResultHash({

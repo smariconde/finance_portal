@@ -1,3 +1,4 @@
+import type { ScenarioDriverKey } from "@/modules/valuation/domain/scenarios";
 import type { BridgeItemKey } from "@/modules/valuation/domain/valuation-input";
 import type {
   ReportedFactId,
@@ -68,6 +69,19 @@ const CHECK_LABELS: Record<string, string> = {
   terminal_margin_range: "Margen terminal dentro de rango",
   terminal_value_share: "Peso del valor terminal",
   equity_value_positive: "Equity value positivo",
+  scenario_drivers_declared: "Drivers de escenario declarados sobre la base",
+  scenario_value_order: "Bear, base y bull ordenados",
+};
+
+/** Drivers que un escenario puede mover (`scenario-set-1.0.0`). */
+export const SCENARIO_DRIVER_LABELS: Record<ScenarioDriverKey, string> = {
+  revenueGrowth: "Crecimiento de ventas",
+  ebitMargin: "Margen EBIT",
+  salesToCapital: "Ventas sobre capital",
+  returnOnCapital: "Retorno sobre el capital",
+  terminalGrowth: "Crecimiento terminal",
+  terminalEbitMargin: "Margen EBIT terminal",
+  terminalReturnOnCapital: "Retorno sobre el capital terminal",
 };
 
 export function checkLabel(id: string): string {
