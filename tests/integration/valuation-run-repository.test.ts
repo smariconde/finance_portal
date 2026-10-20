@@ -8,6 +8,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { DEMO_IDENTITY_IDS } from "@/modules/identity/infrastructure/demo-identity-fixtures";
 import { replayValuationRun } from "@/modules/valuation/application/replay-valuation-run";
 import { runValuation } from "@/modules/valuation/application/run-valuation";
+import { runExcessReturn } from "@/modules/valuation/application/run-excess-return";
+import { fixtureFinancialValuation } from "@/modules/valuation/infrastructure/fixture-financial-valuation";
 import { toReplayKey } from "@/modules/valuation/application/valuation-run-repository";
 import { DEMO_AI_VALUATION_INPUT } from "@/modules/valuation/infrastructure/demo-ai-valuation-fixtures";
 import {
@@ -83,6 +85,8 @@ describe("PostgreSQL valuation runs", () => {
   it("round-trips the snapshot, the result and their exact decimals", async () => {
     const repository = createPostgresValuationRunRepository(database);
     const stored = await repository.record(valuation());
+    if (stored.method !== "fcff_base")
+      throw new Error("Expected FCFF fixture.");
 
     expect(stored.status).toBe("computed");
     // El decimal vuelve exactamente como se calculó: sin float intermedio.
@@ -277,6 +281,8 @@ describe("PostgreSQL valuation runs", () => {
         valuation(DEMO_AI_VALUATION_INPUT, { runId }),
       );
       const stored = await repository.findById(runId);
+      if (stored?.method !== "fcff_base")
+        throw new Error("Expected stored FCFF run.");
 
       expect(recorded.valuationRunId).toBe(runId);
       expect(stored?.input.qualitativeDecisions).toStrictEqual(
@@ -295,5 +301,56 @@ describe("PostgreSQL valuation runs", () => {
     } finally {
       fetchSpy.mockRestore();
     }
+  });
+  it("round-trips financial equity, preserves its decimals and deduplicates its own replay key", async () => {
+    const repository = createPostgresValuationRunRepository(database);
+    const computed = runExcessReturn(fixtureFinancialValuation(), {
+      now: () => RUN_CLOCK,
+      newValuationRunId: randomUUID,
+    });
+    const stored = await repository.record(computed);
+    if (stored.method !== "excess_return")
+      throw new Error("Expected excess-return run.");
+    expect(stored).toEqual(computed);
+    expect(stored.result!.base.equityValue).toBe(
+      computed.result!.base.equityValue,
+    );
+    const duplicate = await repository.record({
+      ...computed,
+      valuationRunId: randomUUID(),
+      recordedAt: LATER_CLOCK,
+    });
+    expect(duplicate.valuationRunId).toBe(stored.valuationRunId);
+    const read = await repository.findById(stored.valuationRunId);
+    expect(replayValuationRun(read!)).toMatchObject({
+      outcome: "reproduced",
+      divergences: [],
+    });
+    expect(await repository.findByReplayKey(toReplayKey(computed))).toEqual(
+      stored,
+    );
+  });
+
+  it("persists financial refusals alongside FCFF without fabricating a result", async () => {
+    const input = fixtureFinancialValuation();
+    input.commonBookEquity = null;
+    const refused = runExcessReturn(input, {
+      now: () => RUN_CLOCK,
+      newValuationRunId: randomUUID,
+    });
+    const repository = createPostgresValuationRunRepository(database);
+    const stored = await repository.record(refused);
+    expect(stored).toMatchObject({
+      method: "excess_return",
+      status: "rejected",
+      result: null,
+      resultHash: null,
+    });
+    expect(replayValuationRun(stored).outcome).toBe("reproduced");
+    const methods = (
+      await repository.list({ legalEntityId: LEGAL_ENTITY_ID })
+    ).map((run) => run.method);
+    expect(methods).toContain("excess_return");
+    expect(methods).toContain("fcff_base");
   });
 });

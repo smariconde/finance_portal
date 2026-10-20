@@ -26,6 +26,8 @@ describe("replayValuationRun", () => {
       JSON.stringify(await repository.findById(RUN_ID)),
     ) as typeof recorded;
     const replay = replayValuationRun(stored);
+    if (stored.method !== "fcff_base")
+      throw new Error("Expected FCFF fixture.");
 
     expect(replay).toEqual({
       version: "valuation-replay-1.0.0",

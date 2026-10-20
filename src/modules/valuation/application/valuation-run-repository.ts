@@ -5,7 +5,11 @@ import { selectPersonalDependency } from "@/modules/configuration/domain/runtime
 import { contentHashSchema } from "@/modules/temporal/domain/temporal-version";
 
 import { ENGINE_VERSION, METHODOLOGY_VERSION } from "../domain/valuation-input";
-import type { ValuationRun } from "../domain/valuation-run";
+import type { StoredValuationRun } from "../domain/stored-valuation-run";
+import {
+  EXCESS_RETURN_ENGINE_VERSION,
+  EXCESS_RETURN_METHODOLOGY_VERSION,
+} from "../domain/excess-return-input";
 
 /**
  * Identidad de replay: el mismo snapshot bajo el mismo motor y la misma
@@ -14,13 +18,16 @@ import type { ValuationRun } from "../domain/valuation-run";
  */
 export const valuationReplayKeySchema = z.object({
   inputHash: contentHashSchema,
-  engineVersion: z.literal(ENGINE_VERSION),
-  methodologyVersion: z.literal(METHODOLOGY_VERSION),
+  engineVersion: z.enum([ENGINE_VERSION, EXCESS_RETURN_ENGINE_VERSION]),
+  methodologyVersion: z.enum([
+    METHODOLOGY_VERSION,
+    EXCESS_RETURN_METHODOLOGY_VERSION,
+  ]),
 });
 
 export type ValuationReplayKey = z.infer<typeof valuationReplayKeySchema>;
 
-export function toReplayKey(run: ValuationRun): ValuationReplayKey {
+export function toReplayKey(run: StoredValuationRun): ValuationReplayKey {
   return valuationReplayKeySchema.parse({
     inputHash: run.inputHash,
     engineVersion: run.engineVersion,
@@ -47,11 +54,11 @@ export interface ValuationRunRepository {
    * corrida para el mismo snapshot y motor devuelve **esa**, sin sobrescribirla
    * ni duplicarla. Una corrida es append-only.
    */
-  record(run: ValuationRun): Promise<ValuationRun>;
-  findByReplayKey(key: ValuationReplayKey): Promise<ValuationRun | null>;
+  record(run: StoredValuationRun): Promise<StoredValuationRun>;
+  findByReplayKey(key: ValuationReplayKey): Promise<StoredValuationRun | null>;
   /** Una corrida por su ID, para volver a calcularla (`F5-06`). */
-  findById(valuationRunId: string): Promise<ValuationRun | null>;
-  list(query: ValuationRunListQuery): Promise<ValuationRun[]>;
+  findById(valuationRunId: string): Promise<StoredValuationRun | null>;
+  list(query: ValuationRunListQuery): Promise<StoredValuationRun[]>;
 }
 
 type RepositoryFactories = {

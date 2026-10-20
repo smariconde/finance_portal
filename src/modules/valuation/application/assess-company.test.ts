@@ -415,7 +415,7 @@ describe("assessCompany", () => {
 
     expect(assessment.selection).toMatchObject({
       assetProfile: "bank",
-      unsupportedReasons: ["method_not_implemented"],
+      unsupportedReasons: ["missing_required_input"],
     });
     // Un banco se valúa sobre el equity: no recibe un WACC.
     expect(assessment.costOfCapital).toMatchObject({

@@ -12,9 +12,9 @@ import {
   type ValuationRunRepository,
 } from "@/modules/valuation/application/valuation-run-repository";
 import {
-  valuationRunSchema,
-  type ValuationRun,
-} from "@/modules/valuation/domain/valuation-run";
+  storedValuationRunSchema as valuationRunSchema,
+  type StoredValuationRun as ValuationRun,
+} from "@/modules/valuation/domain/stored-valuation-run";
 
 import * as schema from "./schema";
 

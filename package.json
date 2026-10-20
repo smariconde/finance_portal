@@ -49,7 +49,8 @@
     "valuation:resolve-industry": "tsx --conditions=react-server --env-file=.env.local scripts/resolve-industry.ts",
     "valuation:operations-mix": "tsx --conditions=react-server --env-file=.env.local scripts/operations-mix.ts",
     "valuation:employee-equity": "tsx --conditions=react-server --env-file=.env.local scripts/employee-equity.ts",
-    "valuation:replay": "tsx --conditions=react-server --env-file=.env.local scripts/replay-valuation.ts"
+    "valuation:replay": "tsx --conditions=react-server --env-file=.env.local scripts/replay-valuation.ts",
+    "valuation:financial": "tsx --conditions=react-server --env-file=.env.local scripts/value-financial-equity.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
