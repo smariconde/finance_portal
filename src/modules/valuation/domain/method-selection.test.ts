@@ -78,17 +78,13 @@ describe("method selection 0.2.0", () => {
       expect(selection).toMatchObject({
         version:
           profile === "reit"
-            ? "method-selection-0.2.0"
+            ? "method-selection-0.6.0"
             : "method-selection-0.3.0",
         status: "unsupported_method",
         assetProfile: profile,
         recommendedMethod: method,
         activatedRules: [rule],
-        unsupportedReasons: [
-          profile === "reit"
-            ? "method_not_implemented"
-            : "missing_required_input",
-        ],
+        unsupportedReasons: ["missing_required_input"],
         confidence: "high",
       });
     },

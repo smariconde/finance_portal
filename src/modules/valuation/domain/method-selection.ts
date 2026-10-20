@@ -33,6 +33,7 @@ export const METHOD_SELECTION_VERSION = "method-selection-0.2.0";
 export const FINANCIAL_METHOD_SELECTION_VERSION = "method-selection-0.3.0";
 export const GROWTH_METHOD_SELECTION_VERSION = "method-selection-0.5.0";
 export const CYCLE_METHOD_SELECTION_VERSION = "method-selection-0.4.0";
+export const REIT_METHOD_SELECTION_VERSION = "method-selection-0.6.0";
 
 export const signalProfileSchema = assetProfileSchema.exclude([
   "non_financial_mature",
@@ -79,6 +80,7 @@ export const methodSelectionInputSchema = z
       .array(z.string().min(1).max(96))
       .max(32)
       .optional(),
+    reitMissingInputs: z.array(z.string().min(1).max(96)).max(32).optional(),
   })
   .superRefine((input, context) => {
     input.evidence.forEach((item, index) => {
@@ -131,6 +133,7 @@ export const methodSelectionSchema = z.object({
     FINANCIAL_METHOD_SELECTION_VERSION,
     CYCLE_METHOD_SELECTION_VERSION,
     GROWTH_METHOD_SELECTION_VERSION,
+    REIT_METHOD_SELECTION_VERSION,
   ]),
   status: z.enum(["selected", "unsupported_method"]),
   assetProfile: assetProfileSchema.nullable(),
@@ -340,6 +343,21 @@ export function selectValuationMethod(
         ...decidedAbove,
         ...tier.flatMap((profile) => byProfile.get(profile) ?? []),
       ];
+
+      if (selected === "reit") {
+        const missing = input.reitMissingInputs ?? descriptor.requiredInputs;
+        return {
+          ...result(
+            selected,
+            missing.length === 0 ? null : "missing_required_input",
+            missing,
+            rules,
+            alternatives,
+            confidenceOf(deciding, yielded.length),
+          ),
+          version: REIT_METHOD_SELECTION_VERSION,
+        };
+      }
 
       if (selected === "bank" || selected === "insurer") {
         const missing =

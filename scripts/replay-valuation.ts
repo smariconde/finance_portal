@@ -94,6 +94,8 @@ const reports = runs.map((run) => ({
 }));
 
 function describeDecisions(run: ValuationRun): string {
+  if (run.method === "affo_nav")
+    return `REIT · AFFO/NAV · ${run.result?.rigor ?? "unsupported"} · experimental`;
   if (run.method === "excess_return")
     return `equity financiero · ${run.assetProfile} · ${run.result?.rigor ?? "unsupported"} · experimental`;
   const { industry, operationsMix } = run.input.qualitativeDecisions;
@@ -127,7 +129,7 @@ if (values.json) {
         legalEntityId: run.subject.legalEntityId,
         asOf: run.asOf,
         qualitativeDecisions:
-          run.method === "excess_return"
+          run.method === "excess_return" || run.method === "affo_nav"
             ? null
             : run.input.qualitativeDecisions,
       })),
