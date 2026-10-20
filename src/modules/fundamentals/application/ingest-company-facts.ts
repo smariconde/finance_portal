@@ -56,6 +56,10 @@ import {
 } from "../domain/parse-sec-company-facts";
 import { SEC_SUBMISSIONS_PARSER_VERSION } from "../domain/parse-sec-submissions";
 import { acceptanceClockFlags } from "../domain/sec-acceptance-clock";
+import {
+  ACCEPTANCE_FROM_REGISTERED_DOCUMENT_FLAG,
+  reconcileRegisteredAcceptances,
+} from "../domain/sec-registered-acceptance";
 import { SEC_CONCEPT_SELECTION_VERSION } from "../domain/sec-concept-selection";
 import { SEC_FACT_RULES_VERSION } from "../domain/sec-fact-rules";
 import type {
@@ -459,14 +463,41 @@ export async function ingestCompanyFacts(
     };
   }
 
-  // 4. Vintages y staging, sobre los hechos de la ventana. El ancla viaja en cada
+  // 4. Las presentaciones ya registradas conservan su aceptación (enmienda de
+  //    la ADR 0036): un archivo de `submissions` corrido que el reloj no pudo
+  //    detectar no reescribe la disponibilidad de un documento guardado.
+  const citedAccessions = [
+    ...new Set(download.facts.map((fact) => fact.accessionNumber)),
+  ];
+  const registered = new Map<string, string | null>();
+
+  for (let offset = 0; offset < citedAccessions.length; offset += 5000) {
+    for (const document of await sourceDocuments.findByIds({
+      sourceId: SEC_SOURCE_ID,
+      sourceDocumentIds: citedAccessions.slice(offset, offset + 5000),
+    })) {
+      registered.set(document.sourceDocumentId, document.acceptedAt);
+    }
+  }
+
+  const reconciled = reconcileRegisteredAcceptances(
+    download.filings,
+    registered,
+  );
+
+  if (reconciled.kept.length > 0) {
+    clockFlags = [...clockFlags, ACCEPTANCE_FROM_REGISTERED_DOCUMENT_FLAG];
+  }
+
+  // 5. Vintages y staging, sobre los hechos de la ventana. El ancla viaja en cada
   //    corrida que haya leído los hechos: sin ella, la versión de la selección no
   //    dice qué períodos se fueron a buscar.
   const selectionAnchorOn = download.window?.anchorOn ?? null;
   const vintages = buildSecFactVintages({
     cik,
     facts: download.facts,
-    filings: download.filings,
+    filings: reconciled.filings,
+    registeredConflicts: new Set(reconciled.conflicting),
     unreadableAccessions: new Set(
       download.filingRejections
         .map((rejection) => rejection.accessionNumber)

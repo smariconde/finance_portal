@@ -2893,8 +2893,11 @@ con la aceptación corrida +4 h contra su documento guardado: 89 las publicó la
 reingesta de `F4-01` y 2 la de `F4-03`. El `submissions` del filer nuevo
 (CIK 0002115436) vino corrido sin ninguna aceptación fuera del horario de
 EDGAR, y `sec-acceptance-clock-1.1.0` lo leyó como sano; en una reingesta eso
-no sólo atrasa, publica revisiones con el mismo valor. Se arregla en un slice
-propio antes de `F4-04`.
+no sólo atrasa, publica revisiones con el mismo valor. Arreglado el
+2026-10-20 (enmienda de la ADR 0036): `sec-registered-acceptance-1.0.0` hace
+que una presentación ya registrada conserve su aceptación, y las 91 filas se
+repararon contra `source_documents`; el gate vuelve a pasar. Siguiente:
+`F4-04`.
 
 Cada arquetipo de `F4-06` es un slice propio con selector, inputs, fórmulas,
 fixtures independientes, diagnósticos y estado `experimental | reviewed | production`,

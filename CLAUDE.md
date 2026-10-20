@@ -536,7 +536,14 @@ would be look-ahead, leaving a shifted one only makes it late. A file neither
 reading fits is refused (`acceptance_clock_undetermined`), a run that read a
 corrected one carries `acceptance_clock_corrected`, and the parser and pipeline
 versions do not move, because the corrected acceptance is the one they always
-read ([ADR 0036](docs/architecture/adr/0036-sec-acceptance-clock.md)).
+read ([ADR 0036](docs/architecture/adr/0036-sec-acceptance-clock.md)). A filing
+already in `source_documents` keeps its registered acceptance
+(`sec-registered-acceptance-1.0.0`): the clock cannot detect a shifted file
+with no out-of-hours acceptance, and a re-ingestion of one used to publish
+same-value revisions. A difference of exactly the New York offset keeps the
+registered one (`acceptance_from_registered_document`); any other rejects the
+filing's facts (`registered_acceptance_conflict`). Run `pnpm gate:point-in-time`
+after any re-ingestion.
 
 Only a **history window** is stored (`sec-history-5fy-1.0.0`,
 [ADR 0017](docs/architecture/adr/0017-sec-history-window.md)): facts whose period

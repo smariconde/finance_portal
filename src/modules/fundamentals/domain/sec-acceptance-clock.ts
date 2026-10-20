@@ -119,7 +119,7 @@ function withinEdgarHours(instantMs: number): boolean {
  * `P = U − offset`, con el offset del instante `P`. Invertirlo es restar ese
  * mismo offset (negativo en Nueva York, así que el instante retrocede).
  */
-function removeNewYorkOffset(instantMs: number): number {
+export function removeNewYorkOffset(instantMs: number): number {
   return instantMs + newYorkClock(instantMs).offsetMs;
 }
 
