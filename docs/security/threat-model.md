@@ -23,6 +23,8 @@
 - Revisión obligatoria: antes de cada nueva frontera web, proveedor, export, capacidad IA o cambio de exposición
 - Revisado el 2026-10-20: `F4-06` agrega un comando local de equity financiero desde un snapshot privado explícito, con schema cerrado y tamaño máximo de 512 kB; no abre egress ni llama a IA. `--apply` usa el guard personal y el repositorio append-only existentes (`TM-01`, `TM-06`, `TM-16`); escenarios y sensibilidad pasan los mismos checks. Sin frontera web nueva.
 
+- Revisado el 2026-10-20: `F4-06 / 4.2` agrega `valuation:cycle`, CLI local desde snapshot privado de hasta 512 kB, sin egress ni IA. Congela historia y clasificación, recalcula la normalización y verifica cutoff, moneda y la aceptación separada de la nota de empleados (`TM-05`, `TM-06`, `TM-15`). `--apply` usa el guard personal y el storage append-only (`TM-01`, `TM-16`), con rechazos persistidos. Sin nuevo endpoint, proveedor o cambio de exposición.
+
 ## Objetivo y método
 
 Este documento modela amenazas contra confidencialidad, integridad financiera,

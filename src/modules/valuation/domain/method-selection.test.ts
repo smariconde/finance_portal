@@ -121,7 +121,7 @@ describe("method selection 0.2.0", () => {
       recommendedMethod: "normalized_fcff",
       alternatives: ["fcff_three_stage"],
       activatedRules: ["cyclical_exposure", "high_growth"],
-      unsupportedReasons: ["method_not_implemented"],
+      unsupportedReasons: ["missing_required_input"],
     });
   });
 

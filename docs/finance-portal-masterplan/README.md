@@ -58,6 +58,8 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 - [`../data/provider-use-matrix.md`](../data/provider-use-matrix.md): matriz de derechos, cache, retención, cuotas y gates antes de cualquier spike real.
 - [`../data/identity-model.md`](../data/identity-model.md): separación entity/security/listing/symbol, programas depositarios y resolución de identidad.
 - [`../data/point-in-time-contract.md`](../data/point-in-time-contract.md): vigencia, conocimiento, revisiones, consultas as-known y snapshots reproducibles.
+- [`../architecture/adr/0042-cycle-normalized-fcff.md`](../architecture/adr/0042-cycle-normalized-fcff.md): normalización de ciclo para cíclicas y commodities, con snapshot explícito y rigor screening.
+- [`../valuation/cycle-normalization-oracle.md`](../valuation/cycle-normalization-oracle.md): comparación con `normearn.xls`, diferencia de ponderación y oráculo de perpetuidad.
 - [`../valuation/methodology.md`](../valuation/methodology.md): política numérica, selección de métodos, FCFF, checks y reproducibilidad.
 - [`../security/threat-model.md`](../security/threat-model.md): activos, fronteras, amenazas, controles y gates de seguridad por fase.
 - [`../design/interface-foundations.md`](../design/interface-foundations.md): autoridad de artefactos, wireframe ejecutable, tokens y deuda visual conocida.
@@ -85,5 +87,5 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 
 ## Estado actual
 
-Las fases 0, 1, 2 y 7 están cerradas. La matriz sectorial, la carga de precios al abrirla, el export personal y la calidad explicable están entregados; sigue `F3-01` (selector determinista de arquetipo). El estado operativo y el historial de sesiones viven en `06_PHASED_ROADMAP.md`; el orden ejecutable vive en `../backlog/README.md`.
+Las fases 0, 1, 2, 7, 3 y 5 están cerradas. La Fase 4 está en curso: FCFF maduro con ajustes, escenarios y supervivencia, y arquetipos experimentales de bancos/aseguradoras y cíclicas/commodities entregados. Sigue `F4-06 / 4.3`, pérdidas y high growth. El estado operativo y el historial de sesiones viven en `06_PHASED_ROADMAP.md`; el orden ejecutable vive en `../backlog/README.md`.
 La existencia de una página o documento no demuestra avance.

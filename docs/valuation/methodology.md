@@ -1,8 +1,9 @@
 # Metodología de valuación
 
-- Estado: metodología objetivo; motor FCFF y exceso de retorno financiero experimental implementados en `src/modules/valuation/`
+- Estado: metodología objetivo; motor FCFF, normalización de ciclo y exceso de retorno financiero experimental implementados en `src/modules/valuation/`
 - Versión metodológica: 0.12.0 (la corrida lleva selección, completitud y rigor desde `F3-03`, el costo de capital construido desde `F3-06`, el riesgo país ponderado por operaciones desde `F5-05`, las decisiones cualitativas con la propuesta de la IA desde `F5-06` la capitalización de arrendamientos e I+D desde `F4-01` el techo del crecimiento terminal en la libre de riesgo desde `F4-02` la normalización reported/adjusted del ejercicio base desde `F4-03` los escenarios bear/base/bull desde `F4-04` y las opciones y unidades de empleados y la probabilidad de fracaso desde `F4-05`)
 - Versión de engine implementada: `fcff-1.6.0` (método `fcff_base`)
+- Motor cíclico: `normalized-fcff-1.0.0`, metodología `cycle-fcff-1.0.0` (`normalized_fcff`, [ADR 0042](../architecture/adr/0042-cycle-normalized-fcff.md)); márgenes de ciclo para cíclicas y commodities, sin cambiar `fcff-1.6.0`.
 - Motor financiero independiente: `excess-return-1.0.0`, metodología `financial-equity-1.0.0` (método `excess_return`, `F4-06`, [ADR 0041](../architecture/adr/0041-financial-equity-excess-return.md)); no cambia la versión ni los hashes FCFF.
 - Fecha: 2026-08-21; motor base entregado el 2026-08-24; niveles de rigor y alcance
   de la IA incorporados el 2026-09-04
@@ -42,7 +43,7 @@ de cuatro quintos del universo y produce números inválidos en el resto.
 | Fase 4   | leases e I+D capitalizados con puente sobre EBIT, capital y deuda     | `done`         |
 | Fase 4   | FCFF multi-etapa: regla terminal, normalización y escenarios          | `done`         |
 | Fase 4.1 | bancos y aseguradoras mediante exceso de retorno sobre equity         | `experimental` |
-| Fase 4.2 | cíclicas y commodities con normalización de ciclo                     | `planned`      |
+| Fase 4.2 | cíclicas y commodities con normalización de ciclo                     | `experimental` |
 | Fase 4.3 | pérdidas/high growth con revenue-to-margin y supervivencia            | `planned`      |
 | Fase 4.4 | REIT mediante AFFO/FCFE/DDM y NAV                                     | `planned`      |
 | Fase 4.5 | holdings/SOTP y distress sólo con demanda observada                   | `deferred`     |
@@ -66,6 +67,48 @@ resultado legítimo; inventar un faltante para poder mostrar un número no lo es
 El nivel se deriva de la completitud medida, no se elige. La corrida persiste qué
 comprobación bajó el nivel, de modo que conseguir ese dato más adelante y volver a
 correr sea una acción concreta y no una intuición.
+
+## Motor de ciclo: `normalized-fcff-1.0.0`
+
+`F4-06 / 4.2` incorpora `normalized_fcff` para cíclicas y commodities por
+márgenes de ciclo. El snapshot privado agrega `cycleNormalization`: cinco a diez
+ejercicios consecutivos con ventas positivas y EBIT con signo, procedencia por
+hecho, una base contable común, justificación del ciclo y años hasta normalizar.
+No expande la ventana SEC de ADR 0017 ni asume que cinco años prueban un ciclo.
+
+El margen histórico es la media **con igual peso por año** de `EBIT / revenue`.
+El EBIT normalizado de control es ese margen por ventas actuales; el objetivo
+puede llevar un shift explícito con motivo. La trayectoria converge linealmente
+desde el margen ajustado actual al objetivo en `N` años, dentro del horizonte.
+El terminal debe usar el objetivo y el motor recalcula cada margen. Se incluyen
+ceros y pérdidas históricas, pero una media u objetivo no positivos se rechazan.
+La base nominal de cada ratio usa ventas y EBIT del mismo año; no se promedian
+montos nominales a través del tiempo. El último ejercicio debe reconciliar con
+las ventas y EBIT ajustado de la corrida.
+
+La reinversión explícita usa sales-to-capital. La recuperación de margen no es
+crecimiento de ventas; un EBIT proyectado negativo no recibe crédito fiscal ni
+arrastre automático. Se conservan los controles de WACC, riesgo país, fracaso,
+recupero, opciones y puente de FCFF. La aceptación de la nota de empleados se
+congela aparte. La clasificación y los componentes fechados se vuelven a
+verificar al cutoff; `system_recorded` no es admisible sin fecha de registro por
+hecho. El rigor queda limitado a `screening`, el modelo a `experimental` y la
+corrida a `requires_review`, incluso con cinco años completos.
+
+Bear/bull usan los mismos checks; `terminalEbitMargin` cambia el objetivo de
+ciclo y reconstruye su trayectoria completa, con el motivo del driver. No se
+permite el driver `ebitMargin` por período para este método. La sensibilidad
+WACC/g conserva la operación base. `cycleComparison` muestra el valor manteniendo
+el margen actual en todos los años y el terminal, junto con su diferencia:
+es un contrafactual de margen, no de precio spot de commodity.
+
+`pnpm valuation:cycle --file <snapshot-privado.json>` calcula sin red ni IA;
+`--apply` persiste sólo en personal, incluidos rechazos. Replay usa el snapshot
+congelado. No se automatiza su construcción ni se agrega una página. La
+[ADR 0042](../architecture/adr/0042-cycle-normalized-fcff.md) y el
+[oráculo independiente](cycle-normalization-oracle.md) explican la diferencia
+con `normearn.xls`: su media ponderada por ventas difiere de la media anual.
+El segundo oráculo es una perpetuidad de caja constante.
 
 ## Motor financiero: `excess-return-1.0.0`
 

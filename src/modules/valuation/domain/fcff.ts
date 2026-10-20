@@ -82,6 +82,8 @@ export type FcffComputation = {
 export type FcffOverride = {
   wacc?: string;
   terminalGrowth?: string;
+  /** Current-margin comparison for normalized FCFF, explicitly held constant. */
+  ebitMargin?: string;
 };
 
 const BRIDGE_SIGNS: Record<BridgeItemKey, "add" | "subtract"> = {
@@ -122,11 +124,19 @@ export function computeFcff(
     const revenueChange = revenue.minus(previousRevenue);
 
     const ebit = revenue.times(
-      parseDecimal(period.ebitMargin, `${path}.ebitMargin`),
+      parseDecimal(
+        override.ebitMargin ?? period.ebitMargin,
+        `${path}.ebitMargin`,
+      ),
     );
-    const nopat = ebit.times(
-      ONE.minus(parseDecimal(period.taxRate, `${path}.taxRate`)),
-    );
+    // The cycle method never grants an immediate tax credit for an operating
+    // loss. Carryforwards need a separate, evidenced model; mature FCFF is frozen.
+    const nopat =
+      input.method === "normalized_fcff" && ebit.lte(ZERO)
+        ? ebit
+        : ebit.times(
+            ONE.minus(parseDecimal(period.taxRate, `${path}.taxRate`)),
+          );
 
     let reinvestment: Dec;
     let reinvestmentRate: Dec | null = null;
@@ -185,11 +195,17 @@ export function computeFcff(
     overrideWacc ?? parseDecimal(input.terminal.wacc, "terminal.wacc");
   const terminalRevenue = revenue.times(ONE.plus(terminalGrowth));
   const terminalEbit = terminalRevenue.times(
-    parseDecimal(input.terminal.ebitMargin, "terminal.ebitMargin"),
+    parseDecimal(
+      override.ebitMargin ?? input.terminal.ebitMargin,
+      "terminal.ebitMargin",
+    ),
   );
-  const terminalNopat = terminalEbit.times(
-    ONE.minus(parseDecimal(input.terminal.taxRate, "terminal.taxRate")),
-  );
+  const terminalNopat =
+    input.method === "normalized_fcff" && terminalEbit.lte(ZERO)
+      ? terminalEbit
+      : terminalEbit.times(
+          ONE.minus(parseDecimal(input.terminal.taxRate, "terminal.taxRate")),
+        );
   const terminalReinvestmentRate = divide(
     terminalGrowth,
     parseDecimal(input.terminal.returnOnCapital, "terminal.returnOnCapital"),

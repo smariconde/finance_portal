@@ -5,6 +5,10 @@ import { selectPersonalDependency } from "@/modules/configuration/domain/runtime
 import { contentHashSchema } from "@/modules/temporal/domain/temporal-version";
 
 import { ENGINE_VERSION, METHODOLOGY_VERSION } from "../domain/valuation-input";
+import {
+  NORMALIZED_FCFF_ENGINE_VERSION,
+  CYCLE_METHODOLOGY_VERSION,
+} from "../domain/cycle-normalization";
 import type { StoredValuationRun } from "../domain/stored-valuation-run";
 import {
   EXCESS_RETURN_ENGINE_VERSION,
@@ -18,10 +22,15 @@ import {
  */
 export const valuationReplayKeySchema = z.object({
   inputHash: contentHashSchema,
-  engineVersion: z.enum([ENGINE_VERSION, EXCESS_RETURN_ENGINE_VERSION]),
+  engineVersion: z.enum([
+    ENGINE_VERSION,
+    EXCESS_RETURN_ENGINE_VERSION,
+    NORMALIZED_FCFF_ENGINE_VERSION,
+  ]),
   methodologyVersion: z.enum([
     METHODOLOGY_VERSION,
     EXCESS_RETURN_METHODOLOGY_VERSION,
+    CYCLE_METHODOLOGY_VERSION,
   ]),
 });
 

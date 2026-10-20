@@ -1,4 +1,9 @@
 import { failureRiskMismatches } from "./failure-risk";
+import {
+  cycleNormalizationMismatches,
+  NORMALIZED_FCFF_ENGINE_VERSION,
+  CYCLE_METHODOLOGY_VERSION,
+} from "./cycle-normalization";
 import { computeContentHash } from "@/modules/ingestion/domain/content-hash";
 
 import { divide, ONE, parseDecimal, ZERO, type Dec } from "./decimal-policy";
@@ -14,6 +19,8 @@ import { ValuationPolicyError } from "./valuation-error";
 import {
   BRIDGE_ITEM_KEYS,
   listMonetaryFacts,
+  ENGINE_VERSION,
+  METHODOLOGY_VERSION,
   type ValuationInput,
 } from "./valuation-input";
 
@@ -402,6 +409,90 @@ export function checkValuationInput(input: ValuationInput): PolicyCheck[] {
     ...checkFailureRisk(input),
     ...checkScenarioDeclarations(input),
   ];
+
+  if (input.method === "normalized_fcff") {
+    const mismatches = cycleNormalizationMismatches(input);
+    checks.push(
+      check(
+        "cycle_normalization_recomputed",
+        "reject",
+        mismatches.length === 0,
+        "Cycle history, classification and the margin trajectory must explain the normalized FCFF.",
+        mismatches,
+      ),
+    );
+    checks.push(
+      check(
+        "cycle_model_experimental",
+        "require_review",
+        false,
+        "Cycle coverage, accounting comparability and future reinvestment require owner review; this model is experimental.",
+        ["cycleNormalization"],
+      ),
+    );
+    const directMargins = SCENARIO_KEYS.filter((key) =>
+      input.scenarios?.[key].drivers.some(
+        (driver) => driver.driver === "ebitMargin",
+      ),
+    );
+    checks.push(
+      check(
+        "cycle_scenario_margin_target",
+        "reject",
+        directMargins.length === 0,
+        "Cycle scenarios change the normalized target through terminalEbitMargin, which rebuilds the whole convergence path.",
+        directMargins.map((key) => `scenarios.${key}`),
+      ),
+    );
+    const cutoff = Date.parse(
+      input.knowledge.knownAt ?? `${input.asOf}T23:59:59.999Z`,
+    );
+    const temporal = [
+      ...listMonetaryFacts(input),
+      {
+        path: "employeeEquity.sharesOutstanding",
+        fact: input.employeeEquity.sharesOutstanding,
+      },
+    ]
+      .filter(
+        ({ fact }) =>
+          fact.asOf > input.asOf || Date.parse(fact.availableAt) > cutoff,
+      )
+      .map(({ path }) => path);
+    input.costOfCapital.parameters.forEach((parameter, index) => {
+      if (Date.parse(parameter.availableAt) > cutoff)
+        temporal.push(`costOfCapital.parameters.${index}`);
+    });
+    if (Date.parse(input.costOfCapital.coverage.availableAt) > cutoff)
+      temporal.push("costOfCapital.coverage");
+    checks.push(
+      check(
+        "cycle_snapshot_known_at_cutoff",
+        "reject",
+        temporal.length === 0,
+        "The frozen FCFF facts and discount-rate components must be visible at the declared knowledge cutoff.",
+        temporal.slice(0, 32),
+      ),
+    );
+  }
+  const versionsMatch =
+    input.method === "normalized_fcff"
+      ? input.engineVersion === NORMALIZED_FCFF_ENGINE_VERSION &&
+        input.methodologyVersion === CYCLE_METHODOLOGY_VERSION
+      : input.engineVersion === ENGINE_VERSION &&
+        input.methodologyVersion === METHODOLOGY_VERSION &&
+        input.cycleNormalization === undefined;
+  // Preserve all existing mature snapshots and result hashes.
+  if (!versionsMatch)
+    checks.push(
+      check(
+        "method_versions_match",
+        "reject",
+        false,
+        "The method must use its own engine and methodology versions.",
+        ["method", "engineVersion", "methodologyVersion"],
+      ),
+    );
 
   const mismatchedCurrency = listMonetaryFacts(input)
     .filter(({ fact }) => fact.currency !== input.currency)

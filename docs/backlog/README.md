@@ -68,7 +68,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    40 | `F4-03`    | `done`        | Normalización reported/adjusted del ejercicio base: capital invertido, deuda, caja, tasa y cargos no recurrentes con libro de ajustes; el puente sale del libro.                                                          | `F4-01`          |
 |    41 | `F4-04`    | `done`        | Escenarios bear/base/bull como conjuntos coherentes de supuestos en el mismo snapshot, recalculados enteros por el motor y sometidos a los mismos checks que la base.                                                     | `F4-03`          |
 |    42 | `F4-05`    | `done`        | Probabilidad de fracaso del rating sintético con recupero sobre el capital en libros, y opciones de empleados valuadas con Black-Scholes ajustado por dilución y restadas del equity, con básicas + RSU como denominador. | `F4-03`          |
-|    43 | `F4-06`    | `in_progress` | Arquetipos por slice, comenzando por bancos y aseguradoras: selector, inputs, fórmulas, fixtures independientes y comparación con la planilla pública correspondiente.                                                    | `F4-04`, `F4-05` |
+|    43 | `F4-06`    | `in_progress` | Arquetipos por slice: bancos/aseguradoras y cíclicas/commodities entregados como experimentales; sigue pérdidas/high growth con su gate independiente.                                                                    | `F4-04`, `F4-05` |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -3040,7 +3040,7 @@ llevado a gate antes del siguiente. Ninguno agrega IA.
 #### `F4-06` — 4.1 bancos y aseguradoras (cerrado el 2026-10-20)
 
 El issue sigue `in_progress`: termina este arquetipo, no el conjunto de `F4-06`.
-El próximo slice autorizado es 4.2, cíclicas y commodities.
+En ese cierre, el próximo slice autorizado fue 4.2, cíclicas y commodities.
 
 - Contrato: `excess_return`, `excess-return-1.0.0`, metodología
   `financial-equity-1.0.0`; [ADR 0041](../architecture/adr/0041-financial-equity-excess-return.md).
@@ -3083,6 +3083,53 @@ Evidencia del gate del arquetipo:
 - Comando ensayado con un snapshot sintético fuera del repo: dry run,
   `requires_review`, valor 10,3570247933884 USD/acción y replay reproducido;
   sin escrituras en la base personal ni llamadas a proveedores o IA.
+
+#### `F4-06` — 4.2 cíclicas y commodities (cerrado el 2026-10-20)
+
+`F4-06` sigue `in_progress`: se cierra este arquetipo, no el conjunto.
+El próximo slice autorizado es 4.3, pérdidas y high growth; no se inició.
+
+- Contrato: `normalized_fcff`, motor `normalized-fcff-1.0.0`, metodología
+  `cycle-fcff-1.0.0`, selector `method-selection-0.4.0` para estas decisiones;
+  [ADR 0042](../architecture/adr/0042-cycle-normalized-fcff.md).
+- Historia explícita de cinco a diez ejercicios, margen anual con igual peso,
+  pérdidas incluidas y EBIT normalizado a ventas actuales. El owner declara
+  ciclo y base contable; el último año reconcilia contra la base ajustada y el
+  motor verifica la convergencia y el objetivo terminal. No amplía la ventana SEC.
+- Commodities usa la vía de margen de ciclo: no estima precio normalizado,
+  reservas, volúmenes o futuros. Reinversión explícita por sales-to-capital;
+  pérdidas proyectadas sin crédito fiscal inmediato ni arrastre supuesto.
+- Bear/bull completos: el driver de margen terminal mueve el objetivo de ciclo
+  y reconstruye toda la trayectoria. Sensibilidad WACC/g con celdas rechazadas.
+  Comparación contra mantener el margen actual, con EV, valor por acción y delta.
+- Estado `experimental`, rigor limitado a `screening`, siempre `requires_review`.
+  La clasificación se vuelve a ejecutar desde señales fechadas; hechos y tasas
+  deben respetar el cutoff, la nota de opciones declara aceptación por separado
+  y se rechaza `system_recorded` sin fecha de registro por hecho.
+- `pnpm valuation:cycle --file <path>` calcula sin red ni IA; límite de 512 kB,
+  dry run salvo `--apply`, que exige personal y registra también el rechazo.
+  Persistencia y replay admiten las tres familias sin migración; los números y
+  hashes del FCFF maduro se conservan. No agrega UI ni un proveedor.
+- Controles: `TM-05`, `TM-06`, `TM-15`, `TM-16`. Sin bloqueos pendientes para
+  este slice; construir automáticamente el snapshot o elevar rigor sigue fuera.
+
+Evidencia del gate:
+
+- [Oráculo independiente](../valuation/cycle-normalization-oracle.md): cinco
+  ratios de `normearn.xls` coinciden a 14 decimales; diferencia de ponderación
+  documentada (margen anual 0,1465769334 frente al pooled 0,1471670346).
+  Segundo oráculo: caja constante de 7,632 millones / 9 % = EV 84,8 millones.
+- 2.720 unit, 203 integration y contrato final revalidado (13 tests) pasan.
+  Bordes de nulos, cero, negativos, moneda, finitos, documentos futuros,
+  clasificación, convergencia, escenarios, sensibilidad, escala y monotonía.
+  Tipos, lint, formato y `git diff --check` pasan.
+- Build habitual con Turbopack y gate completo: 175 E2E pasan, 2 omitidos;
+  axe sobre ambos runtimes y escaneo de 643 archivos sin centinelas. Sin copia
+  temporal del harness ni modificación de su contrato.
+- CLI sobre fixture sintética fuera del repo: margen histórico 10,6 %, actual
+  18 %, valor 7,3070419012 frente a 13,3859582309 USD/acción a margen actual;
+  replay reproducido. `--apply` en locked falla antes de construir el storage.
+  Sin escritura en la base personal, nuevas ingestas ni gasto IA.
 
 ### Fase 5 — capa IA acotada bajo policy engine
 

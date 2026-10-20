@@ -31,6 +31,7 @@ import { assetProfileSchema, type AssetProfile } from "./asset-profile";
 export const METHOD_SELECTION_VERSION = "method-selection-0.2.0";
 /** F4-06 only changes financial decisions; FCFF snapshot hashes stay stable. */
 export const FINANCIAL_METHOD_SELECTION_VERSION = "method-selection-0.3.0";
+export const CYCLE_METHOD_SELECTION_VERSION = "method-selection-0.4.0";
 
 export const signalProfileSchema = assetProfileSchema.exclude([
   "non_financial_mature",
@@ -66,6 +67,10 @@ export const methodSelectionInputSchema = z
     fcffInputsComplete: z.boolean(),
     /** Measured by the excess-return preflight, never by the FCFF checks. */
     excessReturnMissingInputs: z
+      .array(z.string().min(1).max(96))
+      .max(32)
+      .optional(),
+    normalizedFcffMissingInputs: z
       .array(z.string().min(1).max(96))
       .max(32)
       .optional(),
@@ -119,6 +124,7 @@ export const methodSelectionSchema = z.object({
   version: z.enum([
     METHOD_SELECTION_VERSION,
     FINANCIAL_METHOD_SELECTION_VERSION,
+    CYCLE_METHOD_SELECTION_VERSION,
   ]),
   status: z.enum(["selected", "unsupported_method"]),
   assetProfile: assetProfileSchema.nullable(),
@@ -177,7 +183,7 @@ export const PROFILE_METHODS: Readonly<
   commodity: {
     method: "normalized_fcff",
     rule: "commodity_exposure",
-    requiredInputs: ["normalized_price"],
+    requiredInputs: ["cycle_margins"],
   },
   holding: {
     method: "sotp_nav",
@@ -342,6 +348,26 @@ export function selectValuationMethod(
             confidenceOf(deciding, yielded.length),
           ),
           version: FINANCIAL_METHOD_SELECTION_VERSION,
+        };
+      }
+
+      if (selected === "cyclical" || selected === "commodity") {
+        const missing = [
+          ...new Set([
+            ...(!input.fcffInputsComplete ? ["fcff_inputs"] : []),
+            ...(input.normalizedFcffMissingInputs ?? descriptor.requiredInputs),
+          ]),
+        ];
+        return {
+          ...result(
+            selected,
+            missing.length === 0 ? null : "missing_required_input",
+            missing,
+            rules,
+            alternatives,
+            confidenceOf(deciding, yielded.length),
+          ),
+          version: CYCLE_METHOD_SELECTION_VERSION,
         };
       }
 
