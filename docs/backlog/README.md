@@ -2938,10 +2938,9 @@ capital en libros, opciones valuadas y restadas, volatilidad de la serie,
 transcripción por IA y denominador básicas + RSU. Hecho: el dominio puro
 (incremento 1), la transcripción medida sobre diez 10-K reales con migración
 `0030` y `pnpm valuation:employee-equity` (incremento 2, salvo sus casos en el
-corpus de evals), y las opciones en la corrida (`fcff-1.5.0`, metodología
-`0.11.0`). Pendiente: cablear la probabilidad de fracaso —en la medición
-anterior no pudo descargarse la planilla Ginzu con la tabla por rating; el owner
-decidió cablear las opciones primero— y confirmar el gold de los evals ya medidos.
+corpus de evals), las opciones en la corrida y la probabilidad de fracaso (`fcff-1.6.0`,
+metodología `0.12.0`). Pendiente para cerrar: confirmar el gold de opciones
+de los evals ya medidos.
 
 Incremento de evals (2026-10-20): `employee-equity-eval-cases-1.0.0` arma
 base, inyecciones aplicables y abstención a partir de una nota y gold explícitos;
@@ -2986,6 +2985,44 @@ lint, formato y diff pasan; build de producción con `next build --webpack`
 pasa fuera del sandbox. El comando habitual con Turbopack sigue fallando al
 abrir su puerto local en este entorno. Sin cambios de UI ni migración.
 Siguiente: confirmar el gold y continuar con la tabla de fracaso.
+
+Incremento de fracaso (2026-10-20): la planilla Ginzu pudo descargarse por la
+puerta y su hoja real es `Failure Rate worksheet`. La fuente existente suma
+sólo esa URL exacta, con los mismos derechos y sin guardar el libro. El parser
+`damodaran-failure-rates-1.0.0` verifica título, siete ratings, diez horizontes
+y probabilidades acumuladas entre cero y uno, sin leer la tabla por edad.
+Se publicó una release de siete filas y diez columnas; repetir fue
+`duplicate` y conservó la release. Cinco archivos por proceso, diario sin
+cambio en 20; el preflight cuenta URLs únicas.
+
+`failure-risk-1.0.0` selecciona diez años, como la ilustración de la hoja,
+agrupa los signos del rating y congela el parámetro con su release, fila,
+campo y ambos relojes. El owner puede declarar otra por CIK con motivo y
+fecha real; no se aplica antes de ser conocida ni se desempatan decisiones
+contradictorias. Un rating sintético D queda sin probabilidad: no prueba un
+default y la tabla no tiene esa fila. `failure_risk_recomputed` rechaza
+selección incompatible o capital sin resolver.
+
+`fcff-1.6.0` pondera el DCF condicional por supervivencia y el recupero por
+fracaso, antes del puente a equity; el recupero es la mitad del capital
+invertido **reportado**, cero con base nombrada si no es positivo. Publica
+`failureAdjustment`; escenarios y sensibilidad aplican la misma regla sobre
+su propio DCF. `terminalValueShare` conserva el DCF condicional como base.
+Metodología `0.12.0`, sin migración ni reescritura. La fixture usa p sintética
+cero, conserva 13,39 USD por acción y cambia sus hashes a
+`4db820e6...2076` / `691e748d...7d5b`.
+
+Evidencia: el libro de 287.995 bytes se procesó en memoria y produjo cero
+rechazos; `valuation:assess --offline` sobre AAPL, JNJ, XOM, CCL, NCLH, F y
+MRNA distingue probabilidad disponible, capital sin resolver, rating fuera de
+tabla y ausencia de rating. Pasan 2.631 unit, 199 integration, 175 E2E con axe
+(2 omitidos), tipos, lint, formato y diff. El gate E2E se ejecutó con copia
+temporal del harness que sólo agregó `--webpack` al build: conservó
+centinelas, escaneo de secretos y ambos runtimes; el script temporal se
+eliminó, el gate habitual no cambió. Turbopack mantiene la limitación del
+puerto en este entorno. Sin cambios de componentes UI ni llamadas a modelos.
+`F4-05` sigue `in_progress` sólo por el gold de opciones pendiente de
+confirmación explícita; después corresponde `F4-06`.
 
 Cada arquetipo de `F4-06` es un slice propio con selector, inputs, fórmulas,
 fixtures independientes, diagnósticos y estado `experimental | reviewed | production`,

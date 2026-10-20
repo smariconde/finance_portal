@@ -22,7 +22,7 @@ import { getSourceRegistryRepository } from "@/server/persistence/get-source-reg
  * Registra los datasets de Damodaran que usa el costo de capital
  * ([ADR 0032](../docs/architecture/adr/0032-damodaran-reference-datasets.md)).
  *
- *   pnpm damodaran:record                                     # las cuatro páginas, en seco
+ *   pnpm damodaran:record                                     # los cinco archivos, en seco
  *   pnpm damodaran:record --dataset damodaran.betas-us --apply
  *   pnpm damodaran:record --apply
  *
@@ -60,7 +60,11 @@ await syncDeclaredSourceRegistry(DEMO_SOURCE_REGISTRY, registry);
 const verdict = await checkSourceBudget(
   getSourceBudgetStore(),
   DAMODARAN_SOURCE_ID,
-  requested.length,
+  new Set(
+    DAMODARAN_DATASETS.filter((dataset) =>
+      requested.includes(dataset.datasetId),
+    ).map((dataset) => dataset.url),
+  ).size,
   new Date().toISOString(),
 );
 

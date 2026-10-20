@@ -34,6 +34,7 @@ export type ScenarioOutcome = Pick<
   | "periods"
   | "terminal"
   | "enterpriseValue"
+  | "failureAdjustment"
   | "equityValue"
   | "valuePerShare"
   | "terminalValueShare"
@@ -116,6 +117,7 @@ function valueScenario(
     periods: computation.periods,
     terminal: computation.terminal,
     enterpriseValue: computation.enterpriseValue,
+    failureAdjustment: computation.failureAdjustment,
     equityValue: computation.equityValue,
     valuePerShare: computation.valuePerShare,
     terminalValueShare: computation.terminalValueShare,

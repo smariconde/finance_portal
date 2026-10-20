@@ -1,3 +1,7 @@
+import {
+  fixtureFailureRates,
+  failureRateRows,
+} from "../infrastructure/fixture-failure-rates";
 import { randomUUID } from "node:crypto";
 
 import { describe, expect, it } from "vitest";
@@ -274,5 +278,68 @@ describe("createLiveDamodaranSource", () => {
     expect(countries.fetchedAt).toBe(regions.fetchedAt);
     expect(countries.publication.rows.length).toBeGreaterThan(100);
     expect(regions.publication.rows).toHaveLength(9);
+  });
+});
+
+describe("failure-rate source contract", () => {
+  const dataset = findDamodaranDataset("damodaran.failure-rates")!;
+  function setupFailure(status = 200, body = fixtureFailureRates()) {
+    const requests: unknown[] = [];
+    const source = createLiveDamodaranSource({
+      sourceRegistry: createInMemorySourceRegistryRepository(),
+      fetch: async (request) => {
+        requests.push(request);
+        return { status, body, byteLength: body.byteLength, fetchedAt: FIRST };
+      },
+    });
+    return { source, requests };
+  }
+  it("requests one workbook, dates its seven rows at observation and preserves provenance", async () => {
+    const { source, requests } = setupFailure();
+    const repository = new InMemoryReferenceDatasetRepository();
+    const outcome = await recordReferenceDataset(dataset, {
+      source,
+      repository,
+      ingestionRuns: createInMemoryIngestionRunRepository(),
+      now: () => FIRST,
+      newId: randomUUID,
+      dryRun: false,
+    });
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({
+      sourceId: "damodaran-current-data",
+      url: dataset.url,
+      accept:
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    expect(outcome).toMatchObject({
+      rows: 7,
+      rejections: 0,
+      runStatus: "succeeded",
+    });
+    expect((await repository.listReleases(dataset.datasetId))[0]).toMatchObject(
+      {
+        availableAt: FIRST,
+        validFrom: FIRST,
+        publishedLabel: null,
+        sourceDocumentId: dataset.url,
+        parserVersion: "damodaran-failure-rates-1.0.0",
+      },
+    );
+  });
+  it.each([403, 429, 500])(
+    "refuses HTTP %s instead of publishing empty probabilities",
+    async (status) => {
+      await expect(
+        setupFailure(status).source.load(dataset),
+      ).rejects.toMatchObject({ code: "unexpected_status" });
+    },
+  );
+  it("refuses an altered header instead of publishing plausible numbers", async () => {
+    const rows = failureRateRows();
+    rows[1]![1] = { n: "10" };
+    await expect(
+      setupFailure(200, fixtureFailureRates(rows)).source.load(dataset),
+    ).rejects.toMatchObject({ code: "payload_rejected" });
   });
 });

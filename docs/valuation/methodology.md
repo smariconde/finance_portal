@@ -1,8 +1,8 @@
 # Metodología de valuación
 
 - Estado: metodología objetivo; motor FCFF base implementado en `src/modules/valuation/`
-- Versión metodológica: 0.11.0 (la corrida lleva selección, completitud y rigor desde `F3-03`, el costo de capital construido desde `F3-06`, el riesgo país ponderado por operaciones desde `F5-05`, las decisiones cualitativas con la propuesta de la IA desde `F5-06` la capitalización de arrendamientos e I+D desde `F4-01` el techo del crecimiento terminal en la libre de riesgo desde `F4-02` la normalización reported/adjusted del ejercicio base desde `F4-03` los escenarios bear/base/bull desde `F4-04` y las opciones y unidades de empleados desde `F4-05`)
-- Versión de engine implementada: `fcff-1.5.0` (método `fcff_base`)
+- Versión metodológica: 0.12.0 (la corrida lleva selección, completitud y rigor desde `F3-03`, el costo de capital construido desde `F3-06`, el riesgo país ponderado por operaciones desde `F5-05`, las decisiones cualitativas con la propuesta de la IA desde `F5-06` la capitalización de arrendamientos e I+D desde `F4-01` el techo del crecimiento terminal en la libre de riesgo desde `F4-02` la normalización reported/adjusted del ejercicio base desde `F4-03` los escenarios bear/base/bull desde `F4-04` y las opciones y unidades de empleados y la probabilidad de fracaso desde `F4-05`)
+- Versión de engine implementada: `fcff-1.6.0` (método `fcff_base`)
 - Fecha: 2026-08-21; motor base entregado el 2026-08-24; niveles de rigor y alcance
   de la IA incorporados el 2026-09-04
 - Alcance inicial: FCFF para no financieras maduras o en transición
@@ -66,7 +66,7 @@ El nivel se deriva de la completitud medida, no se elige. La corrida persiste qu
 comprobación bajó el nivel, de modo que conseguir ese dato más adelante y volver a
 correr sea una acción concreta y no una intuición.
 
-## Motor implementado: `fcff-1.5.0`
+## Motor implementado: `fcff-1.6.0`
 
 `fcff-1.1.0` (`F4-01`) agrega al puente EV-equity la claim `leaseDebt`, la deuda
 por arrendamientos operativos que deriva la capitalización. `fcff-1.2.0`
@@ -76,7 +76,9 @@ puente sean las que deriva la normalización. `fcff-1.4.0` (`F4-04`) valúa
 bear y bull enteros desde sus supuestos (ver "Escenarios y sensibilidad").
 `fcff-1.5.0` (`F4-05`) resta las opciones de empleados vivas y divide por
 acciones en circulación más unidades no consolidadas (ver "Puente EV-equity");
-el resto del motor es el de `fcff-1.0.0`.
+`fcff-1.6.0` pondera el DCF por supervivencia y recupera la mitad del capital
+en libros reportado (ver "Supervivencia y recupero"). El resto del motor es el
+de `fcff-1.0.0`.
 
 El método `fcff_base` cubre `non_financial_mature` con N períodos explícitos
 —hasta 20— más un valor terminal. Cualquier otro `assetProfile` devuelve
@@ -799,10 +801,61 @@ lee con este código y reproducirla pide el código de su versión; nunca se la
 recalcula en silencio con la regla nueva. La versión metodológica pasa a
 `0.8.0`.
 
+### Supervivencia y recupero
+
+Desde `fcff-1.6.0` (`F4-05`, ADR 0040), el DCF es el valor **condicional a
+seguir operando**. `failure-risk-1.0.0` toma la probabilidad acumulada a diez
+años del rating sintético que ya deriva el costo de capital, en la release
+conocida y vigente de `damodaran.failure-rates`. El horizonte estadístico es
+siempre diez años —el que ilustra la hoja Ginzu—, aunque el forecast explícito
+tenga otro largo; no es una tasa anual ni una probabilidad de la perpetuidad.
+
+El parser `damodaran-failure-rates-1.0.0` lee sólo la tabla de rating de la
+hoja `Failure Rate worksheet`: verifica encabezado, diez horizontes, los siete
+grupos y probabilidades finitas entre cero y uno que no decrecen con el plazo.
+No lee la tabla por edad del negocio que hay más abajo. Conserva las diez
+columnas exactas en una release observada y usa `year_10` en la corrida.
+
+Los signos `+` y `−` van al grupo amplio de la tabla: AAA, AA, A, BBB, BB, B
+y CCC/C. `CCC`, `CC` y `C` comparten el último. No se interpola entre notches.
+La tabla no tiene `D`: un **rating sintético** `D` no demuestra un default
+observado y queda `synthetic_rating_unmapped`, nunca una probabilidad del
+100 % inventada. El owner puede declarar otra probabilidad por CIK, con motivo
+y fecha real de declaración (`declared-failure-probabilities.ts`), visible
+sólo desde esa fecha. Dos declaraciones contradictorias al mismo instante se
+rechazan como `owner_declaration_conflict`.
+
+```text
+going_concern_value = sum(pv_fcff) + pv_terminal_value
+proceeds = 0.5 × max(reported_book_capital, 0)
+enterprise_value = going_concern_value × (1 − p) + proceeds × p
+```
+
+El capital en libros es `normalization.investedCapital.reported`, antes de la
+capitalización de I+D y arrendamientos. Un capital no positivo recupera cero
+y declara `non_positive_book_capital`; un capital desconocido bloquea la
+corrida. El puente a equity y el denominador se aplican después de este ajuste.
+El WACC no se cambia para representar fracaso.
+
+`ValuationInput.failureRisk` congela la selección: rating, horizonte, parámetro
+con release/fila/campo/disponibilidad/registro, o la declaración del owner.
+`failure_risk_recomputed` rechaza un rating, fila, sujeto, corte o probabilidad
+incompatible y un capital sin resolver. `failureAdjustment` del resultado
+expone DCF condicional, probabilidad, recupero, base y valor ponderado.
+Bear, base, bull y cada celda de sensibilidad vuelven a aplicar la misma
+probabilidad y el mismo capital sobre su propio DCF. `terminalValueShare`
+sigue siendo concentración del **DCF condicional**, no del valor después de
+recupero: el ajuste no debe falsear ese diagnóstico.
+
+La metodología pasa a `0.12.0`; la fixture usa una probabilidad sintética cero
+para conservar el valor por acción. Sus hashes cambian por el nuevo snapshot
+y resultado. Ninguna corrida guardada se reescribe: el replay de una versión
+anterior requiere su código, como en los incrementos previos.
+
 ### Puente EV-equity
 
 ```text
-enterprise_value = sum(pv_fcff) + pv_terminal_value
+enterprise_value = going_concern_value × (1 − p) + proceeds × p
 equity_value = enterprise_value
              + excess_cash
              + non_operating_assets

@@ -430,6 +430,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
       documentationUrls: [
         "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/guide.html",
         "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datacurrent.html",
+        "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/spreadsh.htm",
       ],
       datasets: [
         "damodaran.betas-us",
@@ -437,10 +438,12 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         "damodaran.country-risk-regions",
         "damodaran.implied-erp",
         "damodaran.synthetic-ratings",
+        "damodaran.failure-rates",
       ],
       endpoints: [
         "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/Betas.html",
         "https://pages.stern.nyu.edu/~adamodar/pc/datasets/ctrypremJuly26.xlsx",
+        "https://pages.stern.nyu.edu/~adamodar/pc/fcffsimpleginzu.xlsx",
         "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/histimpl.html",
         "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/ratings.html",
       ],
@@ -462,7 +465,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
        * Los términos (guide.html, leídos el 2026-10-02) autorizan el uso «as part
        * of your regular occupation or research» con atribución y prohíben
        * revender los datos. No dicen nada de descargarlos con un programa: eso
-       * lo decidió el owner (`owner_accepted`), acotado a cuatro páginas, una
+       * lo decidió el owner (`owner_accepted`), acotado a las rutas declaradas, una
        * request cada una y nunca crawling (ADR 0032).
        */
       rights: {
@@ -478,18 +481,19 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
       },
       technicalStatus: "integrated",
       approvalStatus: "approved_personal",
-      reviewedAt: "2026-10-02T00:00:00.000Z",
-      rightsReviewedAt: "2026-10-02T00:00:00.000Z",
+      reviewedAt: "2026-10-20T00:00:00.000Z",
+      rightsReviewedAt: "2026-10-20T00:00:00.000Z",
       rightsReviewDueAt: "2027-01-31T00:00:00.000Z",
       reviewEvidence: [
         "docs/architecture/adr/0032-damodaran-reference-datasets.md",
+        "docs/architecture/adr/0040-failure-probability-employee-options.md",
         "docs/data/provider-use-matrix.md",
       ],
       retentionClasses: ["R3"],
       quotaPolicyId: null,
       ownerNotes:
-        "Decisión del owner del 2026-10-02: owner_accepted acotado para la descarga automatizada. Cuatro páginas HTML —betas de EE. UU., riesgo país, ERP implícita y rating sintético—, una request cada una, a mano. Se guardan filas normalizadas con atribución y nunca la página.",
-      recordedAt: "2026-10-02T00:00:00.000Z",
+        "ADR 0032/0034: owner_accepted acotado para descarga de betas, riesgo país, ERP y rating sintético. ADR 0040: F4-05 agrega únicamente fcffsimpleginzu.xlsx para su tabla de fracaso. Una request por URL, a mano; se guardan filas normalizadas con atribución, nunca páginas ni libros.",
+      recordedAt: "2026-10-20T00:00:00.000Z",
     }),
     sourceRegistryEntrySchema.parse({
       sourceId: "openrouter",

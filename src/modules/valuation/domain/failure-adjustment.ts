@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { engineDecimalSchema } from "./decimal-policy";
 import { formatDecimal, ONE, parseDecimal, ZERO } from "./decimal-policy";
 import { ValuationPolicyError } from "./valuation-error";
 
@@ -25,15 +27,16 @@ export const FAILURE_ADJUSTMENT_VERSION = "failure-adjustment-1.0.0";
 /** Fracción del capital en libros que se recupera si la empresa fracasa. */
 export const DISTRESS_PROCEEDS_FRACTION = "0.5";
 
-export type FailureAdjustment = {
-  version: typeof FAILURE_ADJUSTMENT_VERSION;
-  probability: string;
-  proceedsFraction: string;
-  proceedsBasis: "book_capital" | "non_positive_book_capital";
-  proceeds: string;
-  goingConcernValue: string;
-  adjustedOperatingValue: string;
-};
+export const failureAdjustmentSchema = z.object({
+  version: z.literal(FAILURE_ADJUSTMENT_VERSION),
+  probability: engineDecimalSchema,
+  proceedsFraction: engineDecimalSchema,
+  proceedsBasis: z.enum(["book_capital", "non_positive_book_capital"]),
+  proceeds: engineDecimalSchema,
+  goingConcernValue: engineDecimalSchema,
+  adjustedOperatingValue: engineDecimalSchema,
+});
+export type FailureAdjustment = z.infer<typeof failureAdjustmentSchema>;
 
 export function adjustForFailure(input: {
   goingConcernValue: string;

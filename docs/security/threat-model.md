@@ -19,6 +19,7 @@
 - Revisado el 2026-10-18: la ADR 0035 mide `TM-09` con evals de inyección, citas y abstención sobre las dos tareas; los evals gastan contra los mismos topes de `TM-10`, separados en el libro por `purpose`
 - Revisado el 2026-10-19: `F5-04` integra Tavily como último recurso de la industria; `TM-09` alcanza a la búsqueda web, `TM-08` se sostiene porque la URL de un resultado es procedencia y nunca se abre, y `TM-12` porque ninguna superficie muestra un resultado
 - Revisado el 2026-10-20: los evals de opciones (`F4-05`, ADR 0040) congelan diez notas SEC y corroboraciones del mismo filing, prueban inyecciones y ausencia de evidencia sobre la escalera vigente y mantienen gasto de eval en el libro existente; `TM-09`, `TM-10` y `TM-16` sin nueva frontera web. El gold sigue pendiente de confirmación del owner
+- Revisado el 2026-10-20: `F4-05` incorpora la tabla de fracaso de Ginzu por una ruta exacta de Damodaran, normalizada y fechada sin conservar el libro (`TM-05`, `TM-08`, `TM-10`); el snapshot congela el parámetro y el motor lo aplica de nuevo en cada escenario y sensibilidad (`TM-06`, `TM-16`), con ausencia explícita para ratings fuera de la tabla
 - Revisión obligatoria: antes de cada nueva frontera web, proveedor, export, capacidad IA o cambio de exposición
 
 ## Objetivo y método

@@ -1,3 +1,5 @@
+import { buildFailureRisk, type FailureRisk } from "../domain/failure-risk";
+import { DECLARED_FAILURE_PROBABILITIES } from "./declared-failure-probabilities";
 import { SEC_SIC_TAXONOMY_ID } from "@/modules/classification/domain/sec-sic-classification";
 import type { SubjectClassification } from "@/modules/classification/domain/subject-classification";
 import {
@@ -121,6 +123,9 @@ export type CompanyAssessmentDependencies = {
     resolutionId: string,
   ) => Promise<StoredIndustryResolution | null>;
   /** Las releases de Damodaran visibles al corte, o `null` cada una (`F3-04`). */
+  readonly loadFailureRates?: (
+    query: PointInTimeQuery,
+  ) => Promise<ReferenceReading | null>;
   readonly costOfCapitalReadings: (query: PointInTimeQuery) => Promise<{
     readonly betas: ReferenceReading | null;
     readonly countryRisk: ReferenceReading | null;
@@ -176,6 +181,7 @@ export type CompanyAssessment = {
   readonly rigor: RigorAssessment;
   /** WACC construido con componentes fechados, o lo que faltó (`F3-06`). */
   readonly costOfCapital: CostOfCapitalResult;
+  readonly failureRisk: FailureRisk;
   /**
    * Industria y mix con lo que los sostiene, tal como una corrida los congela
    * en su snapshot (`F5-06`).
@@ -397,6 +403,17 @@ export async function assessCompany(
     rigor: deriveRigorLevel(selection, completeness),
     qualitativeDecisions,
     costOfCapital,
+    failureRisk: buildFailureRisk({
+      syntheticRating:
+        costOfCapital.status === "computed"
+          ? costOfCapital.costOfCapital.derived.syntheticRating
+          : null,
+      reading: (await dependencies.loadFailureRates?.(query)) ?? null,
+      knowledge: query,
+      legalEntityId,
+      cik: request.cik,
+      declarations: DECLARED_FAILURE_PROBABILITIES,
+    }),
     capitalization,
     normalization: assessNormalization(
       series,

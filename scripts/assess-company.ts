@@ -1,3 +1,8 @@
+import {
+  FAILURE_RATES_DATASET,
+  failureProbability,
+} from "@/modules/valuation/domain/failure-risk";
+import { adjustForFailure } from "@/modules/valuation/domain/failure-adjustment";
 import { createHash, randomUUID } from "node:crypto";
 import { parseArgs } from "node:util";
 
@@ -300,6 +305,12 @@ for (const ticker of values.ticker) {
       loadIndustryResolution: (resolutionId) =>
         industryResolutions.findResolution(resolutionId),
       ...fundamentalReaders,
+      loadFailureRates: (pointInTime) =>
+        readReferenceDataset(
+          FAILURE_RATES_DATASET,
+          pointInTime,
+          referenceDatasets,
+        ),
       costOfCapitalReadings: async (pointInTime) => {
         const [betas, countryRisk, impliedErp, ratings, regions] =
           await Promise.all(
@@ -501,6 +512,32 @@ for (const report of reports) {
       `${ledger.investedCapitalDelta.total} · ${ledger.debtDelta.leases}`,
     );
   }
+  const risk = assessment.failureRisk;
+  if (risk.basis === "missing") log("fracaso", `sin resolver · ${risk.reason}`);
+  else {
+    log(
+      "fracaso",
+      `${failureProbability(risk)} · probabilidad acumulada a 10 años · ${risk.syntheticRating} · ${risk.basis}`,
+    );
+    if (risk.basis === "rating_table")
+      log(
+        "tabla de fracaso",
+        `${risk.parameter.releaseId} · ${risk.parameter.rowKey}.${risk.parameter.field} · disponible ${risk.parameter.availableAt}`,
+      );
+    const capital = assessment.normalization?.investedCapital;
+    if (capital?.status === "resolved") {
+      const recovery = adjustForFailure({
+        goingConcernValue: "0",
+        probability: failureProbability(risk),
+        bookCapital: capital.reported,
+      });
+      log(
+        "recupero",
+        `${recovery.proceeds} · mitad del capital en libros ${capital.reported} · ${recovery.proceedsBasis}`,
+      );
+    } else log("recupero", "falta capital en libros resuelto");
+  }
+
   const { normalization } = assessment;
   if (normalization !== null) {
     const { debt, excessCash, investedCapital, taxRate, charges, base } =
