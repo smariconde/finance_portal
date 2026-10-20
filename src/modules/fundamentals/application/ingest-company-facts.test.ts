@@ -1,3 +1,4 @@
+import { ACCEPTANCE_FROM_REGISTERED_DOCUMENT_FLAG } from "../domain/sec-registered-acceptance";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createGraphIdentityResolver } from "@/modules/identity/application/identity-resolver";
@@ -535,6 +536,60 @@ describe("ingestCompanyFacts", () => {
         replayOfRunId: first.run.runId,
       });
       expect(second.publication).toMatchObject({ published: 0 });
+    });
+
+    it("keeps the registered acceptance when a shifted file goes undetected, instead of restating", async () => {
+      // El caso del filer nuevo de ExxonMobil: sin ninguna aceptación fuera de
+      // horario, el reloj lee el archivo corrido como sano.
+      const harness = createHarness();
+      harness.serve(served((columns) => columns));
+      const first = await harness.ingest();
+
+      harness.serve(served(shifted));
+      const second = await harness.ingest();
+
+      expect(
+        second.documents
+          .filter((document) => document.kind !== "companyfacts")
+          .map((document) => document.acceptanceClock?.clock),
+      ).toEqual(["published_utc", "published_utc"]);
+      expect(second.run).toMatchObject({
+        status: "duplicate",
+        replayOfRunId: first.run.runId,
+        qualityFlags: expect.arrayContaining([
+          ACCEPTANCE_FROM_REGISTERED_DOCUMENT_FLAG,
+        ]),
+      });
+      expect(second.publication).toMatchObject({ published: 0, restated: 0 });
+    });
+
+    it("rejects the facts of a registered filing whose acceptance changed by something other than the clock", async () => {
+      const harness = createHarness();
+      harness.serve(served((columns) => columns));
+      await harness.ingest();
+
+      harness.serve(
+        served((columns) => ({
+          ...columns,
+          // Sólo la primera presentación, un minuto: no es el reloj.
+          acceptanceDateTime: columns.acceptanceDateTime!.map(
+            (instant, index) =>
+              index === 0
+                ? new Date(Date.parse(instant as string) + 60_000).toISOString()
+                : instant,
+          ),
+        })),
+      );
+      const second = await harness.ingest();
+
+      expect(second.run.status).toBe("partial");
+      expect(
+        second.rejections.every(
+          (rejection) => rejection.code === "registered_acceptance_conflict",
+        ),
+      ).toBe(true);
+      expect(second.rejections.length).toBeGreaterThan(0);
+      expect(second.publication?.restated ?? 0).toBe(0);
     });
 
     it("quarantines a file whose clock fits EDGAR's hours under neither reading", async () => {

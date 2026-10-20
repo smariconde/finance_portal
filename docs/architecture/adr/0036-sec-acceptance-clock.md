@@ -151,6 +151,46 @@ que las demás (vuelve a ser la medianoche de su día). Sin ninguna aceptación
 con hora, el archivo es `no_acceptances`. Sobre los 30 archivos reales, ahora
 **695 de 695** aceptaciones coinciden con lo guardado.
 
+## Enmienda (2026-10-20): un documento registrado no cambia de aceptación
+
+`gate:point-in-time` dejó de pasar después de la reingesta de `F4-01`: 91 filas
+del sujeto de ExxonMobil con la disponibilidad cuatro horas más tarde que su
+documento guardado, todas del 10-Q de agosto (`0000034088-26-000093`). El
+`submissions` del filer nuevo (CIK 0002115436) vino corrido, pero tiene pocas
+presentaciones y ninguna cae fuera del horario de EDGAR en ninguna lectura: la
+`1.1.0` lo leyó `published_utc`, como prevé la decisión 2. El supuesto de que
+eso «sólo atrasa» no vale para una **reingesta**: la ingesta comparó la
+lectura nueva con el registro, lo informó como conflicto de documento y
+publicó igual 89 revisiones con el mismo valor (`identical_value_without_reason`)
+y 2 filas nuevas que contradecían a su documento
+(`document_availability_mismatch`).
+
+La aceptación de la SEC es un hecho inmutable y `source_documents` nunca se
+reescribe, así que el registro es el testigo que le faltaba a la regla.
+`sec-registered-acceptance-1.0.0` contrasta cada presentación que citan los
+hechos con su documento registrado **antes** de armar las vintages:
+
+- igual: nada;
+- distinta exactamente por el offset de Nueva York, en cualquier sentido: vale
+  la registrada, y la corrida lleva la bandera
+  `acceptance_from_registered_document`;
+- distinta de cualquier otra forma: los hechos de esa accession se rechazan con
+  `registered_acceptance_conflict`; elegir sería reescribir o contradecir un
+  documento.
+
+No rechaza en silencio ni elige: con la aceptación registrada, el mismo hecho
+vuelve a dar el mismo hash y la reingesta es `duplicate`. Las presentaciones
+nuevas de un archivo corrido sin detectar siguen entrando tarde, que es el
+error conservador de la decisión 2. No mueve la versión del parser ni del
+pipeline, por la misma razón que la decisión 3.
+
+**Reparación** (contra `source_documents`, como la decisión 4): se borraron
+las 91 filas y las 89 revisiones 1 que habían quedado reemplazadas volvieron a
+estar vigentes, en una transacción, ensayada antes sobre una réplica. La
+reingesta del filer con la regla nueva publicó las 2 filas con la aceptación
+registrada y tomó las 89 como duplicados. El gate volvió a pasar: 29.086
+revisiones, 0 fallas en las cinco afirmaciones.
+
 ## Consecuencias
 
 - La ingesta, el refresh, los eventos corporativos y las tareas de IA vuelven a
