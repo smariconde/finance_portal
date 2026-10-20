@@ -327,10 +327,16 @@ un cambio por una caída externa sin diagnóstico.
 
 ## Decisiones y trabajo diferido
 
+- La [ADR 0043](adr/0043-revenue-margin-survival.md) incorpora alto crecimiento
+  y pérdidas con `growth-fcff-1.0.0`: convergencia, impuestos con pérdidas
+  explícitas, financiación declarada y supervivencia. Persistencia/replay
+  conservan los contratos anteriores. `valuation:growth` es CLI privado, sin
+  red, IA, migración ni nueva UI; experimental y screening.
+
 - La [ADR 0042](adr/0042-cycle-normalized-fcff.md) incorpora `normalized_fcff`
   sobre el núcleo industrial, con clasificación y versiones propias, historia
   de ciclo congelada y convergencia recalculada. Persistencia y replay admiten
-  las tres familias de métodos sin migración. El CLI local `valuation:cycle`
+  las familias de métodos implementadas sin migración. El CLI local `valuation:cycle`
   no abre red ni modifica la ventana de ingesta SEC; el modelo es experimental.
 
 - La [ADR 0041](adr/0041-financial-equity-excess-return.md) agrega un contrato

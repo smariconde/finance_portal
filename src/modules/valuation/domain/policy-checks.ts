@@ -1,3 +1,8 @@
+import {
+  revenueMarginMismatches,
+  GROWTH_FCFF_ENGINE_VERSION,
+  GROWTH_METHODOLOGY_VERSION,
+} from "./revenue-margin";
 import { failureRiskMismatches } from "./failure-risk";
 import {
   cycleNormalizationMismatches,
@@ -475,13 +480,87 @@ export function checkValuationInput(input: ValuationInput): PolicyCheck[] {
       ),
     );
   }
-  const versionsMatch =
-    input.method === "normalized_fcff"
+  const isGrowth =
+    input.method === "fcff_three_stage" ||
+    input.method === "revenue_margin_survival";
+  if (isGrowth) {
+    const mismatches = revenueMarginMismatches(input);
+    const cutoff = Math.min(
+      Date.parse(input.knowledge.knownAt ?? `${input.asOf}T23:59:59.999Z`),
+      Date.parse(input.knowledge.effectiveAt),
+    );
+    const temporal = [
+      ...listMonetaryFacts(input),
+      {
+        path: "employeeEquity.sharesOutstanding",
+        fact: input.employeeEquity.sharesOutstanding,
+      },
+    ]
+      .filter(
+        ({ fact }) =>
+          fact.asOf > input.asOf || Date.parse(fact.availableAt) > cutoff,
+      )
+      .map(({ path }) => path);
+    input.costOfCapital.parameters.forEach((parameter, index) => {
+      if (Date.parse(parameter.availableAt) > cutoff)
+        temporal.push(`costOfCapital.parameters.${index}`);
+    });
+    if (Date.parse(input.costOfCapital.coverage.availableAt) > cutoff)
+      temporal.push("costOfCapital.coverage");
+    checks.push(
+      check(
+        "revenue_margin_recomputed",
+        "reject",
+        mismatches.length === 0,
+        "Classification, growth stages, margin convergence and loss pool must explain this revenue-to-margin snapshot.",
+        mismatches,
+      ),
+    );
+    checks.push(
+      check(
+        "growth_snapshot_known_at_cutoff",
+        "reject",
+        temporal.length === 0,
+        "Facts and rate components must be visible at the declared knowledge cutoff.",
+        temporal.slice(0, 32),
+      ),
+    );
+    checks.push(
+      check(
+        "growth_model_experimental",
+        "require_review",
+        false,
+        "Experimental screening: review market size, target margin, funding access and loss usability. Terminal taxes ignore unused finite losses; funding terms and future dilution are not forecast.",
+        ["revenueMargin"],
+      ),
+    );
+    const directMargins = SCENARIO_KEYS.filter((key) =>
+      input.scenarios?.[key].drivers.some(
+        (driver) => driver.driver === "ebitMargin",
+      ),
+    );
+    checks.push(
+      check(
+        "growth_scenario_margin_target",
+        "reject",
+        directMargins.length === 0,
+        "Scenario terminalEbitMargin rebuilds the entire margin path; direct period margins bypass convergence.",
+        directMargins.map((key) => `scenarios.${key}`),
+      ),
+    );
+  }
+  const versionsMatch = isGrowth
+    ? input.engineVersion === GROWTH_FCFF_ENGINE_VERSION &&
+      input.methodologyVersion === GROWTH_METHODOLOGY_VERSION &&
+      input.cycleNormalization === undefined
+    : input.method === "normalized_fcff"
       ? input.engineVersion === NORMALIZED_FCFF_ENGINE_VERSION &&
-        input.methodologyVersion === CYCLE_METHODOLOGY_VERSION
+        input.methodologyVersion === CYCLE_METHODOLOGY_VERSION &&
+        input.revenueMargin === undefined
       : input.engineVersion === ENGINE_VERSION &&
         input.methodologyVersion === METHODOLOGY_VERSION &&
-        input.cycleNormalization === undefined;
+        input.cycleNormalization === undefined &&
+        input.revenueMargin === undefined;
   // Preserve all existing mature snapshots and result hashes.
   if (!versionsMatch)
     checks.push(

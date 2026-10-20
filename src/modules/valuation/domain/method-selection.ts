@@ -31,6 +31,7 @@ import { assetProfileSchema, type AssetProfile } from "./asset-profile";
 export const METHOD_SELECTION_VERSION = "method-selection-0.2.0";
 /** F4-06 only changes financial decisions; FCFF snapshot hashes stay stable. */
 export const FINANCIAL_METHOD_SELECTION_VERSION = "method-selection-0.3.0";
+export const GROWTH_METHOD_SELECTION_VERSION = "method-selection-0.5.0";
 export const CYCLE_METHOD_SELECTION_VERSION = "method-selection-0.4.0";
 
 export const signalProfileSchema = assetProfileSchema.exclude([
@@ -67,6 +68,10 @@ export const methodSelectionInputSchema = z
     fcffInputsComplete: z.boolean(),
     /** Measured by the excess-return preflight, never by the FCFF checks. */
     excessReturnMissingInputs: z
+      .array(z.string().min(1).max(96))
+      .max(32)
+      .optional(),
+    growthFcffMissingInputs: z
       .array(z.string().min(1).max(96))
       .max(32)
       .optional(),
@@ -125,6 +130,7 @@ export const methodSelectionSchema = z.object({
     METHOD_SELECTION_VERSION,
     FINANCIAL_METHOD_SELECTION_VERSION,
     CYCLE_METHOD_SELECTION_VERSION,
+    GROWTH_METHOD_SELECTION_VERSION,
   ]),
   status: z.enum(["selected", "unsupported_method"]),
   assetProfile: assetProfileSchema.nullable(),
@@ -368,6 +374,30 @@ export function selectValuationMethod(
             confidenceOf(deciding, yielded.length),
           ),
           version: CYCLE_METHOD_SELECTION_VERSION,
+        };
+      }
+
+      if (selected === "high_growth" || selected === "loss_making") {
+        const missing = [
+          ...new Set([
+            ...(!input.fcffInputsComplete ? ["fcff_inputs"] : []),
+            ...(input.growthFcffMissingInputs ?? [
+              ...descriptor.requiredInputs,
+              "loss_carryforward",
+              "financing_rationale",
+            ]),
+          ]),
+        ];
+        return {
+          ...result(
+            selected,
+            missing.length === 0 ? null : "missing_required_input",
+            missing,
+            rules,
+            alternatives,
+            confidenceOf(deciding, yielded.length),
+          ),
+          version: GROWTH_METHOD_SELECTION_VERSION,
         };
       }
 

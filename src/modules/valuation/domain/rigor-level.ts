@@ -129,6 +129,23 @@ export function deriveRigorLevel(
     };
   }
 
+  if (
+    ["fcff_three_stage", "revenue_margin_survival"].includes(
+      selection.recommendedMethod ?? "",
+    )
+  ) {
+    return {
+      version: RIGOR_LEVEL_VERSION,
+      level: "screening",
+      degradedBy: ["revenue_margin_experimental"],
+      declarations:
+        completenessCheck(completeness, "geographic_revenue_mix").status ===
+        "met"
+          ? []
+          : ["country_risk_by_domicile"],
+    };
+  }
+
   const geographic =
     completenessCheck(completeness, "geographic_revenue_mix").status === "met";
   const declarations: RigorDeclaration[] = geographic

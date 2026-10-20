@@ -1,3 +1,4 @@
+import { deriveRevenueMargin } from "./revenue-margin";
 import { z } from "zod";
 import { deriveCycleNormalization } from "./cycle-normalization";
 import { formatDecimal } from "./decimal-policy";
@@ -265,6 +266,7 @@ export function materializeScenario(
   let periods = input.periods;
   let terminal = input.terminal;
   let cycleNormalization = input.cycleNormalization;
+  let revenueMargin = input.revenueMargin;
 
   for (const driver of scenario.drivers) {
     if (isPeriodDriver(driver)) {
@@ -275,7 +277,20 @@ export function materializeScenario(
           ? period
           : applyPeriodDriver(period, driver.driver, value);
       });
+      if (revenueMargin !== undefined && driver.driver === "revenueGrowth") {
+        revenueMargin = {
+          ...revenueMargin,
+          initialRevenueGrowth:
+            driver.values[0] ?? revenueMargin.initialRevenueGrowth,
+        };
+      }
     } else {
+      if (
+        revenueMargin !== undefined &&
+        driver.driver === "terminalEbitMargin"
+      ) {
+        revenueMargin = { ...revenueMargin, targetMargin: driver.value };
+      }
       terminal = applyTerminalDriver(terminal, driver.driver, driver.value);
       if (
         input.method === "normalized_fcff" &&
@@ -314,8 +329,28 @@ export function materializeScenario(
     }
   }
 
+  if (revenueMargin !== undefined) {
+    const path = deriveRevenueMargin(
+      revenueMargin,
+      input.baseRevenue.value,
+      input.normalization.base.ebitAdjusted,
+      periods.length,
+      terminal.growth,
+    );
+    const declaredGrowth = scenario.drivers.some(
+      (driver) => driver.driver === "revenueGrowth",
+    );
+    periods = periods.map((period, index) => ({
+      ...period,
+      ebitMargin: path.periodMargins[index]!,
+      revenueGrowth: declaredGrowth
+        ? period.revenueGrowth
+        : path.periodGrowth[index]!,
+    }));
+  }
   return {
     ...input,
+    ...(revenueMargin === undefined ? {} : { revenueMargin }),
     ...(cycleNormalization === undefined ? {} : { cycleNormalization }),
     periods,
     terminal,

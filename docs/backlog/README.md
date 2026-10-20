@@ -68,7 +68,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    40 | `F4-03`    | `done`        | Normalización reported/adjusted del ejercicio base: capital invertido, deuda, caja, tasa y cargos no recurrentes con libro de ajustes; el puente sale del libro.                                                          | `F4-01`          |
 |    41 | `F4-04`    | `done`        | Escenarios bear/base/bull como conjuntos coherentes de supuestos en el mismo snapshot, recalculados enteros por el motor y sometidos a los mismos checks que la base.                                                     | `F4-03`          |
 |    42 | `F4-05`    | `done`        | Probabilidad de fracaso del rating sintético con recupero sobre el capital en libros, y opciones de empleados valuadas con Black-Scholes ajustado por dilución y restadas del equity, con básicas + RSU como denominador. | `F4-03`          |
-|    43 | `F4-06`    | `in_progress` | Arquetipos por slice: bancos/aseguradoras y cíclicas/commodities entregados como experimentales; sigue pérdidas/high growth con su gate independiente.                                                                    | `F4-04`, `F4-05` |
+|    43 | `F4-06`    | `in_progress` | Arquetipos por slice: bancos/aseguradoras, cíclicas/commodities y pérdidas/high growth entregados como experimentales; sigue REIT con su gate independiente.                                                              | `F4-04`, `F4-05` |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -3087,7 +3087,7 @@ Evidencia del gate del arquetipo:
 #### `F4-06` — 4.2 cíclicas y commodities (cerrado el 2026-10-20)
 
 `F4-06` sigue `in_progress`: se cierra este arquetipo, no el conjunto.
-El próximo slice autorizado es 4.3, pérdidas y high growth; no se inició.
+En ese cierre, el próximo slice autorizado fue 4.3, pérdidas y high growth.
 
 - Contrato: `normalized_fcff`, motor `normalized-fcff-1.0.0`, metodología
   `cycle-fcff-1.0.0`, selector `method-selection-0.4.0` para estas decisiones;
@@ -3130,6 +3130,59 @@ Evidencia del gate:
   18 %, valor 7,3070419012 frente a 13,3859582309 USD/acción a margen actual;
   replay reproducido. `--apply` en locked falla antes de construir el storage.
   Sin escritura en la base personal, nuevas ingestas ni gasto IA.
+
+#### `F4-06` — 4.3 pérdidas y alto crecimiento (cerrado el 2026-10-20)
+
+Estado del slice: `done`, con su gate completo. `F4-06` sigue `in_progress`;
+el próximo slice autorizado es 4.4, REIT con AFFO/NAV. Sin bloqueos para 4.3.
+
+- Métodos: `fcff_three_stage` y `revenue_margin_survival`, motor/metodología
+  `growth-fcff-1.0.0`, contrato `revenue-margin-1.0.0` y selector
+  `method-selection-0.5.0`; [ADR 0043](../architecture/adr/0043-revenue-margin-survival.md).
+- Snapshot explícito: señales fechadas, crecimiento inicial y años de alto
+  crecimiento, transición lineal hasta `g`, margen sostenible y convergencia
+  desde EBIT ajustado. El motor reconstruye ambas trayectorias; exige motivos
+  de mercado, rentabilidad y financiación. No crea CAGR de ganancias negativas.
+- Pool de pérdidas del cierre base con fuente/documento y límite de uso anual:
+  cero explícito es admisible, faltante no. Cada año conserva uso, saldo e
+  impuestos; las pérdidas no dan devolución inmediata. El terminal tributa
+  normalmente y expone el saldo finito sin usar. El pool simplificado no modela
+  vencimientos, créditos, cambios de control o mezcla de jurisdicciones.
+- Pico de fondos operativos necesarios visible, antes de caja y financiación,
+  sin restarlo otra vez del valor. Supervivencia y recupero mantienen ADR 0040;
+  opciones y acciones se recalculan una sola vez. Estado `experimental`, rigor
+  limitado a `screening`, siempre `requires_review`.
+- Bear/bull son snapshots completos con las mismas reglas; el margen terminal
+  reconstruye la convergencia y `g` reconstruye la transición de ventas. Un
+  driver de crecimiento anual debe conservar la trayectoria derivada. La
+  sensibilidad WACC/g mantiene fijo el pronóstico explícito.
+- `valuation:growth --file <path>` calcula sin red ni IA, límite 512 kB;
+  dry run salvo `--apply`, que exige personal y persiste también rechazos.
+  Repositorio y replay admiten ambos perfiles sin migración. No cambia UI,
+  ingesta ni los números/hashes de las familias previas. La construcción
+  automática del snapshot sigue fuera de este incremento.
+- Controles: `TM-01`, `TM-05`, `TM-06`, `TM-15`, `TM-16`; clasificación,
+  moneda, cutoff, aceptación separada de la nota, versiones, periodicidad y
+  trayectorias verificadas. `system_recorded` sin fecha por hecho se rechaza.
+
+Evidencia:
+
+- [Oráculo independiente](../valuation/revenue-margin-oracle.md): veinte valores
+  de caja/impuestos de `higrowth.xls` coinciden a `5e-9`; diferencia de
+  convergencia declarada. Segundo oráculo: perpetuidad diferida con escudo fiscal
+  finito, EV 148.893.190,8088545 USD dentro de USD 0,000001.
+- 2.767 unit y 205 integration pasan. Tests de nulos, cero, negativos, moneda,
+  no finitos, pérdida sin devolución, límite anual, versiones, clasificación,
+  fechas futuras, escenarios inválidos, sensibilidad y monotonía. PostgreSQL
+  conserva decimales, dedupe, rechazos y replay de ambos perfiles.
+- CLI sobre fixture sintética fuera del repo: 20,0943395764 USD/acción y pico de
+  fondos de 38.976.000 USD; replay reproducido. `--apply` en locked falla antes
+  de construir storage. Sin escritura en base personal ni gasto IA.
+- Tipos, lint, formato y diff pasan. Build Turbopack y gate completo: 175 E2E
+  pasan, 2 omitidos; axe en personal/locked y 643 archivos escaneados sin
+  centinelas. Sin cambios al harness ni nueva UI.
+
+Próximo: 4.4, REIT con AFFO/NAV; no iniciado.
 
 ### Fase 5 — capa IA acotada bajo policy engine
 

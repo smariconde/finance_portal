@@ -1,3 +1,4 @@
+import { deriveRevenueMargin } from "../domain/revenue-margin";
 import { computeFcff } from "../domain/fcff";
 import { deriveCycleNormalization } from "../domain/cycle-normalization";
 import { parseDecimal, formatDecimal } from "../domain/decimal-policy";
@@ -109,7 +110,33 @@ export function runValuation(
         ),
       };
     }
+    let growthDiagnostics;
+    if (
+      (input.method === "fcff_three_stage" ||
+        input.method === "revenue_margin_survival") &&
+      input.revenueMargin !== undefined
+    ) {
+      let cumulative = parseDecimal("0", "funding");
+      let minimum = cumulative;
+      computation.periods.forEach((period) => {
+        cumulative = cumulative.plus(parseDecimal(period.fcff, "fcff"));
+        if (cumulative.lt(minimum)) minimum = cumulative;
+      });
+      growthDiagnostics = {
+        ...deriveRevenueMargin(
+          input.revenueMargin,
+          input.baseRevenue.value,
+          input.normalization.base.ebitAdjusted,
+          input.periods.length,
+          input.terminal.growth,
+        ),
+        modelStatus: "experimental" as const,
+        peakFundingNeed: formatDecimal(minimum.negated(), "peakFundingNeed"),
+        unusedLossAtTerminal: computation.periods.at(-1)!.lossTax!.closing,
+      };
+    }
     const result = valuationResultSchema.parse({
+      ...(growthDiagnostics === undefined ? {} : { growthDiagnostics }),
       ...(cycleComparison === undefined ? {} : { cycleComparison }),
       periods: computation.periods,
       terminal: computation.terminal,
