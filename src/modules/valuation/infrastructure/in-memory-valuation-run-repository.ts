@@ -5,7 +5,10 @@ import {
   type ValuationReplayKey,
   type ValuationRunRepository,
 } from "../application/valuation-run-repository";
-import { valuationRunSchema, type ValuationRun } from "../domain/valuation-run";
+import {
+  storedValuationRunSchema as valuationRunSchema,
+  type StoredValuationRun as ValuationRun,
+} from "../domain/stored-valuation-run";
 
 /**
  * Almacén en memoria del modo demo: la demo no abre PostgreSQL, así que sus

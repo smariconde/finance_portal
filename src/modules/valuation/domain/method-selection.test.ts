@@ -46,6 +46,7 @@ function select(
     knownAt?: string;
     fcffInputsComplete?: boolean;
     knowledgeBasis?: "public_availability" | "system_recorded";
+    excessReturnMissingInputs?: string[];
   } = {},
 ) {
   return selectValuationMethod({
@@ -60,6 +61,7 @@ function select(
     },
     evidence: entries,
     fcffInputsComplete: options.fcffInputsComplete ?? true,
+    excessReturnMissingInputs: options.excessReturnMissingInputs,
   });
 }
 
@@ -69,17 +71,24 @@ describe("method selection 0.2.0", () => {
     ["insurer", "excess_return", "insurer_regulated"],
     ["reit", "affo_nav", "reit_structure"],
   ] as const)(
-    "recognizes %s from the first tier alone but refuses its unimplemented method",
+    "recognizes %s and names the financial snapshot missing or unimplemented method",
     (profile, method, rule) => {
       const selection = select([evidence(profile, true)]);
 
       expect(selection).toMatchObject({
-        version: "method-selection-0.2.0",
+        version:
+          profile === "reit"
+            ? "method-selection-0.2.0"
+            : "method-selection-0.3.0",
         status: "unsupported_method",
         assetProfile: profile,
         recommendedMethod: method,
         activatedRules: [rule],
-        unsupportedReasons: ["method_not_implemented"],
+        unsupportedReasons: [
+          profile === "reit"
+            ? "method_not_implemented"
+            : "missing_required_input",
+        ],
         confidence: "high",
       });
     },
@@ -187,7 +196,7 @@ describe("method selection 0.2.0", () => {
       select([later], { knownAt: "2025-03-01T00:00:00.000Z" }),
     ).toMatchObject({
       assetProfile: "bank",
-      unsupportedReasons: ["method_not_implemented"],
+      unsupportedReasons: ["missing_required_input"],
     });
   });
 
@@ -205,7 +214,7 @@ describe("method selection 0.2.0", () => {
     });
     expect(select([lateLocal])).toMatchObject({
       assetProfile: "bank",
-      unsupportedReasons: ["method_not_implemented"],
+      unsupportedReasons: ["missing_required_input"],
     });
   });
 
@@ -267,4 +276,32 @@ describe("method selection 0.2.0", () => {
       activatedRules: ["bank_regulated"],
     });
   });
+
+  it.each(["bank", "insurer"] as const)(
+    "admits %s only with its own complete financial preflight",
+    (profile) => {
+      expect(
+        select([evidence(profile, true)], {
+          fcffInputsComplete: false,
+          excessReturnMissingInputs: [],
+        }),
+      ).toMatchObject({
+        version: "method-selection-0.3.0",
+        status: "selected",
+        assetProfile: profile,
+        recommendedMethod: "excess_return",
+        unsupportedReasons: [],
+        requiredInputs: [],
+      });
+      expect(
+        select([evidence(profile, true)], {
+          excessReturnMissingInputs: ["common_book_equity"],
+        }),
+      ).toMatchObject({
+        status: "unsupported_method",
+        requiredInputs: ["common_book_equity"],
+        unsupportedReasons: ["missing_required_input"],
+      });
+    },
+  );
 });

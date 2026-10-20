@@ -1,8 +1,9 @@
 # Metodología de valuación
 
-- Estado: metodología objetivo; motor FCFF base implementado en `src/modules/valuation/`
+- Estado: metodología objetivo; motor FCFF y exceso de retorno financiero experimental implementados en `src/modules/valuation/`
 - Versión metodológica: 0.12.0 (la corrida lleva selección, completitud y rigor desde `F3-03`, el costo de capital construido desde `F3-06`, el riesgo país ponderado por operaciones desde `F5-05`, las decisiones cualitativas con la propuesta de la IA desde `F5-06` la capitalización de arrendamientos e I+D desde `F4-01` el techo del crecimiento terminal en la libre de riesgo desde `F4-02` la normalización reported/adjusted del ejercicio base desde `F4-03` los escenarios bear/base/bull desde `F4-04` y las opciones y unidades de empleados y la probabilidad de fracaso desde `F4-05`)
 - Versión de engine implementada: `fcff-1.6.0` (método `fcff_base`)
+- Motor financiero independiente: `excess-return-1.0.0`, metodología `financial-equity-1.0.0` (método `excess_return`, `F4-06`, [ADR 0041](../architecture/adr/0041-financial-equity-excess-return.md)); no cambia la versión ni los hashes FCFF.
 - Fecha: 2026-08-21; motor base entregado el 2026-08-24; niveles de rigor y alcance
   de la IA incorporados el 2026-09-04
 - Alcance inicial: FCFF para no financieras maduras o en transición
@@ -40,7 +41,7 @@ de cuatro quintos del universo y produce números inválidos en el resto.
 | Fase 3   | parámetros Damodaran y costo de capital bottom-up                     | `done`         |
 | Fase 4   | leases e I+D capitalizados con puente sobre EBIT, capital y deuda     | `done`         |
 | Fase 4   | FCFF multi-etapa: regla terminal, normalización y escenarios          | `done`         |
-| Fase 4.1 | bancos y aseguradoras mediante excess return/residual income o DDM    | `planned`      |
+| Fase 4.1 | bancos y aseguradoras mediante exceso de retorno sobre equity         | `experimental` |
 | Fase 4.2 | cíclicas y commodities con normalización de ciclo                     | `planned`      |
 | Fase 4.3 | pérdidas/high growth con revenue-to-margin y supervivencia            | `planned`      |
 | Fase 4.4 | REIT mediante AFFO/FCFE/DDM y NAV                                     | `planned`      |
@@ -66,7 +67,47 @@ El nivel se deriva de la completitud medida, no se elige. La corrida persiste qu
 comprobación bajó el nivel, de modo que conseguir ese dato más adelante y volver a
 correr sea una acción concreta y no una intuición.
 
-## Motor implementado: `fcff-1.6.0`
+## Motor financiero: `excess-return-1.0.0`
+
+`F4-06` incorpora exceso de retorno para bancos y aseguradoras con contrato
+propio. El valor parte del patrimonio **común**, suma el valor presente de
+`(ROE - Ke) × patrimonio_inicial` por año y el terminal, y descuenta al costo
+de equity. Las utilidades retenidas actualizan el patrimonio para el año siguiente.
+El terminal deriva `retention = g / ROE` y usa el cierre del último año
+explícito sin adelantarlo por `g`. Opciones y unidades usan el mismo cálculo
+de `F4-05`; depósitos y reservas no entran en un puente industrial.
+
+La selección financiera tiene versión `method-selection-0.3.0` y exige un
+preflight propio; completar EBIT o deuda no habilita este método. El snapshot
+declara los componentes fechados de `Ke = rf + beta_equity × ERP + CRP`,
+pronósticos anuales y sus motivos. Se rechazan patrimonio común no positivo,
+ROE explícito negativo, payout fuera de `[0,1]`, beta negativa, Ke no positivo,
+inconsistencia de moneda o tiempo y terminal sin retención coherente, con
+`g > rf` o sin el buffer `Ke > g + 0.005`.
+
+El modelo queda `experimental`, rigor `screening` y siempre `requires_review`:
+no certifica capital distribuible, calidad de activos o reservas, ni clean
+surplus. Cada revisión faltante tiene un check propio. No admite la base
+`system_recorded` porque el contrato de hechos no incluye su fecha de registro.
+Patrimonio y acciones deben estar medidos al `asOf`; usar un balance viejo
+sin un roll-forward explícito se rechaza. La aceptación de la nota de opciones
+se verifica por separado de la fecha del registro accionario.
+
+Bear y bull se valúan completos. La sensibilidad varía beta de equity **terminal**
+y `g`, con Ke derivado por fila, trayectoria explícita fija, máximo 121 celdas
+y rechazos nombrados. Ambas superficies son salidas de dominio; aún no hay
+una página de resultados financieros. `pnpm valuation:financial --file <path>`
+calcula el snapshot privado sin red ni IA; `--apply` lo registra en el runtime
+personal. `pnpm valuation:replay` reproduce el método desde ese mismo JSON.
+
+La [ADR 0041](../architecture/adr/0041-financial-equity-excess-return.md)
+documenta las convenciones y límites. La
+[comparación independiente](financial-equity-oracle.md) reproduce diez años y
+terminal de `eqexret.xls`, y otro oráculo reconcilia contra un DDM sintético.
+La construcción automática del snapshot desde filings pertenece a un incremento
+posterior; la existencia del motor no declara cobertura productiva de empresas.
+
+## Motor FCFF implementado: `fcff-1.6.0`
 
 `fcff-1.1.0` (`F4-01`) agrega al puente EV-equity la claim `leaseDebt`, la deuda
 por arrendamientos operativos que deriva la capitalización. `fcff-1.2.0`
@@ -226,15 +267,15 @@ restricción regulatoria identificada; «descartado» exige evidencia, no la aus
 de una fila. Todos usan el mismo tiempo efectivo y corte de conocimiento salvo
 donde se indica otro corte.
 
-| Hechos al corte                                                                    | Resultado esperado                                                              | Regla o motivo                                |
-| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------- |
-| Banco identificado por evidencia directa; los demás perfiles descartados           | `bank`, método de equity; `unsupported_method` mientras ese método no exista    | `bank_regulated`, `method_not_implemented`    |
-| Aseguradora identificada por evidencia directa                                     | `insurer`, método de equity; `unsupported_method` mientras ese método no exista | `insurer_regulated`, `method_not_implemented` |
-| REIT identificado por evidencia directa                                            | `reit`, método con AFFO/NAV; `unsupported_method` mientras ese método no exista | `reit_structure`, `method_not_implemented`    |
-| Sólo consta el sector amplio `Financials`; subtipo desconocido                     | Abstención; no recomendar FCFF ni asumir banco                                  | `missing_classification_evidence`             |
-| Evidencia directa simultánea de banco y REIT, sin resolución                       | Abstención con ambas reglas activadas                                           | `conflicting_evidence`                        |
-| No financiera madura con exclusiones descartadas y inputs de `fcff_base` presentes | `non_financial_mature`, `fcff_base`                                             | `mature_non_financial`                        |
-| La única evidencia de subtipo se publicó después del corte de conocimiento         | Abstención en ese corte; una corrida posterior puede clasificar                 | `missing_classification_evidence`             |
+| Hechos al corte                                                                    | Resultado esperado                                                                                      | Regla o motivo                                |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| Banco identificado por evidencia directa; los demás perfiles descartados           | `bank`, exceso de retorno si su snapshot financiero está completo; de lo contrario nombra requisitos    | `bank_regulated`, `missing_required_input`    |
+| Aseguradora identificada por evidencia directa                                     | `insurer`, exceso de retorno si su snapshot financiero está completo; de lo contrario nombra requisitos | `insurer_regulated`, `missing_required_input` |
+| REIT identificado por evidencia directa                                            | `reit`, método con AFFO/NAV; `unsupported_method` mientras ese método no exista                         | `reit_structure`, `method_not_implemented`    |
+| Sólo consta el sector amplio `Financials`; subtipo desconocido                     | Abstención; no recomendar FCFF ni asumir banco                                                          | `missing_classification_evidence`             |
+| Evidencia directa simultánea de banco y REIT, sin resolución                       | Abstención con ambas reglas activadas                                                                   | `conflicting_evidence`                        |
+| No financiera madura con exclusiones descartadas y inputs de `fcff_base` presentes | `non_financial_mature`, `fcff_base`                                                                     | `mature_non_financial`                        |
+| La única evidencia de subtipo se publicó después del corte de conocimiento         | Abstención en ese corte; una corrida posterior puede clasificar                                         | `missing_classification_evidence`             |
 
 Los casos prueban prioridad, conflicto, ausencia y conocimiento temporal. No
 convierten `Financials` en subtipo ni asignan umbrales de EBIT, crecimiento o

@@ -29,6 +29,8 @@ import { assetProfileSchema, type AssetProfile } from "./asset-profile";
  * podría ser él el que corresponde.
  */
 export const METHOD_SELECTION_VERSION = "method-selection-0.2.0";
+/** F4-06 only changes financial decisions; FCFF snapshot hashes stay stable. */
+export const FINANCIAL_METHOD_SELECTION_VERSION = "method-selection-0.3.0";
 
 export const signalProfileSchema = assetProfileSchema.exclude([
   "non_financial_mature",
@@ -62,6 +64,11 @@ export const methodSelectionInputSchema = z
     evidence: z.array(profileEvidenceSchema).max(100),
     /** Preflight estructural del snapshot FCFF, no una estimación de faltantes. */
     fcffInputsComplete: z.boolean(),
+    /** Measured by the excess-return preflight, never by the FCFF checks. */
+    excessReturnMissingInputs: z
+      .array(z.string().min(1).max(96))
+      .max(32)
+      .optional(),
   })
   .superRefine((input, context) => {
     input.evidence.forEach((item, index) => {
@@ -109,7 +116,10 @@ const codeSchema = z.string().trim().min(1).max(96);
 
 /** La salida del selector como contrato: viaja dentro del snapshot de la corrida. */
 export const methodSelectionSchema = z.object({
-  version: z.literal(METHOD_SELECTION_VERSION),
+  version: z.enum([
+    METHOD_SELECTION_VERSION,
+    FINANCIAL_METHOD_SELECTION_VERSION,
+  ]),
   status: z.enum(["selected", "unsupported_method"]),
   assetProfile: assetProfileSchema.nullable(),
   recommendedMethod: codeSchema.nullable(),
@@ -318,6 +328,22 @@ export function selectValuationMethod(
         ...decidedAbove,
         ...tier.flatMap((profile) => byProfile.get(profile) ?? []),
       ];
+
+      if (selected === "bank" || selected === "insurer") {
+        const missing =
+          input.excessReturnMissingInputs ?? descriptor.requiredInputs;
+        return {
+          ...result(
+            selected,
+            missing.length === 0 ? null : "missing_required_input",
+            missing,
+            rules,
+            alternatives,
+            confidenceOf(deciding, yielded.length),
+          ),
+          version: FINANCIAL_METHOD_SELECTION_VERSION,
+        };
+      }
 
       return result(
         selected,

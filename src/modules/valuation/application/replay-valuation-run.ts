@@ -1,4 +1,9 @@
-import { valuationRunSchema, type ValuationRun } from "../domain/valuation-run";
+import {
+  storedValuationRunSchema as valuationRunSchema,
+  type StoredValuationRun as ValuationRun,
+} from "../domain/stored-valuation-run";
+import { runExcessReturn } from "./run-excess-return";
+import { computeExcessReturnResultHash } from "../domain/excess-return-run";
 
 import { runValuation } from "./run-valuation";
 
@@ -41,10 +46,14 @@ function fingerprint(run: ValuationRun): ReplayFingerprint {
 
 export function replayValuationRun(candidate: ValuationRun): ValuationReplay {
   const recorded = valuationRunSchema.parse(candidate);
-  const replayed = runValuation(recorded.input, {
+  const dependencies = {
     now: () => recorded.startedAt,
     newValuationRunId: () => recorded.valuationRunId,
-  });
+  };
+  const replayed =
+    recorded.method === "excess_return"
+      ? runExcessReturn(recorded.input, dependencies)
+      : runValuation(recorded.input, dependencies);
 
   const divergences: ValuationReplayDivergence[] = [];
 
@@ -52,6 +61,14 @@ export function replayValuationRun(candidate: ValuationRun): ValuationReplay {
   if (replayed.resultHash !== recorded.resultHash) {
     divergences.push("result_hash");
   }
+  if (
+    recorded.method === "excess_return" &&
+    recorded.result !== null &&
+    computeExcessReturnResultHash(recorded.inputHash, recorded.result) !==
+      recorded.resultHash &&
+    !divergences.includes("result_hash")
+  )
+    divergences.push("result_hash");
   if (replayed.status !== recorded.status) divergences.push("status");
 
   return {

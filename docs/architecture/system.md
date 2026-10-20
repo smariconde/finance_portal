@@ -327,6 +327,11 @@ un cambio por una caída externa sin diagnóstico.
 
 ## Decisiones y trabajo diferido
 
+- La [ADR 0041](adr/0041-financial-equity-excess-return.md) agrega un contrato
+  independiente de equity financiero. `valuation_runs` conserva la unión
+  cerrada de FCFF y exceso de retorno, y el replay despacha por método sin
+  consultar datos actuales. El motor financiero es experimental; no agrega UI,
+  proveedor o migración.
 - ADR 0001 fija stack, Cache Components y conexiones PostgreSQL.
 - ADR 0002 fija la persistencia durable y el límite de exposición de datos; su
   eje `demo | personal` fue reemplazado por la ADR 0004.

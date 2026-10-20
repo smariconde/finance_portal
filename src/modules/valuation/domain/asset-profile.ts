@@ -1,9 +1,9 @@
 import { z } from "zod";
 
 /**
- * Perfil del activo. El motor de Fase 1 sólo cubre no financieras maduras; el
- * resto devuelve `unsupported_method` con sus inputs requeridos y nunca cae a
- * FCFF en silencio (`docs/valuation/methodology.md`, "Selección de método").
+ * Perfil del activo. FCFF sólo cubre no financieras maduras. Bancos y
+ * aseguradoras tienen un contrato de equity propio desde F4-06; los demás
+ * métodos aún no implementados se rechazan y nunca caen a FCFF en silencio.
  *
  * Vive en su propio módulo porque lo comparten el snapshot de entrada y el
  * selector, y el snapshot ahora también lleva la selección.

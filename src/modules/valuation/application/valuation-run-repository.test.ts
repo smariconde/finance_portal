@@ -8,6 +8,9 @@ import {
   DEMO_VALUATION_INPUT_BEFORE_AMENDMENT,
 } from "../infrastructure/demo-valuation-fixtures";
 import { runValuation } from "./run-valuation";
+import { runExcessReturn } from "./run-excess-return";
+import { fixtureFinancialValuation } from "../infrastructure/fixture-financial-valuation";
+import { replayValuationRun } from "./replay-valuation-run";
 import {
   createValuationCacheIdentity,
   selectValuationRunRepository,
@@ -23,6 +26,38 @@ const RUN_A = "11111111-2222-4333-8444-555555555555";
 const RUN_B = "99999999-8888-4777-8666-555555555555";
 
 describe("valuation run repository contract", () => {
+  it("stores both methods and replays financial results and refusals from JSON", async () => {
+    const repository = createInMemoryValuationRunRepository();
+    await repository.record(
+      runValuation(DEMO_VALUATION_INPUT, dependencies(RUN_A)),
+    );
+    const financial = runExcessReturn(
+      fixtureFinancialValuation(),
+      dependencies(RUN_B),
+    );
+    const stored = await repository.record(
+      JSON.parse(JSON.stringify(financial)),
+    );
+    expect(stored.method).toBe("excess_return");
+    expect(replayValuationRun(stored).outcome).toBe("reproduced");
+    expect(
+      (await repository.record({ ...financial, valuationRunId: RUN_A }))
+        .valuationRunId,
+    ).toBe(RUN_B);
+    const tampered = structuredClone(financial);
+    tampered.result!.base.valuePerShare = "999";
+    expect(replayValuationRun(tampered).divergences).toContain("result_hash");
+    expect(
+      (
+        await repository.list({
+          legalEntityId: financial.subject.legalEntityId,
+        })
+      )
+        .map((run) => run.method)
+        .sort(),
+    ).toEqual(["excess_return", "fcff_base"]);
+  });
+
   it("keeps a rerun of the same snapshot as one append-only run", async () => {
     const repository = createInMemoryValuationRunRepository();
     const first = await repository.record(

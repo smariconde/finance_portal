@@ -10,7 +10,7 @@ import {
   replayValuationRun,
   type ValuationReplay,
 } from "@/modules/valuation/application/replay-valuation-run";
-import type { ValuationRun } from "@/modules/valuation/domain/valuation-run";
+import type { StoredValuationRun as ValuationRun } from "@/modules/valuation/domain/stored-valuation-run";
 import { getUniverseRepository } from "@/server/persistence/get-universe-repository";
 import { getValuationRunRepository } from "@/server/persistence/get-valuation-run-repository";
 
@@ -94,6 +94,8 @@ const reports = runs.map((run) => ({
 }));
 
 function describeDecisions(run: ValuationRun): string {
+  if (run.method === "excess_return")
+    return `equity financiero · ${run.assetProfile} · ${run.result?.rigor ?? "unsupported"} · experimental`;
   const { industry, operationsMix } = run.input.qualitativeDecisions;
   const industryText =
     industry === null
@@ -124,7 +126,10 @@ if (values.json) {
         ...replay,
         legalEntityId: run.subject.legalEntityId,
         asOf: run.asOf,
-        qualitativeDecisions: run.input.qualitativeDecisions,
+        qualitativeDecisions:
+          run.method === "excess_return"
+            ? null
+            : run.input.qualitativeDecisions,
       })),
       null,
       2,
