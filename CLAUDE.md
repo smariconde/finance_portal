@@ -319,6 +319,24 @@ arithmetic guard; both always run. The sensitivity grid applies it first, so a
 growth above the ceiling rejects the whole column with one reason. Measured:
 3.96 % in dollars; `valuation:assess --offline` prints it.
 
+The base year is normalized reported → adjusted (`F4-03`,
+[ADR 0038](docs/architecture/adr/0038-reported-adjusted-normalization.md),
+engine `fcff-1.3.0`, methodology `0.9.0`). `ValuationInput.normalization`
+carries the facts **with their concept** and a ledger where every adjustment
+—applied or not— states target, status, reason, amount, rule and evidence.
+Debt has no single XBRL concept and the ones there are overlap, so
+`reported-debt-1.0.0` takes the first of three non-overlapping recipes and
+names it; a short-term amount equal to the cent to current maturities is the
+same balance twice (Devon), and with no recipe debt is `unresolved`, never
+zero. All cash is excess, noncurrent marketable securities included; invested
+capital is equity + minority + debt − cash, goodwill in, at the base close.
+Restructuring and impairment (`sec-core-concepts-5.0.0`,
+`annual-fundamentals-1.2.0`) are reversed only when none of the four previous
+years had one —one concept per year, never a sum, because the impairment
+concepts overlap—; SBC is an expense and stays. `normalization_recomputed`
+requires `bridge.debt` and `bridge.excessCash` to be exactly the derived ones.
+Measured: debt resolves for 14 of 20 non-financials.
+
 ```bash
 pnpm damodaran:record                              # dry run: the four pages, one request each, writes nothing
 pnpm damodaran:record --dataset damodaran.betas-us --apply

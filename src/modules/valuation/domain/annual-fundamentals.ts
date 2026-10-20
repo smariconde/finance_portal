@@ -23,8 +23,17 @@ import { z } from "zod";
  * 2016-10-31 en otra, con valores apenas distintos, y la serie contaba dos
  * años. Gana el cierre publicado último, que es la vista más reciente de ese
  * ejercicio.
+ *
+ * `1.2.0` (`F4-03`, ADR 0038): partidas propias para la normalización. La
+ * deuda se lee por componente —total, no corriente, vencimientos corrientes,
+ * deuda corriente, préstamos de corto plazo, papeles comerciales y
+ * arrendamientos financieros—, porque los conceptos se solapan y sólo una
+ * receta que sabe cuál aportó cada uno puede sumarlos sin contar dos veces;
+ * las partidas de deuda anteriores quedan como estaban, para la completitud y
+ * las señales. También los cargos de reestructuración y deterioro, los títulos
+ * negociables no corrientes y la compensación en acciones.
  */
-export const ANNUAL_FUNDAMENTALS_VERSION = "annual-fundamentals-1.1.0";
+export const ANNUAL_FUNDAMENTALS_VERSION = "annual-fundamentals-1.2.0";
 
 export const lineItemIdSchema = z.enum([
   "revenue",
@@ -51,6 +60,17 @@ export const lineItemIdSchema = z.enum([
   "operating_lease_liability_noncurrent",
   "minority_interest",
   "shares_outstanding",
+  "restructuring_charges",
+  "impairment_charges",
+  "share_based_compensation",
+  "marketable_securities_noncurrent",
+  "debt_long_term_total",
+  "debt_long_term_noncurrent",
+  "debt_long_term_current",
+  "debt_current_total",
+  "debt_short_term_borrowings",
+  "debt_commercial_paper",
+  "finance_lease_liability",
 ]);
 
 export type LineItemId = z.infer<typeof lineItemIdSchema>;
@@ -207,6 +227,74 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
     item: "shares_outstanding",
     periodType: "instant",
     concepts: ["us-gaap:CommonStockSharesOutstanding"],
+  },
+  // Desde acá, `1.2.0` (ADR 0038).
+  {
+    item: "restructuring_charges",
+    periodType: "annual",
+    concepts: ["us-gaap:RestructuringCharges"],
+  },
+  {
+    // Un solo concepto por ejercicio, nunca una suma: el agregado incluye el
+    // goodwill en unos filers y no en otros.
+    item: "impairment_charges",
+    periodType: "annual",
+    concepts: [
+      "us-gaap:AssetImpairmentCharges",
+      "us-gaap:GoodwillAndIntangibleAssetImpairment",
+      "us-gaap:ImpairmentOfLongLivedAssetsHeldForUse",
+      "us-gaap:GoodwillImpairmentLoss",
+    ],
+  },
+  {
+    item: "share_based_compensation",
+    periodType: "annual",
+    concepts: ["us-gaap:ShareBasedCompensation"],
+  },
+  {
+    item: "marketable_securities_noncurrent",
+    periodType: "instant",
+    concepts: ["us-gaap:MarketableSecuritiesNoncurrent"],
+  },
+  {
+    // Incluye los vencimientos corrientes.
+    item: "debt_long_term_total",
+    periodType: "instant",
+    concepts: ["us-gaap:LongTermDebt"],
+  },
+  {
+    item: "debt_long_term_noncurrent",
+    periodType: "instant",
+    concepts: [
+      "us-gaap:LongTermDebtNoncurrent",
+      "us-gaap:LongTermDebtAndCapitalLeaseObligations",
+    ],
+  },
+  {
+    item: "debt_long_term_current",
+    periodType: "instant",
+    concepts: ["us-gaap:LongTermDebtCurrent"],
+  },
+  {
+    // Toda la deuda corriente: vencimientos, préstamos y papeles.
+    item: "debt_current_total",
+    periodType: "instant",
+    concepts: ["us-gaap:DebtCurrent"],
+  },
+  {
+    item: "debt_short_term_borrowings",
+    periodType: "instant",
+    concepts: ["us-gaap:ShortTermBorrowings"],
+  },
+  {
+    item: "debt_commercial_paper",
+    periodType: "instant",
+    concepts: ["us-gaap:CommercialPaper"],
+  },
+  {
+    item: "finance_lease_liability",
+    periodType: "instant",
+    concepts: ["us-gaap:FinanceLeaseLiability"],
   },
 ]);
 

@@ -21,6 +21,7 @@ import {
   type MonetaryFact,
 } from "./valuation-facts";
 import { costOfCapitalSchema } from "./cost-of-capital";
+import { listNormalizationFacts, normalizationSchema } from "./normalization";
 import { qualitativeDecisionsSchema } from "./qualitative-decisions";
 import { valuationAssessmentSchema } from "./valuation-assessment";
 import { ValuationPolicyError } from "./valuation-error";
@@ -40,10 +41,12 @@ export const VALUATION_METHOD = "fcff_base";
  * arrendamientos operativos como claim propia, la que la capitalización deriva.
  * `fcff-1.2.0` (`F4-02`): el crecimiento terminal no supera la libre de riesgo
  * de la corrida, en el check y en cada celda de la sensibilidad.
+ * `fcff-1.3.0` (`F4-03`, ADR 0038): la deuda y la caja del puente EV-equity
+ * son las que deriva la normalización del ejercicio base.
  */
-export const ENGINE_VERSION = "fcff-1.2.0";
+export const ENGINE_VERSION = "fcff-1.3.0";
 /** Debe seguir a `docs/valuation/methodology.md`. */
-export const METHODOLOGY_VERSION = "0.8.0";
+export const METHODOLOGY_VERSION = "0.9.0";
 
 const rationaleSchema = z.string().trim().min(1).max(512);
 
@@ -235,6 +238,13 @@ export const valuationInputSchema = z
      * hechos y exige la deuda por arrendamientos en el puente EV-equity.
      */
     capitalization: capitalizationSchema,
+    /**
+     * Normalización reported → ajustes → ajustado del ejercicio base
+     * (`F4-03`): capital invertido, deuda, caja, tasa efectiva y cargos no
+     * recurrentes, con un libro de ajustes. Un policy check la recalcula y
+     * exige la deuda y la caja del puente EV-equity.
+     */
+    normalization: normalizationSchema,
     method: z.literal(VALUATION_METHOD),
     engineVersion: z.literal(ENGINE_VERSION),
     methodologyVersion: z.literal(METHODOLOGY_VERSION),
@@ -312,6 +322,12 @@ export function listMonetaryFacts(
   }
 
   facts.push(...listCapitalizationFacts(input.capitalization));
+  facts.push(
+    ...listNormalizationFacts(input.normalization).map(({ path, fact }) => ({
+      path,
+      fact,
+    })),
+  );
 
   return facts;
 }

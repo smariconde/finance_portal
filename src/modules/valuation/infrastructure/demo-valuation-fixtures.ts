@@ -14,11 +14,15 @@ import {
 } from "../domain/completeness-profile";
 import { DECIMAL_POLICY } from "../domain/decimal-policy";
 import { buildCapitalization } from "../domain/capitalization-bridge";
+import { buildNormalization } from "../domain/normalization";
 import {
   METHOD_SELECTION_VERSION,
   type MethodSelection,
 } from "../domain/method-selection";
-import { buildCostOfCapital } from "../domain/cost-of-capital";
+import {
+  buildCostOfCapital,
+  marginalTaxRateOf,
+} from "../domain/cost-of-capital";
 import { qualitativeDecisionsSchema } from "../domain/qualitative-decisions";
 import { deriveRigorLevel } from "../domain/rigor-level";
 import { fixtureCostOfCapitalReadings } from "./fixture-cost-of-capital-readings";
@@ -324,6 +328,77 @@ function buildDemoCapitalization(baseRevenue: string) {
   );
 }
 
+/**
+ * La normalización de FixtureCo (`F4-03`): la deuda y la caja del puente salen
+ * de su balance sintético —deuda de largo plazo y caja—, con un patrimonio que
+ * no participa del valor por acción. No publica impuestos ni cargos, así que
+ * la tasa del año base es la marginal y ningún cargo se revierte: el valor por
+ * acción no cambia; el libro existe y el motor lo recalcula.
+ */
+function buildDemoNormalization(baseRevenue: {
+  value: string;
+  availableAt: string;
+  sourceDocumentId: string;
+}) {
+  const fact = (value: string, concept: string) => ({
+    ...monetary({
+      value,
+      asOf: "2024-12-31",
+      availableAt: FY2024_AVAILABLE_AT,
+      sourceDocumentId: CAPITAL_STRUCTURE_DOCUMENT,
+    }),
+    concept: `us-gaap:${concept}`,
+  });
+
+  return buildNormalization(
+    {
+      baseFiscalYearEnd: "2024-12-31",
+      income: {
+        pretaxIncome: null,
+        incomeTax: null,
+        shareBasedCompensation: null,
+      },
+      balance: {
+        equity: fact("70000000", "StockholdersEquity"),
+        minorityInterest: null,
+        cash: fact("12000000", "CashAndCashEquivalentsAtCarryingValue"),
+        liquidInvestments: null,
+        marketableSecuritiesNoncurrent: null,
+        debt: {
+          longTermTotal: fact("30000000", "LongTermDebt"),
+          longTermNoncurrent: null,
+          longTermCurrent: null,
+          currentTotal: null,
+          shortTermBorrowings: null,
+          commercialPaper: null,
+          financeLeases: null,
+        },
+      },
+      chargeHistory: [
+        {
+          fiscalYearEnd: "2024-12-31",
+          revenue: {
+            ...monetary({
+              value: baseRevenue.value,
+              asOf: "2024-12-31",
+              availableAt: baseRevenue.availableAt,
+              sourceDocumentId: baseRevenue.sourceDocumentId,
+            }),
+            concept: "us-gaap:Revenues",
+          },
+          restructuring: null,
+          impairment: null,
+        },
+      ],
+    },
+    {
+      baseRevenue: baseRevenue.value,
+      marginalTaxRate: marginalTaxRateOf(DEMO_COST_OF_CAPITAL),
+      capitalization: buildDemoCapitalization(baseRevenue.value),
+    },
+  );
+}
+
 function buildInput(baseRevenue: {
   value: string;
   availableAt: string;
@@ -353,6 +428,7 @@ function buildInput(baseRevenue: {
     costOfCapital: DEMO_COST_OF_CAPITAL,
     qualitativeDecisions: DEMO_QUALITATIVE_DECISIONS,
     capitalization: buildDemoCapitalization(baseRevenue.value),
+    normalization: buildDemoNormalization(baseRevenue),
     method: VALUATION_METHOD,
     engineVersion: ENGINE_VERSION,
     methodologyVersion: METHODOLOGY_VERSION,

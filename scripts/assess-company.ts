@@ -501,6 +501,59 @@ for (const report of reports) {
       `${ledger.investedCapitalDelta.total} · ${ledger.debtDelta.leases}`,
     );
   }
+  const { normalization } = assessment;
+  if (normalization !== null) {
+    const { debt, excessCash, investedCapital, taxRate, charges, base } =
+      normalization;
+    log("normalización", normalization.version);
+    log(
+      "  deuda",
+      debt.status === "resolved"
+        ? `${debt.total} · ${debt.recipe} · ${debt.included.map((entry) => `${entry.component} ${entry.amount}`).join(" + ")}${
+            debt.excluded.some((entry) => entry.reason !== "not_in_recipe")
+              ? ` · fuera: ${debt.excluded
+                  .filter((entry) => entry.reason !== "not_in_recipe")
+                  .map((entry) => `${entry.component} (${entry.reason})`)
+                  .join(", ")}`
+              : ""
+          }`
+        : `sin resolver · ${debt.reason} · publica ${debt.present.join(", ") || "nada"}`,
+    );
+    log(
+      "  caja excedente",
+      excessCash.status === "resolved"
+        ? `${excessCash.total} · ${excessCash.components.map((entry) => `${entry.component} ${entry.amount}`).join(" + ")}`
+        : `sin resolver · ${excessCash.reason}`,
+    );
+    log(
+      "  capital invertido",
+      investedCapital.status === "resolved"
+        ? `${investedCapital.reported} reportado + ${investedCapital.capitalizationDelta} = ${investedCapital.adjusted} · minoritarios ${investedCapital.minorityInterestBasis}`
+        : `sin resolver · ${investedCapital.reason}`,
+    );
+    log(
+      "  tasa del año base",
+      `${taxRate.applied ?? "—"} (${taxRate.basis}${taxRate.effectiveUnavailable === null ? "" : ` · ${taxRate.effectiveUnavailable}`})`,
+    );
+    for (const result of [charges.restructuring, charges.impairment]) {
+      log(
+        `  ${result.category}`,
+        result.status === "applied"
+          ? `revierte ${result.ebitAdjustment} (${result.concept})`
+          : `${result.reason}${result.recurringIn.length > 0 ? ` · ${result.recurringIn.join(", ")}` : ""}`,
+      );
+    }
+    const sbc = normalization.ledger.find(
+      (entry) => entry.id === "share_based_compensation",
+    );
+    if (sbc?.amount !== null && sbc !== undefined) {
+      log("  SBC", `${sbc.amount} · gasto, no se revierte`);
+    }
+    log(
+      "  base ajustada",
+      `EBIT ${base.ebitReported ?? "—"} → ${base.ebitAdjusted ?? "—"} · margen ${base.ebitMarginAdjusted ?? "—"} · ROIC ${base.returnOnCapitalAdjusted ?? "—"} · ventas/capital ${base.salesToCapitalAdjusted ?? "—"}`,
+    );
+  }
   log(
     "rigor",
     `${assessment.rigor.level}${assessment.rigor.degradedBy.length > 0 ? ` · bajó por ${assessment.rigor.degradedBy.join(", ")}` : ""}`,

@@ -58,6 +58,8 @@ const CHECK_LABELS: Record<string, string> = {
   discount_factor_defined: "Factor de descuento definido",
   sales_to_capital_positive: "Sales-to-capital positivo",
   reinvestment_convention_bridge: "Puente entre convenciones de reinversión",
+  capitalization_recomputed: "Capitalización recalculada desde sus hechos",
+  normalization_recomputed: "Normalización recalculada desde sus hechos",
   terminal_growth_versus_risk_free:
     "Crecimiento terminal hasta la libre de riesgo",
   terminal_growth_versus_wacc: "Crecimiento terminal por debajo del WACC",

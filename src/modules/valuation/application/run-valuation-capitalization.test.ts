@@ -4,6 +4,8 @@ import {
   buildCapitalization,
   capitalizationMismatches,
 } from "../domain/capitalization-bridge";
+import { marginalTaxRateOf } from "../domain/cost-of-capital";
+import { buildNormalization } from "../domain/normalization";
 import type { MonetaryFact } from "../domain/valuation-facts";
 import {
   valuationInputSchema,
@@ -70,6 +72,13 @@ function withCapitalization(leaseDebt: string | null): ValuationInput {
     },
     context,
   );
+  // La normalización toma sus ajustes de arrendamientos e I+D de la
+  // capitalización (`F4-03`): cambiar una es reconstruir la otra.
+  input.normalization = buildNormalization(input.normalization.facts, {
+    baseRevenue: input.baseRevenue.value,
+    marginalTaxRate: marginalTaxRateOf(input.costOfCapital),
+    capitalization: input.capitalization,
+  });
 
   if (leaseDebt !== null) {
     input.bridge.leaseDebt = {

@@ -11,7 +11,9 @@ import {
   isGrowthWithinRiskFree,
   TERMINAL_SPREAD_BUFFER,
 } from "./policy-checks";
+import { marginalTaxRateOf } from "./cost-of-capital";
 import { parseDecimal } from "./decimal-policy";
+import { buildNormalization, type NormalizationFacts } from "./normalization";
 import { isValuationPolicyError } from "./valuation-error";
 import { valuationInputSchema, type ValuationInput } from "./valuation-input";
 
@@ -299,6 +301,78 @@ describe("valuation policy checks", () => {
     expect(isGrowthWithinRiskFree(parseDecimal("-0.01", "g"), riskFree)).toBe(
       true,
     );
+  });
+
+  it("rejects a bridge debt or cash that the normalized facts do not derive", () => {
+    const debt = draft((candidate) => {
+      candidate.bridge.debt.amount!.value = "31000000";
+    });
+    const cash = draft((candidate) => {
+      candidate.bridge.excessCash.amount!.value = "9000000";
+    });
+
+    expect(failed(debt, "normalization_recomputed")).toMatchObject({
+      mode: "reject",
+      status: "failed",
+      subjects: ["bridge.debt"],
+    });
+    expect(failed(cash, "normalization_recomputed")?.subjects).toStrictEqual([
+      "bridge.excessCash",
+    ]);
+  });
+
+  it("rejects a normalized base edited without its facts", () => {
+    const input = draft((candidate) => {
+      candidate.normalization.investedCapital = {
+        ...candidate.normalization.investedCapital,
+        reported: "1",
+      } as typeof candidate.normalization.investedCapital;
+    });
+
+    expect(failed(input, "normalization_recomputed")?.subjects).toStrictEqual([
+      "normalization.investedCapital",
+    ]);
+  });
+
+  it("does not let an unresolved debt reach the bridge as reported", () => {
+    // Sin receta de deuda, la claim no puede llevar un monto: queda `missing`
+    // —que se rechaza aparte— o declarada ausente por el owner.
+    const withoutDebt = (
+      claim: ValuationInput["bridge"]["debt"],
+    ): ValuationInput =>
+      draft((candidate) => {
+        const facts: NormalizationFacts = structuredClone(
+          candidate.normalization.facts,
+        );
+        facts.balance.debt.longTermTotal = null;
+        candidate.normalization = buildNormalization(facts, {
+          baseRevenue: candidate.baseRevenue.value,
+          marginalTaxRate: marginalTaxRateOf(candidate.costOfCapital),
+          capitalization: candidate.capitalization,
+        });
+        candidate.bridge.debt = claim;
+      });
+
+    const reported = withoutDebt(DEMO_VALUATION_INPUT.bridge.debt);
+    const missing = withoutDebt({
+      status: "missing",
+      amount: null,
+      rationale: null,
+    });
+    const declared = withoutDebt({
+      status: "declared_absent",
+      amount: null,
+      rationale: "El owner verificó en el 10-K que no hay deuda financiera.",
+    });
+
+    expect(reported.normalization.debt.status).toBe("unresolved");
+    expect(
+      failed(reported, "normalization_recomputed")?.subjects,
+    ).toStrictEqual(["bridge.debt"]);
+    expect(failed(missing, "normalization_recomputed")?.status).toBe("passed");
+    expect(failed(missing, "required_inputs_present")?.status).toBe("failed");
+    expect(failed(declared, "normalization_recomputed")?.status).toBe("passed");
+    expect(failed(declared, "required_inputs_present")?.status).toBe("passed");
   });
 
   it("rejects a terminal reinvestment the growth cannot sustain", () => {
