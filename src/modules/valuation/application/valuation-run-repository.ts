@@ -1,3 +1,7 @@
+import {
+  GROWTH_FCFF_ENGINE_VERSION,
+  GROWTH_METHODOLOGY_VERSION,
+} from "../domain/revenue-margin";
 import { z } from "zod";
 
 import type { AppMode } from "@/modules/configuration/domain/config-health";
@@ -26,11 +30,13 @@ export const valuationReplayKeySchema = z.object({
     ENGINE_VERSION,
     EXCESS_RETURN_ENGINE_VERSION,
     NORMALIZED_FCFF_ENGINE_VERSION,
+    GROWTH_FCFF_ENGINE_VERSION,
   ]),
   methodologyVersion: z.enum([
     METHODOLOGY_VERSION,
     EXCESS_RETURN_METHODOLOGY_VERSION,
     CYCLE_METHODOLOGY_VERSION,
+    GROWTH_METHODOLOGY_VERSION,
   ]),
 });
 

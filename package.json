@@ -51,7 +51,8 @@
     "valuation:employee-equity": "tsx --conditions=react-server --env-file=.env.local scripts/employee-equity.ts",
     "valuation:replay": "tsx --conditions=react-server --env-file=.env.local scripts/replay-valuation.ts",
     "valuation:financial": "tsx --conditions=react-server --env-file=.env.local scripts/value-financial-equity.ts",
-    "valuation:cycle": "tsx --conditions=react-server --env-file=.env.local scripts/value-cycle.ts"
+    "valuation:cycle": "tsx --conditions=react-server --env-file=.env.local scripts/value-cycle.ts",
+    "valuation:growth": "tsx --conditions=react-server --env-file=.env.local scripts/value-growth.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

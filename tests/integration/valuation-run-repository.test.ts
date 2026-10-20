@@ -1,3 +1,4 @@
+import { fixtureGrowthValuation } from "@/modules/valuation/infrastructure/fixture-growth-valuation";
 import { randomUUID } from "node:crypto";
 
 import { eq } from "drizzle-orm";
@@ -392,4 +393,29 @@ describe("PostgreSQL valuation runs", () => {
       new Set(["fcff_base", "excess_return", "normalized_fcff"]),
     );
   });
+  it.each(["loss_making", "high_growth"] as const)(
+    "round-trips %s with loss taxes, dedupe and offline replay",
+    async (profile) => {
+      const repository = createPostgresValuationRunRepository(database);
+      const input = fixtureGrowthValuation(profile);
+      const computed = valuation(input);
+      const stored = await repository.record(computed);
+      expect(stored).toEqual(computed);
+      expect(stored.status).toBe("requires_review");
+      expect((await repository.record(valuation(input))).valuationRunId).toBe(
+        stored.valuationRunId,
+      );
+      expect(await repository.findByReplayKey(toReplayKey(stored))).toEqual(
+        stored,
+      );
+      expect(
+        replayValuationRun((await repository.findById(stored.valuationRunId))!)
+          .outcome,
+      ).toBe("reproduced");
+      input.revenueMargin!.lossCarryforward = null;
+      const refused = await repository.record(valuation(input));
+      expect(refused.status).toBe("rejected");
+      expect(replayValuationRun(refused).outcome).toBe("reproduced");
+    },
+  );
 });

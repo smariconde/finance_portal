@@ -1,3 +1,4 @@
+import { computeLossTax } from "./revenue-margin";
 import { adjustForFailure, type FailureAdjustment } from "./failure-adjustment";
 import { failureProbability } from "./failure-risk";
 import {
@@ -26,6 +27,13 @@ import { ValuationPolicyError } from "./valuation-error";
  * serializar el resultado; entre pasos se conserva la precisión del motor.
  */
 export type PeriodProjection = {
+  lossTax?: {
+    opening: string;
+    used: string;
+    closing: string;
+    taxableIncome: string;
+    taxes: string;
+  };
   periodIndex: number;
   periodEnd: string;
   revenue: string;
@@ -114,6 +122,15 @@ export function computeFcff(
   const periods: PeriodProjection[] = [];
   const presentValues: Dec[] = [];
 
+  const growthPlan =
+    input.method === "fcff_three_stage" ||
+    input.method === "revenue_margin_survival"
+      ? input.revenueMargin
+      : undefined;
+  let taxLoss =
+    growthPlan === undefined
+      ? ZERO
+      : parseDecimal(growthPlan.lossCarryforward!.value, "lossCarryforward");
   for (const period of input.periods) {
     const path = `periods.${period.periodIndex - 1}`;
     const growth = parseDecimal(period.revenueGrowth, `${path}.revenueGrowth`);
@@ -131,12 +148,23 @@ export function computeFcff(
     );
     // The cycle method never grants an immediate tax credit for an operating
     // loss. Carryforwards need a separate, evidenced model; mature FCFF is frozen.
+    const lossTax =
+      growthPlan === undefined
+        ? null
+        : computeLossTax(
+            ebit,
+            taxLoss,
+            parseDecimal(period.taxRate, "taxRate"),
+            parseDecimal(growthPlan.lossOffsetLimit, "lossOffsetLimit"),
+          );
+    if (lossTax !== null) taxLoss = lossTax.closing;
     const nopat =
-      input.method === "normalized_fcff" && ebit.lte(ZERO)
+      lossTax?.nopat ??
+      (input.method === "normalized_fcff" && ebit.lte(ZERO)
         ? ebit
         : ebit.times(
             ONE.minus(parseDecimal(period.taxRate, `${path}.taxRate`)),
-          );
+          ));
 
     let reinvestment: Dec;
     let reinvestmentRate: Dec | null = null;
@@ -172,6 +200,7 @@ export function computeFcff(
 
     presentValues.push(presentValue);
     periods.push({
+      ...(lossTax === null ? {} : { lossTax: lossTax.trace }),
       periodIndex: period.periodIndex,
       periodEnd: period.periodEnd,
       revenue: formatDecimal(revenue, `${path}.revenue`),

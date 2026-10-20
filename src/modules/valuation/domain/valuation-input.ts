@@ -1,3 +1,8 @@
+import {
+  revenueMarginSchema,
+  GROWTH_FCFF_ENGINE_VERSION,
+  GROWTH_METHODOLOGY_VERSION,
+} from "./revenue-margin";
 import { failureRiskSchema } from "./failure-risk";
 import { z } from "zod";
 
@@ -63,14 +68,21 @@ export const VALUATION_METHOD = "fcff_base";
 export const ENGINE_VERSION = "fcff-1.6.0";
 /** Debe seguir a `docs/valuation/methodology.md`. */
 export const METHODOLOGY_VERSION = "0.12.0";
-export const fcffMethodSchema = z.enum([VALUATION_METHOD, "normalized_fcff"]);
+export const fcffMethodSchema = z.enum([
+  VALUATION_METHOD,
+  "normalized_fcff",
+  "fcff_three_stage",
+  "revenue_margin_survival",
+]);
 export const fcffEngineSchema = z.enum([
   ENGINE_VERSION,
   NORMALIZED_FCFF_ENGINE_VERSION,
+  GROWTH_FCFF_ENGINE_VERSION,
 ]);
 export const fcffMethodologySchema = z.enum([
   METHODOLOGY_VERSION,
   CYCLE_METHODOLOGY_VERSION,
+  GROWTH_METHODOLOGY_VERSION,
 ]);
 
 const rationaleSchema = z.string().trim().min(1).max(512);
@@ -283,6 +295,7 @@ export const valuationInputSchema = z
     engineVersion: fcffEngineSchema,
     methodologyVersion: fcffMethodologySchema,
     cycleNormalization: cycleNormalizationSchema.optional(),
+    revenueMargin: revenueMarginSchema.optional(),
     decimalPolicy: decimalPolicySchema,
     baseRevenue: monetaryFactSchema,
     periods: z.array(periodAssumptionSchema).min(1).max(20),
@@ -387,7 +400,11 @@ export function assertMethodSupported(input: ValuationInput): void {
   const supported =
     input.method === "normalized_fcff"
       ? ["cyclical", "commodity"].includes(input.assetProfile)
-      : SUPPORTED_ASSET_PROFILES.includes(input.assetProfile);
+      : input.method === "fcff_three_stage"
+        ? input.assetProfile === "high_growth"
+        : input.method === "revenue_margin_survival"
+          ? input.assetProfile === "loss_making"
+          : SUPPORTED_ASSET_PROFILES.includes(input.assetProfile);
   if (!supported) {
     throw new ValuationPolicyError(
       "unsupported_method",

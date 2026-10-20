@@ -52,6 +52,15 @@ export const policyCheckSchema = z.object({
 });
 
 export const periodProjectionSchema = z.object({
+  lossTax: z
+    .object({
+      opening: engineDecimalSchema,
+      used: engineDecimalSchema,
+      closing: engineDecimalSchema,
+      taxableIncome: engineDecimalSchema,
+      taxes: engineDecimalSchema,
+    })
+    .optional(),
   periodIndex: z.number().int().min(1).max(20),
   periodEnd: z.iso.date(),
   revenue: engineDecimalSchema,
@@ -146,6 +155,17 @@ export const scenarioResultSchema = z.object({
 export type ScenarioResult = z.infer<typeof scenarioResultSchema>;
 
 export const valuationResultSchema = z.object({
+  growthDiagnostics: z
+    .object({
+      modelStatus: z.literal("experimental"),
+      currentMargin: engineDecimalSchema,
+      targetMargin: engineDecimalSchema,
+      periodMargins: z.array(engineDecimalSchema).min(1).max(20),
+      periodGrowth: z.array(engineDecimalSchema).min(1).max(20),
+      peakFundingNeed: engineDecimalSchema,
+      unusedLossAtTerminal: engineDecimalSchema,
+    })
+    .optional(),
   cycleComparison: z
     .object({
       modelStatus: z.literal("experimental"),
@@ -284,6 +304,9 @@ export function collectValuationProvenance(
 ): ValuationProvenance {
   const facts = [
     input.baseRevenue,
+    ...(input.revenueMargin?.lossCarryforward
+      ? [input.revenueMargin.lossCarryforward]
+      : []),
     input.employeeEquity.sharesOutstanding,
     ...BRIDGE_ITEM_KEYS.map((key) => input.bridge[key].amount).filter(
       (amount) => amount !== null,
