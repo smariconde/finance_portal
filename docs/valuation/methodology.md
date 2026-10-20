@@ -1,8 +1,9 @@
 # Metodología de valuación
 
-- Estado: metodología objetivo; motor FCFF, normalización de ciclo y exceso de retorno financiero experimental implementados en `src/modules/valuation/`
+- Estado: metodología objetivo; motor FCFF, normalización de ciclo, crecimiento/pérdidas y exceso de retorno financiero experimental implementados en `src/modules/valuation/`
 - Versión metodológica: 0.12.0 (la corrida lleva selección, completitud y rigor desde `F3-03`, el costo de capital construido desde `F3-06`, el riesgo país ponderado por operaciones desde `F5-05`, las decisiones cualitativas con la propuesta de la IA desde `F5-06` la capitalización de arrendamientos e I+D desde `F4-01` el techo del crecimiento terminal en la libre de riesgo desde `F4-02` la normalización reported/adjusted del ejercicio base desde `F4-03` los escenarios bear/base/bull desde `F4-04` y las opciones y unidades de empleados y la probabilidad de fracaso desde `F4-05`)
 - Versión de engine implementada: `fcff-1.6.0` (método `fcff_base`)
+- Motor de crecimiento/pérdidas: `growth-fcff-1.0.0`, metodología propia del mismo nombre (`fcff_three_stage` y `revenue_margin_survival`, [ADR 0043](../architecture/adr/0043-revenue-margin-survival.md)); no cambia los motores previos.
 - Motor cíclico: `normalized-fcff-1.0.0`, metodología `cycle-fcff-1.0.0` (`normalized_fcff`, [ADR 0042](../architecture/adr/0042-cycle-normalized-fcff.md)); márgenes de ciclo para cíclicas y commodities, sin cambiar `fcff-1.6.0`.
 - Motor financiero independiente: `excess-return-1.0.0`, metodología `financial-equity-1.0.0` (método `excess_return`, `F4-06`, [ADR 0041](../architecture/adr/0041-financial-equity-excess-return.md)); no cambia la versión ni los hashes FCFF.
 - Fecha: 2026-08-21; motor base entregado el 2026-08-24; niveles de rigor y alcance
@@ -44,7 +45,7 @@ de cuatro quintos del universo y produce números inválidos en el resto.
 | Fase 4   | FCFF multi-etapa: regla terminal, normalización y escenarios          | `done`         |
 | Fase 4.1 | bancos y aseguradoras mediante exceso de retorno sobre equity         | `experimental` |
 | Fase 4.2 | cíclicas y commodities con normalización de ciclo                     | `experimental` |
-| Fase 4.3 | pérdidas/high growth con revenue-to-margin y supervivencia            | `planned`      |
+| Fase 4.3 | pérdidas/high growth con revenue-to-margin y supervivencia            | `experimental` |
 | Fase 4.4 | REIT mediante AFFO/FCFE/DDM y NAV                                     | `planned`      |
 | Fase 4.5 | holdings/SOTP y distress sólo con demanda observada                   | `deferred`     |
 
@@ -67,6 +68,56 @@ resultado legítimo; inventar un faltante para poder mostrar un número no lo es
 El nivel se deriva de la completitud medida, no se elige. La corrida persiste qué
 comprobación bajó el nivel, de modo que conseguir ese dato más adelante y volver a
 correr sea una acción concreta y no una intuición.
+
+## Motor de crecimiento/pérdidas: `growth-fcff-1.0.0`
+
+`F4-06 / 4.3` implementa `fcff_three_stage` para alto crecimiento y
+`revenue_margin_survival` para pérdidas persistentes. `revenueMargin` congela
+clasificación fechada, crecimiento inicial, años de alto crecimiento, objetivo
+de margen, plazo de convergencia y motivos de mercado, margen y financiación.
+El selector `method-selection-0.5.0` exige ese preflight y el motor vuelve a
+ejecutarlo; ningún perfil prioritario se elude mediante un selector escrito.
+
+Tras `H` años de crecimiento constante, la tasa converge linealmente a `g` en
+los `N-H` años restantes. El margen parte del EBIT base ajustado/ventas y alcanza
+linealmente el objetivo positivo en `M <= N` años. El terminal sostiene ese
+margen y `g`, sujeto al techo de libre de riesgo y el buffer del WACC.
+La reinversión explícita usa sales-to-capital; no se calcula un CAGR de pérdidas.
+
+El saldo inicial de pérdidas compensables debe tener documento, moneda y fecha;
+`null` bloquea. Se declara límite anual de uso `[0, 1]` y motivo. Un EBIT
+negativo no devuelve impuestos, incrementa el saldo; uno positivo consume hasta
+el límite y tributa sobre el resto. Cada período muestra saldo inicial, uso,
+saldo final, renta imponible e impuestos. El terminal aplica impuestos normales,
+sin convertir el remanente finito en ahorro perpetuo; el saldo omitido queda
+visible. El pool simplificado no representa caducidad, créditos, cambios de
+control ni reglas por jurisdicción. El saldo del cierre base no se suma dos veces.
+
+`growthDiagnostics` conserva las trayectorias y el pico de necesidad de fondos
+operativos: `max(0, -min(cumulative_FCFF))`, antes de caja y financiación.
+No se vuelve a restar del valor: todos los FCFF negativos ya se descuentan.
+No se estiman términos de emisiones futuras. La supervivencia mantiene la
+convención fechada a diez años y recupero de ADR 0040, aunque el horizonte de
+proyección sea diferente. Opciones, acciones y puente se recalculan una vez.
+
+Bear/bull pasan los mismos checks: el driver de margen terminal reconstruye los
+márgenes; el de crecimiento terminal reconstruye la transición de ventas.
+Un driver por año de crecimiento debe declarar la trayectoria completa coherente
+con su primer valor y el terminal. Se rechazan márgenes por período que eludan
+la convergencia. Sensibilidad WACC/g mantiene el pronóstico explícito fijo.
+
+El modelo es `experimental`, con rigor limitado a `screening` y resultado siempre
+`requires_review`. Cutoff, moneda, hechos, componentes de tasas y aceptación de
+la nota de empleados se verifican; no admite `system_recorded` sin fecha de
+registro por hecho. `pnpm valuation:growth --file <snapshot-privado.json>`
+calcula sin red ni IA y sólo `--apply` persiste bajo el guard personal,
+incluidos rechazos. Replay no consulta fuentes. La construcción automática del
+snapshot y la UI quedan fuera de este incremento.
+
+La [ADR 0043](../architecture/adr/0043-revenue-margin-survival.md) y el
+[oráculo independiente](revenue-margin-oracle.md) documentan la comparación con
+`higrowth.xls`, sus diferencias de convergencia y la perpetuidad diferida con
+escudo fiscal finito. Los snapshots anteriores conservan números y hashes.
 
 ## Motor de ciclo: `normalized-fcff-1.0.0`
 

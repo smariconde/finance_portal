@@ -25,6 +25,8 @@
 
 - Revisado el 2026-10-20: `F4-06 / 4.2` agrega `valuation:cycle`, CLI local desde snapshot privado de hasta 512 kB, sin egress ni IA. Congela historia y clasificación, recalcula la normalización y verifica cutoff, moneda y la aceptación separada de la nota de empleados (`TM-05`, `TM-06`, `TM-15`). `--apply` usa el guard personal y el storage append-only (`TM-01`, `TM-16`), con rechazos persistidos. Sin nuevo endpoint, proveedor o cambio de exposición.
 
+- Revisado el 2026-10-20: `F4-06 / 4.3` agrega `valuation:growth`, CLI privado de hasta 512 kB, sin egress ni IA. Congela tesis, clasificación y pool de pérdidas con documento; recalcula trayectorias, impuestos, supervivencia y opciones, con controles de moneda y cutoff (`TM-05`, `TM-06`, `TM-15`). `--apply` exige personal y registra resultado/rechazo append-only (`TM-01`, `TM-16`); no cambia la exposición web.
+
 ## Objetivo y método
 
 Este documento modela amenazas contra confidencialidad, integridad financiera,

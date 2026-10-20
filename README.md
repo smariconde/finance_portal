@@ -37,6 +37,7 @@ Disponible hoy:
 - Splits verificados contra la SEC y lectura de series por acción en la última base conocible, con cada re-expresión clasificada como split o restatement.
 - Identidad separada en entidad legal, security, listing y símbolo, con programas depositarios y consultas `as_known` sin look-ahead.
 - Motor FCFF base en dominio puro con política decimal, policy checks, sensibilidad WACC/g y corridas reproducibles por hash.
+- FCFF experimental para pérdidas y alto crecimiento: `pnpm valuation:growth --file <snapshot-privado.json>`, con convergencia de ventas/margen, pérdidas fiscales explícitas, supervivencia, escenarios, sensibilidad y replay; rigor `screening` ([ADR 0043](docs/architecture/adr/0043-revenue-margin-survival.md)).
 - FCFF experimental para cíclicas y commodities por márgenes de ciclo: `pnpm valuation:cycle --file <snapshot-privado.json>`, con convergencia, escenarios, sensibilidad y comparación a margen actual; rigor `screening` ([ADR 0042](docs/architecture/adr/0042-cycle-normalized-fcff.md)).
 - Motor experimental de equity para bancos y aseguradoras, con escenarios y sensibilidad: `pnpm valuation:financial --file <snapshot-privado.json>`, sin red ni IA; `--apply` persiste en personal. La [ADR 0041](docs/architecture/adr/0041-financial-equity-excess-return.md) declara sus límites y rigor `screening`.
 - Corrida de referencia navegable en `/valuacion/referencia`, con provenance, freshness, supuestos, sensibilidad accesible y policy checks.
