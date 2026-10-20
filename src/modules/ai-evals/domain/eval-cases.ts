@@ -1,4 +1,8 @@
 import { truncateUtf8 } from "@/modules/fundamentals/domain/sec-10k-sections";
+import type {
+  EmployeeEquityInput,
+  EmployeeEquityOutput,
+} from "@/modules/valuation/domain/employee-equity-task";
 import {
   industryCandidates,
   mappedIndustryKeys,
@@ -34,7 +38,7 @@ import {
  */
 export const AI_EVAL_CASES_VERSION = "ai-eval-cases-1.1.0";
 
-export type EvalTaskId = "industry" | "mix";
+export type EvalTaskId = "industry" | "mix" | "employee-equity";
 /**
  * `web` (`F5-04`): un caso de abstención de la industria más los resultados de
  * una búsqueda real. Mide si la búsqueda rescata lo que el 10-K no dio.
@@ -92,7 +96,19 @@ export type MixEvalCase = CaseIdentity & {
   readonly gold: MixGold | null;
 };
 
-export type EvalCase = IndustryEvalCase | MixEvalCase;
+export type EmployeeEquityGold = {
+  readonly output: EmployeeEquityOutput;
+  readonly rationale: string;
+  readonly review: GoldReview;
+};
+
+export type EmployeeEquityEvalCase = CaseIdentity & {
+  readonly task: "employee-equity";
+  readonly input: EmployeeEquityInput;
+  readonly gold: EmployeeEquityGold | null;
+};
+
+export type EvalCase = IndustryEvalCase | MixEvalCase | EmployeeEquityEvalCase;
 
 export type EvalCaseSources = {
   readonly documents: readonly {

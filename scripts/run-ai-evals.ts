@@ -57,6 +57,7 @@ import { syncDeclaredSourceRegistry } from "@/modules/ingestion/application/sync
 import { describeSourceRefusal } from "@/modules/ingestion/domain/source-budget";
 import { evaluateIngestionRights } from "@/modules/ingestion/domain/source-registry-entry";
 import { DEMO_SOURCE_REGISTRY } from "@/modules/ingestion/infrastructure/demo-source-registry";
+import { EMPLOYEE_EQUITY_TASK } from "@/modules/valuation/domain/employee-equity-task";
 import { industryCandidates } from "@/modules/valuation/domain/industry-mapping";
 import {
   INDUSTRY_RESOLUTION_TASK,
@@ -274,7 +275,7 @@ if (values.summary) {
       )
       .join(" → ");
 
-    for (const task of ["industry", "mix"] as const) {
+    for (const task of ["industry", "mix", "employee-equity"] as const) {
       for (const kind of [
         "baseline",
         "injection",
@@ -321,6 +322,13 @@ if (variant === null) {
 
 const tasks =
   values.task.length > 0 ? values.task : (["industry", "mix"] as string[]);
+for (const task of tasks) {
+  if (!cases.some((evalCase) => evalCase.task === task)) {
+    fail(
+      `No hay casos de ${task} cargados desde el corpus congelado; no hay medición que ejecutar.`,
+    );
+  }
+}
 const rungs =
   values.rung.length > 0
     ? values.rung.map(Number)
@@ -371,13 +379,17 @@ function worstCase(evalCase: EvalCase, rung: number): number {
   const task =
     evalCase.task === "industry"
       ? INDUSTRY_RESOLUTION_TASK
-      : OPERATIONS_MIX_TASK;
+      : evalCase.task === "employee-equity"
+        ? EMPLOYEE_EQUITY_TASK
+        : OPERATIONS_MIX_TASK;
   const body = encodeOpenRouterBody({
     rung: step,
     messages:
       evalCase.task === "industry"
         ? INDUSTRY_RESOLUTION_TASK.buildMessages(evalCase.input)
-        : OPERATIONS_MIX_TASK.buildMessages(evalCase.input),
+        : evalCase.task === "employee-equity"
+          ? EMPLOYEE_EQUITY_TASK.buildMessages(evalCase.input)
+          : OPERATIONS_MIX_TASK.buildMessages(evalCase.input),
     maxOutputTokens: task.maxOutputTokens,
     output: task.output,
   });

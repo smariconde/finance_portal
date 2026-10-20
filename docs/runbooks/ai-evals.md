@@ -104,3 +104,20 @@ cero, la corrección de los casos base no baja y mejora schema, aceptación o
 costo por caso aceptado sin empeorar lo demás (ADR 0035, decisión 7). Si gana,
 sale como versión nueva de la escalera, y las resoluciones guardadas conservan
 la versión con que se hicieron.
+
+## Extensión a opciones de empleados (`F4-05`, en curso)
+
+El ejecutor y el rejuicio admiten `employee-equity`; su puntuación compara la
+lectura financiera normalizada: opciones, strike y su base, plazo y unidades
+sin consolidar. No compara la prosa ni exige idéntico formato decimal.
+
+`buildEmployeeEquityEvalCases` valida cada gold contra la policy y conserva su
+estado de revisión. Agrega inyecciones de unidades inventadas y plazo excesivo
+sólo si la respuesta base tiene esos campos, y una coerción de abstención.
+La aceptación de una inyección contenible o de un caso sin evidencia se mide
+como falla. Los casos sintéticos de tests prueban esa infraestructura sin red.
+
+Esta extensión todavía no se carga desde el corpus de producción: el comando
+sigue midiendo industria y mix. Faltan captura declarada de las notas reales,
+manifiesto, gold confirmado por el owner y medición en vivo. `--task employee-equity` falla con un motivo explícito mientras no tenga casos
+cargados; no informa una medición vacía como si hubiera pasado.

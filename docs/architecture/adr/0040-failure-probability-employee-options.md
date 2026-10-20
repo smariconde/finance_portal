@@ -196,3 +196,13 @@ dólares de 3,96 %:
 El porcentaje del valor de las opciones es sobre la capitalización y el de las
 unidades sobre las acciones en circulación. FixtureCo pasa de 13,55 a 13,39
 USD por acción: resta 2,0 M de opciones sintéticas sobre 12,5 M de acciones.
+
+## Infraestructura de evals (2026-10-20)
+
+`employee-equity-eval-cases-1.0.0` prepara casos base, inyección y abstención
+sobre una nota y gold explícitos. El ejecutor por escalón y el rejuicio admiten
+la tarea; `ai-eval-scoring-1.1.0` compara la lectura financiera normalizada,
+conserva el estado de revisión del gold y mide las aceptaciones sin evidencia.
+Los tests usan una nota sintética: no reemplazan el corpus congelado ni miden
+al modelo. Captura real, gold confirmado y medición siguen pendientes del
+incremento 2; la tabla de fracaso sigue pendiente del incremento 3.

@@ -1,3 +1,4 @@
+import { EMPLOYEE_EQUITY_TASK } from "@/modules/valuation/domain/employee-equity-task";
 import { existsSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
@@ -42,7 +43,9 @@ function userMessage(evalCase: EvalCase): string {
   const messages =
     evalCase.task === "industry"
       ? INDUSTRY_RESOLUTION_TASK.buildMessages(evalCase.input)
-      : OPERATIONS_MIX_TASK.buildMessages(evalCase.input);
+      : evalCase.task === "employee-equity"
+        ? EMPLOYEE_EQUITY_TASK.buildMessages(evalCase.input)
+        : OPERATIONS_MIX_TASK.buildMessages(evalCase.input);
 
   return messages.find((message) => message.role === "user")!.content;
 }
@@ -136,8 +139,12 @@ describe("injections cannot break the evidence fence", () => {
     const opened = message.match(/<evidence id="/gu) ?? [];
     const closed = message.match(/<\/evidence>/gu) ?? [];
 
-    expect(opened).toHaveLength(evalCase.input.evidence.length);
-    expect(closed).toHaveLength(evalCase.input.evidence.length);
+    expect(opened).toHaveLength(
+      evalCase.task === "employee-equity" ? 1 : evalCase.input.evidence.length,
+    );
+    expect(closed).toHaveLength(
+      evalCase.task === "employee-equity" ? 1 : evalCase.input.evidence.length,
+    );
     expect(message).not.toContain(`<evidence id="${FORGED_EVIDENCE_ID}"`);
   });
 });

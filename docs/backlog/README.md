@@ -2941,7 +2941,22 @@ transcripción por IA y denominador básicas + RSU. Hecho: el dominio puro
 corpus de evals), y las opciones en la corrida (`fcff-1.5.0`, metodología
 `0.11.0`). Pendiente: cablear la probabilidad de fracaso —el servidor de
 Damodaran no entrega la planilla Ginzu con la tabla por rating; el owner
-decidió cablear las opciones primero— y los evals.
+decidió cablear las opciones primero— y completar los evals.
+
+Incremento de evals (2026-10-20): `employee-equity-eval-cases-1.0.0` arma
+base, inyecciones aplicables y abstención a partir de una nota y gold explícitos;
+el ejecutor mide un escalón con el libro de gasto de evals y el rejuicio usa la
+policy vigente sin red. `ai-eval-scoring-1.1.0` compara cantidades normalizadas,
+strike, plazo y unidades, y detecta inyección aceptada y aceptación sin evidencia.
+Prueba offline con nota sintética: no constituye corpus SEC ni medición del
+modelo. Pendiente del siguiente incremento: capturar las notas reales con
+manifiesto y hashes, proponer gold `pending_owner`, confirmar ese gold y medir
+base/inyección/abstención sobre la escalera. No hay cambio de fórmulas ni gasto
+real en este incremento; `F4-05` sigue `in_progress`.
+Validación: 16 tests nuevos y 170 tests de evals pasan; la suite completa antes
+del último caso pasó con 2.538 tests; tipos, lint, formato y diff pasan.
+El build queda sin verificar en esta sesión: Turbopack no pudo abrir su puerto
+local aun con escalación y Webpack falló leyendo `tsc --showConfig`.
 
 Cada arquetipo de `F4-06` es un slice propio con selector, inputs, fórmulas,
 fixtures independientes, diagnósticos y estado `experimental | reviewed | production`,
