@@ -5,6 +5,7 @@ import {
   type RunModelLadderDependencies,
 } from "@/modules/ai/application/run-model-ladder";
 import type { AiTask } from "@/modules/ai/domain/ai-task";
+import { EMPLOYEE_EQUITY_TASK } from "@/modules/valuation/domain/employee-equity-task";
 import { INDUSTRY_RESOLUTION_TASK } from "@/modules/valuation/domain/industry-resolution-task";
 import { OPERATIONS_MIX_TASK } from "@/modules/valuation/domain/operations-mix-task";
 
@@ -63,11 +64,17 @@ export async function runEvalCase(
           evalCase.input,
           run,
         )
-      : await runModelLadder(
-          OPERATIONS_MIX_TASK as AiTask<typeof evalCase.input, unknown>,
-          evalCase.input,
-          run,
-        );
+      : evalCase.task === "employee-equity"
+        ? await runModelLadder(
+            EMPLOYEE_EQUITY_TASK as AiTask<typeof evalCase.input, unknown>,
+            evalCase.input,
+            run,
+          )
+        : await runModelLadder(
+            OPERATIONS_MIX_TASK as AiTask<typeof evalCase.input, unknown>,
+            evalCase.input,
+            run,
+          );
   const [attempt] = result.attempts;
 
   if (attempt === undefined || attempt.outcome === "egress_refused") {

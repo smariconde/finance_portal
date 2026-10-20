@@ -1,3 +1,4 @@
+import { failureRiskSchema } from "./failure-risk";
 import { z } from "zod";
 
 import { computeContentHash } from "@/modules/ingestion/domain/content-hash";
@@ -51,10 +52,12 @@ export const VALUATION_METHOD = "fcff_base";
  * `fcff-1.5.0` (`F4-05`, ADR 0040): el puente resta el valor de las opciones
  * de empleados vivas y el valor por acción divide por acciones en circulación
  * más unidades no consolidadas, ya no por las diluidas del filing.
+ * `fcff-1.6.0`: pondera el DCF por supervivencia y recupera la mitad del capital
+ * en libros reportado, con la probabilidad fechada del rating de la corrida.
  */
-export const ENGINE_VERSION = "fcff-1.5.0";
+export const ENGINE_VERSION = "fcff-1.6.0";
 /** Debe seguir a `docs/valuation/methodology.md`. */
-export const METHODOLOGY_VERSION = "0.11.0";
+export const METHODOLOGY_VERSION = "0.12.0";
 
 const rationaleSchema = z.string().trim().min(1).max(512);
 
@@ -240,6 +243,8 @@ export const valuationInputSchema = z
      * policy check lo recalcula y rechaza un WACC crudo.
      */
     costOfCapital: costOfCapitalSchema,
+    /** F4-05: dated cumulative default probability, separate from the WACC. */
+    failureRisk: failureRiskSchema,
     /**
      * Industria y mix de operaciones con lo que los sostiene (`F5-06`): la
      * propuesta de la IA viaja en el snapshot, así que un replay no vuelve a

@@ -84,12 +84,12 @@ export const CEDEAR_REQUEST_PACING: RequestPacingPolicy = Object.freeze({
 });
 
 /**
- * Los datasets de Damodaran son **cuatro páginas por corrida**, una cada una
- * (ADR 0032). El sitio no publica cuota; una por segundo es prudencia nuestra.
+ * Los datasets de Damodaran son **cinco archivos por corrida**, una request por URL
+ * (ADR 0032/0040). El sitio no publica cuota; una por segundo es prudencia nuestra.
  */
 export const DAMODARAN_REQUEST_PACING: RequestPacingPolicy = Object.freeze({
   minIntervalMs: 1000,
-  maxRequests: 4,
+  maxRequests: 5,
 });
 
 export class RequestBudgetExhaustedError extends Error {

@@ -4,6 +4,8 @@ import { parseArgs } from "node:util";
 
 import {
   DECLARED_EVAL_DOCUMENTS,
+  DECLARED_EMPLOYEE_EQUITY_EVAL_BASES,
+  DECLARED_EMPLOYEE_EQUITY_TARGETS,
   DECLARED_EVAL_TARGETS,
   DECLARED_INDUSTRY_EVAL_BASES,
   DECLARED_MIX_EVAL_BASES,
@@ -18,6 +20,20 @@ import {
   type EvalCorpusExtract,
   type EvalExtractSection,
 } from "@/modules/ai-evals/infrastructure/eval-corpus";
+import { buildCompanyConceptUrl } from "@/modules/corporate-actions/application/live-split-claim-source";
+import {
+  parseSecCompanyConcept,
+  SEC_COMPANY_CONCEPT_PARSER_VERSION,
+} from "@/modules/fundamentals/domain/parse-sec-company-concept";
+import {
+  extractEquityCompensation,
+  SEC_10K_EQUITY_COMPENSATION_VERSION,
+} from "@/modules/fundamentals/domain/sec-10k-equity-compensation";
+import {
+  OPTIONS_OUTSTANDING_CONCEPT,
+  OPTIONS_WEIGHTED_STRIKE_CONCEPT,
+} from "@/modules/valuation/application/propose-employee-equity";
+import { getEmployeeEquityRepository } from "@/server/persistence/get-employee-equity-repository";
 import { SEC_SOURCE_ID } from "@/modules/fundamentals/application/live-company-facts-source";
 import {
   extractGeographicRevenue,
@@ -55,13 +71,16 @@ import { getUniverseRepository } from "@/server/persistence/get-universe-reposit
  *   pnpm ai:eval-capture             # el plan: documentos, secciones y requests; sin red
  *   pnpm ai:eval-capture --apply     # baja cada 10-K declarado, lo recorta y lo congela
  *
- * Una request por documento. Cada 10-K se recorta con los mismos lectores y
+ * Una request por documento y dos companyconcept por caso de opciones. Sólo
+ * los valores del mismo accession y cierre corroboran la tarea; el manifiesto
+ * conserva su procedencia y los valores en conflicto, nunca el payload.
+ * Cada 10-K se recorta con los mismos lectores y
  * techos que usan las tareas, y sólo se guardan las secciones que algún caso
- * lee: Item 1 y nota de segmentos para la industria, la tabla geográfica para
- * el mix, y el Item 1 también para las empresas cuyo caso de abstención del mix
+ * lee: Item 1 y nota de segmentos para la industria, tabla geográfica para
+ * el mix, nota de compensación para opciones, y el Item 1 para la abstención del mix
  * lo usa en lugar de la tabla. El documento entero no se conserva.
  *
- * Lee de la base personal sólo dos cosas, y ninguna entra como evidencia: los
+ * Lee de la base personal sólo referencias para comparar, sin publicar sus IDs: los
  * nombres de país y región de la release vigente (sin sus valores) y el hash de
  * la evidencia que guardó cada corrida de producción, para decir si el extracto
  * recapturado es el mismo que leyó el modelo.
@@ -114,6 +133,12 @@ if (!rights.allowed) {
 // ------------------------------------------------------------------- el plan
 const industryCiks = new Set(DECLARED_INDUSTRY_EVAL_BASES.map((b) => b.cik));
 const mixCiks = new Set(DECLARED_MIX_EVAL_BASES.map((b) => b.cik));
+const employeeBases = new Map(
+  DECLARED_EMPLOYEE_EQUITY_EVAL_BASES.map((base) => [base.cik, base]),
+);
+const employeeAbstentionCiks = new Set(
+  DECLARED_EMPLOYEE_EQUITY_TARGETS.abstentions,
+);
 const mixAbstentionCiks = new Set(DECLARED_EVAL_TARGETS.mixAbstentions);
 
 function sectionsFor(cik: string): EvalExtractSection[] {
@@ -123,7 +148,10 @@ function sectionsFor(cik: string): EvalExtractSection[] {
     sections.push("item_1_business");
   }
   if (industryCiks.has(cik)) sections.push("segment_note");
-  if (mixCiks.has(cik)) sections.push("geographic_revenue");
+  if (mixCiks.has(cik) || employeeAbstentionCiks.has(cik))
+    sections.push("geographic_revenue");
+
+  if (employeeBases.has(cik)) sections.push("equity_compensation");
 
   return sections;
 }
@@ -135,10 +163,11 @@ const documents = DECLARED_EVAL_DOCUMENTS.filter(
 log("corpus", AI_EVAL_CORPUS_VERSION);
 log(
   "lectores",
-  `${SEC_10K_SECTIONS_VERSION}, ${SEC_10K_GEOGRAPHIC_REVENUE_VERSION}`,
+  `${SEC_10K_SECTIONS_VERSION}, ${SEC_10K_GEOGRAPHIC_REVENUE_VERSION}, ${SEC_10K_EQUITY_COMPENSATION_VERSION}`,
 );
 log("documentos", documents.length);
-log("requests", documents.length);
+const requests = documents.length + employeeBases.size * 2;
+log("requests", requests);
 log("modo", DRY_RUN ? "dry run: no escribe nada" : "apply: congela el corpus");
 console.log("");
 
@@ -158,7 +187,7 @@ const NOW = new Date().toISOString();
 const budget = await checkSourceBudget(
   getSourceBudgetStore(),
   SEC_SOURCE_ID,
-  documents.length,
+  requests,
   NOW,
 );
 
@@ -208,6 +237,7 @@ function legalEntityOf(cik: string): string | null {
 
 const industryRepository = getIndustryResolutionRepository();
 const mixRepository = getOperationsMixRepository();
+const employeeRepository = getEmployeeEquityRepository();
 
 async function productionHashes(
   cik: string,
@@ -229,6 +259,9 @@ async function productionHashes(
     hashes.set(item.section as EvalExtractSection, item.sha256);
   }
 
+  const employee = await employeeRepository.latestForSubject(legalEntityId);
+  if (employee !== null)
+    hashes.set("equity_compensation", employee.evidence.sha256);
   return hashes;
 }
 
@@ -238,6 +271,7 @@ const decoder = new TextDecoder("utf-8");
 const captured: EvalCorpusDocument[] = [];
 const files = new Map<string, string>();
 const differences: string[] = [];
+const employeeEquityXbrl = [];
 
 for (const document of documents) {
   const response = await fetch({
@@ -253,6 +287,9 @@ for (const document of documents) {
   const html = decoder.decode(response.body);
   const sections = extractTenKSections(html);
   const geographic = extractGeographicRevenue(html);
+  const equity = employeeBases.has(document.cik)
+    ? extractEquityCompensation(html)
+    : null;
   const production = await productionHashes(document.cik);
   const extracts: EvalCorpusExtract[] = [];
 
@@ -262,7 +299,9 @@ for (const document of documents) {
         ? sections.business
         : wanted === "segment_note"
           ? sections.segments
-          : (geographic?.section ?? null);
+          : wanted === "equity_compensation"
+            ? (equity?.section ?? null)
+            : (geographic?.section ?? null);
 
     // La tarea manda la nota de segmentos sólo si el lector la encuentra.
     if (cut === null && wanted === "segment_note") continue;
@@ -283,14 +322,80 @@ for (const document of documents) {
       section: wanted,
       path,
       readerVersion:
-        wanted === "geographic_revenue"
-          ? SEC_10K_GEOGRAPHIC_REVENUE_VERSION
-          : SEC_10K_SECTIONS_VERSION,
+        wanted === "equity_compensation"
+          ? SEC_10K_EQUITY_COMPENSATION_VERSION
+          : wanted === "geographic_revenue"
+            ? SEC_10K_GEOGRAPHIC_REVENUE_VERSION
+            : SEC_10K_SECTIONS_VERSION,
       bytes: Buffer.byteLength(cut.text, "utf8"),
       sha256,
       truncated: cut.truncated,
     });
     files.set(path, cut.text);
+  }
+
+  const employeeBase = employeeBases.get(document.cik);
+  if (employeeBase !== undefined) {
+    // The archive may belong to a reporting predecessor (ExxonMobil).
+    const archiveCik = new URL(document.documentUrl).pathname
+      .split("/")[4]!
+      .padStart(10, "0");
+    for (const [field, concept, unit] of [
+      ["optionsOutstanding", OPTIONS_OUTSTANDING_CONCEPT, "shares"],
+      ["weightedStrike", OPTIONS_WEIGHTED_STRIKE_CONCEPT, "USD/shares"],
+    ] as const) {
+      const sourceUrl = buildCompanyConceptUrl(archiveCik, concept);
+      const conceptResponse = await fetch({
+        sourceId: SEC_SOURCE_ID,
+        url: sourceUrl,
+        accept: "application/json",
+      });
+      if (conceptResponse.status !== 200 && conceptResponse.status !== 404)
+        fail(`${document.ticker} ${field}: SEC ${conceptResponse.status}.`);
+      const parsed =
+        conceptResponse.status === 404
+          ? null
+          : parseSecCompanyConcept(
+              decoder.decode(conceptResponse.body),
+              concept,
+            );
+      if (
+        parsed !== null &&
+        (!parsed.ok ||
+          parsed.cik !== archiveCik ||
+          parsed.rejections.length > 0)
+      )
+        fail(
+          `${document.ticker} ${field}: companyconcept did not parse cleanly.`,
+        );
+      const values = parsed?.ok
+        ? [
+            ...new Set(
+              parsed.facts
+                .filter(
+                  (fact) =>
+                    fact.accessionNumber === document.accessionNumber &&
+                    fact.end === employeeBase.fiscalYearEnd &&
+                    fact.unit === unit,
+                )
+                .map((fact) => fact.value),
+            ),
+          ]
+        : [];
+      employeeEquityXbrl.push({
+        cik: document.cik,
+        accessionNumber: document.accessionNumber,
+        fiscalYearEnd: employeeBase.fiscalYearEnd,
+        field,
+        sourceUrl,
+        fetchedAt: conceptResponse.fetchedAt,
+        status: conceptResponse.status,
+        rawBytes: conceptResponse.byteLength,
+        rawSha256: sha256Hex(conceptResponse.body),
+        parserVersion: SEC_COMPANY_CONCEPT_PARSER_VERSION,
+        values,
+      });
+    }
   }
 
   captured.push({
@@ -328,6 +433,7 @@ const manifest = evalCorpusManifestSchema.parse({
     regions: regions.rows.map((row) => row.key),
   },
   documents: captured,
+  employeeEquityXbrl,
 });
 
 const directory = evalCorpusDirectory();

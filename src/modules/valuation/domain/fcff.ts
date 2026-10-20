@@ -1,3 +1,5 @@
+import { adjustForFailure, type FailureAdjustment } from "./failure-adjustment";
+import { failureProbability } from "./failure-risk";
 import {
   divide,
   formatDecimal,
@@ -66,6 +68,7 @@ export type FcffComputation = {
   periods: readonly PeriodProjection[];
   terminal: TerminalProjection;
   enterpriseValue: string;
+  failureAdjustment: FailureAdjustment;
   bridgeComponents: readonly BridgeComponent[];
   equityValue: string;
   /** Acciones en circulación más unidades no consolidadas (`F4-05`). */
@@ -204,7 +207,23 @@ export function computeFcff(
     "terminal.discountFactor",
   );
 
-  const enterpriseValue = sum(presentValues).plus(terminalPresentValue);
+  const goingConcernValue = sum(presentValues).plus(terminalPresentValue);
+  const capital = input.normalization.investedCapital;
+  if (capital.status !== "resolved")
+    throw new ValuationPolicyError(
+      "policy_check_failed",
+      "Recovery requires reported book capital.",
+      ["normalization.investedCapital"],
+    );
+  const failureAdjustment = adjustForFailure({
+    goingConcernValue: formatDecimal(goingConcernValue, "goingConcernValue"),
+    probability: failureProbability(input.failureRisk),
+    bookCapital: capital.reported,
+  });
+  const enterpriseValue = parseDecimal(
+    failureAdjustment.adjustedOperatingValue,
+    "enterpriseValue",
+  );
 
   const bridgeComponents: BridgeComponent[] = [];
   let equityValue = enterpriseValue;
@@ -271,14 +290,15 @@ export function computeFcff(
       ),
     },
     enterpriseValue: formatDecimal(enterpriseValue, "enterpriseValue"),
+    failureAdjustment,
     bridgeComponents,
     equityValue: formatDecimal(equityValue, "equityValue"),
     shareCount: formatDecimal(shareCount, "shareCount"),
     valuePerShare: formatDecimal(valuePerShare, "valuePerShare"),
-    terminalValueShare: enterpriseValue.isZero()
+    terminalValueShare: goingConcernValue.isZero()
       ? null
       : formatDecimal(
-          terminalPresentValue.div(enterpriseValue),
+          terminalPresentValue.div(goingConcernValue),
           "terminalValueShare",
         ),
   };

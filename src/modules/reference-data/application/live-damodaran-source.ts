@@ -111,7 +111,10 @@ export function createLiveDamodaranSource(dependencies: {
             sourceId: DAMODARAN_SOURCE_ID,
             url: dataset.url,
             accept:
-              dataset.shape === "workbook" ? WORKBOOK_MEDIA_TYPE : "text/html",
+              dataset.shape === "workbook" ||
+              dataset.shape === "failure_workbook"
+                ? WORKBOOK_MEDIA_TYPE
+                : "text/html",
           });
           downloads.set(dataset.url, download);
         }

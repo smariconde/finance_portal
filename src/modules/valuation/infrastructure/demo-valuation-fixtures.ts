@@ -1,3 +1,4 @@
+import { FAILURE_RISK_VERSION } from "../domain/failure-risk";
 import {
   DEMO_IDENTITY_IDS,
   DEMO_SUBJECT_KEY,
@@ -614,6 +615,22 @@ function buildInput(baseRevenue: {
     assetProfile: "non_financial_mature",
     assessment: DEMO_VALUATION_ASSESSMENT,
     costOfCapital: DEMO_COST_OF_CAPITAL,
+    failureRisk: {
+      version: FAILURE_RISK_VERSION,
+      basis: "rating_table",
+      horizonYears: 10,
+      syntheticRating: DEMO_COST_OF_CAPITAL.derived.syntheticRating,
+      parameter: {
+        datasetId: "damodaran.failure-rates",
+        releaseId: "e0000000-0000-4000-8000-000000000099",
+        rowKey: "aaa",
+        field: "year_10",
+        value: "0",
+        publishedLabel: "Synthetic fixture",
+        availableAt: baseRevenue.availableAt,
+        recordedAt: baseRevenue.availableAt,
+      },
+    },
     qualitativeDecisions: DEMO_QUALITATIVE_DECISIONS,
     capitalization: buildDemoCapitalization(baseRevenue.value),
     normalization: buildDemoNormalization(baseRevenue),

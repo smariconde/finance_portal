@@ -1,3 +1,4 @@
+import { createDecimalOperations } from "@/modules/numeric/domain/decimal-policy";
 import { htmlToText } from "@/modules/ingestion/domain/html-text";
 
 import type { ReferencePublication, ReferenceRow } from "./reference-release";
@@ -97,9 +98,27 @@ type WorkbookDataset = {
   readonly publishedLabel: string;
 };
 
-export type DamodaranDataset = TableDataset | RatingsDataset | WorkbookDataset;
+type FailureWorkbookDataset = {
+  readonly datasetId: string;
+  readonly url: string;
+  readonly shape: "failure_workbook";
+  readonly sheet: string;
+};
+export type DamodaranDataset =
+  TableDataset | RatingsDataset | WorkbookDataset | FailureWorkbookDataset;
+
+export const DAMODARAN_FAILURE_WORKBOOK = Object.freeze({
+  url: "https://pages.stern.nyu.edu/~adamodar/pc/fcffsimpleginzu.xlsx",
+  sheet: "Failure Rate worksheet",
+});
+export const DAMODARAN_FAILURE_PARSER_VERSION = "damodaran-failure-rates-1.0.0";
 
 export const DAMODARAN_DATASETS: readonly DamodaranDataset[] = Object.freeze([
+  {
+    datasetId: "damodaran.failure-rates",
+    shape: "failure_workbook",
+    ...DAMODARAN_FAILURE_WORKBOOK,
+  },
   {
     datasetId: "damodaran.betas-us",
     url: `${BASE}Betas.html`,
@@ -699,7 +718,7 @@ export function parseDamodaranDataset(
   dataset: DamodaranDataset,
   body: Uint8Array | string,
 ): ReferencePublication {
-  if (dataset.shape === "workbook") {
+  if (dataset.shape === "workbook" || dataset.shape === "failure_workbook") {
     if (typeof body === "string") {
       return { ok: false, code: "workbook_expected" };
     }
@@ -707,10 +726,12 @@ export function parseDamodaranDataset(
     const workbook = readXlsxSheets(body, [dataset.sheet]);
 
     return workbook.ok
-      ? parseDamodaranWorkbookDataset(
-          dataset,
-          workbook.sheets.get(dataset.sheet)!,
-        )
+      ? dataset.shape === "failure_workbook"
+        ? parseFailureRates(workbook.sheets.get(dataset.sheet)!)
+        : parseDamodaranWorkbookDataset(
+            dataset,
+            workbook.sheets.get(dataset.sheet)!,
+          )
       : { ok: false, code: `xlsx_${workbook.code}` };
   }
 
@@ -720,4 +741,77 @@ export function parseDamodaranDataset(
   return dataset.shape === "table"
     ? parseTable(dataset, html)
     : parseRatings(dataset, html);
+}
+
+/** The corporate-rating table only; the age-based table below it is unrelated. */
+function parseFailureRates(rows: readonly XlsxRow[]): ReferencePublication {
+  const labels = ["AAA", "AA", "A", "BBB", "BB", "B", "CCC/C"];
+  const headers = rows
+    .map((row, index) => ({ row, index }))
+    .filter(({ row }) => row.cells.get("A")?.text.trim() === "Rating");
+  if (headers.length !== 1)
+    return { ok: false, code: "failure_header_mismatch" };
+  const { row: header, index } = headers[0]!;
+  if (
+    !rows
+      .slice(Math.max(0, index - 3), index)
+      .some((row) =>
+        row.cells
+          .get("A")
+          ?.text.startsWith(
+            "Default Probabilities over time (1 - 10 year time horizons)",
+          ),
+      )
+  )
+    return { ok: false, code: "failure_title_mismatch" };
+  const columns = Array.from({ length: 10 }, (_, i) =>
+    String.fromCharCode(66 + i),
+  );
+  if (
+    columns.some(
+      (col, i) =>
+        header.cells.get(col)?.kind !== "number" ||
+        numberTextToDecimal(header.cells.get(col)!.text) !== String(i + 1),
+    )
+  )
+    return { ok: false, code: "failure_horizons_mismatch" };
+  const { parseDecimal } = createDecimalOperations((code) => new Error(code));
+  const result: ReferenceRow[] = [];
+  for (const [offset, label] of labels.entries()) {
+    const row = rows[index + offset + 1];
+    if (row?.cells.get("A")?.text !== label)
+      return { ok: false, code: "failure_ratings_mismatch" };
+    const values: Record<string, string> = {};
+    let previous = parseDecimal("0", "probability");
+    for (const [year, col] of columns.entries()) {
+      const cell = row.cells.get(col);
+      const value =
+        cell?.kind === "number" ? numberTextToDecimal(cell.text) : null;
+      if (value === null)
+        return { ok: false, code: "failure_probability_invalid" };
+      const probability = parseDecimal(value, "probability");
+      if (probability.lt(previous) || probability.gt(1))
+        return { ok: false, code: "failure_probability_invalid" };
+      previous = probability;
+      values[`year_${year + 1}`] = value;
+    }
+    result.push({
+      key: label === "CCC/C" ? "ccc-c" : label.toLowerCase(),
+      label,
+      values,
+    });
+  }
+  if (
+    rows[index + 8]?.index === header.index + 8 &&
+    rows[index + 8]?.cells.get("A")?.text.trim()
+  )
+    return { ok: false, code: "failure_extra_rating" };
+  return {
+    ok: true,
+    datasetId: "damodaran.failure-rates",
+    parserVersion: DAMODARAN_FAILURE_PARSER_VERSION,
+    publishedLabel: null,
+    rows: result,
+    rejections: [],
+  };
 }

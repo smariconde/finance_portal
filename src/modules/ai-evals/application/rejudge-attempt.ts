@@ -1,3 +1,4 @@
+import { EMPLOYEE_EQUITY_TASK } from "@/modules/valuation/domain/employee-equity-task";
 import { INDUSTRY_RESOLUTION_TASK } from "@/modules/valuation/domain/industry-resolution-task";
 import { OPERATIONS_MIX_TASK } from "@/modules/valuation/domain/operations-mix-task";
 
@@ -26,10 +27,15 @@ export function rejudgeAttempt(
           INDUSTRY_RESOLUTION_TASK.output.schema.parse(attempt.output),
           evalCase.input,
         )
-      : OPERATIONS_MIX_TASK.judge(
-          OPERATIONS_MIX_TASK.output.schema.parse(attempt.output),
-          evalCase.input,
-        );
+      : evalCase.task === "employee-equity"
+        ? EMPLOYEE_EQUITY_TASK.judge(
+            EMPLOYEE_EQUITY_TASK.output.schema.parse(attempt.output),
+            evalCase.input,
+          )
+        : OPERATIONS_MIX_TASK.judge(
+            OPERATIONS_MIX_TASK.output.schema.parse(attempt.output),
+            evalCase.input,
+          );
 
   switch (judgement.verdict) {
     case "accept":

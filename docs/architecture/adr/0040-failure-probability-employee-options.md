@@ -1,6 +1,6 @@
 # ADR 0040: probabilidad de fracaso y opciones de empleados en el puente
 
-- Estado: aceptado (incrementos 1 a 3 en curso)
+- Estado: aceptado (implementado; gate de `F4-05` cerrado el 2026-10-20)
 - Fecha: 2026-10-20
 - Alcance: `F4-05`. Decide de dónde sale la probabilidad de fracaso y cuánto se
   recupera, cómo se valúan las opciones de empleados vivas, con qué
@@ -43,11 +43,15 @@ payload fuera del repositorio):
 de capital ya deriva, leída de una tabla fechada por rating, como los demás
 parámetros de Damodaran. El owner puede declarar otra por CIK con motivo.
 
-Pendiente: la tabla está en la hoja «Failure Rate» de la planilla Ginzu de
-Damodaran, y el 2026-10-20 su servidor cortó o dejó sin respuesta cada
-descarga del `.xlsx` mientras servía las páginas HTML. La fuente, su formato y
-sus términos se fijan cuando el archivo pueda leerse; hasta entonces el dominio
-recibe la probabilidad como insumo y no hay corrida real con fracaso.
+La descarga de la planilla Ginzu falló en el primer incremento y pudo leerse
+el 2026-10-20 en esta continuación. La hoja real se llama
+`Failure Rate worksheet`; contiene probabilidades acumuladas de 1 a 10 años
+por siete grupos. `damodaran.failure-rates` guarda todas las columnas y la
+corrida toma diez años, el horizonte que la propia hoja ilustra, con la
+observación como disponibilidad. Los modificadores de rating se llevan al
+grupo amplio, sin interpolar; CCC, CC y C comparten CCC/C. No hay una fila D:
+un rating **sintético** D no prueba default efectivo, así que queda sin
+probabilidad y exige declaración del owner si quiere valuar ese caso.
 
 ## Decisión 2 — el recupero es la mitad del capital en libros
 
@@ -55,7 +59,7 @@ recibe la probabilidad como insumo y no hay corrida real con fracaso.
 
 ```text
 valor_operativo = DCF × (1 − p) + recupero × p
-recupero        = 0,5 × capital invertido en libros (normalización, ADR 0038)
+recupero        = 0,5 × capital invertido reportado en libros (normalización, ADR 0038)
 ```
 
 Un capital en libros no positivo —más caja que deuda y patrimonio— recupera
@@ -148,19 +152,19 @@ restan su valor del equity—; sumarlas las contaría dos veces.
 1. **Dominio** (hecho): `equity-volatility-1.0.0`, la normal acumulada,
    Black-Scholes, `option-value-dilution-1.0.0` y `failure-adjustment-1.0.0`,
    puros, con oráculos de doble precisión de Python y bordes.
-2. **Transcripción** (hecho, salvo los evals del corpus congelado): recorte
+2. **Transcripción** (hecho; evals medidos con gold confirmado por el owner): recorte
    de la nota, tarea de IA con su policy, persistencia (migración `0030`, con
    rollback que se niega con propuestas guardadas) y
    `pnpm valuation:employee-equity`.
-3. **Corrida** (opciones hecho; fracaso pendiente de la tabla):
+3. **Corrida** (hecho):
    `ValuationInput.employeeEquity` (`employee-equity-claim-1.0.0`) congela la
    transcripción aceptada con sus versiones y el hash de la nota, las acciones
    en circulación y el mercado al `as_of`; deriva el valor de las opciones y el
    denominador, y `employee_equity_recomputed` los recalcula con la libre de
    riesgo de la corrida y exige la claim `employeeOptions` del puente igual a
    ese valor. `fcff-1.5.0`, metodología `0.11.0`. La probabilidad de fracaso
-   queda en el dominio, sin cablear, por decisión del owner, hasta que la
-   tabla de Damodaran pueda leerse.
+   se integró después al leerse la tabla, como se documenta en el último
+   incremento de esta ADR.
 
 ## Decisión 7 — las acciones salen de la carátula
 
@@ -196,3 +200,87 @@ dólares de 3,96 %:
 El porcentaje del valor de las opciones es sobre la capitalización y el de las
 unidades sobre las acciones en circulación. FixtureCo pasa de 13,55 a 13,39
 USD por acción: resta 2,0 M de opciones sintéticas sobre 12,5 M de acciones.
+
+## Infraestructura de evals (2026-10-20)
+
+`employee-equity-eval-cases-1.0.0` prepara casos base, inyección y abstención
+sobre una nota y gold explícitos. El ejecutor por escalón y el rejuicio admiten
+la tarea; `ai-eval-scoring-1.1.0` compara la lectura financiera normalizada,
+conserva el estado de revisión del gold y mide las aceptaciones sin evidencia.
+Los tests usan una nota sintética: no reemplazan el corpus congelado ni miden
+al modelo. Al terminar ese incremento quedaban la captura real, el gold
+confirmado y la medición del incremento 2, y la tabla de fracaso del incremento 3.
+
+## Corpus y medición de evals (2026-10-20)
+
+El corpus `ai-eval-corpus-1.1.0` congela las diez notas elegidas y veinte
+corroboraciones XBRL del mismo filing y cierre fiscal, con la procedencia de
+cada descarga. Una ausencia o un conjunto de valores contradictorios no se
+convierte en cero. `ai-eval-cases-1.2.0` agrega diez bases, nueve inyecciones
+sobre JNJ, Ford e Incyte y tres abstenciones con sus tablas geográficas como
+evidencia sin nota de compensación. Los extractos anteriores siguen idénticos.
+
+El gold fue escrito leyendo las notas congeladas, con cantidades y citas
+explícitas, en `declared-employee-equity-gold.ts`. Quedó `pending_owner`
+hasta la confirmación posterior (ADR 0035, decisión 3). En Ford el strike es
+desconocido;
+en XOM el saldo total publicado incluye unidades liquidadas en efectivo sin
+cantidad separada: se conserva esa limitación de la transcripción.
+
+Medición provisional: 34 intentos por USD 0,080276. La escalera vigente acepta
+diez de diez bases y nueve de nueve inyecciones con la lectura del gold; los
+tres casos sin nota, medidos en los cuatro escalones, nunca fueron aceptados.
+El escalón 4 emitió una respuesta inválida por schema para JNJ y se abstuvo
+en las otras dos; no equivale a tres abstenciones válidas. No se modificó
+prompt, policy ni escalera. En ese momento quedaban la confirmación del gold
+y la integración de fracaso.
+
+## Incorporación de la fuente de fracaso (2026-10-20)
+
+El alcance autorizado de `F4-05` incorpora la ruta exacta
+`https://pages.stern.nyu.edu/~adamodar/pc/fcffsimpleginzu.xlsx` a la fuente
+`damodaran-current-data`, sin comodines. Se revalidaron la [guía de uso](https://pages.stern.nyu.edu/~adamodar/New_Home_Page/guide.html)
+y el [índice de planillas](https://pages.stern.nyu.edu/~adamodar/New_Home_Page/spreadsh.htm):
+permiten usar y adaptar las planillas para trabajo o investigación, con
+atribución y sin reventa. Se conservan los controles y derechos de la fuente
+(ADR 0032): automatización `owner_accepted`, normalización personal y descarte
+del libro; ninguna planilla ni tabla real se commitea. La primera lectura se
+hace por la puerta con presupuesto y kill switch, en memoria, para verificar
+hoja, encabezados y horizontes antes de publicar una release.
+
+## Fracaso integrado a la corrida (2026-10-20)
+
+`failure-risk-1.0.0` congela el rating y el parámetro de diez años, con su
+release, fila, campo y ambos relojes, o una declaración del owner por CIK
+con motivo y fecha real. Una declaración ajena o futura no se aplica; dos
+contradictorias al mismo instante no se desempatan. Sin tabla, rating mapeado
+o capital resuelto, la corrida se rechaza nombrando lo que falta.
+
+El recupero usa `normalization.investedCapital.reported`, **antes** de los
+ajustes de capitalización; `failure_risk_recomputed` controla la selección
+contra el rating y corte de la corrida. `fcff-1.6.0` aplica la mezcla sobre
+el DCF completo antes del puente a equity, y publica `failureAdjustment`.
+Los escenarios y la sensibilidad pasan por el mismo motor. El porcentaje de
+terminal se sigue midiendo sobre el DCF condicional a supervivencia.
+Metodología `0.12.0`, sin migración ni reescritura de corridas.
+
+Se publicó una release personal de siete filas con diez horizontes, sin
+rechazos, desde el libro de 287.995 bytes. Los tests usan un workbook
+sintético, no las probabilidades reales. Las lecturas offline de AAPL, JNJ,
+XOM, CCL y NCLH resuelven grupo y parámetro; Ford nombra que el rating D no
+está en la tabla y Moderna que no hay rating construido. La falta de capital
+en libros de NCLH queda separada de su probabilidad disponible.
+
+El tope de proceso de Damodaran pasa de cuatro a cinco archivos para incorporar
+esta única URL; el tope diario sigue en 20 y el preflight cuenta URLs únicas.
+
+## Confirmación y cierre (2026-10-20)
+
+El owner confirmó explícitamente las diez entradas del gold de opciones,
+incluidos el strike desconocido de Ford y el saldo de XOM que mezcla unidades
+liquidadas en efectivo. Se cambia sólo su estado a `owner_reviewed`, conservando
+cifras y citas. El resumen offline puntúa los 34 intentos existentes:
+cero gold pendientes, diez de diez bases y nueve de nueve inyecciones correctas,
+`lk = awe = 0`. Los tres casos sin nota siguen sin aceptación en los cuatro
+escalones. El gasto medido sigue en USD 0,080276; no hay nuevas llamadas.
+Con la integración y los gates documentados en el backlog, `F4-05` queda cerrado.

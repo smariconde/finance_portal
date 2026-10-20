@@ -1,5 +1,5 @@
 {
-  "corpusVersion": "ai-eval-corpus-1.0.0",
+  "corpusVersion": "ai-eval-corpus-1.1.0",
   "sourceId": "sec-edgar",
   "attribution": "U.S. Securities and Exchange Commission, EDGAR (https://www.sec.gov/edgar). Informacion publica copiada con cita, sin el sello ni los logos de la SEC y sin afiliacion.",
   "exposureKeys": {
@@ -182,9 +182,9 @@
       "cik": "0000004977",
       "accessionNumber": "0001628280-26-011402",
       "sourceUrl": "https://www.sec.gov/Archives/edgar/data/4977/000162828026011402/afl-20251231.htm",
-      "fetchedAt": "2026-10-17T02:45:18.735Z",
-      "rawBytes": 8903509,
-      "rawSha256": "6bdeb218cca551ffc2811b4470d16d3246827459a9f1bba2e2aed8ad337940a0",
+      "fetchedAt": "2026-10-20T19:32:09.172Z",
+      "rawBytes": 8903503,
+      "rawSha256": "daff66c4ef75d3cbce57cd9fcf5723ed0e9e93216550e823b332c9fcbadda5f2",
       "extracts": [
         {
           "section": "item_1_business",
@@ -208,9 +208,9 @@
       "cik": "0000018230",
       "accessionNumber": "0000018230-26-000008",
       "sourceUrl": "https://www.sec.gov/Archives/edgar/data/18230/000001823026000008/cat-20251231.htm",
-      "fetchedAt": "2026-10-17T02:45:21.703Z",
-      "rawBytes": 6100581,
-      "rawSha256": "5170504c5767bf0a8eb2acab7aac664ee33b47f25b3bb142b18f6506131c7fc6",
+      "fetchedAt": "2026-10-20T19:32:11.456Z",
+      "rawBytes": 6100575,
+      "rawSha256": "bce6438161ee8dfb798569e1fb063ef8a05d84e28a10cb25e6eb949f63bf724b",
       "extracts": [
         {
           "section": "geographic_revenue",
@@ -219,6 +219,14 @@
           "bytes": 6000,
           "sha256": "c5f16ec5349cb0100296d6d17551d21a6fa0947c815965b436ac310fc8da293e",
           "truncated": true
+        },
+        {
+          "section": "equity_compensation",
+          "path": "0000018230/equity_compensation.txt",
+          "readerVersion": "sec-10k-equity-compensation-1.0.0",
+          "bytes": 11999,
+          "sha256": "8bf423f2419dba0f0bf0592a1e9598a3b982730c5f1f932b3cd7a7b0ddf149ee",
+          "truncated": true
         }
       ]
     },
@@ -226,9 +234,9 @@
       "cik": "0000019617",
       "accessionNumber": "0001628280-26-008131",
       "sourceUrl": "https://www.sec.gov/Archives/edgar/data/19617/000162828026008131/jpm-20251231.htm",
-      "fetchedAt": "2026-10-17T02:45:26.145Z",
-      "rawBytes": 12927437,
-      "rawSha256": "afdc6332328d4858406cd891a4e4186bab5c48fed2992f5bb59ee7b9fac6cacc",
+      "fetchedAt": "2026-10-20T19:32:16.572Z",
+      "rawBytes": 12927431,
+      "rawSha256": "428551a3073c9701082ca0fe2212b753f8aa30aa71dbd2d5e542a4e09013be05",
       "extracts": [
         {
           "section": "item_1_business",
@@ -252,9 +260,9 @@
       "cik": "0000036104",
       "accessionNumber": "0000036104-26-000011",
       "sourceUrl": "https://www.sec.gov/Archives/edgar/data/36104/000003610426000011/usb-20251231.htm",
-      "fetchedAt": "2026-10-17T02:45:27.091Z",
-      "rawBytes": 972718,
-      "rawSha256": "a14e83926600aca3404647b50ab670898ca48f6ff5567ad645ba8a5501bbb100",
+      "fetchedAt": "2026-10-20T19:32:17.316Z",
+      "rawBytes": 972712,
+      "rawSha256": "f0fa76f5de6b42fcfec1e26941237b75c50295712cdbd298ffe86a27f45a2d3e",
       "extracts": [
         {
           "section": "item_1_business",
@@ -270,9 +278,9 @@
       "cik": "0000037996",
       "accessionNumber": "0000037996-26-000015",
       "sourceUrl": "https://www.sec.gov/Archives/edgar/data/37996/000003799626000015/f-20251231.htm",
-      "fetchedAt": "2026-10-17T02:45:28.560Z",
-      "rawBytes": 5281614,
-      "rawSha256": "8b739fb400fd344d8e6c1a23e1e6dbfcda09c962aafd283cd7bea22748949958",
+      "fetchedAt": "2026-10-20T19:32:18.636Z",
+      "rawBytes": 5281608,
+      "rawSha256": "bc6aef2e9b416589d392c77554eb6d8f91983824e4914293e6810cc91e0ab232",
       "extracts": [
         {
           "section": "geographic_revenue",
@@ -281,6 +289,14 @@
           "bytes": 3280,
           "sha256": "ad0d0f080f49a0dcdd369b805d217605d8ba779727214a483759518b69e17547",
           "truncated": false
+        },
+        {
+          "section": "equity_compensation",
+          "path": "0000037996/equity_compensation.txt",
+          "readerVersion": "sec-10k-equity-compensation-1.0.0",
+          "bytes": 12000,
+          "sha256": "536b957613a0ed571046c9f08d20c3aa061fd673418e500d39b1d6dbe3daa659",
+          "truncated": true
         }
       ]
     },
@@ -288,9 +304,9 @@
       "cik": "0000070858",
       "accessionNumber": "0000070858-26-000157",
       "sourceUrl": "https://www.sec.gov/Archives/edgar/data/70858/000007085826000157/bac-20251231.htm",
-      "fetchedAt": "2026-10-17T02:45:32.537Z",
-      "rawBytes": 12819172,
-      "rawSha256": "5ea298d6cfd3ece09070f34a9e163a214bcfcb27b38a992c3b95d1284110bcbf",
+      "fetchedAt": "2026-10-20T19:32:23.883Z",
+      "rawBytes": 12819166,
+      "rawSha256": "e32f781aa74a5109e4245e12567c3b01fb50c0b6b635cd0a3f13b7fc02f07cd9",
       "extracts": [
         {
           "section": "item_1_business",
@@ -314,9 +330,9 @@
       "cik": "0000200406",
       "accessionNumber": "0000200406-26-000016",
       "sourceUrl": "https://www.sec.gov/Archives/edgar/data/200406/000020040626000016/jnj-20251228.htm",
-      "fetchedAt": "2026-10-17T02:45:34.171Z",
-      "rawBytes": 3701699,
-      "rawSha256": "5ef3cf2a03f70e0962167eb766dcf98a0f550ea3d4fb179ab3f3c6584bd3df28",
+      "fetchedAt": "2026-10-20T19:32:25.494Z",
+      "rawBytes": 3701693,
+      "rawSha256": "37a1d6730c0c68ecece0d4540bae382528611d3881dc8ce165537812dd95be91",
       "extracts": [
         {
           "section": "geographic_revenue",
@@ -325,6 +341,14 @@
           "bytes": 6000,
           "sha256": "2d5bfe662334d90fbf35ed84b0742ec04e6abf5383c163adf19ef1cc91f1620b",
           "truncated": true
+        },
+        {
+          "section": "equity_compensation",
+          "path": "0000200406/equity_compensation.txt",
+          "readerVersion": "sec-10k-equity-compensation-1.0.0",
+          "bytes": 12000,
+          "sha256": "972120533afcbed1f3281e56025cf0f13f0a7f348a54f149b3e268dfd3a005fc",
+          "truncated": true
         }
       ]
     },
@@ -332,9 +356,9 @@
       "cik": "0000315189",
       "accessionNumber": "0001104659-25-122321",
       "sourceUrl": "https://www.sec.gov/Archives/edgar/data/315189/000110465925122321/de-20251102x10k.htm",
-      "fetchedAt": "2026-10-17T02:45:37.953Z",
-      "rawBytes": 10743916,
-      "rawSha256": "ee0a885b50ab590eb5b72d369c82d46f8a57348910bb8548fa2180df1e39dc60",
+      "fetchedAt": "2026-10-20T19:32:30.308Z",
+      "rawBytes": 10743910,
+      "rawSha256": "c84abf625d6c6f0c852c67ccb01072d685f4a73966ec96ecf8992e7f53185307",
       "extracts": [
         {
           "section": "geographic_revenue",
@@ -350,9 +374,9 @@
       "cik": "0000320193",
       "accessionNumber": "0000320193-25-000079",
       "sourceUrl": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm",
-      "fetchedAt": "2026-10-17T02:45:38.682Z",
-      "rawBytes": 1520320,
-      "rawSha256": "63d29bf57dcc4a938a3517f215a7ff18c6dcc1a43cfa3e874524d3e09f21235a",
+      "fetchedAt": "2026-10-20T19:32:31.630Z",
+      "rawBytes": 1520314,
+      "rawSha256": "f7569b9a9cb9010780bdbf3ea89120dd2d7928caa8fff1305ace90630ca627ce",
       "extracts": [
         {
           "section": "geographic_revenue",
@@ -361,6 +385,14 @@
           "bytes": 6000,
           "sha256": "cdf4f452f58bf444921ffe2c21e8cdcf31df800882b23bc6746bdad7dae508c4",
           "truncated": true
+        },
+        {
+          "section": "equity_compensation",
+          "path": "0000320193/equity_compensation.txt",
+          "readerVersion": "sec-10k-equity-compensation-1.0.0",
+          "bytes": 12000,
+          "sha256": "23de54598854ef50d943a289720f6cbd67a0756e44ab2710edbe26ab49d89672",
+          "truncated": true
         }
       ]
     },
@@ -368,9 +400,9 @@
       "cik": "0000726728",
       "accessionNumber": "0000726728-26-000011",
       "sourceUrl": "https://www.sec.gov/Archives/edgar/data/726728/000072672826000011/o-20251231.htm",
-      "fetchedAt": "2026-10-17T02:45:39.844Z",
-      "rawBytes": 4098072,
-      "rawSha256": "6f3e34acbea8a2b5e97c4ef732eb757ac4344e26eec95866622b06fd3263a5fd",
+      "fetchedAt": "2026-10-20T19:32:34.212Z",
+      "rawBytes": 4098066,
+      "rawSha256": "3d7973187f12c9297555dd3c5515606d5b1cac1ad46b7517c64d9dc4548ba791",
       "extracts": [
         {
           "section": "item_1_business",
@@ -394,9 +426,9 @@
       "cik": "0000815097",
       "accessionNumber": "0000815097-26-000007",
       "sourceUrl": "https://www.sec.gov/Archives/edgar/data/815097/000081509726000007/ccl-20251130.htm",
-      "fetchedAt": "2026-10-17T02:45:40.662Z",
-      "rawBytes": 2101827,
-      "rawSha256": "d66db8a34c056655aa9c2462a8730fab17d5541f680dd6bde1ba2dea9e815793",
+      "fetchedAt": "2026-10-20T19:32:35.838Z",
+      "rawBytes": 2101821,
+      "rawSha256": "284d9be10d56e167817b919ed9189a298e81538b26d83296b824ee5da8309890",
       "extracts": [
         {
           "section": "item_1_business",
@@ -428,9 +460,9 @@
       "cik": "0000831259",
       "accessionNumber": "0000831259-26-000012",
       "sourceUrl": "https://www.sec.gov/Archives/edgar/data/831259/000083125926000012/fcx-20251231.htm",
-      "fetchedAt": "2026-10-17T02:45:42.721Z",
-      "rawBytes": 6347590,
-      "rawSha256": "854604e7c07258ca79815f082cd50985cfd56293dd3bfba0593aab8e5661f2de",
+      "fetchedAt": "2026-10-20T19:32:37.986Z",
+      "rawBytes": 6347584,
+      "rawSha256": "24816927b4f1104c10f97ac61e924584440cbd720ba13cd68be0450612d46961",
       "extracts": [
         {
           "section": "geographic_revenue",
@@ -446,9 +478,9 @@
       "cik": "0000879169",
       "accessionNumber": "0000879169-26-000010",
       "sourceUrl": "https://www.sec.gov/Archives/edgar/data/879169/000087916926000010/incy-20251231.htm",
-      "fetchedAt": "2026-10-17T02:45:43.713Z",
-      "rawBytes": 2295530,
-      "rawSha256": "61066d3151c84f8ae463cb025f17a58fa6c2c1bacbf56bd17039a36ba38fe33a",
+      "fetchedAt": "2026-10-20T19:32:39.124Z",
+      "rawBytes": 2295524,
+      "rawSha256": "c2d42acb7662cd61f7c384489b14cc5f10284c02bc9e0df046f3e7aa3efa9f28",
       "extracts": [
         {
           "section": "item_1_business",
@@ -473,6 +505,14 @@
           "bytes": 5999,
           "sha256": "6cd98489eb6d1a3fedc369e23c04b75f923dfa835e4216f1964b03016ffacd3d",
           "truncated": true
+        },
+        {
+          "section": "equity_compensation",
+          "path": "0000879169/equity_compensation.txt",
+          "readerVersion": "sec-10k-equity-compensation-1.0.0",
+          "bytes": 12000,
+          "sha256": "9b0a3e78ff4fa265124a41f98041b0d347c213bae07f0beaf2c4f6be6a31d9ec",
+          "truncated": true
         }
       ]
     },
@@ -480,9 +520,9 @@
       "cik": "0001018724",
       "accessionNumber": "0001018724-26-000004",
       "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1018724/000101872426000004/amzn-20251231.htm",
-      "fetchedAt": "2026-10-17T02:45:44.545Z",
-      "rawBytes": 1968454,
-      "rawSha256": "bc9f4a845ab9de2d1c123021bb745c7546bd2c2dc454021cc57843012d0272ca",
+      "fetchedAt": "2026-10-20T19:32:41.214Z",
+      "rawBytes": 1968448,
+      "rawSha256": "a2d31fb7be58454479b35622eb8d3379f953f4a8f44a256166217fa5b434af35",
       "extracts": [
         {
           "section": "item_1_business",
@@ -514,9 +554,9 @@
       "cik": "0001045609",
       "accessionNumber": "0001193125-26-051453",
       "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1045609/000119312526051453/pld-20251231.htm",
-      "fetchedAt": "2026-10-17T02:45:49.525Z",
-      "rawBytes": 11507390,
-      "rawSha256": "b2b1d6f33f176c324c13eddff8d2f75432a764725fc0c0edfdd80b65c1f3de34",
+      "fetchedAt": "2026-10-20T19:32:45.216Z",
+      "rawBytes": 11507384,
+      "rawSha256": "371d88562c77ed2df5b6a7913f83461abf3dd3aac75e117ad08058daaf138e7a",
       "extracts": [
         {
           "section": "item_1_business",
@@ -540,9 +580,9 @@
       "cik": "0001045810",
       "accessionNumber": "0001045810-26-000021",
       "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000021/nvda-20260125.htm",
-      "fetchedAt": "2026-10-17T02:45:50.598Z",
-      "rawBytes": 1967928,
-      "rawSha256": "49efd4ef2b09b8d81ddeca9fbaa9036bfb8311d92dbd1e2c232b5dde34509608",
+      "fetchedAt": "2026-10-20T19:32:46.328Z",
+      "rawBytes": 1967922,
+      "rawSha256": "5d6aba3df423dd35407d0004037b1e9dfc3c969cf0b685c13bf3f3366ba54959",
       "extracts": [
         {
           "section": "geographic_revenue",
@@ -551,6 +591,14 @@
           "bytes": 5999,
           "sha256": "275708344155df0932db77a3a80849829ecf4c8a547be3401cc02379a391194d",
           "truncated": true
+        },
+        {
+          "section": "equity_compensation",
+          "path": "0001045810/equity_compensation.txt",
+          "readerVersion": "sec-10k-equity-compensation-1.0.0",
+          "bytes": 12000,
+          "sha256": "6d4e4aa63322f7380df4a887e10a836dbe65ee48a1353f4dd4add0a74ca3e3d6",
+          "truncated": true
         }
       ]
     },
@@ -558,9 +606,9 @@
       "cik": "0001053507",
       "accessionNumber": "0001053507-26-000035",
       "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1053507/000105350726000035/amt-20251231.htm",
-      "fetchedAt": "2026-10-17T02:45:52.790Z",
-      "rawBytes": 4332536,
-      "rawSha256": "3f4f26f80b3ff9bdc480c8c06f4f5c5395bdeaa9a183bc0ade3240eb94e04702",
+      "fetchedAt": "2026-10-20T19:32:49.009Z",
+      "rawBytes": 4332530,
+      "rawSha256": "d8ddf71e3908fdf3a9b0e1420f32c00eff20c05e59049bd20df97730fd26bab4",
       "extracts": [
         {
           "section": "item_1_business",
@@ -577,6 +625,14 @@
           "bytes": 8000,
           "sha256": "734b31218a53851e5b26f4f7c538ef0d51c0d8855b0f5e4488d0d36c109939ac",
           "truncated": true
+        },
+        {
+          "section": "equity_compensation",
+          "path": "0001053507/equity_compensation.txt",
+          "readerVersion": "sec-10k-equity-compensation-1.0.0",
+          "bytes": 12000,
+          "sha256": "1c32ab485a7cfa408f41fb8b0e9ea7ba6f7ea9cfe9213f7e68c1012fdb7b05cf",
+          "truncated": true
         }
       ]
     },
@@ -584,9 +640,9 @@
       "cik": "0001100682",
       "accessionNumber": "0001100682-26-000022",
       "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1100682/000110068226000022/crl-20251227.htm",
-      "fetchedAt": "2026-10-17T02:45:54.853Z",
-      "rawBytes": 3107679,
-      "rawSha256": "0ac0df00b6d5d357d4c444dac5d671f29ec9be5a8885eaf5f5a75598c6335ae3",
+      "fetchedAt": "2026-10-20T19:32:52.296Z",
+      "rawBytes": 3107673,
+      "rawSha256": "6c8d8e612f703de5b52c36be63fd746d5a85bf4ab5e0817f14e4bb2ff34a7498",
       "extracts": [
         {
           "section": "item_1_business",
@@ -618,9 +674,9 @@
       "cik": "0001108524",
       "accessionNumber": "0001108524-26-000060",
       "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1108524/000110852426000060/crm-20260131.htm",
-      "fetchedAt": "2026-10-17T02:45:55.814Z",
-      "rawBytes": 2570390,
-      "rawSha256": "edea95aa5aac0839bb33dc052960b1961625df1eab8769dfff3bd12d4650bfd2",
+      "fetchedAt": "2026-10-20T19:32:53.428Z",
+      "rawBytes": 2570384,
+      "rawSha256": "73cc42b0c5ee8bb288d0c96c5e72929c3558d641b35dc9a7b6e5bed3bf13c22f",
       "extracts": [
         {
           "section": "item_1_business",
@@ -637,6 +693,14 @@
           "bytes": 6000,
           "sha256": "008454dc33843fdd92f79c4f3f17935ae07fcb6ebb4985d16de7f5d3d1044dae",
           "truncated": true
+        },
+        {
+          "section": "equity_compensation",
+          "path": "0001108524/equity_compensation.txt",
+          "readerVersion": "sec-10k-equity-compensation-1.0.0",
+          "bytes": 12000,
+          "sha256": "e756b37cdbccb8539d5d4a33727d0c0d55b31b31255517e2331c91e59535e52b",
+          "truncated": true
         }
       ]
     },
@@ -644,9 +708,9 @@
       "cik": "0001164727",
       "accessionNumber": "0001164727-26-000010",
       "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1164727/000116472726000010/nem-20251231.htm",
-      "fetchedAt": "2026-10-17T02:45:59.205Z",
-      "rawBytes": 9143818,
-      "rawSha256": "9ecf0a7e9b90b92c4d364971586fd0f50a45bb2e12e58f363650325e8581833d",
+      "fetchedAt": "2026-10-20T19:32:57.836Z",
+      "rawBytes": 9143812,
+      "rawSha256": "642882bb8056fc3b7ae4b9efb6f67da6d02e1adf6503639fc1e0a84eef3ec444",
       "extracts": [
         {
           "section": "geographic_revenue",
@@ -662,9 +726,9 @@
       "cik": "0001326160",
       "accessionNumber": "0001326160-26-000014",
       "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1326160/000132616026000014/duk-20251231.htm",
-      "fetchedAt": "2026-10-17T02:46:05.068Z",
-      "rawBytes": 16080288,
-      "rawSha256": "7130d5665856951d83d895689e4fae1ff3de8a63d57ba8c7bb5442c700e9180d",
+      "fetchedAt": "2026-10-20T19:33:02.137Z",
+      "rawBytes": 16080282,
+      "rawSha256": "be48c423356efa90388e9fb221159ecf3ec25bd52980c2f00cbd968567af649a",
       "extracts": [
         {
           "section": "item_1_business",
@@ -688,9 +752,9 @@
       "cik": "0001513761",
       "accessionNumber": "0001104659-26-022067",
       "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1513761/000110465926022067/nclh-20251231x10k.htm",
-      "fetchedAt": "2026-10-17T02:46:07.127Z",
-      "rawBytes": 3670958,
-      "rawSha256": "d17e2b67da70b5b35a022a453a7d0a5a5bb11c103053d75bcbd0041186ec01fa",
+      "fetchedAt": "2026-10-20T19:33:03.738Z",
+      "rawBytes": 3670952,
+      "rawSha256": "eb5127341601a8e8bb0c83a48d92dfd2013b941c5cbb853c5e0cefb101e5516f",
       "extracts": [
         {
           "section": "item_1_business",
@@ -722,9 +786,9 @@
       "cik": "0001652044",
       "accessionNumber": "0001652044-26-000018",
       "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1652044/000165204426000018/goog-20251231.htm",
-      "fetchedAt": "2026-10-17T02:46:08.160Z",
-      "rawBytes": 2616611,
-      "rawSha256": "8cee92a0ca058d3ad69c7621f076a8d0ca9da4041b2c80f5e523e94675f89f6c",
+      "fetchedAt": "2026-10-20T19:33:04.763Z",
+      "rawBytes": 2616605,
+      "rawSha256": "55433ab65713c9cfebd65dc33c8e2d116e8a1d60c64a955d20cd2171ee8ceecc",
       "extracts": [
         {
           "section": "item_1_business",
@@ -756,9 +820,9 @@
       "cik": "0001682852",
       "accessionNumber": "0001682852-26-000033",
       "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1682852/000168285226000033/mrna-20251231.htm",
-      "fetchedAt": "2026-10-17T02:46:09.953Z",
-      "rawBytes": 2677524,
-      "rawSha256": "4596f4697da892532b61b8c3964bdc418ba0d704d0b479645395058324002971",
+      "fetchedAt": "2026-10-20T19:33:05.744Z",
+      "rawBytes": 2677518,
+      "rawSha256": "a7e1d506a0d38eb077cb1cb7b209bc273e511bec2d628c7281f31dd0fc0dc9d9",
       "extracts": [
         {
           "section": "geographic_revenue",
@@ -767,6 +831,14 @@
           "bytes": 6000,
           "sha256": "e05801a47e3738eeaf70db16823f3db3ed43c4e4e8da5cac00fce237ba50ec72",
           "truncated": true
+        },
+        {
+          "section": "equity_compensation",
+          "path": "0001682852/equity_compensation.txt",
+          "readerVersion": "sec-10k-equity-compensation-1.0.0",
+          "bytes": 11999,
+          "sha256": "93491b927b337e86eb6d83955ab7f8a9f761061f49e13ed99871a741dff63c27",
+          "truncated": true
         }
       ]
     },
@@ -774,9 +846,9 @@
       "cik": "0002115436",
       "accessionNumber": "0000034088-26-000045",
       "sourceUrl": "https://www.sec.gov/Archives/edgar/data/34088/000003408826000045/xom-20251231.htm",
-      "fetchedAt": "2026-10-17T02:46:13.030Z",
-      "rawBytes": 5591180,
-      "rawSha256": "e37e9ab0d6e1e295b3be4131d66e7020c8529ff22ccf72831490c0ae05ce2e97",
+      "fetchedAt": "2026-10-20T19:33:08.223Z",
+      "rawBytes": 5591174,
+      "rawSha256": "e9c66c7b3cc8816815eacf5f24b9b917640a075933e483dda693175d641f3249",
       "extracts": [
         {
           "section": "item_1_business",
@@ -801,8 +873,304 @@
           "bytes": 6000,
           "sha256": "b357acac814bee5beb776bda18a6f94a4e7dc46bb7845b93ce0ee2a2957f8e33",
           "truncated": true
+        },
+        {
+          "section": "equity_compensation",
+          "path": "0002115436/equity_compensation.txt",
+          "readerVersion": "sec-10k-equity-compensation-1.0.0",
+          "bytes": 11999,
+          "sha256": "b4387a40824eebc2eeaaf64842bd0e84f9b9beaa8eaff769409ed98ef4235a78",
+          "truncated": true
         }
       ]
+    }
+  ],
+  "employeeEquityXbrl": [
+    {
+      "cik": "0000018230",
+      "accessionNumber": "0000018230-26-000008",
+      "fiscalYearEnd": "2025-12-31",
+      "field": "optionsOutstanding",
+      "sourceUrl": "https://data.sec.gov/api/xbrl/companyconcept/CIK0000018230/us-gaap/ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingNumber.json",
+      "fetchedAt": "2026-10-20T19:32:12.026Z",
+      "status": 200,
+      "rawBytes": 915,
+      "rawSha256": "dfcce4efec736497c728527969ca60004861f95b7012e2af07b4c532ad51ccd2",
+      "parserVersion": "sec-companyconcept-1.0.0",
+      "values": [
+        "3017053"
+      ]
+    },
+    {
+      "cik": "0000018230",
+      "accessionNumber": "0000018230-26-000008",
+      "fiscalYearEnd": "2025-12-31",
+      "field": "weightedStrike",
+      "sourceUrl": "https://data.sec.gov/api/xbrl/companyconcept/CIK0000018230/us-gaap/ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingWeightedAverageExercisePrice.json",
+      "fetchedAt": "2026-10-20T19:32:12.492Z",
+      "status": 200,
+      "rawBytes": 1000,
+      "rawSha256": "2f17c06942ec6ee57676a5dd667f484adf3d2ce440b17b9bfd56972c5ea97c59",
+      "parserVersion": "sec-companyconcept-1.0.0",
+      "values": [
+        "220.52"
+      ]
+    },
+    {
+      "cik": "0000037996",
+      "accessionNumber": "0000037996-26-000015",
+      "fiscalYearEnd": "2025-12-31",
+      "field": "optionsOutstanding",
+      "sourceUrl": "https://data.sec.gov/api/xbrl/companyconcept/CIK0000037996/us-gaap/ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingNumber.json",
+      "fetchedAt": "2026-10-20T19:32:19.127Z",
+      "status": 200,
+      "rawBytes": 1436,
+      "rawSha256": "77734653bc2fe9f940712a6aeacf5e057975a3a90bb19da02881eec6190f2bde",
+      "parserVersion": "sec-companyconcept-1.0.0",
+      "values": [
+        "4200000"
+      ]
+    },
+    {
+      "cik": "0000037996",
+      "accessionNumber": "0000037996-26-000015",
+      "fiscalYearEnd": "2025-12-31",
+      "field": "weightedStrike",
+      "sourceUrl": "https://data.sec.gov/api/xbrl/companyconcept/CIK0000037996/us-gaap/ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingWeightedAverageExercisePrice.json",
+      "fetchedAt": "2026-10-20T19:32:19.661Z",
+      "status": 200,
+      "rawBytes": 993,
+      "rawSha256": "4f2f0f45d653b4ac31a15c5ecf20825c429749ce82fc1e7bc81b341c975658e3",
+      "parserVersion": "sec-companyconcept-1.0.0",
+      "values": []
+    },
+    {
+      "cik": "0000200406",
+      "accessionNumber": "0000200406-26-000016",
+      "fiscalYearEnd": "2025-12-28",
+      "field": "optionsOutstanding",
+      "sourceUrl": "https://data.sec.gov/api/xbrl/companyconcept/CIK0000200406/us-gaap/ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingNumber.json",
+      "fetchedAt": "2026-10-20T19:32:25.997Z",
+      "status": 200,
+      "rawBytes": 7821,
+      "rawSha256": "e109ed41ff42ff8a31c9b0aa67cc3555b142fcbc21d3d4b8cbaf2bbd94aabf03",
+      "parserVersion": "sec-companyconcept-1.0.0",
+      "values": [
+        "93072000"
+      ]
+    },
+    {
+      "cik": "0000200406",
+      "accessionNumber": "0000200406-26-000016",
+      "fiscalYearEnd": "2025-12-28",
+      "field": "weightedStrike",
+      "sourceUrl": "https://data.sec.gov/api/xbrl/companyconcept/CIK0000200406/us-gaap/ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingWeightedAverageExercisePrice.json",
+      "fetchedAt": "2026-10-20T19:32:26.563Z",
+      "status": 200,
+      "rawBytes": 7699,
+      "rawSha256": "9b8aafebb086f4a9d47b847ece628beeab8895b652a343dbba2525e56f1b9b82",
+      "parserVersion": "sec-companyconcept-1.0.0",
+      "values": [
+        "151.14"
+      ]
+    },
+    {
+      "cik": "0000320193",
+      "accessionNumber": "0000320193-25-000079",
+      "fiscalYearEnd": "2025-09-27",
+      "field": "optionsOutstanding",
+      "sourceUrl": "https://data.sec.gov/api/xbrl/companyconcept/CIK0000320193/us-gaap/ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingNumber.json",
+      "fetchedAt": "2026-10-20T19:32:32.144Z",
+      "status": 200,
+      "rawBytes": 7315,
+      "rawSha256": "c7a1d2dc9b809d371ad1d63133f71a7dc55d88610d44dd9c5cc35e35de782cd3",
+      "parserVersion": "sec-companyconcept-1.0.0",
+      "values": []
+    },
+    {
+      "cik": "0000320193",
+      "accessionNumber": "0000320193-25-000079",
+      "fiscalYearEnd": "2025-09-27",
+      "field": "weightedStrike",
+      "sourceUrl": "https://data.sec.gov/api/xbrl/companyconcept/CIK0000320193/us-gaap/ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingWeightedAverageExercisePrice.json",
+      "fetchedAt": "2026-10-20T19:32:32.615Z",
+      "status": 200,
+      "rawBytes": 7293,
+      "rawSha256": "73707faabf792fa8830bad5a209108c15b072c5b0c0ba9f7aeae1e4f07c16bc8",
+      "parserVersion": "sec-companyconcept-1.0.0",
+      "values": []
+    },
+    {
+      "cik": "0000879169",
+      "accessionNumber": "0000879169-26-000010",
+      "fiscalYearEnd": "2025-12-31",
+      "field": "optionsOutstanding",
+      "sourceUrl": "https://data.sec.gov/api/xbrl/companyconcept/CIK0000879169/us-gaap/ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingNumber.json",
+      "fetchedAt": "2026-10-20T19:32:39.572Z",
+      "status": 200,
+      "rawBytes": 1991,
+      "rawSha256": "5b191b737a63d357d7b5f08df35496a73205409d8879ef854adf38230313328f",
+      "parserVersion": "sec-companyconcept-1.0.0",
+      "values": [
+        "10859861"
+      ]
+    },
+    {
+      "cik": "0000879169",
+      "accessionNumber": "0000879169-26-000010",
+      "fiscalYearEnd": "2025-12-31",
+      "field": "weightedStrike",
+      "sourceUrl": "https://data.sec.gov/api/xbrl/companyconcept/CIK0000879169/us-gaap/ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingWeightedAverageExercisePrice.json",
+      "fetchedAt": "2026-10-20T19:32:40.064Z",
+      "status": 200,
+      "rawBytes": 2038,
+      "rawSha256": "c34d75a88b1786a874fa287b83a3c04ba800bf360fe624eecfcf3a9fce6eedf0",
+      "parserVersion": "sec-companyconcept-1.0.0",
+      "values": [
+        "83.46"
+      ]
+    },
+    {
+      "cik": "0001045810",
+      "accessionNumber": "0001045810-26-000021",
+      "fiscalYearEnd": "2026-01-25",
+      "field": "optionsOutstanding",
+      "sourceUrl": "https://data.sec.gov/api/xbrl/companyconcept/CIK0001045810/us-gaap/ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingNumber.json",
+      "fetchedAt": "2026-10-20T19:32:46.774Z",
+      "status": 200,
+      "rawBytes": 9387,
+      "rawSha256": "c7007ca6a41dce3758f0df255c2f08bd9f53dc288a4c457d42f2b41b742fa174",
+      "parserVersion": "sec-companyconcept-1.0.0",
+      "values": []
+    },
+    {
+      "cik": "0001045810",
+      "accessionNumber": "0001045810-26-000021",
+      "fiscalYearEnd": "2026-01-25",
+      "field": "weightedStrike",
+      "sourceUrl": "https://data.sec.gov/api/xbrl/companyconcept/CIK0001045810/us-gaap/ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingWeightedAverageExercisePrice.json",
+      "fetchedAt": "2026-10-20T19:32:47.301Z",
+      "status": 200,
+      "rawBytes": 9554,
+      "rawSha256": "39a0ea1edf65cb087e8251b06ba4331ad8bd9466f558d889d4ade1c3218af4c9",
+      "parserVersion": "sec-companyconcept-1.0.0",
+      "values": []
+    },
+    {
+      "cik": "0001053507",
+      "accessionNumber": "0001053507-26-000035",
+      "fiscalYearEnd": "2025-12-31",
+      "field": "optionsOutstanding",
+      "sourceUrl": "https://data.sec.gov/api/xbrl/companyconcept/CIK0001053507/us-gaap/ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingNumber.json",
+      "fetchedAt": "2026-10-20T19:32:49.554Z",
+      "status": 200,
+      "rawBytes": 9027,
+      "rawSha256": "00cdb22331e70628f08f1050ce1a8421741c764b313cfc0100f0651ef71a9993",
+      "parserVersion": "sec-companyconcept-1.0.0",
+      "values": [
+        "133623"
+      ]
+    },
+    {
+      "cik": "0001053507",
+      "accessionNumber": "0001053507-26-000035",
+      "fiscalYearEnd": "2025-12-31",
+      "field": "weightedStrike",
+      "sourceUrl": "https://data.sec.gov/api/xbrl/companyconcept/CIK0001053507/us-gaap/ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingWeightedAverageExercisePrice.json",
+      "fetchedAt": "2026-10-20T19:32:49.971Z",
+      "status": 200,
+      "rawBytes": 2051,
+      "rawSha256": "0afc803536a1020a1c7f9ae95522d5cdad62f7b75fb4130e42c94e474b444713",
+      "parserVersion": "sec-companyconcept-1.0.0",
+      "values": [
+        "94.82"
+      ]
+    },
+    {
+      "cik": "0001108524",
+      "accessionNumber": "0001108524-26-000060",
+      "fiscalYearEnd": "2026-01-31",
+      "field": "optionsOutstanding",
+      "sourceUrl": "https://data.sec.gov/api/xbrl/companyconcept/CIK0001108524/us-gaap/ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingNumber.json",
+      "fetchedAt": "2026-10-20T19:32:53.940Z",
+      "status": 200,
+      "rawBytes": 17893,
+      "rawSha256": "b55f258d22ee364901fc953ae146f033dff196cd63f14739353ee77127a8c9d3",
+      "parserVersion": "sec-companyconcept-1.0.0",
+      "values": [
+        "6000000"
+      ]
+    },
+    {
+      "cik": "0001108524",
+      "accessionNumber": "0001108524-26-000060",
+      "fiscalYearEnd": "2026-01-31",
+      "field": "weightedStrike",
+      "sourceUrl": "https://data.sec.gov/api/xbrl/companyconcept/CIK0001108524/us-gaap/ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingWeightedAverageExercisePrice.json",
+      "fetchedAt": "2026-10-20T19:32:54.415Z",
+      "status": 200,
+      "rawBytes": 17666,
+      "rawSha256": "9d7d8620f8c4ca9c314bc345921ae42b9bcefe3e02692242dd31540217927c01",
+      "parserVersion": "sec-companyconcept-1.0.0",
+      "values": [
+        "207.54"
+      ]
+    },
+    {
+      "cik": "0001682852",
+      "accessionNumber": "0001682852-26-000033",
+      "fiscalYearEnd": "2025-12-31",
+      "field": "optionsOutstanding",
+      "sourceUrl": "https://data.sec.gov/api/xbrl/companyconcept/CIK0001682852/us-gaap/ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingNumber.json",
+      "fetchedAt": "2026-10-20T19:33:06.194Z",
+      "status": 200,
+      "rawBytes": 4849,
+      "rawSha256": "cf4af7a75fcef3d0760017d456b9f55bb1ad04a41f6e7db89ff7c78bfcd54db0",
+      "parserVersion": "sec-companyconcept-1.0.0",
+      "values": [
+        "27180000"
+      ]
+    },
+    {
+      "cik": "0001682852",
+      "accessionNumber": "0001682852-26-000033",
+      "fiscalYearEnd": "2025-12-31",
+      "field": "weightedStrike",
+      "sourceUrl": "https://data.sec.gov/api/xbrl/companyconcept/CIK0001682852/us-gaap/ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingWeightedAverageExercisePrice.json",
+      "fetchedAt": "2026-10-20T19:33:06.685Z",
+      "status": 200,
+      "rawBytes": 4835,
+      "rawSha256": "22719b4cd2a8de2c76e09c89b02c2dd17620ff6abeb45c570ce9a8d120b5d832",
+      "parserVersion": "sec-companyconcept-1.0.0",
+      "values": [
+        "38.63"
+      ]
+    },
+    {
+      "cik": "0002115436",
+      "accessionNumber": "0000034088-26-000045",
+      "fiscalYearEnd": "2025-12-31",
+      "field": "optionsOutstanding",
+      "sourceUrl": "https://data.sec.gov/api/xbrl/companyconcept/CIK0000034088/us-gaap/ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingNumber.json",
+      "fetchedAt": "2026-10-20T19:33:08.676Z",
+      "status": 404,
+      "rawBytes": 403,
+      "rawSha256": "9591d5b105786fffade2e7563eb7c2e1dc70fe6efd08b95069b94bfda346e04f",
+      "parserVersion": "sec-companyconcept-1.0.0",
+      "values": []
+    },
+    {
+      "cik": "0002115436",
+      "accessionNumber": "0000034088-26-000045",
+      "fiscalYearEnd": "2025-12-31",
+      "field": "weightedStrike",
+      "sourceUrl": "https://data.sec.gov/api/xbrl/companyconcept/CIK0000034088/us-gaap/ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingWeightedAverageExercisePrice.json",
+      "fetchedAt": "2026-10-20T19:33:09.168Z",
+      "status": 404,
+      "rawBytes": 425,
+      "rawSha256": "4a2b0436faf0a1fb741791d40e4fc19071ce825b9ee3217fde7fbeccb6154deb",
+      "parserVersion": "sec-companyconcept-1.0.0",
+      "values": []
     }
   ]
 }

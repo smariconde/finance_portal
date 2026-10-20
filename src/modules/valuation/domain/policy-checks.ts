@@ -1,3 +1,4 @@
+import { failureRiskMismatches } from "./failure-risk";
 import { computeContentHash } from "@/modules/ingestion/domain/content-hash";
 
 import { divide, ONE, parseDecimal, ZERO, type Dec } from "./decimal-policy";
@@ -370,6 +371,25 @@ function checkEmployeeEquity(input: ValuationInput): PolicyCheck[] {
   ];
 }
 
+function checkFailureRisk(input: ValuationInput): PolicyCheck[] {
+  const mismatches = failureRiskMismatches(input.failureRisk, {
+    syntheticRating: input.costOfCapital.derived.syntheticRating,
+    legalEntityId: input.subject.legalEntityId,
+    knowledge: input.knowledge,
+  });
+  if (input.normalization.investedCapital.status !== "resolved")
+    mismatches.push("normalization.investedCapital");
+  return [
+    check(
+      "failure_risk_recomputed",
+      "reject",
+      mismatches.length === 0,
+      "Failure probability must follow the dated rating or an explicit owner decision; recovery uses reported book capital.",
+      mismatches,
+    ),
+  ];
+}
+
 /** Checks que dependen sólo del snapshot: corren antes de calcular. */
 export function checkValuationInput(input: ValuationInput): PolicyCheck[] {
   const checks: PolicyCheck[] = [
@@ -379,6 +399,7 @@ export function checkValuationInput(input: ValuationInput): PolicyCheck[] {
     ...checkCapitalization(input),
     ...checkNormalization(input),
     ...checkEmployeeEquity(input),
+    ...checkFailureRisk(input),
     ...checkScenarioDeclarations(input),
   ];
 

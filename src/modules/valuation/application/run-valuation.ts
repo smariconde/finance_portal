@@ -86,6 +86,7 @@ export function runValuation(
       periods: computation.periods,
       terminal: computation.terminal,
       enterpriseValue: computation.enterpriseValue,
+      failureAdjustment: computation.failureAdjustment,
       bridgeComponents: computation.bridgeComponents,
       equityValue: computation.equityValue,
       shareCount: computation.shareCount,

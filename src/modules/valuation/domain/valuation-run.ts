@@ -1,3 +1,4 @@
+import { failureAdjustmentSchema } from "./failure-adjustment";
 import { z } from "zod";
 
 import { computeContentHash } from "@/modules/ingestion/domain/content-hash";
@@ -129,6 +130,7 @@ export const scenarioOutcomeSchema = z.object({
   periods: z.array(periodProjectionSchema).min(1).max(20),
   terminal: terminalProjectionSchema,
   enterpriseValue: engineDecimalSchema,
+  failureAdjustment: failureAdjustmentSchema,
   equityValue: engineDecimalSchema,
   valuePerShare: engineDecimalSchema,
   terminalValueShare: engineDecimalSchema.nullable(),
@@ -147,6 +149,7 @@ export const valuationResultSchema = z.object({
   periods: z.array(periodProjectionSchema).min(1).max(20),
   terminal: terminalProjectionSchema,
   enterpriseValue: engineDecimalSchema,
+  failureAdjustment: failureAdjustmentSchema,
   bridgeComponents: z
     .array(bridgeComponentSchema)
     .length(BRIDGE_ITEM_KEYS.length),

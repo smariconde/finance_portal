@@ -13,6 +13,7 @@ import {
   DECLARED_EVAL_TARGETS,
   DECLARED_INDUSTRY_EVAL_BASES,
 } from "@/modules/ai-evals/application/declared-eval-cases";
+import { DECLARED_EMPLOYEE_EQUITY_GOLD } from "@/modules/ai-evals/application/declared-employee-equity-gold";
 import { rejudgeAttempt } from "@/modules/ai-evals/application/rejudge-attempt";
 import { runEvalCase } from "@/modules/ai-evals/application/run-eval-case";
 import {
@@ -57,6 +58,7 @@ import { syncDeclaredSourceRegistry } from "@/modules/ingestion/application/sync
 import { describeSourceRefusal } from "@/modules/ingestion/domain/source-budget";
 import { evaluateIngestionRights } from "@/modules/ingestion/domain/source-registry-entry";
 import { DEMO_SOURCE_REGISTRY } from "@/modules/ingestion/infrastructure/demo-source-registry";
+import { EMPLOYEE_EQUITY_TASK } from "@/modules/valuation/domain/employee-equity-task";
 import { industryCandidates } from "@/modules/valuation/domain/industry-mapping";
 import {
   INDUSTRY_RESOLUTION_TASK,
@@ -203,9 +205,14 @@ if (values.summary) {
     groups.set(key, [...(groups.get(key) ?? []), score]);
   }
 
-  const pending = [...DECLARED_INDUSTRY_GOLD, ...DECLARED_MIX_GOLD].filter(
-    (gold) => gold.review !== "owner_reviewed",
-  ).length;
+  const measuredTasks = new Set(scores.map((score) => score.task));
+  const pending = [
+    ...(measuredTasks.has("industry") ? DECLARED_INDUSTRY_GOLD : []),
+    ...(measuredTasks.has("mix") ? DECLARED_MIX_GOLD : []),
+    ...(measuredTasks.has("employee-equity")
+      ? DECLARED_EMPLOYEE_EQUITY_GOLD
+      : []),
+  ].filter((gold) => gold.review !== "owner_reviewed").length;
 
   if (values.json) {
     console.log(
@@ -248,14 +255,17 @@ if (values.summary) {
   }
 
   const ladders: (readonly RungRef[])[] = [
-    ...EVAL_VARIANTS.map(
-      (variant) =>
-        variant.simulatedFrom ??
-        variant.ladder.map((rung) => ({
-          variantId: variant.variantId,
-          rung: rung.rung,
-        })),
-    ),
+    ...EVAL_VARIANTS.flatMap((variant) => {
+      const direct = variant.ladder.map((rung) => ({
+        variantId: variant.variantId,
+        rung: rung.rung,
+      }));
+      // Current cases may be measured directly on a promoted ladder, while
+      // historical cases still use the per-rung measurements that selected it.
+      return variant.simulatedFrom === undefined
+        ? [direct]
+        : [direct, variant.simulatedFrom];
+    }),
     ...values.ladder.map((spec) =>
       spec.split(",").map((ref) => {
         const [variantId, rung] = ref.split("#");
@@ -274,7 +284,7 @@ if (values.summary) {
       )
       .join(" → ");
 
-    for (const task of ["industry", "mix"] as const) {
+    for (const task of ["industry", "mix", "employee-equity"] as const) {
       for (const kind of [
         "baseline",
         "injection",
@@ -307,6 +317,12 @@ if (values.summary) {
     "gate: mix sin evidencia",
     scores.filter((s) => s.task === "mix" && s.acceptedWithoutEvidence).length,
   );
+  log(
+    "gate: opciones sin evidencia",
+    scores.filter(
+      (s) => s.task === "employee-equity" && s.acceptedWithoutEvidence,
+    ).length,
+  );
   process.exit(0);
 }
 
@@ -320,7 +336,16 @@ if (variant === null) {
 }
 
 const tasks =
-  values.task.length > 0 ? values.task : (["industry", "mix"] as string[]);
+  values.task.length > 0
+    ? values.task
+    : (["industry", "mix", "employee-equity"] as string[]);
+for (const task of tasks) {
+  if (!cases.some((evalCase) => evalCase.task === task)) {
+    fail(
+      `No hay casos de ${task} cargados desde el corpus congelado; no hay medición que ejecutar.`,
+    );
+  }
+}
 const rungs =
   values.rung.length > 0
     ? values.rung.map(Number)
@@ -371,13 +396,17 @@ function worstCase(evalCase: EvalCase, rung: number): number {
   const task =
     evalCase.task === "industry"
       ? INDUSTRY_RESOLUTION_TASK
-      : OPERATIONS_MIX_TASK;
+      : evalCase.task === "employee-equity"
+        ? EMPLOYEE_EQUITY_TASK
+        : OPERATIONS_MIX_TASK;
   const body = encodeOpenRouterBody({
     rung: step,
     messages:
       evalCase.task === "industry"
         ? INDUSTRY_RESOLUTION_TASK.buildMessages(evalCase.input)
-        : OPERATIONS_MIX_TASK.buildMessages(evalCase.input),
+        : evalCase.task === "employee-equity"
+          ? EMPLOYEE_EQUITY_TASK.buildMessages(evalCase.input)
+          : OPERATIONS_MIX_TASK.buildMessages(evalCase.input),
     maxOutputTokens: task.maxOutputTokens,
     output: task.output,
   });
