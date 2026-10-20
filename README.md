@@ -19,7 +19,7 @@ La aplicación está diseñada para responder preguntas como:
 
 ## Estado actual
 
-Las fases 0, 1, 2, 7, 3 y 5 están cerradas. La **Fase 4 — motor Damodaran y arquetipos** está en curso: FCFF incorpora normalización, capitalización, escenarios, opciones y supervivencia; `F4-06` incorpora exceso de retorno experimental para bancos y aseguradoras. `/sectores` y `/sectores/[sector]` ofrecen la matriz Sortino a 2 y 5 años, referencia S&P 500 Total Return, acceso CEDEAR y export CSV personal; al abrir un sector, un job durable pide sólo los precios faltantes. El trabajo y su evidencia se siguen en el [roadmap](docs/finance-portal-masterplan/06_PHASED_ROADMAP.md) y el [backlog](docs/backlog/README.md).
+Las fases 0, 1, 2, 7, 3 y 5 están cerradas. La **Fase 4 — motor Damodaran y arquetipos** está en curso: FCFF incorpora normalización, capitalización, escenarios, opciones y supervivencia; `F4-06` incorpora exceso de retorno para bancos/aseguradoras y FCFF con margen de ciclo para cíclicas/commodities, ambos experimentales. Sigue el slice de pérdidas y high growth. `/sectores` y `/sectores/[sector]` ofrecen la matriz Sortino a 2 y 5 años, referencia S&P 500 Total Return, acceso CEDEAR y export CSV personal; al abrir un sector, un job durable pide sólo los precios faltantes. El trabajo y su evidencia se siguen en el [roadmap](docs/finance-portal-masterplan/06_PHASED_ROADMAP.md) y el [backlog](docs/backlog/README.md).
 
 Los fundamentals de la SEC conservan `available_at`, vintages y re-expresiones; la identidad separa emisor, security, listing y símbolo, y los programas CEDEAR conectan instrumentos sin fusionarlos. El gate de Fase 2 audita el contrato point-in-time sobre datos reales y reconcilia 30 empresas contra sus filings. La valuación FCFF de referencia sigue siendo sintética y declarada como tal; la corrida por ticker real pertenece a fases posteriores.
 
@@ -37,6 +37,7 @@ Disponible hoy:
 - Splits verificados contra la SEC y lectura de series por acción en la última base conocible, con cada re-expresión clasificada como split o restatement.
 - Identidad separada en entidad legal, security, listing y símbolo, con programas depositarios y consultas `as_known` sin look-ahead.
 - Motor FCFF base en dominio puro con política decimal, policy checks, sensibilidad WACC/g y corridas reproducibles por hash.
+- FCFF experimental para cíclicas y commodities por márgenes de ciclo: `pnpm valuation:cycle --file <snapshot-privado.json>`, con convergencia, escenarios, sensibilidad y comparación a margen actual; rigor `screening` ([ADR 0042](docs/architecture/adr/0042-cycle-normalized-fcff.md)).
 - Motor experimental de equity para bancos y aseguradoras, con escenarios y sensibilidad: `pnpm valuation:financial --file <snapshot-privado.json>`, sin red ni IA; `--apply` persiste en personal. La [ADR 0041](docs/architecture/adr/0041-financial-equity-excess-return.md) declara sus límites y rigor `screening`.
 - Corrida de referencia navegable en `/valuacion/referencia`, con provenance, freshness, supuestos, sensibilidad accesible y policy checks.
 - Matriz de riesgo por sector con precios diarios, referencia S&P 500 Total Return, cálculo versionado de Sortino, acceso CEDEAR y CSV de uso personal.

@@ -327,6 +327,12 @@ un cambio por una caída externa sin diagnóstico.
 
 ## Decisiones y trabajo diferido
 
+- La [ADR 0042](adr/0042-cycle-normalized-fcff.md) incorpora `normalized_fcff`
+  sobre el núcleo industrial, con clasificación y versiones propias, historia
+  de ciclo congelada y convergencia recalculada. Persistencia y replay admiten
+  las tres familias de métodos sin migración. El CLI local `valuation:cycle`
+  no abre red ni modifica la ventana de ingesta SEC; el modelo es experimental.
+
 - La [ADR 0041](adr/0041-financial-equity-excess-return.md) agrega un contrato
   independiente de equity financiero. `valuation_runs` conserva la unión
   cerrada de FCFF y exceso de retorno, y el replay despacha por método sin

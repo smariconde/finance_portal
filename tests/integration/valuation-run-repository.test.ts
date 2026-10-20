@@ -10,6 +10,7 @@ import { replayValuationRun } from "@/modules/valuation/application/replay-valua
 import { runValuation } from "@/modules/valuation/application/run-valuation";
 import { runExcessReturn } from "@/modules/valuation/application/run-excess-return";
 import { fixtureFinancialValuation } from "@/modules/valuation/infrastructure/fixture-financial-valuation";
+import { fixtureCycleValuation } from "@/modules/valuation/infrastructure/fixture-cycle-valuation";
 import { toReplayKey } from "@/modules/valuation/application/valuation-run-repository";
 import { DEMO_AI_VALUATION_INPUT } from "@/modules/valuation/infrastructure/demo-ai-valuation-fixtures";
 import {
@@ -352,5 +353,43 @@ describe("PostgreSQL valuation runs", () => {
     ).map((run) => run.method);
     expect(methods).toContain("excess_return");
     expect(methods).toContain("fcff_base");
+  });
+
+  it("round-trips normalized FCFF, deduplicates it and replays its frozen cycle without network", async () => {
+    const repository = createPostgresValuationRunRepository(database);
+    const computed = valuation(fixtureCycleValuation());
+    const stored = await repository.record(computed);
+    expect(stored).toEqual(computed);
+    expect(stored.status).toBe("requires_review");
+    expect(
+      (await repository.record(valuation(fixtureCycleValuation())))
+        .valuationRunId,
+    ).toBe(stored.valuationRunId);
+    expect(
+      replayValuationRun((await repository.findById(stored.valuationRunId))!)
+        .outcome,
+    ).toBe("reproduced");
+    expect(await repository.findByReplayKey(toReplayKey(stored))).toEqual(
+      stored,
+    );
+  });
+
+  it("preserves a cycle refusal and all three method families side by side", async () => {
+    const input = fixtureCycleValuation();
+    input.cycleNormalization!.history[0]!.ebit = null;
+    const repository = createPostgresValuationRunRepository(database);
+    const stored = await repository.record(valuation(input));
+    expect(stored).toMatchObject({
+      status: "rejected",
+      method: "normalized_fcff",
+      result: null,
+    });
+    expect(replayValuationRun(stored).outcome).toBe("reproduced");
+    const methods = (
+      await repository.list({ legalEntityId: LEGAL_ENTITY_ID })
+    ).map((run) => run.method);
+    expect(new Set(methods)).toEqual(
+      new Set(["fcff_base", "excess_return", "normalized_fcff"]),
+    );
   });
 });

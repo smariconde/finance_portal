@@ -116,6 +116,19 @@ export function deriveRigorLevel(
     };
   }
 
+  if (selection.recommendedMethod === "normalized_fcff") {
+    return {
+      version: RIGOR_LEVEL_VERSION,
+      level: "screening",
+      degradedBy: ["cycle_normalization_experimental"],
+      declarations:
+        completenessCheck(completeness, "geographic_revenue_mix").status ===
+        "met"
+          ? []
+          : ["country_risk_by_domicile"],
+    };
+  }
+
   const geographic =
     completenessCheck(completeness, "geographic_revenue_mix").status === "met";
   const declarations: RigorDeclaration[] = geographic

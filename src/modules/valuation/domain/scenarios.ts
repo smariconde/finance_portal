@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { deriveCycleNormalization } from "./cycle-normalization";
+import { formatDecimal } from "./decimal-policy";
 
 import {
   engineDecimalSchema,
@@ -262,6 +264,7 @@ export function materializeScenario(
 ): ValuationInput {
   let periods = input.periods;
   let terminal = input.terminal;
+  let cycleNormalization = input.cycleNormalization;
 
   for (const driver of scenario.drivers) {
     if (isPeriodDriver(driver)) {
@@ -274,8 +277,49 @@ export function materializeScenario(
       });
     } else {
       terminal = applyTerminalDriver(terminal, driver.driver, driver.value);
+      if (
+        input.method === "normalized_fcff" &&
+        cycleNormalization !== undefined &&
+        driver.driver === "terminalEbitMargin"
+      ) {
+        const cycle = deriveCycleNormalization(
+          cycleNormalization,
+          input.baseRevenue.value,
+          input.normalization.base.ebitAdjusted,
+          periods.length,
+        );
+        cycleNormalization = {
+          ...cycleNormalization,
+          marginShift: {
+            value: formatDecimal(
+              parseDecimal(driver.value, "margin").minus(
+                parseDecimal(cycle.historicalMargin, "margin"),
+              ),
+              "marginShift",
+            ),
+            rationale: driver.rationale,
+          },
+        };
+        const changed = deriveCycleNormalization(
+          cycleNormalization,
+          input.baseRevenue.value,
+          input.normalization.base.ebitAdjusted,
+          periods.length,
+        );
+        periods = periods.map((period, index) => ({
+          ...period,
+          ebitMargin: changed.periodMargins[index]!,
+        }));
+      }
     }
   }
 
-  return { ...input, periods, terminal, scenarios: null, sensitivity: null };
+  return {
+    ...input,
+    ...(cycleNormalization === undefined ? {} : { cycleNormalization }),
+    periods,
+    terminal,
+    scenarios: null,
+    sensitivity: null,
+  };
 }

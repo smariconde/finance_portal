@@ -17,9 +17,9 @@ import {
   assetProfileSchema,
   BRIDGE_ITEM_KEYS,
   claimStatusSchema,
-  ENGINE_VERSION,
-  METHODOLOGY_VERSION,
-  VALUATION_METHOD,
+  fcffMethodSchema,
+  fcffEngineSchema,
+  fcffMethodologySchema,
   valuationInputSchema,
   valuationSubjectSchema,
   type ValuationInput,
@@ -146,6 +146,20 @@ export const scenarioResultSchema = z.object({
 export type ScenarioResult = z.infer<typeof scenarioResultSchema>;
 
 export const valuationResultSchema = z.object({
+  cycleComparison: z
+    .object({
+      modelStatus: z.literal("experimental"),
+      annualMargins: z.array(engineDecimalSchema).min(5).max(10),
+      historicalMargin: engineDecimalSchema,
+      targetMargin: engineDecimalSchema,
+      currentMargin: engineDecimalSchema,
+      normalizedBaseEbit: engineDecimalSchema,
+      periodMargins: z.array(engineDecimalSchema).min(1).max(20),
+      currentMarginValuePerShare: engineDecimalSchema,
+      currentMarginEnterpriseValue: engineDecimalSchema,
+      deltaValuePerShare: engineDecimalSchema,
+    })
+    .optional(),
   periods: z.array(periodProjectionSchema).min(1).max(20),
   terminal: terminalProjectionSchema,
   enterpriseValue: engineDecimalSchema,
@@ -192,9 +206,9 @@ export const valuationRunSchema = z
     asOf: z.iso.date(),
     currency: z.string().regex(/^[A-Z]{3}$/u),
     assetProfile: assetProfileSchema,
-    method: z.literal(VALUATION_METHOD),
-    engineVersion: z.literal(ENGINE_VERSION),
-    methodologyVersion: z.literal(METHODOLOGY_VERSION),
+    method: fcffMethodSchema,
+    engineVersion: fcffEngineSchema,
+    methodologyVersion: fcffMethodologySchema,
     decimalPolicy: decimalPolicySchema,
     status: valuationRunStatusSchema,
     inputHash: contentHashSchema,
@@ -275,6 +289,9 @@ export function collectValuationProvenance(
       (amount) => amount !== null,
     ),
     ...listCapitalizationFacts(input.capitalization).map(({ fact }) => fact),
+    ...(input.cycleNormalization?.history
+      .flatMap((year) => [year.revenue, year.ebit])
+      .filter((fact) => fact !== null) ?? []),
   ];
 
   return valuationProvenanceSchema.parse({

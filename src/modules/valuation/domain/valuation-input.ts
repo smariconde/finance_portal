@@ -28,6 +28,11 @@ import { qualitativeDecisionsSchema } from "./qualitative-decisions";
 import { scenarioSetSchema } from "./scenarios";
 import { valuationAssessmentSchema } from "./valuation-assessment";
 import { ValuationPolicyError } from "./valuation-error";
+import {
+  cycleNormalizationSchema,
+  NORMALIZED_FCFF_ENGINE_VERSION,
+  CYCLE_METHODOLOGY_VERSION,
+} from "./cycle-normalization";
 
 /**
  * Snapshot de entrada de una corrida de valuación
@@ -58,6 +63,15 @@ export const VALUATION_METHOD = "fcff_base";
 export const ENGINE_VERSION = "fcff-1.6.0";
 /** Debe seguir a `docs/valuation/methodology.md`. */
 export const METHODOLOGY_VERSION = "0.12.0";
+export const fcffMethodSchema = z.enum([VALUATION_METHOD, "normalized_fcff"]);
+export const fcffEngineSchema = z.enum([
+  ENGINE_VERSION,
+  NORMALIZED_FCFF_ENGINE_VERSION,
+]);
+export const fcffMethodologySchema = z.enum([
+  METHODOLOGY_VERSION,
+  CYCLE_METHODOLOGY_VERSION,
+]);
 
 const rationaleSchema = z.string().trim().min(1).max(512);
 
@@ -265,9 +279,10 @@ export const valuationInputSchema = z
      * exige la deuda y la caja del puente EV-equity.
      */
     normalization: normalizationSchema,
-    method: z.literal(VALUATION_METHOD),
-    engineVersion: z.literal(ENGINE_VERSION),
-    methodologyVersion: z.literal(METHODOLOGY_VERSION),
+    method: fcffMethodSchema,
+    engineVersion: fcffEngineSchema,
+    methodologyVersion: fcffMethodologySchema,
+    cycleNormalization: cycleNormalizationSchema.optional(),
     decimalPolicy: decimalPolicySchema,
     baseRevenue: monetaryFactSchema,
     periods: z.array(periodAssumptionSchema).min(1).max(20),
@@ -369,7 +384,11 @@ export function listMonetaryFacts(
  * su motivo y los inputs que faltarían; no se valúa con el método equivocado.
  */
 export function assertMethodSupported(input: ValuationInput): void {
-  if (!SUPPORTED_ASSET_PROFILES.includes(input.assetProfile)) {
+  const supported =
+    input.method === "normalized_fcff"
+      ? ["cyclical", "commodity"].includes(input.assetProfile)
+      : SUPPORTED_ASSET_PROFILES.includes(input.assetProfile);
+  if (!supported) {
     throw new ValuationPolicyError(
       "unsupported_method",
       `Asset profile ${input.assetProfile} has no implemented method; FCFF/WACC is not a fallback.`,

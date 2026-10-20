@@ -1,4 +1,6 @@
 import { computeFcff } from "../domain/fcff";
+import { deriveCycleNormalization } from "../domain/cycle-normalization";
+import { parseDecimal, formatDecimal } from "../domain/decimal-policy";
 import {
   assertNoRejections,
   checkValuationInput,
@@ -82,7 +84,33 @@ export function runValuation(
       ...outputChecks,
       ...(scenarios === null ? [] : [scenarios.orderCheck]),
     ];
+    let cycleComparison;
+    if (
+      input.method === "normalized_fcff" &&
+      input.cycleNormalization !== undefined
+    ) {
+      const cycle = deriveCycleNormalization(
+        input.cycleNormalization,
+        input.baseRevenue.value,
+        input.normalization.base.ebitAdjusted,
+        input.periods.length,
+      );
+      const current = computeFcff(input, { ebitMargin: cycle.currentMargin });
+      cycleComparison = {
+        ...cycle,
+        modelStatus: "experimental" as const,
+        currentMarginValuePerShare: current.valuePerShare,
+        currentMarginEnterpriseValue: current.enterpriseValue,
+        deltaValuePerShare: formatDecimal(
+          parseDecimal(computation.valuePerShare, "value").minus(
+            parseDecimal(current.valuePerShare, "current"),
+          ),
+          "delta",
+        ),
+      };
+    }
     const result = valuationResultSchema.parse({
+      ...(cycleComparison === undefined ? {} : { cycleComparison }),
       periods: computation.periods,
       terminal: computation.terminal,
       enterpriseValue: computation.enterpriseValue,
