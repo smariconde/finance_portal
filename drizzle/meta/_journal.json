@@ -211,6 +211,13 @@
       "when": 1792447899886,
       "tag": "0029_panoramic_spot",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1792464876543,
+      "tag": "0030_good_spacker_dave",
+      "breakpoints": true
     }
   ]
 }

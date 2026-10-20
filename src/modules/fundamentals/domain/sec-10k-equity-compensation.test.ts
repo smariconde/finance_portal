@@ -28,7 +28,20 @@ const PROSE_NOTE =
 const RSU_ONLY_NOTE =
   "Note 11 – Share-Based Compensation. Restricted Stock Units: a summary of the Company's RSU activity is as follows: Number of RSUs (in thousands) Balance as of September 28, 2024 163,326 RSUs granted 73,466 RSUs vested (76,845) RSUs forfeited (8,373) Balance as of September 27, 2025 151,574.";
 
+const INCENTIVE_PROGRAM_NOTE =
+  "18. Incentive Program The 2003 Incentive Program provides for grants of stock options and restricted stock. Restricted Stock and Restricted Stock Units: awards granted, vested and forfeited. Restricted stock and units outstanding 2025 Shares (thousands) Issued and outstanding at January 1 39,595 85.29 Awards issued in 2025 10,327 Vested (8,716) Forfeited (552) Issued and outstanding at December 31 40,654 92.45";
+
 describe("extractEquityCompensationFromText", () => {
+  it("reads an incentive program note whose balance rows print no year", () => {
+    const result = extractEquityCompensationFromText(
+      `${FILLER} ${EQUITY_STATEMENT} ${FILLER} ${INCENTIVE_PROGRAM_NOTE} ${FILLER}`,
+    );
+
+    expect(result?.section.text).toContain(
+      "Issued and outstanding at December 31 40,654",
+    );
+  });
+
   it("cuts the note with its option and unit tables", () => {
     const result = extractEquityCompensationFromText(
       `${FILLER} ${EQUITY_STATEMENT} ${FILLER} ${TABLE_NOTE} ${FILLER}`,

@@ -92,6 +92,50 @@ esté en la evidencia y una cantidad o strike que contradiga el XBRL cuando el
 filer lo publica. El código valúa; la propuesta se guarda y se congela en el
 snapshot, así que un replay no llama al modelo.
 
+### Lo que la medición agregó a la transcripción
+
+Medido el 2026-10-20 sobre diez 10-K reales —Johnson & Johnson, Salesforce,
+Caterpillar, Moderna, Apple, Ford, Incyte, American Tower, ExxonMobil y
+NVIDIA—, como eval en el libro de gasto y después con el comando sobre una
+réplica:
+
+- **Recorte** (`sec-10k-equity-compensation-1.0.0`): cada ancla —título de la
+  nota o de una tabla de actividad, también «Incentive Program»— se puntúa por
+  el vocabulario propio de premios y por filas de saldo («Balance as of»,
+  «Shares at», «Outstanding, end of year», «Issued and outstanding at December
+  31» sin año); el estado de patrimonio, que también tiene saldos, no puntúa.
+  Los diez recortes contienen todas las cifras que la tarea copia.
+- **Escala**: las cantidades se imprimen en unidades, miles o millones; la
+  tarea copia la escala y el código la aplica. Contra el XBRL la tolerancia es
+  medio dígito impreso: «6» millones (Salesforce) admite medio millón, «4.2»
+  millones (Ford) cincuenta mil.
+- **Plazo**: impreso en años, como año de vencimiento («will expire in 2030»,
+  que se lleva al 31 de diciembre de ese año) o sólo por tramos de strike
+  (Incyte): la tarea copia cada tramo con su cita, la policy exige que sumen el
+  total y el código promedia ponderando por cantidad. La IA nunca promedia.
+- **Strike desconocido** (Ford no lo imprime y su XBRL no lo publica al
+  cierre): la opción se valúa con strike cero, su valor máximo
+  (`strike_unknown_upper_bound`), que nunca hace parecer la acción más valiosa.
+  Si el XBRL lo publica y la nota no, se rechaza (`strike_missing`).
+- **Unidades combinadas**: Incyte informa RSU y PSU en un mismo saldo; la línea
+  es `combined`, porque los modelos se negaban, con razón, a llamarla de una
+  sola clase.
+- **El cierre**: una cita vale si trae el año del ejercicio, o si nombra el
+  cierre —su mes y día, o «end of year»— y ningún otro año. Así ExxonMobil
+  pasa y «December 31, 2024» de un filer de año calendario no.
+- **Las ausencias**: «sin opciones» se acepta sólo si la nota no tiene tabla de
+  opciones y el XBRL del mismo 10-K no tiene el hecho (Apple, NVIDIA,
+  ExxonMobil).
+- **El XBRL del mismo 10-K**: la corroboración usa sólo los hechos de esa
+  presentación al cierre, así que no hay otra disponibilidad que razonar.
+
+Versiones medidas: tarea `employee-equity-1.2.0`, prompt `1.3.0`, policy
+`1.1.0`. Resultado final: diez de diez aceptadas, siete en el primer escalón y
+tres en el segundo, USD 0,029 en total; las cantidades y strikes coinciden con
+el XBRL en los siete filers que lo publican. La transcripción aceptada se
+guarda como `jsonb` validado por el schema de su tarea: el próximo cambio de
+schema, con filas reales guardadas, necesita una lectura por `taskVersion`.
+
 ## Decisión 6 — el denominador es básicas + RSU, con RSU obligatoria
 
 Acciones en circulación al cierre del ejercicio base más las RSU no
@@ -104,8 +148,10 @@ restan su valor del equity—; sumarlas las contaría dos veces.
 1. **Dominio** (hecho): `equity-volatility-1.0.0`, la normal acumulada,
    Black-Scholes, `option-value-dilution-1.0.0` y `failure-adjustment-1.0.0`,
    puros, con oráculos de doble precisión de Python y bordes.
-2. **Transcripción**: recorte de la nota, tarea de IA con su policy, evals,
-   persistencia y comando.
+2. **Transcripción** (hecho, salvo los evals del corpus congelado): recorte
+   de la nota, tarea de IA con su policy, persistencia (migración `0030`, con
+   rollback que se niega con propuestas guardadas) y
+   `pnpm valuation:employee-equity`.
 3. **Corrida**: tabla de default de Damodaran, insumos en
    `ValuationInput`, claim `employeeOptions`, denominador nuevo, checks que
    recalculan, motor y metodología nuevos.

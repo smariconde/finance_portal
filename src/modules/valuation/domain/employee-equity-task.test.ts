@@ -44,6 +44,7 @@ const TABLE_ANSWER: EmployeeEquityOutput = employeeEquityOutputSchema.parse({
   optionsLifeBasis: "remaining_years",
   optionsLife: "5.5",
   optionsLifeQuote: "Total options 93,072 with an average life of 5.5 years",
+  optionsRanges: [],
   unitsStatus: "outstanding",
   units: [
     {
@@ -75,6 +76,7 @@ const PROSE_ANSWER: EmployeeEquityOutput = employeeEquityOutputSchema.parse({
   optionsLife: "2030",
   optionsLifeQuote:
     "all of our stock options are fully vested and will expire in 2030",
+  optionsRanges: [],
   unitsStatus: "outstanding",
   units: [
     {
@@ -99,6 +101,7 @@ const RSU_ONLY_ANSWER: EmployeeEquityOutput = employeeEquityOutputSchema.parse({
   optionsLifeBasis: null,
   optionsLife: null,
   optionsLifeQuote: null,
+  optionsRanges: [],
   unitsStatus: "outstanding",
   units: [
     {
@@ -287,6 +290,142 @@ describe("judgeEmployeeEquity", () => {
         input(TABLE_NOTE),
       ),
     ).toStrictEqual({ verdict: "abstain", reason: "low_confidence" });
+  });
+});
+
+const RANGE_NOTE =
+  "Option activity: Balance at December 31, 2024 12,777,974 $ 83.45 Balance at December 31, 2025 10,859,861 $ 83.46. The following table summarizes stock options outstanding as of December 31, 2025: $52.94 - $61.76 1,147,054 7.3 $ 60.83 $62.03 - $68.62 9,712,807 4.1 $ 85.00 10,859,861 8,769,819. Restricted stock and units outstanding: Issued and outstanding at January 1 39,595 85.29 Issued and outstanding at December 31 40,654 92.45";
+
+const RANGE_ANSWER: EmployeeEquityOutput = employeeEquityOutputSchema.parse({
+  decision: "proposed",
+  scale: "units",
+  optionsStatus: "outstanding",
+  optionsCount: "10,859,861",
+  optionsCountQuote: "Balance at December 31, 2025 10,859,861 $ 83.46",
+  optionsStrike: "$ 83.46",
+  optionsStrikeQuote: "Balance at December 31, 2025 10,859,861 $ 83.46",
+  optionsLifeBasis: "range_rows",
+  optionsLife: null,
+  optionsLifeQuote: null,
+  optionsRanges: [
+    {
+      count: "1,147,054",
+      life: "7.3",
+      quote: "$52.94 - $61.76 1,147,054 7.3 $ 60.83",
+    },
+    {
+      count: "9,712,807",
+      life: "4.1",
+      quote: "$62.03 - $68.62 9,712,807 4.1 $ 85.00",
+    },
+  ],
+  unitsStatus: "outstanding",
+  units: [
+    {
+      kind: "restricted",
+      count: "40,654",
+      quote: "Issued and outstanding at December 31 40,654 92.45",
+    },
+  ],
+  confidence: "high",
+  rationale: "Life by strike range; units at year end without a printed year.",
+  abstainReason: null,
+});
+
+describe("judgeEmployeeEquity with range rows and year-less rows", () => {
+  const rangeInput = input(RANGE_NOTE, {
+    fiscalYearEnd: "2025-12-31",
+    xbrl: { optionsOutstanding: "10859861", weightedStrike: "83.46" },
+  });
+
+  it("accepts life by strike range and a row that names only the closing day", () => {
+    expect(judgeEmployeeEquity(RANGE_ANSWER, rangeInput)).toStrictEqual({
+      verdict: "accept",
+    });
+  });
+
+  it("rejects ranges that do not add up to the outstanding count", () => {
+    expect(
+      judgeEmployeeEquity(
+        {
+          ...RANGE_ANSWER,
+          optionsRanges: RANGE_ANSWER.optionsRanges.slice(0, 1),
+        },
+        rangeInput,
+      ),
+    ).toStrictEqual({ verdict: "reject", code: "ranges_do_not_sum_to_count" });
+  });
+
+  it("rejects a range whose life is not in its quote", () => {
+    expect(
+      judgeEmployeeEquity(
+        {
+          ...RANGE_ANSWER,
+          optionsRanges: [
+            { ...RANGE_ANSWER.optionsRanges[0]!, life: "7.5" },
+            RANGE_ANSWER.optionsRanges[1]!,
+          ],
+        },
+        rangeInput,
+      ),
+    ).toStrictEqual({ verdict: "reject", code: "figure_not_quoted" });
+  });
+
+  it("does not take the beginning-of-year row for the close", () => {
+    expect(
+      judgeEmployeeEquity(
+        {
+          ...RANGE_ANSWER,
+          units: [
+            {
+              kind: "restricted",
+              count: "39,595",
+              quote: "Issued and outstanding at January 1 39,595 85.29",
+            },
+          ],
+        },
+        rangeInput,
+      ),
+    ).toStrictEqual({ verdict: "reject", code: "figure_not_at_year_end" });
+  });
+
+  it("does not take another year's closing day for this one", () => {
+    expect(
+      judgeEmployeeEquity(
+        {
+          ...RANGE_ANSWER,
+          optionsCount: "12,777,974",
+          optionsCountQuote: "Balance at December 31, 2024 12,777,974 $ 83.45",
+          optionsStrike: null,
+          optionsStrikeQuote: null,
+        },
+        input(RANGE_NOTE, { fiscalYearEnd: "2025-12-31" }),
+      ),
+    ).toStrictEqual({ verdict: "reject", code: "figure_not_at_year_end" });
+  });
+
+  it("refuses a range basis without ranges, or ranges with another basis", () => {
+    expect(() =>
+      employeeEquityOutputSchema.parse({ ...RANGE_ANSWER, optionsRanges: [] }),
+    ).toThrow();
+    expect(() =>
+      employeeEquityOutputSchema.parse({
+        ...TABLE_ANSWER,
+        optionsRanges: RANGE_ANSWER.optionsRanges,
+      }),
+    ).toThrow();
+  });
+
+  it("reads the life as the count-weighted average of the ranges", () => {
+    const reading = readEmployeeEquity(RANGE_ANSWER, "2025-12-31");
+
+    // (1.147.054 × 7,3 + 9.712.807 × 4,1) / 10.859.861
+    expect(
+      reading.options.status === "outstanding" &&
+        Number(reading.options.maturityYears),
+    ).toBeCloseTo((1147054 * 7.3 + 9712807 * 4.1) / 10859861, 12);
+    expect(reading.options).toMatchObject({ maturityBasis: "range_rows" });
+    expect(reading.unvestedUnits).toBe("40654");
   });
 });
 

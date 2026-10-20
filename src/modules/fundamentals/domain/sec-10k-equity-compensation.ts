@@ -30,7 +30,7 @@ export const SEC_10K_EQUITY_COMPENSATION_VERSION =
 export const EQUITY_COMPENSATION_CEILING_BYTES = 12_000;
 
 const ANCHOR =
-  /\b(?:(?:stock|share|equity)[-\s]based\s+(?:compensation|payment|awards?)|stock\s+option\s+plans?|stock\s+compensation|equity\s+incentive\s+plans?|(?:stock\s+)?option\s+activity|summary\s+of\s+(?:the\s+)?(?:\w+[’']?s?\s+){0,4}(?:stock\s+)?(?:options?|RSUs?|restricted\s+(?:stock|share)\s+units?)|restricted\s+(?:stock|share)\s+(?:units?\s+)?activity|RSU\s+activity)\b/giu;
+  /\b(?:(?:stock|share|equity)[-\s]based\s+(?:compensation|payment|awards?)|stock\s+option\s+plans?|stock\s+compensation|equity\s+incentive\s+plans?|(?:stock\s+)?option\s+activity|summary\s+of\s+(?:the\s+)?(?:\w+[’']?s?\s+){0,4}(?:stock\s+)?(?:options?|RSUs?|restricted\s+(?:stock|share)\s+units?)|restricted\s+(?:stock|share)\s+(?:units?\s+)?activity|restricted\s+stock\s+and\s+(?:restricted\s+stock\s+)?units|incentive\s+program|RSU\s+activity)\b/giu;
 
 /**
  * Vocabulario propio de premios en acciones. «Outstanding» o «balance» solos no
@@ -42,11 +42,12 @@ const AWARD_TERMS =
 const MIN_AWARD_TERMS = 3;
 
 /**
- * Una fila con saldo: «Balance as of …», «Shares at …», «Outstanding at …» o
- * «Outstanding, end of year …» (Ford).
+ * Una fila con saldo: «Balance as of …», «Shares at …», «Outstanding at …»
+ * —con o sin año: ExxonMobil imprime «Issued and outstanding at December 31»
+ * y deja el año en el encabezado— o «Outstanding, end of year …» (Ford).
  */
 const BALANCE_ROW =
-  /\b(?:(?:[Bb]alance|[Ss]hares|[Oo]utstanding)\s+(?:as\s+of|at)\s+(?:[A-Z][a-z]+\s+[0-9]{1,2},\s+)?[0-9]{4}\b|(?:[Bb]alance|[Oo]utstanding),?\s+(?:at\s+)?end\s+of\s+(?:the\s+)?(?:year|period)\b)[^.]{0,80}?[0-9]{1,3}(?:,[0-9]{3})*/gu;
+  /\b(?:(?:[Bb]alance|[Ss]hares|[Oo]utstanding)\s+(?:as\s+of|at)\s+(?:[A-Z][a-z]+\s+[0-9]{1,2}(?:,\s+[0-9]{4})?|[0-9]{4})\b|(?:[Bb]alance|[Oo]utstanding),?\s+(?:at\s+)?end\s+of\s+(?:the\s+)?(?:year|period)\b)[^.]{0,80}?[0-9]{1,3}(?:,[0-9]{3})*/gu;
 
 /** Dónde se cuenta el vocabulario: la tabla que sigue al ancla. */
 const BODY_CHARS = 4_000;

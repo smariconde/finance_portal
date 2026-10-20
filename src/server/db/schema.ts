@@ -1061,6 +1061,96 @@ export const operationsMixEvidence = pgTable(
   ],
 );
 
+export const employeeEquityOutcome = pgEnum("employee_equity_outcome", [
+  "accepted",
+  "abstained",
+  "stopped",
+]);
+
+/**
+ * Transcripciones de opciones y unidades de empleados de la capa IA (`F4-05`,
+ * ADR 0040): una fila por vez que se le preguntó a la escalera por la nota de
+ * compensación en acciones de un 10-K.
+ *
+ * Como los mixes, se guarda también la abstención y el freno, y
+ * `proposal_id` es el `task_run_id` de sus intentos en `ai_spend_ledger`. La
+ * transcripción aceptada se guarda tal cual la validó la policy: la lectura
+ * —escala, plazo en años, suma de unidades— se recalcula de ella. Los valores
+ * XBRL son con qué se corroboró. No se borra.
+ */
+export const employeeEquityProposals = pgTable(
+  "employee_equity_proposals",
+  {
+    proposalId: uuid("proposal_id").primaryKey(),
+    legalEntityId: uuid("legal_entity_id").notNull(),
+    cik: char("cik", { length: 10 }).notNull(),
+    accessionNumber: varchar("accession_number", { length: 20 }).notNull(),
+    fiscalYearEnd: date("fiscal_year_end", { mode: "string" }).notNull(),
+    taskVersion: varchar("task_version", { length: 64 }).notNull(),
+    promptVersion: varchar("prompt_version", { length: 64 }).notNull(),
+    policyVersion: varchar("policy_version", { length: 64 }).notNull(),
+    ladderVersion: varchar("ladder_version", { length: 64 }).notNull(),
+    extractVersion: varchar("extract_version", { length: 64 }).notNull(),
+    xbrlOptionsOutstanding: numeric("xbrl_options_outstanding", {
+      mode: "string",
+    }),
+    xbrlWeightedStrike: numeric("xbrl_weighted_strike", { mode: "string" }),
+    outcome: employeeEquityOutcome("outcome").notNull(),
+    transcription: jsonb("transcription").$type<Record<string, unknown>>(),
+    reason: varchar("reason", { length: 64 }),
+    acceptedRung: integer("accepted_rung"),
+    respondedModel: varchar("responded_model", { length: 128 }),
+    proposedAt: instant("proposed_at").notNull(),
+    recordedAt: instant("recorded_at").notNull(),
+  },
+  (table) => [
+    index("employee_equity_proposals_subject_idx").on(
+      table.legalEntityId,
+      table.proposedAt,
+    ),
+    check(
+      "employee_equity_proposals_outcome_check",
+      sql`(${table.outcome} = 'accepted') = (${table.reason} is null) and (${table.outcome} = 'accepted') = (${table.transcription} is not null)`,
+    ),
+    check(
+      "employee_equity_proposals_accession_check",
+      sql`${table.accessionNumber} ~ '^[0-9]{10}-[0-9]{2}-[0-9]{6}$'`,
+    ),
+    check(
+      "employee_equity_proposals_xbrl_check",
+      sql`(${table.xbrlOptionsOutstanding} is null or ${table.xbrlOptionsOutstanding} >= 0) and (${table.xbrlWeightedStrike} is null or ${table.xbrlWeightedStrike} >= 0)`,
+    ),
+    check(
+      "employee_equity_proposals_timeline_check",
+      sql`${table.recordedAt} >= ${table.proposedAt}`,
+    ),
+  ],
+);
+
+/** La nota que se le mandó al modelo: una por propuesta. */
+export const employeeEquityEvidence = pgTable(
+  "employee_equity_evidence",
+  {
+    proposalId: uuid("proposal_id").primaryKey(),
+    sourceId: varchar("source_id", { length: 64 }).notNull(),
+    documentUrl: text("document_url").notNull(),
+    accessionNumber: varchar("accession_number", { length: 20 }).notNull(),
+    documentAcceptedAt: instant("document_accepted_at").notNull(),
+    sha256: char("sha256", { length: 64 }).notNull(),
+    byteLength: integer("byte_length").notNull(),
+    truncated: boolean("truncated").notNull(),
+    excerpt: text("excerpt").notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: "employee_equity_evidence_proposal_fk",
+      columns: [table.proposalId],
+      foreignColumns: [employeeEquityProposals.proposalId],
+    }),
+    check("employee_equity_evidence_bytes_check", sql`${table.byteLength} > 0`),
+  ],
+);
+
 /**
  * Marca de agua del refresh (ADR 0021): hasta qué presentación miró el sondeo a
  * cada sujeto, y cuándo lo miró.
