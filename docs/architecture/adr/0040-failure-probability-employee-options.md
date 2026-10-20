@@ -1,6 +1,6 @@
 # ADR 0040: probabilidad de fracaso y opciones de empleados en el puente
 
-- Estado: aceptado (implementado; gate de `F4-05` pendiente de confirmar el gold de opciones)
+- Estado: aceptado (implementado; gate de `F4-05` cerrado el 2026-10-20)
 - Fecha: 2026-10-20
 - Alcance: `F4-05`. Decide de dónde sale la probabilidad de fracaso y cuánto se
   recupera, cómo se valúan las opciones de empleados vivas, con qué
@@ -152,7 +152,7 @@ restan su valor del equity—; sumarlas las contaría dos veces.
 1. **Dominio** (hecho): `equity-volatility-1.0.0`, la normal acumulada,
    Black-Scholes, `option-value-dilution-1.0.0` y `failure-adjustment-1.0.0`,
    puros, con oráculos de doble precisión de Python y bordes.
-2. **Transcripción** (hecho; evals medidos con gold pendiente de confirmación): recorte
+2. **Transcripción** (hecho; evals medidos con gold confirmado por el owner): recorte
    de la nota, tarea de IA con su policy, persistencia (migración `0030`, con
    rollback que se niega con propuestas guardadas) y
    `pnpm valuation:employee-equity`.
@@ -208,8 +208,8 @@ sobre una nota y gold explícitos. El ejecutor por escalón y el rejuicio admite
 la tarea; `ai-eval-scoring-1.1.0` compara la lectura financiera normalizada,
 conserva el estado de revisión del gold y mide las aceptaciones sin evidencia.
 Los tests usan una nota sintética: no reemplazan el corpus congelado ni miden
-al modelo. Captura real, gold confirmado y medición siguen pendientes del
-incremento 2; la tabla de fracaso sigue pendiente del incremento 3.
+al modelo. Al terminar ese incremento quedaban la captura real, el gold
+confirmado y la medición del incremento 2, y la tabla de fracaso del incremento 3.
 
 ## Corpus y medición de evals (2026-10-20)
 
@@ -221,8 +221,9 @@ sobre JNJ, Ford e Incyte y tres abstenciones con sus tablas geográficas como
 evidencia sin nota de compensación. Los extractos anteriores siguen idénticos.
 
 El gold fue escrito leyendo las notas congeladas, con cantidades y citas
-explícitas, en `declared-employee-equity-gold.ts`. Sigue `pending_owner`
-hasta confirmación (ADR 0035, decisión 3). En Ford el strike es desconocido;
+explícitas, en `declared-employee-equity-gold.ts`. Quedó `pending_owner`
+hasta la confirmación posterior (ADR 0035, decisión 3). En Ford el strike es
+desconocido;
 en XOM el saldo total publicado incluye unidades liquidadas en efectivo sin
 cantidad separada: se conserva esa limitación de la transcripción.
 
@@ -231,8 +232,8 @@ diez de diez bases y nueve de nueve inyecciones con la lectura del gold; los
 tres casos sin nota, medidos en los cuatro escalones, nunca fueron aceptados.
 El escalón 4 emitió una respuesta inválida por schema para JNJ y se abstuvo
 en las otras dos; no equivale a tres abstenciones válidas. No se modificó
-prompt, policy ni escalera. Confirmar el gold sigue siendo requisito para
-cerrar la corrección; la integración de fracaso sigue pendiente.
+prompt, policy ni escalera. En ese momento quedaban la confirmación del gold
+y la integración de fracaso.
 
 ## Incorporación de la fuente de fracaso (2026-10-20)
 
@@ -272,4 +273,14 @@ en libros de NCLH queda separada de su probabilidad disponible.
 
 El tope de proceso de Damodaran pasa de cuatro a cinco archivos para incorporar
 esta única URL; el tope diario sigue en 20 y el preflight cuenta URLs únicas.
-La confirmación del gold de opciones sigue pendiente para cerrar `F4-05`.
+
+## Confirmación y cierre (2026-10-20)
+
+El owner confirmó explícitamente las diez entradas del gold de opciones,
+incluidos el strike desconocido de Ford y el saldo de XOM que mezcla unidades
+liquidadas en efectivo. Se cambia sólo su estado a `owner_reviewed`, conservando
+cifras y citas. El resumen offline puntúa los 34 intentos existentes:
+cero gold pendientes, diez de diez bases y nueve de nueve inyecciones correctas,
+`lk = awe = 0`. Los tres casos sin nota siguen sin aceptación en los cuatro
+escalones. El gasto medido sigue en USD 0,080276; no hay nuevas llamadas.
+Con la integración y los gates documentados en el backlog, `F4-05` queda cerrado.

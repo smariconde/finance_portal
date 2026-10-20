@@ -2,7 +2,8 @@ import type { EmployeeEquityGold } from "../domain/eval-cases";
 
 /**
  * F4-05 / ADR 0035 decision 3: proposed from direct reading of the frozen SEC
- * notes, never labelled owner-reviewed until explicitly confirmed.
+ * notes. The owner explicitly confirmed all ten entries on 2026-10-20,
+ * including Ford's unknown strike and XOM's mixed cash-settled-unit limitation.
  * No model output or personal database identifier is included.
  */
 export const DECLARED_EMPLOYEE_EQUITY_GOLD: readonly (EmployeeEquityGold & {
@@ -41,7 +42,7 @@ export const DECLARED_EMPLOYEE_EQUITY_GOLD: readonly (EmployeeEquityGold & {
     },
     rationale:
       "Opciones vivas y promedio contractual total; RSU y PSU por separado al cierre, todo en miles.",
-    review: "pending_owner",
+    review: "owner_reviewed",
   },
   {
     cik: "0001108524",
@@ -72,7 +73,7 @@ export const DECLARED_EMPLOYEE_EQUITY_GOLD: readonly (EmployeeEquityGold & {
     },
     rationale:
       "La tabla de actividad informa 6 M de opciones y 26 M de unidades combinadas; el 25 M de acciones reservadas de otra tabla no reemplaza el saldo de premios. Plazo del total 2,8 años.",
-    review: "pending_owner",
+    review: "owner_reviewed",
   },
   {
     cik: "0000018230",
@@ -112,7 +113,7 @@ export const DECLARED_EMPLOYEE_EQUITY_GOLD: readonly (EmployeeEquityGold & {
     },
     rationale:
       "Las tablas de premios tienen cantidades en acciones; los millones califican el valor intrínseco en dólares, no esas cantidades.",
-    review: "pending_owner",
+    review: "owner_reviewed",
   },
   {
     cik: "0001682852",
@@ -145,7 +146,7 @@ export const DECLARED_EMPLOYEE_EQUITY_GOLD: readonly (EmployeeEquityGold & {
     },
     rationale:
       "Opciones y unidades combinadas en millones; plazo remanente de opciones vivas 4,8 y no el supuesto de 5,54 de nuevos grants.",
-    review: "pending_owner",
+    review: "owner_reviewed",
   },
   {
     cik: "0000320193",
@@ -175,7 +176,7 @@ export const DECLARED_EMPLOYEE_EQUITY_GOLD: readonly (EmployeeEquityGold & {
     },
     rationale:
       "RSU en miles; la autorización para conceder opciones no es una tabla de opciones vivas y el mismo filing no publica cantidad XBRL.",
-    review: "pending_owner",
+    review: "owner_reviewed",
   },
   {
     cik: "0000037996",
@@ -207,7 +208,7 @@ export const DECLARED_EMPLOYEE_EQUITY_GOLD: readonly (EmployeeEquityGold & {
     },
     rationale:
       "Plazo como vencimiento en 2030, que el código lleva al 31/12; strike desconocido con cota superior, no cero reportado. Excluye las acciones de directores ya vested.",
-    review: "pending_owner",
+    review: "owner_reviewed",
   },
   {
     cik: "0000879169",
@@ -288,7 +289,7 @@ export const DECLARED_EMPLOYEE_EQUITY_GOLD: readonly (EmployeeEquityGold & {
     },
     rationale:
       "Cantidad y strike del total; diez tramos de vida que el código promedia ponderando cantidades. RSU y PSU en una sola línea.",
-    review: "pending_owner",
+    review: "owner_reviewed",
   },
   {
     cik: "0001053507",
@@ -328,7 +329,7 @@ export const DECLARED_EMPLOYEE_EQUITY_GOLD: readonly (EmployeeEquityGold & {
     },
     rationale:
       "Cantidades completas, como declara cada tabla; 0,2 años de vida restante y unidades pendientes, sin las 21.664 vested and deferred.",
-    review: "pending_owner",
+    review: "owner_reviewed",
   },
   {
     cik: "0002115436",
@@ -358,7 +359,7 @@ export const DECLARED_EMPLOYEE_EQUITY_GOLD: readonly (EmployeeEquityGold & {
     },
     rationale:
       "Saldo total de restricted stock y unidades de la nota, en miles; incluye unidades liquidadas en efectivo que la nota no separa en ese saldo (convención conservadora de la tarea). No hay tabla de opciones vivas ni hecho XBRL de ese filing.",
-    review: "pending_owner",
+    review: "owner_reviewed",
   },
   {
     cik: "0001045810",
@@ -388,6 +389,6 @@ export const DECLARED_EMPLOYEE_EQUITY_GOLD: readonly (EmployeeEquityGold & {
     },
     rationale:
       "Saldo combinado de RSU, PSU y PSU de mercado; 189 M, no los 188 M expected to vest. No hay opciones vivas publicadas.",
-    review: "pending_owner",
+    review: "owner_reviewed",
   },
 ]);

@@ -123,9 +123,11 @@ URL, instante de captura, bytes, hash y versión del parser; sólo conservan los
 valores del mismo `accession` y cierre fiscal. El archivo completo no se guarda.
 Un concepto ausente o con valores en conflicto es desconocido, nunca cero.
 
-El gold está en `declared-employee-equity-gold.ts`, con citas de las notas y
-`pending_owner` hasta confirmación explícita. El resumen sólo cuenta gold sin
-revisar de las tareas presentes en el reporte. La comparación usa opciones,
+El gold está en `declared-employee-equity-gold.ts`, con citas de las notas.
+El owner confirmó sus diez entradas el 2026-10-20 y pasan a `owner_reviewed`.
+Una entrada nueva o modificada requiere `pending_owner` hasta su confirmación
+explícita. El resumen sólo cuenta gold sin revisar de las tareas presentes en
+el reporte. La comparación usa opciones,
 strike y su base, plazo y unidades sin consolidar, normalizados por el mismo
 lector de la tarea. No compara prosa ni exige idéntico formato decimal.
 

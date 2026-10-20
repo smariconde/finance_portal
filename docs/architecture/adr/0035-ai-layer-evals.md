@@ -296,3 +296,8 @@ La ADR 0040 extiende el mismo contrato a `employee-equity-1.2.0`:
 
 Los 63 casos previos no cambian; son 85 sin los casos web. No se propone
 cambiar la escalera por esta extensión.
+
+El owner confirmó las diez entradas del gold de opciones el 2026-10-20,
+incluidas las limitaciones de Ford y XOM. Pasan a `owner_reviewed`; el resumen
+offline de los intentos existentes deja cero pendientes, bases 10/10,
+inyecciones 9/9 y `lk = awe = 0`, sin llamadas ni gasto adicionales.
