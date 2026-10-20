@@ -38,17 +38,17 @@ describe("runValuation", () => {
     expect(outcome).toMatchObject({
       status: "computed",
       method: "fcff_base",
-      engineVersion: "fcff-1.4.0",
-      methodologyVersion: "0.10.0",
+      engineVersion: "fcff-1.5.0",
+      methodologyVersion: "0.11.0",
       currency: "USD",
       inputHash:
-        "df9ca00ad76e3f27a6ffa4966e0399c1be3e11a7fa78295c58b09b7c35c22ae0",
+        "0c888aaca4caf8f84d748c1f4f79fd4d7643f930ed1f577fe050a4977b370002",
       resultHash:
-        "815f2f1c56cfa54ab249c7ccfccc2dd74f6faa64d4667ddaff80a595111e14c1",
+        "c52e22212614bc0d89b1415d7171047e037d8a15bec52c5ddb725e7de7729437",
       failure: null,
     });
     expect(outcome.result?.valuePerShare).toBe(
-      "13.54613115387460161790309586190624",
+      "13.38595823089633093010436561532236",
     );
     expect(outcome.decimalPolicy).toStrictEqual({
       precision: 34,
@@ -76,7 +76,7 @@ describe("runValuation", () => {
 
     expect(original.inputHash).not.toBe(restated.inputHash);
     expect(original.result?.valuePerShare).toBe(
-      "14.170553285286043351982391522819",
+      "14.01038036230777266418366127623512",
     );
     expect(original.provenance.knowledge).toMatchObject({
       revisionPolicy: "as_known",
@@ -173,12 +173,15 @@ describe("runValuation", () => {
   it("keeps the failure message free of received values", () => {
     const outcome = run(
       draft((input) => {
-        input.dilutedShares.value = "0";
+        input.employeeEquity.derived.shareCount = "0";
       }),
     );
 
-    expect(outcome.failure?.message).not.toContain("0");
-    expect(outcome.failure?.subjects).toStrictEqual(["dilutedShares.value"]);
+    expect(outcome.failure?.message).not.toContain(" 0");
+    expect(outcome.failure?.subjects).toStrictEqual([
+      "employeeEquity.derived",
+      "employeeEquity.derived.shareCount",
+    ]);
   });
 
   it("does not open the network to recompute", () => {
@@ -203,8 +206,8 @@ describe("runValuation", () => {
 
     expect(outcome.result?.scenarios).toMatchObject({
       version: "scenario-set-1.0.0",
-      bear: { valuePerShare: "9.53681466156146091340177144930788" },
-      bull: { valuePerShare: "17.56482234163726604980159520148048" },
+      bear: { valuePerShare: "9.376641738583190225603041202724" },
+      bull: { valuePerShare: "17.4046494186589953620028649548966" },
     });
     expect(
       outcome.result?.checks.find(

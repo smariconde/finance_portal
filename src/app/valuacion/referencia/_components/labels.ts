@@ -20,17 +20,19 @@ export const BRIDGE_LABELS: Record<BridgeItemKey, string> = {
   leaseDebt: "Deuda por arrendamientos",
   minorityInterest: "Participaciones no controlantes",
   otherClaims: "Otras claims sobre el equity",
+  employeeOptions: "Opciones de empleados",
 };
 
 export const FACT_LABELS: Record<ReportedFactId, string> = {
   baseRevenue: "Ingresos del año base",
-  dilutedShares: "Acciones diluidas",
+  sharesOutstanding: "Acciones en circulación",
   "bridge.excessCash": BRIDGE_LABELS.excessCash,
   "bridge.nonOperatingAssets": BRIDGE_LABELS.nonOperatingAssets,
   "bridge.debt": BRIDGE_LABELS.debt,
   "bridge.leaseDebt": BRIDGE_LABELS.leaseDebt,
   "bridge.minorityInterest": BRIDGE_LABELS.minorityInterest,
   "bridge.otherClaims": BRIDGE_LABELS.otherClaims,
+  "bridge.employeeOptions": BRIDGE_LABELS.employeeOptions,
 };
 
 export const TRANSFORMATION_LABELS: Record<TransformationId, string> = {

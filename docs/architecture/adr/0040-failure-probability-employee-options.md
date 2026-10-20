@@ -152,6 +152,47 @@ restan su valor del equity—; sumarlas las contaría dos veces.
    de la nota, tarea de IA con su policy, persistencia (migración `0030`, con
    rollback que se niega con propuestas guardadas) y
    `pnpm valuation:employee-equity`.
-3. **Corrida**: tabla de default de Damodaran, insumos en
-   `ValuationInput`, claim `employeeOptions`, denominador nuevo, checks que
-   recalculan, motor y metodología nuevos.
+3. **Corrida** (opciones hecho; fracaso pendiente de la tabla):
+   `ValuationInput.employeeEquity` (`employee-equity-claim-1.0.0`) congela la
+   transcripción aceptada con sus versiones y el hash de la nota, las acciones
+   en circulación y el mercado al `as_of`; deriva el valor de las opciones y el
+   denominador, y `employee_equity_recomputed` los recalcula con la libre de
+   riesgo de la corrida y exige la claim `employeeOptions` del puente igual a
+   ese valor. `fcff-1.5.0`, metodología `0.11.0`. La probabilidad de fracaso
+   queda en el dominio, sin cablear, por decisión del owner, hasta que la
+   tabla de Damodaran pueda leerse.
+
+## Decisión 7 — las acciones salen de la carátula
+
+Medido el 2026-10-20: `us-gaap:CommonStockSharesOutstanding`, que la serie
+anual lee al cierre, falta en seis de siete filers con opciones o está viejo,
+y donde está puede ser otra cosa —Salesforce publica 929 millones contra 823
+de su carátula—. El denominador usa el conteo de la carátula del 10-K o 10-Q
+(`dei:EntityCommonStockSharesOutstanding`, sin dimensiones) más reciente que
+la fecha de valuación y el corte admiten (`shares-outstanding-cover-1.0.0`):
+es el conteo actual que Damodaran usa. Un filer con varias clases (Ford) sólo
+la publica con dimensiones, que `companyfacts` no trae: queda sin conteo y la
+corrida lo nombra, nunca suma una clase sola.
+
+Las unidades son las del cierre del ejercicio y las acciones las de la última
+carátula: dos fechas distintas, como en la planilla de Damodaran, que toma las
+acciones actuales y las opciones del último 10-K.
+
+## Medición de la corrida (2026-10-20)
+
+Con las transcripciones aceptadas, las acciones de la carátula, la cotización
+guardada al último cierre (19 de octubre de 2026) y la libre de riesgo en
+dólares de 3,96 %:
+
+| Empresa | Opciones | Strike | Plazo | Volatilidad | Valor de las opciones | Unidades |
+| ------- | -------: | -----: | ----: | ----------: | --------------------: | -------: |
+| JNJ     |  93,07 M | 151,14 | 5,5 a |      17,9 % |      9.501 M (1,55 %) |  +0,59 % |
+| CRM     |   6,00 M | 207,54 | 2,8 a |      39,4 % |        500 M (0,25 %) |  +3,16 % |
+| CAT     |   3,02 M | 220,52 | 5,8 a |      31,8 % |      1.563 M (0,47 %) |  +0,27 % |
+| MRNA    |  27,18 M |  38,63 | 4,8 a |      81,8 % |      5.478 M (6,05 %) |  +2,81 % |
+| INCY    |  10,86 M |  83,46 | 5,0 a |      30,0 % |        535 M (2,37 %) |  +4,64 % |
+| AMT     |   0,13 M |  94,82 | 0,2 a |      27,3 % |         12 M (0,01 %) |  +0,35 % |
+
+El porcentaje del valor de las opciones es sobre la capitalización y el de las
+unidades sobre las acciones en circulación. FixtureCo pasa de 13,55 a 13,39
+USD por acción: resta 2,0 M de opciones sintéticas sobre 12,5 M de acciones.

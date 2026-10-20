@@ -86,7 +86,7 @@ export function classifyFreshness(input: {
 
 /** Identificador estable de cada hecho, igual a su ruta en el snapshot. */
 export type ReportedFactId =
-  "baseRevenue" | "dilutedShares" | `bridge.${BridgeItemKey}`;
+  "baseRevenue" | "sharesOutstanding" | `bridge.${BridgeItemKey}`;
 
 export type ReportedFact = {
   id: ReportedFactId;
@@ -174,18 +174,20 @@ export function collectReportedFacts(
     });
   }
 
+  const shares = run.input.employeeEquity.sharesOutstanding;
+
   facts.push({
-    id: "dilutedShares",
+    id: "sharesOutstanding",
     unit: "shares",
-    value: run.input.dilutedShares.value,
+    value: shares.value,
     currency: null,
-    asOf: run.input.dilutedShares.asOf,
-    availableAt: run.input.dilutedShares.availableAt,
-    sourceId: run.input.dilutedShares.sourceId,
-    sourceDocumentId: run.input.dilutedShares.sourceDocumentId,
-    observationId: run.input.dilutedShares.observationId,
-    qualityFlags: run.input.dilutedShares.qualityFlags,
-    freshness: freshnessOf(run.input.dilutedShares),
+    asOf: shares.asOf,
+    availableAt: shares.availableAt,
+    sourceId: shares.sourceId,
+    sourceDocumentId: shares.sourceDocumentId,
+    observationId: shares.observationId,
+    qualityFlags: shares.qualityFlags,
+    freshness: freshnessOf(shares),
   });
 
   return facts;
@@ -248,8 +250,9 @@ const FORMULAS: Record<TransformationId, string> = {
   enterprise_value:
     "enterprise_value = Σ present_value_t + terminal_value / discount_factor_n",
   equity_bridge:
-    "equity_value = enterprise_value + excess_cash + non_operating_assets − debt − minority_interest − other_claims",
-  value_per_share: "value_per_share = equity_value / diluted_shares",
+    "equity_value = enterprise_value + excess_cash + non_operating_assets − debt − lease_debt − minority_interest − other_claims − employee_options",
+  value_per_share:
+    "value_per_share = equity_value / (shares_outstanding + unvested_units)",
 };
 
 export function listTransformations(

@@ -2929,6 +2929,20 @@ motivo. FixtureCo: 9,54 / 13,55 / 17,56 USD, con el valor de la base intacto.
 No hay corrida real con escenarios: sus supuestos los declara el owner.
 Siguiente: `F4-05`.
 
+<a id="f4-05"></a>
+
+**`F4-05` — probabilidad de fracaso y opciones de empleados (en curso).**
+[ADR 0040](../architecture/adr/0040-failure-probability-employee-options.md),
+con decisiones del owner: probabilidad del rating sintético, recupero sobre el
+capital en libros, opciones valuadas y restadas, volatilidad de la serie,
+transcripción por IA y denominador básicas + RSU. Hecho: el dominio puro
+(incremento 1), la transcripción medida sobre diez 10-K reales con migración
+`0030` y `pnpm valuation:employee-equity` (incremento 2, salvo sus casos en el
+corpus de evals), y las opciones en la corrida (`fcff-1.5.0`, metodología
+`0.11.0`). Pendiente: cablear la probabilidad de fracaso —el servidor de
+Damodaran no entrega la planilla Ginzu con la tabla por rating; el owner
+decidió cablear las opciones primero— y los evals.
+
 Cada arquetipo de `F4-06` es un slice propio con selector, inputs, fórmulas,
 fixtures independientes, diagnósticos y estado `experimental | reviewed | production`,
 llevado a gate antes del siguiente. Ninguno agrega IA.

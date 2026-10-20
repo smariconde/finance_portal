@@ -88,7 +88,7 @@ export function runValuation(
       enterpriseValue: computation.enterpriseValue,
       bridgeComponents: computation.bridgeComponents,
       equityValue: computation.equityValue,
-      dilutedShares: computation.dilutedShares,
+      shareCount: computation.shareCount,
       valuePerShare: computation.valuePerShare,
       terminalValueShare: computation.terminalValueShare,
       sensitivity:

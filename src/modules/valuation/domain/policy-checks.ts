@@ -4,6 +4,7 @@ import { divide, ONE, parseDecimal, ZERO, type Dec } from "./decimal-policy";
 import type { FcffComputation } from "./fcff";
 import { capitalizationMismatches } from "./capitalization-bridge";
 import { deriveCostOfCapital, marginalTaxRateOf } from "./cost-of-capital";
+import { employeeEquityMismatches } from "./employee-equity-claim";
 import { normalizationMismatches } from "./normalization";
 import { qualitativeDecisionMismatches } from "./qualitative-decisions";
 import { SCENARIO_KEYS, scenarioDriverMismatches } from "./scenarios";
@@ -328,6 +329,47 @@ function checkScenarioDeclarations(input: ValuationInput): PolicyCheck[] {
   ];
 }
 
+/**
+ * Opciones y unidades no son inputs crudos (`F4-05`, ADR 0040): el valor de
+ * las opciones y el denominador se recalculan desde la decisión, las acciones
+ * y el mercado con la libre de riesgo de la corrida, y la claim
+ * `employeeOptions` del puente es exactamente ese valor —o una ausencia
+ * declarada cuando la nota no tiene opciones—.
+ */
+function checkEmployeeEquity(input: ValuationInput): PolicyCheck[] {
+  const { employeeEquity } = input;
+  const mismatches = employeeEquityMismatches(employeeEquity, {
+    riskFree: input.costOfCapital.derived.riskFree,
+    currency: input.currency,
+    asOf: input.asOf,
+  });
+  const claim = input.bridge.employeeOptions;
+  const options = employeeEquity.derived.options;
+  const claimMatches =
+    options === null
+      ? claim.status === "declared_absent"
+      : claim.status === "reported" &&
+        claim.amount !== null &&
+        claim.amount.currency === input.currency &&
+        parseDecimal(claim.amount.value, "bridge.employeeOptions").eq(
+          parseDecimal(options.totalValue, "employeeEquity.options.totalValue"),
+        );
+
+  if (!claimMatches) {
+    mismatches.push("bridge.employeeOptions");
+  }
+
+  return [
+    check(
+      "employee_equity_recomputed",
+      "reject",
+      mismatches.length === 0,
+      "Employee options and the share count must be the ones the frozen transcription, shares and market derive, and the bridge must subtract that option value.",
+      mismatches,
+    ),
+  ];
+}
+
 /** Checks que dependen sólo del snapshot: corren antes de calcular. */
 export function checkValuationInput(input: ValuationInput): PolicyCheck[] {
   const checks: PolicyCheck[] = [
@@ -336,6 +378,7 @@ export function checkValuationInput(input: ValuationInput): PolicyCheck[] {
     ...checkQualitativeDecisions(input),
     ...checkCapitalization(input),
     ...checkNormalization(input),
+    ...checkEmployeeEquity(input),
     ...checkScenarioDeclarations(input),
   ];
 
@@ -367,18 +410,18 @@ export function checkValuationInput(input: ValuationInput): PolicyCheck[] {
     ),
   );
 
-  const dilutedShares = parseDecimal(
-    input.dilutedShares.value,
-    "dilutedShares.value",
+  const shareCount = parseDecimal(
+    input.employeeEquity.derived.shareCount,
+    "employeeEquity.derived.shareCount",
   );
 
   checks.push(
     check(
-      "diluted_shares_positive",
+      "share_count_positive",
       "reject",
-      dilutedShares.gt(ZERO),
+      shareCount.gt(ZERO),
       "Diluted shares must be strictly positive and dated.",
-      ["dilutedShares.value"],
+      ["employeeEquity.derived.shareCount"],
     ),
   );
 

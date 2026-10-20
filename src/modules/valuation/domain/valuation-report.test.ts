@@ -119,7 +119,8 @@ describe("reported facts and declared absences", () => {
       "baseRevenue",
       "bridge.excessCash",
       "bridge.debt",
-      "dilutedShares",
+      "bridge.employeeOptions",
+      "sharesOutstanding",
     ]);
 
     expect(facts[0]).toMatchObject({
@@ -138,7 +139,7 @@ describe("reported facts and declared absences", () => {
     const shares = facts.at(-1);
 
     expect(shares).toMatchObject({
-      id: "dilutedShares",
+      id: "sharesOutstanding",
       unit: "shares",
       currency: null,
       freshness: { level: "current", coverageGapDays: 0 },
@@ -165,8 +166,7 @@ describe("reported facts and declared absences", () => {
       },
       {
         id: "bridge.otherClaims",
-        rationale:
-          "No hay opciones vivas ni claims preferentes declaradas en FY2024.",
+        rationale: "No hay claims preferentes declaradas en FY2024.",
       },
     ]);
   });
@@ -313,7 +313,7 @@ describe("demo run determinism", () => {
     expect(repeated).toStrictEqual(run);
     expect(run.status).toBe("computed");
     expect(run.result?.valuePerShare).toBe(
-      "13.54613115387460161790309586190624",
+      "13.38595823089633093010436561532236",
     );
   });
 
@@ -323,7 +323,7 @@ describe("demo run determinism", () => {
     expect(earlier.inputHash).not.toBe(run.inputHash);
     expect(earlier.resultHash).not.toBe(run.resultHash);
     expect(earlier.result?.valuePerShare).toBe(
-      "14.170553285286043351982391522819",
+      "14.01038036230777266418366127623512",
     );
   });
 

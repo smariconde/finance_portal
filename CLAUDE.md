@@ -349,8 +349,37 @@ base: a `reject` rejects the run with `scenarios.<key>:<path>` subjects, a
 `require_review` puts it in review. `scenario_drivers_declared` rejects a
 driver that misses a period, uses another convention or changes nothing;
 `scenario_value_order` asks for review when `bear <= base <= bull` fails. No
-probabilities. FixtureCo: 9.54 / 13.55 / 17.56 USD, base untouched; the
-reference surface shows the range and each scenario's drivers.
+probabilities. The reference surface shows the range and each scenario's
+drivers.
+
+```bash
+pnpm valuation:employee-equity --ticker JNJ            # transcribes options and units from the 10-K note and reports (it spends)
+pnpm valuation:employee-equity --ticker JNJ --apply    # also stores the proposal and its evidence
+```
+
+Employee options are a claim, not a dilution guess (`F4-05`, in progress,
+[ADR 0040](docs/architecture/adr/0040-failure-probability-employee-options.md),
+migration `0030`, engine `fcff-1.5.0`, methodology `0.11.0`). The AI
+transcribes from the share-based compensation note
+(`sec-10k-equity-compensation-1.0.0`) the options outstanding, strike, life
+—in years, as an expiration year, or per strike range for the code to
+average— and unvested RSU/PSU, each with a verbatim quote
+(`employee-equity-1.2.0`); the policy corroborates against the XBRL **of the
+same 10-K** within the printed rounding and accepts "no options" only without
+an option table. `ValuationInput.employeeEquity` freezes that decision, the
+cover-page share count (`shares-outstanding-cover-1.0.0`:
+`dei:EntityCommonStockSharesOutstanding`, never
+`us-gaap:CommonStockSharesOutstanding`) and the market at `as_of` (5-year
+`equity-volatility-1.0.0` over split-adjusted price returns, trailing dividend
+yield); the code values the options with dilution-adjusted Black-Scholes
+(`option-value-dilution-1.0.0`, normal CDF in decimal), the bridge subtracts
+them as `employeeOptions`, and value per share divides by shares outstanding
+plus unvested units. `employee_equity_recomputed` recomputes all of it with
+the run's risk-free. An unknown strike is valued at zero, its upper bound.
+Measured: ten of ten notes accepted for USD 0.029; options take 0.01 % (AMT)
+to 6.05 % (MRNA) of market cap. `failure-adjustment-1.0.0` exists in the
+domain but is not wired: Damodaran's server refuses the Ginzu workbook that
+holds the default table. FixtureCo: 13.39 USD, scenarios 9.38 / 17.40.
 
 ```bash
 pnpm damodaran:record                              # dry run: the four pages, one request each, writes nothing

@@ -291,10 +291,10 @@ describe("valueScenarios", () => {
     const valuation = valueScenarios(DEMO_VALUATION_INPUT, base)!;
 
     expect(valuation.bear.valuePerShare).toBe(
-      "9.53681466156146091340177144930788",
+      "9.376641738583190225603041202724",
     );
     expect(valuation.bull.valuePerShare).toBe(
-      "17.56482234163726604980159520148048",
+      "17.4046494186589953620028649548966",
     );
     expect(valuation.orderCheck).toMatchObject({
       id: "scenario_value_order",

@@ -26,6 +26,21 @@ import {
 import { qualitativeDecisionsSchema } from "../domain/qualitative-decisions";
 import { deriveRigorLevel } from "../domain/rigor-level";
 import { SCENARIO_SET_VERSION } from "../domain/scenarios";
+import { computeContentHash } from "@/modules/ingestion/domain/content-hash";
+import { EQUITY_VOLATILITY_FORMULA_VERSION } from "@/modules/metrics/domain/equity-volatility";
+import { SEC_10K_EQUITY_COMPENSATION_VERSION } from "@/modules/fundamentals/domain/sec-10k-equity-compensation";
+import {
+  deriveEmployeeEquity,
+  DIVIDEND_YIELD_VERSION,
+  EMPLOYEE_EQUITY_CLAIM_VERSION,
+  type EmployeeEquityDecision,
+  type EmployeeOptionMarket,
+} from "../domain/employee-equity-claim";
+import {
+  EMPLOYEE_EQUITY_POLICY_VERSION,
+  EMPLOYEE_EQUITY_PROMPT_VERSION,
+  EMPLOYEE_EQUITY_TASK_VERSION,
+} from "../domain/employee-equity-task";
 import { fixtureCostOfCapitalReadings } from "./fixture-cost-of-capital-readings";
 import {
   ENGINE_VERSION,
@@ -334,6 +349,98 @@ const DEMO_SCENARIOS = {
   },
 };
 
+const SHARES_OUTSTANDING = {
+  value: "12300000",
+  unit: "shares" as const,
+  asOf: "2025-06-30",
+  availableAt: "2025-07-15T12:00:00.000Z",
+  sourceId: DEMO_SOURCE_ID,
+  sourceDocumentId: SHARE_REGISTER_DOCUMENT,
+  observationId: null,
+  qualityFlags: [],
+};
+
+/**
+ * Opciones y unidades de FixtureCo (`F4-05`): una nota de compensación en
+ * acciones **sintética**, declarada como tal, transcripta en la forma que la
+ * tarea acepta. 300 mil opciones a USD 9 con cuatro años y 200 mil RSU sobre
+ * 12,3 millones de acciones: el denominador sigue siendo 12,5 millones y el
+ * puente resta el valor de las opciones, así que el valor por acción baja.
+ * El mercado también es sintético —precio 14, volatilidad 30 %, sin
+ * dividendos—: FixtureCo no tiene serie de precios.
+ */
+const EQUITY_NOTE_DOCUMENT = "fixtureco-fy2024-equity-compensation-note";
+const DEMO_EQUITY_NOTE =
+  "Synthetic note. Stock options (shares in thousands): Outstanding at December 31, 2024 300 $9.00, with a weighted average remaining contractual life of 4.0 years. Restricted stock units: Balance at December 31, 2024 200.";
+
+const DEMO_EMPLOYEE_EQUITY_DECISION: EmployeeEquityDecision = {
+  basis: "ai_proposal",
+  proposalId: "00000000-0000-4000-8000-0000000000e1",
+  accessionNumber: "0000000000-25-000001",
+  fiscalYearEnd: "2024-12-31",
+  taskVersion: EMPLOYEE_EQUITY_TASK_VERSION,
+  promptVersion: EMPLOYEE_EQUITY_PROMPT_VERSION,
+  policyVersion: EMPLOYEE_EQUITY_POLICY_VERSION,
+  extractVersion: SEC_10K_EQUITY_COMPENSATION_VERSION,
+  respondedModel: "fixture/synthetic",
+  evidenceSha256: computeContentHash(DEMO_EQUITY_NOTE),
+  transcription: {
+    decision: "proposed",
+    scale: "thousands",
+    optionsStatus: "outstanding",
+    optionsCount: "300",
+    optionsCountQuote: "Outstanding at December 31, 2024 300 $9.00",
+    optionsStrike: "$9.00",
+    optionsStrikeQuote: "Outstanding at December 31, 2024 300 $9.00",
+    optionsLifeBasis: "remaining_years",
+    optionsLife: "4.0",
+    optionsLifeQuote:
+      "weighted average remaining contractual life of 4.0 years",
+    optionsRanges: [],
+    unitsStatus: "outstanding",
+    units: [
+      {
+        kind: "restricted",
+        count: "200",
+        quote: "Balance at December 31, 2024 200",
+      },
+    ],
+    confidence: "high",
+    rationale: "Synthetic year-end balances.",
+    abstainReason: null,
+  },
+};
+
+const DEMO_OPTION_MARKET: EmployeeOptionMarket = {
+  price: {
+    value: "14",
+    marketDate: DEMO_VALUATION_AS_OF,
+    currency: "USD",
+    sourceId: DEMO_SOURCE_ID,
+  },
+  volatility: {
+    formulaVersion: EQUITY_VOLATILITY_FORMULA_VERSION,
+    value: "0.3",
+    windowStart: "2020-06-30",
+    baseDate: "2020-06-30",
+    returns: 1256,
+  },
+  dividendYield: {
+    version: DIVIDEND_YIELD_VERSION,
+    value: "0",
+    dividends: "0",
+    from: "2024-06-30",
+    to: DEMO_VALUATION_AS_OF,
+  },
+};
+
+const DEMO_EMPLOYEE_EQUITY_DERIVED = deriveEmployeeEquity({
+  decision: DEMO_EMPLOYEE_EQUITY_DECISION,
+  sharesOutstanding: SHARES_OUTSTANDING,
+  market: DEMO_OPTION_MARKET,
+  riskFree: DEMO_COST_OF_CAPITAL.derived.riskFree,
+});
+
 const BRIDGE = {
   excessCash: {
     status: "reported" as const,
@@ -365,19 +472,18 @@ const BRIDGE = {
     "FixtureCo consolida sin participaciones no controlantes.",
   ),
   otherClaims: declaredAbsent(
-    "No hay opciones vivas ni claims preferentes declaradas en FY2024.",
+    "No hay claims preferentes declaradas en FY2024.",
   ),
-};
-
-const DILUTED_SHARES = {
-  value: "12500000",
-  unit: "shares" as const,
-  asOf: "2025-06-30",
-  availableAt: "2025-07-15T12:00:00.000Z",
-  sourceId: DEMO_SOURCE_ID,
-  sourceDocumentId: SHARE_REGISTER_DOCUMENT,
-  observationId: null,
-  qualityFlags: [],
+  employeeOptions: {
+    status: "reported" as const,
+    amount: monetary({
+      value: DEMO_EMPLOYEE_EQUITY_DERIVED.options!.totalValue,
+      asOf: DEMO_VALUATION_AS_OF,
+      availableAt: FY2024_AVAILABLE_AT,
+      sourceDocumentId: EQUITY_NOTE_DOCUMENT,
+    }),
+    rationale: null,
+  },
 };
 
 /**
@@ -535,7 +641,13 @@ function buildInput(baseRevenue: {
       returnOnCapital: "0.12",
     },
     bridge: BRIDGE,
-    dilutedShares: DILUTED_SHARES,
+    employeeEquity: {
+      version: EMPLOYEE_EQUITY_CLAIM_VERSION,
+      decision: DEMO_EMPLOYEE_EQUITY_DECISION,
+      sharesOutstanding: SHARES_OUTSTANDING,
+      market: DEMO_OPTION_MARKET,
+      derived: DEMO_EMPLOYEE_EQUITY_DERIVED,
+    },
     sensitivity: {
       // Un rango deliberadamente ancho: las celdas donde el modelo no está
       // definido deben verse, no desaparecer.

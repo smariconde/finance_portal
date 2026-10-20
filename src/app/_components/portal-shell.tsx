@@ -27,7 +27,13 @@ export function PortalShell({ children, health }: PortalShellProps) {
           Saltar al contenido
         </a>
         <AppSidebar mode={health.mode} />
-        <SidebarInset>
+        {/*
+          `min-w-0`: la columna es un ítem flex junto a la barra lateral, y sin
+          él hereda el ancho mínimo de su contenido —una tabla con un
+          identificador largo empujaba la página entera—. Las tablas anchas
+          desplazan dentro de su contenedor; la página, nunca.
+        */}
+        <SidebarInset className="min-w-0">
           <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:px-6">
             <div className="flex min-w-0 items-center gap-3">
               <SidebarTrigger

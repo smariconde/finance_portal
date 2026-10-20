@@ -21,6 +21,7 @@ import {
   type MonetaryFact,
 } from "./valuation-facts";
 import { costOfCapitalSchema } from "./cost-of-capital";
+import { employeeEquityClaimSchema } from "./employee-equity-claim";
 import { listNormalizationFacts, normalizationSchema } from "./normalization";
 import { qualitativeDecisionsSchema } from "./qualitative-decisions";
 import { scenarioSetSchema } from "./scenarios";
@@ -47,10 +48,13 @@ export const VALUATION_METHOD = "fcff_base";
  * `fcff-1.4.0` (`F4-04`, ADR 0039): bear y bull se valúan enteros desde sus
  * supuestos, con los mismos checks que la base, y un desorden de los tres
  * valores por acción pide revisión.
+ * `fcff-1.5.0` (`F4-05`, ADR 0040): el puente resta el valor de las opciones
+ * de empleados vivas y el valor por acción divide por acciones en circulación
+ * más unidades no consolidadas, ya no por las diluidas del filing.
  */
-export const ENGINE_VERSION = "fcff-1.4.0";
+export const ENGINE_VERSION = "fcff-1.5.0";
 /** Debe seguir a `docs/valuation/methodology.md`. */
-export const METHODOLOGY_VERSION = "0.10.0";
+export const METHODOLOGY_VERSION = "0.11.0";
 
 const rationaleSchema = z.string().trim().min(1).max(512);
 
@@ -129,6 +133,12 @@ export const equityBridgeSchema = z.object({
   leaseDebt: bridgeItemSchema,
   minorityInterest: bridgeItemSchema,
   otherClaims: bridgeItemSchema,
+  /**
+   * Opciones de empleados vivas (`F4-05`): el valor que deriva
+   * `employeeEquity`, nunca un monto escrito a mano. Sin opciones en la nota
+   * es una ausencia declarada.
+   */
+  employeeOptions: bridgeItemSchema,
 });
 
 export type EquityBridge = z.infer<typeof equityBridgeSchema>;
@@ -140,6 +150,7 @@ export const BRIDGE_ITEM_KEYS = [
   "leaseDebt",
   "minorityInterest",
   "otherClaims",
+  "employeeOptions",
 ] as const;
 
 export type BridgeItemKey = (typeof BRIDGE_ITEM_KEYS)[number];
@@ -262,7 +273,13 @@ export const valuationInputSchema = z
     reinvestmentConventionBridge: rationaleSchema.nullable(),
     terminal: terminalAssumptionSchema,
     bridge: equityBridgeSchema,
-    dilutedShares: shareCountFactSchema,
+    /**
+     * Opciones y unidades de empleados (`F4-05`): la transcripción congelada,
+     * las acciones en circulación y el mercado al `as_of`. De acá salen la
+     * claim `employeeOptions` y el denominador del valor por acción; un
+     * policy check los recalcula.
+     */
+    employeeEquity: employeeEquityClaimSchema,
     sensitivity: sensitivitySpecSchema.nullable(),
     /**
      * Bear y bull como conjuntos de supuestos (`F4-04`): cada uno declara qué
