@@ -6,6 +6,7 @@ import { capitalizationMismatches } from "./capitalization-bridge";
 import { deriveCostOfCapital, marginalTaxRateOf } from "./cost-of-capital";
 import { normalizationMismatches } from "./normalization";
 import { qualitativeDecisionMismatches } from "./qualitative-decisions";
+import { SCENARIO_KEYS, scenarioDriverMismatches } from "./scenarios";
 import { deriveRigorLevel } from "./rigor-level";
 import { ValuationPolicyError } from "./valuation-error";
 import {
@@ -299,6 +300,34 @@ function checkNormalization(input: ValuationInput): PolicyCheck[] {
   ];
 }
 
+/**
+ * Bear y bull cambian supuestos que la base tiene (`F4-04`, ADR 0039): un
+ * valor por período explícito, en la convención de reinversión del período, y
+ * cada valor declarado distinto del de la base. Sin escenarios no hay check:
+ * una corrida con un único conjunto de supuestos no declara nada que verificar.
+ */
+function checkScenarioDeclarations(input: ValuationInput): PolicyCheck[] {
+  const { scenarios } = input;
+
+  if (scenarios === null) {
+    return [];
+  }
+
+  const mismatches = SCENARIO_KEYS.flatMap((key) =>
+    scenarioDriverMismatches(input, key, scenarios[key]),
+  );
+
+  return [
+    check(
+      "scenario_drivers_declared",
+      "reject",
+      mismatches.length === 0,
+      "A scenario driver covers every explicit period in the base's convention and each declared value changes the base.",
+      mismatches.slice(0, 32),
+    ),
+  ];
+}
+
 /** Checks que dependen sólo del snapshot: corren antes de calcular. */
 export function checkValuationInput(input: ValuationInput): PolicyCheck[] {
   const checks: PolicyCheck[] = [
@@ -307,6 +336,7 @@ export function checkValuationInput(input: ValuationInput): PolicyCheck[] {
     ...checkQualitativeDecisions(input),
     ...checkCapitalization(input),
     ...checkNormalization(input),
+    ...checkScenarioDeclarations(input),
   ];
 
   const mismatchedCurrency = listMonetaryFacts(input)
@@ -521,6 +551,33 @@ export function checkValuationOutput(
       ["equityValue"],
     ),
   ];
+}
+
+/**
+ * `bear <= base <= bull` en valor por acción (`F4-04`). Un desorden puede ser
+ * legítimo —crecer con un retorno sobre el capital por debajo del WACC
+ * destruye valor—, pero contradice las etiquetas, así que la corrida se
+ * calcula y queda para revisión.
+ */
+export function checkScenarioOrder(values: {
+  bear: string;
+  base: string;
+  bull: string;
+}): PolicyCheck {
+  const bear = parseDecimal(values.bear, "scenarios.bear.valuePerShare");
+  const base = parseDecimal(values.base, "valuePerShare");
+  const bull = parseDecimal(values.bull, "scenarios.bull.valuePerShare");
+
+  return check(
+    "scenario_value_order",
+    "require_review",
+    bear.lte(base) && base.lte(bull),
+    "Bear, base and bull values per share must be ordered; a reversal contradicts the labels.",
+    [
+      ...(bear.lte(base) ? [] : ["scenarios.bear.valuePerShare"]),
+      ...(base.lte(bull) ? [] : ["scenarios.bull.valuePerShare"]),
+    ],
+  );
 }
 
 export function failedChecks(

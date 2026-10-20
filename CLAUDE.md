@@ -337,6 +337,21 @@ concepts overlap—; SBC is an expense and stays. `normalization_recomputed`
 requires `bridge.debt` and `bridge.excessCash` to be exactly the derived ones.
 Measured: debt resolves for 14 of 20 non-financials.
 
+Bear and bull are coherent sets of assumptions, never a multiplier (`F4-04`,
+[ADR 0039](docs/architecture/adr/0039-coherent-valuation-scenarios.md), engine
+`fcff-1.4.0`, methodology `0.10.0`). The base is the run itself;
+`ValuationInput.scenarios` (`scenario-set-1.0.0`) carries a thesis and drivers
+—growth, margin and reinvestment per period, terminal `g`, margin and ROIC—
+each with its value and rationale. They never move the cost of capital, the tax
+rate, the base facts or the bridge. Each scenario is **materialized** into a
+full snapshot and goes through the same checks and the same engine as the
+base: a `reject` rejects the run with `scenarios.<key>:<path>` subjects, a
+`require_review` puts it in review. `scenario_drivers_declared` rejects a
+driver that misses a period, uses another convention or changes nothing;
+`scenario_value_order` asks for review when `bear <= base <= bull` fails. No
+probabilities. FixtureCo: 9.54 / 13.55 / 17.56 USD, base untouched; the
+reference surface shows the range and each scenario's drivers.
+
 ```bash
 pnpm damodaran:record                              # dry run: the four pages, one request each, writes nothing
 pnpm damodaran:record --dataset damodaran.betas-us --apply

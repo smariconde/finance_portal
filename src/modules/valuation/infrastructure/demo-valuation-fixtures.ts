@@ -25,6 +25,7 @@ import {
 } from "../domain/cost-of-capital";
 import { qualitativeDecisionsSchema } from "../domain/qualitative-decisions";
 import { deriveRigorLevel } from "../domain/rigor-level";
+import { SCENARIO_SET_VERSION } from "../domain/scenarios";
 import { fixtureCostOfCapitalReadings } from "./fixture-cost-of-capital-readings";
 import {
   ENGINE_VERSION,
@@ -252,6 +253,87 @@ const EXPLICIT_PERIODS = [
   },
 }));
 
+/**
+ * Bear y bull de FixtureCo (`F4-04`). Son tesis sintéticas, declaradas como
+ * tales: cada una mueve crecimiento, margen y retorno terminal juntos, porque
+ * un escenario que sólo cambia el crecimiento no es una historia coherente.
+ * El costo de capital y la tasa no se mueven: salen de componentes fechados y
+ * de la normalización.
+ */
+const DEMO_SCENARIOS = {
+  version: SCENARIO_SET_VERSION,
+  bear: {
+    thesis:
+      "Tesis sintética: la demanda se enfría y la competencia por precio comprime el margen; en el terminal, crecer deja de crear valor.",
+    drivers: [
+      {
+        driver: "revenueGrowth" as const,
+        values: ["0.05", "0.045", "0.04", "0.035", "0.03"],
+        rationale:
+          "La demanda crece tres puntos menos que en la base en cada período explícito.",
+      },
+      {
+        driver: "ebitMargin" as const,
+        values: ["0.15", "0.15", "0.15", "0.15", "0.15"],
+        rationale:
+          "La competencia por precio se lleva tres puntos de margen y no los devuelve.",
+      },
+      {
+        driver: "terminalGrowth" as const,
+        value: "0.015",
+        rationale:
+          "Un negocio más lento crece a perpetuidad por debajo de la base.",
+      },
+      {
+        driver: "terminalEbitMargin" as const,
+        value: "0.15",
+        rationale: "El margen comprimido persiste en el estado estable.",
+      },
+      {
+        driver: "terminalReturnOnCapital" as const,
+        value: "0.09",
+        rationale:
+          "Sin ventaja competitiva, el retorno sobre el capital converge al costo de capital.",
+      },
+    ],
+  },
+  bull: {
+    thesis:
+      "Tesis sintética: el producto gana participación y el apalancamiento operativo sube el margen; la ventaja persiste en el terminal.",
+    drivers: [
+      {
+        driver: "revenueGrowth" as const,
+        values: ["0.11", "0.095", "0.08", "0.065", "0.05"],
+        rationale:
+          "La ganancia de participación suma tres puntos de crecimiento que se desvanecen con la base.",
+      },
+      {
+        driver: "ebitMargin" as const,
+        values: ["0.19", "0.2", "0.2", "0.2", "0.2"],
+        rationale:
+          "El apalancamiento operativo sube el margen dos puntos desde el segundo año.",
+      },
+      {
+        driver: "terminalGrowth" as const,
+        value: "0.025",
+        rationale:
+          "Una franquicia más grande crece por encima de la base, todavía por debajo de la libre de riesgo.",
+      },
+      {
+        driver: "terminalEbitMargin" as const,
+        value: "0.2",
+        rationale: "El margen más alto es estructural, no cíclico.",
+      },
+      {
+        driver: "terminalReturnOnCapital" as const,
+        value: "0.15",
+        rationale:
+          "La ventaja competitiva sostiene el retorno sobre el capital por encima de su costo.",
+      },
+    ],
+  },
+};
+
 const BRIDGE = {
   excessCash: {
     status: "reported" as const,
@@ -460,6 +542,7 @@ function buildInput(baseRevenue: {
       wacc: { from: "0.03", to: "0.11", step: "0.02" },
       terminalGrowth: { from: "0", to: "0.04", step: "0.01" },
     },
+    scenarios: DEMO_SCENARIOS,
   });
 }
 

@@ -66,6 +66,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    38 | `F4-01`    | `done`     | Capitalización de arrendamientos operativos e I+D con puente auditable sobre EBIT, capital invertido y deuda, recalculado por el motor.                                 | Fase 3        |
 |    39 | `F4-02`    | `done`     | Regla terminal `g <= risk_free_rate` en el check y en cada celda de la sensibilidad, con la libre de riesgo de la corrida; `fcff-1.2.0` sin reescribir corridas.        | `F4-01`       |
 |    40 | `F4-03`    | `done`     | Normalización reported/adjusted del ejercicio base: capital invertido, deuda, caja, tasa y cargos no recurrentes con libro de ajustes; el puente sale del libro.        | `F4-01`       |
+|    41 | `F4-04`    | `done`     | Escenarios bear/base/bull como conjuntos coherentes de supuestos en el mismo snapshot, recalculados enteros por el motor y sometidos a los mismos checks que la base.   | `F4-03`       |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -2898,6 +2899,34 @@ no sólo atrasa, publica revisiones con el mismo valor. Arreglado el
 que una presentación ya registrada conserve su aceptación, y las 91 filas se
 repararon contra `source_documents`; el gate vuelve a pasar. Siguiente:
 `F4-04`.
+
+<a id="f4-04"></a>
+
+**`F4-04` — escenarios bear/base/bull (cerrado el 2026-10-20).**
+[ADR 0039](../architecture/adr/0039-coherent-valuation-scenarios.md), con
+cuatro decisiones del owner: bear y bull viajan en el mismo snapshot que la
+base; no mueven el costo de capital; no llevan probabilidades; y un desorden
+de los tres valores pide revisión en vez de rechazar. `ValuationInput.scenarios`
+(`scenario-set-1.0.0`) declara por escenario una tesis y sus drivers
+—crecimiento, margen y reinversión por período; `g`, margen y retorno
+terminales—, cada uno con valor y motivo. El motor materializa cada escenario
+como un snapshot completo y lo pasa por los mismos checks y el mismo
+`computeFcff` que la base (`fcff-1.4.0`, metodología `0.10.0`):
+`scenario_drivers_declared` (`reject`) y `scenario_value_order`
+(`require_review`) son los checks nuevos. `/valuacion/referencia` deja de
+nombrarlos como planificados y muestra el rango y los drivers de cada uno.
+
+Criterios cumplidos: los escenarios son conjuntos de supuestos, no
+multiplicadores —un test valúa cada uno como la corrida independiente de su
+snapshot materializado y verifica que ingresos, EV y equity no se mueven por un
+mismo factor—; son coherentes porque pasan los mismos checks que la base y un
+`reject` en cualquiera rechaza la corrida con rutas `scenarios.<clave>:<ruta>`;
+y se ordenan cuando sus supuestos lo garantizan (propiedad sobre el margen).
+`TM-16`: un único `input_hash` cubre los tres conjuntos, un driver cambiado es
+otra corrida y una corrida rechazada por un escenario se persiste con su
+motivo. FixtureCo: 9,54 / 13,55 / 17,56 USD, con el valor de la base intacto.
+No hay corrida real con escenarios: sus supuestos los declara el owner.
+Siguiente: `F4-05`.
 
 Cada arquetipo de `F4-06` es un slice propio con selector, inputs, fórmulas,
 fixtures independientes, diagnósticos y estado `experimental | reviewed | production`,

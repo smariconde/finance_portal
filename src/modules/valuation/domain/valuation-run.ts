@@ -10,6 +10,7 @@ import {
 
 import { decimalPolicySchema, engineDecimalSchema } from "./decimal-policy";
 import { listCapitalizationFacts } from "./capitalization-bridge";
+import { SCENARIO_SET_VERSION } from "./scenarios";
 import { VALUATION_ERROR_CODES } from "./valuation-error";
 import {
   assetProfileSchema,
@@ -120,6 +121,28 @@ export const sensitivityGridSchema = z.object({
     .max(11),
 });
 
+/**
+ * Un escenario valuado (`F4-04`): su proyección entera, su puente y sus
+ * checks. La base no se repite: es el resultado mismo.
+ */
+export const scenarioOutcomeSchema = z.object({
+  periods: z.array(periodProjectionSchema).min(1).max(20),
+  terminal: terminalProjectionSchema,
+  enterpriseValue: engineDecimalSchema,
+  equityValue: engineDecimalSchema,
+  valuePerShare: engineDecimalSchema,
+  terminalValueShare: engineDecimalSchema.nullable(),
+  checks: z.array(policyCheckSchema).max(64),
+});
+
+export const scenarioResultSchema = z.object({
+  version: z.literal(SCENARIO_SET_VERSION),
+  bear: scenarioOutcomeSchema,
+  bull: scenarioOutcomeSchema,
+});
+
+export type ScenarioResult = z.infer<typeof scenarioResultSchema>;
+
 export const valuationResultSchema = z.object({
   periods: z.array(periodProjectionSchema).min(1).max(20),
   terminal: terminalProjectionSchema,
@@ -132,6 +155,7 @@ export const valuationResultSchema = z.object({
   valuePerShare: engineDecimalSchema,
   terminalValueShare: engineDecimalSchema.nullable(),
   sensitivity: sensitivityGridSchema.nullable(),
+  scenarios: scenarioResultSchema.nullable(),
   checks: z.array(policyCheckSchema).max(64),
 });
 

@@ -1,8 +1,8 @@
 # Metodología de valuación
 
 - Estado: metodología objetivo; motor FCFF base implementado en `src/modules/valuation/`
-- Versión metodológica: 0.9.0 (la corrida lleva selección, completitud y rigor desde `F3-03`, el costo de capital construido desde `F3-06`, el riesgo país ponderado por operaciones desde `F5-05`, las decisiones cualitativas con la propuesta de la IA desde `F5-06` la capitalización de arrendamientos e I+D desde `F4-01` el techo del crecimiento terminal en la libre de riesgo desde `F4-02` y la normalización reported/adjusted del ejercicio base desde `F4-03`)
-- Versión de engine implementada: `fcff-1.3.0` (método `fcff_base`)
+- Versión metodológica: 0.10.0 (la corrida lleva selección, completitud y rigor desde `F3-03`, el costo de capital construido desde `F3-06`, el riesgo país ponderado por operaciones desde `F5-05`, las decisiones cualitativas con la propuesta de la IA desde `F5-06` la capitalización de arrendamientos e I+D desde `F4-01` el techo del crecimiento terminal en la libre de riesgo desde `F4-02` la normalización reported/adjusted del ejercicio base desde `F4-03` y los escenarios bear/base/bull desde `F4-04`)
+- Versión de engine implementada: `fcff-1.4.0` (método `fcff_base`)
 - Fecha: 2026-08-21; motor base entregado el 2026-08-24; niveles de rigor y alcance
   de la IA incorporados el 2026-09-04
 - Alcance inicial: FCFF para no financieras maduras o en transición
@@ -39,7 +39,7 @@ de cuatro quintos del universo y produce números inválidos en el resto.
 | Fase 3   | selector de arquetipo, completitud de datos y admisibilidad de método | `done`         |
 | Fase 3   | parámetros Damodaran y costo de capital bottom-up                     | `done`         |
 | Fase 4   | leases e I+D capitalizados con puente sobre EBIT, capital y deuda     | `done`         |
-| Fase 4   | FCFF multi-etapa: regla terminal, normalización y escenarios          | `planned`      |
+| Fase 4   | FCFF multi-etapa: regla terminal, normalización y escenarios          | `done`         |
 | Fase 4.1 | bancos y aseguradoras mediante excess return/residual income o DDM    | `planned`      |
 | Fase 4.2 | cíclicas y commodities con normalización de ciclo                     | `planned`      |
 | Fase 4.3 | pérdidas/high growth con revenue-to-margin y supervivencia            | `planned`      |
@@ -66,14 +66,15 @@ El nivel se deriva de la completitud medida, no se elige. La corrida persiste qu
 comprobación bajó el nivel, de modo que conseguir ese dato más adelante y volver a
 correr sea una acción concreta y no una intuición.
 
-## Motor implementado: `fcff-1.3.0`
+## Motor implementado: `fcff-1.4.0`
 
 `fcff-1.1.0` (`F4-01`) agrega al puente EV-equity la claim `leaseDebt`, la deuda
 por arrendamientos operativos que deriva la capitalización. `fcff-1.2.0`
 (`F4-02`) agrega la regla terminal `g <= risk_free_rate` (ver "Terminal
 value"). `fcff-1.3.0` (`F4-03`) exige que la deuda y la caja excedente del
-puente sean las que deriva la normalización; el resto del motor es el de
-`fcff-1.0.0`.
+puente sean las que deriva la normalización. `fcff-1.4.0` (`F4-04`) valúa
+bear y bull enteros desde sus supuestos (ver "Escenarios y sensibilidad"); el
+resto del motor es el de `fcff-1.0.0`.
 
 El método `fcff_base` cubre `non_financial_mature` con N períodos explícitos
 —hasta 20— más un valor terminal. Cualquier otro `assetProfile` devuelve
@@ -96,9 +97,9 @@ falla y las rutas de campo afectadas: explicar por qué un valor no se calculó 
 parte del audit trail (`TM-16`). El índice único sobre `input_hash` más engine y
 metodología hace que un replay exacto sea la misma corrida, no una fila nueva.
 
-Fuera del alcance de esta versión y diferido a Fase 4: escenarios bear/base/bull
-como conjuntos coherentes de supuestos, normalización reported/adjusted y WACC
-que converge entre etapas.
+Los escenarios bear/base/bull (`F4-04`), la normalización reported/adjusted
+(`F4-03`) y el WACC que converge entre etapas (`F3-06`) ya forman parte de la
+corrida.
 
 ## Política numérica
 
@@ -833,6 +834,25 @@ Bear, base y bull son conjuntos coherentes de supuestos, no multiplicadores
 arbitrarios sobre el resultado. Cada escenario declara qué drivers cambian y por
 qué. Las probabilidades son opcionales y sólo se muestran con base defendible.
 
+Implementado en `fcff-1.4.0` ([ADR 0039](../architecture/adr/0039-coherent-valuation-scenarios.md),
+`scenario-set-1.0.0`):
+
+- La base es la corrida misma; bear y bull viajan en el mismo snapshot
+  (`ValuationInput.scenarios`) con una tesis y una lista de drivers, cada uno
+  con valor y motivo: crecimiento, margen y reinversión por período (un valor
+  por período, `null` deja el de la base, en la convención del período) y `g`,
+  margen y retorno sobre el capital terminales.
+- No mueven el costo de capital, la tasa impositiva, los hechos del ejercicio
+  base ni el puente: la incertidumbre de tasa es la sensibilidad.
+- Cada escenario se materializa como un snapshot completo y pasa por los
+  mismos checks y el mismo motor que la base. Un `reject` en un escenario
+  rechaza la corrida con rutas `scenarios.<clave>:<ruta>`; un
+  `require_review`, la deja en revisión.
+- No hay probabilidades: el rango no se pondera ni produce un valor esperado.
+- `scenario_value_order` pide revisión si `bear <= base <= bull` no se cumple.
+
+FixtureCo: 9,54 / 13,55 / 17,56 USD por acción, con la base intacta.
+
 La sensitivity WACC/g:
 
 - mantiene constantes los demás inputs;
@@ -868,6 +888,8 @@ correlaciones, seed persistido y tests.
 | decisiones cualitativas          | `reject` si industria o pesos no salen de la decisión                 |
 | freshness e inputs               | `reject` o `require_review` según el método                           |
 | peso del terminal                | diagnóstico visible si excede el umbral versionado                    |
+| drivers de escenario             | `reject` si no cubren los períodos, la convención o no cambian nada   |
+| orden de escenarios              | `require_review` si no se cumple `bear <= base <= bull`               |
 
 Modos permitidos: `reject`, `require_review` y `autocorrect_with_trace`. Ninguna
 corrección es silenciosa; registra valor original, regla, valor nuevo y motivo.

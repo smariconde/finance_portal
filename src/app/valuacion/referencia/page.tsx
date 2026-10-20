@@ -35,6 +35,7 @@ import {
   collectReportedFacts,
   FRESHNESS_POLICY_VERSION,
   listTransformations,
+  readScenarios,
 } from "@/modules/valuation/domain/valuation-report";
 import {
   buildDemoValuationRun,
@@ -47,6 +48,7 @@ import { EquityBridgeTable } from "./_components/equity-bridge-table";
 import { Field, FieldList, HashValue } from "./_components/field";
 import { checkLabel, TRANSFORMATION_LABELS } from "./_components/labels";
 import { RunHeadline } from "./_components/run-headline";
+import { ScenariosTable } from "./_components/scenarios-table";
 import { SensitivityMatrix } from "./_components/sensitivity-matrix";
 
 export const metadata: Metadata = {
@@ -91,8 +93,15 @@ export default async function ValuationReferencePage() {
   const absences = collectDeclaredAbsences(run);
   const sensitivity = annotateSensitivity(run);
   const transformations = listTransformations(run);
+  const scenarios = readScenarios(run);
   const checks = run.result?.checks ?? [];
-  const reviewChecks = checks.filter(
+  // Un escenario que pide revisión deja la corrida en revisión: el aviso los
+  // cuenta igual que a los de la base.
+  const reviewChecks = [
+    ...checks,
+    ...(run.result?.scenarios?.bear.checks ?? []),
+    ...(run.result?.scenarios?.bull.checks ?? []),
+  ].filter(
     (check) => check.mode === "require_review" && check.status === "failed",
   );
 
@@ -223,25 +232,21 @@ export default async function ValuationReferencePage() {
 
         <EquityBridgeTable run={run} />
 
-        <section
-          className="rounded-xl border border-dashed p-4"
-          aria-labelledby="scenarios-title"
-        >
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 id="scenarios-title" className="text-base font-medium">
-              Escenarios bear, base y bull
-            </h2>
-            <StatusMark status="planned" />
-          </div>
-          <p className="mt-2 max-w-4xl text-sm text-muted-foreground">
-            Esta corrida tiene un único conjunto de supuestos. Los escenarios
-            como conjuntos coherentes —cada uno con su crecimiento, su margen y
-            su reinversión, no un mismo modelo con un número movido— pertenecen
-            a Fase 4. Lo que sigue es una sensibilidad mecánica sobre dos
-            parámetros: muestra cuánto depende el resultado de ellos, no cuán
-            probable es cada valor.
-          </p>
-        </section>
+        {scenarios === null ? (
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2" id="scenarios-title">
+                Escenarios bear, base y bull
+              </CardTitle>
+              <CardDescription>
+                El snapshot tiene un único conjunto de supuestos, así que no se
+                muestra un rango.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        ) : (
+          <ScenariosTable reading={scenarios} currency={run.currency} />
+        )}
 
         {sensitivity === null ? (
           <Card>
