@@ -43,6 +43,7 @@ import {
   subtractCalendarYears,
   subtractDays,
 } from "@/modules/temporal/domain/calendar-date";
+import { getCedearRegistryRepository } from "@/server/persistence/get-cedear-registry-repository";
 import { getCorporateActionRepository } from "@/server/persistence/get-corporate-action-repository";
 import { getEmployeeEquityRepository } from "@/server/persistence/get-employee-equity-repository";
 import { getObservationRepository } from "@/server/persistence/get-observation-repository";
@@ -119,6 +120,7 @@ export async function readValuationResultForRequest(
       jobs: getValuationJobStore(),
       runs: getValuationRunRepository(),
       universe: getUniverseRepository(),
+      cedears: getCedearRegistryRepository(),
     },
   );
 }

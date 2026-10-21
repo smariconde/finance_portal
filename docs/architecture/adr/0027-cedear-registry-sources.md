@@ -211,7 +211,9 @@ ningún programa. La respuesta es `not_effective_at_cutoff`, nunca «sin CEDEAR�
    avisos del emisor; hasta leerlos, un cambio se supersede al observarlo.
 4. **Sólo programas con subyacente en el grafo.** Un ETF o una acción fuera del
    índice no se registran aunque tengan CEDEAR.
-5. **Sin listing ni precio del CEDEAR.** Es de `F6-04`.
+5. **Sin listing ni precio del CEDEAR.** Era de `F6-04`; el 2026-10-21 el owner lo
+   partió y pasa a `F6-08`, que necesita guardar el símbolo de BYMA y una ADR de
+   fuente de precios en pesos. `F6-04` lee programa y ratio al corte de la corrida.
 6. **El registro está completo mientras los emisores sean dos.** Un tercer emisor
    autorizado por la CNV es una fuente nueva, no una fila más.
 

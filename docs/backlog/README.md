@@ -73,7 +73,9 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    45 | `F6-07`    | `done`     | Supuestos `fcff_base` derivados de lo guardado por una regla versionada; el job arma el snapshot, corre el motor y registra la corrida, o nombra el faltante.                                                             | `F6-01`          |
 |    46 | `F6-02`    | `done`     | Historial de corridas: volver a ver, refrescar lo que cambió y comparar contra la anterior sin sobrescribirla.                                                                                                            | `F6-07`          |
 |    47 | `F6-03`    | `done`     | Superficie de resultado sobre empresa real con nivel de rigor, provenance y supuestos distinguidos de los hechos.                                                                                                         | `F6-02`          |
-|    48 | `F6-04`    | `ready`    | Anotación de acceso CEDEAR sobre el registro de `F7-03` en el resultado: programa, ratio vigente y precio, sin fusionar instrumentos.                                                                                     | `F6-02`          |
+|    48 | `F6-04`    | `done`     | Acceso CEDEAR en el resultado: programa, depositario, estado y ratio al corte de la corrida, y el valor por CEDEAR en USD.                                                                                                | `F6-02`          |
+|    49 | `F6-05`    | `ready`    | Ingesta bajo demanda de la ventana de fundamentals que falta, con presupuesto, reanudación y auditoría point-in-time del sujeto.                                                                                          | `F6-01`          |
+|    50 | `F6-08`    | `queued`   | Precio del CEDEAR en BYMA y valor por CEDEAR en pesos con el CCL implícito del propio CEDEAR, con su ADR de fuente.                                                                                                       | `F6-04`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -3612,6 +3614,7 @@ repararon contra `source_documents`.
 | `F6-04` | Anotación de acceso CEDEAR sobre el registro de `F7-03`: si existe programa, su ratio vigente y su precio, sin fusionar los dos instrumentos.                                                                                         | `F6-02`    | `TM-05`, `TM-06`                   |
 | `F6-05` | Ingesta bajo demanda: si el ticker pedido no tiene la ventana de fundamentals, la corrida la baja con presupuesto y reanudación, y audita el contrato point-in-time del sujeto antes de valuar. No hay valuación por lote (ADR 0016). | `F6-01`    | `TM-06`, `TM-10`, `TM-11`, `TM-16` |
 | `F6-06` | Despliegue remoto: Postgres hosteada, protección del deployment verificada y walkthrough del owner sobre datos reales.                                                                                                                | `F6-03`    | `TM-14`, `UI-02`                   |
+| `F6-08` | Precio del CEDEAR en BYMA (símbolo de Caja de Valores, fuente con ADR) y valor por CEDEAR en pesos con el CCL implícito, sin feed MEP/CCL.                                                                                            | `F6-04`    | `TM-05`, `TM-06`, `TM-08`, `TM-10` |
 
 **Criterio agregado a `F6-05` el 2026-10-20.** Toda ingesta que dispare la
 app —la que baja la ventana que falta y cualquier reingesta o refresh de un
@@ -3740,6 +3743,39 @@ Evidencia:
   después «sólo el corte; los datos no cambiaron». 21 kB por corrida. Axe
   escritorio y móvil sin hallazgos nuevos (`region` en la sidebar y el hover del
   botón primario ya estaban). Una transcripción costó USD 0,0006.
+
+#### `F6-04` — acceso CEDEAR en el resultado (cerrado el 2026-10-21)
+
+Estado del slice: `done`. Partido por decisión del owner del mismo día: el
+precio del CEDEAR necesita el símbolo de BYMA —Caja de Valores lo publica y el
+parser lo descarta— y una fuente de precios en pesos que no existe, así que
+pasa a `F6-08` con su ADR. El valor en pesos también: el owner lo quiere, y el
+proyecto prohíbe MEP/CCL sin feed contractual, así que sale del CCL implícito
+del propio CEDEAR en ese slice. `F6-05` queda `ready`.
+
+- `/valuacion/[ticker]` agrega «Acceso por CEDEAR»: depositario, estado,
+  inversores, ISIN, código de Caja de Valores, ratio exacto y desde cuándo se lo
+  conoce, leídos del registro de `F7-03` con `resolveCedearAccess` **al corte
+  de la corrida** (`cedear-access-1.0.0`). Nada entra al snapshot: los hashes
+  no cambian.
+- `cedear-equivalent-1.0.0`: valor por acción × acciones subyacentes ÷ CEDEAR,
+  exacto, en la moneda de la corrida. Sin valor por acción o sin ratio, se
+  nombra el motivo; un valor negativo conserva su signo.
+- Sin programa: «ningún emisor lista uno» o «ninguno vigente al corte», que no
+  es lo mismo que «sin CEDEAR».
+- Controles: `TM-05` (ausencias con motivo, nunca cero), `TM-06` (un ratio
+  posterior al corte no convierte una corrida anterior; probado sobre el 10:1 →
+  20:1 de la fixture). La lectura no lleva IDs internos.
+
+Evidencia:
+
+- 2.918 unit (8 de la regla, 5 del acceso al corte) y 211 integration.
+  Formato, lint, tipos y build; 204 E2E con axe (2 omitidos). Detector de
+  Impeccable sin hallazgos.
+- Base personal, build servido: AAPL 20 CEDEAR = 1 acción (Banco Comafi),
+  7,19 USD por CEDEAR; AMZN 144 = 1, 0,79 USD. Axe en escritorio claro y móvil
+  oscuro sin hallazgos nuevos, sin desborde ni UUIDs. El primer pase tenía el
+  programa pegado al borde del encabezado; corregido.
 
 #### `F6-03` — resultado sobre empresa real (cerrado el 2026-10-21)
 

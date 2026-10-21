@@ -4,6 +4,7 @@ import {
   DEMO_CURRENT_SYMBOL,
   DEMO_IDENTITY_GRAPH,
 } from "@/modules/identity/infrastructure/demo-identity-fixtures";
+import type { StoredCedearRegistry } from "@/modules/cedears/domain/plan-cedear-registry";
 
 import {
   buildDemoValuationRun,
@@ -18,7 +19,12 @@ import {
   queueValuationJob,
   type ValuationJobOutcome,
 } from "../domain/valuation-job";
-import { readValuationResult, subjectAt } from "./read-valuation-result";
+import {
+  cedearAccessAt,
+  readValuationResult,
+  subjectAt,
+} from "./read-valuation-result";
+import type { ValuationRun } from "../domain/valuation-run";
 import type { ValuationJobStore } from "./valuation-job-store";
 
 const T0 = "2026-10-21T15:00:00.000Z";
@@ -38,6 +44,11 @@ const READING = {
 const universe = {
   loadState: async () => ({ graph: DEMO_IDENTITY_GRAPH, memberships: [] }),
 };
+const REGISTRY: StoredCedearRegistry = {
+  programs: DEMO_IDENTITY_GRAPH.depositaryPrograms,
+  ratios: DEMO_IDENTITY_GRAPH.depositaryRatios,
+};
+const cedears = { loadRegistry: async () => REGISTRY };
 
 let sequence = 0;
 
@@ -77,6 +88,7 @@ describe("readValuationResult", () => {
         jobs: createInMemoryValuationJobStore(),
         runs: createInMemoryValuationRunRepository(),
         universe,
+        cedears,
       },
     );
 
@@ -93,7 +105,12 @@ describe("readValuationResult", () => {
 
     const reading = await readValuationResult(
       { ticker: "AAPL" },
-      { jobs, runs: createInMemoryValuationRunRepository(), universe },
+      {
+        jobs,
+        runs: createInMemoryValuationRunRepository(),
+        universe,
+        cedears,
+      },
     );
 
     expect(reading.state).toBe("no_run");
@@ -120,7 +137,7 @@ describe("readValuationResult", () => {
 
     const reading = await readValuationResult(
       { ticker: "AAPL" },
-      { jobs, runs, universe },
+      { jobs, runs, universe, cedears },
     );
 
     expect(reading.state).toBe("run");
@@ -149,7 +166,7 @@ describe("readValuationResult", () => {
 
     const reading = await readValuationResult(
       { ticker: "AAPL" },
-      { jobs, runs, universe },
+      { jobs, runs, universe, cedears },
     );
 
     expect(reading.state === "run" && reading.newerGap).toBeNull();
@@ -177,5 +194,85 @@ describe("subjectAt", () => {
       entity.legalName,
     );
     expect(subjectAt(graph, run)).toBeNull();
+  });
+});
+
+/** La corrida demo leída a otro corte, con la misma política. */
+function atCutoff(instant: string): ValuationRun {
+  const base = buildDemoValuationRun();
+
+  return {
+    ...base,
+    provenance: {
+      ...base.provenance,
+      knowledge: {
+        ...base.provenance.knowledge,
+        revisionPolicy: "as_known",
+        effectiveAt: instant,
+        knownAt: instant,
+      },
+    },
+  };
+}
+
+describe("cedearAccessAt", () => {
+  it("converts the value with the ratio effective at the run's cutoff", () => {
+    const run = buildDemoValuationRun();
+    const access = cedearAccessAt(DEMO_IDENTITY_GRAPH, REGISTRY, run);
+
+    expect(access.status).toBe("program");
+    if (access.status !== "program") return;
+
+    const [program] = access.programs;
+    // El 10:1 terminó el 2024-09-01: a mediados de 2025 rige el 20:1.
+    expect(program?.ratio).toMatchObject({
+      depositaryUnits: "20",
+      underlyingUnits: "1",
+    });
+    expect(program?.equivalent).toMatchObject({ status: "computed" });
+    expect(
+      program?.equivalent.status === "computed" &&
+        Number(program.equivalent.value) * 20,
+    ).toBeCloseTo(Number(run.result!.valuePerShare), 10);
+    expect(JSON.stringify(access)).not.toMatch(
+      /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/u,
+    );
+  });
+
+  it("uses the earlier ratio for a run whose cutoff precedes the change", () => {
+    const run = atCutoff("2024-08-01T00:00:00.000Z");
+    const access = cedearAccessAt(DEMO_IDENTITY_GRAPH, REGISTRY, run);
+
+    expect(
+      access.status === "program" && access.programs[0]?.ratio?.depositaryUnits,
+    ).toBe("10");
+  });
+
+  it("does not see a program before it was first observed", () => {
+    const run = atCutoff("2020-01-01T00:00:00.000Z");
+
+    expect(cedearAccessAt(DEMO_IDENTITY_GRAPH, REGISTRY, run)).toEqual({
+      rule: "cedear-access-1.0.0",
+      status: "none_known",
+      reason: "not_effective_at_cutoff",
+    });
+  });
+
+  it("names a security that no issuer lists", () => {
+    const run = buildDemoValuationRun();
+
+    expect(
+      cedearAccessAt(DEMO_IDENTITY_GRAPH, { programs: [], ratios: [] }, run),
+    ).toMatchObject({ status: "none_known", reason: "no_program_recorded" });
+  });
+
+  it("has no value per CEDEAR for a rejected run", () => {
+    const base = buildDemoValuationRun();
+    const run = { ...base, result: null };
+    const access = cedearAccessAt(DEMO_IDENTITY_GRAPH, REGISTRY, run);
+
+    expect(
+      access.status === "program" && access.programs[0]?.equivalent,
+    ).toMatchObject({ status: "unavailable", reason: "no_value_per_share" });
   });
 });
