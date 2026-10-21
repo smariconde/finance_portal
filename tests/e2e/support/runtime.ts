@@ -81,11 +81,12 @@ export const LOCKED_ENVIRONMENT: Record<string, string> = {
 export const DESKTOP_VIEWPORT = { width: 1440, height: 900 } as const;
 export const MOBILE_VIEWPORT = { width: 390, height: 844 } as const;
 
-/** Las tres rutas que el portal sirve hoy, más la 404. */
+/** Las rutas que el portal sirve hoy, más la 404. */
 export const ROUTES = {
   home: "/",
   configuration: "/configuracion",
   reference: "/valuacion/referencia",
+  valuation: "/valuacion",
   sectors: "/sectores",
   sectorMatrix: "/sectores/communication-services",
   missing: "/ruta-que-no-existe",

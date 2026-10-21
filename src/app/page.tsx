@@ -161,6 +161,28 @@ export default async function HomePage() {
           <div className="flex flex-col gap-6">
             <Card>
               <CardHeader>
+                <CardTitle as="h2">Corrida por ticker</CardTitle>
+                <CardDescription>
+                  Encola la evaluación de una empresa del universo con lo ya
+                  guardado. No publica un valor por acción.
+                </CardDescription>
+                <CardAction>
+                  <StatusMark status="ready" label="Disponible" />
+                </CardAction>
+              </CardHeader>
+              <CardContent>
+                <Link
+                  href="/valuacion"
+                  className={cn(buttonVariants({ size: "sm" }))}
+                >
+                  Encolar una evaluación
+                  <ArrowRight data-icon="inline-end" />
+                </Link>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
                 <CardTitle as="h2">Corrida de referencia del motor</CardTitle>
                 <CardDescription>
                   Un snapshot fijo recorre el motor FCFF y debe reproducir

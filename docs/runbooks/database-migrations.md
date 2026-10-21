@@ -100,6 +100,8 @@ revertir:
 3. verificar backup/restore;
 4. revisar dependencias creadas después de la migración;
 5. ejecutar manualmente el SQL pareado, en orden inverso al de aplicación:
+   - `drizzle/rollback/0031_ancient_riptide.down.sql` (la tabla `valuation_jobs`
+     y sus tres enums; falla mientras haya una corrida encolada);
    - `drizzle/rollback/0014_worthless_mockingbird.down.sql` (el presupuesto diario
      y el kill switch por fuente; falla mientras alguna fuente esté frenada);
    - `drizzle/rollback/0013_medical_the_phantom.down.sql` (la tabla

@@ -69,7 +69,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    41 | `F4-04`    | `done`     | Escenarios bear/base/bull como conjuntos coherentes de supuestos en el mismo snapshot, recalculados enteros por el motor y sometidos a los mismos checks que la base.                                                     | `F4-03`          |
 |    42 | `F4-05`    | `done`     | Probabilidad de fracaso del rating sintético con recupero sobre el capital en libros, y opciones de empleados valuadas con Black-Scholes ajustado por dilución y restadas del equity, con básicas + RSU como denominador. | `F4-03`          |
 |    43 | `F4-06`    | `done`     | Bancos/aseguradoras, cíclicas/commodities, pérdidas/high growth y REIT entregados como experimentales con gates independientes. Holdings/SOTP y distress diferidos hasta demanda observada.                               | `F4-04`, `F4-05` |
-|    44 | `F6-01`    | `ready`    | Corrida por ticker como job encolado con estado y controles en la frontera web; sin proveedores durante el render.                                                                                                        | Fase 4, Fase 5   |
+|    44 | `F6-01`    | `done`     | Corrida por ticker encolada con estado; la acción evalúa lo guardado y nombra el hueco, sin valor ni red durante el render.                                                                                               | Fase 4, Fase 5   |
+|    45 | `F6-02`    | `ready`    | Historial de corridas: volver a ver, refrescar lo que cambió y comparar contra la anterior sin sobrescribirla.                                                                                                            | `F6-01`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -3624,6 +3625,45 @@ que falla, no para lo que no hubo cómo probar. Cuesta lecturas, no requests.
 ejecuta sobre la primera valuación real, con el protocolo del
 [runbook](../runbooks/owner-walkthrough.md).
 
+#### `F6-01` — corrida por ticker encolada (cerrado el 2026-10-21)
+
+Estado del slice: `done`. No cierra el gate de la Fase 6: no hay una valuación
+completa persistida. `F6-02` queda `ready`.
+
+- Regla `valuation-job-1.0.0`. Tabla `valuation_jobs` (migración `0031`), un job
+  abierto por ticker normalizado. Estados `queued`, `running`, `completed`. Un
+  arranque de más de dos minutos se retoma con otro token; el cierre exige el
+  token que reclamó.
+- El worker resuelve el ticker al corte del encolado (`as_known`, versiones
+  cerradas incluidas) y corre `assessCompany` sobre lo guardado. No abre la red,
+  no llama al modelo y no escribe `valuation_runs`: no hay snapshot de supuestos.
+- Huecos: `unresolved_ticker`, `ambiguous_ticker`, `identity_conflict`,
+  `cik_missing`, `annual_fundamentals` (el gancho de `F6-05`), `unsupported_method`,
+  `snapshot_not_assembled` y `assessment_failed`.
+- `enqueueValuation` ([ADR 0045](../architecture/adr/0045-ticker-valuation-job.md)):
+  modo resuelto en el request; esquema ticker más intento `enqueue` o `status`;
+  respuesta de códigos. El render de `/valuacion` no abre PostgreSQL. Un runtime
+  trabado muestra la negativa. La vista pública no lleva UUIDs, SQL ni el token.
+- Controles: `TM-03` para esta frontera, `TM-07` (consultas parametrizadas,
+  `limit 1`), `TM-12` (el ticker inválido no se repite; el resultado es texto).
+  `TM-10` no se ejerce: no hay socket.
+
+Evidencia:
+
+- 2.861 unit y 209 integration. El contrato del store corre en memoria y en
+  PostgreSQL: segundo encolado del mismo ticker, job cerrado que permite otro,
+  cierre con token ajeno y retoma de un arranque viejo.
+- Tipos, lint, formato y build Turbopack pasan. `/valuacion` queda dinámica.
+  185 E2E pasan, 2 omitidos; axe en personal y trabado; 724 archivos de `.next/`
+  sin centinelas. Detector de Impeccable sobre la página, el formulario, la home
+  y la sidebar: sin hallazgos.
+- En el runtime personal, AAPL termina en `snapshot_not_assembled` (perfil no
+  financiera madura, `fcff_base`, rigor estándar) y ZZZZ en
+  `unresolved_ticker`. Un CIK no se encola y la página no lo repite. Sin valor
+  por acción y sin red.
+- Migración `0031` aplicada en la base de test por la suite y en la personal con
+  `pnpm db:migrate`. Rollback pareado: se niega si hay filas.
+
 ### Fase 7 — matrices sectoriales de riesgo
 
 Sin screener general ([ADR 0016](../architecture/adr/0016-analysis-scope-sector-matrices.md)).
@@ -4357,7 +4397,7 @@ probar el control; fases posteriores pueden volver a verificarlo.
 | ------- | --------------------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `TM-01` | `F1-02`                                 | `F1-07`, `F2-01`, `F5-02`, `F6-06`       | `done`: composición falla cerrada y el modo se resuelve en el request; el mismo build niega o sirve según su entorno                                                                                                                                                                            |
 | `TM-02` | `F1-02`                                 | cada frontera, `F10-03`                  | `done`: DB server-only y URLs pooled/direct separadas probadas                                                                                                                                                                                                                                  |
-| `TM-03` | `F6-01`, primera Route Handler real     | `F5-02`, `F10-04`                        | required: la corrida por ticker es la primera frontera real; `F1-07` probó las de composición                                                                                                                                                                                                   |
+| `TM-03` | `F6-01`, frontera de la corrida         | `F5-02`, `F10-04`                        | `done` para `refreshSectorPrices` (ADR 0030) y para `enqueueValuation` (ADR 0045): esquema cerrado, modo en el request, respuesta de códigos. `F1-07` probó las de composición                                                                                                                  |
 | `TM-04` | `F1-02`                                 | `F1-07`, `F2-01`, `F10-01`               | `done`: cache namespaced por modo; sólo `personal` construye almacenamiento, verificado sobre el artefacto servido                                                                                                                                                                              |
 | `TM-05` | `F1-03`                                 | `F2-03`, `F3-03`, cada parser/modelo     | `done` de ingesta a publicación: vacío y parser roto no publican ni reemplazan                                                                                                                                                                                                                  |
 | `TM-06` | `F1-04`                                 | `F2-02`, `F4-01`, `F6-05`, cada consulta | `done` de la consulta a la valuación: dos cortes producen dos corridas distintas                                                                                                                                                                                                                |

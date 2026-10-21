@@ -1641,6 +1641,113 @@ export const valuationRuns = pgTable(
   ],
 );
 
+export const valuationJobStatus = pgEnum("valuation_job_status", [
+  "queued",
+  "running",
+  "completed",
+]);
+
+export const valuationJobIdentity = pgEnum("valuation_job_identity", [
+  "resolved",
+  "ambiguous",
+  "not_found",
+  "conflict",
+]);
+
+export const valuationJobGap = pgEnum("valuation_job_gap", [
+  "unresolved_ticker",
+  "ambiguous_ticker",
+  "identity_conflict",
+  "cik_missing",
+  "annual_fundamentals",
+  "unsupported_method",
+  "snapshot_not_assembled",
+  "assessment_failed",
+]);
+
+/**
+ * Corrida por ticker encolada (`F6-01`, ADR 0045).
+ *
+ * No es un job de ingesta: no tiene fuente ni lease. Una fila es un pedido del
+ * owner. El índice único parcial impide dos abiertos para el mismo ticker, y
+ * el token cerca el cierre para que un worker reemplazado no escriba tarde.
+ * Los instantes los pone la aplicación.
+ */
+export const valuationJobs = pgTable(
+  "valuation_jobs",
+  {
+    jobId: uuid("job_id").primaryKey(),
+    ticker: varchar("ticker", { length: 16 }).notNull(),
+    status: valuationJobStatus("status").notNull(),
+    knownAt: instant("known_at").notNull(),
+    ruleVersion: varchar("rule_version", { length: 64 }).notNull(),
+    identityStatus: valuationJobIdentity("identity_status"),
+    legalEntityId: uuid("legal_entity_id"),
+    securityId: uuid("security_id"),
+    listingId: uuid("listing_id"),
+    gap: valuationJobGap("gap"),
+    methodStatus: varchar("method_status", { length: 32 }),
+    assetProfile: varchar("asset_profile", { length: 32 }),
+    method: varchar("method", { length: 64 }),
+    rigor: varchar("rigor", { length: 16 }),
+    unsupportedReason: varchar("unsupported_reason", { length: 64 }),
+    claimToken: uuid("claim_token"),
+    createdAt: instant("created_at").notNull(),
+    startedAt: instant("started_at"),
+    finishedAt: instant("finished_at"),
+  },
+  (table) => [
+    uniqueIndex("valuation_jobs_open_ticker_uidx")
+      .on(table.ticker)
+      .where(sql`${table.status} in ('queued', 'running')`),
+    index("valuation_jobs_ticker_idx").on(table.ticker, table.createdAt),
+    check(
+      "valuation_jobs_ticker_check",
+      sql`${table.ticker} ~ '^[A-Z][A-Z0-9.-]{0,15}$'`,
+    ),
+    check(
+      "valuation_jobs_rule_check",
+      sql`${table.ruleVersion} = 'valuation-job-1.0.0'`,
+    ),
+    check(
+      "valuation_jobs_phase_check",
+      sql`case ${table.status}
+        when 'queued' then ${table.startedAt} is null and ${table.finishedAt} is null and ${table.gap} is null and ${table.claimToken} is null and ${table.identityStatus} is null and ${table.legalEntityId} is null
+        when 'running' then ${table.startedAt} is not null and ${table.finishedAt} is null and ${table.gap} is null and ${table.claimToken} is not null and ${table.identityStatus} is null and ${table.legalEntityId} is null
+        else ${table.startedAt} is not null and ${table.finishedAt} is not null and ${table.gap} is not null and ${table.claimToken} is null
+      end`,
+    ),
+    check(
+      "valuation_jobs_timeline_check",
+      sql`${table.knownAt} <= ${table.createdAt}
+        and (${table.startedAt} is null or ${table.startedAt} >= ${table.createdAt})
+        and (${table.finishedAt} is null or (${table.startedAt} is not null and ${table.finishedAt} >= ${table.startedAt}))`,
+    ),
+    check(
+      "valuation_jobs_identity_check",
+      sql`(${table.gap} = 'unresolved_ticker') = (${table.identityStatus} is not null and ${table.identityStatus} = 'not_found')
+        and (${table.gap} = 'ambiguous_ticker') = (${table.identityStatus} is not null and ${table.identityStatus} = 'ambiguous')
+        and (${table.gap} = 'identity_conflict') = (${table.identityStatus} is not null and ${table.identityStatus} = 'conflict')
+        and (${table.legalEntityId} is not null) = (${table.identityStatus} is not null and ${table.identityStatus} = 'resolved')
+        and (${table.securityId} is null or ${table.legalEntityId} is not null)
+        and (${table.listingId} is null or ${table.securityId} is not null)
+        and (${table.gap} is null or ${table.gap} in ('unresolved_ticker', 'ambiguous_ticker', 'identity_conflict', 'assessment_failed') or ${table.legalEntityId} is not null)`,
+    ),
+    check(
+      "valuation_jobs_method_check",
+      sql`(${table.methodStatus} is null or ${table.methodStatus} in ('selected', 'unsupported_method'))
+        and (${table.assetProfile} is null or ${table.assetProfile} in ('non_financial_mature', 'high_growth', 'loss_making', 'bank', 'insurer', 'reit', 'cyclical', 'commodity', 'holding', 'distressed'))
+        and (${table.method} is null or ${table.method} in ('fcff_base', 'fcff_three_stage', 'revenue_margin_survival', 'excess_return', 'affo_nav', 'normalized_fcff', 'sotp_nav', 'apv_scenarios'))
+        and (${table.rigor} is null or ${table.rigor} in ('full', 'standard', 'screening', 'unsupported'))
+        and (${table.unsupportedReason} is null or ${table.unsupportedReason} in ('missing_classification_evidence', 'conflicting_evidence', 'method_not_implemented', 'missing_required_input'))
+        and ((${table.gap} = 'snapshot_not_assembled') is not distinct from (${table.methodStatus} = 'selected' and ${table.method} is not null and ${table.assetProfile} is not null and ${table.rigor} is not null and ${table.unsupportedReason} is null) or ${table.gap} is distinct from 'snapshot_not_assembled')
+        and ((${table.gap} = 'unsupported_method') is not distinct from (${table.methodStatus} = 'unsupported_method' and ${table.unsupportedReason} is not null) or ${table.gap} is distinct from 'unsupported_method')
+        and (${table.methodStatus} is null or ${table.gap} in ('snapshot_not_assembled', 'unsupported_method', 'annual_fundamentals'))
+        and (${table.methodStatus} is not null or (${table.method} is null and ${table.assetProfile} is null and ${table.rigor} is null and ${table.unsupportedReason} is null))`,
+    ),
+  ],
+);
+
 /**
  * Grafo de identidad persistido (`F2-02`).
  *
