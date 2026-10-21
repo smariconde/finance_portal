@@ -15,6 +15,7 @@ import {
   isKnownAt,
   type TemporalVersion,
 } from "@/modules/temporal/domain/temporal-version";
+import type { PriceRepository } from "@/modules/prices/application/price-repository";
 import type { UniverseRepository } from "@/modules/universe/application/universe-repository";
 import { SP500_INDEX_ID } from "@/modules/universe/application/live-universe-source";
 
@@ -22,6 +23,15 @@ import {
   cedearEquivalent,
   type CedearEquivalent,
 } from "../domain/cedear-equivalent";
+import {
+  compareWithMarketPrice,
+  marketImpliedContext,
+  marketImpliedExpectations,
+  type MarketClose,
+  type MarketImplied,
+  type MarketImpliedContext,
+  type MarketPriceComparison,
+} from "../domain/market-implied";
 import {
   valuationTickerSchema,
   type ValuationJob,
@@ -89,6 +99,22 @@ export type ValuationResultCedear = {
     }
 );
 
+/**
+ * El precio contra el valor (`F6-09`, ADR 0048): el cierre crudo al `as_of`
+ * de la corrida, lo que ese precio exige de cada driver y contra qué leerlo.
+ * Sale de la serie guardada y de la propia corrida; nada entra al snapshot.
+ */
+export type ValuationResultMarket = {
+  readonly comparison: MarketPriceComparison;
+  readonly implied: MarketImplied;
+  readonly context: MarketImpliedContext;
+  /**
+   * El último cierre guardado cuando es posterior al corte: la corrida no lo
+   * vio, y compararlo con su valor mezclaría dos fechas. Se muestra al lado.
+   */
+  readonly latestClose: MarketClose | null;
+};
+
 export type ValuationResultJob = {
   readonly knownAt: string;
   readonly finishedAt: string | null;
@@ -122,6 +148,7 @@ export type ValuationResultReading =
       readonly newerGap: ValuationResultNewerGap | null;
       readonly subject: ValuationResultSubject | null;
       readonly cedear: ValuationResultCedear;
+      readonly market: ValuationResultMarket;
     };
 
 export type ValuationResultDependencies = {
@@ -129,7 +156,47 @@ export type ValuationResultDependencies = {
   readonly runs: Pick<ValuationRunRepository, "findById">;
   readonly universe: Pick<UniverseRepository, "loadState">;
   readonly cedears: Pick<CedearRegistryRepository, "loadRegistry">;
+  readonly prices: Pick<PriceRepository, "loadSeries" | "loadEvents">;
 };
+
+/** Ocho años de ruedas: más que eso, el corte es demasiado viejo para leer. */
+const MARKET_CLOSES_LIMIT = 2_000;
+
+/**
+ * El precio al corte de la corrida y lo que exige. Se leen las ruedas desde
+ * el `as_of` —la del corte y la última guardada— y los splits, que deciden si
+ * precio y valor hablan de las mismas acciones.
+ */
+export async function marketAt(
+  run: ValuationRun,
+  prices: ValuationResultDependencies["prices"],
+): Promise<ValuationResultMarket> {
+  const securityId = run.subject.securityId;
+  const [closes, events] = await Promise.all([
+    prices.loadSeries({
+      securityId,
+      from: run.asOf,
+      to: null,
+      limit: MARKET_CLOSES_LIMIT,
+    }),
+    prices.loadEvents({ securityId }),
+  ]);
+  const readable = closes.map(({ marketDate, close, currency }) => ({
+    marketDate,
+    close,
+    currency,
+  }));
+  const comparison = compareWithMarketPrice({ run, closes: readable, events });
+  const latest = readable.at(-1);
+
+  return {
+    comparison,
+    implied: marketImpliedExpectations({ run, comparison }),
+    context: marketImpliedContext(run.input),
+    latestClose:
+      latest === undefined || latest.marketDate <= run.asOf ? null : latest,
+  };
+}
 
 function jobReading(job: ValuationJob): ValuationResultJob {
   return { knownAt: job.knownAt, finishedAt: job.finishedAt };
@@ -295,13 +362,14 @@ export async function readValuationResult(
   }
 
   const run = parsed.data;
-  const [state, registry] = await Promise.all([
+  const [state, registry, market] = await Promise.all([
     dependencies.universe.loadState({
       indexId: SP500_INDEX_ID,
       versions: "all",
       limit: 50_000,
     }),
     dependencies.cedears.loadRegistry({}),
+    marketAt(run, dependencies.prices),
   ]);
 
   return {
@@ -312,5 +380,6 @@ export async function readValuationResult(
     newerGap: recordedIndex === 0 ? null : gapReading(latest),
     subject: subjectAt(state.graph, run),
     cedear: cedearAccessAt(state.graph, registry, run),
+    market,
   };
 }
