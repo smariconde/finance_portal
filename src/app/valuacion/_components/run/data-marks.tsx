@@ -1,11 +1,15 @@
 import {
+  BookOpen,
+  Calculator,
   CheckCircle2,
   CircleSlash,
   Clock3,
   FileText,
   OctagonX,
+  ScanText,
   Sliders,
   TriangleAlert,
+  UserCheck,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -91,6 +95,28 @@ const EVIDENCE_KIND = {
     className: INFORMATIVE,
   },
   assumption: { label: "Supuesto", icon: Sliders, className: CAUTION },
+  /*
+   * Las tres que siguen son supuestos con su origen nombrado (`F6-03`). Comparten
+   * el ámbar del supuesto porque son juicio, no dato; el icono y la etiqueta
+   * dicen quién juzgó.
+   */
+  derived_by_rule: {
+    label: "Derivado por regla",
+    icon: Calculator,
+    className: CAUTION,
+  },
+  ai_proposal: { label: "Propuesta de IA", icon: ScanText, className: CAUTION },
+  owner_declaration: {
+    label: "Declaración del owner",
+    icon: UserCheck,
+    className: CAUTION,
+  },
+  /** Una tabla publicada por un tercero, fechada por su release. */
+  reference_data: {
+    label: "Dato de referencia",
+    icon: BookOpen,
+    className: NEUTRAL,
+  },
   declared_absent: {
     label: "Ausencia declarada",
     icon: CircleSlash,

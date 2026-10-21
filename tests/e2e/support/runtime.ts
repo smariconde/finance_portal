@@ -87,6 +87,7 @@ export const ROUTES = {
   configuration: "/configuracion",
   reference: "/valuacion/referencia",
   valuation: "/valuacion",
+  valuationResult: "/valuacion/AAPL",
   sectors: "/sectores",
   sectorMatrix: "/sectores/communication-services",
   missing: "/ruta-que-no-existe",

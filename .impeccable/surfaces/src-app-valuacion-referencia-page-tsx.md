@@ -4,12 +4,12 @@ slug: "src-app-valuacion-referencia-page-tsx"
 primary_target: "src/app/valuacion/referencia/page.tsx"
 related_targets:
   [
-    "src/app/valuacion/referencia/_components/run-headline.tsx",
-    "src/app/valuacion/referencia/_components/evidence-table.tsx",
-    "src/app/valuacion/referencia/_components/assumptions-tables.tsx",
-    "src/app/valuacion/referencia/_components/equity-bridge-table.tsx",
-    "src/app/valuacion/referencia/_components/sensitivity-matrix.tsx",
-    "src/app/valuacion/referencia/_components/data-marks.tsx",
+    "src/app/valuacion/_components/run/run-headline.tsx",
+    "src/app/valuacion/_components/run/evidence-table.tsx",
+    "src/app/valuacion/_components/run/assumptions-tables.tsx",
+    "src/app/valuacion/_components/run/equity-bridge-table.tsx",
+    "src/app/valuacion/_components/run/sensitivity-matrix.tsx",
+    "src/app/valuacion/_components/run/data-marks.tsx",
     "src/app/_components/app-sidebar.tsx",
   ]
 ---

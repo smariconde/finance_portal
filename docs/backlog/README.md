@@ -72,7 +72,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    44 | `F6-01`    | `done`     | Corrida por ticker encolada con estado; la acción evalúa lo guardado y nombra el hueco, sin valor ni red durante el render.                                                                                               | Fase 4, Fase 5   |
 |    45 | `F6-07`    | `done`     | Supuestos `fcff_base` derivados de lo guardado por una regla versionada; el job arma el snapshot, corre el motor y registra la corrida, o nombra el faltante.                                                             | `F6-01`          |
 |    46 | `F6-02`    | `done`     | Historial de corridas: volver a ver, refrescar lo que cambió y comparar contra la anterior sin sobrescribirla.                                                                                                            | `F6-07`          |
-|    47 | `F6-03`    | `ready`    | Superficie de resultado sobre empresa real con nivel de rigor, provenance y supuestos distinguidos de los hechos.                                                                                                         | `F6-02`          |
+|    47 | `F6-03`    | `done`     | Superficie de resultado sobre empresa real con nivel de rigor, provenance y supuestos distinguidos de los hechos.                                                                                                         | `F6-02`          |
+|    48 | `F6-04`    | `ready`    | Anotación de acceso CEDEAR sobre el registro de `F7-03` en el resultado: programa, ratio vigente y precio, sin fusionar instrumentos.                                                                                     | `F6-02`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -3739,6 +3740,53 @@ Evidencia:
   después «sólo el corte; los datos no cambiaron». 21 kB por corrida. Axe
   escritorio y móvil sin hallazgos nuevos (`region` en la sidebar y el hover del
   botón primario ya estaban). Una transcripción costó USD 0,0006.
+
+#### `F6-03` — resultado sobre empresa real (cerrado el 2026-10-21)
+
+Estado del slice: `done`. No cierra el gate de la Fase 6: falta que una empresa
+sin fundamentals los baje (`F6-05`) y el despliegue remoto (`F6-06`). `F6-04`
+(acceso CEDEAR en el resultado) queda `ready`.
+
+- `/valuacion/[ticker]`: la última corrida que un job del ticker registró, leída
+  al render por `readValuationResult` (sin migración). Si un pedido más nuevo
+  terminó sin corrida, un aviso lo dice con su hueco. La identidad (nombre,
+  listing, símbolo, CIK) se lee **al corte de la corrida**, con versiones
+  cerradas. Estados con nombre: `not_requested`, `no_run`, `unsupported_run`.
+- Decisiones del owner del 2026-10-21: sólo la última corrida, sin precio de
+  mercado ni upside, y una corrida en revisión muestra el valor con el aviso
+  arriba.
+- La página reutiliza la cadena de evidencia de la referencia, movida a
+  `src/app/valuacion/_components/run/` (con `RunChecks` extraído), y agrega:
+  rigor y método con las nueve comprobaciones; leyenda del origen de cada dato;
+  decisiones cualitativas con su base (SIC, owner o IA con modelo, versiones,
+  accession, digest y la cita del 10-K); costo de capital con los nueve
+  parámetros por release y lo derivado; la regla `derived-assumptions-1.0.0` con
+  la historia de ventas que congeló, y el libro de ajustes de la normalización.
+- Marcas nuevas (`UI-03`): `Derivado por regla`, `Propuesta de IA` y
+  `Declaración del owner` en el ámbar del supuesto; `Dato de referencia`
+  neutral. Siempre icono y etiqueta. El formulario de `/valuacion` enlaza al
+  resultado cuando registró una corrida, y el copy de huecos se comparte.
+- Controles: `TM-12` (segmento validado antes de leer, inválido es 404 sin
+  eco; `aapl` redirige a `AAPL`; texto del modelo escapado), `TM-15` (atribución
+  de Damodaran desde el registro declarado), `TM-02` (fallo de lectura sin
+  detalle, sin UUIDs en el HTML), `UI-02` (reflow a 390 px sin desborde) y
+  `UI-03`.
+
+Evidencia:
+
+- 2.905 unit (5 nuevos del lector: sin pedido, sin corrida, pedido más nuevo
+  fallido, identidad al corte que no deja pasar una versión posterior) y 211
+  integration. Formato, lint, tipos y build; `/valuacion/[ticker]` construye
+  como `◐`. 204 E2E con axe (2 omitidos): la ruta nueva entra en las
+  recorridas de axe, centinelas y capturas de los dos runtimes, y su spec
+  prueba la negativa sin base, la URL canónica y el 404 sin eco.
+- Base personal, 2026-10-21: transcripciones de opciones aceptadas para AAPL y
+  AMZN (USD 0,002, ninguna con opciones) y dos corridas `computed`. AAPL
+  143,82 USD por acción, rigor estándar degradado por el mix geográfico.
+  Build servido: axe sin hallazgos nuevos en escritorio claro y móvil oscuro
+  (`region` en la sidebar ya estaba), sin desborde horizontal, sin UUIDs, 0,6–1,3
+  s por render. El primer pase encontró una tabla de completitud desplazable
+  por un píxel sin foco; corregido. Detector de Impeccable sin hallazgos.
 
 ### Fase 7 — matrices sectoriales de riesgo
 

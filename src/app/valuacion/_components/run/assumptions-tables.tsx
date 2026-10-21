@@ -21,7 +21,7 @@ import {
 } from "@/modules/valuation/domain/display-format";
 import type { ValuationRun } from "@/modules/valuation/domain/valuation-run";
 
-import { EvidenceKindMark } from "./data-marks";
+import { EvidenceKindMark, type EvidenceKind } from "./data-marks";
 
 /**
  * Supuestos del modelo y la proyección que producen.
@@ -35,7 +35,17 @@ function Amount({ value }: { value: string }) {
   return <span className="numeric">{formatAmount(value)}</span>;
 }
 
-export function AssumptionsTables({ run }: { run: ValuationRun }) {
+export function AssumptionsTables({
+  run,
+  assumptionsKind = "assumption",
+}: {
+  run: ValuationRun;
+  /**
+   * Quién decidió los supuestos. En la referencia son del snapshot fijo; en
+   * una corrida por ticker los derivó una regla (`F6-07`).
+   */
+  assumptionsKind?: Extract<EvidenceKind, "assumption" | "derived_by_rule">;
+}) {
   const result = run.result;
   const terminal = run.input.terminal;
 
@@ -52,7 +62,7 @@ export function AssumptionsTables({ run }: { run: ValuationRun }) {
       <CardContent className="px-0">
         <div className="flex flex-wrap items-center gap-2 px-(--card-spacing) pb-3">
           <h3 className="text-sm font-medium">Supuestos declarados</h3>
-          <EvidenceKindMark kind="assumption" />
+          <EvidenceKindMark kind={assumptionsKind} />
         </div>
         <Table containerLabel="Supuestos declarados, tabla desplazable">
           <TableHeader>

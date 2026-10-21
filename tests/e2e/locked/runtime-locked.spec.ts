@@ -51,6 +51,7 @@ test.describe("negativa del runtime trabado", () => {
   test("niega la corrida por ticker y las matrices", async ({ page }) => {
     for (const [route, surface] of [
       [ROUTES.valuation, "La corrida por ticker"],
+      [ROUTES.valuationResult, "El resultado de la valuación"],
       [ROUTES.sectors, "Las matrices por sector"],
       [ROUTES.sectorMatrix, "La matriz de riesgo sectorial"],
     ] as const) {
