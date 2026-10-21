@@ -18,6 +18,9 @@ import {
 import {
   DERIVED_EXPLICIT_YEARS,
   DERIVED_HOLD_YEARS,
+  explainDerivation,
+  type DerivationExplanation,
+  type TerminalReturnBasis,
 } from "@/modules/valuation/domain/derived-assumptions";
 import {
   formatAmount,
@@ -32,8 +35,104 @@ import {
   notAppliedReasonLabel,
 } from "./labels";
 
+const TERMINAL_RETURN_COPY: Record<TerminalReturnBasis, string> = {
+  cost_of_capital:
+    "igual al WACC terminal: el crecimiento a perpetuidad no crea valor",
+  industry:
+    "el ROC de su industria según Damodaran, menor que el ROIC propio: la ventaja se acerca a la de la industria",
+  company:
+    "su propio ROIC ajustado, menor que el de su industria: no se la supone mejor que hoy",
+  cost_of_capital_floor:
+    "igual al WACC terminal, porque ni la industria ni la empresa lo superan",
+  no_industry_reference:
+    "igual al WACC terminal, porque no hay ROC de la industria visible al corte",
+  no_company_return:
+    "igual al WACC terminal, porque el ROIC ajustado del año base no se pudo calcular",
+};
+
+function percent(value: string): string {
+  return formatPercent(value, { scale: 2 });
+}
+
+/** La regla `2.0.0`: tendencia, ventanas, ROIC terminal y escenarios. */
+function RuleV2({
+  run,
+  explanation,
+}: {
+  run: ValuationRun;
+  explanation: DerivationExplanation;
+}) {
+  const first = run.input.periods[0]!;
+  const industry = explanation.industryReturn;
+
+  return (
+    <>
+      <li>
+        Crecimiento de ventas de{" "}
+        <span className="numeric font-medium text-foreground">
+          {percent(first.revenueGrowth)}
+        </span>
+        : la tendencia log-lineal de los ejercicios de la tabla, que usa todos
+        los años y no sólo las puntas
+        {explanation.windows.length === 0
+          ? ""
+          : ` (entre puntas: ${explanation.windows
+              .map(
+                (window) =>
+                  `${percent(window.cagr)} en ${window.years} ${window.years === 1 ? "año" : "años"}`,
+              )
+              .join(", ")})`}
+        . Se sostiene {DERIVED_HOLD_YEARS} años y converge a la libre de riesgo,
+        que es también el crecimiento terminal (
+        <span className="numeric font-medium text-foreground">
+          {percent(run.input.terminal.growth)}
+        </span>
+        ).
+      </li>
+      <li>
+        Margen EBIT ajustado y sales-to-capital del ejercicio base, iguales en
+        los {DERIVED_EXPLICIT_YEARS} años.
+      </li>
+      <li>
+        Tasa impositiva aplicada que converge a la marginal, y WACC que converge
+        al terminal, en los años {DERIVED_HOLD_YEARS + 1} a{" "}
+        {DERIVED_EXPLICIT_YEARS}.
+      </li>
+      <li>
+        ROIC terminal de{" "}
+        <span className="numeric font-medium text-foreground">
+          {percent(run.input.terminal.returnOnCapital)}
+        </span>
+        : {TERMINAL_RETURN_COPY[explanation.terminalReturnBasis]}.{" "}
+        {industry === null ? null : (
+          <>
+            Industria <span className="numeric">{percent(industry.value)}</span>{" "}
+            ({industry.publishedLabel ?? "release sin fecha publicada"}
+            {" · "}
+            <CodeValue>{industry.rowKey}</CodeValue>)
+          </>
+        )}
+        {explanation.baseReturn === null ? null : (
+          <>
+            {industry === null ? "" : ", "}empresa{" "}
+            <span className="numeric">{percent(explanation.baseReturn)}</span>,
+            WACC terminal{" "}
+            <span className="numeric">{percent(run.input.terminal.wacc)}</span>.
+          </>
+        )}
+      </li>
+      <li>
+        {run.input.scenarios === null
+          ? "Sin escenarios: bear o bull no cambiarían ningún supuesto respecto de la base."
+          : "Bear y bull salen de lo medido: el crecimiento más bajo y más alto entre la tendencia y las ventanas, y el ROIC terminal en el WACC (sin ventaja) o en el propio de la empresa (ventaja intacta)."}
+      </li>
+    </>
+  );
+}
+
 /**
- * Cómo salieron los supuestos (`F6-07`, `derived-assumptions-1.0.0`) y qué
+ * Cómo salieron los supuestos (`F6-07`, `derived-assumptions-1.0.0` y
+ * `2.0.0` desde `F6-10`) y qué
  * ajustes llevaron el ejercicio base de reportado a ajustado (`F4-03`).
  *
  * Nada acá recalcula: el crecimiento inicial es el del primer período de la
@@ -45,6 +144,14 @@ export function DerivationSummary({ run }: { run: ValuationRun }) {
   const derivation = run.input.derivedAssumptions;
   const first = run.input.periods[0];
   const ledger = run.input.normalization.ledger;
+  const explanation =
+    derivation === undefined
+      ? null
+      : explainDerivation({
+          derivation,
+          normalization: run.input.normalization,
+          costOfCapital: run.input.costOfCapital,
+        });
 
   return (
     <Card>
@@ -70,33 +177,39 @@ export function DerivationSummary({ run }: { run: ValuationRun }) {
               <EvidenceKindMark kind="derived_by_rule" />
             </div>
             <ul className="flex list-disc flex-col gap-1.5 pl-5 text-sm text-muted-foreground">
-              <li>
-                Crecimiento de ventas de{" "}
-                <span className="numeric font-medium text-foreground">
-                  {formatPercent(first.revenueGrowth, { scale: 2 })}
-                </span>
-                : el CAGR de los {derivation.revenueHistory.length} ejercicios
-                consecutivos de la tabla, sostenido {DERIVED_HOLD_YEARS} años y
-                convergente después a la libre de riesgo, que es también el
-                crecimiento terminal (
-                <span className="numeric font-medium text-foreground">
-                  {formatPercent(run.input.terminal.growth, { scale: 2 })}
-                </span>
-                ).
-              </li>
-              <li>
-                Margen EBIT ajustado y sales-to-capital del ejercicio base,
-                iguales en los {DERIVED_EXPLICIT_YEARS} años.
-              </li>
-              <li>
-                Tasa impositiva aplicada que converge a la marginal, y WACC que
-                converge al terminal, en los años {DERIVED_HOLD_YEARS + 1} a{" "}
-                {DERIVED_EXPLICIT_YEARS}.
-              </li>
-              <li>
-                ROIC terminal igual al WACC terminal: el crecimiento a
-                perpetuidad no crea valor. Sin escenarios bear ni bull.
-              </li>
+              {explanation !== null ? (
+                <RuleV2 run={run} explanation={explanation} />
+              ) : (
+                <>
+                  <li>
+                    Crecimiento de ventas de{" "}
+                    <span className="numeric font-medium text-foreground">
+                      {formatPercent(first.revenueGrowth, { scale: 2 })}
+                    </span>
+                    : el CAGR de los {derivation.revenueHistory.length}{" "}
+                    ejercicios consecutivos de la tabla, sostenido{" "}
+                    {DERIVED_HOLD_YEARS} años y convergente después a la libre
+                    de riesgo, que es también el crecimiento terminal (
+                    <span className="numeric font-medium text-foreground">
+                      {formatPercent(run.input.terminal.growth, { scale: 2 })}
+                    </span>
+                    ).
+                  </li>
+                  <li>
+                    Margen EBIT ajustado y sales-to-capital del ejercicio base,
+                    iguales en los {DERIVED_EXPLICIT_YEARS} años.
+                  </li>
+                  <li>
+                    Tasa impositiva aplicada que converge a la marginal, y WACC
+                    que converge al terminal, en los años{" "}
+                    {DERIVED_HOLD_YEARS + 1} a {DERIVED_EXPLICIT_YEARS}.
+                  </li>
+                  <li>
+                    ROIC terminal igual al WACC terminal: el crecimiento a
+                    perpetuidad no crea valor. Sin escenarios bear ni bull.
+                  </li>
+                </>
+              )}
             </ul>
             <p className="text-xs text-muted-foreground">
               <CodeValue>{derivation.version}</CodeValue>

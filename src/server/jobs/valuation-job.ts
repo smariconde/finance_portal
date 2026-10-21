@@ -36,6 +36,7 @@ import {
   readValuationResult,
   type ValuationResultReading,
 } from "@/modules/valuation/application/read-valuation-result";
+import { INDUSTRY_RETURNS_DATASET } from "@/modules/valuation/domain/derived-assumptions";
 import { SHARES_OUTSTANDING_CONCEPT } from "@/modules/valuation/domain/employee-equity-claim";
 import { readLineageObservations } from "@/modules/corporate-actions/application/read-lineage-observations";
 import { PRICES_SOURCE_ID } from "@/modules/prices/application/live-price-source";
@@ -294,13 +295,19 @@ export async function prepareValuationRun(
   }
 
   const securityId = resolution.securityId;
-  const [employeeEquity, shareCounts, prices] = await Promise.all([
-    getEmployeeEquityRepository().acceptedAsKnown(legalEntityId, job.knownAt),
-    readShareCounts(legalEntityId, query),
-    securityId === null
-      ? Promise.resolve({ closes: [], events: [] })
-      : readPrices(securityId, job.knownAt),
-  ]);
+  const [employeeEquity, shareCounts, prices, industryReturns] =
+    await Promise.all([
+      getEmployeeEquityRepository().acceptedAsKnown(legalEntityId, job.knownAt),
+      readShareCounts(legalEntityId, query),
+      securityId === null
+        ? Promise.resolve({ closes: [], events: [] })
+        : readPrices(securityId, job.knownAt),
+      readReferenceDataset(
+        INDUSTRY_RETURNS_DATASET,
+        query,
+        getReferenceDatasetRepository(),
+      ),
+    ]);
 
   return {
     kind: "snapshot",
@@ -317,6 +324,7 @@ export async function prepareValuationRun(
       employeeEquity,
       shareCounts,
       prices: { sourceId: PRICES_SOURCE_ID, ...prices },
+      industryReturns,
     }),
   };
 }

@@ -77,8 +77,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    49 | `F6-05`    | `queued`   | Ingesta bajo demanda de la ventana de fundamentals que falta, con presupuesto, reanudación y auditoría point-in-time del sujeto.                                                                                          | `F6-01`          |
 |    50 | `F6-08`    | `queued`   | Precio del CEDEAR en BYMA y valor por CEDEAR en pesos con el CCL implícito del propio CEDEAR, con su ADR de fuente.                                                                                                       | `F6-04`          |
 |    51 | `F6-09`    | `done`     | Precio de mercado al `as_of` de la corrida y DCF inverso por driver: qué crecimiento, margen, ROIC terminal o tasa exige el precio, al lado de lo que la empresa mostró.                                                  | `F6-03`          |
-|    52 | `F6-10`    | `ready`    | `derived-assumptions-2.0.0`: ROIC terminal por regla con el dataset de Damodaran, crecimiento por tendencia y escenarios bear/bull derivados.                                                                             | `F6-09`          |
-|    53 | `F6-11`    | `queued`   | Lectura cualitativa de la IA sobre lo que exige el precio: plausibilidad por driver con citas del 10-K verificadas, sin mover el valor.                                                                                   | `F6-09`          |
+|    52 | `F6-10`    | `done`     | `derived-assumptions-2.0.0`: ROIC terminal por regla con el dataset de Damodaran, crecimiento por tendencia y escenarios bear/bull derivados.                                                                             | `F6-09`          |
+|    53 | `F6-11`    | `ready`    | Lectura cualitativa de la IA sobre lo que exige el precio: plausibilidad por driver con citas del 10-K verificadas, sin mover el valor.                                                                                   | `F6-09`          |
 |    54 | `F6-12`    | `queued`   | Flujo de valuación en un solo lugar por ticker: pedir, ver el estado y leer el resultado sin saltos, con la jerarquía orientada a decidir.                                                                                | `F6-09`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
@@ -3762,9 +3762,44 @@ valuación en un solo lugar). `F6-05` pasa a `queued` detrás de ellos. El año
 base TTM desde 10-Q queda nombrado como límite de `F6-10`, porque cambia toda
 la normalización.
 
+#### `F6-10` — supuestos derivados `2.0.0` (cerrado el 2026-10-21)
+
+Estado del slice: `done`. No cierra el gate de la Fase 6. `F6-11` queda
+`ready`.
+
+- [ADR 0049](../architecture/adr/0049-derived-assumptions-v2.md): ROIC
+  terminal `terminal-return-on-capital-1.0.0` = mínimo entre el ROC de la
+  industria (`damodaran.eva-us`) y el ROIC ajustado propio, con piso en el
+  WACC terminal; crecimiento inicial por tendencia log-lineal; bear y bull
+  medidos (crecimiento más bajo y más alto entre tendencia y ventanas, ROIC
+  terminal en el WACC o en el propio).
+- El snapshot congela la fila de la industria como un parámetro del costo de
+  capital, y `assumptions_derived_recomputed` reconstruye también los
+  escenarios. Un escenario materializado ya no lleva la derivación de la base.
+  `1.0.0` se sigue leyendo: sin migración, motor y metodología iguales.
+- `damodaran-html-1.1.0`: un error de Excel es `null` como `NA`, y el tipo de
+  celda `verified` exige el encabezado sin leer la celda. Allowlist y registro
+  abren `EVA.html` y nada más.
+- La página explica la regla `2.0.0`: tendencia y ventanas, base del ROIC
+  terminal con la fila de Damodaran, y de dónde salen bear y bull.
+- Controles: `TM-05` (sin referencia, el piso con su motivo), `TM-06` (la
+  release de EVA se lee al corte del job), `TM-16` (cinco corridas `1.0.0`
+  reproducidas; las nuevas recalculadas por su check).
+
+Evidencia:
+
+- 2.946 unit (ocho de la regla `2.0.0`, dos del armado, tres del parser) y la
+  suite de integración. Lint, tipos, formato y build.
+- Base personal, 2026-10-21: `damodaran.eva-us` registrado (96 filas, 0
+  rechazos, un request). AAPL 143,82 → 180,69 USD (bear 102,19, bull 207,73;
+  ROIC terminal 44,76 % de la industria); AMZN 143,40 USD (bear 108,25, bull
+  151,56). Sin checks fallados. AAPL contra el precio pasa de 2,32× a 1,84×; el
+  precio exige 17,98 % de crecimiento o 62,60 % de margen. Axe sin hallazgos
+  nuevos, sin desborde.
+
 #### `F6-09` — precio de mercado y lo que exige (cerrado el 2026-10-21)
 
-Estado del slice: `done`. No cierra el gate de la Fase 6. `F6-10` queda
+Estado del slice: `done`. No cierra el gate de la Fase 6. `F6-10` quedó
 `ready`.
 
 - [ADR 0048](../architecture/adr/0048-market-price-implied-expectations.md):

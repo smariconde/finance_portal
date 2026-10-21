@@ -102,6 +102,100 @@ export function fixtureBetasPage(
   );
 }
 
+export const FIXTURE_EVA_HEADERS = [
+  "Industry Name",
+  "Number of Firms",
+  "Beta",
+  "ROE",
+  "Cost of Equity",
+  "(ROE - COE)",
+  "BV of Equity",
+  "Equity EVA (US $ millions)",
+  "ROC",
+  "Cost of Capital",
+  "(ROC - WACC)",
+  "BV of Capital",
+  "EVA (US $ millions)",
+];
+
+/** Con las rarezas de la página: `$ ( … )`, `NA` en bancos y `####`. */
+export function fixtureEvaPage(
+  options: { headers?: readonly string[] } = {},
+): string {
+  const rows = Array.from({ length: 52 }, (_, index) => [
+    `Industry ${String(index + 1).padStart(2, "0")}`,
+    String(10 + index),
+    "1.10",
+    "12.00%",
+    "9.00%",
+    "3.00%",
+    "$1,234.50",
+    "$ (12.30)",
+    "15.00%",
+    "8.00%",
+    "7.00%",
+    "$2,000.00",
+    "$ 140.00",
+  ]);
+
+  rows.push(
+    [
+      "Computers/Peripherals",
+      "36",
+      "1.35",
+      "-0.17%",
+      "9.97%",
+      "-10.15%",
+      "$114,471.67",
+      "$ (11,614.98)",
+      "44.76%",
+      "9.71%",
+      "35.05%",
+      "$325,075.43",
+      "$ 113,949.60",
+    ],
+    [
+      "Bank (Money Center)",
+      "15",
+      "0.76",
+      "12.86%",
+      "7.34%",
+      "5.52%",
+      "$1,117,569.40",
+      "$ 61,645.89",
+      "NA",
+      "4.98%",
+      "NA",
+      "$2,609,713.24",
+      "NA",
+    ],
+    [
+      "Total Market (without financials)",
+      "4822",
+      "0.99",
+      "17.60%",
+      "8.37%",
+      "9.23%",
+      "$9,797,425.27",
+      "############",
+      "15.07%",
+      "7.72%",
+      "7.35%",
+      "$16,491,841.00",
+      "$ 1,211,939.24",
+    ],
+  );
+
+  return page(
+    "<p>Date of Analysis : Data used is as of January 2026</p>",
+    table([
+      options.headers ?? FIXTURE_EVA_HEADERS,
+      ...rows,
+      Array(13).fill(""),
+    ]),
+  );
+}
+
 export const FIXTURE_BREAKDOWN_HEADERS = [
   "Country",
   "GDP (in millions) in 2024",
