@@ -58,6 +58,8 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 - [`../data/provider-use-matrix.md`](../data/provider-use-matrix.md): matriz de derechos, cache, retención, cuotas y gates antes de cualquier spike real.
 - [`../data/identity-model.md`](../data/identity-model.md): separación entity/security/listing/symbol, programas depositarios y resolución de identidad.
 - [`../data/point-in-time-contract.md`](../data/point-in-time-contract.md): vigencia, conocimiento, revisiones, consultas as-known y snapshots reproducibles.
+- [`../architecture/adr/0044-reit-affo-nav.md`](../architecture/adr/0044-reit-affo-nav.md): REIT de propiedades con AFFO conciliado, crecimiento financiado y NAV independiente; experimental y screening.
+- [`../valuation/reit-oracle.md`](../valuation/reit-oracle.md): caja de equity y capitalización de `reval.xls`, más perpetuidad con reinversión.
 - [`../architecture/adr/0043-revenue-margin-survival.md`](../architecture/adr/0043-revenue-margin-survival.md): pérdidas/alto crecimiento con convergencia, impuestos, fondos y supervivencia; experimental y screening.
 - [`../valuation/revenue-margin-oracle.md`](../valuation/revenue-margin-oracle.md): conciliación con `higrowth.xls` y perpetuidad diferida con escudo fiscal finito.
 - [`../architecture/adr/0042-cycle-normalized-fcff.md`](../architecture/adr/0042-cycle-normalized-fcff.md): normalización de ciclo para cíclicas y commodities, con snapshot explícito y rigor screening.

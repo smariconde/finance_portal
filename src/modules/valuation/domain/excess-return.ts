@@ -54,7 +54,10 @@ export type ExcessReturnComputation = z.infer<
   typeof excessReturnComputationSchema
 >;
 
-export function financialCostOfEquity(input: ExcessReturnInput, beta: string) {
+export function financialCostOfEquity(
+  input: Pick<ExcessReturnInput, "risk">,
+  beta: string,
+) {
   const { riskFree, matureErp, countryRiskPremium } = input.risk;
   if (riskFree === null || matureErp === null || countryRiskPremium === null) {
     throw new ValuationPolicyError(

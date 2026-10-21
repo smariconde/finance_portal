@@ -6,6 +6,8 @@ import { runExcessReturn } from "./run-excess-return";
 import { computeExcessReturnResultHash } from "../domain/excess-return-run";
 
 import { runValuation } from "./run-valuation";
+import { runReit } from "./run-reit";
+import { computeReitResultHash } from "../domain/reit-run";
 
 /**
  * Replay de una corrida persistida (`F5-06`): vuelve a calcular **desde su
@@ -53,7 +55,9 @@ export function replayValuationRun(candidate: ValuationRun): ValuationReplay {
   const replayed =
     recorded.method === "excess_return"
       ? runExcessReturn(recorded.input, dependencies)
-      : runValuation(recorded.input, dependencies);
+      : recorded.method === "affo_nav"
+        ? runReit(recorded.input, dependencies)
+        : runValuation(recorded.input, dependencies);
 
   const divergences: ValuationReplayDivergence[] = [];
 
@@ -70,6 +74,14 @@ export function replayValuationRun(candidate: ValuationRun): ValuationReplay {
   )
     divergences.push("result_hash");
   if (replayed.status !== recorded.status) divergences.push("status");
+  if (
+    recorded.method === "affo_nav" &&
+    recorded.result !== null &&
+    computeReitResultHash(recorded.inputHash, recorded.result) !==
+      recorded.resultHash &&
+    !divergences.includes("result_hash")
+  )
+    divergences.push("result_hash");
 
   return {
     version: VALUATION_REPLAY_VERSION,

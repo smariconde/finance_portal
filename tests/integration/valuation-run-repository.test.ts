@@ -1,4 +1,6 @@
 import { fixtureGrowthValuation } from "@/modules/valuation/infrastructure/fixture-growth-valuation";
+import { fixtureReitValuation } from "@/modules/valuation/infrastructure/fixture-reit-valuation";
+import { runReit } from "@/modules/valuation/application/run-reit";
 import { randomUUID } from "node:crypto";
 
 import { eq } from "drizzle-orm";
@@ -418,4 +420,35 @@ describe("PostgreSQL valuation runs", () => {
       expect(replayValuationRun(refused).outcome).toBe("reproduced");
     },
   );
+  it("round-trips REIT AFFO/NAV decimals, deduplicates and replays both result and refusal", async () => {
+    const repository = createPostgresValuationRunRepository(database);
+    const input = fixtureReitValuation();
+    const dependencies = {
+      now: () => RUN_CLOCK,
+      newValuationRunId: randomUUID,
+    };
+    const computed = runReit(input, dependencies);
+    const stored = await repository.record(computed);
+    expect(stored).toEqual(computed);
+    expect(stored.status).toBe("requires_review");
+    expect(
+      (await repository.record(runReit(input, dependencies))).valuationRunId,
+    ).toBe(stored.valuationRunId);
+    expect(await repository.findByReplayKey(toReplayKey(stored))).toEqual(
+      stored,
+    );
+    expect(
+      replayValuationRun((await repository.findById(stored.valuationRunId))!)
+        .outcome,
+    ).toBe("reproduced");
+    input.nav.debt = null;
+    const refused = await repository.record(runReit(input, dependencies));
+    expect(refused).toMatchObject({
+      method: "affo_nav",
+      status: "rejected",
+      result: null,
+      resultHash: null,
+    });
+    expect(replayValuationRun(refused).outcome).toBe("reproduced");
+  });
 });

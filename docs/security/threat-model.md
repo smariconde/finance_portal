@@ -27,6 +27,8 @@
 
 - Revisado el 2026-10-20: `F4-06 / 4.3` agrega `valuation:growth`, CLI privado de hasta 512 kB, sin egress ni IA. Congela tesis, clasificación y pool de pérdidas con documento; recalcula trayectorias, impuestos, supervivencia y opciones, con controles de moneda y cutoff (`TM-05`, `TM-06`, `TM-15`). `--apply` exige personal y registra resultado/rechazo append-only (`TM-01`, `TM-16`); no cambia la exposición web.
 
+- Revisado el 2026-10-20: `F4-06 / 4.4` agrega `valuation:reit`, CLI privado de hasta 512 kB, sin egress ni IA. Conciliación AFFO y claims NAV explícitos con documentos, moneda, clasificación y disponibilidad; mortgage/hybrid REITs, faltantes y `system_recorded` sin registro por hecho se rechazan (`TM-05`, `TM-06`, `TM-15`). El guard personal protege `--apply` antes de construir storage; resultado o rechazo y hashes son append-only (`TM-01`, `TM-16`). Sin nueva frontera web.
+
 ## Objetivo y método
 
 Este documento modela amenazas contra confidencialidad, integridad financiera,

@@ -52,6 +52,7 @@
     "valuation:replay": "tsx --conditions=react-server --env-file=.env.local scripts/replay-valuation.ts",
     "valuation:financial": "tsx --conditions=react-server --env-file=.env.local scripts/value-financial-equity.ts",
     "valuation:cycle": "tsx --conditions=react-server --env-file=.env.local scripts/value-cycle.ts",
+    "valuation:reit": "tsx --conditions=react-server --env-file=.env.local scripts/value-reit.ts",
     "valuation:growth": "tsx --conditions=react-server --env-file=.env.local scripts/value-growth.ts"
   },
   "dependencies": {

@@ -1,10 +1,11 @@
 # Metodología de valuación
 
-- Estado: metodología objetivo; motor FCFF, normalización de ciclo, crecimiento/pérdidas y exceso de retorno financiero experimental implementados en `src/modules/valuation/`
+- Estado: metodología objetivo; motor FCFF, normalización de ciclo, crecimiento/pérdidas, AFFO/NAV REIT y exceso de retorno financiero experimental implementados en `src/modules/valuation/`
 - Versión metodológica: 0.12.0 (la corrida lleva selección, completitud y rigor desde `F3-03`, el costo de capital construido desde `F3-06`, el riesgo país ponderado por operaciones desde `F5-05`, las decisiones cualitativas con la propuesta de la IA desde `F5-06` la capitalización de arrendamientos e I+D desde `F4-01` el techo del crecimiento terminal en la libre de riesgo desde `F4-02` la normalización reported/adjusted del ejercicio base desde `F4-03` los escenarios bear/base/bull desde `F4-04` y las opciones y unidades de empleados y la probabilidad de fracaso desde `F4-05`)
 - Versión de engine implementada: `fcff-1.6.0` (método `fcff_base`)
 - Motor de crecimiento/pérdidas: `growth-fcff-1.0.0`, metodología propia del mismo nombre (`fcff_three_stage` y `revenue_margin_survival`, [ADR 0043](../architecture/adr/0043-revenue-margin-survival.md)); no cambia los motores previos.
 - Motor cíclico: `normalized-fcff-1.0.0`, metodología `cycle-fcff-1.0.0` (`normalized_fcff`, [ADR 0042](../architecture/adr/0042-cycle-normalized-fcff.md)); márgenes de ciclo para cíclicas y commodities, sin cambiar `fcff-1.6.0`.
+- Motor REIT independiente: `affo-nav-1.0.0`, metodología `reit-equity-1.0.0` (`affo_nav`, [ADR 0044](../architecture/adr/0044-reit-affo-nav.md)); propiedades con AFFO conciliado y NAV separado, experimental y screening.
 - Motor financiero independiente: `excess-return-1.0.0`, metodología `financial-equity-1.0.0` (método `excess_return`, `F4-06`, [ADR 0041](../architecture/adr/0041-financial-equity-excess-return.md)); no cambia la versión ni los hashes FCFF.
 - Fecha: 2026-08-21; motor base entregado el 2026-08-24; niveles de rigor y alcance
   de la IA incorporados el 2026-09-04
@@ -46,11 +47,58 @@ de cuatro quintos del universo y produce números inválidos en el resto.
 | Fase 4.1 | bancos y aseguradoras mediante exceso de retorno sobre equity         | `experimental` |
 | Fase 4.2 | cíclicas y commodities con normalización de ciclo                     | `experimental` |
 | Fase 4.3 | pérdidas/high growth con revenue-to-margin y supervivencia            | `experimental` |
-| Fase 4.4 | REIT mediante AFFO/FCFE/DDM y NAV                                     | `planned`      |
+| Fase 4.4 | REIT de propiedades mediante AFFO distribuible y NAV                  | `experimental` |
 | Fase 4.5 | holdings/SOTP y distress sólo con demanda observada                   | `deferred`     |
 
 Un método inexistente devuelve `unsupported_method`, inputs requeridos y motivo.
 Nunca cae silenciosamente a FCFF.
+
+## REIT de propiedades: AFFO distribuible y NAV
+
+`affo-nav-1.0.0` y `reit-equity-1.0.0` (`F4-06 / 4.4`,
+[ADR 0044](../architecture/adr/0044-reit-affo-nav.md)) usan un snapshot privado
+explícito. El selector `method-selection-0.6.0` exige preflight propio, aunque
+el FCFF industrial esté completo. Mortgage y hybrid REITs se rechazan.
+
+La conciliación anual conserva NI común, depreciación inmobiliaria, ganancias o
+pérdidas de venta, deterioros, ajuste proporcional a FFO de JV, mantenimiento
+recurrente y renta lineal no cobrada. Todos tienen documento, moneda, cierre y
+disponibilidad. No se añade compensación en acciones ni se certifica el AFFO
+publicado por un emisor. Faltante no es cero, y AFFO no positivo requiere otro
+modelo. Se admite un ejercicio de 350–380 días, no más viejo que 380 días al corte.
+
+El DCF descuenta caja común con `Ke = rf + beta_equity × ERP + CRP`. Por cada
+año conserva AFFO, crecimiento financiado del siguiente año, retención
+`growth_next / return_on_new_equity`, reinversión, distribución y descuento.
+El primer crecimiento se apoya en capital ya invertido al corte. En el último
+año la reinversión financia el crecimiento terminal. El mantenimiento ya se
+restó de AFFO; la retención financia sólo crecimiento. El terminal repite la
+retención, exige `g <= rf`, `Ke > g + 0.005`, retornos positivos y payout en
+`[0,1]`. Interés, impuestos, preferidas y minoritarios ya están en la caja común;
+no se resta deuda otra vez ni se añade caja al DCF.
+
+NAV es una segunda lectura, sin promedio con el DCF: NOI consolidado forward
+sobre cap rate compatible, más caja excedente y otros activos, menos deuda,
+preferidas, minoritarios, otras obligaciones y costo corporativo capitalizado.
+Las partidas se miden al `asOf`. La evidencia y el motivo describen cobertura,
+JV, ground leases y G&A para evitar omisiones o duplicados. NAV negativo conserva
+su signo y exige revisión. Opciones se recalculan y restan una sola vez de cada
+equity; básicas más unidades no consolidadas forman el denominador, sin opciones.
+
+Bear/base/bull son snapshots enteros con el mismo horizonte y motivos. La
+sensibilidad beta terminal/g mantiene fija la trayectoria de AFFO, recalcula
+la retención del último año para financiar el nuevo `g` y el terminal; otro
+vector cambia cap rate de NAV. Celdas inválidas conservan sus rechazos. Las
+sensibilidades no asignan probabilidades y el orden de DCF/NAV se revisa por separado.
+
+El modelo es `experimental`, rigor `screening`, siempre `requires_review`.
+No certifica capacidad fiscal de distribución ni refinanciación, y no proyecta
+emisiones o principal. `system_recorded` se rechaza sin registro por hecho.
+`pnpm valuation:reit --file <snapshot.json>` calcula sin red ni IA, limitado a
+512 kB y dry run por defecto. `--apply` exige personal, registra resultado o
+rechazo y permite replay desde JSON. No crea UI ni arma snapshots automáticamente.
+El [oráculo](reit-oracle.md) compara conciliación y capitalización de `reval.xls`
+y una perpetuidad financiada; documenta las diferencias de convención.
 
 ## Nivel de rigor declarado
 
@@ -365,7 +413,7 @@ donde se indica otro corte.
 | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
 | Banco identificado por evidencia directa; los demás perfiles descartados           | `bank`, exceso de retorno si su snapshot financiero está completo; de lo contrario nombra requisitos    | `bank_regulated`, `missing_required_input`    |
 | Aseguradora identificada por evidencia directa                                     | `insurer`, exceso de retorno si su snapshot financiero está completo; de lo contrario nombra requisitos | `insurer_regulated`, `missing_required_input` |
-| REIT identificado por evidencia directa                                            | `reit`, método con AFFO/NAV; `unsupported_method` mientras ese método no exista                         | `reit_structure`, `method_not_implemented`    |
+| REIT identificado por evidencia directa                                            | `reit`, AFFO/NAV con preflight propio; sin snapshot explícito nombra los inputs faltantes               | `reit_structure`, `missing_required_input`    |
 | Sólo consta el sector amplio `Financials`; subtipo desconocido                     | Abstención; no recomendar FCFF ni asumir banco                                                          | `missing_classification_evidence`             |
 | Evidencia directa simultánea de banco y REIT, sin resolución                       | Abstención con ambas reglas activadas                                                                   | `conflicting_evidence`                        |
 | No financiera madura con exclusiones descartadas y inputs de `fcff_base` presentes | `non_financial_mature`, `fcff_base`                                                                     | `mature_non_financial`                        |
