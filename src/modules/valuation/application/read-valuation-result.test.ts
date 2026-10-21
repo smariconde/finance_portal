@@ -7,10 +7,13 @@ import {
 import type { StoredCedearRegistry } from "@/modules/cedears/domain/plan-cedear-registry";
 import { InMemoryPriceRepository } from "@/modules/prices/infrastructure/in-memory-price-repository";
 
+import { FIXTURE_READING } from "./market-expectations-repository.contract";
+
 import {
   buildDemoValuationRun,
   buildDemoValuationRunBeforeAmendment,
 } from "../infrastructure/demo-valuation-run";
+import { createInMemoryMarketExpectationsRepository } from "../infrastructure/in-memory-market-expectations-repository";
 import { createInMemoryValuationJobStore } from "../infrastructure/in-memory-valuation-job-store";
 import { createInMemoryValuationRunRepository } from "../infrastructure/in-memory-valuation-run-repository";
 import {
@@ -51,6 +54,7 @@ const REGISTRY: StoredCedearRegistry = {
 };
 const cedears = { loadRegistry: async () => REGISTRY };
 const prices = new InMemoryPriceRepository();
+const expectations = createInMemoryMarketExpectationsRepository();
 
 let sequence = 0;
 
@@ -92,6 +96,7 @@ describe("readValuationResult", () => {
         universe,
         cedears,
         prices,
+        expectations,
       },
     );
 
@@ -114,6 +119,7 @@ describe("readValuationResult", () => {
         universe,
         cedears,
         prices,
+        expectations,
       },
     );
 
@@ -141,7 +147,7 @@ describe("readValuationResult", () => {
 
     const reading = await readValuationResult(
       { ticker: "AAPL" },
-      { jobs, runs, universe, cedears, prices },
+      { jobs, runs, universe, cedears, prices, expectations },
     );
 
     expect(reading.state).toBe("run");
@@ -170,7 +176,7 @@ describe("readValuationResult", () => {
 
     const reading = await readValuationResult(
       { ticker: "AAPL" },
-      { jobs, runs, universe, cedears, prices },
+      { jobs, runs, universe, cedears, prices, expectations },
     );
 
     expect(reading.state === "run" && reading.newerGap).toBeNull();
@@ -207,7 +213,7 @@ describe("readValuationResult", () => {
 
     const reading = await readValuationResult(
       { ticker: "AAPL" },
-      { jobs, runs, universe, cedears, prices: series },
+      { jobs, runs, universe, cedears, prices: series, expectations },
     );
 
     expect(reading.state).toBe("run");
@@ -222,6 +228,99 @@ describe("readValuationResult", () => {
       close: "99",
     });
     expect(reading.market.implied.status).toBe("computed");
+    expect(reading.market.reading).toBeNull();
+  });
+
+  it("puts the accepted AI reading of the base year's 10-K next to what the price requires", async () => {
+    const jobs = createInMemoryValuationJobStore();
+    const runs = createInMemoryValuationRunRepository();
+    const demo = buildDemoValuationRun();
+    const run = await runs.record(demo);
+    const series = new InMemoryPriceRepository();
+    const readings = createInMemoryMarketExpectationsRepository();
+    const evidence = {
+      evidenceId: "E1",
+      sourceId: "sec-edgar",
+      section: "item_7_mdna",
+      documentUrl: "https://www.sec.gov/Archives/edgar/data/1/x.htm",
+      accessionNumber: "0000000001-25-000001",
+      documentAcceptedAt: "2025-02-01T00:00:00.000Z",
+      sha256: "b".repeat(64),
+      byteLength: 10,
+      truncated: false,
+      excerpt: "Synthetic.",
+    };
+    const record = (fiscalYearEnd: string, readingId: string) => ({
+      readingId,
+      legalEntityId: run.subject.legalEntityId,
+      cik: "0000000001",
+      accessionNumber: evidence.accessionNumber,
+      fiscalYearEnd,
+      taskVersion: "market-expectations-reading-1.0.0",
+      promptVersion: "market-expectations-prompt-1.0.0",
+      policyVersion: "market-expectations-policy-1.0.0",
+      ladderVersion: "ai-model-ladder-1.1.0",
+      extractVersion: "sec-10k-outlook-1.0.0",
+      outcome: "accepted" as const,
+      reading: FIXTURE_READING,
+      reason: null,
+      acceptedRung: 1,
+      respondedModel: "fixture/model-a",
+      proposedAt: "2026-10-21T12:00:00.000Z",
+      recordedAt: "2026-10-21T12:00:00.000Z",
+    });
+
+    // Una lectura de otro ejercicio no es la de esta corrida.
+    await readings.record({
+      record: record("2023-12-31", "30000000-0000-4000-8000-000000000001"),
+      evidence: [evidence],
+    });
+    await readings.record({
+      record: record(
+        demo.input.baseRevenue.asOf,
+        "30000000-0000-4000-8000-000000000002",
+      ),
+      evidence: [evidence],
+    });
+    await series.writeSeries(
+      [
+        {
+          securityId: run.subject.securityId,
+          marketDate: run.asOf,
+          close: "15",
+          currency: run.currency,
+        },
+      ],
+      [],
+    );
+    await finished(
+      jobs,
+      outcomeForAssessment(READING, {
+        valuationRunId: run.valuationRunId,
+        runStatus: "computed",
+      }),
+    );
+
+    const reading = await readValuationResult(
+      { ticker: "AAPL" },
+      {
+        jobs,
+        runs,
+        universe,
+        cedears,
+        prices: series,
+        expectations: readings,
+      },
+    );
+
+    if (reading.state !== "run") throw new Error(reading.state);
+
+    expect(reading.market.reading?.stored.record.readingId).toBe(
+      "30000000-0000-4000-8000-000000000002",
+    );
+    expect(
+      reading.market.reading?.plausibility.map((entry) => entry.driver),
+    ).toEqual(["revenue_growth", "operating_margin", "competitive_advantage"]);
   });
 });
 

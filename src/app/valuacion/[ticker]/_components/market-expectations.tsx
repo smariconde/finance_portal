@@ -1,3 +1,5 @@
+import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+
 import { EvidenceKindMark } from "@/app/valuacion/_components/run/data-marks";
 import { CodeValue } from "@/app/valuacion/_components/run/field";
 import {
@@ -21,6 +23,12 @@ import {
   formatCalendarDate,
   formatPercent,
 } from "@/modules/valuation/domain/display-format";
+import {
+  EXPECTATIONS_PLAUSIBILITY_VERSION,
+  type DriverPlausibility,
+  type PlausibilityVerdict,
+} from "@/modules/valuation/domain/market-expectations";
+import type { ReadingDriver } from "@/modules/valuation/domain/market-expectations-task";
 import type {
   MarketImpliedContext,
   MarketImpliedDriver,
@@ -67,6 +75,76 @@ const DRIVER_COPY: Record<
     scope: "Una sola tasa para todos los años: la TIR que paga el precio",
   },
 };
+
+const OUTLOOK_COPY: Record<string, string> = {
+  decline: "en caída (menos de 0 %)",
+  low: "bajo (0 % a 5 %)",
+  moderate: "moderado (5 % a 10 %)",
+  high: "alto (10 % a 20 %)",
+  very_high: "muy alto (más de 20 %)",
+  contracting: "se contrae",
+  stable: "estable",
+  expanding: "se expande",
+  none: "ninguna",
+  narrow: "acotada",
+  wide: "amplia",
+  not_addressed: "el 10-K no lo trata",
+};
+
+const VERDICT_COPY: Record<PlausibilityVerdict, string> = {
+  within: "Dentro de lo que sostiene",
+  above: "Un escalón por encima",
+  far_above: "Dos o más escalones por encima",
+  unreachable: "Ningún valor de este supuesto alcanza el precio",
+  not_addressed: "El 10-K no lo trata",
+  no_requirement: "Sin exigencia resuelta",
+};
+
+const READING_DRIVER: Partial<Record<MarketImpliedDriver, ReadingDriver>> = {
+  revenue_growth: "revenue_growth",
+  ebit_margin: "operating_margin",
+  terminal_return_on_capital: "competitive_advantage",
+};
+
+const READING_COPY: Record<ReadingDriver, string> = {
+  revenue_growth: "Crecimiento de ventas",
+  operating_margin: "Margen operativo",
+  competitive_advantage: "Ventaja competitiva",
+};
+
+const SECTION_COPY: Record<string, string> = {
+  item_1_business: "Item 1, negocio",
+  item_7_mdna: "Item 7, MD&A",
+  item_1a_risk_factors: "Item 1A, riesgos",
+};
+
+function ReadingCell({
+  plausibility,
+}: {
+  plausibility: DriverPlausibility | undefined;
+}) {
+  if (plausibility === undefined) {
+    return (
+      <span className="text-sm text-muted-foreground">
+        El 10-K no habla del costo de capital del inversor
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex flex-col gap-0.5">
+      <span className="text-sm font-medium">
+        {VERDICT_COPY[plausibility.verdict]}
+      </span>
+      <span className="text-xs text-muted-foreground">
+        Sostiene: {OUTLOOK_COPY[plausibility.reading.outlook]}
+        {plausibility.required === null
+          ? ""
+          : ` · exige: ${OUTLOOK_COPY[plausibility.required]}`}
+      </span>
+    </span>
+  );
+}
 
 function percent(value: string): string {
   return formatPercent(value, { scale: 2 });
@@ -171,6 +249,7 @@ export function MarketExpectations({
   attribution: string | null;
 }) {
   const { comparison, implied, context, latestClose } = market;
+  const aiReading = market.reading;
 
   return (
     <Card>
@@ -282,6 +361,9 @@ export function MarketExpectations({
                   Exigido por el precio
                 </TableHead>
                 <TableHead scope="col">Lo que mostró la empresa</TableHead>
+                {aiReading === null ? null : (
+                  <TableHead scope="col">Lo que sostiene el 10-K</TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -302,6 +384,16 @@ export function MarketExpectations({
                   <TableCell className="numeric align-top whitespace-normal text-muted-foreground">
                     {referenceFor(reading.driver, context)}
                   </TableCell>
+                  {aiReading === null ? null : (
+                    <TableCell className="min-w-48 align-top whitespace-normal">
+                      <ReadingCell
+                        plausibility={aiReading.plausibility.find(
+                          (entry) =>
+                            entry.driver === READING_DRIVER[reading.driver],
+                        )}
+                      />
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
@@ -314,6 +406,155 @@ export function MarketExpectations({
           </p>
         </CardContent>
       )}
+
+      {implied.status !== "computed" ? null : (
+        <AiReadingSection reading={aiReading} run={run} />
+      )}
     </Card>
+  );
+}
+
+/**
+ * Lo que sostiene el 10-K según la IA (`F6-11`, ADR 0050). El modelo no vio
+ * el precio ni lo exigido: leyó el negocio, el MD&A y los riesgos, y cada
+ * señal es una cita literal que la policy encontró en su bloque.
+ */
+function AiReadingSection({
+  reading,
+  run,
+}: {
+  reading: ValuationResultMarket["reading"];
+  run: ValuationRun;
+}) {
+  if (reading === null) {
+    return (
+      <CardContent className="border-t pt-(--card-spacing) text-sm text-muted-foreground">
+        Sin lectura de la IA del 10-K del ejercicio cerrado el{" "}
+        <time dateTime={run.input.baseRevenue.asOf}>
+          {formatCalendarDate(run.input.baseRevenue.asOf)}
+        </time>
+        : la columna de lo que sostiene el 10-K aparece cuando se pide con{" "}
+        <CodeValue>pnpm valuation:market-expectations --apply</CodeValue>.
+      </CardContent>
+    );
+  }
+
+  const { record, evidence } = reading.stored;
+  const body = record.reading!;
+  const sectionOf = (evidenceId: string) => {
+    const section = evidence.find(
+      (item) => item.evidenceId === evidenceId,
+    )?.section;
+
+    return section === undefined
+      ? evidenceId
+      : (SECTION_COPY[section] ?? section);
+  };
+
+  return (
+    <CardContent className="flex flex-col gap-4 border-t pt-(--card-spacing)">
+      <div className="flex flex-col gap-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="text-sm font-medium">Lo que sostiene el 10-K</h3>
+          <EvidenceKindMark kind="ai_proposal" />
+        </div>
+        <p className="max-w-prose text-sm text-muted-foreground">
+          La IA leyó el negocio, el MD&amp;A y los riesgos del 10-K, sin ver el
+          precio ni lo que exige, y dijo qué perspectiva sostiene cada supuesto.
+          Cada señal cita el filing literalmente; la comparación con lo exigido
+          la hace el código. Es una lectura para discutir, no una conclusión.
+        </p>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        {body.drivers.map((driver) => (
+          <section
+            key={driver.driver}
+            aria-label={READING_COPY[driver.driver]}
+            className="flex min-w-0 flex-col gap-2"
+          >
+            <h4 className="text-sm font-medium">
+              {READING_COPY[driver.driver]}:{" "}
+              <span className="font-normal">
+                {OUTLOOK_COPY[driver.outlook]}
+              </span>
+            </h4>
+            {driver.signals.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Sin señales: el 10-K no lo trata.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-2.5">
+                {driver.signals.map((signal, index) => (
+                  <li key={index} className="flex gap-2 text-sm">
+                    {signal.direction === "higher" ? (
+                      <ArrowUpRight
+                        aria-hidden="true"
+                        className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                      />
+                    ) : (
+                      <ArrowDownRight
+                        aria-hidden="true"
+                        className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                      />
+                    )}
+                    <span className="flex min-w-0 flex-col gap-1">
+                      <span>
+                        <span className="sr-only">
+                          {signal.direction === "higher"
+                            ? "Empuja hacia arriba: "
+                            : "Empuja hacia abajo: "}
+                        </span>
+                        {signal.summary}
+                      </span>
+                      <q className="text-xs break-words text-muted-foreground">
+                        {signal.quote}
+                      </q>
+                      <span className="text-xs text-muted-foreground">
+                        {sectionOf(signal.evidenceId)}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        ))}
+      </div>
+
+      {body.risks.length === 0 ? null : (
+        <section aria-label="Riesgos" className="flex flex-col gap-2">
+          <h4 className="text-sm font-medium">Lo que podría romperlo</h4>
+          <ul className="flex list-disc flex-col gap-1.5 pl-5 text-sm">
+            {body.risks.map((risk, index) => (
+              <li key={index}>
+                {risk.summary}{" "}
+                <span className="text-xs text-muted-foreground">
+                  ({sectionOf(risk.evidenceId)})
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <p className="max-w-prose text-sm text-muted-foreground">
+        {body.rationale}
+      </p>
+
+      <p className="text-xs text-muted-foreground">
+        10-K <CodeValue>{record.accessionNumber}</CodeValue> · modelo{" "}
+        <CodeValue>{record.respondedModel ?? "—"}</CodeValue> en el escalón{" "}
+        {record.acceptedRung ?? "—"} · confianza{" "}
+        {body.confidence === "high" ? "alta" : "media"} · pedida el{" "}
+        <time dateTime={record.proposedAt}>
+          {formatCalendarDate(record.proposedAt.slice(0, 10))}
+        </time>{" "}
+        · <CodeValue>{record.taskVersion}</CodeValue>{" "}
+        <CodeValue>{record.policyVersion}</CodeValue>{" "}
+        <CodeValue>{record.extractVersion}</CodeValue>{" "}
+        <CodeValue>{EXPECTATIONS_PLAUSIBILITY_VERSION}</CodeValue>
+      </p>
+    </CardContent>
   );
 }

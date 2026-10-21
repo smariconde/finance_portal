@@ -556,6 +556,24 @@ it is exactly `1.0.0`. `costOfCapital.operationsExposure` carries every
 component and `wacc_built_from_components` recomputes it (methodology `0.5.0`).
 
 ```bash
+pnpm valuation:market-expectations --ticker AAPL           # reads the 10-K's outlook and reports (it spends)
+pnpm valuation:market-expectations --ticker AAPL --apply   # also stores the reading and its sections
+```
+
+The AI reads what the price requires against the filing (`F6-11`,
+[ADR 0050](docs/architecture/adr/0050-market-expectations-reading.md), migration
+`0033`, [runbook](docs/runbooks/market-expectations.md)). The model **never sees the
+price nor what it requires** —both come from Yahoo and Damodaran, whose `aiTransfer` is
+`restricted`, and they would anchor it—: it reads Item 1, the MD&A without its
+forward-looking, critical-accounting and liquidity boilerplate, and the start of Item 1A
+(`sec-10k-outlook-1.0.0`), and returns an ordinal outlook per driver (growth bands,
+margin direction, advantage) with verbatim quotes (`market-expectations-reading-1.0.0`);
+the policy rejects a quote outside its block and a summary number its block lacks.
+`expectations-plausibility-1.0.0` maps the requirement onto the same scale in code and
+says `within`, `above` or `far_above`. The result page shows the latest accepted reading
+of the run's base fiscal year and never calls the model.
+
+```bash
 pnpm valuation:replay --run <uuid>                 # recomputes a stored run from its snapshot; no network, no AI, no writes
 pnpm valuation:replay --ticker AMZN --json         # every stored run of the company (up to 200)
 ```
