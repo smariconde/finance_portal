@@ -91,6 +91,11 @@ const SELECTORS = [
     "getAiSpendStore",
   ],
   [
+    "valuation job",
+    () => import("@/server/persistence/get-valuation-job-store"),
+    "getValuationJobStore",
+  ],
+  [
     "industry resolution",
     () => import("@/server/persistence/get-industry-resolution-repository"),
     "getIndustryResolutionRepository",

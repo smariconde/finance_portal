@@ -80,21 +80,26 @@ test.describe("shell del portal", () => {
     await page.goto(ROUTES.home);
     await openNavigation(page);
 
-    await page.getByRole("link", { name: "Valuación" }).click();
+    await page.getByRole("link", { name: "Valuación", exact: true }).click();
     await expect(
       page.getByRole("heading", {
         level: 1,
-        name: "Corrida de referencia del motor",
+        name: "Corrida por ticker",
       }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("no baja filings ni llama al modelo"),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("textbox", { name: "Ticker", exact: true }),
     ).toBeVisible();
 
     // En mobile el drawer se cierra al elegir una ruta, así que hay que volver a
     // abrirlo para leer la marca de ruta actual.
     await openNavigation(page);
-    await expect(page.getByRole("link", { name: "Valuación" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+    await expect(
+      page.getByRole("link", { name: "Valuación", exact: true }),
+    ).toHaveAttribute("aria-current", "page");
 
     await page.getByRole("link", { name: "Configuración" }).click();
     await expect(
@@ -141,6 +146,7 @@ test.describe("shell del portal", () => {
     for (const route of [
       ROUTES.home,
       ROUTES.configuration,
+      ROUTES.valuation,
       ROUTES.reference,
       ROUTES.sectors,
       ROUTES.sectorMatrix,
@@ -200,7 +206,8 @@ test.describe("shell del portal", () => {
     // lo que descarta una trampa de foco es que el recorrido avance, no cuántos
     // destinos tenga.
     expect(new Set(reached).size).toBeGreaterThan(3);
-    expect(reached.at(-1)).not.toBe(reached[0]);
+    // Un ciclo completo puede volver al primer destino. La trampa es no salir de él.
+    expect(reached.some((label) => label !== reached[0])).toBe(true);
 
     const sidebarIsPersistent = await page
       .locator("[data-slot='sidebar']")
@@ -276,6 +283,7 @@ test.describe("shell del portal", () => {
     for (const route of [
       ROUTES.home,
       ROUTES.configuration,
+      ROUTES.valuation,
       ROUTES.reference,
       ROUTES.missing,
     ]) {

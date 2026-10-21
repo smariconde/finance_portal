@@ -307,7 +307,7 @@ Implementado en `src/app/sectores/[sector]/_components/` (`F7-05`). Es el primer
 - **Desktop:** sidebar de `16rem`, colapsable a iconos de `3rem`; shortcut `Ctrl/Cmd+B` y tooltips cuando está colapsada. El rail de arrastre queda fuera del árbol de accesibilidad: duplicaba el nombre del trigger sin agregar ninguna capacidad para teclado o lector de pantalla.
 - **Mobile:** drawer lateral de `18rem`; al elegir una ruta se cierra, y `Escape` lo cierra. Los tooltips **no** existen en este ancho: son una afordancia de puntero, y su trigger capturaba `Escape` antes de que llegara al drawer.
 - **Items:** altura base de `2rem`, radio `md`, icono de `1rem`; activo y hover usan sidebar-accent. Un ítem no disponible usa `aria-disabled`, no `disabled`, para conservar su tooltip —única etiqueta cuando la sidebar está colapsada— y seguir anunciándose como no accionable.
-- **Information architecture:** Inicio, Valuación y Configuración enlazan. Valuación lleva el badge `Ref` porque su ruta corre el motor sobre un snapshot fijo para verificar que el cálculo es reproducible, no para mostrar datos de una empresa. Las herramientas sin datos aparecen deshabilitadas con la etiqueta `Plan`.
+- **Information architecture:** Inicio, Valuación y Configuración enlazan. Valuación abre `/valuacion`: encola la evaluación de un ticker sobre lo ya guardado y nombra el hueco, sin un valor por acción. La corrida de referencia, sobre un snapshot fijo, sigue en `/valuacion/referencia`. Las herramientas sin datos aparecen deshabilitadas con la etiqueta `Plan`.
 
 ### Shell
 

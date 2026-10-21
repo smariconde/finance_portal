@@ -33,12 +33,10 @@ import type { AppMode } from "@/modules/configuration/domain/config-health";
 const activeItems = [
   { href: "/", label: "Inicio", icon: Home, badge: null },
   {
-    href: "/valuacion/referencia",
+    href: "/valuacion",
     label: "Valuación",
     icon: Calculator,
-    // La ruta corre el motor real sobre un snapshot fijo: sirve para verificar
-    // que el cálculo es reproducible, no para mostrar datos de una empresa.
-    badge: "Ref",
+    badge: null,
   },
   {
     href: "/sectores",
