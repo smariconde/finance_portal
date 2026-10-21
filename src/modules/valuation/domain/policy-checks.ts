@@ -422,14 +422,11 @@ function checkDerivedAssumptions(input: ValuationInput): PolicyCheck[] {
     periods: input.periods,
     terminal: input.terminal,
     sensitivity: input.sensitivity,
+    scenarios: input.scenarios,
   });
 
   if (input.method !== VALUATION_METHOD) {
     mismatches.push("method");
-  }
-
-  if (input.scenarios !== null) {
-    mismatches.push("scenarios");
   }
 
   return [

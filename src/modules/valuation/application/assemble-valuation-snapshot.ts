@@ -4,10 +4,15 @@ import type {
   ReturnEvent,
 } from "@/modules/metrics/domain/total-return";
 
+import type { ReferenceDatasetReading } from "@/modules/reference-data/application/read-reference-dataset";
+
 import {
   consecutiveRevenueHistory,
   deriveAssumptions,
-  DERIVED_ASSUMPTIONS_VERSION,
+  DERIVED_ASSUMPTIONS_V2_VERSION,
+  INDUSTRY_RETURN_FIELD,
+  INDUSTRY_RETURNS_DATASET,
+  type IndustryReturn,
 } from "../domain/derived-assumptions";
 import { DECIMAL_POLICY } from "../domain/decimal-policy";
 import {
@@ -74,6 +79,11 @@ export type ValuationSnapshotRequest = {
     readonly closes: readonly ReturnClose[];
     readonly events: readonly ReturnEvent[];
   };
+  /**
+   * La release de `damodaran.eva-us` visible al corte (`F6-10`), o `null`.
+   * Sin ella el ROIC terminal cae al WACC terminal y lo nombra.
+   */
+  readonly industryReturns: ReferenceDatasetReading | null;
 };
 
 export type ValuationSnapshotResult =
@@ -122,6 +132,30 @@ function valuationDate(
   return last ?? day;
 }
 
+/** La fila de la industria de la corrida, si la release publica su ROC. */
+function industryReturnAt(
+  reading: ReferenceDatasetReading | null,
+  industryKey: string,
+): IndustryReturn | null {
+  const value = reading?.rows.find((row) => row.key === industryKey)?.values[
+    INDUSTRY_RETURN_FIELD
+  ];
+
+  if (reading === null || value === undefined || value === null) {
+    return null;
+  }
+
+  return {
+    datasetId: INDUSTRY_RETURNS_DATASET,
+    releaseId: reading.release.releaseId,
+    rowKey: industryKey,
+    field: INDUSTRY_RETURN_FIELD,
+    value,
+    publishedLabel: reading.release.publishedLabel,
+    availableAt: reading.release.availableAt,
+  };
+}
+
 export function assembleValuationSnapshot(
   request: ValuationSnapshotRequest,
 ): ValuationSnapshotResult {
@@ -160,7 +194,11 @@ export function assembleValuationSnapshot(
   const baseRevenue = seriesFact(revenueItem, request.fundamentalsSourceId);
   const baseFiscalYearEnd = normalization.facts.baseFiscalYearEnd;
   const derivation = {
-    version: DERIVED_ASSUMPTIONS_VERSION,
+    version: DERIVED_ASSUMPTIONS_V2_VERSION,
+    industryReturn: industryReturnAt(
+      request.industryReturns,
+      costOfCapital.industryKey,
+    ),
     revenueHistory: consecutiveRevenueHistory(
       series.fiscalYears.flatMap((year) =>
         year.items.revenue === undefined
@@ -301,7 +339,7 @@ export function assembleValuationSnapshot(
           ? reported(atBase(normalization.excessCash.total, balance.cash))
           : missing,
       nonOperatingAssets: declaredAbsent(
-        `${DERIVED_ASSUMPTIONS_VERSION}: no recipe separates non-operating assets; valued at zero and named.`,
+        `${DERIVED_ASSUMPTIONS_V2_VERSION}: no recipe separates non-operating assets; valued at zero and named.`,
       ),
       debt:
         normalization.debt.status === "resolved" && firstDebtFact !== undefined
@@ -327,7 +365,7 @@ export function assembleValuationSnapshot(
                 "No noncontrolling interest is reported in the base-year balance sheet.",
               ),
       otherClaims: declaredAbsent(
-        `${DERIVED_ASSUMPTIONS_VERSION}: no recipe reads preferred or other senior claims; valued at zero and named.`,
+        `${DERIVED_ASSUMPTIONS_V2_VERSION}: no recipe reads preferred or other senior claims; valued at zero and named.`,
       ),
       employeeOptions:
         derived.options === null
@@ -357,7 +395,7 @@ export function assembleValuationSnapshot(
     },
     sensitivity: assumptions.sensitivity,
     derivedAssumptions: derivation,
-    scenarios: null,
+    scenarios: assumptions.scenarios,
   });
 
   return { status: "assembled", input };

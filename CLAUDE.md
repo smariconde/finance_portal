@@ -388,6 +388,14 @@ assumptions: ten years, the CAGR of three to six consecutive fiscal years held
 five years then converging linearly to the risk-free, the base year's adjusted
 margin and sales-to-capital throughout, applied tax → marginal and WACC →
 terminal WACC, terminal ROIC equal to the terminal WACC, no scenarios.
+Since `F6-10` ([ADR 0049](docs/architecture/adr/0049-derived-assumptions-v2.md))
+new runs use `derived-assumptions-2.0.0`: the starting growth is the log-linear trend of
+the history, the terminal ROIC is `terminal-return-on-capital-1.0.0`
+—`min(industry ROC from damodaran.eva-us, the company's adjusted ROIC)`, floored at the
+terminal WACC and named when a reference is missing—, and bear/bull are measured (lowest
+and highest of trend and window CAGRs; terminal ROIC at the WACC or at the company's own),
+with the industry row frozen in the snapshot; `1.0.0` still reads and replays.
+`damodaran-html-1.1.0` reads an Excel error cell as null like `NA`.
 `ValuationInput.derivedAssumptions` freezes the revenue history and
 `assumptions_derived_recomputed` rebuilds periods, terminal and grid; it is
 optional, so earlier snapshots keep their hashes and the engine stays

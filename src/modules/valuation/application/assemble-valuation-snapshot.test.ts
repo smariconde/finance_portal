@@ -149,8 +149,28 @@ function request(
       ],
       events: [],
     },
+    industryReturns: null,
     ...overrides,
   };
+}
+
+/** Una release de `damodaran.eva-us` con la fila de la industria del demo. */
+function industryReturns(roc: string | null) {
+  return {
+    release: {
+      releaseId: "00000000-0000-4000-8000-0000000000e2",
+      datasetId: "damodaran.eva-us",
+      publishedLabel: "January 2026",
+      availableAt: "2025-01-10T00:00:00.000Z",
+    },
+    rows: [
+      {
+        key: demo.costOfCapital.industryKey,
+        label: "Computers/Peripherals",
+        values: { roc },
+      },
+    ],
+  } as unknown as ValuationSnapshotRequest["industryReturns"];
 }
 
 describe("valuation-snapshot-1.0.0", () => {
@@ -163,8 +183,13 @@ describe("valuation-snapshot-1.0.0", () => {
     const { input } = result;
 
     expect(input.asOf).toBe("2025-05-30");
+    expect(input.derivedAssumptions).toMatchObject({
+      version: "derived-assumptions-2.0.0",
+      industryReturn: null,
+    });
     expect(input.derivedAssumptions?.revenueHistory).toHaveLength(3);
-    expect(input.scenarios).toBeNull();
+    // Sin la fila de la industria, el ROIC terminal es el WACC terminal.
+    expect(input.terminal.returnOnCapital).toBe(input.terminal.wacc);
     expect(input.bridge.employeeOptions.status).toBe("declared_absent");
     expect(input.bridge.debt.amount?.value).toBe(
       demo.normalization.debt.status === "resolved"
@@ -172,7 +197,7 @@ describe("valuation-snapshot-1.0.0", () => {
         : null,
     );
     expect(input.bridge.nonOperatingAssets.rationale).toContain(
-      "derived-assumptions-1.0.0",
+      "derived-assumptions-2.0.0",
     );
     expect(input.employeeEquity.sharesOutstanding.value).toBe("12300000");
 
@@ -188,6 +213,47 @@ describe("valuation-snapshot-1.0.0", () => {
         (check) => check.id === "assumptions_derived_recomputed",
       )?.status,
     ).toBe("passed");
+  });
+
+  it("freezes the industry's ROC and bounds the terminal return with it", () => {
+    const result = assembleValuationSnapshot(
+      request({ industryReturns: industryReturns("0.12") }),
+    );
+
+    expect(result.status).toBe("assembled");
+    if (result.status !== "assembled") return;
+
+    const { input } = result;
+
+    expect(
+      input.derivedAssumptions?.version === "derived-assumptions-2.0.0" &&
+        input.derivedAssumptions.industryReturn,
+    ).toMatchObject({
+      rowKey: demo.costOfCapital.industryKey,
+      value: "0.12",
+      releaseId: "00000000-0000-4000-8000-0000000000e2",
+    });
+    expect(input.terminal.returnOnCapital).toBe("0.12");
+
+    const run = runValuation(input, {
+      now: () => "2026-10-21T00:00:00.000Z",
+      newValuationRunId: () => "00000000-0000-4000-8000-0000000000fb",
+    });
+
+    expect(run.failure).toBeNull();
+  });
+
+  it("names an industry the release publishes without a ROC as no reference", () => {
+    const result = assembleValuationSnapshot(
+      request({ industryReturns: industryReturns(null) }),
+    );
+
+    expect(
+      result.status === "assembled" &&
+        result.input.derivedAssumptions?.version ===
+          "derived-assumptions-2.0.0" &&
+        result.input.derivedAssumptions.industryReturn,
+    ).toBeNull();
   });
 
   it("is deterministic: the same reading is the same input", () => {

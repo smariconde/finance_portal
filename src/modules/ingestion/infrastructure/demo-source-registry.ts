@@ -439,6 +439,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         "damodaran.implied-erp",
         "damodaran.synthetic-ratings",
         "damodaran.failure-rates",
+        "damodaran.eva-us",
       ],
       endpoints: [
         "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/Betas.html",
@@ -446,6 +447,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         "https://pages.stern.nyu.edu/~adamodar/pc/fcffsimpleginzu.xlsx",
         "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/histimpl.html",
         "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/ratings.html",
+        "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/EVA.html",
       ],
       authentication: "none",
       applicablePlan: null,
@@ -457,7 +459,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
       timezone: "America/New_York",
       units: [],
       currencies: ["USD"],
-      parserVersion: "damodaran-html-1.0.0",
+      parserVersion: "damodaran-html-1.1.0",
       fixturePolicy:
         "Fixture sintética: los términos no permiten redistribuir los datos, así que ninguna página capturada entra al repositorio.",
       fallbackSourceIds: [],

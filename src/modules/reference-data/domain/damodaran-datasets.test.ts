@@ -4,6 +4,8 @@ import {
   FIXTURE_BETA_HEADERS,
   fixtureBetaRows,
   fixtureBetasPage,
+  FIXTURE_EVA_HEADERS,
+  fixtureEvaPage,
   FIXTURE_BREAKDOWN_HEADERS,
   fixtureCountryRiskWorkbook,
   fixtureImpliedErpPage,
@@ -341,5 +343,61 @@ describe("damodaran-xlsx-1.0.0: country risk and its regions", () => {
     expect(findDamodaranDataset("damodaran.country-risk-regions")!.url).toBe(
       DAMODARAN_COUNTRY_RISK_WORKBOOK.url,
     );
+  });
+});
+
+describe("damodaran-html-1.1.0: industry returns (EVA)", () => {
+  it("reads the after-tax ROC and skips the dollar columns it only verifies", () => {
+    const result = parse("damodaran.eva-us", fixtureEvaPage());
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.rejections).toEqual([]);
+    expect(result.rows).toHaveLength(55);
+    expect(
+      result.rows.find((row) => row.key === "computers-peripherals")?.values,
+    ).toEqual({
+      firms: "36",
+      beta: "1.35",
+      roe: "-0.0017",
+      cost_of_equity: "0.0997",
+      roe_minus_coe: "-0.1015",
+      roc: "0.4476",
+      cost_of_capital: "0.0971",
+      roc_minus_wacc: "0.3505",
+    });
+    expect(
+      result.rows.find((row) => row.key === "bank-money-center")?.values.roc,
+    ).toBeNull();
+  });
+
+  it("reads an Excel error cell as null, and keeps the row's ROC", () => {
+    const page = fixtureEvaPage().replace(
+      "<td class=xl1>-10.15%</td>",
+      "<td class=xl1>#VALUE!</td>",
+    );
+    const result = parse("damodaran.eva-us", page);
+
+    if (!result.ok) throw new Error(result.code);
+
+    const row = result.rows.find(
+      (entry) => entry.key === "computers-peripherals",
+    );
+
+    expect(row?.values.roe_minus_coe).toBeNull();
+    expect(row?.values.roc).toBe("0.4476");
+    expect(result.rejections).toEqual([]);
+  });
+
+  it("still rejects the page when a verified column moves", () => {
+    const swapped = [...FIXTURE_EVA_HEADERS];
+    [swapped[6], swapped[7]] = [swapped[7]!, swapped[6]!];
+
+    expect(
+      parse("damodaran.eva-us", fixtureEvaPage({ headers: swapped })),
+    ).toEqual({
+      ok: false,
+      code: "header_mismatch",
+    });
   });
 });

@@ -78,6 +78,8 @@ const DATASET_LABELS: Record<string, string> = {
   "damodaran.country-risk": "Damodaran · riesgo país",
   "damodaran.country-risk-regions": "Damodaran · riesgo país por región",
   "damodaran.betas-us": "Damodaran · betas por industria (EE. UU.)",
+  "damodaran.eva-us":
+    "Damodaran · retorno sobre el capital por industria (EE. UU.)",
   "damodaran.synthetic-ratings": "Damodaran · rating sintético",
   "damodaran.failure-rates": "Damodaran · tasas de default por rating",
 };

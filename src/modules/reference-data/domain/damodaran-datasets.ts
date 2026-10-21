@@ -23,7 +23,17 @@ import {
  * columna de impuestos, y eso tiene que rechazar la publicación entera.
  */
 export const DAMODARAN_SOURCE_ID = "damodaran-current-data";
-export const DAMODARAN_PARSER_VERSION = "damodaran-html-1.0.0";
+/**
+ * `1.1.0` (`F6-10`): una celda con un error de Excel (`#VALUE!`, `#DIV/0!`…)
+ * es `null` como `NA` —la fuente no calculó ese valor—, en vez de rechazar la
+ * fila entera. La página EVA de enero de 2026 trae tres en columnas que no
+ * son el ROC, y rechazar la fila perdía el ROC de Tobacco y de Retail
+ * (Building Supply). `############` no es un error sino una columna angosta
+ * que oculta un número, y se sigue rechazando.
+ */
+export const DAMODARAN_PARSER_VERSION = "damodaran-html-1.1.0";
+
+const EXCEL_ERROR = /^#(?:VALUE!|DIV\/0!|N\/A|NUM!|REF!|NAME\?|NULL!)$/u;
 /** El riesgo país y sus regiones, leídos del `.xlsx` (ADR 0034). */
 export const DAMODARAN_WORKBOOK_PARSER_VERSION = "damodaran-xlsx-1.0.0";
 
@@ -42,7 +52,13 @@ export const DAMODARAN_COUNTRY_RISK_WORKBOOK = Object.freeze({
   publishedLabel: "July 2026",
 });
 
-type FieldKind = "decimal" | "percent" | "integer" | "text";
+/**
+ * `verified`: el encabezado se exige en su lugar pero la celda no se lee ni se
+ * guarda. Las columnas en dólares de la página EVA (`$ (886.64)`, o
+ * `############` cuando Excel no la ensanchó) no se usan, y leerlas sólo
+ * rechazaría filas buenas.
+ */
+type FieldKind = "decimal" | "percent" | "integer" | "text" | "verified";
 
 type FieldSpec = {
   readonly field: string;
@@ -157,6 +173,28 @@ export const DAMODARAN_DATASETS: readonly DamodaranDataset[] = Object.freeze([
         header: "standard deviation in operating income",
         kind: "percent",
       },
+    ],
+  },
+  {
+    // `F6-10` (ADR 0049): el ROC después de impuestos por industria, que acota
+    // el ROIC terminal de los supuestos derivados `2.0.0`.
+    datasetId: "damodaran.eva-us",
+    url: `${BASE}EVA.html`,
+    shape: "table",
+    keyHeader: "industry name",
+    requiredKey: "total-market-without-financials",
+    minimumRows: 50,
+    fields: [
+      { field: "firms", header: "number of firms", kind: "integer" },
+      { field: "beta", header: "beta", kind: "decimal" },
+      { field: "roe", header: "roe", kind: "percent" },
+      { field: "cost_of_equity", header: "cost of equity", kind: "percent" },
+      { field: "roe_minus_coe", header: "(roe - coe)", kind: "percent" },
+      { field: "equity_book_value", header: "bv of equity", kind: "verified" },
+      { field: "equity_eva", header: "equity eva", kind: "verified" },
+      { field: "roc", header: "roc", kind: "percent" },
+      { field: "cost_of_capital", header: "cost of capital", kind: "percent" },
+      { field: "roc_minus_wacc", header: "(roc - wacc)", kind: "percent" },
     ],
   },
   {
@@ -308,7 +346,11 @@ function parseCell(
 ): { ok: true; value: string | null } | { ok: false } {
   const text = raw.replace(/,/gu, "").trim();
 
-  if (text === "" || text.toUpperCase() === "NA") {
+  if (
+    text === "" ||
+    text.toUpperCase() === "NA" ||
+    EXCEL_ERROR.test(text.toUpperCase())
+  ) {
     return { ok: true, value: null };
   }
 
@@ -327,6 +369,8 @@ function parseCell(
         : { ok: false };
     case "text":
       return text.length <= 64 ? { ok: true, value: text } : { ok: false };
+    case "verified":
+      return { ok: true, value: null };
   }
 }
 
@@ -409,6 +453,8 @@ function parseTable(dataset: TableDataset, html: string): ReferencePublication {
     let rejected = false;
 
     for (const [index, spec] of dataset.fields.entries()) {
+      if (spec.kind === "verified") continue;
+
       const cell = parseCell(cells[index + 1] ?? "", spec.kind);
 
       if (!cell.ok) {

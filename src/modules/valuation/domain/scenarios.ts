@@ -348,8 +348,11 @@ export function materializeScenario(
         : path.periodGrowth[index]!,
     }));
   }
+  // La derivación es de la base: sus escenarios ya los verifica el check de la
+  // base (`F6-10`), y un escenario no es la regla que lo armó.
   return {
     ...input,
+    derivedAssumptions: undefined,
     ...(revenueMargin === undefined ? {} : { revenueMargin }),
     ...(cycleNormalization === undefined ? {} : { cycleNormalization }),
     periods,
