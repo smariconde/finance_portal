@@ -232,6 +232,13 @@
       "when": 1792605866284,
       "tag": "0032_gifted_fat_cobra",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1792616863218,
+      "tag": "0033_pale_mattie_franklin",
+      "breakpoints": true
     }
   ]
 }

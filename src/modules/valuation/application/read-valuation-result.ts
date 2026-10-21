@@ -24,6 +24,11 @@ import {
   type CedearEquivalent,
 } from "../domain/cedear-equivalent";
 import {
+  judgePlausibility,
+  type DriverPlausibility,
+  type StoredMarketExpectations,
+} from "../domain/market-expectations";
+import {
   compareWithMarketPrice,
   marketImpliedContext,
   marketImpliedExpectations,
@@ -37,6 +42,7 @@ import {
   type ValuationJob,
 } from "../domain/valuation-job";
 import { valuationRunSchema, type ValuationRun } from "../domain/valuation-run";
+import type { MarketExpectationsRepository } from "./market-expectations-repository";
 import type { ValuationRunRepository } from "./valuation-run-repository";
 import {
   VALUATION_HISTORY_LIMIT,
@@ -113,6 +119,14 @@ export type ValuationResultMarket = {
    * vio, y compararlo con su valor mezclaría dos fechas. Se muestra al lado.
    */
   readonly latestClose: MarketClose | null;
+  /**
+   * La lectura de la IA sobre el 10-K del año base de la corrida (`F6-11`), y
+   * dónde cae lo que exige el precio en sus escalas. `null` si nadie la pidió.
+   */
+  readonly reading: {
+    readonly stored: StoredMarketExpectations;
+    readonly plausibility: readonly DriverPlausibility[];
+  } | null;
 };
 
 export type ValuationResultJob = {
@@ -157,6 +171,10 @@ export type ValuationResultDependencies = {
   readonly universe: Pick<UniverseRepository, "loadState">;
   readonly cedears: Pick<CedearRegistryRepository, "loadRegistry">;
   readonly prices: Pick<PriceRepository, "loadSeries" | "loadEvents">;
+  readonly expectations: Pick<
+    MarketExpectationsRepository,
+    "acceptedForFiscalYear"
+  >;
 };
 
 /** Ocho años de ruedas: más que eso, el corte es demasiado viejo para leer. */
@@ -169,10 +187,11 @@ const MARKET_CLOSES_LIMIT = 2_000;
  */
 export async function marketAt(
   run: ValuationRun,
-  prices: ValuationResultDependencies["prices"],
+  dependencies: Pick<ValuationResultDependencies, "prices" | "expectations">,
 ): Promise<ValuationResultMarket> {
+  const { prices } = dependencies;
   const securityId = run.subject.securityId;
-  const [closes, events] = await Promise.all([
+  const [closes, events, stored] = await Promise.all([
     prices.loadSeries({
       securityId,
       from: run.asOf,
@@ -180,6 +199,10 @@ export async function marketAt(
       limit: MARKET_CLOSES_LIMIT,
     }),
     prices.loadEvents({ securityId }),
+    dependencies.expectations.acceptedForFiscalYear(
+      run.subject.legalEntityId,
+      run.input.baseRevenue.asOf,
+    ),
   ]);
   const readable = closes.map(({ marketDate, close, currency }) => ({
     marketDate,
@@ -188,11 +211,24 @@ export async function marketAt(
   }));
   const comparison = compareWithMarketPrice({ run, closes: readable, events });
   const latest = readable.at(-1);
+  const implied = marketImpliedExpectations({ run, comparison });
+  const context = marketImpliedContext(run.input);
 
   return {
     comparison,
-    implied: marketImpliedExpectations({ run, comparison }),
-    context: marketImpliedContext(run.input),
+    implied,
+    context,
+    reading:
+      stored?.record.reading == null
+        ? null
+        : {
+            stored,
+            plausibility: judgePlausibility({
+              readings: stored.record.reading.drivers,
+              implied: implied.status === "computed" ? implied.readings : [],
+              context,
+            }),
+          },
     latestClose:
       latest === undefined || latest.marketDate <= run.asOf ? null : latest,
   };
@@ -369,7 +405,7 @@ export async function readValuationResult(
       limit: 50_000,
     }),
     dependencies.cedears.loadRegistry({}),
-    marketAt(run, dependencies.prices),
+    marketAt(run, dependencies),
   ]);
 
   return {

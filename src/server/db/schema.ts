@@ -1151,6 +1151,94 @@ export const employeeEquityEvidence = pgTable(
   ],
 );
 
+export const marketExpectationsOutcome = pgEnum("market_expectations_outcome", [
+  "accepted",
+  "abstained",
+  "stopped",
+]);
+
+/**
+ * Lecturas de expectativas de la capa IA (`F6-11`, ADR 0050): una fila por
+ * vez que se le preguntó a la escalera qué sostiene un 10-K sobre crecimiento,
+ * margen y ventaja competitiva.
+ *
+ * Como las demás propuestas, se guarda también la abstención y el freno, y
+ * `reading_id` es el `task_run_id` de sus intentos en `ai_spend_ledger`. La
+ * lectura aceptada se guarda tal cual la validó la policy; nunca entra a un
+ * cálculo. No se borra.
+ */
+export const marketExpectationsReadings = pgTable(
+  "market_expectations_readings",
+  {
+    readingId: uuid("reading_id").primaryKey(),
+    legalEntityId: uuid("legal_entity_id").notNull(),
+    cik: char("cik", { length: 10 }).notNull(),
+    accessionNumber: varchar("accession_number", { length: 20 }).notNull(),
+    fiscalYearEnd: date("fiscal_year_end", { mode: "string" }).notNull(),
+    taskVersion: varchar("task_version", { length: 64 }).notNull(),
+    promptVersion: varchar("prompt_version", { length: 64 }).notNull(),
+    policyVersion: varchar("policy_version", { length: 64 }).notNull(),
+    ladderVersion: varchar("ladder_version", { length: 64 }).notNull(),
+    extractVersion: varchar("extract_version", { length: 64 }).notNull(),
+    outcome: marketExpectationsOutcome("outcome").notNull(),
+    reading: jsonb("reading").$type<Record<string, unknown>>(),
+    reason: varchar("reason", { length: 64 }),
+    acceptedRung: integer("accepted_rung"),
+    respondedModel: varchar("responded_model", { length: 128 }),
+    proposedAt: instant("proposed_at").notNull(),
+    recordedAt: instant("recorded_at").notNull(),
+  },
+  (table) => [
+    index("market_expectations_readings_subject_idx").on(
+      table.legalEntityId,
+      table.fiscalYearEnd,
+      table.proposedAt,
+    ),
+    check(
+      "market_expectations_readings_outcome_check",
+      sql`(${table.outcome} = 'accepted') = (${table.reason} is null) and (${table.outcome} = 'accepted') = (${table.reading} is not null)`,
+    ),
+    check(
+      "market_expectations_readings_accession_check",
+      sql`${table.accessionNumber} ~ '^[0-9]{10}-[0-9]{2}-[0-9]{6}$'`,
+    ),
+    check(
+      "market_expectations_readings_timeline_check",
+      sql`${table.recordedAt} >= ${table.proposedAt}`,
+    ),
+  ],
+);
+
+/** Las secciones del 10-K que se le mandaron al modelo, una fila por bloque. */
+export const marketExpectationsEvidence = pgTable(
+  "market_expectations_evidence",
+  {
+    readingId: uuid("reading_id").notNull(),
+    evidenceId: varchar("evidence_id", { length: 8 }).notNull(),
+    sourceId: varchar("source_id", { length: 64 }).notNull(),
+    section: varchar("section", { length: 48 }).notNull(),
+    documentUrl: text("document_url").notNull(),
+    accessionNumber: varchar("accession_number", { length: 20 }).notNull(),
+    documentAcceptedAt: instant("document_accepted_at").notNull(),
+    sha256: char("sha256", { length: 64 }).notNull(),
+    byteLength: integer("byte_length").notNull(),
+    truncated: boolean("truncated").notNull(),
+    excerpt: text("excerpt").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.readingId, table.evidenceId] }),
+    foreignKey({
+      name: "market_expectations_evidence_reading_fk",
+      columns: [table.readingId],
+      foreignColumns: [marketExpectationsReadings.readingId],
+    }),
+    check(
+      "market_expectations_evidence_bytes_check",
+      sql`${table.byteLength} > 0`,
+    ),
+  ],
+);
+
 /**
  * Marca de agua del refresh (ADR 0021): hasta qué presentación miró el sondeo a
  * cada sujeto, y cuándo lo miró.

@@ -47,6 +47,7 @@ import {
 import { getCedearRegistryRepository } from "@/server/persistence/get-cedear-registry-repository";
 import { getCorporateActionRepository } from "@/server/persistence/get-corporate-action-repository";
 import { getEmployeeEquityRepository } from "@/server/persistence/get-employee-equity-repository";
+import { getMarketExpectationsRepository } from "@/server/persistence/get-market-expectations-repository";
 import { getObservationRepository } from "@/server/persistence/get-observation-repository";
 import { getPriceRepository } from "@/server/persistence/get-price-repository";
 import { getValuationRunRepository } from "@/server/persistence/get-valuation-run-repository";
@@ -124,6 +125,7 @@ export async function readValuationResultForRequest(
       universe: getUniverseRepository(),
       cedears: getCedearRegistryRepository(),
       prices: getPriceRepository(),
+      expectations: getMarketExpectationsRepository(),
     },
   );
 }

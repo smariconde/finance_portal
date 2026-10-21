@@ -78,8 +78,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    50 | `F6-08`    | `queued`   | Precio del CEDEAR en BYMA y valor por CEDEAR en pesos con el CCL implícito del propio CEDEAR, con su ADR de fuente.                                                                                                       | `F6-04`          |
 |    51 | `F6-09`    | `done`     | Precio de mercado al `as_of` de la corrida y DCF inverso por driver: qué crecimiento, margen, ROIC terminal o tasa exige el precio, al lado de lo que la empresa mostró.                                                  | `F6-03`          |
 |    52 | `F6-10`    | `done`     | `derived-assumptions-2.0.0`: ROIC terminal por regla con el dataset de Damodaran, crecimiento por tendencia y escenarios bear/bull derivados.                                                                             | `F6-09`          |
-|    53 | `F6-11`    | `ready`    | Lectura cualitativa de la IA sobre lo que exige el precio: plausibilidad por driver con citas del 10-K verificadas, sin mover el valor.                                                                                   | `F6-09`          |
-|    54 | `F6-12`    | `queued`   | Flujo de valuación en un solo lugar por ticker: pedir, ver el estado y leer el resultado sin saltos, con la jerarquía orientada a decidir.                                                                                | `F6-09`          |
+|    53 | `F6-11`    | `done`     | Lectura cualitativa de la IA sobre lo que exige el precio: plausibilidad por driver con citas del 10-K verificadas, sin mover el valor.                                                                                   | `F6-09`          |
+|    54 | `F6-12`    | `ready`    | Flujo de valuación en un solo lugar por ticker: pedir, ver el estado y leer el resultado sin saltos, con la jerarquía orientada a decidir.                                                                                | `F6-09`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -3609,20 +3609,20 @@ repararon contra `source_documents`.
 
 ### Fase 6 — corrida por ticker y acceso CEDEAR
 
-| Issue   | Resultado y aceptación mínima                                                                                                                                                                                                         | Depende de | Controles                          |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------- |
-| `F6-01` | Corrida por ticker como job encolado con estado; primera Route Handler o Server Action con sus controles cerrados.                                                                                                                    | Fase 5     | `TM-03`, `TM-07`, `TM-10`, `TM-12` |
-| `F6-07` | Supuestos derivados de lo guardado: una regla versionada arma períodos, terminal y sensibilidad `fcff_base`, el motor la recalcula, y el job registra la corrida o nombra el faltante.                                                | `F6-01`    | `TM-05`, `TM-06`, `TM-16`          |
-| `F6-02` | Historial de corridas: volver a ver, refrescar lo que cambió y comparar contra la anterior sin sobrescribirla.                                                                                                                        | `F6-07`    | `TM-06`, `TM-16`                   |
-| `F6-03` | Superficie de resultado sobre empresa real con nivel de rigor, provenance y supuestos distinguidos de los hechos.                                                                                                                     | `F6-02`    | `TM-12`, `TM-15`, `UI-02`, `UI-03` |
-| `F6-04` | Anotación de acceso CEDEAR sobre el registro de `F7-03`: si existe programa, su ratio vigente y su precio, sin fusionar los dos instrumentos.                                                                                         | `F6-02`    | `TM-05`, `TM-06`                   |
-| `F6-05` | Ingesta bajo demanda: si el ticker pedido no tiene la ventana de fundamentals, la corrida la baja con presupuesto y reanudación, y audita el contrato point-in-time del sujeto antes de valuar. No hay valuación por lote (ADR 0016). | `F6-01`    | `TM-06`, `TM-10`, `TM-11`, `TM-16` |
-| `F6-06` | Despliegue remoto: Postgres hosteada, protección del deployment verificada y walkthrough del owner sobre datos reales.                                                                                                                | `F6-03`    | `TM-14`, `UI-02`                   |
-| `F6-08` | Precio del CEDEAR en BYMA (símbolo de Caja de Valores, fuente con ADR) y valor por CEDEAR en pesos con el CCL implícito, sin feed MEP/CCL.                                                                                            | `F6-04`    | `TM-05`, `TM-06`, `TM-08`, `TM-10` |
-| `F6-09` | Precio al `as_of` de la corrida contra su valor y DCF inverso por driver con el mismo motor, al lado de lo que la empresa mostró; sin recomendación ni color de compra o venta.                                                       | `F6-03`    | `TM-05`, `TM-06`, `TM-15`, `UI-03` |
-| `F6-10` | `derived-assumptions-2.0.0`: ROIC terminal por regla (dataset de ROIC por industria de Damodaran, acotado entre el WACC y el ROIC propio), crecimiento por tendencia log-lineal y escenarios bear/bull derivados con su rationale.    | `F6-09`    | `TM-05`, `TM-06`, `TM-16`          |
-| `F6-11` | Lectura cualitativa de la IA sobre las expectativas implícitas: plausibilidad por driver con citas verbatim del 10-K que una policy verifica; se guarda con su evidencia y nunca entra al valor.                                      | `F6-09`    | `TM-03`, `TM-04`, `TM-09`, `TM-16` |
-| `F6-12` | Flujo de valuación por ticker en una sola superficie: pedir, estado inline y resultado sin saltos; jerarquía de decisión primero y evidencia a demanda.                                                                               | `F6-09`    | `TM-03`, `UI-02`, `UI-03`          |
+| Issue   | Resultado y aceptación mínima                                                                                                                                                                                                         | Depende de | Controles                                   |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------------------------- |
+| `F6-01` | Corrida por ticker como job encolado con estado; primera Route Handler o Server Action con sus controles cerrados.                                                                                                                    | Fase 5     | `TM-03`, `TM-07`, `TM-10`, `TM-12`          |
+| `F6-07` | Supuestos derivados de lo guardado: una regla versionada arma períodos, terminal y sensibilidad `fcff_base`, el motor la recalcula, y el job registra la corrida o nombra el faltante.                                                | `F6-01`    | `TM-05`, `TM-06`, `TM-16`                   |
+| `F6-02` | Historial de corridas: volver a ver, refrescar lo que cambió y comparar contra la anterior sin sobrescribirla.                                                                                                                        | `F6-07`    | `TM-06`, `TM-16`                            |
+| `F6-03` | Superficie de resultado sobre empresa real con nivel de rigor, provenance y supuestos distinguidos de los hechos.                                                                                                                     | `F6-02`    | `TM-12`, `TM-15`, `UI-02`, `UI-03`          |
+| `F6-04` | Anotación de acceso CEDEAR sobre el registro de `F7-03`: si existe programa, su ratio vigente y su precio, sin fusionar los dos instrumentos.                                                                                         | `F6-02`    | `TM-05`, `TM-06`                            |
+| `F6-05` | Ingesta bajo demanda: si el ticker pedido no tiene la ventana de fundamentals, la corrida la baja con presupuesto y reanudación, y audita el contrato point-in-time del sujeto antes de valuar. No hay valuación por lote (ADR 0016). | `F6-01`    | `TM-06`, `TM-10`, `TM-11`, `TM-16`          |
+| `F6-06` | Despliegue remoto: Postgres hosteada, protección del deployment verificada y walkthrough del owner sobre datos reales.                                                                                                                | `F6-03`    | `TM-14`, `UI-02`                            |
+| `F6-08` | Precio del CEDEAR en BYMA (símbolo de Caja de Valores, fuente con ADR) y valor por CEDEAR en pesos con el CCL implícito, sin feed MEP/CCL.                                                                                            | `F6-04`    | `TM-05`, `TM-06`, `TM-08`, `TM-10`          |
+| `F6-09` | Precio al `as_of` de la corrida contra su valor y DCF inverso por driver con el mismo motor, al lado de lo que la empresa mostró; sin recomendación ni color de compra o venta.                                                       | `F6-03`    | `TM-05`, `TM-06`, `TM-15`, `UI-03`          |
+| `F6-10` | `derived-assumptions-2.0.0`: ROIC terminal por regla (dataset de ROIC por industria de Damodaran, acotado entre el WACC y el ROIC propio), crecimiento por tendencia log-lineal y escenarios bear/bull derivados con su rationale.    | `F6-09`    | `TM-05`, `TM-06`, `TM-16`                   |
+| `F6-11` | Lectura cualitativa de la IA sobre las expectativas implícitas: plausibilidad por driver con citas verbatim del 10-K que una policy verifica; se guarda con su evidencia y nunca entra al valor.                                      | `F6-09`    | `TM-09`, `TM-10`, `TM-12`, `TM-15`, `TM-16` |
+| `F6-12` | Flujo de valuación por ticker en una sola superficie: pedir, estado inline y resultado sin saltos; jerarquía de decisión primero y evidencia a demanda.                                                                               | `F6-09`    | `TM-03`, `UI-02`, `UI-03`                   |
 
 **Criterio agregado a `F6-05` el 2026-10-20.** Toda ingesta que dispare la
 app —la que baja la ventana que falta y cualquier reingesta o refresh de un
@@ -3762,9 +3762,53 @@ valuación en un solo lugar). `F6-05` pasa a `queued` detrás de ellos. El año
 base TTM desde 10-Q queda nombrado como límite de `F6-10`, porque cambia toda
 la normalización.
 
+#### `F6-11` — lectura del 10-K frente a lo que exige el precio (cerrado el 2026-10-21)
+
+Estado del slice: `done`. No cierra el gate de la Fase 6. `F6-12` queda
+`ready`.
+
+- [ADR 0050](../architecture/adr/0050-market-expectations-reading.md): el
+  modelo no ve el precio ni lo exigido. Las dos cosas salen de Yahoo y de
+  Damodaran, cuyo `aiTransfer` es `restricted`, y además lo anclarían. Lee
+  el Item 1, el MD&A sin advertencias, estimaciones contables ni liquidez, y
+  el comienzo del Item 1A (`sec-10k-outlook-1.0.0`, 30 KB).
+- `market-expectations-reading-1.0.0`: perspectiva ordinal por driver
+  (crecimiento, margen, ventaja) con señales y riesgos citados literalmente.
+  `market-expectations-policy-1.0.0` rechaza citas fuera de su bloque, cifras
+  del resumen que no están en él, drivers repetidos o faltantes y escalas
+  ajenas.
+- `expectations-plausibility-1.0.0`: el código lleva lo exigido a la misma
+  escala y dice `within`, `above` o `far_above`, o lo nombra
+  (`unreachable`, `not_addressed`, `no_requirement`).
+- Migración `0033`: `market_expectations_readings` y
+  `market_expectations_evidence`, con rollback que se niega si hay lecturas.
+  `pnpm valuation:market-expectations` es manual
+  ([runbook](../runbooks/market-expectations.md)); la página lee la última
+  aceptada del ejercicio base de la corrida y nunca llama al modelo.
+- Controles: `TM-09` (evidencia cercada como no confiable, policy
+  determinista), `TM-10` (tope por tarea y por día, reserva del peor caso),
+  `TM-12` (el texto del modelo se escapa), `TM-15` (sólo viaja lo de
+  `sec-edgar`; un test prueba que los datos no traen precio, WACC ni
+  Damodaran), `TM-16` (toda pregunta guardada con sus secciones y hashes).
+
+Evidencia:
+
+- Unit nuevos: 10 de la policy y el prompt, 4 de la plausibilidad, 5 del
+  corte, 4 del servicio y 1 del lector. El contrato del repositorio corre en
+  memoria y en PostgreSQL. Lint, tipos, formato y build.
+- Base personal, 2026-10-21. La primera corrida costó USD 0,066: AAPL
+  rechazada en los cuatro escalones por la regla de cifras sobre la cita, y
+  AMZN abstenida con un MD&A que no llegaba a las ventas. Corregidas las dos
+  cosas, la segunda costó USD 0,043:
+  - AAPL: moderado, estable y amplia, en el escalón 2;
+  - AMZN: alto, se expande y amplia, en el escalón 3.
+- Contra lo exigido: AAPL pide un escalón más de crecimiento y dos de margen;
+  AMZN, un escalón más de crecimiento y un margen dentro.
+- Build servido: axe sin hallazgos nuevos y sin desborde.
+
 #### `F6-10` — supuestos derivados `2.0.0` (cerrado el 2026-10-21)
 
-Estado del slice: `done`. No cierra el gate de la Fase 6. `F6-11` queda
+Estado del slice: `done`. No cierra el gate de la Fase 6. `F6-11` quedó
 `ready`.
 
 - [ADR 0049](../architecture/adr/0049-derived-assumptions-v2.md): ROIC
