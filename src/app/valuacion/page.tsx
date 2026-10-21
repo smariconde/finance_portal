@@ -44,8 +44,9 @@ export default async function ValuationPage() {
           </h1>
           <p className="text-sm leading-6 text-muted-foreground">
             Encola la evaluación de una empresa del universo constituido. Lee lo
-            ya guardado: no baja filings ni llama al modelo, y no publica un
-            valor por acción.
+            ya guardado y, si alcanza, registra una corrida con supuestos
+            derivados. No baja filings ni llama al modelo, y no publica un valor
+            por acción.
           </p>
         </section>
         <ValuationRequestForm />

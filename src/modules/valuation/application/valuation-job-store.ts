@@ -31,9 +31,20 @@ export type ValuationJobFinish = {
   readonly outcome: ValuationJobOutcome;
 };
 
+/** Techo del historial: una consulta acotada, nunca la tabla entera. */
+export const VALUATION_HISTORY_LIMIT = 20;
+
 export interface ValuationJobStore {
   findOpenByTicker(ticker: string): Promise<ValuationJob | null>;
   findLatestByTicker(ticker: string): Promise<ValuationJob | null>;
+  /**
+   * Los jobs terminados del ticker, el más nuevo primero y nunca más de
+   * `limit` (`F6-02`, `TM-07`): el historial no recorre la tabla.
+   */
+  listCompletedByTicker(
+    ticker: string,
+    limit: number,
+  ): Promise<readonly ValuationJob[]>;
   insert(job: ValuationJob): Promise<ValuationJob>;
   /**
    * Reclama la fila si sigue en cola o si su arranque ya es viejo. `null` si

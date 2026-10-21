@@ -14,7 +14,10 @@ import type { ValuationRunStatus } from "@/modules/valuation/domain/valuation-ru
 import type { MethodSelectionReason } from "@/modules/valuation/domain/method-selection";
 import type { RigorLevel } from "@/modules/valuation/domain/rigor-level";
 
-import { enqueueValuation } from "../actions";
+import type { ValuationHistoryView } from "@/modules/valuation/application/read-valuation-history";
+
+import { enqueueValuation, loadValuationHistory } from "../actions";
+import { ValuationHistory } from "./valuation-history";
 
 const POLL_MS = 2_000;
 
@@ -115,6 +118,7 @@ export function ValuationRequestForm() {
     state: "editing",
   });
   const [pending, setPending] = useState(false);
+  const [history, setHistory] = useState<ValuationHistoryView | null>(null);
   const alive = useRef(true);
 
   useEffect(() => {
@@ -129,6 +133,7 @@ export function ValuationRequestForm() {
     event.preventDefault();
     const submitted = ticker;
     setPending(true);
+    setHistory(null);
 
     let intent: "enqueue" | "status" = "enqueue";
 
@@ -150,6 +155,20 @@ export function ValuationRequestForm() {
         setView(result);
 
         if (result.state !== "queued" && result.state !== "running") {
+          if (result.state !== "unavailable") {
+            let past: ValuationHistoryView;
+
+            try {
+              past = await loadValuationHistory({ ticker: submitted });
+            } catch {
+              past = { state: "unavailable" };
+            }
+
+            if (alive.current) {
+              setHistory(past);
+            }
+          }
+
           break;
         }
 
@@ -199,6 +218,7 @@ export function ValuationRequestForm() {
       <div aria-live="polite" className="flex flex-col gap-3">
         <JobStatus described={described} view={open} />
       </div>
+      <ValuationHistory view={history} />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import {
 } from "../domain/valuation-job";
 import {
   ValuationJobConflictError,
+  VALUATION_HISTORY_LIMIT,
   type ValuationJobClaim,
   type ValuationJobFinish,
   type ValuationJobStore,
@@ -34,6 +35,12 @@ export function createInMemoryValuationJobStore(): ValuationJobStore {
           .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
           .at(0) ?? null
       );
+    },
+    async listCompletedByTicker(ticker, limit) {
+      return jobs
+        .filter((job) => job.ticker === ticker && job.status === "completed")
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+        .slice(0, Math.min(limit, VALUATION_HISTORY_LIMIT));
     },
     async insert(job) {
       if (

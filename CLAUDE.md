@@ -401,6 +401,16 @@ other claims are declared absent naming the rule. `valuation-job-1.1.0` ends in
 status, never its ID or value. Measured on a replica: AAPL and AMZN `computed`
 and replayed; the personal database has no transcriptions yet.
 
+The run history (`F6-02`,
+[ADR 0047](docs/architecture/adr/0047-valuation-run-history.md)) lists a
+ticker's last 20 completed jobs through `loadValuationHistory`, a second Server
+Action with a one-field schema. Refreshing is enqueuing again: `valuation_runs`
+is append-only and an identical snapshot returns the same run.
+`valuation-run-comparison-1.0.0` compares snapshots section by section by
+canonical hash and keeps the cutoff (`knowledge`, `asOf`) apart, so a refresh
+that only moved the cutoff reads «only the cutoff». It never compares results.
+A run is ~21 kB.
+
 ```bash
 pnpm damodaran:record                              # dry run: the four pages, one request each, writes nothing
 pnpm damodaran:record --dataset damodaran.betas-us --apply
