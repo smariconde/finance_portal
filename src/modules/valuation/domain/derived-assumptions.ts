@@ -126,7 +126,12 @@ export function consecutiveRevenueHistory(
   return run.map(({ fiscalYearEnd, value }) => ({ fiscalYearEnd, value }));
 }
 
-function fade(start: Dec, end: Dec, year: number): Dec {
+/**
+ * El valor del año: el punto de partida hasta `DERIVED_HOLD_YEARS` y una recta
+ * hasta `end` en los años siguientes. Exportada porque el DCF inverso
+ * (`market-implied-1.0.0`) mueve el crecimiento con esta misma forma.
+ */
+export function fade(start: Dec, end: Dec, year: number): Dec {
   if (year <= DERIVED_HOLD_YEARS) {
     return start;
   }

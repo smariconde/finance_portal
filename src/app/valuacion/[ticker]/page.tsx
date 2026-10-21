@@ -53,6 +53,7 @@ import { ValuationHistory } from "../_components/valuation-history";
 import { CedearAccess } from "./_components/cedear-access";
 import { CostOfCapitalTable } from "./_components/cost-of-capital-table";
 import { DerivationSummary } from "./_components/derivation-summary";
+import { MarketExpectations } from "./_components/market-expectations";
 import { QualitativeDecisions } from "./_components/qualitative-decisions";
 import { RigorPanel } from "./_components/rigor-panel";
 
@@ -64,6 +65,7 @@ type PageProps = {
 };
 
 const DAMODARAN_SOURCE_ID = "damodaran-current-data";
+const PRICES_SOURCE_ID = "yahoo-finance";
 
 export async function generateMetadata({
   params,
@@ -214,8 +216,9 @@ function WithoutRun({
  * El render sólo lee: no encola, no recalcula la corrida, no sale a la red y
  * no llama al modelo. Refrescar es volver a encolar en `/valuacion`
  * ([ADR 0047](../../../../docs/architecture/adr/0047-valuation-run-history.md)).
- * No compara el valor con el precio de mercado: es una decisión del owner del
- * 2026-10-21, y no hay recomendación ni precio objetivo.
+ * Desde `F6-09` lo compara con el cierre guardado al `as_of` de la corrida y
+ * muestra lo que ese precio exige de cada supuesto (ADR 0048). No hay
+ * recomendación ni precio objetivo.
  */
 export default async function ValuationResultPage({ params }: PageProps) {
   const health = await getRequestConfigHealth();
@@ -275,9 +278,10 @@ export default async function ValuationResultPage({ params }: PageProps) {
   ].filter(
     (check) => check.mode === "require_review" && check.status === "failed",
   );
-  const damodaran =
-    DEMO_SOURCE_REGISTRY.find((entry) => entry.sourceId === DAMODARAN_SOURCE_ID)
+  const attributionOf = (sourceId: string) =>
+    DEMO_SOURCE_REGISTRY.find((entry) => entry.sourceId === sourceId)
       ?.attribution ?? null;
+  const damodaran = attributionOf(DAMODARAN_SOURCE_ID);
 
   return (
     <PageFrame
@@ -342,6 +346,12 @@ export default async function ValuationResultPage({ params }: PageProps) {
       )}
 
       <RunHeadline run={run} />
+
+      <MarketExpectations
+        run={run}
+        market={reading.market}
+        attribution={attributionOf(PRICES_SOURCE_ID)}
+      />
 
       <RigorPanel run={run} />
 
@@ -411,7 +421,8 @@ export default async function ValuationResultPage({ params }: PageProps) {
         <ul className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
           <li>
             Es una lectura educativa de un modelo, no una recomendación ni un
-            precio objetivo. No se compara con el precio de mercado.
+            precio objetivo. El precio se lee de la serie guardada, al día de la
+            valuación.
           </li>
           <li>
             Abrir esta página no recalcula la corrida, no baja datos y no llama

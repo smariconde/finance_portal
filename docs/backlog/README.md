@@ -74,8 +74,12 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    46 | `F6-02`    | `done`     | Historial de corridas: volver a ver, refrescar lo que cambió y comparar contra la anterior sin sobrescribirla.                                                                                                            | `F6-07`          |
 |    47 | `F6-03`    | `done`     | Superficie de resultado sobre empresa real con nivel de rigor, provenance y supuestos distinguidos de los hechos.                                                                                                         | `F6-02`          |
 |    48 | `F6-04`    | `done`     | Acceso CEDEAR en el resultado: programa, depositario, estado y ratio al corte de la corrida, y el valor por CEDEAR en USD.                                                                                                | `F6-02`          |
-|    49 | `F6-05`    | `ready`    | Ingesta bajo demanda de la ventana de fundamentals que falta, con presupuesto, reanudación y auditoría point-in-time del sujeto.                                                                                          | `F6-01`          |
+|    49 | `F6-05`    | `queued`   | Ingesta bajo demanda de la ventana de fundamentals que falta, con presupuesto, reanudación y auditoría point-in-time del sujeto.                                                                                          | `F6-01`          |
 |    50 | `F6-08`    | `queued`   | Precio del CEDEAR en BYMA y valor por CEDEAR en pesos con el CCL implícito del propio CEDEAR, con su ADR de fuente.                                                                                                       | `F6-04`          |
+|    51 | `F6-09`    | `done`     | Precio de mercado al `as_of` de la corrida y DCF inverso por driver: qué crecimiento, margen, ROIC terminal o tasa exige el precio, al lado de lo que la empresa mostró.                                                  | `F6-03`          |
+|    52 | `F6-10`    | `ready`    | `derived-assumptions-2.0.0`: ROIC terminal por regla con el dataset de Damodaran, crecimiento por tendencia y escenarios bear/bull derivados.                                                                             | `F6-09`          |
+|    53 | `F6-11`    | `queued`   | Lectura cualitativa de la IA sobre lo que exige el precio: plausibilidad por driver con citas del 10-K verificadas, sin mover el valor.                                                                                   | `F6-09`          |
+|    54 | `F6-12`    | `queued`   | Flujo de valuación en un solo lugar por ticker: pedir, ver el estado y leer el resultado sin saltos, con la jerarquía orientada a decidir.                                                                                | `F6-09`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -3615,6 +3619,10 @@ repararon contra `source_documents`.
 | `F6-05` | Ingesta bajo demanda: si el ticker pedido no tiene la ventana de fundamentals, la corrida la baja con presupuesto y reanudación, y audita el contrato point-in-time del sujeto antes de valuar. No hay valuación por lote (ADR 0016). | `F6-01`    | `TM-06`, `TM-10`, `TM-11`, `TM-16` |
 | `F6-06` | Despliegue remoto: Postgres hosteada, protección del deployment verificada y walkthrough del owner sobre datos reales.                                                                                                                | `F6-03`    | `TM-14`, `UI-02`                   |
 | `F6-08` | Precio del CEDEAR en BYMA (símbolo de Caja de Valores, fuente con ADR) y valor por CEDEAR en pesos con el CCL implícito, sin feed MEP/CCL.                                                                                            | `F6-04`    | `TM-05`, `TM-06`, `TM-08`, `TM-10` |
+| `F6-09` | Precio al `as_of` de la corrida contra su valor y DCF inverso por driver con el mismo motor, al lado de lo que la empresa mostró; sin recomendación ni color de compra o venta.                                                       | `F6-03`    | `TM-05`, `TM-06`, `TM-15`, `UI-03` |
+| `F6-10` | `derived-assumptions-2.0.0`: ROIC terminal por regla (dataset de ROIC por industria de Damodaran, acotado entre el WACC y el ROIC propio), crecimiento por tendencia log-lineal y escenarios bear/bull derivados con su rationale.    | `F6-09`    | `TM-05`, `TM-06`, `TM-16`          |
+| `F6-11` | Lectura cualitativa de la IA sobre las expectativas implícitas: plausibilidad por driver con citas verbatim del 10-K que una policy verifica; se guarda con su evidencia y nunca entra al valor.                                      | `F6-09`    | `TM-03`, `TM-04`, `TM-09`, `TM-16` |
+| `F6-12` | Flujo de valuación por ticker en una sola superficie: pedir, estado inline y resultado sin saltos; jerarquía de decisión primero y evidencia a demanda.                                                                               | `F6-09`    | `TM-03`, `UI-02`, `UI-03`          |
 
 **Criterio agregado a `F6-05` el 2026-10-20.** Toda ingesta que dispare la
 app —la que baja la ventana que falta y cualquier reingesta o refresh de un
@@ -3743,6 +3751,52 @@ Evidencia:
   después «sólo el corte; los datos no cambiaron». 21 kB por corrida. Axe
   escritorio y móvil sin hallazgos nuevos (`region` en la sidebar y el hover del
   botón primario ya estaban). Una transcripción costó USD 0,0006.
+
+**Replanificación del 2026-10-21.** Con la primera corrida real a la vista
+(AAPL 143,82 USD contra 333,02 USD de cierre), el owner revirtió la decisión de
+`F6-03` de no mostrar el precio: un valor que no se contrasta con el mercado no
+sirve para decidir. Se abren cuatro issues antes de `F6-05`: `F6-09` (precio y
+DCF inverso), `F6-10` (supuestos derivados `2.0.0`), `F6-11` (lectura
+cualitativa de la IA sobre lo que exige el precio) y `F6-12` (flujo de
+valuación en un solo lugar). `F6-05` pasa a `queued` detrás de ellos. El año
+base TTM desde 10-Q queda nombrado como límite de `F6-10`, porque cambia toda
+la normalización.
+
+#### `F6-09` — precio de mercado y lo que exige (cerrado el 2026-10-21)
+
+Estado del slice: `done`. No cierra el gate de la Fase 6. `F6-10` queda
+`ready`.
+
+- [ADR 0048](../architecture/adr/0048-market-price-implied-expectations.md):
+  `market-price-comparison-1.0.0` lee el cierre crudo del día del `as_of` de la
+  corrida, misma moneda, y se niega con nombre si no hay cierre ese día o si
+  hubo un split entre la base de acciones y el cierre. Un cierre posterior se
+  muestra aparte, sin comparar.
+- `market-implied-1.0.0`: DCF inverso con `computeFcff`, un driver por vez
+  —crecimiento de los años 1–5 con la convergencia de la regla, margen EBIT,
+  ROIC terminal y una tasa de descuento única—, bisección de 48 pasos sobre
+  intervalos declarados, sin extrapolar fuera de ellos.
+- Al lado de cada driver, lo que la empresa mostró: CAGR de la historia
+  congelada en dos ventanas, margen y ROIC ajustados del año base, costo del
+  equity. Sin fuente nueva y sin migración.
+- Se calcula al leer: no entra al snapshot ni a los hashes, no pasa por los
+  checks y no se registra.
+- Controles: `TM-05` (cada ausencia con motivo, nunca un precio de otro día),
+  `TM-06` (el precio es el del corte; uno posterior no se compara), `TM-15`
+  (atribución de Yahoo desde el registro y su `owner_accepted` dicho en la
+  página), `UI-03` (marcas de dato de referencia y derivado por regla).
+
+Evidencia:
+
+- 15 unit nuevos de la regla (comparación, ausencias, split, ida y vuelta al
+  valor propio, precio fuera de rango, determinismo, contexto) y uno del
+  lector. Suite completa, tipos, lint, formato y build.
+- Base personal, AAPL al 2026-09-30 (333,02 USD contra 143,82 USD, 2,32×): el
+  precio exige 25,49 % de crecimiento cinco años (corrida 8,68 %, últimos tres
+  años 1,81 %), o 77,83 % de margen (34,25 %), o descontar a 5,74 % (costo del
+  equity 10,04 %); el ROIC terminal solo no alcanza (213,63 USD con 500 %).
+  ~100 ms por render. Build servido: axe sin hallazgos nuevos en escritorio
+  claro y móvil oscuro (`region` de la sidebar ya estaba), sin desborde.
 
 #### `F6-04` — acceso CEDEAR en el resultado (cerrado el 2026-10-21)
 

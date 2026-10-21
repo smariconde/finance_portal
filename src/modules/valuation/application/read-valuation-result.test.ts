@@ -5,6 +5,7 @@ import {
   DEMO_IDENTITY_GRAPH,
 } from "@/modules/identity/infrastructure/demo-identity-fixtures";
 import type { StoredCedearRegistry } from "@/modules/cedears/domain/plan-cedear-registry";
+import { InMemoryPriceRepository } from "@/modules/prices/infrastructure/in-memory-price-repository";
 
 import {
   buildDemoValuationRun,
@@ -49,6 +50,7 @@ const REGISTRY: StoredCedearRegistry = {
   ratios: DEMO_IDENTITY_GRAPH.depositaryRatios,
 };
 const cedears = { loadRegistry: async () => REGISTRY };
+const prices = new InMemoryPriceRepository();
 
 let sequence = 0;
 
@@ -89,6 +91,7 @@ describe("readValuationResult", () => {
         runs: createInMemoryValuationRunRepository(),
         universe,
         cedears,
+        prices,
       },
     );
 
@@ -110,6 +113,7 @@ describe("readValuationResult", () => {
         runs: createInMemoryValuationRunRepository(),
         universe,
         cedears,
+        prices,
       },
     );
 
@@ -137,7 +141,7 @@ describe("readValuationResult", () => {
 
     const reading = await readValuationResult(
       { ticker: "AAPL" },
-      { jobs, runs, universe, cedears },
+      { jobs, runs, universe, cedears, prices },
     );
 
     expect(reading.state).toBe("run");
@@ -166,10 +170,58 @@ describe("readValuationResult", () => {
 
     const reading = await readValuationResult(
       { ticker: "AAPL" },
-      { jobs, runs, universe, cedears },
+      { jobs, runs, universe, cedears, prices },
     );
 
     expect(reading.state === "run" && reading.newerGap).toBeNull();
+    // Sin serie guardada no hay precio: se nombra, no se inventa.
+    expect(reading.state === "run" && reading.market.comparison).toMatchObject({
+      status: "unavailable",
+      reason: "no_close_at_as_of",
+    });
+  });
+
+  it("compares the close at the run's as_of and keeps a later close apart", async () => {
+    const jobs = createInMemoryValuationJobStore();
+    const runs = createInMemoryValuationRunRepository();
+    const run = await runs.record(buildDemoValuationRun());
+    const series = new InMemoryPriceRepository();
+    const close = (marketDate: string, value: string) => ({
+      securityId: run.subject.securityId,
+      marketDate,
+      close: value,
+      currency: run.currency,
+    });
+
+    await series.writeSeries(
+      [close(run.asOf, "15"), close("2099-01-02", "99")],
+      [],
+    );
+    await finished(
+      jobs,
+      outcomeForAssessment(READING, {
+        valuationRunId: run.valuationRunId,
+        runStatus: "computed",
+      }),
+    );
+
+    const reading = await readValuationResult(
+      { ticker: "AAPL" },
+      { jobs, runs, universe, cedears, prices: series },
+    );
+
+    expect(reading.state).toBe("run");
+    if (reading.state !== "run") return;
+
+    expect(reading.market.comparison).toMatchObject({
+      status: "compared",
+      price: { marketDate: run.asOf, close: "15" },
+    });
+    expect(reading.market.latestClose).toMatchObject({
+      marketDate: "2099-01-02",
+      close: "99",
+    });
+    expect(reading.market.implied.status).toBe("computed");
   });
 });
 

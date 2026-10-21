@@ -109,7 +109,8 @@ export async function readValuationHistoryForRequest(
 
 /**
  * La última corrida registrada del ticker, para la página del resultado
- * (`F6-03`). Sólo lee jobs, corridas y el grafo de identidad.
+ * (`F6-03`). Sólo lee jobs, corridas, el grafo de identidad y la serie de
+ * precios guardada (`F6-09`).
  */
 export async function readValuationResultForRequest(
   ticker: string,
@@ -121,6 +122,7 @@ export async function readValuationResultForRequest(
       runs: getValuationRunRepository(),
       universe: getUniverseRepository(),
       cedears: getCedearRegistryRepository(),
+      prices: getPriceRepository(),
     },
   );
 }
