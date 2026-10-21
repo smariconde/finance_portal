@@ -409,10 +409,16 @@ other claims are declared absent naming the rule. `valuation-job-1.1.0` ends in
 status, never its ID or value. Measured on a replica: AAPL and AMZN `computed`
 and replayed; the personal database has no transcriptions yet.
 
+Since `F6-12` `/valuacion` is only the entry: it enqueues and navigates to
+`/valuacion/[ticker]`, whose `ValuationRunner` follows an open job, announces its state
+inline and re-reads the page in place with `router.refresh()` when the run is recorded.
+The page reads decision first (value with its bear–bull range, price and what it
+requires, scenarios), then how it was reached, then evidence and controls.
+
 The run history (`F6-02`,
 [ADR 0047](docs/architecture/adr/0047-valuation-run-history.md)) lists a
-ticker's last 20 completed jobs through `loadValuationHistory`, a second Server
-Action with a one-field schema. Refreshing is enqueuing again: `valuation_runs`
+ticker's last 20 completed jobs at render time (its `loadValuationHistory` action was
+removed in `F6-12`, once nothing called it). Refreshing is enqueuing again: `valuation_runs`
 is append-only and an identical snapshot returns the same run.
 `valuation-run-comparison-1.0.0` compares snapshots section by section by
 canonical hash and keeps the cutoff (`knowledge`, `asOf`) apart, so a refresh
