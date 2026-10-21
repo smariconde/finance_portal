@@ -50,6 +50,7 @@ import { RunHeadline } from "../_components/run/run-headline";
 import { ScenariosTable } from "../_components/run/scenarios-table";
 import { SensitivityMatrix } from "../_components/run/sensitivity-matrix";
 import { ValuationHistory } from "../_components/valuation-history";
+import { CedearAccess } from "./_components/cedear-access";
 import { CostOfCapitalTable } from "./_components/cost-of-capital-table";
 import { DerivationSummary } from "./_components/derivation-summary";
 import { QualitativeDecisions } from "./_components/qualitative-decisions";
@@ -86,7 +87,8 @@ const DATA_KINDS: readonly { kind: EvidenceKind; meaning: string }[] = [
   },
   {
     kind: "reference_data",
-    meaning: "una tabla de Damodaran, de una release fechada",
+    meaning:
+      "lo publicó un tercero —Damodaran, un emisor de CEDEAR— y se fecha al leerlo",
   },
   {
     kind: "derived_by_rule",
@@ -343,6 +345,8 @@ export default async function ValuationResultPage({ params }: PageProps) {
 
       <RigorPanel run={run} />
 
+      <CedearAccess cedear={reading.cedear} />
+
       <section
         aria-labelledby="data-kinds-title"
         className="flex flex-col gap-3 rounded-xl border bg-muted/30 p-4"
@@ -418,8 +422,8 @@ export default async function ValuationResultPage({ params }: PageProps) {
             cambiarla produce otra corrida.
           </li>
           <li>
-            El acceso por CEDEAR y la descarga de fundamentals que falten son
-            slices posteriores; esta página no los muestra.
+            El precio del CEDEAR en BYMA, su valor en pesos y la descarga de
+            fundamentals que falten son slices posteriores.
           </li>
         </ul>
       </section>

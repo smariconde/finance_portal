@@ -1,4 +1,14 @@
-import type { IdentityGraph } from "@/modules/identity/domain/identity-graph";
+import type { CedearRegistryRepository } from "@/modules/cedears/application/cedear-registry-repository";
+import { CEDEAR_DEPOSITARIES } from "@/modules/cedears/domain/cedear-depositaries";
+import type { StoredCedearRegistry } from "@/modules/cedears/domain/plan-cedear-registry";
+import {
+  CEDEAR_ACCESS_RULE_VERSION,
+  resolveCedearAccess,
+} from "@/modules/cedears/domain/resolve-cedear-access";
+import type {
+  DepositaryProgram,
+  IdentityGraph,
+} from "@/modules/identity/domain/identity-graph";
 import type { PointInTimeQuery } from "@/modules/temporal/domain/point-in-time-query";
 import {
   isEffectiveAt,
@@ -8,6 +18,10 @@ import {
 import type { UniverseRepository } from "@/modules/universe/application/universe-repository";
 import { SP500_INDEX_ID } from "@/modules/universe/application/live-universe-source";
 
+import {
+  cedearEquivalent,
+  type CedearEquivalent,
+} from "../domain/cedear-equivalent";
 import {
   valuationTickerSchema,
   type ValuationJob,
@@ -38,6 +52,42 @@ export type ValuationResultSubject = {
   readonly symbol: string | null;
   readonly cik: string | null;
 };
+
+/**
+ * Acceso por CEDEAR a la security valuada (`F6-04`), al corte de la corrida.
+ *
+ * Sale del registro de `F7-03` y nunca entra al snapshot: el CEDEAR es otro
+ * instrumento, y la valuación corre sobre la subyacente. Lleva lo que se
+ * muestra —depositario, estado, ISIN, código de Caja, ratio y desde cuándo se
+ * lo conoce— y ningún ID interno.
+ */
+export type ValuationResultCedearProgram = {
+  readonly depositaryName: string | null;
+  readonly status: DepositaryProgram["status"];
+  readonly investorScope: string | null;
+  readonly cedearIsin: string | null;
+  readonly cajaValoresCode: string | null;
+  readonly programSeenAt: string;
+  readonly ratio: {
+    readonly depositaryUnits: string;
+    readonly underlyingUnits: string;
+    readonly availableAt: string;
+  } | null;
+  readonly equivalent: CedearEquivalent;
+};
+
+export type ValuationResultCedear = {
+  readonly rule: typeof CEDEAR_ACCESS_RULE_VERSION;
+} & (
+  | {
+      readonly status: "program";
+      readonly programs: readonly ValuationResultCedearProgram[];
+    }
+  | {
+      readonly status: "none_known";
+      readonly reason: "no_program_recorded" | "not_effective_at_cutoff";
+    }
+);
 
 export type ValuationResultJob = {
   readonly knownAt: string;
@@ -71,12 +121,14 @@ export type ValuationResultReading =
       readonly job: ValuationResultJob;
       readonly newerGap: ValuationResultNewerGap | null;
       readonly subject: ValuationResultSubject | null;
+      readonly cedear: ValuationResultCedear;
     };
 
 export type ValuationResultDependencies = {
   readonly jobs: Pick<ValuationJobStore, "listCompletedByTicker">;
   readonly runs: Pick<ValuationRunRepository, "findById">;
   readonly universe: Pick<UniverseRepository, "loadState">;
+  readonly cedears: Pick<CedearRegistryRepository, "loadRegistry">;
 };
 
 function jobReading(job: ValuationJob): ValuationResultJob {
@@ -142,6 +194,69 @@ export function subjectAt(
   };
 }
 
+/**
+ * El acceso por CEDEAR al corte de la corrida: un ratio visto después del
+ * corte no convierte el valor de una corrida anterior (`TM-06`).
+ */
+export function cedearAccessAt(
+  graph: IdentityGraph,
+  registry: StoredCedearRegistry,
+  run: ValuationRun,
+): ValuationResultCedear {
+  const query = run.provenance.knowledge;
+  const access = resolveCedearAccess(registry, run.subject.securityId, query);
+
+  if (access.status === "none_known") {
+    return {
+      rule: CEDEAR_ACCESS_RULE_VERSION,
+      status: "none_known",
+      reason: access.reason,
+    };
+  }
+
+  const identifiers = versionsAt(graph.identifierAssignments, query);
+  const identifierOf = (securityId: string, identifierType: string) =>
+    identifiers.find(
+      (assignment) =>
+        assignment.subjectType === "security" &&
+        assignment.subjectId === securityId &&
+        assignment.identifierType === identifierType,
+    )?.identifierValue ?? null;
+
+  return {
+    rule: CEDEAR_ACCESS_RULE_VERSION,
+    status: "program",
+    programs: access.programs.map(({ program, ratio }) => ({
+      depositaryName:
+        CEDEAR_DEPOSITARIES.find(
+          (depositary) =>
+            depositary.legalEntityId === program.depositaryLegalEntityId,
+        )?.legalName ?? null,
+      status: program.status,
+      investorScope: program.investorScope,
+      cedearIsin: identifierOf(program.depositarySecurityId, "isin"),
+      cajaValoresCode: identifierOf(
+        program.depositarySecurityId,
+        "caja_valores_code",
+      ),
+      programSeenAt: program.availableAt,
+      ratio:
+        ratio === null
+          ? null
+          : {
+              depositaryUnits: ratio.depositaryUnits,
+              underlyingUnits: ratio.underlyingUnits,
+              availableAt: ratio.availableAt,
+            },
+      equivalent: cedearEquivalent({
+        valuePerShare: run.result?.valuePerShare ?? null,
+        currency: run.currency,
+        ratio,
+      }),
+    })),
+  };
+}
+
 export async function readValuationResult(
   input: { readonly ticker: string },
   dependencies: ValuationResultDependencies,
@@ -180,11 +295,14 @@ export async function readValuationResult(
   }
 
   const run = parsed.data;
-  const state = await dependencies.universe.loadState({
-    indexId: SP500_INDEX_ID,
-    versions: "all",
-    limit: 50_000,
-  });
+  const [state, registry] = await Promise.all([
+    dependencies.universe.loadState({
+      indexId: SP500_INDEX_ID,
+      versions: "all",
+      limit: 50_000,
+    }),
+    dependencies.cedears.loadRegistry({}),
+  ]);
 
   return {
     state: "run",
@@ -193,5 +311,6 @@ export async function readValuationResult(
     job: jobReading(recordedJob),
     newerGap: recordedIndex === 0 ? null : gapReading(latest),
     subject: subjectAt(state.graph, run),
+    cedear: cedearAccessAt(state.graph, registry, run),
   };
 }
