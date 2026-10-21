@@ -9,6 +9,8 @@ import {
   outcomeForIdentity,
   queueValuationJob,
   VALUATION_JOB_STALE_AFTER_MS,
+  valuationJobOutcomeSchema,
+  valuationJobSchema,
   valuationTickerSchema,
 } from "./valuation-job";
 
@@ -161,8 +163,124 @@ describe("valuation job", () => {
     });
 
     expect(outcome.gap).toBe("snapshot_not_assembled");
+    expect(outcome.snapshotGap).toBe("method_not_derived");
     expect(outcome.method).toBe("fcff_base");
     expect(outcome.rigor).toBe("standard");
+  });
+
+  const SELECTED = {
+    legalEntityId: ENTITY,
+    securityId: SECURITY,
+    listingId: LISTING,
+    cik: "0000320193",
+    hasAnnualFundamentals: true,
+    methodStatus: "selected",
+    assetProfile: "non_financial_mature",
+    method: "fcff_base",
+    rigor: "standard",
+    unsupportedReason: null,
+  } as const;
+  const RUN = "66666666-6666-4666-8666-666666666666";
+
+  it("valuation-job-1.1.0: nombra por qué no armó el snapshot", () => {
+    const outcome = outcomeForAssessment(SELECTED, {
+      gap: "employee_equity_not_proposed",
+    });
+
+    expect(outcome.gap).toBe("snapshot_not_assembled");
+    expect(outcome.snapshotGap).toBe("employee_equity_not_proposed");
+    expect(outcome.valuationRunId).toBeNull();
+  });
+
+  it("valuation-job-1.1.0: registra la corrida con su estado", () => {
+    const outcome = outcomeForAssessment(SELECTED, {
+      valuationRunId: RUN,
+      runStatus: "rejected",
+    });
+
+    expect(outcome.gap).toBe("run_recorded");
+    expect(outcome.valuationRunId).toBe(RUN);
+    expect(outcome.runStatus).toBe("rejected");
+    expect(outcome.snapshotGap).toBeNull();
+
+    const running = claimValuationJob(queued(), {
+      startedAt: T0,
+      claimToken: TOKEN,
+      staleBefore: T0,
+    })!;
+    const done = finishValuationJob(running, {
+      claimToken: TOKEN,
+      finishedAt: T0,
+      outcome,
+    });
+
+    expect(done?.ruleVersion).toBe("valuation-job-1.1.0");
+    expect(done?.valuationRunId).toBe(RUN);
+  });
+
+  it("rechaza una corrida fuera de run_recorded, un hueco sin motivo y un método sin regla", () => {
+    const recorded = outcomeForAssessment(SELECTED, {
+      valuationRunId: RUN,
+      runStatus: "computed",
+    });
+
+    expect(
+      valuationJobOutcomeSchema.safeParse({
+        ...recorded,
+        gap: "snapshot_not_assembled",
+      }).success,
+    ).toBe(false);
+    expect(
+      valuationJobOutcomeSchema.safeParse({
+        ...recorded,
+        gap: "snapshot_not_assembled",
+        valuationRunId: null,
+        runStatus: null,
+      }).success,
+    ).toBe(false);
+    expect(
+      valuationJobOutcomeSchema.safeParse({ ...recorded, runStatus: null })
+        .success,
+    ).toBe(false);
+    expect(
+      valuationJobOutcomeSchema.safeParse({
+        ...recorded,
+        method: "fcff_three_stage",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("una fila 1.0.0 conserva lo que dijo, sin motivo ni corrida", () => {
+    const job = {
+      ...queued(),
+      ruleVersion: "valuation-job-1.0.0",
+      status: "completed",
+      startedAt: T0,
+      finishedAt: T0,
+      identityStatus: "resolved",
+      legalEntityId: ENTITY,
+      securityId: SECURITY,
+      listingId: LISTING,
+      gap: "snapshot_not_assembled",
+      methodStatus: "selected",
+      assetProfile: "non_financial_mature",
+      method: "fcff_base",
+      rigor: "standard",
+    };
+
+    expect(valuationJobSchema.safeParse(job).success).toBe(true);
+    expect(
+      valuationJobSchema.safeParse({
+        ...job,
+        snapshotGap: "market_unavailable",
+      }).success,
+    ).toBe(false);
+    expect(
+      valuationJobSchema.safeParse({
+        ...job,
+        ruleVersion: "valuation-job-1.1.0",
+      }).success,
+    ).toBe(false);
   });
 
   it("un método rechazado conserva el motivo del selector", () => {

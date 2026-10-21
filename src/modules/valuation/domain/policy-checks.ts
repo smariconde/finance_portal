@@ -26,8 +26,10 @@ import {
   listMonetaryFacts,
   ENGINE_VERSION,
   METHODOLOGY_VERSION,
+  VALUATION_METHOD,
   type ValuationInput,
 } from "./valuation-input";
+import { derivedAssumptionsMismatches } from "./derived-assumptions";
 
 /**
  * Policy checks del motor (`docs/valuation/methodology.md`, sección "Policy
@@ -402,6 +404,45 @@ function checkFailureRisk(input: ValuationInput): PolicyCheck[] {
   ];
 }
 
+/**
+ * Supuestos derivados (`F6-07`, ADR 0046): con la derivación en el snapshot,
+ * períodos, terminal y sensibilidad son los que la regla reconstruye. Sin
+ * ella el check no corre, así que un snapshot anterior conserva sus hashes.
+ */
+function checkDerivedAssumptions(input: ValuationInput): PolicyCheck[] {
+  if (input.derivedAssumptions === undefined) {
+    return [];
+  }
+
+  const mismatches = derivedAssumptionsMismatches({
+    derivation: input.derivedAssumptions,
+    baseRevenue: input.baseRevenue,
+    normalization: input.normalization,
+    costOfCapital: input.costOfCapital,
+    periods: input.periods,
+    terminal: input.terminal,
+    sensitivity: input.sensitivity,
+  });
+
+  if (input.method !== VALUATION_METHOD) {
+    mismatches.push("method");
+  }
+
+  if (input.scenarios !== null) {
+    mismatches.push("scenarios");
+  }
+
+  return [
+    check(
+      "assumptions_derived_recomputed",
+      "reject",
+      mismatches.length === 0,
+      "Derived periods, terminal and sensitivity must be the ones the frozen revenue history, normalization and cost of capital rebuild.",
+      mismatches,
+    ),
+  ];
+}
+
 /** Checks que dependen sólo del snapshot: corren antes de calcular. */
 export function checkValuationInput(input: ValuationInput): PolicyCheck[] {
   const checks: PolicyCheck[] = [
@@ -413,6 +454,7 @@ export function checkValuationInput(input: ValuationInput): PolicyCheck[] {
     ...checkEmployeeEquity(input),
     ...checkFailureRisk(input),
     ...checkScenarioDeclarations(input),
+    ...checkDerivedAssumptions(input),
   ];
 
   if (input.method === "normalized_fcff") {

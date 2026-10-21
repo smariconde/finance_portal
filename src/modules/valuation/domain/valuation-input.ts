@@ -27,6 +27,7 @@ import {
   type MonetaryFact,
 } from "./valuation-facts";
 import { costOfCapitalSchema } from "./cost-of-capital";
+import { derivedAssumptionsSchema } from "./derived-assumptions";
 import { employeeEquityClaimSchema } from "./employee-equity-claim";
 import { listNormalizationFacts, normalizationSchema } from "./normalization";
 import { qualitativeDecisionsSchema } from "./qualitative-decisions";
@@ -314,6 +315,12 @@ export const valuationInputSchema = z
      */
     employeeEquity: employeeEquityClaimSchema,
     sensitivity: sensitivitySpecSchema.nullable(),
+    /**
+     * Supuestos derivados de lo guardado (`F6-07`, ADR 0046): la historia de
+     * revenue de la que salen períodos, terminal y sensibilidad. Ausente en
+     * un snapshot escrito a mano; presente, un policy check los reconstruye.
+     */
+    derivedAssumptions: derivedAssumptionsSchema.optional(),
     /**
      * Bear y bull como conjuntos de supuestos (`F4-04`): cada uno declara qué
      * drivers cambian respecto de esta base y por qué, y el motor lo valúa

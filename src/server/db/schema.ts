@@ -1663,6 +1663,7 @@ export const valuationJobGap = pgEnum("valuation_job_gap", [
   "unsupported_method",
   "snapshot_not_assembled",
   "assessment_failed",
+  "run_recorded",
 ]);
 
 /**
@@ -1691,6 +1692,11 @@ export const valuationJobs = pgTable(
     method: varchar("method", { length: 64 }),
     rigor: varchar("rigor", { length: 16 }),
     unsupportedReason: varchar("unsupported_reason", { length: 64 }),
+    /** Por qué no se armó el snapshot (`F6-07`, ADR 0046). */
+    snapshotGap: varchar("snapshot_gap", { length: 64 }),
+    /** La corrida que registró el job: `valuation_runs` es append-only. */
+    valuationRunId: uuid("valuation_run_id"),
+    runStatus: varchar("run_status", { length: 16 }),
     claimToken: uuid("claim_token"),
     createdAt: instant("created_at").notNull(),
     startedAt: instant("started_at"),
@@ -1707,7 +1713,7 @@ export const valuationJobs = pgTable(
     ),
     check(
       "valuation_jobs_rule_check",
-      sql`${table.ruleVersion} = 'valuation-job-1.0.0'`,
+      sql`${table.ruleVersion} in ('valuation-job-1.0.0', 'valuation-job-1.1.0')`,
     ),
     check(
       "valuation_jobs_phase_check",
@@ -1742,9 +1748,27 @@ export const valuationJobs = pgTable(
         and (${table.unsupportedReason} is null or ${table.unsupportedReason} in ('missing_classification_evidence', 'conflicting_evidence', 'method_not_implemented', 'missing_required_input'))
         and ((${table.gap} = 'snapshot_not_assembled') is not distinct from (${table.methodStatus} = 'selected' and ${table.method} is not null and ${table.assetProfile} is not null and ${table.rigor} is not null and ${table.unsupportedReason} is null) or ${table.gap} is distinct from 'snapshot_not_assembled')
         and ((${table.gap} = 'unsupported_method') is not distinct from (${table.methodStatus} = 'unsupported_method' and ${table.unsupportedReason} is not null) or ${table.gap} is distinct from 'unsupported_method')
-        and (${table.methodStatus} is null or ${table.gap} in ('snapshot_not_assembled', 'unsupported_method', 'annual_fundamentals'))
+        and (${table.methodStatus} is null or ${table.gap}::text in ('snapshot_not_assembled', 'unsupported_method', 'annual_fundamentals', 'run_recorded'))
         and (${table.methodStatus} is not null or (${table.method} is null and ${table.assetProfile} is null and ${table.rigor} is null and ${table.unsupportedReason} is null))`,
     ),
+    // `run_recorded` se compara como texto: el valor se agrega al enum en la
+    // misma transacción de la migración, y PostgreSQL no deja usarlo ahí.
+    check(
+      "valuation_jobs_run_check",
+      sql`(${table.valuationRunId} is null) = (${table.runStatus} is null)
+        and (${table.runStatus} is null or ${table.runStatus} in ('computed', 'requires_review', 'rejected'))
+        and (${table.valuationRunId} is not null) = (${table.gap} is not null and ${table.gap}::text = 'run_recorded')
+        and (${table.valuationRunId} is null or (${table.methodStatus} = 'selected' and ${table.method} = 'fcff_base'))
+        and (${table.snapshotGap} is null or ${table.gap}::text = 'snapshot_not_assembled')
+        and (${table.snapshotGap} is null or ${table.snapshotGap} in ('method_not_derived', 'security_missing', 'cost_of_capital_unavailable', 'normalization_unavailable', 'revenue_history_insufficient', 'revenue_history_non_positive', 'base_margin_unavailable', 'sales_to_capital_unavailable', 'tax_rate_unavailable', 'employee_equity_not_proposed', 'shares_outstanding_unavailable', 'market_unavailable'))
+        and (${table.ruleVersion} = 'valuation-job-1.0.0' or ${table.gap} is null or ${table.gap}::text <> 'snapshot_not_assembled' or ${table.snapshotGap} is not null)
+        and (${table.ruleVersion} = 'valuation-job-1.1.0' or (${table.snapshotGap} is null and ${table.valuationRunId} is null))`,
+    ),
+    foreignKey({
+      name: "valuation_jobs_run_fk",
+      columns: [table.valuationRunId],
+      foreignColumns: [valuationRuns.valuationRunId],
+    }),
   ],
 );
 

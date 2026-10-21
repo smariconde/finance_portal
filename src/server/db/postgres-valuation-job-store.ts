@@ -10,6 +10,7 @@ import {
   type ValuationJobStore,
 } from "@/modules/valuation/application/valuation-job-store";
 import {
+  VALUATION_JOB_RULE_VERSION,
   valuationJobSchema,
   type ValuationJob,
 } from "@/modules/valuation/domain/valuation-job";
@@ -56,6 +57,9 @@ function toDomain(row: ValuationJobRow): ValuationJob {
     method: row.method,
     rigor: row.rigor,
     unsupportedReason: row.unsupportedReason,
+    snapshotGap: row.snapshotGap,
+    valuationRunId: row.valuationRunId,
+    runStatus: row.runStatus,
     claimToken: row.claimToken,
     createdAt: iso(row.createdAt),
     startedAt: row.startedAt === null ? null : iso(row.startedAt),
@@ -80,6 +84,9 @@ function toInsert(job: ValuationJob): typeof schema.valuationJobs.$inferInsert {
     method: job.method,
     rigor: job.rigor,
     unsupportedReason: job.unsupportedReason,
+    snapshotGap: job.snapshotGap,
+    valuationRunId: job.valuationRunId,
+    runStatus: job.runStatus,
     claimToken: job.claimToken,
     createdAt: at(job.createdAt),
     startedAt: job.startedAt === null ? null : at(job.startedAt),
@@ -172,6 +179,11 @@ export function createPostgresValuationJobStore(
           method: input.outcome.method,
           rigor: input.outcome.rigor,
           unsupportedReason: input.outcome.unsupportedReason,
+          snapshotGap: input.outcome.snapshotGap,
+          valuationRunId: input.outcome.valuationRunId,
+          runStatus: input.outcome.runStatus,
+          // El job termina bajo la regla del worker que lo corrió.
+          ruleVersion: VALUATION_JOB_RULE_VERSION,
         })
         .where(
           and(

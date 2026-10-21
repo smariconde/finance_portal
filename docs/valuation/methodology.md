@@ -1157,6 +1157,7 @@ correlaciones, seed persistido y tests.
 | drivers de escenario             | `reject` si no cubren los períodos, la convención o no cambian nada   |
 | orden de escenarios              | `require_review` si no se cumple `bear <= base <= bull`               |
 | opciones y unidades              | `reject` si su valor o el denominador no salen de la transcripción    |
+| supuestos derivados              | `reject` si períodos o terminal no salen de `derivedAssumptions`      |
 
 Modos permitidos: `reject`, `require_review` y `autocorrect_with_trace`. Ninguna
 corrección es silenciosa; registra valor original, regla, valor nuevo y motivo.

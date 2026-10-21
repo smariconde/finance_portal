@@ -8,7 +8,9 @@ import type { AssetProfile } from "@/modules/valuation/domain/asset-profile";
 import type {
   ValuationJobGap,
   ValuationJobView,
+  ValuationSnapshotGap,
 } from "@/modules/valuation/domain/valuation-job";
+import type { ValuationRunStatus } from "@/modules/valuation/domain/valuation-run";
 import type { MethodSelectionReason } from "@/modules/valuation/domain/method-selection";
 import type { RigorLevel } from "@/modules/valuation/domain/rigor-level";
 
@@ -26,8 +28,36 @@ const GAP_COPY: Record<ValuationJobGap, string> = {
     "No hay fundamentals guardados. Esta corrida no los descarga.",
   unsupported_method: "El método que le corresponde no está admitido.",
   snapshot_not_assembled:
-    "La evaluación está hecha. Falta el snapshot de supuestos, así que no hay un valor por acción.",
+    "La evaluación está hecha, pero el snapshot de supuestos no se pudo armar. No hay corrida.",
   assessment_failed: "La evaluación no terminó. Se puede volver a encolar.",
+  run_recorded:
+    "Se registró una corrida con supuestos derivados de lo guardado. Esta página no muestra su valor.",
+};
+
+const SNAPSHOT_GAP_COPY: Record<ValuationSnapshotGap, string> = {
+  method_not_derived: "este método todavía no tiene una regla de supuestos",
+  security_missing: "la empresa no resuelve a una security",
+  cost_of_capital_unavailable: "falta el costo de capital fechado",
+  normalization_unavailable: "falta el ejercicio base normalizado",
+  revenue_history_insufficient:
+    "hay menos de tres ejercicios consecutivos de ventas",
+  revenue_history_non_positive: "las ventas de la historia no son positivas",
+  base_margin_unavailable: "falta el margen operativo del ejercicio base",
+  sales_to_capital_unavailable:
+    "falta un sales-to-capital positivo del ejercicio base",
+  tax_rate_unavailable: "falta la tasa de impuesto del ejercicio base",
+  employee_equity_not_proposed:
+    "falta la transcripción aceptada de opciones de empleados",
+  shares_outstanding_unavailable:
+    "faltan las acciones en circulación de la carátula",
+  market_unavailable:
+    "faltan el precio o la volatilidad para valuar las opciones",
+};
+
+const RUN_STATUS_COPY: Record<ValuationRunStatus, string> = {
+  computed: "Calculada",
+  requires_review: "Calculada, pide revisión",
+  rejected: "Rechazada por un policy check",
 };
 
 const PROFILE_COPY: Record<AssetProfile, string> = {
@@ -253,6 +283,20 @@ function JobStatus({
         <>
           <dt className="text-muted-foreground">Motivo</dt>
           <dd>{REASON_COPY[described.unsupportedReason]}</dd>
+        </>
+      )}
+      {described?.snapshotGap === null ||
+      described?.snapshotGap === undefined ? null : (
+        <>
+          <dt className="text-muted-foreground">Motivo</dt>
+          <dd>{SNAPSHOT_GAP_COPY[described.snapshotGap]}</dd>
+        </>
+      )}
+      {described?.runStatus === null ||
+      described?.runStatus === undefined ? null : (
+        <>
+          <dt className="text-muted-foreground">Corrida</dt>
+          <dd>{RUN_STATUS_COPY[described.runStatus]}</dd>
         </>
       )}
       <dt className="text-muted-foreground">Regla</dt>

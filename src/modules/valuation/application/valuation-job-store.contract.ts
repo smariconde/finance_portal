@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import {
   addMilliseconds,
+  outcomeForAssessment,
   outcomeForIdentity,
   queueValuationJob,
   VALUATION_JOB_STALE_AFTER_MS,
@@ -19,6 +20,8 @@ import {
  */
 export type ValuationJobStoreContractHarness = {
   readonly store: ValuationJobStore;
+  /** Una corrida que el almacén puede referenciar: en PostgreSQL, una fila real. */
+  readonly recordRun: () => Promise<string>;
 };
 
 const T0 = "2026-10-21T15:00:00.000Z";
@@ -33,9 +36,67 @@ export function describeValuationJobStoreContract(
 ): void {
   describe(`valuation job store (${label})`, () => {
     let store: ValuationJobStore;
+    let recordRun: () => Promise<string>;
 
     beforeEach(() => {
-      store = harness().store;
+      ({ store, recordRun } = harness());
+    });
+
+    it("cierra con la corrida registrada y con el motivo del snapshot (1.1.0)", async () => {
+      const reading = {
+        legalEntityId: randomUUID(),
+        securityId: randomUUID(),
+        listingId: null,
+        cik: "0000320193",
+        hasAnnualFundamentals: true,
+        methodStatus: "selected",
+        assetProfile: "non_financial_mature",
+        method: "fcff_base",
+        rigor: "standard",
+        unsupportedReason: null,
+      } as const;
+      const valuationRunId = await recordRun();
+
+      for (const outcome of [
+        outcomeForAssessment(reading, {
+          valuationRunId,
+          runStatus: "computed",
+        }),
+        outcomeForAssessment(reading, { gap: "market_unavailable" }),
+      ]) {
+        const symbol = ticker();
+        const job = queueValuationJob({
+          jobId: randomUUID(),
+          ticker: symbol,
+          knownAt: T0,
+          createdAt: T0,
+        });
+        const token = randomUUID();
+        await store.insert(job);
+        await store.claim({
+          jobId: job.jobId,
+          startedAt: T0,
+          claimToken: token,
+          staleBefore: T0,
+        });
+
+        expect(
+          await store.finish({
+            jobId: job.jobId,
+            claimToken: token,
+            finishedAt: addMilliseconds(T0, 1),
+            outcome,
+          }),
+        ).toBe("completed");
+
+        const done = await store.findLatestByTicker(symbol);
+
+        expect(done?.ruleVersion).toBe("valuation-job-1.1.0");
+        expect(done?.gap).toBe(outcome.gap);
+        expect(done?.snapshotGap).toBe(outcome.snapshotGap);
+        expect(done?.valuationRunId).toBe(outcome.valuationRunId);
+        expect(done?.runStatus).toBe(outcome.runStatus);
+      }
     });
 
     it("guarda un pedido abierto y rechaza el segundo del mismo ticker", async () => {

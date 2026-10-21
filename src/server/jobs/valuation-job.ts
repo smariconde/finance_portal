@@ -24,9 +24,27 @@ import {
 } from "@/modules/valuation/application/request-valuation-job";
 import { readOperationsMix } from "@/modules/valuation/application/read-operations-mix";
 import {
+  assembleValuationSnapshot,
+  type ValuationSnapshotResult,
+} from "@/modules/valuation/application/assemble-valuation-snapshot";
+import { runValuation } from "@/modules/valuation/application/run-valuation";
+import { SHARES_OUTSTANDING_CONCEPT } from "@/modules/valuation/domain/employee-equity-claim";
+import { readLineageObservations } from "@/modules/corporate-actions/application/read-lineage-observations";
+import { PRICES_SOURCE_ID } from "@/modules/prices/application/live-price-source";
+import {
+  subtractCalendarYears,
+  subtractDays,
+} from "@/modules/temporal/domain/calendar-date";
+import { getCorporateActionRepository } from "@/server/persistence/get-corporate-action-repository";
+import { getEmployeeEquityRepository } from "@/server/persistence/get-employee-equity-repository";
+import { getObservationRepository } from "@/server/persistence/get-observation-repository";
+import { getPriceRepository } from "@/server/persistence/get-price-repository";
+import { getValuationRunRepository } from "@/server/persistence/get-valuation-run-repository";
+import {
   outcomeForAssessment,
   outcomeForIdentity,
   valuationJobMethodSchema,
+  type ValuationAssessmentReading,
   type ValuationJob,
   type ValuationJobOutcome,
 } from "@/modules/valuation/domain/valuation-job";
@@ -106,6 +124,48 @@ async function runWorker(jobId: string): Promise<void> {
 async function assessValuationJob(
   job: ValuationJob,
 ): Promise<ValuationJobOutcome> {
+  const prepared = await prepareValuationRun(job);
+
+  if (prepared.kind === "outcome") {
+    return prepared.outcome;
+  }
+
+  if (prepared.snapshot.status === "not_assembled") {
+    return outcomeForAssessment(prepared.reading, {
+      gap: prepared.snapshot.gap,
+    });
+  }
+
+  const run = runValuation(prepared.snapshot.input, {
+    now,
+    newValuationRunId: newId,
+  });
+  // Idempotente por clave de replay: el mismo snapshot devuelve la corrida
+  // que ya estaba, sin duplicarla.
+  const recorded = await getValuationRunRepository().record(run);
+
+  return outcomeForAssessment(prepared.reading, {
+    valuationRunId: recorded.valuationRunId,
+    runStatus: recorded.status,
+  });
+}
+
+export type PreparedValuationRun =
+  | { readonly kind: "outcome"; readonly outcome: ValuationJobOutcome }
+  | {
+      readonly kind: "snapshot";
+      readonly reading: ValuationAssessmentReading;
+      readonly snapshot: ValuationSnapshotResult;
+    };
+
+/**
+ * Resuelve, evalúa y arma el snapshot sin escribir nada (`F6-07`). El worker
+ * corre el motor y registra la corrida; un script de medición puede llamar a
+ * esto sin tocar `valuation_runs`.
+ */
+export async function prepareValuationRun(
+  job: Pick<ValuationJob, "ticker" | "knownAt">,
+): Promise<PreparedValuationRun> {
   const query = pointInTimeQuerySchema.parse({
     effectiveAt: job.knownAt,
     knownAt: job.knownAt,
@@ -126,9 +186,12 @@ async function assessValuationJob(
   );
 
   if (resolution.status !== "resolved" || resolution.legalEntityId === null) {
-    return outcomeForIdentity(
-      resolution.status === "resolved" ? "not_found" : resolution.status,
-    );
+    return {
+      kind: "outcome",
+      outcome: outcomeForIdentity(
+        resolution.status === "resolved" ? "not_found" : resolution.status,
+      ),
+    };
   }
 
   const legalEntityId = resolution.legalEntityId;
@@ -140,18 +203,21 @@ async function assessValuationJob(
   );
 
   if (facts.cik === null) {
-    return outcomeForAssessment({
-      legalEntityId,
-      securityId: resolution.securityId,
-      listingId: resolution.listingId,
-      cik: null,
-      hasAnnualFundamentals: false,
-      methodStatus: "unsupported_method",
-      assetProfile: null,
-      method: null,
-      rigor: null,
-      unsupportedReason: "missing_required_input",
-    });
+    return {
+      kind: "outcome",
+      outcome: outcomeForAssessment({
+        legalEntityId,
+        securityId: resolution.securityId,
+        listingId: resolution.listingId,
+        cik: null,
+        hasAnnualFundamentals: false,
+        methodStatus: "unsupported_method",
+        assetProfile: null,
+        method: null,
+        rigor: null,
+        unsupportedReason: "missing_required_input",
+      }),
+    };
   }
 
   const cik = facts.cik;
@@ -167,8 +233,7 @@ async function assessValuationJob(
     await assessmentReaders(cik, query, state.graph),
   );
   const selected = assessment.selection.status === "selected";
-
-  return outcomeForAssessment({
+  const reading: ValuationAssessmentReading = {
     legalEntityId,
     securityId: resolution.securityId,
     listingId: resolution.listingId,
@@ -183,7 +248,102 @@ async function assessValuationJob(
     unsupportedReason: selected
       ? null
       : (assessment.selection.unsupportedReasons[0] ?? null),
-  });
+  };
+
+  if (!selected || !reading.hasAnnualFundamentals) {
+    return { kind: "outcome", outcome: outcomeForAssessment(reading) };
+  }
+
+  const securityId = resolution.securityId;
+  const [employeeEquity, shareCounts, prices] = await Promise.all([
+    getEmployeeEquityRepository().acceptedAsKnown(legalEntityId, job.knownAt),
+    readShareCounts(legalEntityId, query),
+    securityId === null
+      ? Promise.resolve({ closes: [], events: [] })
+      : readPrices(securityId, job.knownAt),
+  ]);
+
+  return {
+    kind: "snapshot",
+    reading,
+    snapshot: assembleValuationSnapshot({
+      subject: {
+        legalEntityId,
+        securityId,
+        listingId: resolution.listingId,
+      },
+      query,
+      assessment,
+      fundamentalsSourceId: SEC_SOURCE_ID,
+      employeeEquity,
+      shareCounts,
+      prices: { sourceId: PRICES_SOURCE_ID, ...prices },
+    }),
+  };
+}
+
+/** Las acciones de la carátula al corte, por el linaje del emisor. */
+async function readShareCounts(legalEntityId: string, query: PointInTimeQuery) {
+  const selection = await readLineageObservations(
+    { legalEntityId, metricIds: [SHARES_OUTSTANDING_CONCEPT] },
+    query,
+    {
+      corporateActions: getCorporateActionRepository(),
+      observations: getObservationRepository(),
+    },
+  );
+
+  // Un valor nulo no es un conteo: queda afuera y, sin otro, el snapshot lo
+  // nombra.
+  return selection.rows.flatMap((row) =>
+    row.value === null
+      ? []
+      : [
+          {
+            concept: row.observation.concept,
+            asOf: row.observation.asOf,
+            availableAt: row.observation.availableAt,
+            value: row.value,
+            observationId: row.observation.observationId,
+            sourceDocumentId: row.observation.sourceDocumentId,
+          },
+        ],
+  );
+}
+
+/**
+ * Cinco años y medio de cierres hasta el día del corte —la volatilidad de las
+ * opciones pide cinco— y los eventos de la security. Una serie cruda no
+ * necesita otra cosa para no ver el futuro: lo posterior al `as_of` se filtra.
+ */
+async function readPrices(securityId: string, knownAt: string) {
+  const prices = getPriceRepository();
+  const to = knownAt.slice(0, 10);
+  const [closes, events] = await Promise.all([
+    prices.loadSeries({
+      securityId,
+      from: subtractDays(subtractCalendarYears(to, 5), 30),
+      to,
+      limit: 2_000,
+    }),
+    prices.loadEvents({ securityId }),
+  ]);
+
+  return {
+    closes: closes.map((close) => ({
+      marketDate: close.marketDate,
+      close: close.close,
+      currency: close.currency,
+    })),
+    events: events
+      .filter((event) => event.effectiveOn <= to)
+      .map((event) => ({
+        eventType: event.eventType,
+        effectiveOn: event.effectiveOn,
+        value: event.value,
+        currency: event.currency,
+      })),
+  };
 }
 
 async function assessmentReaders(
