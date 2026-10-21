@@ -5,6 +5,7 @@ import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 
 import {
   ValuationJobConflictError,
+  VALUATION_HISTORY_LIMIT,
   type ValuationJobClaim,
   type ValuationJobFinish,
   type ValuationJobStore,
@@ -124,6 +125,21 @@ export function createPostgresValuationJobStore(
         .limit(1);
 
       return rows[0] === undefined ? null : toDomain(rows[0]);
+    },
+    async listCompletedByTicker(ticker, limit) {
+      const rows = await database
+        .select()
+        .from(schema.valuationJobs)
+        .where(
+          and(
+            eq(schema.valuationJobs.ticker, ticker),
+            eq(schema.valuationJobs.status, "completed"),
+          ),
+        )
+        .orderBy(desc(schema.valuationJobs.createdAt))
+        .limit(Math.min(limit, VALUATION_HISTORY_LIMIT));
+
+      return rows.map(toDomain);
     },
     async insert(job) {
       try {

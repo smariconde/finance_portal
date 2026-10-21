@@ -42,6 +42,52 @@ export function describeValuationJobStoreContract(
       ({ store, recordRun } = harness());
     });
 
+    it("lista sólo los terminados del ticker, el más nuevo primero y con techo", async () => {
+      const symbol = ticker();
+      const ids: string[] = [];
+
+      for (let index = 0; index < 3; index += 1) {
+        const at = addMilliseconds(T0, index * 1_000);
+        const job = queueValuationJob({
+          jobId: randomUUID(),
+          ticker: symbol,
+          knownAt: at,
+          createdAt: at,
+        });
+        const token = randomUUID();
+        await store.insert(job);
+        await store.claim({
+          jobId: job.jobId,
+          startedAt: at,
+          claimToken: token,
+          staleBefore: at,
+        });
+        await store.finish({
+          jobId: job.jobId,
+          claimToken: token,
+          finishedAt: at,
+          outcome: outcomeForIdentity("not_found"),
+        });
+        ids.push(job.jobId);
+      }
+
+      await store.insert(
+        queueValuationJob({
+          jobId: randomUUID(),
+          ticker: symbol,
+          knownAt: addMilliseconds(T0, 5_000),
+          createdAt: addMilliseconds(T0, 5_000),
+        }),
+      );
+
+      expect(
+        (await store.listCompletedByTicker(symbol, 20)).map((job) => job.jobId),
+      ).toEqual([...ids].reverse());
+      expect(await store.listCompletedByTicker(symbol, 2)).toHaveLength(2);
+      expect(await store.listCompletedByTicker(symbol, 10_000)).toHaveLength(3);
+      expect(await store.listCompletedByTicker(ticker(), 20)).toEqual([]);
+    });
+
     it("cierra con la corrida registrada y con el motivo del snapshot (1.1.0)", async () => {
       const reading = {
         legalEntityId: randomUUID(),

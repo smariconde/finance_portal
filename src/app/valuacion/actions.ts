@@ -9,7 +9,9 @@ import {
   type ValuationJobView,
 } from "@/modules/valuation/domain/valuation-job";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
+import type { ValuationHistoryView } from "@/modules/valuation/application/read-valuation-history";
 import {
+  readValuationHistoryForRequest,
   requestValuationForRequest,
   startValuationWorker,
 } from "@/server/jobs/valuation-job";
@@ -69,6 +71,48 @@ export async function enqueueValuation(
   } catch (error) {
     console.error(
       "valuation enqueue failed",
+      error instanceof Error ? error.name : typeof error,
+    );
+
+    return { state: "unavailable" };
+  }
+}
+
+const valuationHistorySchema = z
+  .object({ ticker: z.string().trim().min(1).max(32) })
+  .strict();
+
+/**
+ * Historial de corridas de un ticker (`F6-02`,
+ * [ADR 0047](../../../docs/architecture/adr/0047-valuation-run-history.md)).
+ *
+ * Mismos controles que `enqueueValuation` (`TM-03`): modo resuelto en el
+ * request, esquema cerrado —un símbolo y nada más—, lectura acotada y
+ * respuesta de códigos y fechas. No crea jobs, no escribe y no sale a la red.
+ */
+export async function loadValuationHistory(
+  input: unknown,
+): Promise<ValuationHistoryView> {
+  const health = await getRequestConfigHealth();
+
+  if (!servesRealData(health)) {
+    return { state: "unavailable" };
+  }
+
+  const request = valuationHistorySchema.safeParse(input);
+  const ticker = request.success
+    ? valuationTickerSchema.safeParse(request.data.ticker)
+    : null;
+
+  if (!request.success || ticker === null || !ticker.success) {
+    return { state: "unavailable" };
+  }
+
+  try {
+    return await readValuationHistoryForRequest(ticker.data);
+  } catch (error) {
+    console.error(
+      "valuation history failed",
       error instanceof Error ? error.name : typeof error,
     );
 

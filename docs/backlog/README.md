@@ -71,7 +71,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    43 | `F4-06`    | `done`     | Bancos/aseguradoras, cíclicas/commodities, pérdidas/high growth y REIT entregados como experimentales con gates independientes. Holdings/SOTP y distress diferidos hasta demanda observada.                               | `F4-04`, `F4-05` |
 |    44 | `F6-01`    | `done`     | Corrida por ticker encolada con estado; la acción evalúa lo guardado y nombra el hueco, sin valor ni red durante el render.                                                                                               | Fase 4, Fase 5   |
 |    45 | `F6-07`    | `done`     | Supuestos `fcff_base` derivados de lo guardado por una regla versionada; el job arma el snapshot, corre el motor y registra la corrida, o nombra el faltante.                                                             | `F6-01`          |
-|    46 | `F6-02`    | `ready`    | Historial de corridas: volver a ver, refrescar lo que cambió y comparar contra la anterior sin sobrescribirla.                                                                                                            | `F6-07`          |
+|    46 | `F6-02`    | `done`     | Historial de corridas: volver a ver, refrescar lo que cambió y comparar contra la anterior sin sobrescribirla.                                                                                                            | `F6-07`          |
+|    47 | `F6-03`    | `ready`    | Superficie de resultado sobre empresa real con nivel de rigor, provenance y supuestos distinguidos de los hechos.                                                                                                         | `F6-02`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -3708,6 +3709,36 @@ Evidencia:
   `fcff_base` frena ahí, nombrado.
 - Migración `0032` aplicada en test por la suite, en la réplica y en la personal.
   El rollback se niega con filas `1.1.0` y, sin ellas, reconstruye el enum.
+
+#### `F6-02` — historial de corridas (cerrado el 2026-10-21)
+
+Estado del slice: `done`. No cierra el gate de la Fase 6. `F6-03` (superficie
+del resultado) queda `ready`.
+
+- [ADR 0047](../architecture/adr/0047-valuation-run-history.md): refrescar es
+  volver a encolar; `valuation_runs` es append-only y un snapshot idéntico
+  devuelve la misma corrida. Sin migración.
+- `listCompletedByTicker` con techo de 20 en los dos almacenes (`TM-07`).
+- `valuation-run-comparison-1.0.0`: `same_run` por hash, o las secciones que
+  cambiaron (ventas base, normalización, capitalización, costo de capital,
+  industria o mix, método o rigor, fracaso, opciones, puente, supuestos,
+  versiones, identidad), con el corte aparte. Nunca compara el resultado.
+- `loadValuationHistory`: modo en el request, esquema de un solo campo,
+  respuesta de códigos y fechas, sin IDs ni valores (`TM-03`). `TM-06`: cada
+  fila dice su corte; `TM-16`: nada se sobrescribe.
+- `/valuacion` muestra la tabla al terminar un pedido.
+
+Evidencia:
+
+- 2.900 unit y 211 integration; el contrato del store lista en memoria y en
+  PostgreSQL. Tipos, lint, formato y build; 185 E2E con axe (2 omitidos).
+- Corregido de paso: el contrato de `F6-07` compartía la corrida demo con la
+  suite de corridas, que la borra; según el orden fallaba por la FK. Ahora
+  registra una corrida de una entidad propia. Dos corridas seguidas: 211 de 211.
+- Réplica con build servido: catorce refrescos de AAPL, «Primera corrida» y
+  después «sólo el corte; los datos no cambiaron». 21 kB por corrida. Axe
+  escritorio y móvil sin hallazgos nuevos (`region` en la sidebar y el hover del
+  botón primario ya estaban). Una transcripción costó USD 0,0006.
 
 ### Fase 7 — matrices sectoriales de riesgo
 

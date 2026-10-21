@@ -28,6 +28,10 @@ import {
   type ValuationSnapshotResult,
 } from "@/modules/valuation/application/assemble-valuation-snapshot";
 import { runValuation } from "@/modules/valuation/application/run-valuation";
+import {
+  readValuationHistory,
+  type ValuationHistoryView,
+} from "@/modules/valuation/application/read-valuation-history";
 import { SHARES_OUTSTANDING_CONCEPT } from "@/modules/valuation/domain/employee-equity-claim";
 import { readLineageObservations } from "@/modules/corporate-actions/application/read-lineage-observations";
 import { PRICES_SOURCE_ID } from "@/modules/prices/application/live-price-source";
@@ -86,6 +90,16 @@ export async function requestValuationForRequest(
     now,
     newId,
   });
+}
+
+/** El historial del ticker (`F6-02`): sólo lee jobs y corridas. */
+export async function readValuationHistoryForRequest(
+  ticker: string,
+): Promise<ValuationHistoryView> {
+  return readValuationHistory(
+    { ticker },
+    { jobs: getValuationJobStore(), runs: getValuationRunRepository() },
+  );
 }
 
 /** Arranca el worker si este proceso no tiene uno. No espera su fin. */
