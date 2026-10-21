@@ -8,17 +8,18 @@ import { getRequestConfigHealth } from "@/server/config/app-environment";
 import { ValuationRequestForm } from "./_components/valuation-request-form";
 
 export const metadata: Metadata = {
-  title: "Corrida por ticker | Portal Financiero",
+  title: "Valuación por ticker | Portal Financiero",
   description:
-    "Encola la evaluación de una empresa del universo con lo ya guardado. No publica un valor por acción.",
+    "Abre la valuación de una empresa del universo y la evalúa con lo ya guardado.",
 };
 
 /** Ver [ADR 0005](../../../docs/architecture/adr/0005-request-time-runtime-boundary.md). */
 export const instant = false;
 
 /**
- * Entrada de la corrida por ticker (`F6-01`). El render no lee ni escribe: el
- * formulario llama a la acción, y el worker evalúa después de responder.
+ * Entrada de la valuación por ticker (`F6-01`, `F6-12`). El render no lee ni
+ * escribe: el formulario encola con la acción y lleva a la página del ticker,
+ * que sigue el pedido y muestra el resultado en el mismo lugar.
  */
 export default async function ValuationPage() {
   const health = await getRequestConfigHealth();
@@ -40,13 +41,13 @@ export default async function ValuationPage() {
             id="valuation-title"
             className="text-2xl font-semibold tracking-tight md:text-3xl"
           >
-            Corrida por ticker
+            Valuación por ticker
           </h1>
           <p className="text-sm leading-6 text-muted-foreground">
-            Encola la evaluación de una empresa del universo constituido. Lee lo
-            ya guardado y, si alcanza, registra una corrida con supuestos
-            derivados. No baja filings ni llama al modelo, y no publica un valor
-            por acción.
+            Escribí el símbolo de una empresa del universo constituido. Se abre
+            su página, se evalúa lo ya guardado y, si alcanza, el valor aparece
+            ahí junto al precio y a lo que el precio exige. No baja filings ni
+            llama al modelo.
           </p>
         </section>
         <ValuationRequestForm />

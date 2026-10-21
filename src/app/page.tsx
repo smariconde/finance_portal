@@ -161,10 +161,10 @@ export default async function HomePage() {
           <div className="flex flex-col gap-6">
             <Card>
               <CardHeader>
-                <CardTitle as="h2">Corrida por ticker</CardTitle>
+                <CardTitle as="h2">Valuación por ticker</CardTitle>
                 <CardDescription>
-                  Encola la evaluación de una empresa del universo con lo ya
-                  guardado. No publica un valor por acción.
+                  El valor de una empresa del universo con lo ya guardado, al
+                  lado del precio y de lo que el precio exige.
                 </CardDescription>
                 <CardAction>
                   <StatusMark status="ready" label="Disponible" />
@@ -175,7 +175,7 @@ export default async function HomePage() {
                   href="/valuacion"
                   className={cn(buttonVariants({ size: "sm" }))}
                 >
-                  Encolar una evaluación
+                  Valuar una empresa
                   <ArrowRight data-icon="inline-end" />
                 </Link>
               </CardContent>

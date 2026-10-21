@@ -50,6 +50,7 @@ import { RunHeadline } from "../_components/run/run-headline";
 import { ScenariosTable } from "../_components/run/scenarios-table";
 import { SensitivityMatrix } from "../_components/run/sensitivity-matrix";
 import { ValuationHistory } from "../_components/valuation-history";
+import { ValuationRunner } from "../_components/valuation-runner";
 import { CedearAccess } from "./_components/cedear-access";
 import { CostOfCapitalTable } from "./_components/cost-of-capital-table";
 import { DerivationSummary } from "./_components/derivation-summary";
@@ -131,34 +132,82 @@ function NewerGapAlert({ gap }: { gap: ValuationResultNewerGap }) {
 function PageFrame({
   ticker,
   title,
+  hasRun,
   children,
 }: {
   ticker: string;
   title: string;
+  hasRun: boolean;
   children: ReactNode;
 }) {
   return (
     <div id="contenido" className="flex-1">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 md:p-6 lg:p-8">
-        <section className="flex flex-col gap-3" aria-labelledby="result-title">
-          <Link
-            href="/valuacion"
-            className="w-fit text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-          >
-            Corrida por ticker
-          </Link>
-          <h1
-            id="result-title"
-            className="max-w-4xl text-2xl font-semibold tracking-tight text-balance md:text-3xl"
-          >
-            {title}
-          </h1>
-          {title === ticker ? null : (
-            <p className="font-mono text-sm text-muted-foreground">{ticker}</p>
-          )}
+        <section
+          className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
+          aria-labelledby="result-title"
+        >
+          <div className="flex min-w-0 flex-col gap-3">
+            <Link
+              href="/valuacion"
+              className="w-fit text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            >
+              Valuación por ticker
+            </Link>
+            <h1
+              id="result-title"
+              className="max-w-4xl text-2xl font-semibold tracking-tight text-balance md:text-3xl"
+            >
+              {title}
+            </h1>
+            {title === ticker ? null : (
+              <p className="font-mono text-sm text-muted-foreground">
+                {ticker}
+              </p>
+            )}
+          </div>
+          <ValuationRunner ticker={ticker} hasRun={hasRun} />
         </section>
         {children}
       </div>
+    </div>
+  );
+}
+
+/** Las secciones de la página, en el orden en que se leen. */
+const SECTIONS = [
+  { id: "resumen", label: "Resultado" },
+  { id: "precio", label: "Precio y lo que exige" },
+  { id: "escenarios", label: "Escenarios" },
+  { id: "supuestos", label: "Cómo se llegó" },
+  { id: "evidencia", label: "Evidencia y controles" },
+  { id: "historial", label: "Historial" },
+] as const;
+
+function SectionNav() {
+  return (
+    <nav aria-label="Secciones del resultado" className="-mt-2">
+      <ul className="flex flex-wrap gap-x-4 gap-y-2 border-b pb-3 text-sm">
+        {SECTIONS.map((section) => (
+          <li key={section.id}>
+            <a
+              className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              href={`#${section.id}`}
+            >
+              {section.label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
+/** Un grupo de la página con su ancla; el título lo pone cada tarjeta. */
+function Anchor({ id, children }: { id: string; children: ReactNode }) {
+  return (
+    <div id={id} className="flex scroll-mt-20 flex-col gap-6">
+      {children}
     </div>
   );
 }
@@ -185,20 +234,13 @@ function WithoutRun({
   }
 
   return (
-    <PageFrame ticker={reading.ticker} title={reading.ticker}>
+    <PageFrame ticker={reading.ticker} title={reading.ticker} hasRun={false}>
       <section className="flex max-w-prose flex-col gap-3">
-        <p className="text-sm" role="status">
-          {message}
-        </p>
+        <p className="text-sm">{message}</p>
         <p className="text-sm text-muted-foreground">
-          Sin corrida no hay valor por acción, y esta página no lo estima.{" "}
-          <Link
-            className="text-foreground underline underline-offset-4"
-            href="/valuacion"
-          >
-            Encolar el ticker
-          </Link>{" "}
-          evalúa otra vez lo guardado.
+          Sin corrida no hay valor por acción, y esta página no lo estima.
+          Valuar evalúa lo guardado al corte de hoy: si alcanza, la página se
+          completa sola; si no, dice qué falta.
         </p>
       </section>
     </PageFrame>
@@ -287,6 +329,7 @@ export default async function ValuationResultPage({ params }: PageProps) {
     <PageFrame
       ticker={reading.ticker}
       title={subject?.legalName ?? reading.ticker}
+      hasRun
     >
       <dl className="-mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm">
         <div className="flex gap-1.5">
@@ -345,71 +388,86 @@ export default async function ValuationResultPage({ params }: PageProps) {
         </Alert>
       )}
 
-      <RunHeadline run={run} />
+      <SectionNav />
 
-      <MarketExpectations
-        run={run}
-        market={reading.market}
-        attribution={attributionOf(PRICES_SOURCE_ID)}
-      />
+      <Anchor id="resumen">
+        <RunHeadline run={run} />
+      </Anchor>
 
-      <RigorPanel run={run} />
+      <Anchor id="precio">
+        <MarketExpectations
+          run={run}
+          market={reading.market}
+          attribution={attributionOf(PRICES_SOURCE_ID)}
+        />
+        <CedearAccess cedear={reading.cedear} />
+      </Anchor>
 
-      <CedearAccess cedear={reading.cedear} />
+      <Anchor id="escenarios">
+        {scenarios === null ? null : (
+          <ScenariosTable reading={scenarios} currency={run.currency} />
+        )}
 
-      <section
-        aria-labelledby="data-kinds-title"
-        className="flex flex-col gap-3 rounded-xl border bg-muted/30 p-4"
-      >
-        <h2 id="data-kinds-title" className="text-base font-medium">
-          Cómo leer el origen de cada dato
-        </h2>
-        <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
-          {DATA_KINDS.map((entry) => (
-            <div key={entry.kind} className="flex flex-col items-start gap-1">
-              <dt>
-                <EvidenceKindMark kind={entry.kind} />
-              </dt>
-              <dd className="text-sm text-muted-foreground">{entry.meaning}</dd>
-            </div>
-          ))}
-        </dl>
-      </section>
+        {sensitivity === null ? null : (
+          <SensitivityMatrix sensitivity={sensitivity} />
+        )}
+      </Anchor>
 
-      <EvidenceTable
-        facts={collectReportedFacts(run)}
-        absences={collectDeclaredAbsences(run)}
-        policyVersion={FRESHNESS_POLICY_VERSION}
-      />
+      <Anchor id="supuestos">
+        <DerivationSummary run={run} />
 
-      <QualitativeDecisions run={run} />
+        <AssumptionsTables
+          run={run}
+          assumptionsKind={
+            run.input.derivedAssumptions === undefined
+              ? "assumption"
+              : "derived_by_rule"
+          }
+        />
 
-      <CostOfCapitalTable run={run} attribution={damodaran} />
+        <CostOfCapitalTable run={run} attribution={damodaran} />
 
-      <DerivationSummary run={run} />
+        <QualitativeDecisions run={run} />
 
-      <AssumptionsTables
-        run={run}
-        assumptionsKind={
-          run.input.derivedAssumptions === undefined
-            ? "assumption"
-            : "derived_by_rule"
-        }
-      />
+        <EquityBridgeTable run={run} />
+      </Anchor>
 
-      <EquityBridgeTable run={run} />
+      <Anchor id="evidencia">
+        <section
+          aria-labelledby="data-kinds-title"
+          className="flex flex-col gap-3 rounded-xl border bg-muted/30 p-4"
+        >
+          <h2 id="data-kinds-title" className="text-base font-medium">
+            Cómo leer el origen de cada dato
+          </h2>
+          <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+            {DATA_KINDS.map((entry) => (
+              <div key={entry.kind} className="flex flex-col items-start gap-1">
+                <dt>
+                  <EvidenceKindMark kind={entry.kind} />
+                </dt>
+                <dd className="text-sm text-muted-foreground">
+                  {entry.meaning}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
 
-      {scenarios === null ? null : (
-        <ScenariosTable reading={scenarios} currency={run.currency} />
-      )}
+        <RigorPanel run={run} />
 
-      {sensitivity === null ? null : (
-        <SensitivityMatrix sensitivity={sensitivity} />
-      )}
+        <EvidenceTable
+          facts={collectReportedFacts(run)}
+          absences={collectDeclaredAbsences(run)}
+          policyVersion={FRESHNESS_POLICY_VERSION}
+        />
 
-      <RunChecks run={run} />
+        <RunChecks run={run} />
+      </Anchor>
 
-      <ValuationHistory view={history} />
+      <Anchor id="historial">
+        <ValuationHistory view={history} />
+      </Anchor>
 
       <section
         className="rounded-xl border bg-muted/30 p-4"
@@ -426,15 +484,17 @@ export default async function ValuationResultPage({ params }: PageProps) {
           </li>
           <li>
             Abrir esta página no recalcula la corrida, no baja datos y no llama
-            al modelo. Para refrescar, se vuelve a encolar el ticker.
+            al modelo. «Volver a valuar» lee otra vez lo guardado al corte de
+            hoy y registra otra corrida si algo cambió.
           </li>
           <li>
             Los supuestos no son editables: salen de una regla versionada, y
             cambiarla produce otra corrida.
           </li>
           <li>
-            El precio del CEDEAR en BYMA, su valor en pesos y la descarga de
-            fundamentals que falten son slices posteriores.
+            El precio es el último cierre guardado al corte: esta página no lo
+            baja. El precio del CEDEAR en BYMA, su valor en pesos y la descarga
+            de fundamentals o precios que falten son slices posteriores.
           </li>
         </ul>
       </section>

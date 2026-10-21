@@ -84,7 +84,7 @@ test.describe("shell del portal", () => {
     await expect(
       page.getByRole("heading", {
         level: 1,
-        name: "Corrida por ticker",
+        name: "Valuación por ticker",
       }),
     ).toBeVisible();
     await expect(

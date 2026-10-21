@@ -73,6 +73,17 @@ export function RunHeadline({ run }: { run: ValuationRun }) {
                 Valor exacto del motor:{" "}
                 <CodeValue>{result.valuePerShare}</CodeValue>
               </p>
+              {result.scenarios?.bear.valuePerShare == null ||
+              result.scenarios?.bull.valuePerShare == null ? null : (
+                <p className="numeric pt-1 text-sm">
+                  <span className="text-muted-foreground">
+                    Rango de escenarios:{" "}
+                  </span>
+                  bear {formatAmount(result.scenarios.bear.valuePerShare)} ·
+                  bull {formatAmount(result.scenarios.bull.valuePerShare)}{" "}
+                  {run.currency}
+                </p>
+              )}
             </div>
           )}
 

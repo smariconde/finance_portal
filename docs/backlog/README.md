@@ -74,12 +74,12 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    46 | `F6-02`    | `done`     | Historial de corridas: volver a ver, refrescar lo que cambió y comparar contra la anterior sin sobrescribirla.                                                                                                            | `F6-07`          |
 |    47 | `F6-03`    | `done`     | Superficie de resultado sobre empresa real con nivel de rigor, provenance y supuestos distinguidos de los hechos.                                                                                                         | `F6-02`          |
 |    48 | `F6-04`    | `done`     | Acceso CEDEAR en el resultado: programa, depositario, estado y ratio al corte de la corrida, y el valor por CEDEAR en USD.                                                                                                | `F6-02`          |
-|    49 | `F6-05`    | `queued`   | Ingesta bajo demanda de la ventana de fundamentals que falta, con presupuesto, reanudación y auditoría point-in-time del sujeto.                                                                                          | `F6-01`          |
+|    49 | `F6-05`    | `ready`    | Ingesta bajo demanda de la ventana de fundamentals que falta, con presupuesto, reanudación y auditoría point-in-time del sujeto.                                                                                          | `F6-01`          |
 |    50 | `F6-08`    | `queued`   | Precio del CEDEAR en BYMA y valor por CEDEAR en pesos con el CCL implícito del propio CEDEAR, con su ADR de fuente.                                                                                                       | `F6-04`          |
 |    51 | `F6-09`    | `done`     | Precio de mercado al `as_of` de la corrida y DCF inverso por driver: qué crecimiento, margen, ROIC terminal o tasa exige el precio, al lado de lo que la empresa mostró.                                                  | `F6-03`          |
 |    52 | `F6-10`    | `done`     | `derived-assumptions-2.0.0`: ROIC terminal por regla con el dataset de Damodaran, crecimiento por tendencia y escenarios bear/bull derivados.                                                                             | `F6-09`          |
 |    53 | `F6-11`    | `done`     | Lectura cualitativa de la IA sobre lo que exige el precio: plausibilidad por driver con citas del 10-K verificadas, sin mover el valor.                                                                                   | `F6-09`          |
-|    54 | `F6-12`    | `ready`    | Flujo de valuación en un solo lugar por ticker: pedir, ver el estado y leer el resultado sin saltos, con la jerarquía orientada a decidir.                                                                                | `F6-09`          |
+|    54 | `F6-12`    | `done`     | Flujo de valuación en un solo lugar por ticker: pedir, ver el estado y leer el resultado sin saltos, con la jerarquía orientada a decidir.                                                                                | `F6-09`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -3761,6 +3761,47 @@ cualitativa de la IA sobre lo que exige el precio) y `F6-12` (flujo de
 valuación en un solo lugar). `F6-05` pasa a `queued` detrás de ellos. El año
 base TTM desde 10-Q queda nombrado como límite de `F6-10`, porque cambia toda
 la normalización.
+
+#### `F6-12` — flujo de valuación en un solo lugar (cerrado el 2026-10-21)
+
+Estado del slice: `done`. Cierra la replanificación del 2026-10-21. `F6-05`
+vuelve a `ready`: es la ingesta bajo demanda, y suma bajar el precio que falta
+del ticker antes de valuar, porque hoy la comparación usa el último cierre
+guardado.
+
+- `/valuacion` es sólo la entrada: encola con la acción de `F6-01` y lleva a
+  `/valuacion/[ticker]`. Un pedido que no se pudo hacer se dice ahí, sin
+  navegar.
+- `ValuationRunner` en el encabezado del ticker: «Valuar TICKER» o «Volver a
+  valuar».
+  - Al abrir, consulta si hay un pedido abierto y lo sigue.
+  - El estado se anuncia en línea (`role="status"`).
+  - Al registrarse la corrida, `router.refresh()` relee la página en el lugar.
+  - Un pedido ya terminado no relee nada.
+- Jerarquía de decisión con índice de anclas:
+  - primero el resultado con el rango bear–bull, el precio con lo que exige y
+    el acceso CEDEAR, y los escenarios con la sensibilidad;
+  - después cómo se llegó: derivación, supuestos, costo de capital,
+    decisiones cualitativas y puente;
+  - al final la evidencia (origen de los datos, rigor, hechos, controles) y el
+    historial.
+- `loadValuationHistory` se quitó: quedó sin llamador (enmienda de la
+  ADR 0047, `TM-03`).
+- Hallazgo, no corregido en este slice: con la navegación del cliente, Next 16
+  conserva oculta la página anterior. Aparecen dos `#contenido`, y el enlace
+  «Saltar al contenido» puede apuntar al oculto. Pasa en toda navegación del
+  shell, no sólo acá; el arreglo es que el destino del salto lo ponga el
+  layout.
+
+Evidencia:
+
+- Suite unit, integración, lint, tipos, formato, build y E2E con axe.
+- Recorrido con la base personal:
+  - AMZN desde `/valuacion`: navega en 481 ms, anuncia «Evaluando lo
+    guardado» y después «Corrida registrada», y la página se completa sola.
+  - ZZZZ dice «no está en el universo constituido» sin valor.
+- Axe en escritorio claro y móvil oscuro sin hallazgos nuevos (`region` de la
+  sidebar ya estaba); sin desborde a 390 px.
 
 #### `F6-11` — lectura del 10-K frente a lo que exige el precio (cerrado el 2026-10-21)
 

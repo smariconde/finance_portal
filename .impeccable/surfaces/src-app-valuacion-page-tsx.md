@@ -1,5 +1,5 @@
 ---
-version: 1
+version: 2
 slug: "src-app-valuacion-page-tsx"
 primary_target: "src/app/valuacion/page.tsx"
 related_targets:
@@ -10,9 +10,10 @@ related_targets:
   ]
 ---
 
-# Corrida por ticker
+# Valuación por ticker
 
-- Scope: encolar la evaluación de un ticker y leer su estado. No es la superficie del valor.
+- Since `F6-12`: es sólo la entrada. Encola y lleva a `/valuacion/[ticker]`, que sigue el pedido en el lugar y muestra el resultado; esta página ya no muestra estados, historial ni enlaces intermedios. Un pedido que no se pudo hacer se dice acá, sin navegar.
+- Scope (hasta `F6-11`): encolar la evaluación de un ticker y leer su estado. No es la superficie del valor.
 - Visitor mode: Operate.
 - Audience: el owner, pidiendo una empresa del universo constituido.
 - Job: escribir un símbolo, encolar, y ver el código con el que terminó —identidad, hueco, perfil, método y rigor— sin un número inventado.

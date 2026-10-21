@@ -57,6 +57,14 @@ intento nuevo no se cuele en ninguna de las dos.
 - Un job encolado antes de `F6-07` aparece con su resultado y sin
   comparación.
 
+## Enmienda del 2026-10-21 (`F6-12`)
+
+`loadValuationHistory` se quitó. Desde `F6-03` el historial se lee en el
+render de `/valuacion/[ticker]`, y desde `F6-12` la entrada ya no lo muestra:
+la acción quedó sin llamador, y una Server Action exportada sin uso sigue
+siendo un endpoint (`TM-03`). La decisión 1 sigue igual: refrescar es volver
+a encolar, ahora con «Volver a valuar» en la página del ticker.
+
 ## Alternativas descartadas
 
 **Comparar el valor por acción.** Adelanta `F6-03` sin su superficie de
