@@ -457,7 +457,10 @@ function assessNormalization(
 }
 
 /** Una partida de la serie como hecho con la provenance de su fuente. */
-function seriesFact(item: LineItemValue, sourceId: string): MonetaryFact {
+export function seriesFact(
+  item: LineItemValue,
+  sourceId: string,
+): MonetaryFact {
   return {
     value: item.value,
     currency: item.currency ?? "USD",

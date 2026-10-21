@@ -6,16 +6,27 @@ import { utcTimestampSchema } from "@/modules/temporal/domain/temporal-version";
 import { assetProfileSchema } from "./asset-profile";
 import { methodSelectionReasonSchema } from "./method-selection";
 import { rigorLevelSchema } from "./rigor-level";
+import { valuationRunStatusSchema } from "./valuation-run";
 
 /**
  * Corrida por ticker encolada (`F6-01`,
  * [ADR 0045](../../../../docs/architecture/adr/0045-ticker-valuation-job.md)).
  *
- * Un job evalúa lo ya guardado y termina con un código. No baja filings, no
- * llama al modelo y no publica un valor: el snapshot de supuestos es otro
- * slice. Nada de este archivo lee un reloj.
+ * Un job evalúa lo ya guardado y termina con un código. No baja filings y no
+ * llama al modelo. Nada de este archivo lee un reloj.
+ *
+ * `valuation-job-1.1.0` (`F6-07`,
+ * [ADR 0046](../../../../docs/architecture/adr/0046-derived-valuation-assumptions.md)):
+ * con un método `fcff_base` el job arma el snapshot desde lo guardado, corre
+ * el motor y registra la corrida (`run_recorded`), o nombra por qué no pudo
+ * armarlo (`snapshotGap`). Una fila `1.0.0` conserva lo que dijo.
  */
-export const VALUATION_JOB_RULE_VERSION = "valuation-job-1.0.0";
+export const VALUATION_JOB_RULE_VERSION = "valuation-job-1.1.0";
+
+export const valuationJobRuleVersionSchema = z.enum([
+  "valuation-job-1.0.0",
+  VALUATION_JOB_RULE_VERSION,
+]);
 
 /** Un worker caído no bloquea el ticker para siempre. Dos minutos cubren una lectura local. */
 export const VALUATION_JOB_STALE_AFTER_MS = 120_000;
@@ -56,9 +67,28 @@ export const valuationJobGapSchema = z.enum([
   "unsupported_method",
   "snapshot_not_assembled",
   "assessment_failed",
+  "run_recorded",
 ]);
 
 export type ValuationJobGap = z.infer<typeof valuationJobGapSchema>;
+
+/** Por qué el snapshot no se armó; sólo acompaña a `snapshot_not_assembled`. */
+export const valuationSnapshotGapSchema = z.enum([
+  "method_not_derived",
+  "security_missing",
+  "cost_of_capital_unavailable",
+  "normalization_unavailable",
+  "revenue_history_insufficient",
+  "revenue_history_non_positive",
+  "base_margin_unavailable",
+  "sales_to_capital_unavailable",
+  "tax_rate_unavailable",
+  "employee_equity_not_proposed",
+  "shares_outstanding_unavailable",
+  "market_unavailable",
+]);
+
+export type ValuationSnapshotGap = z.infer<typeof valuationSnapshotGapSchema>;
 
 export const valuationJobMethodStatusSchema = z.enum([
   "selected",
@@ -88,6 +118,12 @@ const methodFieldsSchema = z.object({
   unsupportedReason: methodSelectionReasonSchema.nullable(),
 });
 
+const runFieldsSchema = z.object({
+  snapshotGap: valuationSnapshotGapSchema.nullable(),
+  valuationRunId: uuidSchema.nullable(),
+  runStatus: valuationRunStatusSchema.nullable(),
+});
+
 export const valuationJobOutcomeSchema = z
   .object({
     identityStatus: valuationJobIdentitySchema.nullable(),
@@ -96,9 +132,21 @@ export const valuationJobOutcomeSchema = z
     listingId: uuidSchema.nullable(),
     gap: valuationJobGapSchema,
     ...methodFieldsSchema.shape,
+    ...runFieldsSchema.shape,
   })
   .superRefine((outcome, context) => {
     refineOutcome(outcome, context);
+
+    if (
+      outcome.gap === "snapshot_not_assembled" &&
+      outcome.snapshotGap === null
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["snapshotGap"],
+        message: "snapshot_not_assembled names why the snapshot was not built.",
+      });
+    }
   });
 
 export type ValuationJobOutcome = z.infer<typeof valuationJobOutcomeSchema>;
@@ -109,7 +157,7 @@ export const valuationJobSchema = z
     ticker: valuationTickerSchema,
     status: valuationJobStatusSchema,
     knownAt: utcTimestampSchema,
-    ruleVersion: z.literal(VALUATION_JOB_RULE_VERSION),
+    ruleVersion: valuationJobRuleVersionSchema,
     identityStatus: valuationJobIdentitySchema.nullable(),
     legalEntityId: uuidSchema.nullable(),
     securityId: uuidSchema.nullable(),
@@ -120,6 +168,7 @@ export const valuationJobSchema = z
     method: valuationJobMethodSchema.nullable(),
     rigor: rigorLevelSchema.nullable(),
     unsupportedReason: methodSelectionReasonSchema.nullable(),
+    ...runFieldsSchema.shape,
     claimToken: uuidSchema.nullable(),
     createdAt: utcTimestampSchema,
     startedAt: utcTimestampSchema.nullable(),
@@ -134,6 +183,20 @@ export const valuationJobSchema = z
         code: "custom",
         path: ["knownAt"],
         message: "The knowledge cutoff cannot be after the job was queued.",
+      });
+    }
+
+    if (job.ruleVersion === "valuation-job-1.0.0") {
+      requireAbsent(job.snapshotGap, "snapshotGap", context);
+      requireAbsent(job.valuationRunId, "valuationRunId", context);
+    } else if (
+      job.gap === "snapshot_not_assembled" &&
+      job.snapshotGap === null
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["snapshotGap"],
+        message: "snapshot_not_assembled names why the snapshot was not built.",
       });
     }
 
@@ -239,6 +302,7 @@ const ASSESSED_GAPS: ReadonlySet<string> = new Set([
   "annual_fundamentals",
   "unsupported_method",
   "snapshot_not_assembled",
+  "run_recorded",
 ]);
 
 function refineOutcome(
@@ -253,13 +317,42 @@ function refineOutcome(
     method: ValuationJobOutcome["method"];
     rigor: ValuationJobOutcome["rigor"];
     unsupportedReason: ValuationJobOutcome["unsupportedReason"];
+    snapshotGap: ValuationSnapshotGap | null;
+    valuationRunId: string | null;
+    runStatus: ValuationJobOutcome["runStatus"];
   },
   context: IssueContext,
 ): void {
   const { gap } = outcome;
 
+  if ((outcome.valuationRunId === null) !== (outcome.runStatus === null)) {
+    context.addIssue({
+      code: "custom",
+      path: ["runStatus"],
+      message: "A recorded run carries its ID and its status together.",
+    });
+  }
+
   if (gap === null) {
+    requireAbsent(outcome.snapshotGap, "snapshotGap", context);
+    requireAbsent(outcome.valuationRunId, "valuationRunId", context);
     return;
+  }
+
+  if ((gap === "run_recorded") !== (outcome.valuationRunId !== null)) {
+    context.addIssue({
+      code: "custom",
+      path: ["valuationRunId"],
+      message: "Only run_recorded keeps a valuation run.",
+    });
+  }
+
+  if (gap !== "snapshot_not_assembled" && outcome.snapshotGap !== null) {
+    context.addIssue({
+      code: "custom",
+      path: ["snapshotGap"],
+      message: "Only snapshot_not_assembled names a snapshot gap.",
+    });
   }
 
   const expectedIdentity = IDENTITY_GAPS[gap];
@@ -332,6 +425,14 @@ function refineOutcome(
     });
   }
 
+  if (gap === "run_recorded" && (!selected || outcome.method !== "fcff_base")) {
+    context.addIssue({
+      code: "custom",
+      path: ["method"],
+      message: "A recorded run values the selected fcff_base method.",
+    });
+  }
+
   if (gap === "unsupported_method" && !refused) {
     context.addIssue({
       code: "custom",
@@ -342,6 +443,7 @@ function refineOutcome(
 
   if (
     gap !== "snapshot_not_assembled" &&
+    gap !== "run_recorded" &&
     gap !== "unsupported_method" &&
     gap !== "annual_fundamentals" &&
     outcome.methodStatus !== null
@@ -378,6 +480,12 @@ const EMPTY_METHOD = {
   unsupportedReason: null,
 } as const;
 
+const EMPTY_RUN = {
+  snapshotGap: null,
+  valuationRunId: null,
+  runStatus: null,
+} as const;
+
 export function queueValuationJob(input: {
   readonly jobId: string;
   readonly ticker: string;
@@ -396,6 +504,7 @@ export function queueValuationJob(input: {
     listingId: null,
     gap: null,
     ...EMPTY_METHOD,
+    ...EMPTY_RUN,
     claimToken: null,
     createdAt: input.createdAt,
     startedAt: null,
@@ -449,6 +558,7 @@ export function finishValuationJob(
   return valuationJobSchema.parse({
     ...job,
     ...input.outcome,
+    ruleVersion: VALUATION_JOB_RULE_VERSION,
     status: "completed",
     claimToken: null,
     finishedAt: input.finishedAt,
@@ -473,6 +583,7 @@ export function outcomeForIdentity(
     listingId: null,
     gap: IDENTITY_OUTCOME[status],
     ...EMPTY_METHOD,
+    ...EMPTY_RUN,
   });
 }
 
@@ -484,6 +595,7 @@ export function outcomeForFailure(): ValuationJobOutcome {
     listingId: null,
     gap: "assessment_failed",
     ...EMPTY_METHOD,
+    ...EMPTY_RUN,
   });
 }
 
@@ -506,6 +618,12 @@ export type ValuationAssessmentReading = {
  */
 export function outcomeForAssessment(
   reading: ValuationAssessmentReading,
+  snapshot:
+    | { readonly gap: ValuationSnapshotGap }
+    | {
+        readonly valuationRunId: string;
+        readonly runStatus: NonNullable<ValuationJobOutcome["runStatus"]>;
+      } = { gap: "method_not_derived" },
 ): ValuationJobOutcome {
   const subject = {
     identityStatus: "resolved" as const,
@@ -519,6 +637,7 @@ export function outcomeForAssessment(
       ...subject,
       gap: "cik_missing",
       ...EMPTY_METHOD,
+      ...EMPTY_RUN,
     });
   }
 
@@ -527,6 +646,7 @@ export function outcomeForAssessment(
       ...subject,
       gap: "annual_fundamentals",
       ...methodOf(reading),
+      ...EMPTY_RUN,
     });
   }
 
@@ -535,6 +655,18 @@ export function outcomeForAssessment(
       ...subject,
       gap: "unsupported_method",
       ...methodOf(reading),
+      ...EMPTY_RUN,
+    });
+  }
+
+  if ("valuationRunId" in snapshot) {
+    return valuationJobOutcomeSchema.parse({
+      ...subject,
+      gap: "run_recorded",
+      ...methodOf(reading),
+      snapshotGap: null,
+      valuationRunId: snapshot.valuationRunId,
+      runStatus: snapshot.runStatus,
     });
   }
 
@@ -542,6 +674,8 @@ export function outcomeForAssessment(
     ...subject,
     gap: "snapshot_not_assembled",
     ...methodOf(reading),
+    ...EMPTY_RUN,
+    snapshotGap: snapshot.gap,
   });
 }
 
@@ -585,7 +719,10 @@ export type ValuationJobView =
       readonly method: ValuationJobOutcome["method"];
       readonly rigor: ValuationJobOutcome["rigor"];
       readonly unsupportedReason: ValuationJobOutcome["unsupportedReason"];
-      readonly ruleVersion: typeof VALUATION_JOB_RULE_VERSION;
+      readonly snapshotGap: ValuationSnapshotGap | null;
+      /** El estado de la corrida registrada; su ID no sale del servidor. */
+      readonly runStatus: ValuationJobOutcome["runStatus"];
+      readonly ruleVersion: ValuationJob["ruleVersion"];
     };
 
 export function toValuationJobView(job: ValuationJob): ValuationJobView {
@@ -600,6 +737,8 @@ export function toValuationJobView(job: ValuationJob): ValuationJobView {
     method: job.method,
     rigor: job.rigor,
     unsupportedReason: job.unsupportedReason,
+    snapshotGap: job.snapshotGap,
+    runStatus: job.runStatus,
     ruleVersion: job.ruleVersion,
   };
 }

@@ -70,7 +70,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    42 | `F4-05`    | `done`     | Probabilidad de fracaso del rating sintético con recupero sobre el capital en libros, y opciones de empleados valuadas con Black-Scholes ajustado por dilución y restadas del equity, con básicas + RSU como denominador. | `F4-03`          |
 |    43 | `F4-06`    | `done`     | Bancos/aseguradoras, cíclicas/commodities, pérdidas/high growth y REIT entregados como experimentales con gates independientes. Holdings/SOTP y distress diferidos hasta demanda observada.                               | `F4-04`, `F4-05` |
 |    44 | `F6-01`    | `done`     | Corrida por ticker encolada con estado; la acción evalúa lo guardado y nombra el hueco, sin valor ni red durante el render.                                                                                               | Fase 4, Fase 5   |
-|    45 | `F6-02`    | `ready`    | Historial de corridas: volver a ver, refrescar lo que cambió y comparar contra la anterior sin sobrescribirla.                                                                                                            | `F6-01`          |
+|    45 | `F6-07`    | `done`     | Supuestos `fcff_base` derivados de lo guardado por una regla versionada; el job arma el snapshot, corre el motor y registra la corrida, o nombra el faltante.                                                             | `F6-01`          |
+|    46 | `F6-02`    | `ready`    | Historial de corridas: volver a ver, refrescar lo que cambió y comparar contra la anterior sin sobrescribirla.                                                                                                            | `F6-07`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -3603,7 +3604,8 @@ repararon contra `source_documents`.
 | Issue   | Resultado y aceptación mínima                                                                                                                                                                                                         | Depende de | Controles                          |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------- |
 | `F6-01` | Corrida por ticker como job encolado con estado; primera Route Handler o Server Action con sus controles cerrados.                                                                                                                    | Fase 5     | `TM-03`, `TM-07`, `TM-10`, `TM-12` |
-| `F6-02` | Historial de corridas: volver a ver, refrescar lo que cambió y comparar contra la anterior sin sobrescribirla.                                                                                                                        | `F6-01`    | `TM-06`, `TM-16`                   |
+| `F6-07` | Supuestos derivados de lo guardado: una regla versionada arma períodos, terminal y sensibilidad `fcff_base`, el motor la recalcula, y el job registra la corrida o nombra el faltante.                                                | `F6-01`    | `TM-05`, `TM-06`, `TM-16`          |
+| `F6-02` | Historial de corridas: volver a ver, refrescar lo que cambió y comparar contra la anterior sin sobrescribirla.                                                                                                                        | `F6-07`    | `TM-06`, `TM-16`                   |
 | `F6-03` | Superficie de resultado sobre empresa real con nivel de rigor, provenance y supuestos distinguidos de los hechos.                                                                                                                     | `F6-02`    | `TM-12`, `TM-15`, `UI-02`, `UI-03` |
 | `F6-04` | Anotación de acceso CEDEAR sobre el registro de `F7-03`: si existe programa, su ratio vigente y su precio, sin fusionar los dos instrumentos.                                                                                         | `F6-02`    | `TM-05`, `TM-06`                   |
 | `F6-05` | Ingesta bajo demanda: si el ticker pedido no tiene la ventana de fundamentals, la corrida la baja con presupuesto y reanudación, y audita el contrato point-in-time del sujeto antes de valuar. No hay valuación por lote (ADR 0016). | `F6-01`    | `TM-06`, `TM-10`, `TM-11`, `TM-16` |
@@ -3663,6 +3665,49 @@ Evidencia:
   por acción y sin red.
 - Migración `0031` aplicada en la base de test por la suite y en la personal con
   `pnpm db:migrate`. Rollback pareado: se niega si hay filas.
+
+#### `F6-07` — supuestos derivados de lo guardado (cerrado el 2026-10-21)
+
+Estado del slice: `done`. Abierto el 2026-10-21 a pedido del owner, que eligió
+derivar los supuestos por código antes de `F6-02`, porque sin corridas no hay
+historial que listar. No cierra el gate de la Fase 6: la superficie del valor es
+`F6-03` y la ingesta bajo demanda `F6-05`. `F6-02` queda `ready`.
+
+- Regla `derived-assumptions-1.0.0` ([ADR 0046](../architecture/adr/0046-derived-valuation-assumptions.md)):
+  diez años; crecimiento desde el CAGR de tres a seis ejercicios consecutivos,
+  margen y sales-to-capital ajustados del ejercicio base, impuesto aplicado →
+  marginal y WACC → terminal en los años 6–10; terminal con `g` igual a la libre
+  de riesgo y ROIC igual al WACC terminal; sin escenarios.
+- `ValuationInput.derivedAssumptions` congela la historia de ventas y
+  `assumptions_derived_recomputed` reconstruye períodos, terminal y sensibilidad.
+  Opcional: los snapshots anteriores conservan checks y hashes; motor
+  `fcff-1.6.0` y metodología `0.12.0` sin cambios.
+- `valuation-snapshot-1.0.0` arma el snapshot desde la evaluación, la
+  transcripción de opciones aceptada al corte, la carátula y la serie de precios.
+  Activos no operativos y otras claims se declaran ausentes con el nombre de la
+  regla.
+- `valuation-job-1.1.0` (migración `0032`): `run_recorded` con la corrida y su
+  estado, o `snapshot_not_assembled` con el motivo. La vista devuelve el estado
+  de la corrida, nunca su ID ni su valor.
+- Controles: `TM-05` (lo que falta se nombra, nunca cero), `TM-06` (todo se lee al
+  corte del job, la carátula posterior no se ve), `TM-16` (la corrida rechazada
+  también se registra, y se reproduce).
+
+Evidencia:
+
+- 2.883 unit y 210 integration. El contrato del store cierra con corrida y
+  con motivo en memoria y en PostgreSQL, con la FK a `valuation_runs`.
+- Tipos, lint, formato y build pasan. 185 E2E con axe (2 omitidos).
+  Detector de Impeccable sobre el formulario: sin hallazgos.
+- Réplica de la base personal, 2026-10-21: AAPL y AMZN terminan `run_recorded`
+  `computed`, sin checks fallados, y `pnpm valuation:replay` reproduce los dos
+  hashes. GOOGL frena en `employee_equity_not_proposed` (la escalera no encontró
+  la nota) y JNJ en `base_margin_unavailable`. Tres transcripciones de opciones
+  costaron USD 0,015.
+- La base personal no tiene transcripciones de opciones: hoy toda empresa
+  `fcff_base` frena ahí, nombrado.
+- Migración `0032` aplicada en test por la suite, en la réplica y en la personal.
+  El rollback se niega con filas `1.1.0` y, sin ellas, reconstruye el enum.
 
 ### Fase 7 — matrices sectoriales de riesgo
 

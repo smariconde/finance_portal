@@ -19,4 +19,5 @@ related_targets:
 - Content: el formulario, el estado en cola o en curso, el resultado con su corte de conocimiento y la regla, y el enlace a la corrida de referencia.
 - Direction: el mismo workspace que `/sectores`. Una columna, un formulario, una lista de definición. Sin tarjetas ni hero.
 - Constraints: el render no abre la base ni la red; un runtime trabado niega la página; el ticker inválido no se repite en el error; no hay valor por acción, precio objetivo ni recomendación.
-- Unresolved: el snapshot, el historial y la descarga de fundamentals son slices posteriores. La página los nombra como ausencia, no como controles.
+- Since `F6-07`: el resultado puede ser una corrida registrada; la página dice su estado (calculada, pide revisión, rechazada) o el motivo por el que el snapshot no se armó, nunca el valor.
+- Unresolved: el valor, el historial y la descarga de fundamentals son slices posteriores. La página los nombra como ausencia, no como controles.

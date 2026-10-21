@@ -100,6 +100,9 @@ revertir:
 3. verificar backup/restore;
 4. revisar dependencias creadas después de la migración;
 5. ejecutar manualmente el SQL pareado, en orden inverso al de aplicación:
+   - `drizzle/rollback/0032_gifted_fat_cobra.down.sql` (el motivo del snapshot y
+     la corrida registrada de `valuation_jobs`; falla mientras haya un job
+     `valuation-job-1.1.0` y reconstruye el enum `valuation_job_gap`);
    - `drizzle/rollback/0031_ancient_riptide.down.sql` (la tabla `valuation_jobs`
      y sus tres enums; falla mientras haya una corrida encolada);
    - `drizzle/rollback/0014_worthless_mockingbird.down.sql` (el presupuesto diario
