@@ -32,6 +32,10 @@ import {
   readValuationHistory,
   type ValuationHistoryView,
 } from "@/modules/valuation/application/read-valuation-history";
+import {
+  readValuationResult,
+  type ValuationResultReading,
+} from "@/modules/valuation/application/read-valuation-result";
 import { SHARES_OUTSTANDING_CONCEPT } from "@/modules/valuation/domain/employee-equity-claim";
 import { readLineageObservations } from "@/modules/corporate-actions/application/read-lineage-observations";
 import { PRICES_SOURCE_ID } from "@/modules/prices/application/live-price-source";
@@ -99,6 +103,23 @@ export async function readValuationHistoryForRequest(
   return readValuationHistory(
     { ticker },
     { jobs: getValuationJobStore(), runs: getValuationRunRepository() },
+  );
+}
+
+/**
+ * La última corrida registrada del ticker, para la página del resultado
+ * (`F6-03`). Sólo lee jobs, corridas y el grafo de identidad.
+ */
+export async function readValuationResultForRequest(
+  ticker: string,
+): Promise<ValuationResultReading> {
+  return readValuationResult(
+    { ticker },
+    {
+      jobs: getValuationJobStore(),
+      runs: getValuationRunRepository(),
+      universe: getUniverseRepository(),
+    },
   );
 }
 

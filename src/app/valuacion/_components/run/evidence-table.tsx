@@ -157,8 +157,9 @@ export function EvidenceTable({
       <CardContent className="border-t pt-(--card-spacing)">
         <h3 className="text-sm font-medium">Ausencias declaradas</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Estas claims valen cero porque el owner registró por qué no existen.
-          Un dato que simplemente falta bloquea la corrida en vez de valer cero.
+          Estas claims valen cero porque el snapshot registra por qué no
+          existen. Un dato que simplemente falta bloquea la corrida en vez de
+          valer cero.
         </p>
         {absences.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">

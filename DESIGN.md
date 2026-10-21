@@ -271,17 +271,18 @@ Las primitivas son componentes shadcn editables construidos sobre Base UI. Se re
 
 ### Data marks
 
-Implementadas en `src/app/valuacion/referencia/_components/data-marks.tsx`.
+Implementadas en `src/app/valuacion/_components/run/data-marks.tsx`.
 
 - **Purpose:** `StatusMark` califica la disponibilidad de una capacidad; las data marks califican la naturaleza de un dato. Son dimensiones distintas y no se mezclan: si no, “listo” significa dos cosas en la misma página.
 - **Families:** estado de corrida (`Calculada`, `Requiere revisión`, `Rechazada`), naturaleza del dato (`Hecho reportado`, `Supuesto`, `Ausencia declarada`), estado de claim y antigüedad (`Vigente`, `Envejecido`, `Vencido`, `Posterior a la valuación`).
+- **Origen del juicio (`F6-03`):** `Derivado por regla`, `Propuesta de IA` y `Declaración del owner` comparten el ámbar de `Supuesto` porque son juicio, no dato; el icono y la etiqueta dicen quién juzgó. `Dato de referencia` (una release fechada de un tercero, hoy Damodaran) es neutral, como `Ausencia declarada`, y se distingue por icono y etiqueta.
 - **Anatomy:** icono Lucide, etiqueta legible y prefijo `sr-only` que nombra la dimensión calificada. La antigüedad agrega su distancia en días como cifra tabular.
 - **Color:** verde, ámbar, rosa, azul y neutral sólo acompañan al icono y al texto; nunca son el único canal.
 - **Secondary text on a tinted badge:** la distancia en días se distingue por **peso**, nunca por opacidad. Un `opacity-80` sobre las superficies ámbar y esmeralda bajaba ese texto por debajo de 4.5:1 y lo detectó el gate de `F1-07`. Sobre una superficie teñida, atenuar no es un canal disponible.
 
 ### Sensitivity matrix
 
-Implementada en `src/app/valuacion/referencia/_components/sensitivity-matrix.tsx`.
+Implementada en `src/app/valuacion/_components/run/sensitivity-matrix.tsx`.
 
 - **Structure:** tabla semántica con `th scope="col"` por parámetro horizontal y `th scope="row"` por parámetro vertical; `caption` declara unidad, moneda, rango y paso de ambos ejes.
 - **Encoding:** el importe se escribe en la celda. El tinte —`color-mix(in oklab, var(--chart-1) N%, var(--card))`— ordena las celdas de menor a mayor y no comunica nada por sí solo.

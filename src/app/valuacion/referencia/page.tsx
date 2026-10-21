@@ -34,7 +34,6 @@ import {
   collectDeclaredAbsences,
   collectReportedFacts,
   FRESHNESS_POLICY_VERSION,
-  listTransformations,
   readScenarios,
 } from "@/modules/valuation/domain/valuation-report";
 import {
@@ -42,14 +41,14 @@ import {
   buildDemoValuationRunBeforeAmendment,
 } from "@/modules/valuation/infrastructure/demo-valuation-run";
 
-import { AssumptionsTables } from "./_components/assumptions-tables";
-import { EvidenceTable } from "./_components/evidence-table";
-import { EquityBridgeTable } from "./_components/equity-bridge-table";
-import { Field, FieldList, HashValue } from "./_components/field";
-import { checkLabel, TRANSFORMATION_LABELS } from "./_components/labels";
-import { RunHeadline } from "./_components/run-headline";
-import { ScenariosTable } from "./_components/scenarios-table";
-import { SensitivityMatrix } from "./_components/sensitivity-matrix";
+import { AssumptionsTables } from "../_components/run/assumptions-tables";
+import { EvidenceTable } from "../_components/run/evidence-table";
+import { EquityBridgeTable } from "../_components/run/equity-bridge-table";
+import { Field, FieldList, HashValue } from "../_components/run/field";
+import { RunChecks } from "../_components/run/run-checks";
+import { RunHeadline } from "../_components/run/run-headline";
+import { ScenariosTable } from "../_components/run/scenarios-table";
+import { SensitivityMatrix } from "../_components/run/sensitivity-matrix";
 
 export const metadata: Metadata = {
   title: "Corrida de referencia | Portal Financiero",
@@ -92,7 +91,6 @@ export default async function ValuationReferencePage() {
   const facts = collectReportedFacts(run);
   const absences = collectDeclaredAbsences(run);
   const sensitivity = annotateSensitivity(run);
-  const transformations = listTransformations(run);
   const scenarios = readScenarios(run);
   const checks = run.result?.checks ?? [];
   // Un escenario que pide revisión deja la corrida en revisión: el aviso los
@@ -335,87 +333,7 @@ export default async function ValuationReferencePage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="border-b">
-            <CardTitle as="h2">Transformaciones y controles</CardTitle>
-            <CardDescription>
-              Las fórmulas aplicadas por esta corrida y los controles que el
-              motor ejecutó sobre ella.
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent>
-            <h3 className="text-sm font-medium">
-              Fórmulas aplicadas, en orden de cálculo
-            </h3>
-            <ol className="mt-3 grid gap-2 lg:grid-cols-2">
-              {transformations.map((step, index) => (
-                <li
-                  key={step.id}
-                  className="flex gap-3 rounded-lg border bg-muted/30 p-3"
-                >
-                  <span
-                    className="numeric shrink-0 text-xs text-muted-foreground"
-                    aria-hidden="true"
-                  >
-                    {index + 1}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-medium">
-                      {TRANSFORMATION_LABELS[step.id]}
-                    </span>
-                    <code className="mt-1 block font-mono text-xs break-words text-muted-foreground">
-                      {step.formula}
-                    </code>
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </CardContent>
-
-          <CardContent className="border-t px-0 pt-(--card-spacing)">
-            <h3 className="px-(--card-spacing) pb-3 text-sm font-medium">
-              Policy checks ejecutados
-            </h3>
-            <Table containerLabel="Policy checks ejecutados, tabla desplazable">
-              <TableHeader>
-                <TableRow>
-                  <TableHead scope="col">Control</TableHead>
-                  <TableHead scope="col">Modo</TableHead>
-                  <TableHead scope="col">Resultado</TableHead>
-                  <TableHead scope="col" className="w-[46%]">
-                    Regla
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {checks.map((check) => (
-                  <TableRow key={check.id}>
-                    <TableHead scope="row" className="font-medium">
-                      {checkLabel(check.id)}
-                    </TableHead>
-                    <TableCell className="text-muted-foreground">
-                      {check.mode === "reject"
-                        ? "Rechaza la corrida"
-                        : "Exige revisión"}
-                    </TableCell>
-                    <TableCell>
-                      <StatusMark
-                        status={
-                          check.status === "passed" ? "ready" : "degraded"
-                        }
-                        label={check.status === "passed" ? "Pasó" : "No pasó"}
-                      />
-                    </TableCell>
-                    <TableCell className="text-muted-foreground whitespace-normal">
-                      {check.message}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        <RunChecks run={run} />
 
         <section
           className="rounded-xl border bg-muted/30 p-4"

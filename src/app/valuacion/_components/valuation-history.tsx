@@ -11,15 +11,9 @@ import type {
   ValuationHistoryView,
 } from "@/modules/valuation/application/read-valuation-history";
 import type { ComparisonSection } from "@/modules/valuation/domain/valuation-run-comparison";
-import type { RigorLevel } from "@/modules/valuation/domain/rigor-level";
 import type { ValuationRunStatus } from "@/modules/valuation/domain/valuation-run";
 
-const RIGOR_COPY: Record<RigorLevel, string> = {
-  full: "Pleno",
-  standard: "Estándar",
-  screening: "Screening",
-  unsupported: "No admitido",
-};
+import { RIGOR_COPY } from "./job-copy";
 
 const SECTION_COPY: Record<ComparisonSection, string> = {
   baseRevenue: "ventas base",
