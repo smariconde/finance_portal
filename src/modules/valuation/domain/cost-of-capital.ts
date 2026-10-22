@@ -110,9 +110,27 @@ export const coverageEvidenceSchema = z.object({
   /** `false` cuando el último ejercicio no publicó intereses y se usó uno anterior. */
   fromLatestFiscalYear: z.boolean(),
   availableAt: utcTimestampSchema,
+  /**
+   * De dónde salió el gasto de intereses cuando no es el bruto publicado
+   * (`interest-expense-1.0.0`, `F6-14`). Ausente es el bruto: una corrida
+   * anterior conserva su hash.
+   */
+  interestBasis: z
+    .enum(["debt_plus_finance_leases", "net_nonoperating", "interest_paid"])
+    .optional(),
 });
 
 export type CoverageEvidence = z.infer<typeof coverageEvidenceSchema>;
+
+/** Cómo declara la corrida un gasto de intereses que no es el bruto. */
+export const COVERAGE_INTEREST_DECLARATION = {
+  debt_plus_finance_leases: "coverage_interest_debt_plus_finance_leases",
+  net_nonoperating: "coverage_interest_net_nonoperating",
+  interest_paid: "coverage_interest_paid",
+} as const satisfies Record<
+  NonNullable<CoverageEvidence["interestBasis"]>,
+  string
+>;
 
 export const costOfCapitalDerivedSchema = z.object({
   riskFree: engineDecimalSchema,
@@ -139,6 +157,9 @@ export const costOfCapitalDeclarationSchema = z.enum([
   "country_risk_by_primary_listing",
   "synthetic_rating_large_nonfinancial",
   "coverage_from_earlier_fiscal_year",
+  "coverage_interest_debt_plus_finance_leases",
+  "coverage_interest_net_nonoperating",
+  "coverage_interest_paid",
   "terminal_beta_converges_to_one",
   "country_risk_by_operations",
   "regions_combined_by_gdp",
@@ -641,6 +662,9 @@ export function buildCostOfCapital(
         ...(coverage.fromLatestFiscalYear
           ? []
           : ["coverage_from_earlier_fiscal_year"]),
+        ...(coverage.interestBasis === undefined
+          ? []
+          : [COVERAGE_INTEREST_DECLARATION[coverage.interestBasis]]),
         "terminal_beta_converges_to_one",
       ],
     }),

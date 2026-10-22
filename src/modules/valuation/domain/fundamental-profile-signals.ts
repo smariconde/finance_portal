@@ -15,6 +15,12 @@ import {
   type Dec,
 } from "./decimal-policy";
 import {
+  interestExpenseOf,
+  netInterestForEbit,
+  type InterestExpenseBasis,
+  type InterestReading,
+} from "./interest-expense";
+import {
   profileEvidenceSchema,
   type ProfileEvidence,
   type SignalProfile,
@@ -44,9 +50,15 @@ import {
  * Cuando falta el EBIT se usa el resultado antes de impuestos más los intereses,
  * y la salida lo nombra. Si tampoco hay eso, la señal queda sin evidencia: nunca
  * se completa un faltante con cero (`TM-05`).
+ *
+ * `1.1.0` (`F6-14`, ADR 0053): los intereses salen de `interest-expense-1.0.0`.
+ * La cobertura usa el gasto —bruto, de la deuda más arrendamientos, el neto
+ * cuando es gasto o el pagado— y el EBIT de respaldo suma el neto con su signo,
+ * así que Nike, que no publica resultado operativo ni intereses brutos, tiene
+ * EBIT. Con el bruto publicado, todo es como en `1.0.0`.
  */
 export const FUNDAMENTAL_PROFILE_SIGNALS_VERSION =
-  "fundamental-profile-signals-1.0.0";
+  "fundamental-profile-signals-1.1.0";
 
 /** Borde de cobertura bajo el cual el rating sintético es `CCC` o peor. */
 export const DISTRESS_COVERAGE_THRESHOLD = "1.25";
@@ -90,58 +102,70 @@ function sameCurrency(values: readonly LineItemValue[]): boolean {
 }
 
 function ebitOf(year: FiscalYear | undefined): Ebit | null {
+  return ebitWithInterest(year)?.ebit ?? null;
+}
+
+function ebitWithInterest(
+  year: FiscalYear | undefined,
+): { ebit: Ebit; interest: InterestReading | null } | null {
   const operating = item(year, "operating_income");
 
   if (operating !== undefined) {
     return {
-      value: parseDecimal(operating.value, "operating_income"),
-      basis: "operating_income",
-      inputs: [operating],
+      ebit: {
+        value: parseDecimal(operating.value, "operating_income"),
+        basis: "operating_income",
+        inputs: [operating],
+      },
+      interest: null,
     };
   }
 
   const pretax = item(year, "pretax_income");
-  const interest = item(year, "interest_expense");
+  const interest = netInterestForEbit(year);
 
   if (
     pretax === undefined ||
-    interest === undefined ||
-    !sameCurrency([pretax, interest])
+    interest === null ||
+    !sameCurrency([pretax, ...interest.inputs])
   ) {
     return null;
   }
 
   return {
-    value: parseDecimal(pretax.value, "pretax_income").plus(
-      parseDecimal(interest.value, "interest_expense"),
-    ),
-    basis: "pretax_plus_interest",
-    inputs: [pretax, interest],
+    ebit: {
+      value: parseDecimal(pretax.value, "pretax_income").plus(interest.value),
+      basis: "pretax_plus_interest",
+      inputs: [pretax, ...interest.inputs],
+    },
+    interest,
   };
 }
 
 const COVERAGE_LIMIT = parseDecimal(DISTRESS_COVERAGE_THRESHOLD, "threshold");
 
-function coverageOf(
-  year: FiscalYear | undefined,
-): { value: Dec; inputs: LineItemValue[] } | null {
+function coverageOf(year: FiscalYear | undefined): {
+  value: Dec;
+  inputs: LineItemValue[];
+  interestBasis: InterestExpenseBasis;
+} | null {
   const ebit = ebitOf(year);
-  const interest = item(year, "interest_expense");
+  const interest = interestExpenseOf(year);
 
-  if (ebit === null || interest === undefined) {
+  if (ebit === null || interest === null) {
     return null;
   }
 
-  const interestValue = parseDecimal(interest.value, "interest_expense");
-  const inputs = [...ebit.inputs, interest];
+  const inputs = unique([...ebit.inputs, ...interest.inputs]);
 
-  if (interestValue.lessThanOrEqualTo(ZERO) || !sameCurrency(inputs)) {
+  if (interest.value.lessThanOrEqualTo(ZERO) || !sameCurrency(inputs)) {
     return null;
   }
 
   return {
-    value: divide(ebit.value, interestValue, "interest_coverage"),
+    value: divide(ebit.value, interest.value, "interest_coverage"),
     inputs,
+    interestBasis: interest.basis,
   };
 }
 
@@ -473,6 +497,8 @@ export function latestInterestCoverage(series: AnnualFundamentals): {
   readonly fiscalYearEnd: string;
   readonly fromLatestFiscalYear: boolean;
   readonly availableAt: string;
+  /** Sólo cuando el gasto no es el bruto publicado (`1.1.0`). */
+  readonly interestBasis?: Exclude<InterestExpenseBasis, "gross">;
 } | null {
   for (const [index, year] of series.fiscalYears.entries()) {
     const coverage = coverageOf(year);
@@ -485,6 +511,9 @@ export function latestInterestCoverage(series: AnnualFundamentals): {
         availableAt: latestOf(
           coverage.inputs.map((input) => input.availableAt),
         ),
+        ...(coverage.interestBasis === "gross"
+          ? {}
+          : { interestBasis: coverage.interestBasis }),
       };
     }
   }

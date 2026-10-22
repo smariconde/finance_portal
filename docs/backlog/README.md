@@ -75,12 +75,15 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    47 | `F6-03`    | `done`     | Superficie de resultado sobre empresa real con nivel de rigor, provenance y supuestos distinguidos de los hechos.                                                                                                         | `F6-02`          |
 |    48 | `F6-04`    | `done`     | Acceso CEDEAR en el resultado: programa, depositario, estado y ratio al corte de la corrida, y el valor por CEDEAR en USD.                                                                                                | `F6-02`          |
 |    49 | `F6-05`    | `done`     | Ingesta bajo demanda de la ventana de fundamentals que falta, con presupuesto, reanudación y auditoría point-in-time del sujeto.                                                                                          | `F6-01`          |
-|    50 | `F6-08`    | `ready`    | Precio del CEDEAR en BYMA y valor por CEDEAR en pesos con el CCL implícito del propio CEDEAR, con su ADR de fuente.                                                                                                       | `F6-04`          |
+|    50 | `F6-08`    | `queued`   | Precio del CEDEAR en BYMA y valor por CEDEAR en pesos con el CCL implícito del propio CEDEAR, con su ADR de fuente.                                                                                                       | `F6-04`          |
 |    51 | `F6-09`    | `done`     | Precio de mercado al `as_of` de la corrida y DCF inverso por driver: qué crecimiento, margen, ROIC terminal o tasa exige el precio, al lado de lo que la empresa mostró.                                                  | `F6-03`          |
 |    52 | `F6-10`    | `done`     | `derived-assumptions-2.0.0`: ROIC terminal por regla con el dataset de Damodaran, crecimiento por tendencia y escenarios bear/bull derivados.                                                                             | `F6-09`          |
 |    53 | `F6-11`    | `done`     | Lectura cualitativa de la IA sobre lo que exige el precio: plausibilidad por driver con citas del 10-K verificadas, sin mover el valor.                                                                                   | `F6-09`          |
 |    54 | `F6-12`    | `done`     | Flujo de valuación en un solo lugar por ticker: pedir, ver el estado y leer el resultado sin saltos, con la jerarquía orientada a decidir.                                                                                | `F6-09`          |
 |    55 | `F6-13`    | `done`     | La corrida le pide a la IA lo cualitativo que falta —industria ambigua, opciones de empleados, mix— con las tareas y topes de sus comandos, y valúa con lo aceptado en un job con corte nuevo.                            | `F6-05`          |
+|    56 | `F6-14`    | `done`     | La selección y la serie leen los conceptos que los filers usan de verdad, los intereses salen de una receta con bases nombradas y una ventana vieja se baja otra vez.                                                     | `F6-13`          |
+|    57 | `F6-15`    | `ready`    | Deuda cero con evidencia y EBIT sin resultado operativo en el puente, congelados en el snapshot y recalculados por el motor.                                                                                              | `F6-14`          |
+|    58 | `F6-16`    | `queued`   | Opciones de empleados robustas: nota bien elegida, etiqueta de ejercicio de los minoristas, XBRL como respaldo y valuación sin restar opciones cuando no hay nada.                                                        | `F6-14`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -3625,6 +3628,9 @@ repararon contra `source_documents`.
 | `F6-11` | Lectura cualitativa de la IA sobre las expectativas implícitas: plausibilidad por driver con citas verbatim del 10-K que una policy verifica; se guarda con su evidencia y nunca entra al valor.                                      | `F6-09`    | `TM-09`, `TM-10`, `TM-12`, `TM-15`, `TM-16` |
 | `F6-12` | Flujo de valuación por ticker en una sola superficie: pedir, estado inline y resultado sin saltos; jerarquía de decisión primero y evidencia a demanda.                                                                               | `F6-09`    | `TM-03`, `UI-02`, `UI-03`                   |
 | `F6-13` | La corrida pregunta a la IA lo cualitativo que la evaluación dice que falta y continúa con un corte nuevo cuando algo quedó aceptado; un freno de la escalera no cuenta como respuesta.                                               | `F6-05`    | `TM-03`, `TM-09`, `TM-10`, `TM-16`          |
+| `F6-14` | Conceptos equivalentes en la selección de la SEC y la serie anual, `interest-expense-1.0.0` con bases nombradas y re-descarga de una ventana bajada con una selección vieja.                                                          | `F6-13`    | `TM-05`, `TM-06`, `TM-10`, `TM-16`          |
+| `F6-15` | Deuda cero sólo con evidencia de cinco ejercicios y EBIT `pretax + intereses` en el puente de capitalización, con la derivación congelada y recalculada.                                                                              | `F6-14`    | `TM-05`, `TM-06`, `TM-16`                   |
+| `F6-16` | Opciones de empleados: anclas fuera del estado de patrimonio, ejercicio de 52/53 semanas en la policy, reclamo desde el XBRL del mismo 10-K y, sin nada, corrida sin restar opciones con rigor más bajo y nombrado.                   | `F6-14`    | `TM-05`, `TM-09`, `TM-16`                   |
 
 **Criterio agregado a `F6-05` el 2026-10-20.** Toda ingesta que dispare la
 app —la que baja la ventana que falta y cualquier reingesta o refresh de un
@@ -3764,10 +3770,96 @@ valuación en un solo lugar). `F6-05` pasa a `queued` detrás de ellos. El año
 base TTM desde 10-Q queda nombrado como límite de `F6-10`, porque cambia toda
 la normalización.
 
+#### `F6-14` — leer los conceptos que los filers usan de verdad (cerrado el 2026-10-22)
+
+Estado del slice: `done`. `F6-15` queda `ready`; `F6-16` y `F6-08` quedan
+`queued`, en ese orden, con las decisiones del owner registradas.
+
+Decisiones del owner del 2026-10-22, después de medir los frenos de `F6-13`:
+los intereses aceptan el neto cuando es gasto y después lo pagado; la deuda
+vale cero sólo con evidencia (`F6-15`); sin transcripción de opciones, el XBRL
+del mismo 10-K y, si no hay, la corrida sin restar opciones (`F6-16`).
+
+- Medición previa ([ADR 0053](../architecture/adr/0053-reported-concept-coverage.md)):
+  companyfacts de 80 empresas del índice, sin IA ni escrituras. De 76 no
+  financieras, 32 resolvían deuda, intereses, EBIT y D&A; con los conceptos que
+  usan de verdad, 51.
+- `sec-core-concepts-6.0.0` suma siete conceptos; `annual-fundamentals-1.3.0`
+  los lee como alternativas o partidas propias: vencimientos con arrendamientos
+  financieros, D&A con acreciones, e intereses de la deuda, de arrendamientos,
+  neto y pagado.
+- `interest-expense-1.0.0`: bruto → deuda + arrendamientos → neto si es gasto →
+  pagado, con la base nombrada. `fundamental-profile-signals-1.1.0` la usa para
+  la cobertura y para el EBIT de respaldo, y `completeness-profile-1.3.0` cuenta
+  ese EBIT. La cobertura lleva `interestBasis` sólo cuando no es el bruto, y el
+  costo de capital la declara; una corrida con el bruto no cambia su hash.
+- La corrida re-baja companyfacts una vez cuando la ventana guardada se bajó con
+  otra selección (`selectionOutdated`). Una ventana vieja nunca frena: el job que
+  continúa no la reemplaza, y una fuente ocupada deja valuar con lo que hay.
+- Controles: `TM-05` (ninguna base inventa un cero: sin base, `null`), `TM-06`
+  (la re-descarga publica sólo lo nuevo, con su disponibilidad), `TM-10` (una
+  re-descarga por empresa, con la admisión de la ADR 0020) y `TM-16` (la base de
+  los intereses y la re-descarga quedan en la corrida y en el job).
+
+Evidencia:
+
+- 3.038 unit y 220 integration; formato, lint, tipos y build; 204 E2E con axe
+  (2 omitidos).
+- Réplica de la base personal, worker real, doce empresas:
+  - **WMT, CDW, GD, IEX y AAPL** con corrida `computed`, y ZBH en
+    `requires_review`. Antes ninguna salvo AAPL: WMT por la cobertura, las
+    otras por intereses que no eran brutos; IEX con lo pagado.
+  - KO ya resuelve su deuda; la frena la transcripción de opciones, como a WM y
+    Cencora (`F6-16`).
+  - NKE se clasifica (`non_financial_mature`) y frena en
+    `base_margin_unavailable`: el EBIT del puente es `F6-15`.
+- Un error encontrado en la réplica y corregido antes de cerrar: la declaración
+  de la base `interest_paid` se armaba por plantilla y no existía, y el job de
+  NKE terminó en `assessment_failed`. Ahora es un mapa explícito con test.
+
+#### `F6-15` — deuda cero con evidencia y EBIT sin resultado operativo
+
+- Estado: `ready`
+- Fase y dependencia: Fase 6, después de `F6-14`.
+- Alcance incluido: deuda cero cuando ningún componente de deuda aparece en los
+  cinco ejercicios de la ventana y el gasto de intereses es nulo o ausente, con
+  la base nombrada y el rigor un nivel más bajo; EBIT `pretax +
+netInterestForEbit` en el puente de capitalización cuando no hay
+  `OperatingIncomeLoss`, con la derivación congelada. Fuera de alcance: deuda de
+  homebuilders (`NotesPayable`), que necesita su propia receta.
+- Contratos y controles: `TM-05`, `TM-06`, `TM-16`; versión nueva de la receta de
+  deuda y del puente, recalculados por el motor, sin mover el hash de una corrida
+  anterior.
+- Criterios de aceptación: Vertex, Intuitive, Align, Moderna, Expeditors o
+  Deckers llegan a una corrida con deuda cero declarada; NKE, ADP, Merck o Eaton
+  llegan a una corrida con EBIT derivado; replay de una corrida anterior sin
+  cambios.
+- Evidencia esperada: ADR o enmienda de la ADR 0053, tests de la receta y del
+  recálculo, réplica.
+
+#### `F6-16` — opciones de empleados robustas
+
+- Estado: `queued`
+- Fase y dependencia: Fase 6, después de `F6-14`.
+- Alcance incluido:
+  - el extractor no ancla dentro del estado de patrimonio (regresión de `1.1.0`
+    en Costco);
+  - la policy acepta la etiqueta de ejercicio de un año de 52/53 semanas
+    («Fiscal 2025» para un cierre en febrero de 2026, Home Depot);
+  - el diagnóstico de Coca-Cola (`count_contradicts_xbrl` y salidas cortadas);
+  - sin transcripción aceptada, el reclamo se arma desde el XBRL del mismo 10-K si
+    trae cantidad y strike; si no, la corrida sigue sin restar opciones, lo dice en
+    la página y baja el rigor.
+- Contratos y controles: `TM-05`, `TM-09`, `TM-16`.
+- Criterios de aceptación: KO, HD, COST, WM y Cencora llegan a una corrida, con
+  la base de las opciones nombrada.
+- Evidencia esperada: tests del extractor y de la policy, evals sin regresión,
+  réplica.
+
 #### `F6-13` — la corrida le pide a la IA lo cualitativo que falta (cerrado el 2026-10-22)
 
 Estado del slice: `done`. No cierra el gate de la Fase 6: falta el despliegue
-remoto (`F6-06`). `F6-08` sigue `ready`.
+remoto (`F6-06`).
 
 Decisión del owner del 2026-10-22: el sistema tiene que dar resultados en vez de
 frenar por un dato cualitativo. El job corre **las tres** tareas —industria

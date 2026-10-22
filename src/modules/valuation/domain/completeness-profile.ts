@@ -5,6 +5,7 @@ import type {
   FiscalYear,
   LineItemId,
 } from "./annual-fundamentals";
+import { netInterestForEbit } from "./interest-expense";
 
 /**
  * Perfil de completitud de una empresa (`F3-02`): qué existe de verdad en la
@@ -26,10 +27,15 @@ import type {
  * `1.2.0` (`F4-01`, ADR 0037): el pasivo por arrendamientos está con el total o
  * con sus dos partes del mismo cierre; la parte no corriente sola ya no cuenta.
  */
-export const COMPLETENESS_PROFILE_VERSION = "completeness-profile-1.2.0";
+/**
+ * `1.3.0` (`F6-14`, ADR 0053): el EBIT también está cuando sale del resultado
+ * antes de impuestos con los intereses de `interest-expense-1.0.0`.
+ */
+export const COMPLETENESS_PROFILE_VERSION = "completeness-profile-1.3.0";
 const COMPLETENESS_PROFILE_VERSIONS = [
   "completeness-profile-1.0.0",
   "completeness-profile-1.1.0",
+  "completeness-profile-1.2.0",
   COMPLETENESS_PROFILE_VERSION,
 ] as const;
 
@@ -124,7 +130,7 @@ function has(year: FiscalYear | undefined, item: LineItemId): boolean {
 function hasEbit(year: FiscalYear | undefined): boolean {
   return (
     has(year, "operating_income") ||
-    (has(year, "pretax_income") && has(year, "interest_expense"))
+    (has(year, "pretax_income") && netInterestForEbit(year) !== null)
   );
 }
 

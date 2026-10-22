@@ -9,10 +9,7 @@ import {
 } from "@/modules/ingestion/infrastructure/demo-ingestion-fixtures";
 import { DEFAULT_SOURCE_POLICY_VERSION } from "@/modules/temporal/domain/point-in-time-query";
 
-import {
-  COMPLETENESS_PROFILE_VERSION,
-  type CompletenessProfile,
-} from "../domain/completeness-profile";
+import { type CompletenessProfile } from "../domain/completeness-profile";
 import { DECIMAL_POLICY } from "../domain/decimal-policy";
 import { buildCapitalization } from "../domain/capitalization-bridge";
 import { buildNormalization } from "../domain/normalization";
@@ -90,7 +87,8 @@ const DEMO_SELECTION: MethodSelection = {
 };
 
 const DEMO_COMPLETENESS: CompletenessProfile = {
-  version: COMPLETENESS_PROFILE_VERSION,
+  // La completitud de la fixture se midió con `1.2.0`; fijarla mantiene sus hashes.
+  version: "completeness-profile-1.2.0",
   latestFiscalYearEnd: "2024-12-31",
   checks: [
     {

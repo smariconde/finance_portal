@@ -37,7 +37,7 @@ function revenue(fiscalYearEnd: string, value: string) {
 }
 
 const SERIES: AnnualFundamentals = {
-  version: "annual-fundamentals-1.2.0",
+  version: "annual-fundamentals-1.3.0",
   fiscalYears: [
     revenue("2024-12-31", demo.baseRevenue.value),
     revenue("2023-12-31", "90000000"),
