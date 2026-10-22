@@ -8,6 +8,7 @@ import type {
 import {
   assessFundamentalProfileSignals,
   FUNDAMENTAL_PROFILE_SIGNALS_VERSION,
+  latestInterestCoverage,
   type FundamentalSignal,
 } from "./fundamental-profile-signals";
 
@@ -21,7 +22,7 @@ function series(
   ...years: Array<{ end: string; items: YearSpec }>
 ): AnnualFundamentals {
   return {
-    version: "annual-fundamentals-1.2.0",
+    version: "annual-fundamentals-1.3.0",
     fiscalYears: years.map(({ end, items }) => ({
       fiscalYearEnd: end,
       items: Object.fromEntries(
@@ -386,9 +387,51 @@ describe("evidence from fundamentals", () => {
     expect(
       assessFundamentalProfileSignals(
         SUBJECT,
-        { version: "annual-fundamentals-1.2.0", fiscalYears: [] },
+        { version: "annual-fundamentals-1.3.0", fiscalYears: [] },
         "sec-edgar",
       ).evidence,
     ).toEqual([]);
+  });
+});
+
+describe(`${FUNDAMENTAL_PROFILE_SIGNALS_VERSION}: interest-expense-1.0.0`, () => {
+  // La forma de Nike: sin resultado operativo ni intereses brutos, con un neto
+  // que es ingreso y lo pagado en el flujo de caja.
+  const nikeLike = series(
+    ...["2026-05-31", "2025-05-31", "2024-05-31"].map((end) => ({
+      end,
+      items: {
+        pretax_income: "4000",
+        interest_net_nonoperating: "50",
+        interest_paid: "300",
+        equity: "14000",
+        net_income: "3200",
+      } satisfies YearSpec,
+    })),
+  );
+
+  it("derives EBIT from pretax income minus net interest income", () => {
+    const losses = signal(nikeLike, "loss_making");
+
+    expect(losses.state).toBe("absent");
+    expect(losses.basis).toContain("ebit_pretax_plus_interest");
+  });
+
+  it("names a coverage built on interest that was not the gross expense", () => {
+    expect(latestInterestCoverage(nikeLike)).toMatchObject({
+      // (4000 - 50) / 300
+      value: expect.stringMatching(/^13\.16/u),
+      interestBasis: "interest_paid",
+    });
+  });
+
+  it("keeps a gross-expense coverage exactly as before", () => {
+    const gross = series({
+      end: "2025-12-31",
+      items: { operating_income: "500", interest_expense: "100" },
+    });
+
+    expect(latestInterestCoverage(gross)).not.toHaveProperty("interestBasis");
+    expect(latestInterestCoverage(gross)?.value).toBe("5");
   });
 });

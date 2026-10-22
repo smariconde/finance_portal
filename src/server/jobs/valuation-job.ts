@@ -3,7 +3,9 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 
 import { SEC_SIC_TAXONOMY_ID } from "@/modules/classification/domain/sec-sic-classification";
+import { COMPANY_FACTS_DATASET_ID } from "@/modules/fundamentals/application/ingest-company-facts";
 import { SEC_SOURCE_ID } from "@/modules/fundamentals/application/live-company-facts-source";
+import { SEC_CONCEPT_SELECTION_VERSION } from "@/modules/fundamentals/domain/sec-concept-selection";
 import { resolveIdentity } from "@/modules/identity/domain/resolve-identity";
 import { readReferenceDataset } from "@/modules/reference-data/application/read-reference-dataset";
 import {
@@ -54,6 +56,7 @@ import {
 import { getCedearRegistryRepository } from "@/server/persistence/get-cedear-registry-repository";
 import { getCorporateActionRepository } from "@/server/persistence/get-corporate-action-repository";
 import { getEmployeeEquityRepository } from "@/server/persistence/get-employee-equity-repository";
+import { getIngestionRunRepository } from "@/server/persistence/get-ingestion-run-repository";
 import { getMarketExpectationsRepository } from "@/server/persistence/get-market-expectations-repository";
 import { getObservationRepository } from "@/server/persistence/get-observation-repository";
 import { getPriceRepository } from "@/server/persistence/get-price-repository";
@@ -395,6 +398,9 @@ export async function prepareValuationRun(
         lineageCiks,
         lineageSubjectIds: subjectIds,
         needsFundamentals: !reading.hasAnnualFundamentals,
+        fundamentalsOutdated:
+          reading.hasAnnualFundamentals &&
+          (await storedSelectionVersion(cik)) !== SEC_CONCEPT_SELECTION_VERSION,
         needsSic: assessment.sic === null,
         mayDownload: (job.followsJobId ?? null) === null,
       },
@@ -532,6 +538,20 @@ function qualitativeStepOutcome(
   return qualitativeStepAccepted(step)
     ? outcomeForQualitativeStep(subject, dataStep, step)
     : null;
+}
+
+/**
+ * La selección de conceptos con que se bajó la ventana guardada del CIK
+ * (`F6-14`). `null` si nunca se ancló una corrida.
+ */
+async function storedSelectionVersion(cik: string): Promise<string | null> {
+  const run = await getIngestionRunRepository().findLatestAnchored(
+    SEC_SOURCE_ID,
+    COMPANY_FACTS_DATASET_ID,
+    cik,
+  );
+
+  return run?.selectionVersion ?? null;
 }
 
 /** Las acciones de la carátula al corte, por el linaje del emisor. */

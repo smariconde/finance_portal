@@ -75,6 +75,11 @@ export type ValuationDataRequest = {
   /** El emisor y sus antecesores: las cadenas que se auditan. */
   readonly lineageSubjectIds: readonly string[];
   readonly needsFundamentals: boolean;
+  /**
+   * La ventana guardada se bajó con una selección de conceptos anterior a la
+   * vigente (`F6-14`): se baja otra vez, una sola, y publica sólo lo nuevo.
+   */
+  readonly fundamentalsOutdated?: boolean;
   readonly needsSic: boolean;
   /** `false` en un job que continúa a otro: nunca baja, sólo audita. */
   readonly mayDownload: boolean;
@@ -108,19 +113,31 @@ async function fundamentalsStep(
   request: ValuationDataRequest,
   dependencies: ValuationDataDependencies,
 ): Promise<FundamentalsStep> {
-  if (!request.needsFundamentals) {
+  const outdated =
+    !request.needsFundamentals && request.fundamentalsOutdated === true;
+
+  if (!request.needsFundamentals && !outdated) {
     return { status: "present" };
   }
 
   if (!request.mayDownload) {
-    return { status: "missing" };
+    // Una ventana vieja sigue sirviendo: el job que continúa no la reemplaza.
+    return outdated ? { status: "present" } : { status: "missing" };
   }
 
   const download = await dependencies.ingestFundamentals(request.lineageCiks);
 
-  return download.status === "completed"
-    ? { status: "ingested", filers: request.lineageCiks.length }
-    : download;
+  if (download.status !== "completed") {
+    // Con una ventana vieja guardada, una descarga que no salió no frena:
+    // se valúa con lo que hay, como antes de la selección nueva.
+    return outdated ? { status: "present" } : download;
+  }
+
+  return {
+    status: "ingested",
+    filers: request.lineageCiks.length,
+    ...(outdated ? { selectionOutdated: true as const } : {}),
+  };
 }
 
 async function sicStep(

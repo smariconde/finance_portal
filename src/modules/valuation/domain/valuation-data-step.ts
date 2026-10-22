@@ -58,6 +58,11 @@ export const fundamentalsStepSchema = z.discriminatedUnion("status", [
     status: z.literal("ingested"),
     /** El CIK pedido y sus antecesores de reporte. */
     filers: z.number().int().min(1),
+    /**
+     * La ventana estaba, pero bajada con una selección de conceptos anterior a
+     * la vigente (`F6-14`, ADR 0053). Ausente: faltaba la ventana entera.
+     */
+    selectionOutdated: z.literal(true).optional(),
   }),
   pendingSchema,
   z.object({ status: z.literal("failed"), code: failureCodeSchema }),

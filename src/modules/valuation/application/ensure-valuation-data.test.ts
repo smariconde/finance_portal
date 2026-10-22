@@ -142,6 +142,50 @@ describe("ensureValuationData", () => {
     expect(calls).toEqual([`audit:${ENTITY}`]);
   });
 
+  it("una ventana bajada con una selección vieja se baja otra vez, y lo dice (F6-14)", async () => {
+    const { calls, dependencies } = fake();
+    const step = await ensureValuationData(
+      request({ fundamentalsOutdated: true }),
+      dependencies,
+    );
+
+    expect(step.fundamentals).toEqual({
+      status: "ingested",
+      filers: 1,
+      selectionOutdated: true,
+    });
+    expect(calls).toContain("fundamentals:0000789019");
+  });
+
+  it("una ventana vieja no frena: ni en el job que continúa ni con la fuente ocupada", async () => {
+    const following = fake();
+
+    expect(
+      (
+        await ensureValuationData(
+          request({ fundamentalsOutdated: true, mayDownload: false }),
+          following.dependencies,
+        )
+      ).fundamentals,
+    ).toEqual({ status: "present" });
+    expect(following.calls).not.toContain("fundamentals:0000789019");
+
+    const busy = fake({
+      fundamentals: {
+        status: "pending",
+        reason: "source_busy",
+        resumesAt: null,
+      },
+    });
+    const step = await ensureValuationData(
+      request({ fundamentalsOutdated: true }),
+      busy.dependencies,
+    );
+
+    expect(step.fundamentals).toEqual({ status: "present" });
+    expect(step.audit?.status).toBe("passed");
+  });
+
   it("una descarga pendiente no audita a medias", async () => {
     const pending = {
       status: "pending",

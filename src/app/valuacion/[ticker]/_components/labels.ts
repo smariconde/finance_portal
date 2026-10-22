@@ -100,6 +100,12 @@ const COST_DECLARATION_LABELS: Record<string, string> = {
     "Rating sintético de la tabla de grandes no financieras.",
   coverage_from_earlier_fiscal_year:
     "La cobertura de intereses sale de un ejercicio anterior al último.",
+  coverage_interest_debt_plus_finance_leases:
+    "El gasto de intereses es el de la deuda más el de los arrendamientos financieros: la empresa no publica el total.",
+  coverage_interest_net_nonoperating:
+    "El gasto de intereses es el neto de los ganados: la empresa no publica el bruto, y la cobertura queda algo alta.",
+  coverage_interest_paid:
+    "El gasto de intereses es lo pagado en el ejercicio: la empresa no publica el devengado.",
   terminal_beta_converges_to_one: "La beta terminal converge a 1.",
   country_risk_by_operations:
     "Riesgo país ponderado por las operaciones de la empresa.",

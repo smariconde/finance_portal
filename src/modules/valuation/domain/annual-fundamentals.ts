@@ -32,8 +32,15 @@ import { z } from "zod";
  * las partidas de deuda anteriores quedan como estaban, para la completitud y
  * las señales. También los cargos de reestructuración y deterioro, los títulos
  * negociables no corrientes y la compensación en acciones.
+ *
+ * `1.3.0` (`F6-14`, ADR 0053): los conceptos que medimos que los filers usan de
+ * verdad. Los intereses tienen partidas propias —el de la deuda, el de los
+ * arrendamientos financieros, el neto y el pagado— porque elegir entre ellos es
+ * la regla `interest-expense-1.0.0`, no la serie. Los vencimientos corrientes
+ * aceptan `LongTermDebtAndCapitalLeaseObligationsCurrent` (Coca-Cola, Home Depot,
+ * Eaton) y la D&A `DepreciationAmortizationAndAccretionNet` (Walmart).
  */
-export const ANNUAL_FUNDAMENTALS_VERSION = "annual-fundamentals-1.2.0";
+export const ANNUAL_FUNDAMENTALS_VERSION = "annual-fundamentals-1.3.0";
 
 export const lineItemIdSchema = z.enum([
   "revenue",
@@ -71,6 +78,10 @@ export const lineItemIdSchema = z.enum([
   "debt_short_term_borrowings",
   "debt_commercial_paper",
   "finance_lease_liability",
+  "interest_expense_debt",
+  "finance_lease_interest_expense",
+  "interest_net_nonoperating",
+  "interest_paid",
 ]);
 
 export type LineItemId = z.infer<typeof lineItemIdSchema>;
@@ -131,6 +142,7 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
     concepts: [
       "us-gaap:DepreciationDepletionAndAmortization",
       "us-gaap:DepreciationAndAmortization",
+      "us-gaap:DepreciationAmortizationAndAccretionNet",
     ],
   },
   {
@@ -196,7 +208,11 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
   {
     item: "debt_current",
     periodType: "instant",
-    concepts: ["us-gaap:DebtCurrent", "us-gaap:LongTermDebtCurrent"],
+    concepts: [
+      "us-gaap:DebtCurrent",
+      "us-gaap:LongTermDebtCurrent",
+      "us-gaap:LongTermDebtAndCapitalLeaseObligationsCurrent",
+    ],
   },
   {
     item: "short_term_borrowings",
@@ -273,7 +289,10 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
   {
     item: "debt_long_term_current",
     periodType: "instant",
-    concepts: ["us-gaap:LongTermDebtCurrent"],
+    concepts: [
+      "us-gaap:LongTermDebtCurrent",
+      "us-gaap:LongTermDebtAndCapitalLeaseObligationsCurrent",
+    ],
   },
   {
     // Toda la deuda corriente: vencimientos, préstamos y papeles.
@@ -295,6 +314,31 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
     item: "finance_lease_liability",
     periodType: "instant",
     concepts: ["us-gaap:FinanceLeaseLiability"],
+  },
+  // Desde acá, `1.3.0` (ADR 0053): las bases de `interest-expense-1.0.0`.
+  {
+    item: "interest_expense_debt",
+    periodType: "annual",
+    concepts: ["us-gaap:InterestExpenseDebt"],
+  },
+  {
+    item: "finance_lease_interest_expense",
+    periodType: "annual",
+    concepts: ["us-gaap:FinanceLeaseInterestExpense"],
+  },
+  {
+    // Con el signo de un ingreso: negativo es un gasto neto.
+    item: "interest_net_nonoperating",
+    periodType: "annual",
+    concepts: [
+      "us-gaap:InterestIncomeExpenseNonoperatingNet",
+      "us-gaap:InterestIncomeExpenseNet",
+    ],
+  },
+  {
+    item: "interest_paid",
+    periodType: "annual",
+    concepts: ["us-gaap:InterestPaidNet"],
   },
 ]);
 

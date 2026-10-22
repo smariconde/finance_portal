@@ -449,6 +449,22 @@ the rest stop on a debt with no recipe (KO), missing interest coverage (WMT), a
 rejected transcription (HD, COST) or classification evidence (NKE). The
 market-expectations reading stays a hand-run command.
 
+Since `F6-14` ([ADR 0053](docs/architecture/adr/0053-reported-concept-coverage.md))
+the SEC selection (`sec-core-concepts-6.0.0`) and the series
+(`annual-fundamentals-1.3.0`) read the equivalent concepts measured on 80 index
+filers: current maturities with finance leases, D&A with accretion, and interest
+as its own items (debt, finance leases, net, paid). `interest-expense-1.0.0` picks
+gross → debt + finance leases → net when it is an expense → paid, and names the
+basis; `fundamental-profile-signals-1.1.0` uses it for the coverage and the
+fallback EBIT, `completeness-profile-1.3.0` counts that EBIT, and the coverage
+carries `interestBasis` (declared by the cost of capital) only when it is not
+gross, so earlier runs keep their hashes. A stored window ingested under another
+selection is downloaded once more (`selectionOutdated`), never blocking.
+Measured on a replica: WMT, CDW, GD, IEX and AAPL `computed`, ZBH
+`requires_review`. Zero debt with evidence and EBIT without operating income
+(`F6-15`) and robust employee options (`F6-16`) are queued with the owner's
+decisions.
+
 Since `F6-12` `/valuacion` is only the entry: it enqueues and navigates to
 `/valuacion/[ticker]`, whose `ValuationRunner` follows an open job, announces its state
 inline and re-reads the page in place with `router.refresh()` when the run is recorded.

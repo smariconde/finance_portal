@@ -49,6 +49,29 @@ function computed(overrides: Parameters<typeof build>[0] = {}) {
 }
 
 describe(COST_OF_CAPITAL_VERSION, () => {
+  it.each([
+    ["debt_plus_finance_leases", "coverage_interest_debt_plus_finance_leases"],
+    ["net_nonoperating", "coverage_interest_net_nonoperating"],
+    ["interest_paid", "coverage_interest_paid"],
+  ] as const)(
+    "declares a coverage whose interest is %s",
+    (interestBasis, declaration) => {
+      const built = computed({
+        coverage: { ...coverage("29.06"), interestBasis },
+      });
+
+      expect(built.declarations).toContain(declaration);
+    },
+  );
+
+  it("declares nothing extra for a gross-expense coverage", () => {
+    expect(
+      computed().declarations.filter((item) =>
+        item.startsWith("coverage_interest_"),
+      ),
+    ).toEqual([]);
+  });
+
   it("builds the cost of equity from a risk-free rate net of the sovereign spread", () => {
     const { derived } = computed();
 

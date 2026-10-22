@@ -24,7 +24,7 @@ import { SEC_HISTORY_WINDOW_VERSION } from "./sec-history-window";
  *   a correr el CIK publica sólo lo nuevo. No sube la versión del parser, porque
  *   filtrar no cambia el contenido de un hecho ya publicado.
  */
-export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-5.0.0";
+export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-6.0.0";
 
 /**
  * Qué decide la versión. La 1.0.0 eran los mismos conceptos con toda la historia
@@ -35,7 +35,10 @@ export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-5.0.0";
  * de I+D para capitalizarla, y la I+D sin la adquirida en proceso (ADR 0037).
  * La 5.0.0 suma los cargos de reestructuración y deterioro que la normalización
  * revierte cuando no se repiten, y la deuda no corriente que incluye los
- * arrendamientos financieros (ADR 0038).
+ * arrendamientos financieros (ADR 0038). La 6.0.0 suma los conceptos que los
+ * filers usan en lugar de los que ya leíamos (ADR 0053): los vencimientos
+ * corrientes con arrendamientos financieros, los intereses de la deuda, de los
+ * arrendamientos, el neto y el pagado, y la D&A con acreciones.
  * Con la versión y el ancla,
  * un período anterior al corte sigue siendo «no se fue a buscar». El test fija
  * los componentes: cambiar uno sin subir la versión lo rompe.
@@ -79,6 +82,13 @@ const US_GAAP = [
   // Resultado: debajo del EBIT.
   "InterestExpense",
   "InterestExpenseNonoperating",
+  // Lo que publica quien no etiqueta el bruto (6.0.0, ADR 0053): Walmart separa
+  // el de la deuda del de los arrendamientos financieros; Waste Management y
+  // Cencora publican sólo el neto. La regla elige y nombra cuál usó.
+  "InterestExpenseDebt",
+  "FinanceLeaseInterestExpense",
+  "InterestIncomeExpenseNonoperatingNet",
+  "InterestIncomeExpenseNet",
   "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
   "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments",
   "IncomeTaxExpenseBenefit",
@@ -107,6 +117,10 @@ const US_GAAP = [
   "PaymentsToAcquirePropertyPlantAndEquipment",
   "DepreciationDepletionAndAmortization",
   "DepreciationAndAmortization",
+  // La D&A de Walmart (6.0.0).
+  "DepreciationAmortizationAndAccretionNet",
+  // Lo pagado de intereses: la última base del gasto (6.0.0).
+  "InterestPaidNet",
   "ShareBasedCompensation",
   "PaymentsOfDividends",
   "PaymentsForRepurchaseOfCommonStock",
@@ -135,6 +149,9 @@ const US_GAAP = [
   // La no corriente con los arrendamientos financieros adentro: Exxon, American
   // Tower y Charles River publican su deuda así (5.0.0).
   "LongTermDebtAndCapitalLeaseObligations",
+  // Sus vencimientos corrientes: Coca-Cola, Home Depot y Eaton no publican
+  // `LongTermDebtCurrent` (6.0.0).
+  "LongTermDebtAndCapitalLeaseObligationsCurrent",
   "DebtCurrent",
   "CommercialPaper",
   "ShortTermBorrowings",
