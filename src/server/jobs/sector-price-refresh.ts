@@ -9,7 +9,11 @@ import {
   createPacedEgressFetch,
   PRICES_REQUEST_PACING,
 } from "@/modules/ingestion/application/egress-fetch";
-import { runIngestionJob } from "@/modules/ingestion/application/run-ingestion-job";
+import {
+  runIngestionJob,
+  type RunIngestionJobResult,
+} from "@/modules/ingestion/application/run-ingestion-job";
+import type { IngestionJobPolicy } from "@/modules/ingestion/domain/ingestion-job";
 import { observeSourceSignals } from "@/modules/ingestion/application/source-signals";
 import { syncDeclaredSourceRegistry } from "@/modules/ingestion/application/sync-source-registry";
 import { DEMO_SOURCE_REGISTRY } from "@/modules/ingestion/infrastructure/demo-source-registry";
@@ -88,11 +92,23 @@ export function startPriceRefreshWorker(jobId: string): Promise<void> {
 }
 
 async function runWorker(jobId: string): Promise<void> {
+  await runPriceRefreshJob(jobId);
+}
+
+/**
+ * Corre un job de precios bajo el lease de Yahoo. Lo usan la matriz y la
+ * corrida por ticker (`F6-05`), que pasa una política con menos espera en
+ * línea. `null` si el job no existe.
+ */
+export async function runPriceRefreshJob(
+  jobId: string,
+  options: { readonly policy?: IngestionJobPolicy } = {},
+): Promise<RunIngestionJobResult | null> {
   const store = getIngestionJobStore();
   const job = await store.getJob(jobId);
 
   if (job === null) {
-    return;
+    return null;
   }
 
   assertPriceRefreshJob(job);
@@ -136,7 +152,7 @@ async function runWorker(jobId: string): Promise<void> {
 
   const holder = `web/${hostname().replace(/[^A-Za-z0-9.-]/gu, "-")}/${process.pid}/${randomUUID().slice(0, 8)}`;
 
-  await runIngestionJob(
+  return runIngestionJob(
     { jobId, holder },
     {
       store,
@@ -180,6 +196,7 @@ async function runWorker(jobId: string): Promise<void> {
         budgets: getSourceBudgetStore(),
         now,
       }),
+      policy: options.policy,
     },
   );
 }

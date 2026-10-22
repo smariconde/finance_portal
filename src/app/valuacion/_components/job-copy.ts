@@ -1,6 +1,11 @@
+import type { PointInTimeClaim } from "@/modules/observations/domain/point-in-time-audit";
 import type { AssetProfile } from "@/modules/valuation/domain/asset-profile";
 import type { MethodSelectionReason } from "@/modules/valuation/domain/method-selection";
 import type { RigorLevel } from "@/modules/valuation/domain/rigor-level";
+import type {
+  DataPendingReason,
+  ValuationDataStep,
+} from "@/modules/valuation/domain/valuation-data-step";
 import type {
   ValuationJobGap,
   ValuationSnapshotGap,
@@ -18,14 +23,88 @@ export const GAP_COPY: Record<ValuationJobGap, string> = {
   cik_missing:
     "La empresa resuelve, pero no tiene un CIK vigente a este corte.",
   annual_fundamentals:
-    "No hay fundamentals guardados. Esta corrida no los descarga.",
+    "No hay una serie anual de fundamentals guardada para valuar.",
   unsupported_method: "El método que le corresponde no está admitido.",
   snapshot_not_assembled:
     "La evaluación está hecha, pero el snapshot de supuestos no se pudo armar. No hay corrida.",
   assessment_failed: "La evaluación no terminó. Se puede volver a encolar.",
   run_recorded:
     "Se registró una corrida con supuestos derivados de lo guardado.",
+  data_ingested:
+    "Bajó lo que faltaba y auditó la empresa; otro pedido valúa con un corte que lo ve.",
+  ingestion_pending:
+    "La descarga de lo que falta quedó a medias. El próximo pedido la retoma donde quedó.",
+  ingestion_failed:
+    "La fuente rechazó la descarga de esta empresa. No se reintenta sola.",
+  point_in_time_audit_failed:
+    "La auditoría point-in-time de la empresa encontró una falla. No se valúa hasta repararla.",
 };
+
+const PENDING_COPY: Record<DataPendingReason, string> = {
+  source_busy: "otro proceso está usando la fuente",
+  source_disabled: "la fuente está frenada o no tiene presupuesto declarado",
+  daily_budget_exhausted: "la cuota del día de la fuente está gastada",
+  source_backoff: "la fuente pidió esperar",
+  job_paused: "el owner pausó la descarga",
+  run_budget: "la corrida no tiene presupuesto para otra empresa",
+};
+
+export const CLAIM_COPY: Record<PointInTimeClaim, string> = {
+  provenance_resolves: "una fila no llega a su documento con la misma fecha",
+  availability_precedes_fetch:
+    "una disponibilidad no es la aceptación del filing",
+  revision_chain_ordered: "una cadena de revisiones está desordenada",
+  as_known_excludes_later_revision:
+    "una revisión posterior se filtra en una consulta anterior",
+  restatement_changes_content: "una revisión nueva no cambia nada",
+};
+
+function formatResume(instant: string | null): string {
+  if (instant === null) {
+    return "";
+  }
+
+  return ` Se puede retomar desde el ${new Date(instant).toLocaleString(
+    "es-AR",
+    { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" },
+  )} UTC.`;
+}
+
+/**
+ * Lo que el paso de datos tiene para decir, en una frase: por qué una
+ * descarga quedó pendiente o falló, o qué afirmación falló y sobre qué hecho.
+ * `null` cuando no hay nada que agregar al gap.
+ */
+export function describeDataStep(
+  step: ValuationDataStep | null,
+): string | null {
+  if (step === null) {
+    return null;
+  }
+
+  if (step.audit?.status === "failed") {
+    const { audit } = step;
+
+    return `Falló: ${CLAIM_COPY[audit.claim]} (${audit.metricId} al ${audit.asOf}; ${audit.failures} ${audit.failures === 1 ? "falla" : "fallas"} en total). Se ve con pnpm gate:point-in-time.`;
+  }
+
+  const sec =
+    step.fundamentals.status === "pending"
+      ? step.fundamentals
+      : step.sic.status === "pending"
+        ? step.sic
+        : null;
+
+  if (sec !== null) {
+    return `La SEC no respondió ahora: ${PENDING_COPY[sec.reason]}.${formatResume(sec.resumesAt)}`;
+  }
+
+  if (step.fundamentals.status === "failed") {
+    return `Código de la fuente: ${step.fundamentals.code}.`;
+  }
+
+  return null;
+}
 
 export const SNAPSHOT_GAP_COPY: Record<ValuationSnapshotGap, string> = {
   method_not_derived: "este método todavía no tiene una regla de supuestos",

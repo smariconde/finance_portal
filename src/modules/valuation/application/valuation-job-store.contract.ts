@@ -3,8 +3,13 @@ import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {
+  VALUATION_DATA_RULE_VERSION,
+  type ValuationDataStep,
+} from "../domain/valuation-data-step";
+import {
   addMilliseconds,
   outcomeForAssessment,
+  outcomeForDataStep,
   outcomeForIdentity,
   queueValuationJob,
   VALUATION_JOB_STALE_AFTER_MS,
@@ -137,7 +142,7 @@ export function describeValuationJobStoreContract(
 
         const done = await store.findLatestByTicker(symbol);
 
-        expect(done?.ruleVersion).toBe("valuation-job-1.1.0");
+        expect(done?.ruleVersion).toBe("valuation-job-1.2.0");
         expect(done?.gap).toBe(outcome.gap);
         expect(done?.snapshotGap).toBe(outcome.snapshotGap);
         expect(done?.valuationRunId).toBe(outcome.valuationRunId);
@@ -274,6 +279,144 @@ export function describeValuationJobStoreContract(
       expect((await store.findLatestByTicker(symbol))?.gap).toBe(
         "unresolved_ticker",
       );
+    });
+
+    it("cierra con el paso de datos y encola el que continúa en la misma escritura (1.2.0)", async () => {
+      const symbol = ticker();
+      const job = queueValuationJob({
+        jobId: randomUUID(),
+        ticker: symbol,
+        knownAt: T0,
+        createdAt: T0,
+      });
+      const token = randomUUID();
+      const entity = randomUUID();
+      const dataStep: ValuationDataStep = {
+        ruleVersion: VALUATION_DATA_RULE_VERSION,
+        fundamentals: { status: "ingested", filers: 1 },
+        sic: { status: "observed", code: "7372" },
+        prices: { status: "ingested" },
+        audit: {
+          status: "passed",
+          chains: 3,
+          notExercised: ["as_known_excludes_later_revision"],
+        },
+      };
+      const finishedAt = addMilliseconds(T0, 10);
+      const followUp = queueValuationJob({
+        jobId: randomUUID(),
+        ticker: symbol,
+        knownAt: finishedAt,
+        createdAt: finishedAt,
+        followsJobId: job.jobId,
+      });
+
+      await store.insert(job);
+      await store.claim({
+        jobId: job.jobId,
+        startedAt: T0,
+        claimToken: token,
+        staleBefore: T0,
+      });
+      expect(
+        await store.finish({
+          jobId: job.jobId,
+          claimToken: token,
+          finishedAt,
+          outcome: outcomeForDataStep(
+            { legalEntityId: entity, securityId: null, listingId: null },
+            "data_ingested",
+            dataStep,
+          ),
+          followUp,
+        }),
+      ).toBe("completed");
+
+      const [done] = await store.listCompletedByTicker(symbol, 5);
+
+      expect(done?.gap).toBe("data_ingested");
+      expect(done?.dataStep).toEqual(dataStep);
+      expect(await store.findOpenByTicker(symbol)).toMatchObject({
+        jobId: followUp.jobId,
+        followsJobId: job.jobId,
+        status: "queued",
+      });
+    });
+
+    it("un cierre perdido no encola el que continúa", async () => {
+      const symbol = ticker();
+      const job = queueValuationJob({
+        jobId: randomUUID(),
+        ticker: symbol,
+        knownAt: T0,
+        createdAt: T0,
+      });
+
+      await store.insert(job);
+      await store.claim({
+        jobId: job.jobId,
+        startedAt: T0,
+        claimToken: randomUUID(),
+        staleBefore: T0,
+      });
+
+      expect(
+        await store.finish({
+          jobId: job.jobId,
+          claimToken: randomUUID(),
+          finishedAt: T0,
+          outcome: outcomeForIdentity("not_found"),
+          followUp: queueValuationJob({
+            jobId: randomUUID(),
+            ticker: symbol,
+            knownAt: T0,
+            createdAt: T0,
+            followsJobId: job.jobId,
+          }),
+        }),
+      ).toBe("lost");
+      expect((await store.findOpenByTicker(symbol))?.jobId).toBe(job.jobId);
+    });
+
+    it("el latido exige el token y un job que late no se retoma", async () => {
+      const symbol = ticker();
+      const job = queueValuationJob({
+        jobId: randomUUID(),
+        ticker: symbol,
+        knownAt: T0,
+        createdAt: T0,
+      });
+      const token = randomUUID();
+      const beatAt = addMilliseconds(T0, VALUATION_JOB_STALE_AFTER_MS);
+      const later = addMilliseconds(beatAt, 1_000);
+
+      await store.insert(job);
+      await store.claim({
+        jobId: job.jobId,
+        startedAt: T0,
+        claimToken: token,
+        staleBefore: T0,
+      });
+
+      expect(
+        await store.beat({
+          jobId: job.jobId,
+          claimToken: randomUUID(),
+          at: beatAt,
+        }),
+      ).toBe("lost");
+      expect(
+        await store.beat({ jobId: job.jobId, claimToken: token, at: beatAt }),
+      ).toBe("alive");
+      expect(
+        await store.claim({
+          jobId: job.jobId,
+          startedAt: later,
+          claimToken: randomUUID(),
+          staleBefore: addMilliseconds(later, -VALUATION_JOB_STALE_AFTER_MS),
+        }),
+      ).toBeNull();
+      expect((await store.findOpenByTicker(symbol))?.heartbeatAt).toBe(beatAt);
     });
   });
 }

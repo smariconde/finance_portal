@@ -239,6 +239,13 @@
       "when": 1792616863218,
       "tag": "0033_pale_mattie_franklin",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792629447203,
+      "tag": "0034_brief_caretaker",
+      "breakpoints": true
     }
   ]
 }

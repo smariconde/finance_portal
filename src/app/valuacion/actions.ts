@@ -33,7 +33,10 @@ export type ValuationEnqueueResult = ValuationJobView;
  * - la entrada es un símbolo y la intención de encolar o consultar, nunca una
  *   URL, un CIK o una fecha;
  * - consultar no crea un job; encolar devuelve el abierto si ya hay uno;
- * - no hay egress. La respuesta son códigos.
+ * - el request no sale a la red. El worker que arranca después sí
+ *   (`F6-05`, ADR 0051): baja lo que falta por el egress medido, bajo el lease
+ *   y la cuota de cada fuente, y nunca con un dato del request más que el
+ *   ticker ya validado. La respuesta son códigos.
  *
  * Next.js ya rechaza una acción cuyo `Origin` no coincide con el host.
  */

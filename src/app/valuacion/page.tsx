@@ -45,9 +45,11 @@ export default async function ValuationPage() {
           </h1>
           <p className="text-sm leading-6 text-muted-foreground">
             Escribí el símbolo de una empresa del universo constituido. Se abre
-            su página, se evalúa lo ya guardado y, si alcanza, el valor aparece
-            ahí junto al precio y a lo que el precio exige. No baja filings ni
-            llama al modelo.
+            su página, se baja de la SEC lo que falte y el cierre del día, se
+            audita la empresa y, si alcanza, el valor aparece ahí junto al
+            precio y a lo que el precio exige. No llama al modelo: la
+            transcripción de opciones y la industria ambigua siguen siendo
+            comandos.
           </p>
         </section>
         <ValuationRequestForm />

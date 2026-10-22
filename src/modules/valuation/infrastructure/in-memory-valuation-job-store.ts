@@ -1,4 +1,5 @@
 import {
+  beatValuationJob,
   claimValuationJob,
   finishValuationJob,
   type ValuationJob,
@@ -6,6 +7,7 @@ import {
 import {
   ValuationJobConflictError,
   VALUATION_HISTORY_LIMIT,
+  type ValuationJobBeat,
   type ValuationJobClaim,
   type ValuationJobFinish,
   type ValuationJobStore,
@@ -87,8 +89,37 @@ export function createInMemoryValuationJobStore(): ValuationJobStore {
         return "lost";
       }
 
+      if (
+        input.followUp !== undefined &&
+        jobs.some(
+          (job) =>
+            job.followsJobId !== null &&
+            job.followsJobId === input.followUp!.followsJobId,
+        )
+      ) {
+        throw new ValuationJobConflictError();
+      }
+
       jobs[index] = next;
+
+      if (input.followUp !== undefined) {
+        jobs.push(input.followUp);
+      }
+
       return "completed";
+    },
+    async beat(input: ValuationJobBeat) {
+      const index = jobs.findIndex((job) => job.jobId === input.jobId);
+      const current = jobs[index];
+      const next =
+        current === undefined ? null : beatValuationJob(current, input);
+
+      if (next === null) {
+        return "lost";
+      }
+
+      jobs[index] = next;
+      return "alive";
     },
   };
 }

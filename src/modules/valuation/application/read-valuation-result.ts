@@ -137,6 +137,8 @@ export type ValuationResultJob = {
 export type ValuationResultNewerGap = ValuationResultJob & {
   readonly gap: ValuationJob["gap"];
   readonly snapshotGap: ValuationJob["snapshotGap"];
+  /** Qué bajó y auditó (`F6-05`): estados y códigos, sin IDs. */
+  readonly dataStep: ValuationJob["dataStep"];
 };
 
 export type ValuationResultReading =
@@ -239,7 +241,12 @@ function jobReading(job: ValuationJob): ValuationResultJob {
 }
 
 function gapReading(job: ValuationJob): ValuationResultNewerGap {
-  return { ...jobReading(job), gap: job.gap, snapshotGap: job.snapshotGap };
+  return {
+    ...jobReading(job),
+    gap: job.gap,
+    snapshotGap: job.snapshotGap,
+    dataStep: job.dataStep,
+  };
 }
 
 function versionsAt<TVersion extends TemporalVersion>(

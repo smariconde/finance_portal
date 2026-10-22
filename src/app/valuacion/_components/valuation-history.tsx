@@ -66,6 +66,22 @@ function resultOf(entry: ValuationHistoryEntry): string {
     return "No terminó";
   }
 
+  if (entry.gap === "data_ingested") {
+    return "Bajó datos";
+  }
+
+  if (entry.gap === "ingestion_pending") {
+    return "Descarga pendiente";
+  }
+
+  if (entry.gap === "ingestion_failed") {
+    return "Descarga rechazada";
+  }
+
+  if (entry.gap === "point_in_time_audit_failed") {
+    return "Auditoría fallida";
+  }
+
   return "Sin identidad";
 }
 

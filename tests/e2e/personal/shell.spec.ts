@@ -88,7 +88,7 @@ test.describe("shell del portal", () => {
       }),
     ).toBeVisible();
     await expect(
-      page.getByText("no baja filings ni llama al modelo"),
+      page.getByText("No llama al modelo: la transcripción de opciones"),
     ).toBeVisible();
     await expect(
       page.getByRole("textbox", { name: "Ticker", exact: true }),

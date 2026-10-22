@@ -1,11 +1,12 @@
 import "server-only";
 
-import { and, desc, eq, lt, or } from "drizzle-orm";
+import { and, desc, eq, isNull, lt, or } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 
 import {
   ValuationJobConflictError,
   VALUATION_HISTORY_LIMIT,
+  type ValuationJobBeat,
   type ValuationJobClaim,
   type ValuationJobFinish,
   type ValuationJobStore,
@@ -61,9 +62,12 @@ function toDomain(row: ValuationJobRow): ValuationJob {
     snapshotGap: row.snapshotGap,
     valuationRunId: row.valuationRunId,
     runStatus: row.runStatus,
+    dataStep: row.dataStep,
+    followsJobId: row.followsJobId,
     claimToken: row.claimToken,
     createdAt: iso(row.createdAt),
     startedAt: row.startedAt === null ? null : iso(row.startedAt),
+    heartbeatAt: row.heartbeatAt === null ? null : iso(row.heartbeatAt),
     finishedAt: row.finishedAt === null ? null : iso(row.finishedAt),
   });
 }
@@ -88,9 +92,12 @@ function toInsert(job: ValuationJob): typeof schema.valuationJobs.$inferInsert {
     snapshotGap: job.snapshotGap,
     valuationRunId: job.valuationRunId,
     runStatus: job.runStatus,
+    dataStep: job.dataStep,
+    followsJobId: job.followsJobId,
     claimToken: job.claimToken,
     createdAt: at(job.createdAt),
     startedAt: job.startedAt === null ? null : at(job.startedAt),
+    heartbeatAt: job.heartbeatAt === null ? null : at(job.heartbeatAt),
     finishedAt: job.finishedAt === null ? null : at(job.finishedAt),
   };
 }
@@ -160,6 +167,7 @@ export function createPostgresValuationJobStore(
         .set({
           status: "running",
           startedAt: at(claim.startedAt),
+          heartbeatAt: null,
           claimToken: claim.claimToken,
         })
         .where(
@@ -169,7 +177,14 @@ export function createPostgresValuationJobStore(
               eq(schema.valuationJobs.status, "queued"),
               and(
                 eq(schema.valuationJobs.status, "running"),
-                lt(schema.valuationJobs.startedAt, at(claim.staleBefore)),
+                // Viejo por el último signo de vida, no por el arranque.
+                or(
+                  and(
+                    isNull(schema.valuationJobs.heartbeatAt),
+                    lt(schema.valuationJobs.startedAt, at(claim.staleBefore)),
+                  ),
+                  lt(schema.valuationJobs.heartbeatAt, at(claim.staleBefore)),
+                ),
               ),
             ),
           ),
@@ -179,28 +194,64 @@ export function createPostgresValuationJobStore(
       return rows[0] === undefined ? null : toDomain(rows[0]);
     },
     async finish(input: ValuationJobFinish) {
+      return database.transaction(async (transaction) => {
+        const rows = await transaction
+          .update(schema.valuationJobs)
+          .set({
+            status: "completed",
+            claimToken: null,
+            finishedAt: at(input.finishedAt),
+            identityStatus: input.outcome.identityStatus,
+            legalEntityId: input.outcome.legalEntityId,
+            securityId: input.outcome.securityId,
+            listingId: input.outcome.listingId,
+            gap: input.outcome.gap,
+            methodStatus: input.outcome.methodStatus,
+            assetProfile: input.outcome.assetProfile,
+            method: input.outcome.method,
+            rigor: input.outcome.rigor,
+            unsupportedReason: input.outcome.unsupportedReason,
+            snapshotGap: input.outcome.snapshotGap,
+            valuationRunId: input.outcome.valuationRunId,
+            runStatus: input.outcome.runStatus,
+            dataStep: input.outcome.dataStep,
+            // El job termina bajo la regla del worker que lo corrió.
+            ruleVersion: VALUATION_JOB_RULE_VERSION,
+          })
+          .where(
+            and(
+              eq(schema.valuationJobs.jobId, input.jobId),
+              eq(schema.valuationJobs.status, "running"),
+              eq(schema.valuationJobs.claimToken, input.claimToken),
+            ),
+          )
+          .returning({ jobId: schema.valuationJobs.jobId });
+
+        if (rows.length !== 1) {
+          return "lost" as const;
+        }
+
+        if (input.followUp !== undefined) {
+          try {
+            await transaction
+              .insert(schema.valuationJobs)
+              .values(toInsert(input.followUp));
+          } catch (error) {
+            if (isUniqueViolation(error)) {
+              throw new ValuationJobConflictError();
+            }
+
+            throw error;
+          }
+        }
+
+        return "completed" as const;
+      });
+    },
+    async beat(input: ValuationJobBeat) {
       const rows = await database
         .update(schema.valuationJobs)
-        .set({
-          status: "completed",
-          claimToken: null,
-          finishedAt: at(input.finishedAt),
-          identityStatus: input.outcome.identityStatus,
-          legalEntityId: input.outcome.legalEntityId,
-          securityId: input.outcome.securityId,
-          listingId: input.outcome.listingId,
-          gap: input.outcome.gap,
-          methodStatus: input.outcome.methodStatus,
-          assetProfile: input.outcome.assetProfile,
-          method: input.outcome.method,
-          rigor: input.outcome.rigor,
-          unsupportedReason: input.outcome.unsupportedReason,
-          snapshotGap: input.outcome.snapshotGap,
-          valuationRunId: input.outcome.valuationRunId,
-          runStatus: input.outcome.runStatus,
-          // El job termina bajo la regla del worker que lo corrió.
-          ruleVersion: VALUATION_JOB_RULE_VERSION,
-        })
+        .set({ heartbeatAt: at(input.at) })
         .where(
           and(
             eq(schema.valuationJobs.jobId, input.jobId),
@@ -210,7 +261,7 @@ export function createPostgresValuationJobStore(
         )
         .returning({ jobId: schema.valuationJobs.jobId });
 
-      return rows.length === 1 ? "completed" : "lost";
+      return rows.length === 1 ? "alive" : "lost";
     },
   };
 }

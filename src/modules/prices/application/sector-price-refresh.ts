@@ -133,9 +133,10 @@ export type SectorPriceDependencies = {
 
 /**
  * Revisiones de jobs terminados de este kind, por sujeto, la más reciente
- * primero. Un job cancelado no cuenta: el owner lo frenó, no lo revisó.
+ * primero. Un job cancelado no cuenta: el owner lo frenó, no lo revisó. La
+ * corrida por ticker (`F6-05`) lee la misma revisión para su security.
  */
-async function loadRecentChecks(
+export async function loadRecentPriceChecks(
   jobs: IngestionJobStore,
 ): Promise<Map<string, SubjectCheck>> {
   const recent = (
@@ -211,7 +212,7 @@ export async function assessSectorPrices(
       benchmarkId: benchmark.benchmarkId,
       from: subtractDays(today, 14),
     }),
-    loadRecentChecks(dependencies.jobs),
+    loadRecentPriceChecks(dependencies.jobs),
   ]);
 
   const latestReference = referenceRows.at(-1)?.marketDate ?? null;

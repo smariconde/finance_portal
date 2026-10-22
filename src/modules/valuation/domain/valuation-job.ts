@@ -4,6 +4,12 @@ import { normalizeSymbol } from "@/modules/identity/domain/identity-graph";
 import { utcTimestampSchema } from "@/modules/temporal/domain/temporal-version";
 
 import { assetProfileSchema } from "./asset-profile";
+import {
+  dataStepBlock,
+  dataStepIngested,
+  valuationDataStepSchema,
+  type ValuationDataStep,
+} from "./valuation-data-step";
 import { methodSelectionReasonSchema } from "./method-selection";
 import { rigorLevelSchema } from "./rigor-level";
 import { valuationRunStatusSchema } from "./valuation-run";
@@ -12,24 +18,35 @@ import { valuationRunStatusSchema } from "./valuation-run";
  * Corrida por ticker encolada (`F6-01`,
  * [ADR 0045](../../../../docs/architecture/adr/0045-ticker-valuation-job.md)).
  *
- * Un job evalúa lo ya guardado y termina con un código. No baja filings y no
- * llama al modelo. Nada de este archivo lee un reloj.
+ * Un job evalúa y termina con un código. No llama al modelo. Nada de este
+ * archivo lee un reloj.
  *
  * `valuation-job-1.1.0` (`F6-07`,
  * [ADR 0046](../../../../docs/architecture/adr/0046-derived-valuation-assumptions.md)):
  * con un método `fcff_base` el job arma el snapshot desde lo guardado, corre
  * el motor y registra la corrida (`run_recorded`), o nombra por qué no pudo
  * armarlo (`snapshotGap`). Una fila `1.0.0` conserva lo que dijo.
+ *
+ * `valuation-job-1.2.0` (`F6-05`,
+ * [ADR 0051](../../../../docs/architecture/adr/0051-on-demand-valuation-data.md)):
+ * antes de valuar, el job baja lo que falta y audita su sujeto (`dataStep`).
+ * Si bajó algo termina en `data_ingested` y otro job, con corte nuevo, lo
+ * continúa (`followsJobId`). Ese segundo job nunca baja nada.
  */
-export const VALUATION_JOB_RULE_VERSION = "valuation-job-1.1.0";
+export const VALUATION_JOB_RULE_VERSION = "valuation-job-1.2.0";
 
 export const valuationJobRuleVersionSchema = z.enum([
   "valuation-job-1.0.0",
+  "valuation-job-1.1.0",
   VALUATION_JOB_RULE_VERSION,
 ]);
 
-/** Un worker caído no bloquea el ticker para siempre. Dos minutos cubren una lectura local. */
+/**
+ * Un worker caído no bloquea el ticker para siempre. Dos minutos sin latido
+ * cubren una lectura local; un job que baja datos late cada 30 segundos.
+ */
 export const VALUATION_JOB_STALE_AFTER_MS = 120_000;
+export const VALUATION_JOB_HEARTBEAT_MS = 30_000;
 
 /**
  * Símbolo normalizado, no una URL ni un CIK. El punto y el guion se conservan:
@@ -68,6 +85,18 @@ export const valuationJobGapSchema = z.enum([
   "snapshot_not_assembled",
   "assessment_failed",
   "run_recorded",
+  "data_ingested",
+  "ingestion_pending",
+  "ingestion_failed",
+  "point_in_time_audit_failed",
+]);
+
+/** Gaps del paso de datos (`F6-05`): siempre registran qué se bajó o auditó. */
+const DATA_GAPS: ReadonlySet<string> = new Set([
+  "data_ingested",
+  "ingestion_pending",
+  "ingestion_failed",
+  "point_in_time_audit_failed",
 ]);
 
 export type ValuationJobGap = z.infer<typeof valuationJobGapSchema>;
@@ -122,6 +151,7 @@ const runFieldsSchema = z.object({
   snapshotGap: valuationSnapshotGapSchema.nullable(),
   valuationRunId: uuidSchema.nullable(),
   runStatus: valuationRunStatusSchema.nullable(),
+  dataStep: valuationDataStepSchema.nullable(),
 });
 
 export const valuationJobOutcomeSchema = z
@@ -169,9 +199,12 @@ export const valuationJobSchema = z
     rigor: rigorLevelSchema.nullable(),
     unsupportedReason: methodSelectionReasonSchema.nullable(),
     ...runFieldsSchema.shape,
+    /** El job que éste continúa con un corte nuevo; `null` si lo pidió el owner. */
+    followsJobId: uuidSchema.nullable(),
     claimToken: uuidSchema.nullable(),
     createdAt: utcTimestampSchema,
     startedAt: utcTimestampSchema.nullable(),
+    heartbeatAt: utcTimestampSchema.nullable(),
     finishedAt: utcTimestampSchema.nullable(),
   })
   .superRefine((job, context) => {
@@ -183,6 +216,39 @@ export const valuationJobSchema = z
         code: "custom",
         path: ["knownAt"],
         message: "The knowledge cutoff cannot be after the job was queued.",
+      });
+    }
+
+    if (job.ruleVersion !== VALUATION_JOB_RULE_VERSION) {
+      requireAbsent(job.dataStep, "dataStep", context);
+      requireAbsent(job.followsJobId, "followsJobId", context);
+
+      if (job.gap !== null && DATA_GAPS.has(job.gap)) {
+        context.addIssue({
+          code: "custom",
+          path: ["gap"],
+          message: `${job.gap} only exists from ${VALUATION_JOB_RULE_VERSION}.`,
+        });
+      }
+    }
+
+    if (job.followsJobId !== null && job.followsJobId === job.jobId) {
+      context.addIssue({
+        code: "custom",
+        path: ["followsJobId"],
+        message: "A job does not follow itself.",
+      });
+    }
+
+    if (
+      job.heartbeatAt !== null &&
+      (job.startedAt === null ||
+        Date.parse(job.heartbeatAt) < Date.parse(job.startedAt))
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["heartbeatAt"],
+        message: "A heartbeat comes at or after the start of the claim.",
       });
     }
 
@@ -202,8 +268,10 @@ export const valuationJobSchema = z
 
     if (job.status === "queued") {
       requireAbsent(job.startedAt, "startedAt", context);
+      requireAbsent(job.heartbeatAt, "heartbeatAt", context);
       requireAbsent(job.finishedAt, "finishedAt", context);
       requireAbsent(job.gap, "gap", context);
+      requireAbsent(job.dataStep, "dataStep", context);
       requireAbsent(job.claimToken, "claimToken", context);
       requireAbsent(job.identityStatus, "identityStatus", context);
       requireAbsent(job.legalEntityId, "legalEntityId", context);
@@ -221,6 +289,7 @@ export const valuationJobSchema = z
     if (job.status === "running") {
       requireAbsent(job.finishedAt, "finishedAt", context);
       requireAbsent(job.gap, "gap", context);
+      requireAbsent(job.dataStep, "dataStep", context);
       requirePresent(job.claimToken, "claimToken", context);
       requireAbsent(job.identityStatus, "identityStatus", context);
       requireAbsent(job.legalEntityId, "legalEntityId", context);
@@ -303,7 +372,42 @@ const ASSESSED_GAPS: ReadonlySet<string> = new Set([
   "unsupported_method",
   "snapshot_not_assembled",
   "run_recorded",
+  ...DATA_GAPS,
 ]);
+
+/** Cada gap del paso de datos dice lo mismo que su registro. */
+function refineDataGap(
+  gap: ValuationJobGap,
+  dataStep: ValuationDataStep | null,
+  context: IssueContext,
+): void {
+  if (dataStep === null) {
+    context.addIssue({
+      code: "custom",
+      path: ["dataStep"],
+      message: `${gap} records what the data step did.`,
+    });
+    return;
+  }
+
+  const block = dataStepBlock(dataStep);
+  const consistent =
+    gap === "point_in_time_audit_failed"
+      ? block === null && dataStep.audit?.status === "failed"
+      : gap === "data_ingested"
+        ? block === null &&
+          dataStepIngested(dataStep) &&
+          dataStep.audit?.status === "passed"
+        : block === gap && dataStep.audit === null;
+
+  if (!consistent) {
+    context.addIssue({
+      code: "custom",
+      path: ["dataStep"],
+      message: `The data step does not support ${gap}.`,
+    });
+  }
+}
 
 function refineOutcome(
   outcome: {
@@ -320,10 +424,15 @@ function refineOutcome(
     snapshotGap: ValuationSnapshotGap | null;
     valuationRunId: string | null;
     runStatus: ValuationJobOutcome["runStatus"];
+    dataStep: ValuationDataStep | null;
   },
   context: IssueContext,
 ): void {
   const { gap } = outcome;
+
+  if (gap !== null && DATA_GAPS.has(gap)) {
+    refineDataGap(gap, outcome.dataStep, context);
+  }
 
   if ((outcome.valuationRunId === null) !== (outcome.runStatus === null)) {
     context.addIssue({
@@ -484,6 +593,7 @@ const EMPTY_RUN = {
   snapshotGap: null,
   valuationRunId: null,
   runStatus: null,
+  dataStep: null,
 } as const;
 
 export function queueValuationJob(input: {
@@ -491,6 +601,7 @@ export function queueValuationJob(input: {
   readonly ticker: string;
   readonly knownAt: string;
   readonly createdAt: string;
+  readonly followsJobId?: string | null;
 }): ValuationJob {
   return valuationJobSchema.parse({
     jobId: input.jobId,
@@ -505,11 +616,18 @@ export function queueValuationJob(input: {
     gap: null,
     ...EMPTY_METHOD,
     ...EMPTY_RUN,
+    followsJobId: input.followsJobId ?? null,
     claimToken: null,
     createdAt: input.createdAt,
     startedAt: null,
+    heartbeatAt: null,
     finishedAt: null,
   });
+}
+
+/** Último signo de vida del reclamo: el latido, o el arranque si no latió. */
+export function lastSignOfLife(job: ValuationJob): string | null {
+  return job.heartbeatAt ?? job.startedAt;
 }
 
 /**
@@ -524,10 +642,11 @@ export function claimValuationJob(
     readonly staleBefore: string;
   },
 ): ValuationJob | null {
+  const alive = lastSignOfLife(job);
   const stale =
     job.status === "running" &&
-    job.startedAt !== null &&
-    Date.parse(job.startedAt) < Date.parse(input.staleBefore);
+    alive !== null &&
+    Date.parse(alive) < Date.parse(input.staleBefore);
   const queued = job.status === "queued";
 
   if (!queued && !stale) {
@@ -539,7 +658,20 @@ export function claimValuationJob(
     status: "running",
     claimToken: input.claimToken,
     startedAt: input.startedAt,
+    heartbeatAt: null,
   });
+}
+
+/** Renueva el reclamo sólo con su token. `null` si otro worker lo tomó. */
+export function beatValuationJob(
+  job: ValuationJob,
+  input: { readonly claimToken: string; readonly at: string },
+): ValuationJob | null {
+  if (job.status !== "running" || job.claimToken !== input.claimToken) {
+    return null;
+  }
+
+  return valuationJobSchema.parse({ ...job, heartbeatAt: input.at });
 }
 
 /** Cierra el job sólo si el token sigue siendo el del reclamo. */
@@ -587,6 +719,35 @@ export function outcomeForIdentity(
   });
 }
 
+/**
+ * El paso de datos frenó la corrida: bajó algo y otro job la continúa, una
+ * descarga quedó pendiente o falló, o la auditoría encontró una falla.
+ */
+export function outcomeForDataStep(
+  subject: {
+    readonly legalEntityId: string;
+    readonly securityId: string | null;
+    readonly listingId: string | null;
+  },
+  gap:
+    | "data_ingested"
+    | "ingestion_pending"
+    | "ingestion_failed"
+    | "point_in_time_audit_failed",
+  dataStep: ValuationDataStep,
+): ValuationJobOutcome {
+  return valuationJobOutcomeSchema.parse({
+    identityStatus: "resolved",
+    legalEntityId: subject.legalEntityId,
+    securityId: subject.securityId,
+    listingId: subject.listingId,
+    gap,
+    ...EMPTY_METHOD,
+    ...EMPTY_RUN,
+    dataStep,
+  });
+}
+
 export function outcomeForFailure(): ValuationJobOutcome {
   return valuationJobOutcomeSchema.parse({
     identityStatus: null,
@@ -624,6 +785,7 @@ export function outcomeForAssessment(
         readonly valuationRunId: string;
         readonly runStatus: NonNullable<ValuationJobOutcome["runStatus"]>;
       } = { gap: "method_not_derived" },
+  dataStep: ValuationDataStep | null = null,
 ): ValuationJobOutcome {
   const subject = {
     identityStatus: "resolved" as const,
@@ -647,6 +809,7 @@ export function outcomeForAssessment(
       gap: "annual_fundamentals",
       ...methodOf(reading),
       ...EMPTY_RUN,
+      dataStep,
     });
   }
 
@@ -656,6 +819,7 @@ export function outcomeForAssessment(
       gap: "unsupported_method",
       ...methodOf(reading),
       ...EMPTY_RUN,
+      dataStep,
     });
   }
 
@@ -667,6 +831,7 @@ export function outcomeForAssessment(
       snapshotGap: null,
       valuationRunId: snapshot.valuationRunId,
       runStatus: snapshot.runStatus,
+      dataStep,
     });
   }
 
@@ -676,6 +841,7 @@ export function outcomeForAssessment(
     ...methodOf(reading),
     ...EMPTY_RUN,
     snapshotGap: snapshot.gap,
+    dataStep,
   });
 }
 
@@ -723,6 +889,10 @@ export type ValuationJobView =
       /** El estado de la corrida registrada; su ID no sale del servidor. */
       readonly runStatus: ValuationJobOutcome["runStatus"];
       readonly ruleVersion: ValuationJob["ruleVersion"];
+      /** Qué bajó y auditó el job (`F6-05`): estados y códigos, sin IDs. */
+      readonly dataStep: ValuationDataStep | null;
+      /** El job continúa a otro que bajó datos. */
+      readonly follows: boolean;
     };
 
 export function toValuationJobView(job: ValuationJob): ValuationJobView {
@@ -740,6 +910,8 @@ export function toValuationJobView(job: ValuationJob): ValuationJobView {
     snapshotGap: job.snapshotGap,
     runStatus: job.runStatus,
     ruleVersion: job.ruleVersion,
+    dataStep: job.dataStep,
+    follows: job.followsJobId !== null,
   };
 }
 
