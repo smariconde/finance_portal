@@ -39,8 +39,17 @@ import { z } from "zod";
  * la regla `interest-expense-1.0.0`, no la serie. Los vencimientos corrientes
  * aceptan `LongTermDebtAndCapitalLeaseObligationsCurrent` (Coca-Cola, Home Depot,
  * Eaton) y la D&A `DepreciationAmortizationAndAccretionNet` (Walmart).
+ *
+ * `1.4.0` (`F6-15`, ADR 0054): la **guardia de deuda**. Son conceptos que
+ * prueban que hay deuda aunque ninguna receta pueda sumarla —el cronograma de
+ * vencimientos, los pagarés, la línea de crédito usada, los totales que
+ * incluyen arrendamientos—. D.R. Horton no publica ningún componente de la
+ * receta, capitaliza sus intereses en el inventario y debe unos 5.000 M: sólo
+ * el cronograma lo delata. Cada concepto es una partida propia, porque como
+ * alternativas un cero en el primero taparía un monto en el siguiente. Ninguna
+ * regla los suma: sólo prueban que la deuda no es cero.
  */
-export const ANNUAL_FUNDAMENTALS_VERSION = "annual-fundamentals-1.3.0";
+export const ANNUAL_FUNDAMENTALS_VERSION = "annual-fundamentals-1.4.0";
 
 export const lineItemIdSchema = z.enum([
   "revenue",
@@ -82,6 +91,20 @@ export const lineItemIdSchema = z.enum([
   "finance_lease_interest_expense",
   "interest_net_nonoperating",
   "interest_paid",
+  "debt_maturity_next_twelve_months",
+  "debt_maturity_year_two",
+  "debt_maturity_year_three",
+  "debt_maturity_year_four",
+  "debt_maturity_year_five",
+  "debt_maturity_after_year_five",
+  "notes_payable",
+  "notes_and_loans_payable",
+  "line_of_credit",
+  "senior_notes",
+  "convertible_notes_payable",
+  "debt_instrument_carrying_amount",
+  "debt_combined_total",
+  "debt_including_finance_leases_total",
 ]);
 
 export type LineItemId = z.infer<typeof lineItemIdSchema>;
@@ -340,11 +363,100 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
     periodType: "annual",
     concepts: ["us-gaap:InterestPaidNet"],
   },
+  // Desde acá, `1.4.0` (ADR 0054): la guardia de deuda, un concepto por partida.
+  ...(
+    [
+      [
+        "debt_maturity_next_twelve_months",
+        "LongTermDebtMaturitiesRepaymentsOfPrincipalInNextTwelveMonths",
+      ],
+      [
+        "debt_maturity_year_two",
+        "LongTermDebtMaturitiesRepaymentsOfPrincipalInYearTwo",
+      ],
+      [
+        "debt_maturity_year_three",
+        "LongTermDebtMaturitiesRepaymentsOfPrincipalInYearThree",
+      ],
+      [
+        "debt_maturity_year_four",
+        "LongTermDebtMaturitiesRepaymentsOfPrincipalInYearFour",
+      ],
+      [
+        "debt_maturity_year_five",
+        "LongTermDebtMaturitiesRepaymentsOfPrincipalInYearFive",
+      ],
+      [
+        "debt_maturity_after_year_five",
+        "LongTermDebtMaturitiesRepaymentsOfPrincipalAfterYearFive",
+      ],
+      ["notes_payable", "NotesPayable"],
+      ["notes_and_loans_payable", "NotesAndLoansPayable"],
+      ["line_of_credit", "LineOfCredit"],
+      ["senior_notes", "SeniorNotes"],
+      ["convertible_notes_payable", "ConvertibleNotesPayable"],
+      ["debt_instrument_carrying_amount", "DebtInstrumentCarryingAmount"],
+      ["debt_combined_total", "DebtLongtermAndShorttermCombinedAmount"],
+      [
+        "debt_including_finance_leases_total",
+        "LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities",
+      ],
+    ] as const
+  ).map(([item, concept]) => ({
+    item,
+    periodType: "instant" as const,
+    concepts: [`us-gaap:${concept}`],
+  })),
 ]);
+
+/**
+ * Las partidas que prueban deuda aunque ninguna receta la sume (`1.4.0`).
+ * Las lee `zero-debt-evidence-1.0.0`.
+ */
+export const DEBT_GUARD_ITEMS = [
+  "debt_maturity_next_twelve_months",
+  "debt_maturity_year_two",
+  "debt_maturity_year_three",
+  "debt_maturity_year_four",
+  "debt_maturity_year_five",
+  "debt_maturity_after_year_five",
+  "notes_payable",
+  "notes_and_loans_payable",
+  "line_of_credit",
+  "senior_notes",
+  "convertible_notes_payable",
+  "debt_instrument_carrying_amount",
+  "debt_combined_total",
+  "debt_including_finance_leases_total",
+] as const satisfies readonly LineItemId[];
 
 /** Todos los conceptos que la serie lee: la lista de métricas de la lectura. */
 export function annualFundamentalsConcepts(): readonly string[] {
   return [...new Set(LINE_ITEMS.flatMap((definition) => definition.concepts))];
+}
+
+/** Métricas por lectura que admite `selectObservations`. */
+export const OBSERVATION_READ_METRIC_CEILING = 64;
+
+/**
+ * Los conceptos en tandas que caben en una lectura. Con la guardia de deuda
+ * (`1.4.0`) la serie lee más conceptos que los que admite una sola.
+ */
+export function annualFundamentalsConceptBatches(): readonly (readonly string[])[] {
+  const concepts = annualFundamentalsConcepts();
+  const batches: string[][] = [];
+
+  for (
+    let start = 0;
+    start < concepts.length;
+    start += OBSERVATION_READ_METRIC_CEILING
+  ) {
+    batches.push(
+      concepts.slice(start, start + OBSERVATION_READ_METRIC_CEILING),
+    );
+  }
+
+  return batches;
 }
 
 /** La parte de una observación que la serie necesita, sin acoplarse al tipo entero. */

@@ -28,11 +28,25 @@ import {
 } from "./non-recurring-charges";
 import {
   DEBT_COMPONENT_KEYS,
+  REPORTED_DEBT_EVIDENCE_VERSION,
   reportedDebtSchema,
   resolveReportedDebt,
   type DebtComponentKey,
 } from "./reported-debt";
-import { monetaryFactSchema, type MonetaryFact } from "./valuation-facts";
+import {
+  conceptFactSchema,
+  type ConceptFact,
+  type MonetaryFact,
+} from "./valuation-facts";
+
+import {
+  listZeroDebtEvidenceFacts,
+  zeroDebtEvidenceMismatches,
+  zeroDebtEvidenceSchema,
+  type ZeroDebtEvidence,
+} from "./zero-debt-evidence";
+
+export { conceptFactSchema, type ConceptFact };
 
 /**
  * Normalización reported → ajustes → ajustado del ejercicio base (`F4-03`,
@@ -55,13 +69,6 @@ export const BASE_TAX_RATE_VERSION = "base-tax-rate-1.0.0";
 /** El patrimonio que ya incluye a los minoritarios: no se suman otra vez. */
 export const EQUITY_INCLUDING_MINORITY =
   "us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest";
-
-export const conceptFactSchema = monetaryFactSchema.extend({
-  /** Concepto calificado que aportó el hecho, como lo eligió la serie. */
-  concept: z.string().trim().min(1).max(256),
-});
-
-export type ConceptFact = z.infer<typeof conceptFactSchema>;
 
 const fact = conceptFactSchema.nullable();
 const amount = engineDecimalSchema;
@@ -97,6 +104,12 @@ export const normalizationFactsSchema = z.object({
     )
     .min(1)
     .max(NON_RECURRING_LOOKBACK_YEARS + 1),
+  /**
+   * La evidencia de deuda cero (`F6-15`, ADR 0054). Sólo viaja cuando ninguna
+   * receta cierra y la evidencia se cumple: un snapshot anterior no la tiene y
+   * conserva su hash.
+   */
+  zeroDebtEvidence: zeroDebtEvidenceSchema.optional(),
 });
 
 export type NormalizationFacts = z.infer<typeof normalizationFactsSchema>;
@@ -301,7 +314,7 @@ function resolveInvestedCapital(
   });
 
   if (balance.equity === null) return unresolved("equity_not_reported");
-  if (debt.status !== "resolved") return unresolved("debt_unresolved");
+  if (debt.status === "unresolved") return unresolved("debt_unresolved");
   if (excessCash.status !== "resolved") {
     return unresolved("excess_cash_unresolved");
   }
@@ -565,23 +578,29 @@ function buildBase(
   };
 }
 
+/** Los componentes de deuda de los hechos, como los lee la receta. */
+export function debtInputOf(
+  debt: NormalizationFacts["balance"]["debt"],
+): Record<DebtComponentKey, { value: string; concept: string } | null> {
+  return Object.fromEntries(
+    DEBT_COMPONENT_KEYS.map((key) => {
+      const value = debt[key];
+      return [
+        key,
+        value === null ? null : { value: value.value, concept: value.concept },
+      ];
+    }),
+  ) as Record<DebtComponentKey, { value: string; concept: string } | null>;
+}
+
 /** Aplica las reglas a los hechos y arma el libro. Pura. */
 export function buildNormalization(
   facts: NormalizationFacts,
   context: NormalizationContext,
 ): Normalization {
   const debt = resolveReportedDebt(
-    Object.fromEntries(
-      DEBT_COMPONENT_KEYS.map((key) => {
-        const value = facts.balance.debt[key];
-        return [
-          key,
-          value === null
-            ? null
-            : { value: value.value, concept: value.concept },
-        ];
-      }),
-    ) as Record<DebtComponentKey, { value: string; concept: string } | null>,
+    debtInputOf(facts.balance.debt),
+    facts.zeroDebtEvidence ?? null,
   );
   const excessCash = resolveExcessCash(facts.balance);
   const investedCapital = resolveInvestedCapital(
@@ -654,10 +673,18 @@ export function listNormalizationFacts(
     ),
   ];
 
-  return entries.filter(
-    (entry): entry is { path: string; fact: ConceptFact; asOf: string } =>
-      entry.fact !== null,
-  );
+  return [
+    ...entries.filter(
+      (entry): entry is { path: string; fact: ConceptFact; asOf: string } =>
+        entry.fact !== null,
+    ),
+    ...(facts.zeroDebtEvidence === undefined
+      ? []
+      : listZeroDebtEvidenceFacts(
+          facts.zeroDebtEvidence,
+          "normalization.facts.zeroDebtEvidence",
+        )),
+  ];
 }
 
 /**
@@ -696,6 +723,22 @@ export function normalizationMismatches(
   for (const entry of listNormalizationFacts(normalization)) {
     if (entry.fact.asOf !== entry.asOf) {
       mismatches.push(entry.path);
+    }
+  }
+
+  // La evidencia de deuda cero sólo viaja si la deuda la usa, y se recalcula
+  // entera: el piso, el orden de los ejercicios y la regla.
+  if (facts.zeroDebtEvidence !== undefined) {
+    mismatches.push(
+      ...zeroDebtEvidenceMismatches(
+        facts.zeroDebtEvidence,
+        facts.baseFiscalYearEnd,
+        "normalization.facts.zeroDebtEvidence",
+      ),
+    );
+
+    if (normalization.debt.version !== REPORTED_DEBT_EVIDENCE_VERSION) {
+      mismatches.push("normalization.facts.zeroDebtEvidence");
     }
   }
 
@@ -749,6 +792,7 @@ const DEBT_ITEMS: Readonly<Record<DebtComponentKey, LineItemId>> = {
 export function normalizationFactsFromSeries(
   series: AnnualFundamentals,
   toFact: (item: LineItemValue) => MonetaryFact,
+  zeroDebtEvidence: ZeroDebtEvidence | null = null,
 ): NormalizationFacts | null {
   const base = series.fiscalYears[0];
 
@@ -795,5 +839,6 @@ export function normalizationFactsFromSeries(
         restructuring: read(year.items, "restructuring_charges"),
         impairment: read(year.items, "impairment_charges"),
       })),
+    ...(zeroDebtEvidence === null ? {} : { zeroDebtEvidence }),
   };
 }

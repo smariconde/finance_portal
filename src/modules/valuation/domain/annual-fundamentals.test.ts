@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  annualFundamentalsConceptBatches,
   annualFundamentalsConcepts,
+  OBSERVATION_READ_METRIC_CEILING,
   buildAnnualFundamentals,
   chooseFiscalYearAnchor,
   type FundamentalRow,
@@ -41,10 +43,15 @@ function row(
 }
 
 describe("annual fundamentals 1.1.0", () => {
-  it("reads only the declared concepts, well under the lineage read ceiling", () => {
+  it("reads only the declared concepts, in batches under the lineage read ceiling", () => {
     const concepts = annualFundamentalsConcepts();
+    const batches = annualFundamentalsConceptBatches();
     expect(new Set(concepts).size).toBe(concepts.length);
-    expect(concepts.length).toBeLessThanOrEqual(64);
+    expect(batches.flat()).toEqual(concepts);
+    expect(batches).toHaveLength(2);
+    for (const batch of batches) {
+      expect(batch.length).toBeLessThanOrEqual(OBSERVATION_READ_METRIC_CEILING);
+    }
   });
 
   it("recognizes 52/53-week fiscal years and skips trailing twelve months", () => {

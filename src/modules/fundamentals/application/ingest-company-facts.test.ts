@@ -254,7 +254,7 @@ describe("ingestCompanyFacts", () => {
       datasetId: "sec.companyfacts",
       parserVersion: "sec-companyfacts-1.0.0",
       subjectKey: FIXTURE_FILER_CIK,
-      selectionVersion: "sec-core-concepts-6.0.0",
+      selectionVersion: "sec-core-concepts-7.0.0",
       selectionAnchorOn: "2009-12-31",
       counts: { fetched: 7, accepted: 7, rejected: 0, duplicate: 0 },
     });

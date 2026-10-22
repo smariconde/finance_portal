@@ -32,6 +32,7 @@ import type { ValuationRun } from "@/modules/valuation/domain/valuation-run";
 import {
   ADJUSTMENT_TARGET_LABELS,
   adjustmentLabel,
+  INTEREST_BASIS_LABELS,
   notAppliedReasonLabel,
 } from "./labels";
 
@@ -264,6 +265,7 @@ export function DerivationSummary({ run }: { run: ValuationRun }) {
             su motivo; un monto que no se reportó no se cuenta como cero.{" "}
             <CodeValue>{run.input.normalization.version}</CodeValue>
           </p>
+          <BaseYearBasis run={run} />
         </div>
         <Table containerLabel="Libro de ajustes del ejercicio base, tabla desplazable">
           <TableHeader>
@@ -314,5 +316,47 @@ export function DerivationSummary({ run }: { run: ValuationRun }) {
         </Table>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Lo que el ejercicio base no publicó y una regla resolvió (`F6-15`): el EBIT
+ * desde el resultado antes de impuestos y la deuda con evidencia. Sin ninguno,
+ * nada: la corrida leyó lo publicado.
+ */
+function BaseYearBasis({ run }: { run: ValuationRun }) {
+  const derivation = run.input.capitalization.ebitDerivation;
+  const { debt } = run.input.normalization;
+  const evidence = run.input.normalization.facts.zeroDebtEvidence;
+  const debtLine =
+    evidence === undefined
+      ? null
+      : debt.status === "zero_with_evidence"
+        ? "Deuda: cero. En los cinco ejercicios no hay préstamos ni vencimientos de deuda publicados, y los intereses son nulos o caben en la banda más alta de la tabla de ratings."
+        : debt.status === "resolved" && debt.recipe === "finance_leases_only"
+          ? "Deuda: sólo los arrendamientos financieros. En los cinco ejercicios no hay préstamos ni vencimientos de deuda publicados."
+          : null;
+
+  if (derivation === undefined && debtLine === null) {
+    return null;
+  }
+
+  return (
+    <ul className="mt-1 flex list-disc flex-col gap-1 pl-5 text-xs text-muted-foreground">
+      {derivation === undefined ? null : (
+        <li>
+          EBIT: la empresa no publica resultado operativo, así que es el
+          resultado antes de impuestos más los intereses (
+          {INTEREST_BASIS_LABELS[derivation.interest.basis] ??
+            derivation.interest.basis}
+          ). <CodeValue>{derivation.version}</CodeValue>
+        </li>
+      )}
+      {debtLine === null || evidence === undefined ? null : (
+        <li>
+          {debtLine} <CodeValue>{evidence.version}</CodeValue>
+        </li>
+      )}
+    </ul>
   );
 }

@@ -142,6 +142,105 @@ describe("assessCompany", () => {
     expect(assessment.costOfCapital.status).toBe("computed");
   });
 
+  describe("zero-debt evidence", () => {
+    const instant = (concept: string, end: string, value: string) => ({
+      ...annual(concept, end, value),
+      periodType: "instant",
+      periodStart: null,
+    });
+    /** Cinco ejercicios sin préstamos ni intereses (la forma de Intuitive). */
+    const debtFree = (extra: (end: string) => FundamentalRow[] = () => []) =>
+      ["2021", "2022", "2023", "2024", "2025"].flatMap((year, index) => {
+        const end = `${year}-12-31`;
+        return [
+          annual("Revenues", end, String(100 + index * 5)),
+          annual("OperatingIncomeLoss", end, "20"),
+          annual(
+            "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
+            end,
+            "21",
+          ),
+          annual("IncomeTaxExpenseBenefit", end, "4"),
+          annual("WeightedAverageNumberOfDilutedSharesOutstanding", end, "10"),
+          annual("StockholdersEquity", end, "60"),
+          instant("CashAndCashEquivalentsAtCarryingValue", end, "15"),
+          ...extra(end),
+        ];
+      });
+    const request = {
+      legalEntityId: SUBJECT,
+      query: query("2026-10-03T00:00:00.000Z"),
+      fundamentalsSourceId: "sec-edgar",
+      cik: "0000000042",
+      industryDeclarations: [],
+      listingCountry: "US",
+    };
+
+    it("values debt at zero and rates the coverage at the top band, both named", async () => {
+      const assessment = await assessCompany(
+        request,
+        dependencies([sic("3571")], debtFree()),
+      );
+
+      expect(assessment.zeroDebt?.status).toBe("met");
+      expect(assessment.normalization?.debt).toMatchObject({
+        status: "zero_with_evidence",
+        total: "0",
+      });
+      expect(
+        assessment.normalization?.facts.zeroDebtEvidence?.fiscalYears,
+      ).toHaveLength(5);
+      expect(assessment.normalization?.investedCapital).toMatchObject({
+        status: "resolved",
+        debt: "0",
+      });
+      expect(assessment.costOfCapital).toMatchObject({
+        status: "computed",
+        costOfCapital: {
+          coverage: { interestBasis: "no_interest_expense" },
+          declarations: expect.arrayContaining([
+            "coverage_no_interest_expense",
+          ]),
+        },
+      });
+      // Sin deuda publicada, la completitud de caja y deuda no se cumple: el
+      // rigor no llega a `full`.
+      expect(assessment.rigor.degradedBy).toContain("cash_and_debt");
+    });
+
+    it("does not call D.R. Horton debt-free: the maturity schedule is debt", async () => {
+      const assessment = await assessCompany(
+        request,
+        dependencies(
+          [sic("3571")],
+          debtFree((end) => [
+            instant(
+              "LongTermDebtMaturitiesRepaymentsOfPrincipalAfterYearFive",
+              end,
+              "2400",
+            ),
+          ]),
+        ),
+      );
+
+      expect(assessment.zeroDebt).toEqual({
+        status: "not_met",
+        reason: "borrowing_reported",
+      });
+      expect(assessment.normalization?.debt).toMatchObject({
+        status: "unresolved",
+        reason: "no_recipe",
+      });
+      expect(
+        "zeroDebtEvidence" in (assessment.normalization?.facts ?? {}),
+      ).toBe(false);
+      expect(assessment.costOfCapital).toMatchObject({
+        status: "unsupported",
+        missing: expect.arrayContaining(["interest_coverage"]),
+      });
+    });
+  });
+
   it("does not see a SIC observed after the cutoff", async () => {
     const assessment = await assessCompany(
       {

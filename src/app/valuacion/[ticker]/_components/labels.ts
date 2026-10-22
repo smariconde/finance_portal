@@ -106,6 +106,8 @@ const COST_DECLARATION_LABELS: Record<string, string> = {
     "El gasto de intereses es el neto de los ganados: la empresa no publica el bruto, y la cobertura queda algo alta.",
   coverage_interest_paid:
     "El gasto de intereses es lo pagado en el ejercicio: la empresa no publica el devengado.",
+  coverage_no_interest_expense:
+    "Sin gasto de intereses en cinco ejercicios y sin deuda: la cobertura es el piso de la banda más alta de la tabla.",
   terminal_beta_converges_to_one: "La beta terminal converge a 1.",
   country_risk_by_operations:
     "Riesgo país ponderado por las operaciones de la empresa.",
@@ -156,3 +158,11 @@ const NOT_APPLIED_REASON_LABELS: Record<string, string> = {
 export function notAppliedReasonLabel(code: string): string {
   return labelOr(NOT_APPLIED_REASON_LABELS, code);
 }
+
+export const INTEREST_BASIS_LABELS: Record<string, string> = {
+  gross: "el gasto bruto",
+  debt_plus_finance_leases:
+    "el de la deuda más el de los arrendamientos financieros",
+  net_nonoperating: "el neto de los ganados",
+  interest_paid: "lo pagado en el ejercicio",
+};

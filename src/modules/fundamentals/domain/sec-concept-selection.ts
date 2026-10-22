@@ -24,7 +24,7 @@ import { SEC_HISTORY_WINDOW_VERSION } from "./sec-history-window";
  *   a correr el CIK publica sólo lo nuevo. No sube la versión del parser, porque
  *   filtrar no cambia el contenido de un hecho ya publicado.
  */
-export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-6.0.0";
+export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-7.0.0";
 
 /**
  * Qué decide la versión. La 1.0.0 eran los mismos conceptos con toda la historia
@@ -38,7 +38,10 @@ export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-6.0.0";
  * arrendamientos financieros (ADR 0038). La 6.0.0 suma los conceptos que los
  * filers usan en lugar de los que ya leíamos (ADR 0053): los vencimientos
  * corrientes con arrendamientos financieros, los intereses de la deuda, de los
- * arrendamientos, el neto y el pagado, y la D&A con acreciones.
+ * arrendamientos, el neto y el pagado, y la D&A con acreciones. La 7.0.0 suma
+ * la guardia de deuda (ADR 0054): conceptos que no entran en ninguna receta
+ * pero prueban que la deuda no es cero —el cronograma de vencimientos, los
+ * pagarés, la línea de crédito usada—, para no declarar sin deuda a D.R. Horton.
  * Con la versión y el ancla,
  * un período anterior al corte sigue siendo «no se fue a buscar». El test fija
  * los componentes: cambiar uno sin subir la versión lo rompe.
@@ -159,6 +162,23 @@ const US_GAAP = [
   "OperatingLeaseLiabilityCurrent",
   "OperatingLeaseLiabilityNoncurrent",
   "FinanceLeaseLiability",
+  // La guardia de deuda (7.0.0, ADR 0054): ninguna receta los suma, sólo
+  // prueban que hay deuda. D.R. Horton publica su deuda sólo en el cronograma
+  // de vencimientos.
+  "LongTermDebtMaturitiesRepaymentsOfPrincipalInNextTwelveMonths",
+  "LongTermDebtMaturitiesRepaymentsOfPrincipalInYearTwo",
+  "LongTermDebtMaturitiesRepaymentsOfPrincipalInYearThree",
+  "LongTermDebtMaturitiesRepaymentsOfPrincipalInYearFour",
+  "LongTermDebtMaturitiesRepaymentsOfPrincipalInYearFive",
+  "LongTermDebtMaturitiesRepaymentsOfPrincipalAfterYearFive",
+  "NotesPayable",
+  "NotesAndLoansPayable",
+  "LineOfCredit",
+  "SeniorNotes",
+  "ConvertibleNotesPayable",
+  "DebtInstrumentCarryingAmount",
+  "DebtLongtermAndShorttermCombinedAmount",
+  "LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities",
 ] as const;
 
 const DEI = [

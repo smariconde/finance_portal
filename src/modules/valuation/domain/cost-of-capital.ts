@@ -18,6 +18,7 @@ import {
   ZERO,
   type Dec,
 } from "./decimal-policy";
+import type { CoverageFloor } from "./zero-debt-evidence";
 
 /**
  * Costo de capital bottom-up (`F3-06`): el WACC deja de ser un input crudo y se
@@ -116,7 +117,17 @@ export const coverageEvidenceSchema = z.object({
    * anterior conserva su hash.
    */
   interestBasis: z
-    .enum(["debt_plus_finance_leases", "net_nonoperating", "interest_paid"])
+    .enum([
+      "debt_plus_finance_leases",
+      "net_nonoperating",
+      "interest_paid",
+      /**
+       * Sin gasto de intereses en los cinco ejercicios de la evidencia de deuda
+       * cero (`F6-15`, ADR 0054): la cobertura es el piso de la banda más alta,
+       * la convención de Damodaran para quien no paga intereses.
+       */
+      "no_interest_expense",
+    ])
     .optional(),
 });
 
@@ -127,6 +138,7 @@ export const COVERAGE_INTEREST_DECLARATION = {
   debt_plus_finance_leases: "coverage_interest_debt_plus_finance_leases",
   net_nonoperating: "coverage_interest_net_nonoperating",
   interest_paid: "coverage_interest_paid",
+  no_interest_expense: "coverage_no_interest_expense",
 } as const satisfies Record<
   NonNullable<CoverageEvidence["interestBasis"]>,
   string
@@ -160,6 +172,7 @@ export const costOfCapitalDeclarationSchema = z.enum([
   "coverage_interest_debt_plus_finance_leases",
   "coverage_interest_net_nonoperating",
   "coverage_interest_paid",
+  "coverage_no_interest_expense",
   "terminal_beta_converges_to_one",
   "country_risk_by_operations",
   "regions_combined_by_gdp",
@@ -325,12 +338,8 @@ function rowOf(
   return reading?.rows.find((row) => row.key === key) ?? null;
 }
 
-/** La banda cuyo piso es el mayor que no supera la cobertura: `≥ piso`. */
-function ratingBand(
-  ratings: ReferenceReading,
-  coverage: Dec,
-): ReferenceRow | null {
-  const bands = ratings.rows
+function largeNonfinancialBands(ratings: ReferenceReading) {
+  return ratings.rows
     .filter((row) => row.key.startsWith("large-nonfinancial-"))
     .map((row) => ({ row, floor: row.values.coverage_above }))
     .filter(
@@ -341,6 +350,36 @@ function ratingBand(
     .sort((left, right) =>
       parseDecimal(left.floor, "floor").cmp(parseDecimal(right.floor, "floor")),
     );
+}
+
+/**
+ * El piso de la banda más alta de la tabla de ratings al corte, con su release
+ * y su fila (`F6-15`): la cobertura desde la que los intereses no son el
+ * servicio de una deuda material. `null` sin tabla.
+ */
+export function topCoverageFloor(
+  ratings: ReferenceReading | null,
+): CoverageFloor | null {
+  const top =
+    ratings === null ? undefined : largeNonfinancialBands(ratings).at(-1);
+
+  return ratings === null || top === undefined
+    ? null
+    : {
+        value: top.floor,
+        datasetId: ratings.release.datasetId,
+        releaseId: ratings.release.releaseId,
+        rowKey: top.row.key,
+        availableAt: ratings.release.availableAt,
+      };
+}
+
+/** La banda cuyo piso es el mayor que no supera la cobertura: `≥ piso`. */
+function ratingBand(
+  ratings: ReferenceReading,
+  coverage: Dec,
+): ReferenceRow | null {
+  const bands = largeNonfinancialBands(ratings);
 
   let selected: ReferenceRow | null = null;
 

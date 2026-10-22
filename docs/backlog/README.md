@@ -82,8 +82,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    54 | `F6-12`    | `done`     | Flujo de valuación en un solo lugar por ticker: pedir, ver el estado y leer el resultado sin saltos, con la jerarquía orientada a decidir.                                                                                | `F6-09`          |
 |    55 | `F6-13`    | `done`     | La corrida le pide a la IA lo cualitativo que falta —industria ambigua, opciones de empleados, mix— con las tareas y topes de sus comandos, y valúa con lo aceptado en un job con corte nuevo.                            | `F6-05`          |
 |    56 | `F6-14`    | `done`     | La selección y la serie leen los conceptos que los filers usan de verdad, los intereses salen de una receta con bases nombradas y una ventana vieja se baja otra vez.                                                     | `F6-13`          |
-|    57 | `F6-15`    | `ready`    | Deuda cero con evidencia y EBIT sin resultado operativo en el puente, congelados en el snapshot y recalculados por el motor.                                                                                              | `F6-14`          |
-|    58 | `F6-16`    | `queued`   | Opciones de empleados robustas: nota bien elegida, etiqueta de ejercicio de los minoristas, XBRL como respaldo y valuación sin restar opciones cuando no hay nada.                                                        | `F6-14`          |
+|    57 | `F6-15`    | `done`     | Deuda cero con evidencia y EBIT sin resultado operativo en el puente, congelados en el snapshot y recalculados por el motor.                                                                                              | `F6-14`          |
+|    58 | `F6-16`    | `ready`    | Opciones de empleados robustas: nota bien elegida, etiqueta de ejercicio de los minoristas, XBRL como respaldo y valuación sin restar opciones cuando no hay nada.                                                        | `F6-14`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -3817,29 +3817,71 @@ Evidencia:
   de la base `interest_paid` se armaba por plantilla y no existía, y el job de
   NKE terminó en `assessment_failed`. Ahora es un mapa explícito con test.
 
-#### `F6-15` — deuda cero con evidencia y EBIT sin resultado operativo
+#### `F6-15` — deuda cero con evidencia y EBIT sin resultado operativo (cerrado el 2026-10-22)
 
-- Estado: `ready`
-- Fase y dependencia: Fase 6, después de `F6-14`.
-- Alcance incluido: deuda cero cuando ningún componente de deuda aparece en los
-  cinco ejercicios de la ventana y el gasto de intereses es nulo o ausente, con
-  la base nombrada y el rigor un nivel más bajo; EBIT `pretax +
-netInterestForEbit` en el puente de capitalización cuando no hay
-  `OperatingIncomeLoss`, con la derivación congelada. Fuera de alcance: deuda de
-  homebuilders (`NotesPayable`), que necesita su propia receta.
-- Contratos y controles: `TM-05`, `TM-06`, `TM-16`; versión nueva de la receta de
-  deuda y del puente, recalculados por el motor, sin mover el hash de una corrida
-  anterior.
-- Criterios de aceptación: Vertex, Intuitive, Align, Moderna, Expeditors o
-  Deckers llegan a una corrida con deuda cero declarada; NKE, ADP, Merck o Eaton
-  llegan a una corrida con EBIT derivado; replay de una corrida anterior sin
-  cambios.
-- Evidencia esperada: ADR o enmienda de la ADR 0053, tests de la receta y del
-  recálculo, réplica.
+Estado del slice: `done`. `F6-16` queda `ready`; `F6-08` sigue `queued`.
+
+Decisiones del owner del 2026-10-22, después de medir la regla de la ADR 0053
+contra la muestra de 80 empresas y la réplica: la regla literal daba cero sólo a
+Intuitive y Align, dejaba afuera a Vertex, Deckers y Expeditors, y le daba
+**deuda cero a D.R. Horton**, que debe ~5.000 M en `NotesPayable` y capitaliza
+sus intereses. El owner eligió la regla refinada con guardia y la banda más alta
+para quien no paga intereses ([ADR 0054](../architecture/adr/0054-zero-debt-evidence-derived-ebit.md)).
+
+- `sec-core-concepts-7.0.0` y `annual-fundamentals-1.4.0`: catorce conceptos de
+  **guardia** —cronograma de vencimientos, pagarés, línea de crédito, totales
+  con arrendamientos— que ninguna receta suma; cada uno partida propia. La serie
+  lee 68 conceptos, así que el lector parte la lectura en tandas de 64.
+- `zero-debt-evidence-1.0.0`: cinco ejercicios con ventas, sin préstamos ni
+  guardia distintos de cero, e intereses nulos o con cobertura en la banda más
+  alta de la tabla de la corrida. Se congela en
+  `normalization.facts.zeroDebtEvidence` sólo cuando se usa.
+- `reported-debt-1.1.0`, sólo sin receta y con evidencia: `finance_leases_only`
+  o `zero_with_evidence` (claim `declared_absent` con la regla). Con receta, la
+  salida es la de `1.0.0` byte por byte.
+- Sin intereses en la evidencia, la cobertura es el piso de la banda más alta
+  (`no_interest_expense`, declaración `coverage_no_interest_expense`). El check
+  `zero_debt_evidence_consistent` exige que el piso sea la fila y la release del
+  `company_default_spread` de la corrida; sin evidencia, el check no existe.
+- `ebit-from-pretax-1.0.0`: sin `OperatingIncomeLoss`, el puente toma el
+  resultado antes de impuestos más `netInterestForEbit`, congelado en
+  `capitalization.ebitDerivation` y recalculado por `capitalization_recomputed`.
+- El rigor baja sin regla nueva: `cash_and_debt` no se cumple sin deuda
+  publicada. Motor `fcff-1.6.0` y metodología `0.12.0` sin cambio: los campos
+  nuevos son opcionales.
+- Superficie: el libro de ajustes dice cuándo el EBIT es derivado y cuándo la
+  deuda salió de la evidencia; la declaración nueva tiene su etiqueta.
+- Controles: `TM-05` (cero sólo con evidencia y guardia; D.R. Horton queda sin
+  resolver), `TM-06` (la evidencia es de los ejercicios visibles al corte, cada
+  hecho de su cierre) y `TM-16` (evidencia, piso y derivación congelados y
+  recalculados).
+
+Evidencia:
+
+- 3.075 unit y 220 integration; formato, lint, tipos y build; 204 E2E con axe
+  (2 omitidos).
+- Réplica, worker real, once empresas:
+  - **ADP y ETN** con corrida `computed` y EBIT derivado (base `gross`); AAPL
+    `computed` como control. Antes, ninguna de las dos.
+  - **ALGN, DECK y EXPD** resuelven deuda cero con evidencia y el costo de
+    capital (ALGN en la banda Aaa sin intereses, rigor `standard` por
+    `cash_and_debt`); frenan en `employee_equity_not_proposed`, que es `F6-16`.
+  - **NKE** pasa el margen base con EBIT derivado (base neta) y frena en
+    `shares_outstanding_unavailable`: la carátula publica las acciones por
+    clase. **MRK** frena en las opciones (`F6-16`).
+  - **DHI** queda `no_recipe` con `borrowing_reported`: la guardia funciona.
+  - **VRTX** no cumple la evidencia (`interest_material`): en 2024 tuvo pérdida
+    operativa —el cargo de Alpine— con intereses. **ISRG** se clasifica
+    `high_growth`. Ninguno de los dos frena por deuda.
+  - Las 16 corridas guardadas de AAPL, AMZN, WMT, GD, ADP y ETN se reproducen,
+    incluidas las anteriores al slice.
+- Límites nombrados: la guardia es una lista de conceptos; acciones por clase en
+  la carátula (NKE); intereses de arrendamientos financieros en un año de
+  pérdida (VRTX).
 
 #### `F6-16` — opciones de empleados robustas
 
-- Estado: `queued`
+- Estado: `ready`
 - Fase y dependencia: Fase 6, después de `F6-14`.
 - Alcance incluido:
   - el extractor no ancla dentro del estado de patrimonio (regresión de `1.1.0`
@@ -3852,7 +3894,8 @@ netInterestForEbit` en el puente de capitalización cuando no hay
     la página y baja el rigor.
 - Contratos y controles: `TM-05`, `TM-09`, `TM-16`.
 - Criterios de aceptación: KO, HD, COST, WM y Cencora llegan a una corrida, con
-  la base de las opciones nombrada.
+  la base de las opciones nombrada. Desde `F6-15` también frenan acá ALGN,
+  DECK, EXPD y MRK (`equity_note_not_found` o escalera agotada).
 - Evidencia esperada: tests del extractor y de la policy, evals sin regresión,
   réplica.
 

@@ -7,6 +7,10 @@ import type {
 import type { ReferenceDatasetReading } from "@/modules/reference-data/application/read-reference-dataset";
 
 import {
+  ZERO_DEBT_EVIDENCE_VERSION,
+  ZERO_DEBT_FISCAL_YEARS,
+} from "../domain/zero-debt-evidence";
+import {
   consecutiveRevenueHistory,
   deriveAssumptions,
   DERIVED_ASSUMPTIONS_V2_VERSION,
@@ -296,9 +300,14 @@ export function assembleValuationSnapshot(
     value,
     asOf: baseFiscalYearEnd,
   });
-  const firstDebtFact = Object.values(balance.debt).find(
-    (fact): fact is NonNullable<typeof fact> => fact !== null,
-  );
+  // La provenance de la deuda es la del primer componente que la receta sumó.
+  const firstDebtFact = (
+    normalization.debt.status === "resolved"
+      ? normalization.debt.included.map(
+          (entry) => balance.debt[entry.component],
+        )
+      : []
+  ).find((fact): fact is NonNullable<typeof fact> => fact !== null);
   const leases = capitalization.leases.result;
   const leaseFact =
     capitalization.leases.totalLiability ??
@@ -344,7 +353,11 @@ export function assembleValuationSnapshot(
       debt:
         normalization.debt.status === "resolved" && firstDebtFact !== undefined
           ? reported(atBase(normalization.debt.total, firstDebtFact))
-          : missing,
+          : normalization.debt.status === "zero_with_evidence"
+            ? declaredAbsent(
+                `${ZERO_DEBT_EVIDENCE_VERSION}: no borrowing or scheduled debt maturity in the last ${ZERO_DEBT_FISCAL_YEARS} fiscal years, and interest is absent or within the top rating band; valued at zero and named.`,
+              )
+            : missing,
       leaseDebt:
         leases.status === "capitalized" && leaseFact !== null
           ? reported(atBase(leases.leaseDebt, leaseFact))

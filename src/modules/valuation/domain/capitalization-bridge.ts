@@ -28,7 +28,17 @@ import {
   type RdCapitalization,
 } from "./rd-capitalization";
 import { RD_AMORTIZABLE_LIFE_VERSION } from "./rd-amortizable-life";
-import { monetaryFactSchema, type MonetaryFact } from "./valuation-facts";
+import {
+  ebitWithInterest,
+  freezeInterest,
+  frozenInterestSchema,
+  frozenInterestValue,
+} from "./interest-expense";
+import {
+  conceptFactSchema,
+  monetaryFactSchema,
+  type MonetaryFact,
+} from "./valuation-facts";
 
 /**
  * El puente de la capitalización en la corrida (`F4-01`,
@@ -47,6 +57,24 @@ import { monetaryFactSchema, type MonetaryFact } from "./valuation-facts";
  * base viaja al lado para que la base de esos supuestos sea visible.
  */
 export const CAPITALIZATION_BRIDGE_VERSION = "capitalization-bridge-1.0.0";
+
+/**
+ * El EBIT de quien no publica resultado operativo (`F6-15`,
+ * [ADR 0054](../../../../docs/architecture/adr/0054-zero-debt-evidence-derived-ebit.md)):
+ * el resultado antes de impuestos más los intereses de `netInterestForEbit`,
+ * con los hechos y la base congelados. ADP, Merck, Eaton y Nike no publican
+ * `OperatingIncomeLoss`. Sólo viaja cuando se usa: una corrida con resultado
+ * operativo queda igual byte por byte.
+ */
+export const EBIT_FROM_PRETAX_VERSION = "ebit-from-pretax-1.0.0";
+
+export const ebitDerivationSchema = z.object({
+  version: z.literal(EBIT_FROM_PRETAX_VERSION),
+  pretaxIncome: conceptFactSchema,
+  interest: frozenInterestSchema,
+});
+
+export type EbitDerivation = z.infer<typeof ebitDerivationSchema>;
 
 const amount = engineDecimalSchema;
 
@@ -125,8 +153,10 @@ export const rdCapitalizationSchema = z.discriminatedUnion("status", [
 ]);
 
 const capitalizationLedgerSchema = z.object({
-  /** `null` cuando el EBIT del ejercicio base no está publicado. */
+  /** `null` cuando el EBIT del ejercicio base no está publicado ni derivado. */
   ebit: z.object({
+    /** Ausente es el resultado operativo publicado. */
+    basis: z.literal("pretax_plus_interest").optional(),
     reported: amount.nullable(),
     leaseAdjustment: amount,
     rdAdjustment: amount,
@@ -146,6 +176,8 @@ export const capitalizationSchema = z.object({
   lifeTableVersion: z.literal(RD_AMORTIZABLE_LIFE_VERSION),
   baseFiscalYearEnd: calendarDateSchema,
   reportedEbit: monetaryFactSchema.nullable(),
+  /** Sólo sin `reportedEbit`: de dónde sale el EBIT del puente. */
+  ebitDerivation: ebitDerivationSchema.optional(),
   leases: z.object({
     totalLiability: monetaryFactSchema.nullable(),
     currentLiability: monetaryFactSchema.nullable(),
@@ -170,7 +202,7 @@ export type Capitalization = z.infer<typeof capitalizationSchema>;
 
 export type CapitalizationFacts = Pick<
   Capitalization,
-  "baseFiscalYearEnd" | "reportedEbit"
+  "baseFiscalYearEnd" | "reportedEbit" | "ebitDerivation"
 > & {
   readonly leases: Pick<
     Capitalization["leases"],
@@ -194,8 +226,29 @@ export type CapitalizationContext = {
 const valueOf = (fact: MonetaryFact | null) =>
   fact === null ? null : fact.value;
 
+/** El EBIT del ejercicio base: el publicado o el derivado. */
+function baseEbit(
+  facts: Pick<CapitalizationFacts, "reportedEbit" | "ebitDerivation">,
+): Dec | null {
+  if (facts.reportedEbit !== null) {
+    return parseDecimal(
+      facts.reportedEbit.value,
+      "capitalization.reportedEbit",
+    );
+  }
+
+  const derivation = facts.ebitDerivation;
+
+  return derivation === undefined
+    ? null
+    : parseDecimal(
+        derivation.pretaxIncome.value,
+        "capitalization.ebitDerivation.pretaxIncome",
+      ).plus(frozenInterestValue(derivation.interest));
+}
+
 function buildLedger(
-  reportedEbit: MonetaryFact | null,
+  facts: Pick<CapitalizationFacts, "reportedEbit" | "ebitDerivation">,
   baseRevenue: string,
   leases: LeaseCapitalization,
   rd: RdCapitalization,
@@ -223,16 +276,16 @@ function buildLedger(
       ? decimal(rd.investedCapitalAdjustment, "rd.capital")
       : ZERO;
 
-  const reported =
-    reportedEbit === null
-      ? null
-      : decimal(reportedEbit.value, "capitalization.reportedEbit");
+  const reported = baseEbit(facts);
   const adjusted =
     reported === null ? null : sum([reported, leaseEbit, rdEbit]);
   const revenue = decimal(baseRevenue, "baseRevenue.value");
 
   return {
     ebit: {
+      ...(facts.reportedEbit === null && facts.ebitDerivation !== undefined
+        ? { basis: "pretax_plus_interest" as const }
+        : {}),
       reported:
         reported === null ? null : formatDecimal(reported, "ebit.reported"),
       leaseAdjustment: formatDecimal(leaseEbit, "ebit.leaseAdjustment"),
@@ -281,12 +334,15 @@ export function buildCapitalization(
     lifeTableVersion: RD_AMORTIZABLE_LIFE_VERSION,
     baseFiscalYearEnd: facts.baseFiscalYearEnd,
     reportedEbit: facts.reportedEbit,
+    ...(facts.ebitDerivation === undefined
+      ? {}
+      : { ebitDerivation: facts.ebitDerivation }),
     leases: { ...facts.leases, result: leases },
     researchAndDevelopment: {
       fiscalYears: facts.researchAndDevelopment.fiscalYears,
       result: rd,
     },
-    ledger: buildLedger(facts.reportedEbit, context.baseRevenue, leases, rd),
+    ledger: buildLedger(facts, context.baseRevenue, leases, rd),
   });
 }
 
@@ -319,10 +375,21 @@ export function capitalizationMismatches(
     ],
   ];
 
-  for (const [path, fact] of datedFacts) {
+  for (const [path, fact] of [
+    ...datedFacts,
+    ...ebitDerivationFacts(capitalization),
+  ]) {
     if (fact !== null && fact.asOf !== base) {
       mismatches.push(path);
     }
+  }
+
+  // Un EBIT por puente: el derivado existe sólo donde no hay publicado.
+  if (
+    capitalization.ebitDerivation !== undefined &&
+    capitalization.reportedEbit !== null
+  ) {
+    mismatches.push("capitalization.ebitDerivation");
   }
 
   capitalization.researchAndDevelopment.fiscalYears.forEach((year, index) => {
@@ -367,6 +434,24 @@ export function capitalizationMismatches(
   return mismatches;
 }
 
+function ebitDerivationFacts(
+  capitalization: Pick<Capitalization, "ebitDerivation">,
+): [string, MonetaryFact][] {
+  const derivation = capitalization.ebitDerivation;
+
+  return derivation === undefined
+    ? []
+    : [
+        ["capitalization.ebitDerivation.pretaxIncome", derivation.pretaxIncome],
+        ...derivation.interest.facts.map(
+          (fact, index): [string, MonetaryFact] => [
+            `capitalization.ebitDerivation.interest.facts.${index}`,
+            fact,
+          ],
+        ),
+      ];
+}
+
 /** Los hechos monetarios de la capitalización con su ruta, para los checks. */
 export function listCapitalizationFacts(
   capitalization: Capitalization,
@@ -376,6 +461,10 @@ export function listCapitalizationFacts(
       path: "capitalization.reportedEbit",
       fact: capitalization.reportedEbit,
     },
+    ...ebitDerivationFacts(capitalization).map(([path, fact]) => ({
+      path,
+      fact,
+    })),
     {
       path: "capitalization.leases.totalLiability",
       fact: capitalization.leases.totalLiability,
@@ -420,9 +509,25 @@ export function capitalizationFactsFromSeries(
     return value === undefined ? null : toFact(value);
   };
 
+  const derived =
+    base.items.operating_income === undefined ? ebitWithInterest(base) : null;
+  const toConceptFact = (value: LineItemValue) => ({
+    ...toFact(value),
+    concept: value.concept,
+  });
+
   return {
     baseFiscalYearEnd: base.fiscalYearEnd,
     reportedEbit: item("operating_income"),
+    ...(derived === null || derived.interest === null
+      ? {}
+      : {
+          ebitDerivation: {
+            version: EBIT_FROM_PRETAX_VERSION,
+            pretaxIncome: toConceptFact(derived.ebit.inputs[0]!),
+            interest: freezeInterest(derived.interest, toConceptFact),
+          },
+        }),
     leases: {
       totalLiability: item("operating_lease_liability"),
       currentLiability: item("operating_lease_liability_current"),

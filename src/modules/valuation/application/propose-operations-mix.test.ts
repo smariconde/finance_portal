@@ -58,7 +58,7 @@ function series(
   value = "1400000000",
 ): AnnualFundamentals {
   return {
-    version: "annual-fundamentals-1.3.0",
+    version: "annual-fundamentals-1.4.0",
     fiscalYears: [
       {
         fiscalYearEnd,

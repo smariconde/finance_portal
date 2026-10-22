@@ -461,9 +461,32 @@ carries `interestBasis` (declared by the cost of capital) only when it is not
 gross, so earlier runs keep their hashes. A stored window ingested under another
 selection is downloaded once more (`selectionOutdated`), never blocking.
 Measured on a replica: WMT, CDW, GD, IEX and AAPL `computed`, ZBH
-`requires_review`. Zero debt with evidence and EBIT without operating income
-(`F6-15`) and robust employee options (`F6-16`) are queued with the owner's
-decisions.
+`requires_review`.
+
+Debt is zero only with evidence (`F6-15`,
+[ADR 0054](docs/architecture/adr/0054-zero-debt-evidence-derived-ebit.md)).
+`sec-core-concepts-7.0.0` and `annual-fundamentals-1.4.0` read fourteen **guard**
+concepts no recipe sums —the maturity schedule, notes payable, line of credit—
+each as its own item, because D.R. Horton owes ~5 B in `NotesPayable`,
+capitalizes its interest and is only betrayed by the schedule; the series now
+reads 68 concepts, so the reader splits the lineage read into batches of 64.
+`zero-debt-evidence-1.0.0` needs five fiscal years with revenue, no borrowing or
+guard item other than zero, and interest absent or with coverage at or above the
+**top band floor** of the run's rating table; it is frozen in
+`normalization.facts.zeroDebtEvidence` only when used. `reported-debt-1.1.0`
+applies it only when no recipe closes: `finance_leases_only` or
+`zero_with_evidence` (bridge claim `declared_absent`, naming the rule); with a
+recipe the output is `1.0.0` byte for byte. Without interest in those years the
+coverage is the top floor (`no_interest_expense`, declared), and
+`zero_debt_evidence_consistent` requires the floor to be the run's
+`company_default_spread` row and release —absent when there is no evidence.
+`cash_and_debt` stays unmet, so rigor never reaches `full`. Without
+`OperatingIncomeLoss` the bridge takes pretax plus `netInterestForEbit`
+(`ebit-from-pretax-1.0.0`), frozen in `capitalization.ebitDerivation` and
+recomputed. Engine and methodology versions do not move: every new field is
+optional. Measured on a replica: ADP and ETN `computed` with derived EBIT; ALGN,
+DECK and EXPD resolve zero debt and stop on employee options (`F6-16`, next); DHI
+stays unresolved; 16 stored runs replay.
 
 Since `F6-12` `/valuacion` is only the entry: it enqueues and navigates to
 `/valuacion/[ticker]`, whose `ValuationRunner` follows an open job, announces its state

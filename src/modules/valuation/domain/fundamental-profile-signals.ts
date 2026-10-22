@@ -15,10 +15,10 @@ import {
   type Dec,
 } from "./decimal-policy";
 import {
+  ebitOf,
   interestExpenseOf,
-  netInterestForEbit,
+  type Ebit,
   type InterestExpenseBasis,
-  type InterestReading,
 } from "./interest-expense";
 import {
   profileEvidenceSchema,
@@ -87,59 +87,12 @@ export type FundamentalSignal = {
   readonly inputs: readonly LineItemValue[];
 };
 
-type Ebit = {
-  readonly value: Dec;
-  readonly basis: "operating_income" | "pretax_plus_interest";
-  readonly inputs: readonly LineItemValue[];
-};
-
 function item(year: FiscalYear | undefined, id: LineItemId) {
   return year?.items[id];
 }
 
 function sameCurrency(values: readonly LineItemValue[]): boolean {
   return new Set(values.map((value) => value.currency)).size <= 1;
-}
-
-function ebitOf(year: FiscalYear | undefined): Ebit | null {
-  return ebitWithInterest(year)?.ebit ?? null;
-}
-
-function ebitWithInterest(
-  year: FiscalYear | undefined,
-): { ebit: Ebit; interest: InterestReading | null } | null {
-  const operating = item(year, "operating_income");
-
-  if (operating !== undefined) {
-    return {
-      ebit: {
-        value: parseDecimal(operating.value, "operating_income"),
-        basis: "operating_income",
-        inputs: [operating],
-      },
-      interest: null,
-    };
-  }
-
-  const pretax = item(year, "pretax_income");
-  const interest = netInterestForEbit(year);
-
-  if (
-    pretax === undefined ||
-    interest === null ||
-    !sameCurrency([pretax, ...interest.inputs])
-  ) {
-    return null;
-  }
-
-  return {
-    ebit: {
-      value: parseDecimal(pretax.value, "pretax_income").plus(interest.value),
-      basis: "pretax_plus_interest",
-      inputs: [pretax, ...interest.inputs],
-    },
-    interest,
-  };
 }
 
 const COVERAGE_LIMIT = parseDecimal(DISTRESS_COVERAGE_THRESHOLD, "threshold");

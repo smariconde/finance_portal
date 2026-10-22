@@ -53,7 +53,7 @@ const COMPLETE: LineItemId[] = [
 ];
 
 function series(...years: FiscalYear[]): AnnualFundamentals {
-  return { version: "annual-fundamentals-1.3.0", fiscalYears: years };
+  return { version: "annual-fundamentals-1.4.0", fiscalYears: years };
 }
 
 function fiveYears(items: readonly LineItemId[]): AnnualFundamentals {
