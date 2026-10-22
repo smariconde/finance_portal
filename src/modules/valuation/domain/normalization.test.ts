@@ -5,6 +5,7 @@ import { buildCapitalization } from "./capitalization-bridge";
 import {
   buildNormalization,
   EQUITY_INCLUDING_MINORITY,
+  listNormalizationFacts,
   normalizationFactsFromSeries,
   normalizationMismatches,
   type ConceptFact,
@@ -12,6 +13,7 @@ import {
   type NormalizationFacts,
 } from "./normalization";
 import type { MonetaryFact } from "./valuation-facts";
+import { zeroDebtEvidenceFixture } from "../infrastructure/zero-debt-evidence-fixtures";
 
 const BASE = "2025-12-31";
 const ENDS = [BASE, "2024-12-31", "2023-12-31", "2022-12-31", "2021-12-31"];
@@ -398,6 +400,84 @@ describe("normalization-1.0.0", () => {
   });
 });
 
+describe("normalization with zero-debt evidence", () => {
+  const noDebt = (draft: NormalizationFacts) => {
+    draft.balance.debt.longTermTotal = null;
+    draft.balance.debt.commercialPaper = null;
+    draft.zeroDebtEvidence = zeroDebtEvidenceFixture(BASE);
+  };
+
+  it("resolves invested capital with zero debt and freezes the evidence", () => {
+    const normalization = buildNormalization(facts(noDebt), CONTEXT);
+
+    expect(normalization.debt).toMatchObject({
+      version: "reported-debt-1.1.0",
+      status: "zero_with_evidence",
+      total: "0",
+    });
+    // 3.000 + 100 + 0 − 500 = 2.600; más 200 de arrendamientos.
+    expect(normalization.investedCapital).toMatchObject({
+      status: "resolved",
+      debt: "0",
+      reported: "2600",
+      adjusted: "2800",
+    });
+    expect(normalizationMismatches(normalization, CONTEXT)).toEqual([]);
+  });
+
+  it("lists the evidence among the facts the checks date", () => {
+    const paths = listNormalizationFacts(
+      buildNormalization(facts(noDebt), CONTEXT),
+    ).map((entry) => entry.path);
+
+    expect(paths).toContain(
+      "normalization.facts.zeroDebtEvidence.fiscalYears.4.revenue",
+    );
+  });
+
+  it("rejects evidence carried next to a recipe that closes", () => {
+    const normalization = buildNormalization(
+      facts((draft) => {
+        draft.zeroDebtEvidence = zeroDebtEvidenceFixture(BASE);
+      }),
+      CONTEXT,
+    );
+
+    expect(normalization.debt.version).toBe("reported-debt-1.0.0");
+    expect(normalizationMismatches(normalization, CONTEXT)).toContain(
+      "normalization.facts.zeroDebtEvidence",
+    );
+  });
+
+  it("rejects evidence of another base year or edited to hold", () => {
+    const stale = buildNormalization(
+      facts((draft) => {
+        noDebt(draft);
+        draft.zeroDebtEvidence = zeroDebtEvidenceFixture("2024-12-31");
+      }),
+      CONTEXT,
+    );
+    const edited = buildNormalization(facts(noDebt), CONTEXT);
+    edited.facts.zeroDebtEvidence = zeroDebtEvidenceFixture(BASE, {
+      interest: "100",
+    });
+
+    expect(normalizationMismatches(stale, CONTEXT)).toContain(
+      "normalization.facts.zeroDebtEvidence.fiscalYears.0",
+    );
+    expect(normalizationMismatches(edited, CONTEXT)).toEqual(
+      expect.arrayContaining([
+        "normalization.facts.zeroDebtEvidence",
+        "normalization.debt",
+      ]),
+    );
+  });
+
+  it("does not carry the evidence when there is none", () => {
+    expect("zeroDebtEvidence" in facts()).toBe(false);
+  });
+});
+
 describe("normalizationFactsFromSeries", () => {
   function item(item: string, concept: string, value: string, asOf: string) {
     return {
@@ -416,7 +496,7 @@ describe("normalizationFactsFromSeries", () => {
 
   it("keeps the concept the series chose and up to four previous years", () => {
     const series = {
-      version: "annual-fundamentals-1.3.0",
+      version: "annual-fundamentals-1.4.0",
       fiscalYears: [...ENDS, "2020-12-31", "2019-12-31"].map((end) => ({
         fiscalYearEnd: end,
         items: {
@@ -457,7 +537,7 @@ describe("normalizationFactsFromSeries", () => {
   it("has nothing to normalize without a fiscal year", () => {
     expect(
       normalizationFactsFromSeries(
-        { version: "annual-fundamentals-1.3.0", fiscalYears: [] },
+        { version: "annual-fundamentals-1.4.0", fiscalYears: [] },
         (value) => money(value.value),
       ),
     ).toBeNull();

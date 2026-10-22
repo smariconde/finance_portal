@@ -505,7 +505,7 @@ for (const report of reports) {
       "  EBIT",
       ledger.ebit.reported === null
         ? "no publicado"
-        : `${ledger.ebit.reported} + ${ledger.ebit.leaseAdjustment} + ${ledger.ebit.rdAdjustment} = ${ledger.ebit.adjusted} · margen ${ledger.ebit.adjustedMargin}`,
+        : `${ledger.ebit.reported}${ledger.ebit.basis === undefined ? "" : ` (${capitalization.ebitDerivation?.version}: antes de impuestos + intereses ${capitalization.ebitDerivation?.interest.basis})`} + ${ledger.ebit.leaseAdjustment} + ${ledger.ebit.rdAdjustment} = ${ledger.ebit.adjusted} · margen ${ledger.ebit.adjustedMargin}`,
     );
     log(
       "  Δ capital · Δ deuda",
@@ -554,7 +554,13 @@ for (const report of reports) {
                   .join(", ")}`
               : ""
           }`
-        : `sin resolver · ${debt.reason} · publica ${debt.present.join(", ") || "nada"}`,
+        : debt.status === "zero_with_evidence"
+          ? `0 · sin deuda con evidencia (${debt.evidence})${debt.reportedZero.length > 0 ? ` · en cero: ${debt.reportedZero.join(", ")}` : ""}`
+          : `sin resolver · ${debt.reason} · publica ${debt.present.join(", ") || "nada"}${
+              assessment.zeroDebt?.status === "not_met"
+                ? ` · deuda cero: ${assessment.zeroDebt.reason}`
+                : ""
+            }`,
     );
     log(
       "  caja excedente",

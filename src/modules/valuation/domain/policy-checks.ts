@@ -30,6 +30,7 @@ import {
   type ValuationInput,
 } from "./valuation-input";
 import { derivedAssumptionsMismatches } from "./derived-assumptions";
+import { zeroDebtEvidenceHasInterest } from "./zero-debt-evidence";
 
 /**
  * Policy checks del motor (`docs/valuation/methodology.md`, sección "Policy
@@ -279,17 +280,24 @@ function checkNormalization(input: ValuationInput): PolicyCheck[] {
 
   const claimMatches = (
     claim: ValuationInput["bridge"]["debt"],
-    derived: { status: "resolved"; total: string } | { status: "unresolved" },
+    derived:
+      | { status: "resolved"; total: string }
+      | { status: "unresolved" }
+      | { status: "zero_with_evidence" },
     path: string,
   ) =>
-    derived.status === "resolved"
-      ? claim.status === "reported" &&
-        claim.amount !== null &&
-        claim.amount.asOf === base &&
-        parseDecimal(claim.amount.value, path).eq(
-          parseDecimal(derived.total, "normalization.total"),
-        )
-      : claim.status !== "reported";
+    // Deuda cero con evidencia (ADR 0054): vale cero y lo dice, como una
+    // ausencia declarada; nunca `reported` con un monto que nadie publicó.
+    derived.status === "zero_with_evidence"
+      ? claim.status === "declared_absent"
+      : derived.status === "resolved"
+        ? claim.status === "reported" &&
+          claim.amount !== null &&
+          claim.amount.asOf === base &&
+          parseDecimal(claim.amount.value, path).eq(
+            parseDecimal(derived.total, "normalization.total"),
+          )
+        : claim.status !== "reported";
 
   if (!claimMatches(input.bridge.debt, normalization.debt, "bridge.debt")) {
     mismatches.push("bridge.debt");
@@ -440,6 +448,63 @@ function checkDerivedAssumptions(input: ValuationInput): PolicyCheck[] {
   ];
 }
 
+/**
+ * La evidencia de deuda cero y el costo de capital cuentan la misma historia
+ * (`F6-15`, ADR 0054): el piso de la evidencia es la banda que la corrida usó
+ * —misma release, misma fila—, y una cobertura `no_interest_expense` sólo
+ * existe con evidencia sin intereses y vale ese piso. Sin evidencia ni esa
+ * cobertura no hay check: una corrida anterior queda igual.
+ */
+function checkZeroDebtEvidence(input: ValuationInput): PolicyCheck[] {
+  const evidence = input.normalization.facts.zeroDebtEvidence;
+  const { coverage } = input.costOfCapital;
+  const noInterest = coverage.interestBasis === "no_interest_expense";
+
+  if (evidence === undefined && !noInterest) {
+    return [];
+  }
+
+  const mismatches: string[] = [];
+  const band = input.costOfCapital.parameters.find(
+    (parameter) => parameter.name === "company_default_spread",
+  );
+
+  if (evidence === undefined) {
+    mismatches.push("normalization.facts.zeroDebtEvidence");
+  } else {
+    const floor = evidence.coverageFloor;
+
+    if (
+      band === undefined ||
+      band.releaseId !== floor.releaseId ||
+      band.rowKey !== floor.rowKey
+    ) {
+      mismatches.push("normalization.facts.zeroDebtEvidence.coverageFloor");
+    }
+
+    if (
+      noInterest &&
+      (zeroDebtEvidenceHasInterest(evidence) ||
+        !parseDecimal(coverage.value, "costOfCapital.coverage").eq(
+          parseDecimal(floor.value, "coverageFloor"),
+        ) ||
+        coverage.fiscalYearEnd !== evidence.fiscalYears[0]?.fiscalYearEnd)
+    ) {
+      mismatches.push("costOfCapital.coverage");
+    }
+  }
+
+  return [
+    check(
+      "zero_debt_evidence_consistent",
+      "reject",
+      mismatches.length === 0,
+      "Zero-debt evidence must be measured against the run's own top rating band, and a no-interest coverage exists only with evidence that has no interest.",
+      mismatches,
+    ),
+  ];
+}
+
 /** Checks que dependen sólo del snapshot: corren antes de calcular. */
 export function checkValuationInput(input: ValuationInput): PolicyCheck[] {
   const checks: PolicyCheck[] = [
@@ -448,6 +513,7 @@ export function checkValuationInput(input: ValuationInput): PolicyCheck[] {
     ...checkQualitativeDecisions(input),
     ...checkCapitalization(input),
     ...checkNormalization(input),
+    ...checkZeroDebtEvidence(input),
     ...checkEmployeeEquity(input),
     ...checkFailureRisk(input),
     ...checkScenarioDeclarations(input),

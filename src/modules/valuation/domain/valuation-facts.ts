@@ -36,3 +36,14 @@ export const monetaryFactSchema = z.object({
 });
 
 export type MonetaryFact = z.infer<typeof monetaryFactSchema>;
+
+/**
+ * Un hecho monetario con el concepto calificado que lo aportó, como lo eligió
+ * la serie: las reglas que componen una partida —la deuda, el EBIT— necesitan
+ * saber cuál vino de dónde.
+ */
+export const conceptFactSchema = monetaryFactSchema.extend({
+  concept: z.string().trim().min(1).max(256),
+});
+
+export type ConceptFact = z.infer<typeof conceptFactSchema>;

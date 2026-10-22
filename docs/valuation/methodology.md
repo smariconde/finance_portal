@@ -750,6 +750,14 @@ adjusted_ebit       = ebit + imputed_interest + rd_0 − amortization
 Δ debt              = lease_debt              (claim leaseDebt del puente)
 ```
 
+- **EBIT sin resultado operativo** (`ebit-from-pretax-1.0.0`, `F6-15`,
+  [ADR 0054](../architecture/adr/0054-zero-debt-evidence-derived-ebit.md)):
+  si el ejercicio base no publica `OperatingIncomeLoss`, el EBIT es el
+  resultado antes de impuestos más los intereses de `interest-expense-1.0.0`
+  (un neto de ingreso se resta). `capitalization.ebitDerivation` congela los
+  hechos y la base, `ledger.ebit.basis` dice `pretax_plus_interest`, y
+  `capitalization_recomputed` lo recalcula; con resultado operativo publicado,
+  ninguno de los dos campos existe.
 - **Arrendamientos** (`lease-capitalization-1.0.0`): el total publicado o la
   suma de sus dos partes del mismo cierre; una parte sola no es el pasivo. El
   interés va al costo de deuda antes de impuestos de la propia corrida.
@@ -815,6 +823,19 @@ sales_to_capital_adj     = ventas / invested_capital_adj
   primera que cierra; los arrendamientos financieros se suman salvo que la no
   corriente ya los incluya, y un préstamo igual al centavo a los vencimientos
   corrientes es el mismo saldo dos veces. Sin receta, `unresolved`.
+  Desde `F6-15` (`reported-debt-1.1.0`, [ADR 0054](../architecture/adr/0054-zero-debt-evidence-derived-ebit.md)),
+  sin receta y con la evidencia de `zero-debt-evidence-1.0.0` —cinco
+  ejercicios sin préstamos ni partidas de la guardia (cronograma de
+  vencimientos, pagarés, línea de crédito) distintas de cero, y con intereses
+  nulos o con cobertura en la banda más alta de la tabla de la corrida—, la
+  deuda son los arrendamientos financieros (`finance_leases_only`) o cero
+  (`zero_with_evidence`, claim `declared_absent`). La evidencia viaja en
+  `normalization.facts.zeroDebtEvidence` sólo cuando se usa, y el check
+  `zero_debt_evidence_consistent` exige que su piso sea la banda que usó el
+  costo de capital. Sin gasto de intereses en esos cinco ejercicios, la
+  cobertura es el piso de la banda más alta (`no_interest_expense`,
+  declaración `coverage_no_interest_expense`). La completitud `cash_and_debt`
+  no se cumple, así que el rigor no llega a `full`.
 - **Caja** (`excess-cash-1.0.0`): toda es excedente, títulos no corrientes
   incluidos.
 - **Capital invertido** (`invested-capital-1.0.0`): lado de la financiación,

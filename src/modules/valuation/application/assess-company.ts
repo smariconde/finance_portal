@@ -19,9 +19,18 @@ import {
 } from "../domain/capitalization-bridge";
 import {
   buildNormalization,
+  debtInputOf,
   normalizationFactsFromSeries,
   type Normalization,
 } from "../domain/normalization";
+import { resolveReportedDebt } from "../domain/reported-debt";
+import {
+  assessZeroDebtEvidence,
+  listZeroDebtEvidenceFacts,
+  zeroDebtEvidenceHasInterest,
+  type ZeroDebtAssessment,
+  type ZeroDebtEvidence,
+} from "../domain/zero-debt-evidence";
 import {
   buildAnnualFundamentals,
   chooseFiscalYearAnchor,
@@ -48,7 +57,9 @@ import {
   buildCostOfCapital,
   COST_OF_CAPITAL_VERSION,
   marginalTaxRateOf,
+  topCoverageFloor,
   type CostOfCapitalResult,
+  type CoverageEvidence,
   type ReferenceReading,
 } from "../domain/cost-of-capital";
 import type { MonetaryFact } from "../domain/valuation-facts";
@@ -198,6 +209,12 @@ export type CompanyAssessment = {
    * `null` sin capitalización.
    */
   readonly normalization: Normalization | null;
+  /**
+   * La evidencia de deuda cero (`F6-15`): lo que la regla encontró en la serie,
+   * se haya usado o no. La normalización la congela sólo cuando ninguna receta
+   * cierra. `null` sin serie anual; ausente en una evaluación armada a mano.
+   */
+  readonly zeroDebt?: ZeroDebtAssessment | null;
 };
 
 function isVisible(
@@ -353,6 +370,24 @@ export async function assessCompany(
       completenessCheck(completeness, "structural_inputs").status === "met",
   });
 
+  const readings = await dependencies.costOfCapitalReadings(query);
+  const zeroDebt =
+    series === null
+      ? null
+      : assessZeroDebtEvidence(
+          series,
+          topCoverageFloor(readings.ratings),
+          (item) => ({
+            ...seriesFact(item, request.fundamentalsSourceId),
+            concept: item.concept,
+          }),
+        );
+  const zeroDebtEvidence =
+    zeroDebt?.status === "met" &&
+    needsZeroDebtEvidence(series, request.fundamentalsSourceId)
+      ? zeroDebt.evidence
+      : null;
+
   const costOfCapital: CostOfCapitalResult = FINANCIAL_PROFILES.has(
     selection.assetProfile ?? "",
   )
@@ -368,8 +403,14 @@ export async function assessCompany(
         currency: series?.fiscalYears[0]?.items.revenue?.currency ?? "unknown",
         industryKey: industry.status === "mapped" ? industry.industryKey : null,
         listingCountry: request.listingCountry,
-        ...(await dependencies.costOfCapitalReadings(query)),
-        coverage: series === null ? null : latestInterestCoverage(series),
+        ...readings,
+        coverage:
+          zeroDebtEvidence !== null &&
+          !zeroDebtEvidenceHasInterest(zeroDebtEvidence)
+            ? noInterestCoverage(zeroDebtEvidence)
+            : series === null
+              ? null
+              : latestInterestCoverage(series),
         operationsMix,
       });
 
@@ -422,7 +463,50 @@ export async function assessCompany(
       costOfCapital.status === "computed"
         ? marginalTaxRateOf(costOfCapital.costOfCapital)
         : null,
+      zeroDebtEvidence,
     ),
+    zeroDebt,
+  };
+}
+
+/**
+ * ¿La deuda del ejercicio base necesita la evidencia? Sólo cuando ninguna
+ * receta cierra: con una receta, la deuda es la publicada y la evidencia no
+ * viaja, así que el snapshot queda como antes.
+ */
+function needsZeroDebtEvidence(
+  series: AnnualFundamentals | null,
+  sourceId: string,
+): boolean {
+  const facts =
+    series === null
+      ? null
+      : normalizationFactsFromSeries(series, (item) =>
+          seriesFact(item, sourceId),
+        );
+  const debt =
+    facts === null
+      ? null
+      : resolveReportedDebt(debtInputOf(facts.balance.debt));
+
+  return debt?.status === "unresolved" && debt.reason === "no_recipe";
+}
+
+/**
+ * La cobertura de quien no pagó intereses en los cinco ejercicios de la
+ * evidencia: el piso de la banda más alta, declarado como tal.
+ */
+function noInterestCoverage(evidence: ZeroDebtEvidence): CoverageEvidence {
+  const facts = listZeroDebtEvidenceFacts(evidence, "zeroDebtEvidence");
+
+  return {
+    value: evidence.coverageFloor.value,
+    fiscalYearEnd: evidence.fiscalYears[0]!.fiscalYearEnd,
+    fromLatestFiscalYear: true,
+    availableAt: facts
+      .map((entry) => entry.fact.availableAt)
+      .sort((left, right) => right.localeCompare(left))[0]!,
+    interestBasis: "no_interest_expense",
   };
 }
 
@@ -436,6 +520,7 @@ function assessNormalization(
   sourceId: string,
   capitalization: Capitalization | null,
   marginalTaxRate: string | null,
+  zeroDebtEvidence: ZeroDebtEvidence | null,
 ): Normalization | null {
   const revenue = series?.fiscalYears[0]?.items.revenue;
 
@@ -443,8 +528,10 @@ function assessNormalization(
     return null;
   }
 
-  const facts = normalizationFactsFromSeries(series, (item) =>
-    seriesFact(item, sourceId),
+  const facts = normalizationFactsFromSeries(
+    series,
+    (item) => seriesFact(item, sourceId),
+    zeroDebtEvidence,
   );
 
   return facts === null

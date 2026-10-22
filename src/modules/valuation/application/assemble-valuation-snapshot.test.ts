@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { marginalTaxRateOf } from "../domain/cost-of-capital";
+import { buildNormalization } from "../domain/normalization";
+import { zeroDebtEvidenceFixture } from "../infrastructure/zero-debt-evidence-fixtures";
 
 import { DEMO_VALUATION_INPUT } from "../infrastructure/demo-valuation-fixtures";
 import type { AnnualFundamentals } from "../domain/annual-fundamentals";
@@ -37,7 +40,7 @@ function revenue(fiscalYearEnd: string, value: string) {
 }
 
 const SERIES: AnnualFundamentals = {
-  version: "annual-fundamentals-1.3.0",
+  version: "annual-fundamentals-1.4.0",
   fiscalYears: [
     revenue("2024-12-31", demo.baseRevenue.value),
     revenue("2023-12-31", "90000000"),
@@ -211,6 +214,59 @@ describe("valuation-snapshot-1.0.0", () => {
     expect(
       run.result?.checks.find(
         (check) => check.id === "assumptions_derived_recomputed",
+      )?.status,
+    ).toBe("passed");
+  });
+
+  it("declares zero debt with evidence and values it with every check passing", () => {
+    const band = demo.costOfCapital.parameters.find(
+      (parameter) => parameter.name === "company_default_spread",
+    )!;
+    const facts = structuredClone(demo.normalization.facts);
+    for (const key of Object.keys(
+      facts.balance.debt,
+    ) as (keyof typeof facts.balance.debt)[]) {
+      facts.balance.debt[key] = null;
+    }
+    facts.zeroDebtEvidence = zeroDebtEvidenceFixture(facts.baseFiscalYearEnd, {
+      floor: {
+        value: "8.5",
+        datasetId: band.datasetId,
+        releaseId: band.releaseId,
+        rowKey: band.rowKey,
+        availableAt: band.availableAt,
+      },
+    });
+    const normalization = buildNormalization(facts, {
+      baseRevenue: demo.baseRevenue.value,
+      marginalTaxRate: marginalTaxRateOf(demo.costOfCapital),
+      capitalization: demo.capitalization,
+    });
+
+    const result = assembleValuationSnapshot(
+      request({ assessment: { ...ASSESSMENT, normalization } }),
+    );
+
+    expect(result.status).toBe("assembled");
+    if (result.status !== "assembled") return;
+    expect(result.input.bridge.debt).toMatchObject({
+      status: "declared_absent",
+      amount: null,
+    });
+    expect(result.input.bridge.debt.rationale).toContain(
+      "zero-debt-evidence-1.0.0",
+    );
+
+    const run = runValuation(result.input, {
+      now: () => "2026-10-21T00:00:00.000Z",
+      newValuationRunId: () => "00000000-0000-4000-8000-0000000000fb",
+    });
+
+    expect(run.failure).toBeNull();
+    expect(run.status).not.toBe("rejected");
+    expect(
+      run.result?.checks.find(
+        (check) => check.id === "zero_debt_evidence_consistent",
       )?.status,
     ).toBe("passed");
   });

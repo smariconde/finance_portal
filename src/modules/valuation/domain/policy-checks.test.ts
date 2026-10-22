@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { DEMO_VALUATION_INPUT } from "../infrastructure/demo-valuation-fixtures";
+import { zeroDebtEvidenceFixture } from "../infrastructure/zero-debt-evidence-fixtures";
 import { computeFcff } from "./fcff";
 import {
   assertNoRejections,
@@ -375,6 +376,112 @@ describe("valuation policy checks", () => {
     expect(failed(missing, "required_inputs_present")?.status).toBe("failed");
     expect(failed(declared, "normalization_recomputed")?.status).toBe("passed");
     expect(failed(declared, "required_inputs_present")?.status).toBe("passed");
+  });
+
+  describe("zero-debt evidence", () => {
+    const band = DEMO_VALUATION_INPUT.costOfCapital.parameters.find(
+      (parameter) => parameter.name === "company_default_spread",
+    )!;
+    const floor = {
+      value: "8.5",
+      datasetId: band.datasetId,
+      releaseId: band.releaseId,
+      rowKey: band.rowKey,
+      availableAt: band.availableAt,
+    };
+
+    const withEvidence = (
+      mutate: (candidate: ValuationInput) => void = () => {},
+      options: { interest?: string; floor?: typeof floor } = {},
+    ): ValuationInput =>
+      draft((candidate) => {
+        const facts: NormalizationFacts = structuredClone(
+          candidate.normalization.facts,
+        );
+        for (const key of Object.keys(
+          facts.balance.debt,
+        ) as (keyof NormalizationFacts["balance"]["debt"])[]) {
+          facts.balance.debt[key] = null;
+        }
+        facts.zeroDebtEvidence = zeroDebtEvidenceFixture(
+          facts.baseFiscalYearEnd,
+          { floor: options.floor ?? floor, interest: options.interest },
+        );
+        candidate.normalization = buildNormalization(facts, {
+          baseRevenue: candidate.baseRevenue.value,
+          marginalTaxRate: marginalTaxRateOf(candidate.costOfCapital),
+          capitalization: candidate.capitalization,
+        });
+        candidate.bridge.debt = {
+          status: "declared_absent",
+          amount: null,
+          rationale:
+            "zero-debt-evidence-1.0.0: no borrowing in five fiscal years.",
+        };
+        mutate(candidate);
+      });
+
+    it("values debt at zero, declared, against the run's own top band", () => {
+      const input = withEvidence();
+
+      expect(input.normalization.debt.status).toBe("zero_with_evidence");
+      expect(failed(input, "zero_debt_evidence_consistent")?.status).toBe(
+        "passed",
+      );
+      expect(failed(input, "normalization_recomputed")?.status).toBe("passed");
+      expect(failed(input, "required_inputs_present")?.status).toBe("passed");
+    });
+
+    it("never reports an amount nobody published", () => {
+      const input = withEvidence((candidate) => {
+        candidate.bridge.debt = DEMO_VALUATION_INPUT.bridge.debt;
+      });
+
+      expect(failed(input, "normalization_recomputed")?.subjects).toEqual([
+        "bridge.debt",
+      ]);
+    });
+
+    it("rejects a floor from a band the run did not use", () => {
+      const input = withEvidence(() => {}, {
+        floor: { ...floor, rowKey: "large-nonfinancial-aa" },
+      });
+
+      expect(failed(input, "zero_debt_evidence_consistent")?.subjects).toEqual([
+        "normalization.facts.zeroDebtEvidence.coverageFloor",
+      ]);
+    });
+
+    it("admits a no-interest coverage only with evidence that has no interest", () => {
+      const noInterest = (candidate: ValuationInput) => {
+        candidate.costOfCapital.coverage = {
+          ...candidate.costOfCapital.coverage,
+          value: floor.value,
+          fiscalYearEnd: candidate.normalization.facts.baseFiscalYearEnd,
+          fromLatestFiscalYear: true,
+          interestBasis: "no_interest_expense",
+        };
+      };
+      const consistent = withEvidence(noInterest);
+      const charged = withEvidence(noInterest, { interest: "2.5" });
+      const unsupported = draft(noInterest);
+
+      expect(failed(consistent, "zero_debt_evidence_consistent")?.status).toBe(
+        "passed",
+      );
+      expect(
+        failed(charged, "zero_debt_evidence_consistent")?.subjects,
+      ).toEqual(["costOfCapital.coverage"]);
+      expect(
+        failed(unsupported, "zero_debt_evidence_consistent")?.subjects,
+      ).toEqual(["normalization.facts.zeroDebtEvidence"]);
+    });
+
+    it("adds no check to a run without evidence", () => {
+      expect(
+        failed(DEMO_VALUATION_INPUT, "zero_debt_evidence_consistent"),
+      ).toBeUndefined();
+    });
   });
 
   it("rejects a terminal reinvestment the growth cannot sustain", () => {

@@ -1,9 +1,12 @@
-import { parseDecimal, ZERO, type Dec } from "./decimal-policy";
+import { z } from "zod";
+
+import { formatDecimal, parseDecimal, ZERO, type Dec } from "./decimal-policy";
 import type {
   FiscalYear,
   LineItemId,
   LineItemValue,
 } from "./annual-fundamentals";
+import { conceptFactSchema, type ConceptFact } from "./valuation-facts";
 
 /**
  * El gasto de intereses de un ejercicio (`F6-14`,
@@ -30,8 +33,14 @@ import type {
  */
 export const INTEREST_EXPENSE_VERSION = "interest-expense-1.0.0";
 
-export type InterestExpenseBasis =
-  "gross" | "debt_plus_finance_leases" | "net_nonoperating" | "interest_paid";
+export const interestExpenseBasisSchema = z.enum([
+  "gross",
+  "debt_plus_finance_leases",
+  "net_nonoperating",
+  "interest_paid",
+]);
+
+export type InterestExpenseBasis = z.infer<typeof interestExpenseBasisSchema>;
 
 export type InterestReading = {
   /** Positivo es gasto. */
@@ -136,4 +145,103 @@ export function netInterestForEbit(
   }
 
   return paid(year);
+}
+
+export type Ebit = {
+  readonly value: Dec;
+  readonly basis: "operating_income" | "pretax_plus_interest";
+  readonly inputs: readonly LineItemValue[];
+};
+
+/**
+ * El EBIT de un ejercicio: el resultado operativo publicado y, sin él, el
+ * resultado antes de impuestos más `netInterestForEbit`. Sin ninguno, `null`.
+ */
+export function ebitWithInterest(
+  year: FiscalYear | undefined,
+): { ebit: Ebit; interest: InterestReading | null } | null {
+  const operating = item(year, "operating_income");
+
+  if (operating !== undefined) {
+    return {
+      ebit: {
+        value: value(operating),
+        basis: "operating_income",
+        inputs: [operating],
+      },
+      interest: null,
+    };
+  }
+
+  const pretax = item(year, "pretax_income");
+  const interest = netInterestForEbit(year);
+
+  if (
+    pretax === undefined ||
+    interest === null ||
+    !sameCurrency([pretax, ...interest.inputs])
+  ) {
+    return null;
+  }
+
+  return {
+    ebit: {
+      value: value(pretax).plus(interest.value),
+      basis: "pretax_plus_interest",
+      inputs: [pretax, ...interest.inputs],
+    },
+    interest,
+  };
+}
+
+export function ebitOf(year: FiscalYear | undefined): Ebit | null {
+  return ebitWithInterest(year)?.ebit ?? null;
+}
+
+/**
+ * Una lectura de intereses congelada en el snapshot (`F6-15`): la base y los
+ * hechos que la sostienen. El monto no se guarda: se recalcula con
+ * `frozenInterestValue`, así que un monto escrito a mano no existe.
+ */
+export const frozenInterestSchema = z
+  .object({
+    basis: interestExpenseBasisSchema,
+    facts: z.array(conceptFactSchema).min(1).max(2),
+  })
+  .superRefine((reading, context) => {
+    if (
+      reading.basis !== "debt_plus_finance_leases" &&
+      reading.facts.length !== 1
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["facts"],
+        message: "Only debt plus finance leases reads two facts.",
+      });
+    }
+  });
+
+export type FrozenInterest = z.infer<typeof frozenInterestSchema>;
+
+/** Positivo es gasto: el neto se lee con el signo de un ingreso. */
+export function frozenInterestValue(reading: FrozenInterest): Dec {
+  const total = reading.facts.reduce(
+    (sum, fact, index) =>
+      sum.plus(parseDecimal(fact.value, `interest.facts.${index}`)),
+    ZERO,
+  );
+
+  return reading.basis === "net_nonoperating" ? total.negated() : total;
+}
+
+/** Congela una lectura de la serie con la provenance de su fuente. */
+export function freezeInterest(
+  reading: InterestReading,
+  toFact: (item: LineItemValue) => ConceptFact,
+): FrozenInterest {
+  return { basis: reading.basis, facts: reading.inputs.map(toFact) };
+}
+
+export function formatInterest(reading: FrozenInterest, path: string): string {
+  return formatDecimal(frozenInterestValue(reading), path);
 }

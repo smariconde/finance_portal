@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 
+import { zeroDebtEvidenceFixture } from "../infrastructure/zero-debt-evidence-fixtures";
 import {
+  REPORTED_DEBT_EVIDENCE_VERSION,
   REPORTED_DEBT_VERSION,
   resolveReportedDebt,
   type DebtComponentKey,
   type ReportedDebtInput,
 } from "./reported-debt";
+import { ZERO_DEBT_EVIDENCE_VERSION } from "./zero-debt-evidence";
 
 const CONCEPTS: Record<DebtComponentKey, string> = {
   longTermTotal: "us-gaap:LongTermDebt",
@@ -220,5 +223,88 @@ describe("reported-debt-1.0.0", () => {
       status: "resolved",
       total: "0",
     });
+  });
+});
+
+describe("reported-debt-1.1.0", () => {
+  const evidence = zeroDebtEvidenceFixture("2025-12-31");
+
+  it("is zero with evidence and no component at all (Intuitive Surgical)", () => {
+    expect(resolveReportedDebt(debt({}), evidence)).toStrictEqual({
+      version: REPORTED_DEBT_EVIDENCE_VERSION,
+      status: "zero_with_evidence",
+      evidence: ZERO_DEBT_EVIDENCE_VERSION,
+      reportedZero: [],
+      total: "0",
+    });
+  });
+
+  it("names the components reported at zero", () => {
+    expect(
+      resolveReportedDebt(debt({ shortTermBorrowings: "0" }), evidence),
+    ).toMatchObject({
+      status: "zero_with_evidence",
+      reportedZero: ["shortTermBorrowings"],
+    });
+  });
+
+  it("takes finance leases as the debt when they are all there is (Vertex)", () => {
+    expect(
+      resolveReportedDebt(
+        debt({ financeLeases: "112.2", commercialPaper: "0" }),
+        evidence,
+      ),
+    ).toStrictEqual({
+      version: REPORTED_DEBT_EVIDENCE_VERSION,
+      status: "resolved",
+      recipe: "finance_leases_only",
+      included: [
+        {
+          component: "financeLeases",
+          concept: CONCEPTS.financeLeases,
+          amount: "112.2",
+        },
+      ],
+      excluded: [
+        {
+          component: "commercialPaper",
+          concept: CONCEPTS.commercialPaper,
+          reason: "reported_zero",
+        },
+      ],
+      total: "112.2",
+    });
+  });
+
+  it("does not use the evidence against a borrowing with an amount (Moderna)", () => {
+    expect(
+      resolveReportedDebt(
+        debt({ longTermNoncurrent: "590", financeLeases: "45" }),
+        evidence,
+      ),
+    ).toStrictEqual({
+      version: REPORTED_DEBT_VERSION,
+      status: "unresolved",
+      reason: "no_recipe",
+      present: ["longTermNoncurrent", "financeLeases"],
+    });
+  });
+
+  it("does not use evidence that no longer holds", () => {
+    const material = zeroDebtEvidenceFixture("2025-12-31", { interest: "100" });
+
+    expect(resolveReportedDebt(debt({}), material)).toMatchObject({
+      version: REPORTED_DEBT_VERSION,
+      status: "unresolved",
+    });
+  });
+
+  it("keeps the 1.0.0 answer byte for byte when a recipe closes", () => {
+    const input = debt({ longTermTotal: "1500", commercialPaper: "100" });
+
+    expect(resolveReportedDebt(input, evidence)).toStrictEqual(
+      resolveReportedDebt(input),
+    );
+    expect(resolveReportedDebt(input).version).toBe(REPORTED_DEBT_VERSION);
   });
 });

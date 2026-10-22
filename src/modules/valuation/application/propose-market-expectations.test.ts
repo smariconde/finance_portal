@@ -59,7 +59,7 @@ const TEN_K = `<html><body>
 
 function series(): AnnualFundamentals {
   return {
-    version: "annual-fundamentals-1.3.0",
+    version: "annual-fundamentals-1.4.0",
     fiscalYears: [
       {
         fiscalYearEnd: "2025-09-27",

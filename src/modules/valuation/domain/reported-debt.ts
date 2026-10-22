@@ -7,6 +7,11 @@ import {
   sum,
   ZERO,
 } from "./decimal-policy";
+import {
+  ZERO_DEBT_EVIDENCE_VERSION,
+  zeroDebtShortfall,
+  type ZeroDebtEvidence,
+} from "./zero-debt-evidence";
 
 /**
  * Deuda reportada del ejercicio base (`F4-03`,
@@ -23,8 +28,16 @@ import {
  *
  * Sin receta, `unresolved`: la ausencia de una etiqueta no prueba que no haya
  * deuda, así que nunca vale cero (`TM-05`).
+ *
+ * `1.1.0` (`F6-15`, ADR 0054): sin receta y con la evidencia de
+ * `zero-debt-evidence-1.0.0`, la deuda son los arrendamientos financieros si
+ * se publican (`finance_leases_only`, Vertex) y cero si no (`zero_with_evidence`).
+ * Sólo esas dos salidas llevan `1.1.0`: donde una receta cierra o no hay
+ * evidencia, la salida es la de `1.0.0` byte por byte, y una corrida anterior
+ * conserva su hash.
  */
 export const REPORTED_DEBT_VERSION = "reported-debt-1.0.0";
+export const REPORTED_DEBT_EVIDENCE_VERSION = "reported-debt-1.1.0";
 
 /**
  * La no corriente que ya incluye los arrendamientos financieros: con ella, la
@@ -51,6 +64,8 @@ export const debtRecipeSchema = z.enum([
   "current_plus_noncurrent",
   "long_term_total_plus_short_term",
   "noncurrent_plus_current_maturities",
+  /** Sin préstamos con evidencia: la deuda son los arrendamientos financieros. */
+  "finance_leases_only",
 ]);
 
 export type DebtRecipe = z.infer<typeof debtRecipeSchema>;
@@ -64,13 +79,15 @@ export const debtExclusionReasonSchema = z.enum([
   "short_term_borrowings_preferred",
   /** Publicado, pero la receta elegida no lo lee: otra partida ya lo cubre. */
   "not_in_recipe",
+  /** Publicado en cero, con la evidencia de deuda cero (`1.1.0`). */
+  "reported_zero",
 ]);
 
 const conceptSchema = z.string().trim().min(1).max(256);
 
 export const reportedDebtSchema = z.discriminatedUnion("status", [
   z.object({
-    version: z.literal(REPORTED_DEBT_VERSION),
+    version: z.enum([REPORTED_DEBT_VERSION, REPORTED_DEBT_EVIDENCE_VERSION]),
     status: z.literal("resolved"),
     recipe: debtRecipeSchema,
     included: z
@@ -101,6 +118,14 @@ export const reportedDebtSchema = z.discriminatedUnion("status", [
     /** Componentes publicados: dice qué había cuando ninguna receta cerró. */
     present: z.array(debtComponentKeySchema).max(7),
   }),
+  z.object({
+    version: z.literal(REPORTED_DEBT_EVIDENCE_VERSION),
+    status: z.literal("zero_with_evidence"),
+    evidence: z.literal(ZERO_DEBT_EVIDENCE_VERSION),
+    /** Componentes del ejercicio base publicados en cero. */
+    reportedZero: z.array(debtComponentKeySchema).max(7),
+    total: engineDecimalSchema,
+  }),
 ]);
 
 export type ReportedDebt = z.infer<typeof reportedDebtSchema>;
@@ -130,20 +155,92 @@ const RECIPES: readonly {
   },
 ];
 
-/** Aplica la primera receta que cierra. Pura. */
-export function resolveReportedDebt(input: ReportedDebtInput): ReportedDebt {
+/**
+ * Sin receta: con evidencia de deuda cero, los arrendamientos financieros o
+ * cero; sin ella, `no_recipe`. Un componente de préstamos publicado con monto
+ * no deja usar la evidencia, aunque la evidencia diga que no lo hay.
+ */
+function withoutRecipe(
+  input: ReportedDebtInput,
+  present: DebtComponentKey[],
+  evidence: ZeroDebtEvidence | null,
+): ReportedDebt {
+  const unresolved: ReportedDebt = {
+    version: REPORTED_DEBT_VERSION,
+    status: "unresolved",
+    reason: "no_recipe",
+    present,
+  };
+
+  if (evidence === null || zeroDebtShortfall(evidence) !== null) {
+    return unresolved;
+  }
+
+  const borrowings = present.filter((key) => key !== "financeLeases");
+  const amounts = new Map(
+    present.map((key) => [key, parseDecimal(input[key]!.value, `debt.${key}`)]),
+  );
+
+  if (borrowings.some((key) => !amounts.get(key)!.isZero())) {
+    return unresolved;
+  }
+
+  const leases = amounts.get("financeLeases");
+
+  if (leases !== undefined && leases.lessThan(ZERO)) {
+    return {
+      version: REPORTED_DEBT_VERSION,
+      status: "unresolved",
+      reason: "negative_component",
+      present,
+    };
+  }
+
+  if (leases === undefined || leases.isZero()) {
+    return {
+      version: REPORTED_DEBT_EVIDENCE_VERSION,
+      status: "zero_with_evidence",
+      evidence: ZERO_DEBT_EVIDENCE_VERSION,
+      reportedZero: present,
+      total: formatDecimal(ZERO, "debt.total"),
+    };
+  }
+
+  return {
+    version: REPORTED_DEBT_EVIDENCE_VERSION,
+    status: "resolved",
+    recipe: "finance_leases_only",
+    included: [
+      {
+        component: "financeLeases",
+        concept: input.financeLeases!.concept,
+        amount: formatDecimal(leases, "debt.financeLeases"),
+      },
+    ],
+    excluded: borrowings.map((key) => ({
+      component: key,
+      concept: input[key]!.concept,
+      reason: "reported_zero" as const,
+    })),
+    total: formatDecimal(leases, "debt.total"),
+  };
+}
+
+/**
+ * Aplica la primera receta que cierra; sin ninguna, la evidencia de deuda cero
+ * si la hay (`1.1.0`). Pura.
+ */
+export function resolveReportedDebt(
+  input: ReportedDebtInput,
+  evidence: ZeroDebtEvidence | null = null,
+): ReportedDebt {
   const present = DEBT_COMPONENT_KEYS.filter((key) => input[key] !== null);
   const chosen = RECIPES.find(({ required }) =>
     required.every((key) => input[key] !== null),
   );
 
   if (chosen === undefined) {
-    return {
-      version: REPORTED_DEBT_VERSION,
-      status: "unresolved",
-      reason: "no_recipe",
-      present,
-    };
+    return withoutRecipe(input, present, evidence);
   }
 
   const included = new Set<DebtComponentKey>(chosen.required);
