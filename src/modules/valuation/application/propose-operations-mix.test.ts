@@ -233,6 +233,47 @@ describe("proposeOperationsMix", () => {
     expect(runLadder).toHaveBeenCalledTimes(2);
   });
 
+  it("asks again about the same 10-K when the dollar cap kept the last call home", async () => {
+    let calls = 0;
+    const { dependencies } = harness({
+      ladder: (taskRunId) => {
+        calls += 1;
+
+        return calls === 1
+          ? {
+              taskRunId,
+              outcome: "abstained",
+              reason: "ai_budget_exhausted",
+              detail: "day_cap",
+              attempts: [],
+            }
+          : {
+              taskRunId,
+              outcome: "abstained",
+              reason: "ladder_exhausted",
+              detail: null,
+              attempts: [],
+            };
+      },
+    });
+
+    let minute = 0;
+    const clocked = {
+      ...dependencies,
+      now: () =>
+        new Date(Date.parse(NOW) + (minute += 1) * 60_000).toISOString(),
+    };
+
+    await proposeOperationsMix(request(), clocked);
+    const second = await proposeOperationsMix(request(), clocked);
+    // Una abstención sobre la evidencia sí es una respuesta.
+    const third = await proposeOperationsMix(request(), clocked);
+
+    expect(second.status).toBe("asked");
+    expect(third).toMatchObject({ status: "skipped", reason: "already_asked" });
+    expect(calls).toBe(2);
+  });
+
   it("records an abstention with its evidence and no lines", async () => {
     const { dependencies, repository } = harness({
       ladder: (taskRunId) => ({

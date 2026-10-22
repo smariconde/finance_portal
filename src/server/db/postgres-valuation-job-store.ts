@@ -63,6 +63,7 @@ function toDomain(row: ValuationJobRow): ValuationJob {
     valuationRunId: row.valuationRunId,
     runStatus: row.runStatus,
     dataStep: row.dataStep,
+    qualitativeStep: row.qualitativeStep,
     followsJobId: row.followsJobId,
     claimToken: row.claimToken,
     createdAt: iso(row.createdAt),
@@ -93,6 +94,7 @@ function toInsert(job: ValuationJob): typeof schema.valuationJobs.$inferInsert {
     valuationRunId: job.valuationRunId,
     runStatus: job.runStatus,
     dataStep: job.dataStep,
+    qualitativeStep: job.qualitativeStep,
     followsJobId: job.followsJobId,
     claimToken: job.claimToken,
     createdAt: at(job.createdAt),
@@ -215,6 +217,7 @@ export function createPostgresValuationJobStore(
             valuationRunId: input.outcome.valuationRunId,
             runStatus: input.outcome.runStatus,
             dataStep: input.outcome.dataStep,
+            qualitativeStep: input.outcome.qualitativeStep,
             // El job termina bajo la regla del worker que lo corrió.
             ruleVersion: VALUATION_JOB_RULE_VERSION,
           })

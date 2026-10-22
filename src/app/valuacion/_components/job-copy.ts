@@ -10,6 +10,12 @@ import type {
   ValuationJobGap,
   ValuationSnapshotGap,
 } from "@/modules/valuation/domain/valuation-job";
+import {
+  QUALITATIVE_TASK_ORDER,
+  type QualitativeTask,
+  type QualitativeTaskStep,
+  type ValuationQualitativeStep,
+} from "@/modules/valuation/domain/valuation-qualitative-step";
 
 /**
  * Lectura en español de los códigos del job por ticker. La comparten el
@@ -38,7 +44,60 @@ export const GAP_COPY: Record<ValuationJobGap, string> = {
     "La fuente rechazó la descarga de esta empresa. No se reintenta sola.",
   point_in_time_audit_failed:
     "La auditoría point-in-time de la empresa encontró una falla. No se valúa hasta repararla.",
+  qualitative_resolved:
+    "La IA resolvió lo cualitativo que faltaba, con citas del 10-K que una policy verificó; otro pedido valúa con un corte que lo ve.",
 };
+
+const TASK_COPY: Record<QualitativeTask, string> = {
+  industry: "la industria",
+  employeeEquity: "las opciones de empleados",
+  operationsMix: "el mix geográfico de ingresos",
+};
+
+/** Por qué una tarea no dejó una decisión, sin el código como mensaje. */
+function taskOutcomeCopy(step: QualitativeTaskStep): string | null {
+  switch (step.status) {
+    case "present":
+    case "accepted":
+      return null;
+    case "skipped":
+      return step.reason === "already_asked"
+        ? "ya se preguntó por este 10-K y no hubo respuesta aceptada"
+        : step.reason === "declared_by_owner"
+          ? "la declaró el owner"
+          : "el 10-K no trae la sección que hace falta";
+    case "abstained":
+      return step.reason === "ai_budget_exhausted"
+        ? "el tope de gasto en IA del día está gastado"
+        : "ninguna respuesta pasó la policy";
+    case "stopped":
+      return "la capa IA está frenada (breaker, clave, kill switch o cuota)";
+    case "not_run":
+      return "no se intentó porque la capa IA frenó antes";
+    case "failed":
+      return "la tarea no terminó";
+  }
+}
+
+/**
+ * Lo que la IA no resolvió, en una oración (`F6-13`). `null` cuando no hay
+ * nada que agregar: no se le preguntó nada, o todo quedó aceptado.
+ */
+export function describeQualitativeStep(
+  step: ValuationQualitativeStep | null,
+): string | null {
+  if (step === null) {
+    return null;
+  }
+
+  const misses = QUALITATIVE_TASK_ORDER.flatMap((task) => {
+    const copy = taskOutcomeCopy(step[task]);
+
+    return copy === null ? [] : [`${TASK_COPY[task]}: ${copy}`];
+  });
+
+  return misses.length === 0 ? null : `La IA no resolvió ${misses.join("; ")}.`;
+}
 
 const PENDING_COPY: Record<DataPendingReason, string> = {
   source_busy: "otro proceso está usando la fuente",

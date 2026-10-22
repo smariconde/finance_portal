@@ -2,6 +2,7 @@ import type { LadderResult } from "@/modules/ai/application/run-model-ladder";
 import type { AiTask } from "@/modules/ai/domain/ai-task";
 import { assertAiTransferable } from "@/modules/ai/domain/ai-transfer";
 import { AI_MODEL_LADDER_VERSION } from "@/modules/ai/domain/model-ladder";
+import { isTransientAiAnswer } from "@/modules/ai/domain/task-answer";
 import type { SecReportedFact } from "@/modules/fundamentals/domain/parse-sec-company-facts";
 import {
   extractEquityCompensation,
@@ -178,6 +179,7 @@ export async function proposeEmployeeEquity(
   if (
     !request.again &&
     previous !== null &&
+    !isTransientAiAnswer(previous.proposal) &&
     previous.proposal.accessionNumber === annualReport.accessionNumber &&
     previous.proposal.taskVersion === EMPLOYEE_EQUITY_TASK.taskVersion &&
     previous.proposal.promptVersion === EMPLOYEE_EQUITY_PROMPT_VERSION &&

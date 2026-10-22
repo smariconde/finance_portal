@@ -82,6 +82,10 @@ function resultOf(entry: ValuationHistoryEntry): string {
     return "Auditoría fallida";
   }
 
+  if (entry.gap === "qualitative_resolved") {
+    return "Resolvió con IA";
+  }
+
   return "Sin identidad";
 }
 

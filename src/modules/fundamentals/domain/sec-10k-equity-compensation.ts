@@ -22,9 +22,14 @@ import {
  * —título de nota o de tabla de actividad— se puntúa por el vocabulario de
  * tabla que la sigue, gana la mejor, y el recorte empieza en la primera ancla
  * con puntaje de su grupo, para que opciones y unidades entren juntas.
+ *
+ * `1.1.0` (`F6-13`): la fila de saldo también es «Outstanding on January 1,
+ * 2025» (Coca-Cola) y la versalita «OUTSTANDING AT JULY 1, 2025» (Procter &
+ * Gamble). Con `1.0.0` las dos notas puntuaban cero y la tarea salteaba con
+ * `equity_note_not_found`, lo que dejaba la corrida sin snapshot.
  */
 export const SEC_10K_EQUITY_COMPENSATION_VERSION =
-  "sec-10k-equity-compensation-1.0.0";
+  "sec-10k-equity-compensation-1.1.0";
 
 /** Opciones y unidades de una nota entran; la nota entera de otra no. */
 export const EQUITY_COMPENSATION_CEILING_BYTES = 12_000;
@@ -42,12 +47,13 @@ const AWARD_TERMS =
 const MIN_AWARD_TERMS = 3;
 
 /**
- * Una fila con saldo: «Balance as of …», «Shares at …», «Outstanding at …»
- * —con o sin año: ExxonMobil imprime «Issued and outstanding at December 31»
- * y deja el año en el encabezado— o «Outstanding, end of year …» (Ford).
+ * Una fila con saldo: «Balance as of …», «Shares at …», «Outstanding at …» u
+ * «Outstanding on …» —con o sin año: ExxonMobil imprime «Issued and
+ * outstanding at December 31» y deja el año en el encabezado—, la misma fila
+ * en versalitas, o «Outstanding, end of year …» (Ford).
  */
 const BALANCE_ROW =
-  /\b(?:(?:[Bb]alance|[Ss]hares|[Oo]utstanding)\s+(?:as\s+of|at)\s+(?:[A-Z][a-z]+\s+[0-9]{1,2}(?:,\s+[0-9]{4})?|[0-9]{4})\b|(?:[Bb]alance|[Oo]utstanding),?\s+(?:at\s+)?end\s+of\s+(?:the\s+)?(?:year|period)\b)[^.]{0,80}?[0-9]{1,3}(?:,[0-9]{3})*/gu;
+  /\b(?:(?:[Bb]alance|BALANCE|[Ss]hares|SHARES|[Oo]utstanding|OUTSTANDING)\s+(?:as\s+of|AS\s+OF|at|AT|on|ON)\s+(?:(?:[A-Z][a-z]+|[A-Z]{3,9})\s+[0-9]{1,2}(?:,\s+[0-9]{4})?|[0-9]{4})\b|(?:[Bb]alance|[Oo]utstanding),?\s+(?:at\s+)?end\s+of\s+(?:the\s+)?(?:year|period)\b)[^.]{0,80}?[0-9]{1,3}(?:,[0-9]{3})*/gu;
 
 /** Dónde se cuenta el vocabulario: la tabla que sigue al ancla. */
 const BODY_CHARS = 4_000;

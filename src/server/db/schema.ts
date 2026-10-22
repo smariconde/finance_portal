@@ -1756,6 +1756,7 @@ export const valuationJobGap = pgEnum("valuation_job_gap", [
   "ingestion_pending",
   "ingestion_failed",
   "point_in_time_audit_failed",
+  "qualitative_resolved",
 ]);
 
 /**
@@ -1795,7 +1796,15 @@ export const valuationJobs = pgTable(
      * cuando el gap lo nombra.
      */
     dataStep: jsonb("data_step"),
-    /** El job que éste continúa con un corte nuevo, después de bajar datos. */
+    /**
+     * Qué le preguntó el job a la IA (`F6-13`, ADR 0052). El dominio lo valida
+     * con `valuation-qualitative-1.0.0`.
+     */
+    qualitativeStep: jsonb("qualitative_step"),
+    /**
+     * El job que éste continúa con un corte nuevo, después de bajar datos o de
+     * una decisión aceptada de la IA.
+     */
     followsJobId: uuid("follows_job_id"),
     claimToken: uuid("claim_token"),
     createdAt: instant("created_at").notNull(),
@@ -1818,7 +1827,7 @@ export const valuationJobs = pgTable(
     ),
     check(
       "valuation_jobs_rule_check",
-      sql`${table.ruleVersion} in ('valuation-job-1.0.0', 'valuation-job-1.1.0', 'valuation-job-1.2.0')`,
+      sql`${table.ruleVersion} in ('valuation-job-1.0.0', 'valuation-job-1.1.0', 'valuation-job-1.2.0', 'valuation-job-1.3.0')`,
     ),
     check(
       "valuation_jobs_phase_check",
@@ -1873,10 +1882,16 @@ export const valuationJobs = pgTable(
     // `run_recorded`.
     check(
       "valuation_jobs_data_check",
-      sql`(${table.dataStep} is null or (${table.ruleVersion} = 'valuation-job-1.2.0' and ${table.status} = 'completed' and jsonb_typeof(${table.dataStep}) = 'object'))
-        and (${table.followsJobId} is null or (${table.ruleVersion} = 'valuation-job-1.2.0' and ${table.followsJobId} <> ${table.jobId}))
+      sql`(${table.dataStep} is null or (${table.ruleVersion} in ('valuation-job-1.2.0', 'valuation-job-1.3.0') and ${table.status} = 'completed' and jsonb_typeof(${table.dataStep}) = 'object'))
+        and (${table.followsJobId} is null or (${table.ruleVersion} in ('valuation-job-1.2.0', 'valuation-job-1.3.0') and ${table.followsJobId} <> ${table.jobId}))
         and (${table.gap} is null or ${table.gap}::text not in ('data_ingested', 'ingestion_pending', 'ingestion_failed', 'point_in_time_audit_failed') or (${table.dataStep} is not null and ${table.methodStatus} is null))
         and (${table.heartbeatAt} is null or (${table.startedAt} is not null and ${table.heartbeatAt} >= ${table.startedAt}))`,
+    ),
+    // `qualitative_resolved` se compara como texto, por la misma razón.
+    check(
+      "valuation_jobs_qualitative_check",
+      sql`(${table.qualitativeStep} is null or (${table.ruleVersion} = 'valuation-job-1.3.0' and ${table.status} = 'completed' and jsonb_typeof(${table.qualitativeStep}) = 'object' and ${table.gap}::text in ('qualitative_resolved', 'snapshot_not_assembled', 'run_recorded')))
+        and (${table.gap} is null or ${table.gap}::text <> 'qualitative_resolved' or (${table.qualitativeStep} is not null and ${table.dataStep} is not null and ${table.methodStatus} is null))`,
     ),
     foreignKey({
       name: "valuation_jobs_run_fk",

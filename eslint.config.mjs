@@ -68,7 +68,7 @@ export default defineConfig([
                 "@/modules/ai/application/*",
               ],
               message:
-                "Ninguna ruta llama a un modelo: una superficie con IA es una frontera nueva con su propio slice y TM-03 (F5-02, ADR 0033).",
+                "Ninguna ruta llama a un modelo: el único camino es el worker de la corrida en src/server/jobs, después de responder (F6-13, ADR 0052). Otra superficie con IA es una frontera nueva con su propio slice y TM-03.",
             },
           ],
         },

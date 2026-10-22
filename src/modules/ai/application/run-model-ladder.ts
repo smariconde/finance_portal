@@ -12,6 +12,7 @@ import {
   type ModelRung,
 } from "@/modules/ai/domain/model-ladder";
 import type { ProviderBreaker } from "@/modules/ai/domain/provider-breaker";
+import { AI_BUDGET_EXHAUSTED_REASON } from "@/modules/ai/domain/task-answer";
 import {
   RequestBudgetExhaustedError,
   type EgressFetch,
@@ -301,7 +302,7 @@ export async function runModelLadder<Input, Output>(
       return {
         taskRunId,
         outcome: "abstained",
-        reason: "ai_budget_exhausted",
+        reason: AI_BUDGET_EXHAUSTED_REASON,
         detail: verdict.status,
         attempts,
       };

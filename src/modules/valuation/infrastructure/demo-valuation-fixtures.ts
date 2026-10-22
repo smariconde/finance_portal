@@ -29,7 +29,6 @@ import { deriveRigorLevel } from "../domain/rigor-level";
 import { SCENARIO_SET_VERSION } from "../domain/scenarios";
 import { computeContentHash } from "@/modules/ingestion/domain/content-hash";
 import { EQUITY_VOLATILITY_FORMULA_VERSION } from "@/modules/metrics/domain/equity-volatility";
-import { SEC_10K_EQUITY_COMPENSATION_VERSION } from "@/modules/fundamentals/domain/sec-10k-equity-compensation";
 import {
   deriveEmployeeEquity,
   DIVIDEND_YIELD_VERSION,
@@ -382,7 +381,8 @@ const DEMO_EMPLOYEE_EQUITY_DECISION: EmployeeEquityDecision = {
   taskVersion: EMPLOYEE_EQUITY_TASK_VERSION,
   promptVersion: EMPLOYEE_EQUITY_PROMPT_VERSION,
   policyVersion: EMPLOYEE_EQUITY_POLICY_VERSION,
-  extractVersion: SEC_10K_EQUITY_COMPENSATION_VERSION,
+  // La propuesta de la fixture se leyó con `1.0.0`; fijarla mantiene sus hashes.
+  extractVersion: "sec-10k-equity-compensation-1.0.0",
   respondedModel: "fixture/synthetic",
   evidenceSha256: computeContentHash(DEMO_EQUITY_NOTE),
   transcription: {

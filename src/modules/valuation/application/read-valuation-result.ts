@@ -139,6 +139,8 @@ export type ValuationResultNewerGap = ValuationResultJob & {
   readonly snapshotGap: ValuationJob["snapshotGap"];
   /** Qué bajó y auditó (`F6-05`): estados y códigos, sin IDs. */
   readonly dataStep: ValuationJob["dataStep"];
+  /** Qué le preguntó a la IA (`F6-13`): estados y códigos, sin IDs. */
+  readonly qualitativeStep: ValuationJob["qualitativeStep"];
 };
 
 export type ValuationResultReading =
@@ -246,6 +248,7 @@ function gapReading(job: ValuationJob): ValuationResultNewerGap {
     gap: job.gap,
     snapshotGap: job.snapshotGap,
     dataStep: job.dataStep,
+    qualitativeStep: job.qualitativeStep,
   };
 }
 

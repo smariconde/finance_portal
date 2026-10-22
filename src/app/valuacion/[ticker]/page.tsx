@@ -34,6 +34,7 @@ import {
 
 import {
   describeDataStep,
+  describeQualitativeStep,
   GAP_COPY,
   RIGOR_COPY,
   SNAPSHOT_GAP_COPY,
@@ -126,7 +127,10 @@ function NewerGapAlert({ gap }: { gap: ValuationResultNewerGap }) {
           : ` Motivo: ${SNAPSHOT_GAP_COPY[gap.snapshotGap]}.`}
         {describeDataStep(gap.dataStep) === null
           ? null
-          : ` ${describeDataStep(gap.dataStep)}`}{" "}
+          : ` ${describeDataStep(gap.dataStep)}`}
+        {describeQualitativeStep(gap.qualitativeStep) === null
+          ? null
+          : ` ${describeQualitativeStep(gap.qualitativeStep)}`}{" "}
         Esta página muestra la última corrida que sí se registró.
       </AlertDescription>
     </Alert>
@@ -232,10 +236,11 @@ function WithoutRun({
     const gap = reading.latest.gap;
     const snapshotGap = reading.latest.snapshotGap;
     const data = describeDataStep(reading.latest.dataStep);
+    const qualitative = describeQualitativeStep(reading.latest.qualitativeStep);
 
     message = `Ningún pedido registró una corrida. El último terminó así: ${
       gap === null ? "sin resultado." : GAP_COPY[gap]
-    }${snapshotGap === null ? "" : ` Motivo: ${SNAPSHOT_GAP_COPY[snapshotGap]}.`}${data === null ? "" : ` ${data}`}`;
+    }${snapshotGap === null ? "" : ` Motivo: ${SNAPSHOT_GAP_COPY[snapshotGap]}.`}${data === null ? "" : ` ${data}`}${qualitative === null ? "" : ` ${qualitative}`}`;
   }
 
   return (
@@ -245,8 +250,8 @@ function WithoutRun({
         <p className="text-sm text-muted-foreground">
           Sin corrida no hay valor por acción, y esta página no lo estima.
           Valuar baja lo que falte de la SEC y el cierre del día, audita la
-          empresa y evalúa al corte de hoy: si alcanza, la página se completa
-          sola; si no, dice qué falta.
+          empresa, pide a la IA lo cualitativo que falte y evalúa al corte de
+          hoy: si alcanza, la página se completa sola; si no, dice qué falta.
         </p>
       </section>
     </PageFrame>
@@ -490,9 +495,9 @@ export default async function ValuationResultPage({ params }: PageProps) {
           </li>
           <li>
             Abrir esta página no recalcula la corrida, no baja datos y no llama
-            al modelo. «Volver a valuar» baja el cierre del día si falta, audita
-            la empresa, lee lo guardado al corte de hoy y registra otra corrida
-            si algo cambió.
+            a la IA. «Volver a valuar» baja el cierre del día si falta, audita
+            la empresa, pide a la IA lo cualitativo que falte, lee lo guardado
+            al corte de hoy y registra otra corrida si algo cambió.
           </li>
           <li>
             Los supuestos no son editables: salen de una regla versionada, y

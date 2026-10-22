@@ -11,6 +11,11 @@ import {
   type ValuationDataStep,
 } from "./valuation-data-step";
 import { methodSelectionReasonSchema } from "./method-selection";
+import {
+  qualitativeStepAccepted,
+  valuationQualitativeStepSchema,
+  type ValuationQualitativeStep,
+} from "./valuation-qualitative-step";
 import { rigorLevelSchema } from "./rigor-level";
 import { valuationRunStatusSchema } from "./valuation-run";
 
@@ -18,8 +23,7 @@ import { valuationRunStatusSchema } from "./valuation-run";
  * Corrida por ticker encolada (`F6-01`,
  * [ADR 0045](../../../../docs/architecture/adr/0045-ticker-valuation-job.md)).
  *
- * Un job evalúa y termina con un código. No llama al modelo. Nada de este
- * archivo lee un reloj.
+ * Un job evalúa y termina con un código. Nada de este archivo lee un reloj.
  *
  * `valuation-job-1.1.0` (`F6-07`,
  * [ADR 0046](../../../../docs/architecture/adr/0046-derived-valuation-assumptions.md)):
@@ -32,13 +36,26 @@ import { valuationRunStatusSchema } from "./valuation-run";
  * antes de valuar, el job baja lo que falta y audita su sujeto (`dataStep`).
  * Si bajó algo termina en `data_ingested` y otro job, con corte nuevo, lo
  * continúa (`followsJobId`). Ese segundo job nunca baja nada.
+ *
+ * `valuation-job-1.3.0` (`F6-13`,
+ * [ADR 0052](../../../../docs/architecture/adr/0052-qualitative-decisions-in-valuation-job.md)):
+ * con los datos al día, el job pregunta a la IA lo cualitativo que falta
+ * (`qualitativeStep`). Si quedó una decisión aceptada termina en
+ * `qualitative_resolved` y otro job, con corte nuevo, valúa con ella.
  */
-export const VALUATION_JOB_RULE_VERSION = "valuation-job-1.2.0";
+export const VALUATION_JOB_RULE_VERSION = "valuation-job-1.3.0";
 
 export const valuationJobRuleVersionSchema = z.enum([
   "valuation-job-1.0.0",
   "valuation-job-1.1.0",
+  "valuation-job-1.2.0",
   VALUATION_JOB_RULE_VERSION,
+]);
+
+/** Las reglas anteriores al paso de datos (`F6-05`). */
+const PRE_DATA_RULES: ReadonlySet<string> = new Set([
+  "valuation-job-1.0.0",
+  "valuation-job-1.1.0",
 ]);
 
 /**
@@ -89,6 +106,7 @@ export const valuationJobGapSchema = z.enum([
   "ingestion_pending",
   "ingestion_failed",
   "point_in_time_audit_failed",
+  "qualitative_resolved",
 ]);
 
 /** Gaps del paso de datos (`F6-05`): siempre registran qué se bajó o auditó. */
@@ -152,6 +170,8 @@ const runFieldsSchema = z.object({
   valuationRunId: uuidSchema.nullable(),
   runStatus: valuationRunStatusSchema.nullable(),
   dataStep: valuationDataStepSchema.nullable(),
+  /** Qué le preguntó el job a la IA (`F6-13`); `null` si no llegó a preguntar. */
+  qualitativeStep: valuationQualitativeStepSchema.nullable(),
 });
 
 export const valuationJobOutcomeSchema = z
@@ -219,7 +239,7 @@ export const valuationJobSchema = z
       });
     }
 
-    if (job.ruleVersion !== VALUATION_JOB_RULE_VERSION) {
+    if (PRE_DATA_RULES.has(job.ruleVersion)) {
       requireAbsent(job.dataStep, "dataStep", context);
       requireAbsent(job.followsJobId, "followsJobId", context);
 
@@ -227,7 +247,19 @@ export const valuationJobSchema = z
         context.addIssue({
           code: "custom",
           path: ["gap"],
-          message: `${job.gap} only exists from ${VALUATION_JOB_RULE_VERSION}.`,
+          message: `${job.gap} only exists from valuation-job-1.2.0.`,
+        });
+      }
+    }
+
+    if (job.ruleVersion !== VALUATION_JOB_RULE_VERSION) {
+      requireAbsent(job.qualitativeStep, "qualitativeStep", context);
+
+      if (job.gap === "qualitative_resolved") {
+        context.addIssue({
+          code: "custom",
+          path: ["gap"],
+          message: `qualitative_resolved only exists from ${VALUATION_JOB_RULE_VERSION}.`,
         });
       }
     }
@@ -272,6 +304,7 @@ export const valuationJobSchema = z
       requireAbsent(job.finishedAt, "finishedAt", context);
       requireAbsent(job.gap, "gap", context);
       requireAbsent(job.dataStep, "dataStep", context);
+      requireAbsent(job.qualitativeStep, "qualitativeStep", context);
       requireAbsent(job.claimToken, "claimToken", context);
       requireAbsent(job.identityStatus, "identityStatus", context);
       requireAbsent(job.legalEntityId, "legalEntityId", context);
@@ -290,6 +323,7 @@ export const valuationJobSchema = z
       requireAbsent(job.finishedAt, "finishedAt", context);
       requireAbsent(job.gap, "gap", context);
       requireAbsent(job.dataStep, "dataStep", context);
+      requireAbsent(job.qualitativeStep, "qualitativeStep", context);
       requirePresent(job.claimToken, "claimToken", context);
       requireAbsent(job.identityStatus, "identityStatus", context);
       requireAbsent(job.legalEntityId, "legalEntityId", context);
@@ -372,7 +406,15 @@ const ASSESSED_GAPS: ReadonlySet<string> = new Set([
   "unsupported_method",
   "snapshot_not_assembled",
   "run_recorded",
+  "qualitative_resolved",
   ...DATA_GAPS,
+]);
+
+/** Los gaps que pueden registrar qué se le preguntó a la IA. */
+const QUALITATIVE_GAPS: ReadonlySet<string> = new Set([
+  "qualitative_resolved",
+  "snapshot_not_assembled",
+  "run_recorded",
 ]);
 
 /** Cada gap del paso de datos dice lo mismo que su registro. */
@@ -425,6 +467,7 @@ function refineOutcome(
     valuationRunId: string | null;
     runStatus: ValuationJobOutcome["runStatus"];
     dataStep: ValuationDataStep | null;
+    qualitativeStep: ValuationQualitativeStep | null;
   },
   context: IssueContext,
 ): void {
@@ -432,6 +475,31 @@ function refineOutcome(
 
   if (gap !== null && DATA_GAPS.has(gap)) {
     refineDataGap(gap, outcome.dataStep, context);
+  }
+
+  if (
+    outcome.qualitativeStep !== null &&
+    (gap === null || !QUALITATIVE_GAPS.has(gap))
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["qualitativeStep"],
+      message: "Only a job that reached the snapshot asks the AI.",
+    });
+  }
+
+  if (
+    gap === "qualitative_resolved" &&
+    (outcome.qualitativeStep === null ||
+      !qualitativeStepAccepted(outcome.qualitativeStep) ||
+      outcome.dataStep === null)
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["qualitativeStep"],
+      message:
+        "qualitative_resolved records the data step and an accepted decision.",
+    });
   }
 
   if ((outcome.valuationRunId === null) !== (outcome.runStatus === null)) {
@@ -594,6 +662,7 @@ const EMPTY_RUN = {
   valuationRunId: null,
   runStatus: null,
   dataStep: null,
+  qualitativeStep: null,
 } as const;
 
 export function queueValuationJob(input: {
@@ -748,6 +817,32 @@ export function outcomeForDataStep(
   });
 }
 
+/**
+ * La IA dejó una decisión aceptada que este corte no ve: otro job la continúa
+ * (`F6-13`).
+ */
+export function outcomeForQualitativeStep(
+  subject: {
+    readonly legalEntityId: string;
+    readonly securityId: string | null;
+    readonly listingId: string | null;
+  },
+  dataStep: ValuationDataStep,
+  qualitativeStep: ValuationQualitativeStep,
+): ValuationJobOutcome {
+  return valuationJobOutcomeSchema.parse({
+    identityStatus: "resolved",
+    legalEntityId: subject.legalEntityId,
+    securityId: subject.securityId,
+    listingId: subject.listingId,
+    gap: "qualitative_resolved",
+    ...EMPTY_METHOD,
+    ...EMPTY_RUN,
+    dataStep,
+    qualitativeStep,
+  });
+}
+
 export function outcomeForFailure(): ValuationJobOutcome {
   return valuationJobOutcomeSchema.parse({
     identityStatus: null,
@@ -786,6 +881,7 @@ export function outcomeForAssessment(
         readonly runStatus: NonNullable<ValuationJobOutcome["runStatus"]>;
       } = { gap: "method_not_derived" },
   dataStep: ValuationDataStep | null = null,
+  qualitativeStep: ValuationQualitativeStep | null = null,
 ): ValuationJobOutcome {
   const subject = {
     identityStatus: "resolved" as const,
@@ -832,6 +928,7 @@ export function outcomeForAssessment(
       valuationRunId: snapshot.valuationRunId,
       runStatus: snapshot.runStatus,
       dataStep,
+      qualitativeStep,
     });
   }
 
@@ -842,6 +939,7 @@ export function outcomeForAssessment(
     ...EMPTY_RUN,
     snapshotGap: snapshot.gap,
     dataStep,
+    qualitativeStep,
   });
 }
 
@@ -891,7 +989,9 @@ export type ValuationJobView =
       readonly ruleVersion: ValuationJob["ruleVersion"];
       /** Qué bajó y auditó el job (`F6-05`): estados y códigos, sin IDs. */
       readonly dataStep: ValuationDataStep | null;
-      /** El job continúa a otro que bajó datos. */
+      /** Qué le preguntó el job a la IA (`F6-13`): estados y códigos, sin IDs. */
+      readonly qualitativeStep: ValuationQualitativeStep | null;
+      /** El job continúa a otro que bajó datos o resolvió algo con la IA. */
       readonly follows: boolean;
     };
 
@@ -911,6 +1011,7 @@ export function toValuationJobView(job: ValuationJob): ValuationJobView {
     runStatus: job.runStatus,
     ruleVersion: job.ruleVersion,
     dataStep: job.dataStep,
+    qualitativeStep: job.qualitativeStep,
     follows: job.followsJobId !== null,
   };
 }

@@ -20,9 +20,11 @@ import { getAiSpendStore } from "@/server/persistence/get-ai-spend-store";
  * el egress, no se abre PostgreSQL y no se lee ninguna clave (`TM-01`). La clave
  * tampoco pasa por acá: la agrega la puerta de salida.
  *
- * `src/app/` no puede importarla —ESLint lo sostiene—: no hay superficie que
- * llame a un modelo, y la primera que lo haga es una frontera nueva con su
- * propio slice y `TM-03` cerrado.
+ * `src/app/` no puede importarla —ESLint lo sostiene—. Desde `F6-13`
+ * ([ADR 0052](../../../docs/architecture/adr/0052-qualitative-decisions-in-valuation-job.md))
+ * la toma el worker de la corrida por ticker, después de que la acción
+ * respondió: la acción no la importa ni ve su gasto. Otra superficie que llegue
+ * a un modelo es una frontera nueva con su propio slice y `TM-03` cerrado.
  */
 
 /**
