@@ -205,6 +205,24 @@ describe("PostgreSQL point-in-time audit", () => {
     expect(paged.verdicts).toEqual(whole.verdicts);
   });
 
+  it("audits only the chains of the requested subjects (F6-05)", async () => {
+    const reader = createPostgresPointInTimeAuditReader(database);
+    const whole = await runPointInTimeAudit(reader);
+    const subject = await runPointInTimeAudit(reader, {
+      subjectIds: [DEMO_IDENTITY_IDS.fixtureCoEntity],
+    });
+    const stranger = await runPointInTimeAudit(reader, {
+      subjectIds: [randomUUID()],
+    });
+
+    expect(subject.chains).toBe(whole.chains);
+    expect(subject.verdicts).toEqual(whole.verdicts);
+    // Un sujeto sin cadenas no prueba nada: no falla, pero no pasa.
+    expect(stranger.chains).toBe(0);
+    expect(stranger.findings).toEqual([]);
+    expect(stranger.passed).toBe(false);
+  });
+
   it("names a revision whose availability was moved behind the contract", async () => {
     // El schema no impide mover `available_at`: sólo exige que la supersesión
     // sea posterior. Correrla rompe el acuerdo con el documento que la trajo, y

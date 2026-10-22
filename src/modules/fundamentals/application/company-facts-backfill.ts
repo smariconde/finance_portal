@@ -45,9 +45,9 @@ export {
  */
 export const COMPANY_FACTS_BACKFILL_KIND = "sec_companyfacts_backfill";
 
-export function buildCompanyFactsJobPlan(
-  subjects: readonly CompanyFactsBackfillSubject[],
-): IngestionJobPlanInput {
+export function buildCompanyFactsJobPlan<
+  TSubject extends Pick<CompanyFactsBackfillSubject, "cik">,
+>(subjects: readonly TSubject[]): IngestionJobPlanInput {
   return {
     kind: COMPANY_FACTS_BACKFILL_KIND,
     sourceId: SEC_SOURCE_ID,

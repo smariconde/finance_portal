@@ -74,8 +74,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    46 | `F6-02`    | `done`     | Historial de corridas: volver a ver, refrescar lo que cambió y comparar contra la anterior sin sobrescribirla.                                                                                                            | `F6-07`          |
 |    47 | `F6-03`    | `done`     | Superficie de resultado sobre empresa real con nivel de rigor, provenance y supuestos distinguidos de los hechos.                                                                                                         | `F6-02`          |
 |    48 | `F6-04`    | `done`     | Acceso CEDEAR en el resultado: programa, depositario, estado y ratio al corte de la corrida, y el valor por CEDEAR en USD.                                                                                                | `F6-02`          |
-|    49 | `F6-05`    | `ready`    | Ingesta bajo demanda de la ventana de fundamentals que falta, con presupuesto, reanudación y auditoría point-in-time del sujeto.                                                                                          | `F6-01`          |
-|    50 | `F6-08`    | `queued`   | Precio del CEDEAR en BYMA y valor por CEDEAR en pesos con el CCL implícito del propio CEDEAR, con su ADR de fuente.                                                                                                       | `F6-04`          |
+|    49 | `F6-05`    | `done`     | Ingesta bajo demanda de la ventana de fundamentals que falta, con presupuesto, reanudación y auditoría point-in-time del sujeto.                                                                                          | `F6-01`          |
+|    50 | `F6-08`    | `ready`    | Precio del CEDEAR en BYMA y valor por CEDEAR en pesos con el CCL implícito del propio CEDEAR, con su ADR de fuente.                                                                                                       | `F6-04`          |
 |    51 | `F6-09`    | `done`     | Precio de mercado al `as_of` de la corrida y DCF inverso por driver: qué crecimiento, margen, ROIC terminal o tasa exige el precio, al lado de lo que la empresa mostró.                                                  | `F6-03`          |
 |    52 | `F6-10`    | `done`     | `derived-assumptions-2.0.0`: ROIC terminal por regla con el dataset de Damodaran, crecimiento por tendencia y escenarios bear/bull derivados.                                                                             | `F6-09`          |
 |    53 | `F6-11`    | `done`     | Lectura cualitativa de la IA sobre lo que exige el precio: plausibilidad por driver con citas del 10-K verificadas, sin mover el valor.                                                                                   | `F6-09`          |
@@ -3761,6 +3761,74 @@ cualitativa de la IA sobre lo que exige el precio) y `F6-12` (flujo de
 valuación en un solo lugar). `F6-05` pasa a `queued` detrás de ellos. El año
 base TTM desde 10-Q queda nombrado como límite de `F6-10`, porque cambia toda
 la normalización.
+
+#### `F6-05` — la corrida baja lo que falta y audita su sujeto (cerrado el 2026-10-21)
+
+Estado del slice: `done`. No cierra el gate de la Fase 6: falta el despliegue
+remoto (`F6-06`). `F6-08` queda `ready`.
+
+Decisiones del owner del 2026-10-21: **sólo datos** (el job no llama a la IA; la
+transcripción de opciones, la industria ambigua, el mix y la lectura de
+expectativas siguen siendo comandos) y **dos jobs encadenados** (el corte de un
+job no se mueve).
+
+- `valuation-data-1.0.0` ([ADR 0051](../architecture/adr/0051-on-demand-valuation-data.md))
+  decide sobre la evaluación qué falta:
+  - la ventana de la SEC: companyfacts del CIK y de sus antecesores de reporte,
+    como `sec_companyfacts_backfill` durable;
+  - el SIC: un `submissions`, como `valuation:assess --apply`;
+  - el cierre de la última rueda asentada (`ticker-price-freshness-1.0.0`, la
+    regla de la referencia de la ADR 0030 sobre una security), como
+    `yahoo_prices_refresh` de un item.
+- Reanudación: un plan igual a uno abierto devuelve ese job. Fuente ocupada, sin
+  cuota, frenada, en backoff o pausada es `ingestion_pending` con su motivo y su
+  hora; un sujeto rechazado es `ingestion_failed` con el código del item. Nada se
+  reintenta solo. La espera en línea tiene techo de un minuto. Los precios nunca
+  bloquean.
+- Todo job audita su emisor y sus antecesores con las cinco afirmaciones de
+  `pnpm gate:point-in-time`, por el mismo dominio y la lectura paginada filtrada
+  por `subject_id`. Una falla es `point_in_time_audit_failed` con la afirmación,
+  el concepto, la fecha y el total; `not_exercised` no bloquea.
+- Si el job bajó algo termina en `data_ingested` y, en la misma transacción,
+  encola otro con corte nuevo (`follows_job_id`) que el mismo worker corre. Ese
+  segundo job nunca baja nada: no hay bucle.
+- El job late cada 30 segundos (`heartbeat_at`) y se retoma por el último latido.
+- `valuation-job-1.2.0`, migración `0034` con rollback pareado que se niega si hay
+  filas `1.2.0`. Corregido de paso: `valuation_jobs_run_check` sólo admitía una
+  corrida registrada bajo `1.1.0`.
+- Superficie: el copy de `/valuacion`, del runner y de los avisos dice qué baja y
+  qué no; los gaps nuevos tienen su frase, el historial su etiqueta, y un pendiente
+  o una falla de auditoría se explica en una oración, sin IDs.
+- Controles: `TM-06` (el job que valúa tiene un corte que ve lo bajado; la
+  auditoría prueba el no-look-ahead del sujeto), `TM-10` (toda salida por el egress
+  medido, con la admisión de la ADR 0020 antes de planear), `TM-11` (jobs
+  idempotentes por plan y por contenido) y `TM-16` (nada se sobrescribe; cada job
+  registra qué bajó y qué auditó).
+
+Evidencia:
+
+- 2.993 unit y 219 integration; el contrato del store prueba en memoria y en
+  PostgreSQL la continuación atómica, el cierre perdido sin continuación y el
+  latido. Formato, lint, tipos y build; 204 E2E con axe (2 omitidos). Detector de
+  Impeccable sin hallazgos.
+- Réplica de la base personal, build del worker real:
+  - MSFT, sin nada guardado: bajó su ventana, observó el SIC 7372 y el cierre,
+    auditó 1.015 cadenas y en 6,3 s el job encadenado terminó en
+    `unsupported_method` (`high_growth` pide `fcff_three_stage`; industria ambigua
+    entre tres de software).
+  - AAPL: bajó sólo el cierre y el job encadenado registró una corrida `computed`
+    en 1,9 s.
+  - Con una fila de AAPL alterada a mano, el job siguiente terminó en
+    `point_in_time_audit_failed` (`provenance_resolves`,
+    `dei:EntityCommonStockSharesOutstanding` al 2026-07-17, 2 fallas).
+  - `pnpm gate:point-in-time` sobre la réplica pasa con 29.283 cadenas, MSFT
+    incluida.
+- Migración `0034` aplicada en la base personal; rollback y re-aplicación probados
+  sobre la réplica.
+
+Límites nombrados: no registra splits; no refresca una ventana ya guardada con una
+selección vieja ni un SIC ya observado; el cierre del día que Yahoo todavía no
+asienta queda revisado y no se pide de nuevo hasta la rueda siguiente.
 
 #### `F6-12` — flujo de valuación en un solo lugar (cerrado el 2026-10-21)
 

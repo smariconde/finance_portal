@@ -29,6 +29,11 @@ export const auditPageQuerySchema = z.object({
     .default(null),
   /** Cadenas por página, no filas: una cadena se audita entera o no se audita. */
   limit: z.number().int().min(1).max(500).default(200),
+  /**
+   * Sólo las cadenas de estos sujetos (`F6-05`): la corrida audita su emisor y
+   * sus antecesores de reporte. Sin filtro, el gate recorre la tabla entera.
+   */
+  subjectIds: z.array(z.uuid()).min(1).max(20).optional(),
 });
 
 export type AuditPageQuery = z.input<typeof auditPageQuerySchema>;
@@ -71,6 +76,7 @@ export async function runPointInTimeAudit(
   options: {
     readonly pageSize?: number;
     readonly onPage?: (chains: number) => void;
+    readonly subjectIds?: readonly string[];
   } = {},
 ): Promise<PointInTimeAuditReport> {
   let audit = createAudit();
@@ -80,6 +86,8 @@ export async function runPointInTimeAudit(
     const page: AuditChainPage = await reader.readChainPage({
       after,
       limit: options.pageSize ?? 200,
+      subjectIds:
+        options.subjectIds === undefined ? undefined : [...options.subjectIds],
     });
 
     if (page.chains.length === 0) {

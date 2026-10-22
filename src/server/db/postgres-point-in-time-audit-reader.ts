@@ -1,6 +1,6 @@
 import "server-only";
 
-import { asc, eq, getTableColumns, gt, inArray } from "drizzle-orm";
+import { and, asc, eq, getTableColumns, gt, inArray } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 
 import {
@@ -41,9 +41,15 @@ export function createPostgresPointInTimeAuditReader(
         })
         .from(schema.observations)
         .where(
-          parsed.after === null
-            ? undefined
-            : gt(schema.observations.revisionGroupId, parsed.after),
+          and(
+            parsed.after === null
+              ? undefined
+              : gt(schema.observations.revisionGroupId, parsed.after),
+            // Una cadena es de un solo sujeto: filtrar los grupos alcanza.
+            parsed.subjectIds === undefined
+              ? undefined
+              : inArray(schema.observations.subjectId, parsed.subjectIds),
+          ),
         )
         .orderBy(asc(schema.observations.revisionGroupId))
         .limit(parsed.limit);

@@ -1,13 +1,20 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  VALUATION_DATA_RULE_VERSION,
+  type ValuationDataStep,
+} from "./valuation-data-step";
+import {
   addMilliseconds,
+  beatValuationJob,
   claimValuationJob,
   finishValuationJob,
   outcomeForAssessment,
+  outcomeForDataStep,
   outcomeForFailure,
   outcomeForIdentity,
   queueValuationJob,
+  toValuationJobView,
   VALUATION_JOB_STALE_AFTER_MS,
   valuationJobOutcomeSchema,
   valuationJobSchema,
@@ -214,7 +221,7 @@ describe("valuation job", () => {
       outcome,
     });
 
-    expect(done?.ruleVersion).toBe("valuation-job-1.1.0");
+    expect(done?.ruleVersion).toBe("valuation-job-1.2.0");
     expect(done?.valuationRunId).toBe(RUN);
   });
 
@@ -300,5 +307,204 @@ describe("valuation job", () => {
     expect(outcome.gap).toBe("unsupported_method");
     expect(outcome.unsupportedReason).toBe("method_not_implemented");
     expect(outcome.assetProfile).toBe("holding");
+  });
+
+  describe("valuation-job-1.2.0", () => {
+    const SUBJECT = {
+      legalEntityId: ENTITY,
+      securityId: SECURITY,
+      listingId: LISTING,
+    };
+    const PASSED: ValuationDataStep["audit"] = {
+      status: "passed",
+      chains: 4,
+      notExercised: [],
+    };
+
+    function dataStep(
+      overrides: Partial<ValuationDataStep> = {},
+    ): ValuationDataStep {
+      return {
+        ruleVersion: VALUATION_DATA_RULE_VERSION,
+        fundamentals: { status: "ingested", filers: 1 },
+        sic: { status: "observed", code: "3571" },
+        prices: { status: "ingested" },
+        audit: PASSED,
+        ...overrides,
+      };
+    }
+
+    it("cada gap del paso de datos dice lo mismo que su registro", () => {
+      expect(outcomeForDataStep(SUBJECT, "data_ingested", dataStep()).gap).toBe(
+        "data_ingested",
+      );
+      expect(
+        outcomeForDataStep(
+          SUBJECT,
+          "ingestion_pending",
+          dataStep({
+            fundamentals: {
+              status: "pending",
+              reason: "daily_budget_exhausted",
+              resumesAt: "2026-10-22T00:00:00.000Z",
+            },
+            audit: null,
+          }),
+        ).dataStep?.fundamentals.status,
+      ).toBe("pending");
+      expect(
+        outcomeForDataStep(
+          SUBJECT,
+          "point_in_time_audit_failed",
+          dataStep({
+            audit: {
+              status: "failed",
+              chains: 4,
+              failures: 2,
+              claim: "revision_chain_ordered",
+              metricId: "Revenues",
+              asOf: "2025-12-31",
+            },
+          }),
+        ).gap,
+      ).toBe("point_in_time_audit_failed");
+
+      // Bajó algo pero no auditó: no es `data_ingested`.
+      expect(() =>
+        outcomeForDataStep(SUBJECT, "data_ingested", dataStep({ audit: null })),
+      ).toThrow();
+      // Nada bajó: no hay qué continuar.
+      expect(() =>
+        outcomeForDataStep(
+          SUBJECT,
+          "data_ingested",
+          dataStep({
+            fundamentals: { status: "present" },
+            sic: { status: "present" },
+            prices: { status: "current", latestClose: "2026-10-20" },
+          }),
+        ),
+      ).toThrow();
+      // Un pendiente no se audita a medias.
+      expect(() =>
+        outcomeForDataStep(SUBJECT, "ingestion_pending", dataStep()),
+      ).toThrow();
+      // Una falla de auditoría sin falla no existe.
+      expect(() =>
+        outcomeForDataStep(SUBJECT, "point_in_time_audit_failed", dataStep()),
+      ).toThrow();
+    });
+
+    it("un gap del paso de datos exige el registro y no lleva método", () => {
+      expect(
+        valuationJobOutcomeSchema.safeParse({
+          ...outcomeForDataStep(SUBJECT, "data_ingested", dataStep()),
+          dataStep: null,
+        }).success,
+      ).toBe(false);
+      expect(
+        valuationJobOutcomeSchema.safeParse({
+          ...outcomeForDataStep(SUBJECT, "data_ingested", dataStep()),
+          methodStatus: "selected",
+          assetProfile: "non_financial_mature",
+          method: "fcff_base",
+          rigor: "standard",
+        }).success,
+      ).toBe(false);
+    });
+
+    it("una fila 1.1.0 no tiene paso de datos ni continuación", () => {
+      const done = finishValuationJob(
+        claimValuationJob(queued(), {
+          startedAt: T0,
+          claimToken: TOKEN,
+          staleBefore: T0,
+        })!,
+        {
+          claimToken: TOKEN,
+          finishedAt: T0,
+          outcome: outcomeForDataStep(SUBJECT, "data_ingested", dataStep()),
+        },
+      )!;
+
+      expect(done.ruleVersion).toBe("valuation-job-1.2.0");
+      expect(
+        valuationJobSchema.safeParse({
+          ...done,
+          ruleVersion: "valuation-job-1.1.0",
+        }).success,
+      ).toBe(false);
+      expect(
+        valuationJobSchema.safeParse({
+          ...queued(),
+          ruleVersion: "valuation-job-1.1.0",
+          followsJobId: TOKEN,
+        }).success,
+      ).toBe(false);
+    });
+
+    it("un job no se continúa a sí mismo", () => {
+      expect(() =>
+        queueValuationJob({
+          jobId: JOB_ID,
+          ticker: "AAPL",
+          knownAt: T0,
+          createdAt: T0,
+          followsJobId: JOB_ID,
+        }),
+      ).toThrow();
+    });
+
+    it("el latido mantiene vivo el reclamo y sólo lo da el token vigente", () => {
+      const running = claimValuationJob(queued(), {
+        startedAt: T0,
+        claimToken: TOKEN,
+        staleBefore: T0,
+      })!;
+      const later = addMilliseconds(T0, VALUATION_JOB_STALE_AFTER_MS + 1);
+      const beaten = beatValuationJob(running, {
+        claimToken: TOKEN,
+        at: addMilliseconds(T0, VALUATION_JOB_STALE_AFTER_MS),
+      })!;
+
+      expect(
+        beatValuationJob(running, { claimToken: JOB_ID, at: later }),
+      ).toBeNull();
+      // Sin latido, a los dos minutos se retoma; con latido, no.
+      expect(
+        claimValuationJob(running, {
+          startedAt: later,
+          claimToken: JOB_ID,
+          staleBefore: addMilliseconds(later, -VALUATION_JOB_STALE_AFTER_MS),
+        }),
+      ).not.toBeNull();
+      expect(
+        claimValuationJob(beaten, {
+          startedAt: later,
+          claimToken: JOB_ID,
+          staleBefore: addMilliseconds(later, -VALUATION_JOB_STALE_AFTER_MS),
+        }),
+      ).toBeNull();
+      expect(() =>
+        valuationJobSchema.parse({
+          ...running,
+          heartbeatAt: addMilliseconds(T0, -1),
+        }),
+      ).toThrow();
+    });
+
+    it("la vista lleva el paso de datos y si continúa a otro, nunca el ID", () => {
+      const follower = queueValuationJob({
+        jobId: TOKEN,
+        ticker: "AAPL",
+        knownAt: T0,
+        createdAt: T0,
+        followsJobId: JOB_ID,
+      });
+      const view = toValuationJobView(follower);
+
+      expect(view).toMatchObject({ follows: true, dataStep: null });
+      expect(JSON.stringify(view)).not.toContain(JOB_ID);
+    });
   });
 });

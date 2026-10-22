@@ -1752,6 +1752,10 @@ export const valuationJobGap = pgEnum("valuation_job_gap", [
   "snapshot_not_assembled",
   "assessment_failed",
   "run_recorded",
+  "data_ingested",
+  "ingestion_pending",
+  "ingestion_failed",
+  "point_in_time_audit_failed",
 ]);
 
 /**
@@ -1785,9 +1789,19 @@ export const valuationJobs = pgTable(
     /** La corrida que registró el job: `valuation_runs` es append-only. */
     valuationRunId: uuid("valuation_run_id"),
     runStatus: varchar("run_status", { length: 16 }),
+    /**
+     * Qué bajó y auditó el job antes de valuar (`F6-05`, ADR 0051). El dominio
+     * lo valida con `valuation-data-1.0.0`; acá sólo se exige que exista
+     * cuando el gap lo nombra.
+     */
+    dataStep: jsonb("data_step"),
+    /** El job que éste continúa con un corte nuevo, después de bajar datos. */
+    followsJobId: uuid("follows_job_id"),
     claimToken: uuid("claim_token"),
     createdAt: instant("created_at").notNull(),
     startedAt: instant("started_at"),
+    /** Último latido del reclamo: un job viejo se mide desde acá. */
+    heartbeatAt: instant("heartbeat_at"),
     finishedAt: instant("finished_at"),
   },
   (table) => [
@@ -1795,13 +1809,16 @@ export const valuationJobs = pgTable(
       .on(table.ticker)
       .where(sql`${table.status} in ('queued', 'running')`),
     index("valuation_jobs_ticker_idx").on(table.ticker, table.createdAt),
+    uniqueIndex("valuation_jobs_follows_uidx")
+      .on(table.followsJobId)
+      .where(sql`${table.followsJobId} is not null`),
     check(
       "valuation_jobs_ticker_check",
       sql`${table.ticker} ~ '^[A-Z][A-Z0-9.-]{0,15}$'`,
     ),
     check(
       "valuation_jobs_rule_check",
-      sql`${table.ruleVersion} in ('valuation-job-1.0.0', 'valuation-job-1.1.0')`,
+      sql`${table.ruleVersion} in ('valuation-job-1.0.0', 'valuation-job-1.1.0', 'valuation-job-1.2.0')`,
     ),
     check(
       "valuation_jobs_phase_check",
@@ -1850,12 +1867,26 @@ export const valuationJobs = pgTable(
         and (${table.snapshotGap} is null or ${table.gap}::text = 'snapshot_not_assembled')
         and (${table.snapshotGap} is null or ${table.snapshotGap} in ('method_not_derived', 'security_missing', 'cost_of_capital_unavailable', 'normalization_unavailable', 'revenue_history_insufficient', 'revenue_history_non_positive', 'base_margin_unavailable', 'sales_to_capital_unavailable', 'tax_rate_unavailable', 'employee_equity_not_proposed', 'shares_outstanding_unavailable', 'market_unavailable'))
         and (${table.ruleVersion} = 'valuation-job-1.0.0' or ${table.gap} is null or ${table.gap}::text <> 'snapshot_not_assembled' or ${table.snapshotGap} is not null)
-        and (${table.ruleVersion} = 'valuation-job-1.1.0' or (${table.snapshotGap} is null and ${table.valuationRunId} is null))`,
+        and (${table.ruleVersion} <> 'valuation-job-1.0.0' or (${table.snapshotGap} is null and ${table.valuationRunId} is null))`,
+    ),
+    // Los gaps nuevos se comparan como texto, por la misma razón que
+    // `run_recorded`.
+    check(
+      "valuation_jobs_data_check",
+      sql`(${table.dataStep} is null or (${table.ruleVersion} = 'valuation-job-1.2.0' and ${table.status} = 'completed' and jsonb_typeof(${table.dataStep}) = 'object'))
+        and (${table.followsJobId} is null or (${table.ruleVersion} = 'valuation-job-1.2.0' and ${table.followsJobId} <> ${table.jobId}))
+        and (${table.gap} is null or ${table.gap}::text not in ('data_ingested', 'ingestion_pending', 'ingestion_failed', 'point_in_time_audit_failed') or (${table.dataStep} is not null and ${table.methodStatus} is null))
+        and (${table.heartbeatAt} is null or (${table.startedAt} is not null and ${table.heartbeatAt} >= ${table.startedAt}))`,
     ),
     foreignKey({
       name: "valuation_jobs_run_fk",
       columns: [table.valuationRunId],
       foreignColumns: [valuationRuns.valuationRunId],
+    }),
+    foreignKey({
+      name: "valuation_jobs_follows_fk",
+      columns: [table.followsJobId],
+      foreignColumns: [table.jobId],
     }),
   ],
 );

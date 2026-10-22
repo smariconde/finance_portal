@@ -39,6 +39,13 @@ import {
 import { INDUSTRY_RETURNS_DATASET } from "@/modules/valuation/domain/derived-assumptions";
 import { SHARES_OUTSTANDING_CONCEPT } from "@/modules/valuation/domain/employee-equity-claim";
 import { readLineageObservations } from "@/modules/corporate-actions/application/read-lineage-observations";
+import { resolveReportingLineage } from "@/modules/corporate-actions/domain/reporting-lineage";
+import { ensureValuationData } from "@/modules/valuation/application/ensure-valuation-data";
+import {
+  dataStepBlock,
+  dataStepIngested,
+  type ValuationDataStep,
+} from "@/modules/valuation/domain/valuation-data-step";
 import { PRICES_SOURCE_ID } from "@/modules/prices/application/live-price-source";
 import {
   subtractCalendarYears,
@@ -53,6 +60,7 @@ import { getPriceRepository } from "@/server/persistence/get-price-repository";
 import { getValuationRunRepository } from "@/server/persistence/get-valuation-run-repository";
 import {
   outcomeForAssessment,
+  outcomeForDataStep,
   outcomeForIdentity,
   valuationJobMethodSchema,
   type ValuationAssessmentReading,
@@ -76,13 +84,20 @@ import { getUniverseRepository } from "@/server/persistence/get-universe-reposit
 import { getValuationJobStore } from "@/server/persistence/get-valuation-job-store";
 import { createFundamentalReaders } from "@/server/valuation/fundamental-readers";
 
+import { createValuationDataDependencies } from "./valuation-data";
+
 /**
  * Raíz de composición de la corrida por ticker (`F6-01`,
  * [ADR 0045](../../../docs/architecture/adr/0045-ticker-valuation-job.md)).
  *
  * La acción ya verificó el modo. Estos getters igual lanzan
  * `RuntimeLockedError` en un runtime trabado, así que saltarse la guarda no abre
- * una base. El worker no sale a la red: evalúa lo guardado.
+ * una base.
+ *
+ * Desde `F6-05` ([ADR 0051](../../../docs/architecture/adr/0051-on-demand-valuation-data.md))
+ * el worker baja lo que falta —ventana de la SEC, SIC, precio— y audita el
+ * sujeto antes de valuar. Si bajó algo, corre a continuación el job que lo
+ * sigue con un corte nuevo. No llama al modelo.
  */
 let activeWorker: Promise<void> | null = null;
 
@@ -150,32 +165,48 @@ export function startValuationWorker(jobId: string): Promise<void> {
   return activeWorker;
 }
 
-async function runWorker(jobId: string): Promise<void> {
-  const result = await runValuationJob(jobId, {
-    store: getValuationJobStore(),
-    now,
-    newId,
-    assess: assessValuationJob,
-  });
+/** Un job que continúa a otro nunca baja nada: la cadena es de dos. */
+const MAX_CHAINED_JOBS = 2;
 
-  if (result.status === "failed") {
-    console.error("valuation job failed", result.errorName);
+async function runWorker(jobId: string): Promise<void> {
+  let next: string | null = jobId;
+
+  for (let index = 0; next !== null && index < MAX_CHAINED_JOBS; index += 1) {
+    const result = await runValuationJob(next, {
+      store: getValuationJobStore(),
+      now,
+      newId,
+      assess: assessValuationJob,
+      startHeartbeat: (beat, intervalMs) => {
+        const timer = setInterval(() => void beat(), intervalMs);
+        timer.unref();
+        return () => clearInterval(timer);
+      },
+    });
+
+    if (result.status === "failed") {
+      console.error("valuation job failed", result.errorName);
+    }
+
+    next = result.followUpJobId;
   }
 }
 
 async function assessValuationJob(
   job: ValuationJob,
 ): Promise<ValuationJobOutcome> {
-  const prepared = await prepareValuationRun(job);
+  const prepared = await prepareValuationRun(job, { downloadData: true });
 
   if (prepared.kind === "outcome") {
     return prepared.outcome;
   }
 
   if (prepared.snapshot.status === "not_assembled") {
-    return outcomeForAssessment(prepared.reading, {
-      gap: prepared.snapshot.gap,
-    });
+    return outcomeForAssessment(
+      prepared.reading,
+      { gap: prepared.snapshot.gap },
+      prepared.dataStep,
+    );
   }
 
   const run = runValuation(prepared.snapshot.input, {
@@ -186,10 +217,14 @@ async function assessValuationJob(
   // que ya estaba, sin duplicarla.
   const recorded = await getValuationRunRepository().record(run);
 
-  return outcomeForAssessment(prepared.reading, {
-    valuationRunId: recorded.valuationRunId,
-    runStatus: recorded.status,
-  });
+  return outcomeForAssessment(
+    prepared.reading,
+    {
+      valuationRunId: recorded.valuationRunId,
+      runStatus: recorded.status,
+    },
+    prepared.dataStep,
+  );
 }
 
 export type PreparedValuationRun =
@@ -198,15 +233,24 @@ export type PreparedValuationRun =
       readonly kind: "snapshot";
       readonly reading: ValuationAssessmentReading;
       readonly snapshot: ValuationSnapshotResult;
+      /** `null` si no se pidió el paso de datos. */
+      readonly dataStep: ValuationDataStep | null;
     };
 
 /**
- * Resuelve, evalúa y arma el snapshot sin escribir nada (`F6-07`). El worker
- * corre el motor y registra la corrida; un script de medición puede llamar a
- * esto sin tocar `valuation_runs`.
+ * Resuelve, evalúa y arma el snapshot (`F6-07`). El worker corre el motor y
+ * registra la corrida; un script de medición puede llamar a esto sin tocar
+ * `valuation_runs`.
+ *
+ * Con `downloadData` (`F6-05`) baja lo que falta y audita el sujeto antes de
+ * armar el snapshot; eso sí escribe, en las tablas de ingesta. Sin la opción,
+ * sólo lee.
  */
 export async function prepareValuationRun(
-  job: Pick<ValuationJob, "ticker" | "knownAt">,
+  job: Pick<ValuationJob, "ticker" | "knownAt"> & {
+    readonly followsJobId?: string | null;
+  },
+  options: { readonly downloadData?: boolean } = {},
 ): Promise<PreparedValuationRun> {
   const query = pointInTimeQuerySchema.parse({
     effectiveAt: job.knownAt,
@@ -292,8 +336,79 @@ export async function prepareValuationRun(
       : (assessment.selection.unsupportedReasons[0] ?? null),
   };
 
+  let dataStep: ValuationDataStep | null = null;
+
+  if (options.downloadData === true) {
+    const lineage = resolveReportingLineage(
+      await getCorporateActionRepository().listRelationships(),
+      legalEntityId,
+      query,
+    );
+    const subjectIds = lineage.segments.map((segment) => segment.legalEntityId);
+    const lineageCiks = [
+      cik,
+      ...subjectIds
+        .slice(1)
+        .map(
+          (subjectId) => issuerFactsAt(state.graph, subjectId, null, query).cik,
+        )
+        .filter(
+          (predecessorCik): predecessorCik is string => predecessorCik !== null,
+        ),
+    ];
+
+    dataStep = await ensureValuationData(
+      {
+        legalEntityId,
+        cik,
+        securityId: resolution.securityId,
+        lineageCiks,
+        lineageSubjectIds: subjectIds,
+        needsFundamentals: !reading.hasAnnualFundamentals,
+        needsSic: assessment.sic === null,
+        mayDownload: (job.followsJobId ?? null) === null,
+      },
+      createValuationDataDependencies(state.graph),
+    );
+
+    const subject = {
+      legalEntityId,
+      securityId: resolution.securityId,
+      listingId: resolution.listingId,
+    };
+    const block = dataStepBlock(dataStep);
+
+    if (block !== null) {
+      return {
+        kind: "outcome",
+        outcome: outcomeForDataStep(subject, block, dataStep),
+      };
+    }
+
+    if (dataStep.audit?.status === "failed") {
+      return {
+        kind: "outcome",
+        outcome: outcomeForDataStep(
+          subject,
+          "point_in_time_audit_failed",
+          dataStep,
+        ),
+      };
+    }
+
+    if (dataStepIngested(dataStep)) {
+      return {
+        kind: "outcome",
+        outcome: outcomeForDataStep(subject, "data_ingested", dataStep),
+      };
+    }
+  }
+
   if (!selected || !reading.hasAnnualFundamentals) {
-    return { kind: "outcome", outcome: outcomeForAssessment(reading) };
+    return {
+      kind: "outcome",
+      outcome: outcomeForAssessment(reading, undefined, dataStep),
+    };
   }
 
   const securityId = resolution.securityId;
@@ -314,6 +429,7 @@ export async function prepareValuationRun(
   return {
     kind: "snapshot",
     reading,
+    dataStep,
     snapshot: assembleValuationSnapshot({
       subject: {
         legalEntityId,

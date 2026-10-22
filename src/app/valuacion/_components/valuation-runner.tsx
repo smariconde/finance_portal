@@ -9,7 +9,7 @@ import type { ValuationJobView } from "@/modules/valuation/domain/valuation-job"
 import type { ValuationRunStatus } from "@/modules/valuation/domain/valuation-run";
 
 import { enqueueValuation } from "../actions";
-import { GAP_COPY, SNAPSHOT_GAP_COPY } from "./job-copy";
+import { describeDataStep, GAP_COPY, SNAPSHOT_GAP_COPY } from "./job-copy";
 
 const POLL_MS = 2_000;
 
@@ -95,7 +95,11 @@ export function ValuationRunner({
                 ? RUN_STATUS_COPY[view.runStatus]
                 : `No se registró una corrida: ${
                     view.gap === null ? "sin resultado." : GAP_COPY[view.gap]
-                  }${view.snapshotGap === null ? "" : ` ${SNAPSHOT_GAP_COPY[view.snapshotGap]}.`}`,
+                  }${view.snapshotGap === null ? "" : ` ${SNAPSHOT_GAP_COPY[view.snapshotGap]}.`}${
+                    describeDataStep(view.dataStep) === null
+                      ? ""
+                      : ` ${describeDataStep(view.dataStep)}`
+                  }`,
           });
         } else if (view.state === "completed" && followed) {
           setPhase({
@@ -159,13 +163,13 @@ export function ValuationRunner({
         {phase.kind === "working"
           ? phase.state === "queued"
             ? "En cola: el pedido espera su turno."
-            : "Evaluando lo guardado: la página se actualiza al terminar."
+            : "Bajando lo que falta, auditando y valuando: la página se actualiza al terminar."
           : phase.kind === "done"
             ? phase.message
             : phase.kind === "failed"
               ? "No se pudo pedir la valuación: este runtime no pudo leer la base."
               : hasRun
-                ? "Vuelve a leer lo guardado al corte de hoy. No baja datos ni llama al modelo."
+                ? "Baja el cierre del día si falta, audita la empresa y vuelve a valuar al corte de hoy. No llama al modelo."
                 : null}
       </p>
     </div>

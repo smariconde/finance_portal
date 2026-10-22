@@ -4,6 +4,7 @@ import {
   outcomeForFailure,
   toValuationJobView,
   valuationTickerSchema,
+  VALUATION_JOB_HEARTBEAT_MS,
   VALUATION_JOB_STALE_AFTER_MS,
   type ValuationJob,
   type ValuationJobOutcome,
@@ -36,6 +37,14 @@ export type ValuationJobRunnerDependencies = {
   readonly now: () => string;
   readonly newId: () => string;
   readonly assess: (job: ValuationJob) => Promise<ValuationJobOutcome>;
+  /**
+   * Arranca un latido periódico y devuelve cómo pararlo (`F6-05`). La raíz de
+   * composición usa un temporizador; sin él, el job no late.
+   */
+  readonly startHeartbeat?: (
+    beat: () => Promise<void>,
+    intervalMs: number,
+  ) => () => void;
 };
 
 export async function requestValuationJob(
@@ -89,11 +98,16 @@ export async function requestValuationJob(
 export type ValuationJobRunResult = {
   readonly status: "idle" | "completed" | "failed";
   readonly errorName: string | null;
+  /** El job encolado que continúa a éste después de bajar datos (`F6-05`). */
+  readonly followUpJobId: string | null;
 };
 
 /**
  * Evalúa un job reclamado. Si la lectura falla, el job igual termina, con
  * `assessment_failed`, para no dejar el ticker tomado.
+ *
+ * Un job que bajó datos (`data_ingested`) se cierra encolando otro del mismo
+ * ticker con un corte nuevo, en la misma transacción. El llamador lo corre.
  */
 export async function runValuationJob(
   jobId: string,
@@ -109,8 +123,16 @@ export async function runValuationJob(
   });
 
   if (claimed?.claimToken == null) {
-    return { status: "idle", errorName: null };
+    return { status: "idle", errorName: null, followUpJobId: null };
   }
+
+  const stopHeartbeat =
+    dependencies.startHeartbeat?.(async () => {
+      // Un latido perdido no corta el trabajo: el cierre cercado decide.
+      await dependencies.store
+        .beat({ jobId, claimToken, at: dependencies.now() })
+        .catch(() => "lost");
+    }, VALUATION_JOB_HEARTBEAT_MS) ?? (() => undefined);
 
   let outcome: ValuationJobOutcome;
   let errorName: string | null = null;
@@ -120,21 +142,37 @@ export async function runValuationJob(
   } catch (error) {
     outcome = outcomeForFailure();
     errorName = error instanceof Error ? error.name : typeof error;
+  } finally {
+    stopHeartbeat();
   }
+
+  const finishedAt = dependencies.now();
+  const followUp =
+    outcome.gap === "data_ingested"
+      ? queueValuationJob({
+          jobId: dependencies.newId(),
+          ticker: claimed.ticker,
+          knownAt: finishedAt,
+          createdAt: finishedAt,
+          followsJobId: jobId,
+        })
+      : undefined;
 
   const finished = await dependencies.store.finish({
     jobId,
-    claimToken: claimed.claimToken,
-    finishedAt: dependencies.now(),
+    claimToken,
+    finishedAt,
     outcome,
+    followUp,
   });
 
   if (finished === "lost") {
-    return { status: "idle", errorName: null };
+    return { status: "idle", errorName: null, followUpJobId: null };
   }
 
   return {
     status: errorName === null ? "completed" : "failed",
     errorName,
+    followUpJobId: followUp?.jobId ?? null,
   };
 }

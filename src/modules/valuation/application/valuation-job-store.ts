@@ -29,6 +29,17 @@ export type ValuationJobFinish = {
   readonly claimToken: string;
   readonly finishedAt: string;
   readonly outcome: ValuationJobOutcome;
+  /**
+   * Job en cola que continúa a éste con un corte nuevo (`F6-05`). Se inserta
+   * en la misma transacción que el cierre: si el cierre se pierde, no queda.
+   */
+  readonly followUp?: ValuationJob;
+};
+
+export type ValuationJobBeat = {
+  readonly jobId: string;
+  readonly claimToken: string;
+  readonly at: string;
 };
 
 /** Techo del historial: una consulta acotada, nunca la tabla entera. */
@@ -56,4 +67,6 @@ export interface ValuationJobStore {
    * tomó o la cerró.
    */
   finish(finish: ValuationJobFinish): Promise<"completed" | "lost">;
+  /** Renueva el reclamo con su token (`F6-05`). `lost` si ya no es propio. */
+  beat(beat: ValuationJobBeat): Promise<"alive" | "lost">;
 }

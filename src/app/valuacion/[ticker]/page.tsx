@@ -33,6 +33,7 @@ import {
 } from "@/server/jobs/valuation-job";
 
 import {
+  describeDataStep,
   GAP_COPY,
   RIGOR_COPY,
   SNAPSHOT_GAP_COPY,
@@ -122,7 +123,10 @@ function NewerGapAlert({ gap }: { gap: ValuationResultNewerGap }) {
         terminó así: {gap.gap === null ? "sin resultado." : GAP_COPY[gap.gap]}
         {gap.snapshotGap === null
           ? null
-          : ` Motivo: ${SNAPSHOT_GAP_COPY[gap.snapshotGap]}.`}{" "}
+          : ` Motivo: ${SNAPSHOT_GAP_COPY[gap.snapshotGap]}.`}
+        {describeDataStep(gap.dataStep) === null
+          ? null
+          : ` ${describeDataStep(gap.dataStep)}`}{" "}
         Esta página muestra la última corrida que sí se registró.
       </AlertDescription>
     </Alert>
@@ -227,10 +231,11 @@ function WithoutRun({
   } else {
     const gap = reading.latest.gap;
     const snapshotGap = reading.latest.snapshotGap;
+    const data = describeDataStep(reading.latest.dataStep);
 
     message = `Ningún pedido registró una corrida. El último terminó así: ${
       gap === null ? "sin resultado." : GAP_COPY[gap]
-    }${snapshotGap === null ? "" : ` Motivo: ${SNAPSHOT_GAP_COPY[snapshotGap]}.`}`;
+    }${snapshotGap === null ? "" : ` Motivo: ${SNAPSHOT_GAP_COPY[snapshotGap]}.`}${data === null ? "" : ` ${data}`}`;
   }
 
   return (
@@ -239,8 +244,9 @@ function WithoutRun({
         <p className="text-sm">{message}</p>
         <p className="text-sm text-muted-foreground">
           Sin corrida no hay valor por acción, y esta página no lo estima.
-          Valuar evalúa lo guardado al corte de hoy: si alcanza, la página se
-          completa sola; si no, dice qué falta.
+          Valuar baja lo que falte de la SEC y el cierre del día, audita la
+          empresa y evalúa al corte de hoy: si alcanza, la página se completa
+          sola; si no, dice qué falta.
         </p>
       </section>
     </PageFrame>
@@ -484,8 +490,9 @@ export default async function ValuationResultPage({ params }: PageProps) {
           </li>
           <li>
             Abrir esta página no recalcula la corrida, no baja datos y no llama
-            al modelo. «Volver a valuar» lee otra vez lo guardado al corte de
-            hoy y registra otra corrida si algo cambió.
+            al modelo. «Volver a valuar» baja el cierre del día si falta, audita
+            la empresa, lee lo guardado al corte de hoy y registra otra corrida
+            si algo cambió.
           </li>
           <li>
             Los supuestos no son editables: salen de una regla versionada, y
