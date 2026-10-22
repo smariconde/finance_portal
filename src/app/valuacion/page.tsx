@@ -47,9 +47,10 @@ export default async function ValuationPage() {
             Escribí el símbolo de una empresa del universo constituido. Se abre
             su página, se baja de la SEC lo que falte y el cierre del día, se
             audita la empresa y, si alcanza, el valor aparece ahí junto al
-            precio y a lo que el precio exige. No llama al modelo: la
-            transcripción de opciones y la industria ambigua siguen siendo
-            comandos.
+            precio y a lo que el precio exige. Si falta algo cualitativo —la
+            industria cuando el SIC es ambiguo, las opciones de empleados o el
+            mix geográfico de ingresos—, se lo pide a la IA, que cita el 10-K y
+            pasa por una policy; si no alcanza, la página dice qué faltó.
           </p>
         </section>
         <ValuationRequestForm />

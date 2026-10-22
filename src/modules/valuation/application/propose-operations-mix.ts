@@ -2,6 +2,7 @@ import { assertAiTransferable } from "@/modules/ai/domain/ai-transfer";
 import type { LadderResult } from "@/modules/ai/application/run-model-ladder";
 import type { AiTask } from "@/modules/ai/domain/ai-task";
 import { AI_MODEL_LADDER_VERSION } from "@/modules/ai/domain/model-ladder";
+import { isTransientAiAnswer } from "@/modules/ai/domain/task-answer";
 import {
   locateLatestAnnualReport,
   type SecAnnualReport,
@@ -210,6 +211,7 @@ export async function proposeOperationsMix(
   if (
     !request.again &&
     previous !== null &&
+    !isTransientAiAnswer(previous.proposal) &&
     previous.proposal.accessionNumber === annualReport.accessionNumber &&
     previous.proposal.taskVersion === OPERATIONS_MIX_TASK.taskVersion &&
     previous.proposal.promptVersion === OPERATIONS_MIX_PROMPT_VERSION &&

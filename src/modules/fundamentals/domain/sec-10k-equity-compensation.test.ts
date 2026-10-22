@@ -31,7 +31,27 @@ const RSU_ONLY_NOTE =
 const INCENTIVE_PROGRAM_NOTE =
   "18. Incentive Program The 2003 Incentive Program provides for grants of stock options and restricted stock. Restricted Stock and Restricted Stock Units: awards granted, vested and forfeited. Restricted stock and units outstanding 2025 Shares (thousands) Issued and outstanding at January 1 39,595 85.29 Awards issued in 2025 10,327 Vested (8,716) Forfeited (552) Issued and outstanding at December 31 40,654 92.45";
 
+// La forma de las filas de Coca-Cola y Procter & Gamble (`1.1.0`), con cifras
+// inventadas.
+const ON_DATE_NOTE =
+  "13. STOCK-BASED COMPENSATION PLANS. Stock option activity during the year ended December 31, 2025 was as follows: Shares (In millions) Weighted-Average Exercise Price Weighted-Average Remaining Contractual Term Outstanding on January 1, 2025 40 $ 50.00 Granted 4 70.00 Exercised (6) 45.00 Outstanding on December 31, 2025 38 $ 53.00 5.0 years Exercisable on December 31, 2025 25 $ 51.00";
+
+const SMALL_CAPS_NOTE =
+  "Note 7: SHARE-BASED COMPENSATION. A summary of options outstanding under the plans as of June 30, 2026, and activity during the year then ended is presented below: Options (in thousands) Weighted Average Exercise Price OUTSTANDING AT JULY 1, 2025 90,000 $ 120.00 Granted 9,000 150.00 Exercised (10,000) 90.00 Forfeited/expired (600) 150.00 OUTSTANDING AT JUNE 30, 2026 88,400 $ 126.00 Exercisable 60,000 $ 115.00";
+
 describe("extractEquityCompensationFromText", () => {
+  it("reads balance rows dated with «on» and rows in small caps (1.1.0)", () => {
+    for (const note of [ON_DATE_NOTE, SMALL_CAPS_NOTE]) {
+      const result = extractEquityCompensationFromText(
+        `${FILLER} ${EQUITY_STATEMENT} ${FILLER} ${FILLER} ${note} ${FILLER}`,
+      );
+
+      expect(result?.version).toBe("sec-10k-equity-compensation-1.1.0");
+      expect(result?.section.text).toContain("Granted");
+      expect(result?.section.text).not.toContain("Consolidated Statements");
+    }
+  });
+
   it("reads an incentive program note whose balance rows print no year", () => {
     const result = extractEquityCompensationFromText(
       `${FILLER} ${EQUITY_STATEMENT} ${FILLER} ${INCENTIVE_PROGRAM_NOTE} ${FILLER}`,

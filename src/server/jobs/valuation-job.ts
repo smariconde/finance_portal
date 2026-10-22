@@ -62,6 +62,7 @@ import {
   outcomeForAssessment,
   outcomeForDataStep,
   outcomeForIdentity,
+  outcomeForQualitativeStep,
   valuationJobMethodSchema,
   type ValuationAssessmentReading,
   type ValuationJob,
@@ -76,6 +77,10 @@ import {
 } from "@/modules/valuation/domain/cost-of-capital";
 import { FAILURE_RATES_DATASET } from "@/modules/valuation/domain/failure-risk";
 import { DAMODARAN_INDUSTRY_TAXONOMY } from "@/modules/valuation/domain/industry-mapping";
+import {
+  qualitativeStepAccepted,
+  type ValuationQualitativeStep,
+} from "@/modules/valuation/domain/valuation-qualitative-step";
 import { getClassificationRepository } from "@/server/persistence/get-classification-repository";
 import { getIndustryResolutionRepository } from "@/server/persistence/get-industry-resolution-repository";
 import { getOperationsMixRepository } from "@/server/persistence/get-operations-mix-repository";
@@ -85,6 +90,7 @@ import { getValuationJobStore } from "@/server/persistence/get-valuation-job-sto
 import { createFundamentalReaders } from "@/server/valuation/fundamental-readers";
 
 import { createValuationDataDependencies } from "./valuation-data";
+import { runQualitativeStep } from "./valuation-qualitative";
 
 /**
  * Raíz de composición de la corrida por ticker (`F6-01`,
@@ -97,7 +103,12 @@ import { createValuationDataDependencies } from "./valuation-data";
  * Desde `F6-05` ([ADR 0051](../../../docs/architecture/adr/0051-on-demand-valuation-data.md))
  * el worker baja lo que falta —ventana de la SEC, SIC, precio— y audita el
  * sujeto antes de valuar. Si bajó algo, corre a continuación el job que lo
- * sigue con un corte nuevo. No llama al modelo.
+ * sigue con un corte nuevo.
+ *
+ * Desde `F6-13` ([ADR 0052](../../../docs/architecture/adr/0052-qualitative-decisions-in-valuation-job.md))
+ * pregunta a la IA lo cualitativo que falta —industria ambigua, opciones de
+ * empleados, mix de operaciones— con las tareas y los topes de sus comandos.
+ * Una decisión aceptada también se continúa con un corte nuevo.
  */
 let activeWorker: Promise<void> | null = null;
 
@@ -165,8 +176,13 @@ export function startValuationWorker(jobId: string): Promise<void> {
   return activeWorker;
 }
 
-/** Un job que continúa a otro nunca baja nada: la cadena es de dos. */
-const MAX_CHAINED_JOBS = 2;
+/**
+ * Un job que continúa a otro nunca baja nada, y uno que sigue a una decisión
+ * de la IA ya la ve: la cadena es de tres —bajar, decidir, valuar—. Cada
+ * tarea guarda una respuesta por 10-K, así que una cuarta no tendría qué
+ * preguntar.
+ */
+const MAX_CHAINED_JOBS = 3;
 
 async function runWorker(jobId: string): Promise<void> {
   let next: string | null = jobId;
@@ -195,7 +211,10 @@ async function runWorker(jobId: string): Promise<void> {
 async function assessValuationJob(
   job: ValuationJob,
 ): Promise<ValuationJobOutcome> {
-  const prepared = await prepareValuationRun(job, { downloadData: true });
+  const prepared = await prepareValuationRun(job, {
+    downloadData: true,
+    askAi: true,
+  });
 
   if (prepared.kind === "outcome") {
     return prepared.outcome;
@@ -206,6 +225,7 @@ async function assessValuationJob(
       prepared.reading,
       { gap: prepared.snapshot.gap },
       prepared.dataStep,
+      prepared.qualitativeStep,
     );
   }
 
@@ -224,6 +244,7 @@ async function assessValuationJob(
       runStatus: recorded.status,
     },
     prepared.dataStep,
+    prepared.qualitativeStep,
   );
 }
 
@@ -235,6 +256,8 @@ export type PreparedValuationRun =
       readonly snapshot: ValuationSnapshotResult;
       /** `null` si no se pidió el paso de datos. */
       readonly dataStep: ValuationDataStep | null;
+      /** `null` si no se le preguntó nada a la IA (`F6-13`). */
+      readonly qualitativeStep: ValuationQualitativeStep | null;
     };
 
 /**
@@ -245,12 +268,20 @@ export type PreparedValuationRun =
  * Con `downloadData` (`F6-05`) baja lo que falta y audita el sujeto antes de
  * armar el snapshot; eso sí escribe, en las tablas de ingesta. Sin la opción,
  * sólo lee.
+ *
+ * Con `askAi` (`F6-13`) y un método `fcff_base`, pregunta a la IA lo
+ * cualitativo que falta antes de armar el snapshot; eso escribe en las tablas
+ * de cada tarea y gasta. Sólo corre detrás del paso de datos: una tarea sobre
+ * una ventana que no pasó la auditoría preguntaría sobre datos rotos.
  */
 export async function prepareValuationRun(
   job: Pick<ValuationJob, "ticker" | "knownAt"> & {
     readonly followsJobId?: string | null;
   },
-  options: { readonly downloadData?: boolean } = {},
+  options: {
+    readonly downloadData?: boolean;
+    readonly askAi?: boolean;
+  } = {},
 ): Promise<PreparedValuationRun> {
   const query = pointInTimeQuerySchema.parse({
     effectiveAt: job.knownAt,
@@ -337,26 +368,25 @@ export async function prepareValuationRun(
   };
 
   let dataStep: ValuationDataStep | null = null;
+  const lineage = resolveReportingLineage(
+    await getCorporateActionRepository().listRelationships(),
+    legalEntityId,
+    query,
+  );
+  const subjectIds = lineage.segments.map((segment) => segment.legalEntityId);
+  const lineageCiks = [
+    cik,
+    ...subjectIds
+      .slice(1)
+      .map(
+        (subjectId) => issuerFactsAt(state.graph, subjectId, null, query).cik,
+      )
+      .filter(
+        (predecessorCik): predecessorCik is string => predecessorCik !== null,
+      ),
+  ];
 
   if (options.downloadData === true) {
-    const lineage = resolveReportingLineage(
-      await getCorporateActionRepository().listRelationships(),
-      legalEntityId,
-      query,
-    );
-    const subjectIds = lineage.segments.map((segment) => segment.legalEntityId);
-    const lineageCiks = [
-      cik,
-      ...subjectIds
-        .slice(1)
-        .map(
-          (subjectId) => issuerFactsAt(state.graph, subjectId, null, query).cik,
-        )
-        .filter(
-          (predecessorCik): predecessorCik is string => predecessorCik !== null,
-        ),
-    ];
-
     dataStep = await ensureValuationData(
       {
         legalEntityId,
@@ -412,9 +442,50 @@ export async function prepareValuationRun(
   }
 
   const securityId = resolution.securityId;
+  const employeeEquityRepository = getEmployeeEquityRepository();
+  let qualitativeStep: ValuationQualitativeStep | null = null;
+
+  if (
+    options.askAi === true &&
+    dataStep !== null &&
+    assessment.selection.status === "selected" &&
+    assessment.selection.recommendedMethod === "fcff_base"
+  ) {
+    const needs = {
+      industry: assessment.industry.status === "ambiguous",
+      employeeEquity:
+        (await employeeEquityRepository.acceptedAsKnown(
+          legalEntityId,
+          job.knownAt,
+        )) === null,
+      operationsMix: assessment.qualitativeDecisions.operationsMix === null,
+    };
+
+    if (needs.industry || needs.employeeEquity || needs.operationsMix) {
+      qualitativeStep = await runQualitativeStep({
+        graph: state.graph,
+        legalEntityId,
+        cik,
+        annualReportCiks: lineageCiks,
+        query,
+        needs,
+      });
+
+      const outcome = qualitativeStepOutcome(
+        { legalEntityId, securityId, listingId: resolution.listingId },
+        dataStep,
+        qualitativeStep,
+      );
+
+      if (outcome !== null) {
+        return { kind: "outcome", outcome };
+      }
+    }
+  }
+
   const [employeeEquity, shareCounts, prices, industryReturns] =
     await Promise.all([
-      getEmployeeEquityRepository().acceptedAsKnown(legalEntityId, job.knownAt),
+      employeeEquityRepository.acceptedAsKnown(legalEntityId, job.knownAt),
       readShareCounts(legalEntityId, query),
       securityId === null
         ? Promise.resolve({ closes: [], events: [] })
@@ -430,6 +501,7 @@ export async function prepareValuationRun(
     kind: "snapshot",
     reading,
     dataStep,
+    qualitativeStep,
     snapshot: assembleValuationSnapshot({
       subject: {
         legalEntityId,
@@ -445,6 +517,21 @@ export async function prepareValuationRun(
       industryReturns,
     }),
   };
+}
+
+/**
+ * Una decisión aceptada se publica después del corte de este job: otro, con
+ * corte nuevo, valúa con ella. Sin ninguna, el job sigue al snapshot, que
+ * nombra lo que faltó.
+ */
+function qualitativeStepOutcome(
+  subject: Parameters<typeof outcomeForQualitativeStep>[0],
+  dataStep: ValuationDataStep,
+  step: ValuationQualitativeStep,
+): ValuationJobOutcome | null {
+  return qualitativeStepAccepted(step)
+    ? outcomeForQualitativeStep(subject, dataStep, step)
+    : null;
 }
 
 /** Las acciones de la carátula al corte, por el linaje del emisor. */

@@ -6,11 +6,13 @@ import {
   VALUATION_DATA_RULE_VERSION,
   type ValuationDataStep,
 } from "../domain/valuation-data-step";
+import { VALUATION_QUALITATIVE_RULE_VERSION } from "../domain/valuation-qualitative-step";
 import {
   addMilliseconds,
   outcomeForAssessment,
   outcomeForDataStep,
   outcomeForIdentity,
+  outcomeForQualitativeStep,
   queueValuationJob,
   VALUATION_JOB_STALE_AFTER_MS,
 } from "../domain/valuation-job";
@@ -142,7 +144,7 @@ export function describeValuationJobStoreContract(
 
         const done = await store.findLatestByTicker(symbol);
 
-        expect(done?.ruleVersion).toBe("valuation-job-1.2.0");
+        expect(done?.ruleVersion).toBe("valuation-job-1.3.0");
         expect(done?.gap).toBe(outcome.gap);
         expect(done?.snapshotGap).toBe(outcome.snapshotGap);
         expect(done?.valuationRunId).toBe(outcome.valuationRunId);
@@ -341,6 +343,71 @@ export function describeValuationJobStoreContract(
         followsJobId: job.jobId,
         status: "queued",
       });
+    });
+
+    it("cierra con lo que le preguntó a la IA y encola el que continúa (1.3.0)", async () => {
+      const symbol = ticker();
+      const job = queueValuationJob({
+        jobId: randomUUID(),
+        ticker: symbol,
+        knownAt: T0,
+        createdAt: T0,
+      });
+      const token = randomUUID();
+      const dataStep: ValuationDataStep = {
+        ruleVersion: VALUATION_DATA_RULE_VERSION,
+        fundamentals: { status: "present" },
+        sic: { status: "present" },
+        prices: { status: "current", latestClose: "2026-10-20" },
+        audit: { status: "passed", chains: 3, notExercised: [] },
+      };
+      const qualitativeStep = {
+        ruleVersion: VALUATION_QUALITATIVE_RULE_VERSION,
+        industry: { status: "accepted", rung: 1 },
+        employeeEquity: { status: "skipped", reason: "already_asked" },
+        operationsMix: { status: "abstained", reason: "ladder_exhausted" },
+        chargedNanoUsd: 2_600_000,
+      } as const;
+      const finishedAt = addMilliseconds(T0, 10);
+      const followUp = queueValuationJob({
+        jobId: randomUUID(),
+        ticker: symbol,
+        knownAt: finishedAt,
+        createdAt: finishedAt,
+        followsJobId: job.jobId,
+      });
+
+      await store.insert(job);
+      await store.claim({
+        jobId: job.jobId,
+        startedAt: T0,
+        claimToken: token,
+        staleBefore: T0,
+      });
+      expect(
+        await store.finish({
+          jobId: job.jobId,
+          claimToken: token,
+          finishedAt,
+          outcome: outcomeForQualitativeStep(
+            { legalEntityId: randomUUID(), securityId: null, listingId: null },
+            dataStep,
+            qualitativeStep,
+          ),
+          followUp,
+        }),
+      ).toBe("completed");
+
+      const [done] = await store.listCompletedByTicker(symbol, 5);
+
+      expect(done).toMatchObject({
+        gap: "qualitative_resolved",
+        ruleVersion: "valuation-job-1.3.0",
+        qualitativeStep,
+      });
+      expect((await store.findOpenByTicker(symbol))?.jobId).toBe(
+        followUp.jobId,
+      );
     });
 
     it("un cierre perdido no encola el que continúa", async () => {

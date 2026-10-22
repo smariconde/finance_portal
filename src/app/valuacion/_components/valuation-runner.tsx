@@ -9,7 +9,12 @@ import type { ValuationJobView } from "@/modules/valuation/domain/valuation-job"
 import type { ValuationRunStatus } from "@/modules/valuation/domain/valuation-run";
 
 import { enqueueValuation } from "../actions";
-import { describeDataStep, GAP_COPY, SNAPSHOT_GAP_COPY } from "./job-copy";
+import {
+  describeDataStep,
+  describeQualitativeStep,
+  GAP_COPY,
+  SNAPSHOT_GAP_COPY,
+} from "./job-copy";
 
 const POLL_MS = 2_000;
 
@@ -99,6 +104,10 @@ export function ValuationRunner({
                     describeDataStep(view.dataStep) === null
                       ? ""
                       : ` ${describeDataStep(view.dataStep)}`
+                  }${
+                    describeQualitativeStep(view.qualitativeStep) === null
+                      ? ""
+                      : ` ${describeQualitativeStep(view.qualitativeStep)}`
                   }`,
           });
         } else if (view.state === "completed" && followed) {
@@ -163,13 +172,13 @@ export function ValuationRunner({
         {phase.kind === "working"
           ? phase.state === "queued"
             ? "En cola: el pedido espera su turno."
-            : "Bajando lo que falta, auditando y valuando: la página se actualiza al terminar."
+            : "Bajando lo que falta, auditando, consultando a la IA si hace falta y valuando: la página se actualiza al terminar."
           : phase.kind === "done"
             ? phase.message
             : phase.kind === "failed"
               ? "No se pudo pedir la valuación: este runtime no pudo leer la base."
               : hasRun
-                ? "Baja el cierre del día si falta, audita la empresa y vuelve a valuar al corte de hoy. No llama al modelo."
+                ? "Baja el cierre del día si falta, audita la empresa, pide a la IA lo cualitativo que falte y vuelve a valuar al corte de hoy."
                 : null}
       </p>
     </div>

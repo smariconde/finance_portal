@@ -80,6 +80,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    52 | `F6-10`    | `done`     | `derived-assumptions-2.0.0`: ROIC terminal por regla con el dataset de Damodaran, crecimiento por tendencia y escenarios bear/bull derivados.                                                                             | `F6-09`          |
 |    53 | `F6-11`    | `done`     | Lectura cualitativa de la IA sobre lo que exige el precio: plausibilidad por driver con citas del 10-K verificadas, sin mover el valor.                                                                                   | `F6-09`          |
 |    54 | `F6-12`    | `done`     | Flujo de valuación en un solo lugar por ticker: pedir, ver el estado y leer el resultado sin saltos, con la jerarquía orientada a decidir.                                                                                | `F6-09`          |
+|    55 | `F6-13`    | `done`     | La corrida le pide a la IA lo cualitativo que falta —industria ambigua, opciones de empleados, mix— con las tareas y topes de sus comandos, y valúa con lo aceptado en un job con corte nuevo.                            | `F6-05`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -3623,6 +3624,7 @@ repararon contra `source_documents`.
 | `F6-10` | `derived-assumptions-2.0.0`: ROIC terminal por regla (dataset de ROIC por industria de Damodaran, acotado entre el WACC y el ROIC propio), crecimiento por tendencia log-lineal y escenarios bear/bull derivados con su rationale.    | `F6-09`    | `TM-05`, `TM-06`, `TM-16`                   |
 | `F6-11` | Lectura cualitativa de la IA sobre las expectativas implícitas: plausibilidad por driver con citas verbatim del 10-K que una policy verifica; se guarda con su evidencia y nunca entra al valor.                                      | `F6-09`    | `TM-09`, `TM-10`, `TM-12`, `TM-15`, `TM-16` |
 | `F6-12` | Flujo de valuación por ticker en una sola superficie: pedir, estado inline y resultado sin saltos; jerarquía de decisión primero y evidencia a demanda.                                                                               | `F6-09`    | `TM-03`, `UI-02`, `UI-03`                   |
+| `F6-13` | La corrida pregunta a la IA lo cualitativo que la evaluación dice que falta y continúa con un corte nuevo cuando algo quedó aceptado; un freno de la escalera no cuenta como respuesta.                                               | `F6-05`    | `TM-03`, `TM-09`, `TM-10`, `TM-16`          |
 
 **Criterio agregado a `F6-05` el 2026-10-20.** Toda ingesta que dispare la
 app —la que baja la ventana que falta y cualquier reingesta o refresh de un
@@ -3761,6 +3763,72 @@ cualitativa de la IA sobre lo que exige el precio) y `F6-12` (flujo de
 valuación en un solo lugar). `F6-05` pasa a `queued` detrás de ellos. El año
 base TTM desde 10-Q queda nombrado como límite de `F6-10`, porque cambia toda
 la normalización.
+
+#### `F6-13` — la corrida le pide a la IA lo cualitativo que falta (cerrado el 2026-10-22)
+
+Estado del slice: `done`. No cierra el gate de la Fase 6: falta el despliegue
+remoto (`F6-06`). `F6-08` sigue `ready`.
+
+Decisión del owner del 2026-10-22: el sistema tiene que dar resultados en vez de
+frenar por un dato cualitativo. El job corre **las tres** tareas —industria
+ambigua, opciones de empleados y mix de operaciones— y este slice va antes que
+`F6-08`.
+
+- `valuation-qualitative-1.0.0` ([ADR 0052](../architecture/adr/0052-qualitative-decisions-in-valuation-job.md)):
+  con un método `fcff_base` y el paso de datos sin bloqueo, el job pregunta en
+  orden fijo lo que la evaluación dice que falta. Cada tarea es la de su
+  comando, con `apply` y sin `again`; una declaración del owner sigue siendo el
+  lock. Las tres comparten `submissions` y el 10-K, pedidos una vez por job, y
+  una escalera que frena corta las siguientes (`not_run`).
+- `isTransientAiAnswer`: una respuesta `stopped` o `ai_budget_exhausted` ya no
+  cuenta como «ya se preguntó por este 10-K», en el job y en los comandos. Un
+  día con el tope gastado ya no traba a la empresa hasta un `--again`.
+- Si queda alguna decisión aceptada, el job termina en `qualitative_resolved` y
+  encola otro con corte nuevo en la misma transacción. Cadena de tres como mucho:
+  bajar, decidir, valuar.
+- `sec-10k-equity-compensation-1.1.0`: la fila de saldo también es
+  «Outstanding on …» y la versalita «OUTSTANDING AT …». Con `1.0.0`, Coca-Cola,
+  Procter & Gamble, Cisco y Costco salteaban con `equity_note_not_found`.
+- `valuation-job-1.3.0`, migración `0035` (`qualitative_step`, gap
+  `qualitative_resolved`) con rollback pareado que se niega si hay filas `1.3.0`.
+- Superficie: el copy de `/valuacion`, del runner y de los avisos dice que la
+  corrida le pide a la IA lo que falta; lo que no resolvió se dice en una
+  oración, sin códigos; el historial etiqueta «Resolvió con IA».
+- Controles: `TM-03` (la acción no importa la capa IA; el worker corre detrás de
+  `after()`, y ESLint sigue cerrando `src/app/`), `TM-09` (mismas tareas,
+  evidencia delimitada y policies), `TM-10` (tres tareas por pedido como mucho,
+  los topes en dólares y de requests de la ADR 0033, una búsqueda de Tavily por
+  job) y `TM-16` (el job registra qué preguntó, qué respondió cada tarea y lo
+  cobrado).
+
+Evidencia:
+
+- 3.021 unit y 220 integration; el contrato del store prueba en memoria y en
+  PostgreSQL el cierre `qualitative_resolved` con su continuación. Formato, lint,
+  tipos y build; 204 E2E con axe (2 omitidos).
+- Réplica de la base personal, worker real, diez empresas no financieras sin
+  decisiones de IA guardadas salvo AAPL: **cinco corridas `computed`** —PEP,
+  MCD, PG, CSCO y AAPL—, contra una sola (AAPL) sin este slice. KO bajó todo
+  y resolvió industria y mix en 40 s. Gasto de IA: USD 0,238 en 49 intentos, unos
+  USD 0,024 por empresa nueva.
+- Lo que sigue frenando no es cualitativo, o la IA no lo resuelve:
+  - KO: la deuda no tiene receta en `reported-debt-1.0.0` (publica
+    `longTermNoncurrent` y `commercialPaper`), así que no hay capital invertido
+    ni sales-to-capital; además la escalera no da una transcripción de opciones
+    aceptada.
+  - HD: la nota de opciones aparece, pero ninguna transcripción pasa la policy
+    (`ladder_exhausted`).
+  - WMT: falta la cobertura de intereses, así que no hay rating sintético ni
+    WACC.
+  - COST: sólo tiene RSU, y el modelo no reconoce el recorte como la nota
+    (`no_equity_compensation_note`).
+  - NKE: el selector no tiene evidencia para clasificarla
+    (`missing_classification_evidence`).
+- Migración `0035` aplicada en la base personal.
+
+Límites nombrados: la lectura de expectativas (`F6-11`) sigue siendo comando. Sin
+transcripción aceptada no hay regla para valuar las opciones, y el snapshot no
+se arma. El tope de USD 1,00 por día alcanza para unas 40 empresas nuevas.
 
 #### `F6-05` — la corrida baja lo que falta y audita su sujeto (cerrado el 2026-10-21)
 

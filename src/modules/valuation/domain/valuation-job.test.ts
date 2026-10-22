@@ -5,6 +5,10 @@ import {
   type ValuationDataStep,
 } from "./valuation-data-step";
 import {
+  VALUATION_QUALITATIVE_RULE_VERSION,
+  type ValuationQualitativeStep,
+} from "./valuation-qualitative-step";
+import {
   addMilliseconds,
   beatValuationJob,
   claimValuationJob,
@@ -13,6 +17,7 @@ import {
   outcomeForDataStep,
   outcomeForFailure,
   outcomeForIdentity,
+  outcomeForQualitativeStep,
   queueValuationJob,
   toValuationJobView,
   VALUATION_JOB_STALE_AFTER_MS,
@@ -221,7 +226,7 @@ describe("valuation job", () => {
       outcome,
     });
 
-    expect(done?.ruleVersion).toBe("valuation-job-1.2.0");
+    expect(done?.ruleVersion).toBe("valuation-job-1.3.0");
     expect(done?.valuationRunId).toBe(RUN);
   });
 
@@ -427,7 +432,7 @@ describe("valuation job", () => {
         },
       )!;
 
-      expect(done.ruleVersion).toBe("valuation-job-1.2.0");
+      expect(done.ruleVersion).toBe("valuation-job-1.3.0");
       expect(
         valuationJobSchema.safeParse({
           ...done,
@@ -505,6 +510,142 @@ describe("valuation job", () => {
 
       expect(view).toMatchObject({ follows: true, dataStep: null });
       expect(JSON.stringify(view)).not.toContain(JOB_ID);
+    });
+  });
+
+  describe("valuation-job-1.3.0", () => {
+    const SUBJECT = {
+      legalEntityId: ENTITY,
+      securityId: SECURITY,
+      listingId: LISTING,
+    };
+    const DATA: ValuationDataStep = {
+      ruleVersion: VALUATION_DATA_RULE_VERSION,
+      fundamentals: { status: "present" },
+      sic: { status: "present" },
+      prices: { status: "current", latestClose: "2026-10-20" },
+      audit: { status: "passed", chains: 4, notExercised: [] },
+    };
+    const READING = {
+      ...SUBJECT,
+      cik: "0000320193",
+      hasAnnualFundamentals: true,
+      methodStatus: "selected",
+      assetProfile: "non_financial_mature",
+      method: "fcff_base",
+      rigor: "standard",
+      unsupportedReason: null,
+    } as const;
+
+    function step(
+      overrides: Partial<ValuationQualitativeStep> = {},
+    ): ValuationQualitativeStep {
+      return {
+        ruleVersion: VALUATION_QUALITATIVE_RULE_VERSION,
+        industry: { status: "accepted", rung: 1 },
+        employeeEquity: { status: "present" },
+        operationsMix: { status: "abstained", reason: "ladder_exhausted" },
+        chargedNanoUsd: 2_600_000,
+        ...overrides,
+      };
+    }
+
+    it("qualitative_resolved needs an accepted decision and carries no method", () => {
+      const outcome = outcomeForQualitativeStep(SUBJECT, DATA, step());
+
+      expect(outcome.gap).toBe("qualitative_resolved");
+      expect(outcome.methodStatus).toBeNull();
+      expect(() =>
+        outcomeForQualitativeStep(
+          SUBJECT,
+          DATA,
+          step({ industry: { status: "skipped", reason: "already_asked" } }),
+        ),
+      ).toThrow();
+    });
+
+    it("the snapshot gap and the recorded run keep what the AI was asked", () => {
+      const missing = outcomeForAssessment(
+        READING,
+        { gap: "employee_equity_not_proposed" },
+        DATA,
+        step({
+          industry: { status: "present" },
+          employeeEquity: { status: "abstained", reason: "ladder_exhausted" },
+        }),
+      );
+
+      expect(missing.qualitativeStep?.employeeEquity.status).toBe("abstained");
+      // Una evaluación que no llegó al snapshot no le preguntó nada a la IA.
+      expect(
+        valuationJobOutcomeSchema.safeParse({
+          ...outcomeForDataStep(SUBJECT, "point_in_time_audit_failed", {
+            ...DATA,
+            audit: {
+              status: "failed",
+              chains: 4,
+              failures: 1,
+              claim: "revision_chain_ordered",
+              metricId: "Revenues",
+              asOf: "2025-12-31",
+            },
+          }),
+          qualitativeStep: step(),
+        }).success,
+      ).toBe(false);
+    });
+
+    it("a 1.2.0 row keeps its data step and never has a qualitative step", () => {
+      const done = finishValuationJob(
+        claimValuationJob(queued(), {
+          startedAt: T0,
+          claimToken: TOKEN,
+          staleBefore: T0,
+        })!,
+        {
+          claimToken: TOKEN,
+          finishedAt: T0,
+          outcome: outcomeForAssessment(
+            READING,
+            { gap: "employee_equity_not_proposed" },
+            DATA,
+          ),
+        },
+      )!;
+
+      expect(
+        valuationJobSchema.safeParse({
+          ...done,
+          ruleVersion: "valuation-job-1.2.0",
+        }).success,
+      ).toBe(true);
+      expect(
+        valuationJobSchema.safeParse({
+          ...done,
+          ruleVersion: "valuation-job-1.2.0",
+          qualitativeStep: step({ industry: { status: "present" } }),
+        }).success,
+      ).toBe(false);
+    });
+
+    it("the view carries the step's codes", () => {
+      const done = finishValuationJob(
+        claimValuationJob(queued(), {
+          startedAt: T0,
+          claimToken: TOKEN,
+          staleBefore: T0,
+        })!,
+        {
+          claimToken: TOKEN,
+          finishedAt: T0,
+          outcome: outcomeForQualitativeStep(SUBJECT, DATA, step()),
+        },
+      )!;
+
+      expect(toValuationJobView(done)).toMatchObject({
+        gap: "qualitative_resolved",
+        qualitativeStep: { industry: { status: "accepted", rung: 1 } },
+      });
     });
   });
 });

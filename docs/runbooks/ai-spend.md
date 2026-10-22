@@ -32,6 +32,17 @@ Cada fila del libro cuenta así:
 | `uncharged` | no salió nada, o un `4xx`/`429`/`5xx` que no cobra      | cero         |
 | `unsettled` | transporte cortado, `2xx` ilegible o costo no informado | el peor caso |
 
+## Quién gasta
+
+Desde `F6-13` ([ADR 0052](../architecture/adr/0052-qualitative-decisions-in-valuation-job.md))
+no sólo los comandos: **valuar un ticker en `/valuacion`** corre, si faltan, la
+industria ambigua, la transcripción de opciones y el mix de operaciones, contra
+los mismos topes. Una empresa con sus tres decisiones ya guardadas no gasta. Para
+que la app deje de llamar a un modelo sin tocar el código, alcanza con frenar la
+fuente (abajo): las tareas quedan `stopped` y la página dice qué faltó. Un freno
+no cuenta como respuesta, así que al volver a habilitarla el próximo pedido
+pregunta.
+
 ## Ver el gasto
 
 ```sh

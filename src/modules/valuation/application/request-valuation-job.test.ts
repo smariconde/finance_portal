@@ -4,9 +4,11 @@ import { describe, expect, it } from "vitest";
 
 import { createInMemoryValuationJobStore } from "../infrastructure/in-memory-valuation-job-store";
 import { VALUATION_DATA_RULE_VERSION } from "../domain/valuation-data-step";
+import { VALUATION_QUALITATIVE_RULE_VERSION } from "../domain/valuation-qualitative-step";
 import {
   outcomeForDataStep,
   outcomeForIdentity,
+  outcomeForQualitativeStep,
   VALUATION_JOB_HEARTBEAT_MS,
   type ValuationJob,
   type ValuationJobOutcome,
@@ -160,6 +162,45 @@ describe("requestValuationJob", () => {
     ).toMatchObject({
       view: { state: "queued", follows: true },
       runJobId: first.followUpJobId,
+    });
+  });
+
+  it("una decisión aceptada de la IA también se continúa con corte nuevo", async () => {
+    const box = harness(async () => {
+      box.advance(5_000);
+
+      return outcomeForQualitativeStep(
+        {
+          legalEntityId: "33333333-3333-4333-8333-333333333333",
+          securityId: null,
+          listingId: null,
+        },
+        {
+          ruleVersion: VALUATION_DATA_RULE_VERSION,
+          fundamentals: { status: "present" },
+          sic: { status: "present" },
+          prices: { status: "not_applicable" },
+          audit: { status: "passed", chains: 3, notExercised: [] },
+        },
+        {
+          ruleVersion: VALUATION_QUALITATIVE_RULE_VERSION,
+          industry: { status: "accepted", rung: 1 },
+          employeeEquity: { status: "present" },
+          operationsMix: { status: "abstained", reason: "ladder_exhausted" },
+          chargedNanoUsd: 2_600_000,
+        },
+      );
+    });
+    const requested = await requestValuationJob(
+      { ticker: "googl", intent: "enqueue" },
+      box.dependencies,
+    );
+    const first = await runValuationJob(requested.runJobId!, box.dependencies);
+
+    expect(first.followUpJobId).not.toBeNull();
+    expect(await box.store.findOpenByTicker("GOOGL")).toMatchObject({
+      jobId: first.followUpJobId,
+      followsJobId: requested.runJobId,
     });
   });
 

@@ -182,7 +182,7 @@ describe("proposeEmployeeEquity", () => {
       xbrlOptionsOutstanding: "1000000",
       xbrlWeightedStrike: "42.5",
       accessionNumber: ACCESSION,
-      extractVersion: "sec-10k-equity-compensation-1.0.0",
+      extractVersion: "sec-10k-equity-compensation-1.1.0",
     });
     expect(stored?.evidence.excerpt).toContain("Share-Based Compensation");
   });
@@ -236,6 +236,38 @@ describe("proposeEmployeeEquity", () => {
     await proposeEmployeeEquity(request({ again: true }), dependencies);
 
     expect(runLadder).toHaveBeenCalledTimes(2);
+  });
+
+  it("asks again about the same 10-K when the last run stopped before reading it", async () => {
+    let calls = 0;
+    let minute = 0;
+    const later = () =>
+      new Date(Date.parse(NOW) + (minute += 1) * 60_000).toISOString();
+    const { dependencies, repository } = setup({
+      now: later,
+      runLadder: async () => {
+        calls += 1;
+
+        return calls === 1
+          ? {
+              taskRunId: randomUUID(),
+              outcome: "stopped",
+              code: "breaker_open",
+              detail: null,
+              attempts: [],
+            }
+          : accepted();
+      },
+    });
+
+    await proposeEmployeeEquity(request(), dependencies);
+    const second = await proposeEmployeeEquity(request(), dependencies);
+
+    expect(second.status).toBe("asked");
+    expect(calls).toBe(2);
+    expect((await repository.latestForSubject(SUBJECT))?.proposal.outcome).toBe(
+      "accepted",
+    );
   });
 
   it("skips without spending when there is no 10-K or no note", async () => {

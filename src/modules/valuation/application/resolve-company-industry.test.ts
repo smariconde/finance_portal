@@ -244,6 +244,41 @@ describe("resolveCompanyIndustry", () => {
     expect(runLadder).toHaveBeenCalledTimes(2);
   });
 
+  it("asks again about the same 10-K when the last run stopped before reading it", async () => {
+    let calls = 0;
+    const { dependencies, request, repository } = harness({
+      ladder: (taskRunId) => {
+        calls += 1;
+
+        return calls === 1
+          ? {
+              taskRunId,
+              outcome: "stopped",
+              code: "source_disabled",
+              detail: null,
+              attempts: [],
+            }
+          : accepted(taskRunId);
+      },
+    });
+
+    let minute = 0;
+    const clocked = {
+      ...dependencies,
+      now: () =>
+        new Date(Date.parse(NOW) + (minute += 1) * 60_000).toISOString(),
+    };
+
+    await resolveCompanyIndustry(request(), clocked);
+    const second = await resolveCompanyIndustry(request(), clocked);
+
+    expect(second.status).toBe("asked");
+    expect(calls).toBe(2);
+    expect(
+      (await repository.latestForSubject(SUBJECT))?.resolution.outcome,
+    ).toBe("resolved");
+  });
+
   it("looks for the 10-K under the predecessor when the successor has none yet", async () => {
     const { dependencies, request, loadSubmissions } = harness({
       current: null,

@@ -88,7 +88,7 @@ test.describe("shell del portal", () => {
       }),
     ).toBeVisible();
     await expect(
-      page.getByText("No llama al modelo: la transcripción de opciones"),
+      page.getByText("se lo pide a la IA, que cita el 10-K"),
     ).toBeVisible();
     await expect(
       page.getByRole("textbox", { name: "Ticker", exact: true }),

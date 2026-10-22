@@ -1,0 +1,11 @@
+ALTER TYPE "public"."valuation_job_gap" ADD VALUE 'qualitative_resolved';--> statement-breakpoint
+ALTER TABLE "valuation_jobs" DROP CONSTRAINT "valuation_jobs_rule_check";--> statement-breakpoint
+ALTER TABLE "valuation_jobs" DROP CONSTRAINT "valuation_jobs_data_check";--> statement-breakpoint
+ALTER TABLE "valuation_jobs" ADD COLUMN "qualitative_step" jsonb;--> statement-breakpoint
+ALTER TABLE "valuation_jobs" ADD CONSTRAINT "valuation_jobs_qualitative_check" CHECK (("valuation_jobs"."qualitative_step" is null or ("valuation_jobs"."rule_version" = 'valuation-job-1.3.0' and "valuation_jobs"."status" = 'completed' and jsonb_typeof("valuation_jobs"."qualitative_step") = 'object' and "valuation_jobs"."gap"::text in ('qualitative_resolved', 'snapshot_not_assembled', 'run_recorded')))
+        and ("valuation_jobs"."gap" is null or "valuation_jobs"."gap"::text <> 'qualitative_resolved' or ("valuation_jobs"."qualitative_step" is not null and "valuation_jobs"."data_step" is not null and "valuation_jobs"."method_status" is null)));--> statement-breakpoint
+ALTER TABLE "valuation_jobs" ADD CONSTRAINT "valuation_jobs_rule_check" CHECK ("valuation_jobs"."rule_version" in ('valuation-job-1.0.0', 'valuation-job-1.1.0', 'valuation-job-1.2.0', 'valuation-job-1.3.0'));--> statement-breakpoint
+ALTER TABLE "valuation_jobs" ADD CONSTRAINT "valuation_jobs_data_check" CHECK (("valuation_jobs"."data_step" is null or ("valuation_jobs"."rule_version" in ('valuation-job-1.2.0', 'valuation-job-1.3.0') and "valuation_jobs"."status" = 'completed' and jsonb_typeof("valuation_jobs"."data_step") = 'object'))
+        and ("valuation_jobs"."follows_job_id" is null or ("valuation_jobs"."rule_version" in ('valuation-job-1.2.0', 'valuation-job-1.3.0') and "valuation_jobs"."follows_job_id" <> "valuation_jobs"."job_id"))
+        and ("valuation_jobs"."gap" is null or "valuation_jobs"."gap"::text not in ('data_ingested', 'ingestion_pending', 'ingestion_failed', 'point_in_time_audit_failed') or ("valuation_jobs"."data_step" is not null and "valuation_jobs"."method_status" is null))
+        and ("valuation_jobs"."heartbeat_at" is null or ("valuation_jobs"."started_at" is not null and "valuation_jobs"."heartbeat_at" >= "valuation_jobs"."started_at")));

@@ -95,10 +95,19 @@ export async function requestValuationJob(
   return { view: toValuationJobView(job), runJobId: job.jobId };
 }
 
+/** Lo que el job dejó publicado después de su corte: otro lo continúa. */
+const CONTINUED_GAPS: ReadonlySet<string> = new Set([
+  "data_ingested",
+  "qualitative_resolved",
+]);
+
 export type ValuationJobRunResult = {
   readonly status: "idle" | "completed" | "failed";
   readonly errorName: string | null;
-  /** El job encolado que continúa a éste después de bajar datos (`F6-05`). */
+  /**
+   * El job encolado que continúa a éste después de bajar datos (`F6-05`) o de
+   * una decisión aceptada de la IA (`F6-13`).
+   */
   readonly followUpJobId: string | null;
 };
 
@@ -106,8 +115,9 @@ export type ValuationJobRunResult = {
  * Evalúa un job reclamado. Si la lectura falla, el job igual termina, con
  * `assessment_failed`, para no dejar el ticker tomado.
  *
- * Un job que bajó datos (`data_ingested`) se cierra encolando otro del mismo
- * ticker con un corte nuevo, en la misma transacción. El llamador lo corre.
+ * Un job que bajó datos (`data_ingested`) o dejó una decisión aceptada de la
+ * IA (`qualitative_resolved`) se cierra encolando otro del mismo ticker con un
+ * corte nuevo, en la misma transacción. El llamador lo corre.
  */
 export async function runValuationJob(
   jobId: string,
@@ -148,7 +158,7 @@ export async function runValuationJob(
 
   const finishedAt = dependencies.now();
   const followUp =
-    outcome.gap === "data_ingested"
+    outcome.gap !== null && CONTINUED_GAPS.has(outcome.gap)
       ? queueValuationJob({
           jobId: dependencies.newId(),
           ticker: claimed.ticker,

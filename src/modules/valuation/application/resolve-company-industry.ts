@@ -6,6 +6,7 @@ import {
 } from "@/modules/ai/application/tavily-search";
 import type { AiTask } from "@/modules/ai/domain/ai-task";
 import { AI_MODEL_LADDER_VERSION } from "@/modules/ai/domain/model-ladder";
+import { isTransientAiAnswer } from "@/modules/ai/domain/task-answer";
 import { SEC_SIC_TAXONOMY_ID } from "@/modules/classification/domain/sec-sic-classification";
 import type { SubjectClassification } from "@/modules/classification/domain/subject-classification";
 import {
@@ -251,6 +252,7 @@ export async function resolveCompanyIndustry(
 
   const askedBefore =
     previous !== null &&
+    !isTransientAiAnswer(previous.resolution) &&
     previous.resolution.sic === sic.code &&
     (annualReport === null
       ? previous.evidence.every((item) => item.section === "web_search")
