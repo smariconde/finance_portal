@@ -33,11 +33,6 @@ import {
   type EmployeeEquityDecision,
   type EmployeeOptionMarket,
 } from "../domain/employee-equity-claim";
-import {
-  EMPLOYEE_EQUITY_POLICY_VERSION,
-  EMPLOYEE_EQUITY_PROMPT_VERSION,
-  EMPLOYEE_EQUITY_TASK_VERSION,
-} from "../domain/employee-equity-task";
 import { fixtureCostOfCapitalReadings } from "./fixture-cost-of-capital-readings";
 import {
   ENGINE_VERSION,
@@ -376,9 +371,11 @@ const DEMO_EMPLOYEE_EQUITY_DECISION: EmployeeEquityDecision = {
   proposalId: "00000000-0000-4000-8000-0000000000e1",
   accessionNumber: "0000000000-25-000001",
   fiscalYearEnd: "2024-12-31",
-  taskVersion: EMPLOYEE_EQUITY_TASK_VERSION,
-  promptVersion: EMPLOYEE_EQUITY_PROMPT_VERSION,
-  policyVersion: EMPLOYEE_EQUITY_POLICY_VERSION,
+  // La transcripción de la fixture es de la tarea `1.2.0`, sin `unitsScale`:
+  // fijar sus versiones mantiene los hashes, como una corrida guardada.
+  taskVersion: "employee-equity-1.2.0",
+  promptVersion: "employee-equity-prompt-1.3.0",
+  policyVersion: "employee-equity-policy-1.1.0",
   // La propuesta de la fixture se leyó con `1.0.0`; fijarla mantiene sus hashes.
   extractVersion: "sec-10k-equity-compensation-1.0.0",
   respondedModel: "fixture/synthetic",

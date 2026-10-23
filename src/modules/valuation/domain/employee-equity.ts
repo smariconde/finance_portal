@@ -101,7 +101,10 @@ export function readEmployeeEquity(
     throw new TypeError("Only an accepted proposal can be read.");
   }
 
-  const factor = parseDecimal(SCALE_FACTOR[output.scale!], "scale");
+  // Sin opciones vivas la tarea `1.3.0` puede no dar `scale`: sólo la usan
+  // las opciones y, en una transcripción anterior, las unidades.
+  const scaleOf = (scale: EmployeeEquityOutput["scale"], path: string) =>
+    parseDecimal(SCALE_FACTOR[scale!], path);
   const printed = (value: string, path: string) => {
     const amount = parsePrintedAmount(value);
 
@@ -120,7 +123,9 @@ export function readEmployeeEquity(
     options = {
       status: "outstanding",
       count: formatDecimal(
-        printed(output.optionsCount!, "options.count").times(factor),
+        printed(output.optionsCount!, "options.count").times(
+          scaleOf(output.scale, "scale"),
+        ),
         "options.count",
       ),
       strike:
@@ -139,11 +144,18 @@ export function readEmployeeEquity(
     };
   }
 
+  // Las unidades con su propia escala si la tarea la dio (`employee-equity-1.3.0`).
+  const unitsScale =
+    output.unitsScale === undefined || output.unitsScale === null
+      ? output.scale
+      : output.unitsScale;
   const units =
     output.unitsStatus === "outstanding"
       ? sum(
           output.units.map((unit, index) =>
-            printed(unit.count, `units.${index}`).times(factor),
+            printed(unit.count, `units.${index}`).times(
+              scaleOf(unitsScale, "unitsScale"),
+            ),
           ),
         )
       : ZERO;

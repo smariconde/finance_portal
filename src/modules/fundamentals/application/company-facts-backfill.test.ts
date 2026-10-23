@@ -435,7 +435,7 @@ describe("backfill de companyfacts", () => {
       const { job } = await store.createJob(plan, { now: CLOCK });
 
       expect(() => assertCompanyFactsJob(job)).not.toThrow();
-      expect(job.selectionVersion).toBe("sec-core-concepts-7.0.0");
+      expect(job.selectionVersion).toBe("sec-core-concepts-8.0.0");
       // Un job planeado antes de la ventana de historia bajaría otra cosa que
       // la que su plan nombra (ADR 0017).
       expect(() =>

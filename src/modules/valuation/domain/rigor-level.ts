@@ -36,6 +36,11 @@ export const rigorDeclarationSchema = z.enum([
   "country_risk_by_domicile",
   /** Sin capital invertido reconstruido: rango amplio, ROIC no confiable. */
   "invested_capital_not_reconstructed",
+  /**
+   * Sin transcripción aceptada ni XBRL del mismo 10-K, el puente no resta
+   * opciones de empleados (`F6-16`): el valor por acción es una cota superior.
+   */
+  "employee_options_not_subtracted",
 ]);
 
 export type RigorDeclaration = z.infer<typeof rigorDeclarationSchema>;
@@ -91,7 +96,42 @@ function unmet(
   });
 }
 
+/** Un nivel menos: `unsupported` y `screening` no tienen otro debajo útil. */
+const ONE_LEVEL_DOWN: Readonly<Record<RigorLevel, RigorLevel>> = {
+  full: "standard",
+  standard: "screening",
+  screening: "screening",
+  unsupported: "unsupported",
+};
+
+/**
+ * El nivel de la corrida (`F3-03`). `snapshot` lleva lo que sólo se sabe al
+ * armarla (`F6-16`): sin opciones restadas, el nivel baja uno y lo declara.
+ * Sin ese argumento, el nivel es el de la evaluación, como siempre.
+ */
 export function deriveRigorLevel(
+  selection: MethodSelection,
+  completeness: CompletenessProfile,
+  snapshot: { readonly employeeOptionsNotSubtracted?: boolean } = {},
+): RigorAssessment {
+  const assessed = assessedRigorLevel(selection, completeness);
+
+  if (
+    snapshot.employeeOptionsNotSubtracted !== true ||
+    assessed.level === "unsupported"
+  ) {
+    return assessed;
+  }
+
+  return {
+    ...assessed,
+    level: ONE_LEVEL_DOWN[assessed.level],
+    degradedBy: [...assessed.degradedBy, "employee_options_not_subtracted"],
+    declarations: [...assessed.declarations, "employee_options_not_subtracted"],
+  };
+}
+
+function assessedRigorLevel(
   selection: MethodSelection,
   completeness: CompletenessProfile,
 ): RigorAssessment {

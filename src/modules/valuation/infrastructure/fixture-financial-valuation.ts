@@ -1,4 +1,7 @@
-import { deriveEmployeeEquity } from "../domain/employee-equity-claim";
+import {
+  deriveEmployeeEquity,
+  aiDecisionOf,
+} from "../domain/employee-equity-claim";
 import {
   excessReturnInputSchema,
   EXCESS_RETURN_ENGINE_VERSION,
@@ -13,7 +16,7 @@ export function fixtureFinancialValuation(): ExcessReturnInput {
   const employee = structuredClone(shared.employeeEquity);
   employee.sharesOutstanding.value = "10";
   employee.market = null;
-  employee.decision.transcription = {
+  aiDecisionOf(employee.decision).transcription = {
     decision: "proposed",
     scale: "units",
     optionsStatus: "none_disclosed",

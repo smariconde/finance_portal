@@ -24,7 +24,7 @@ import { SEC_HISTORY_WINDOW_VERSION } from "./sec-history-window";
  *   a correr el CIK publica sólo lo nuevo. No sube la versión del parser, porque
  *   filtrar no cambia el contenido de un hecho ya publicado.
  */
-export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-7.0.0";
+export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-8.0.0";
 
 /**
  * Qué decide la versión. La 1.0.0 eran los mismos conceptos con toda la historia
@@ -42,6 +42,9 @@ export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-7.0.0";
  * la guardia de deuda (ADR 0054): conceptos que no entran en ninguna receta
  * pero prueban que la deuda no es cero —el cronograma de vencimientos, los
  * pagarés, la línea de crédito usada—, para no declarar sin deuda a D.R. Horton.
+ * La 8.0.0 suma las opciones vivas, su strike y las unidades no consolidadas
+ * al cierre (ADR 0055): sin transcripción aceptada, la corrida resta las
+ * opciones que el XBRL del mismo 10-K publica.
  * Con la versión y el ancla,
  * un período anterior al corte sigue siendo «no se fue a buscar». El test fija
  * los componentes: cambiar uno sin subir la versión lo rompe.
@@ -179,6 +182,12 @@ const US_GAAP = [
   "DebtInstrumentCarryingAmount",
   "DebtLongtermAndShorttermCombinedAmount",
   "LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities",
+  // Opciones y unidades de empleados al cierre (8.0.0, ADR 0055): el respaldo
+  // de la transcripción. El plazo remanente no está: es un período XBRL
+  // («P5Y3M») y companyfacts sólo trae números.
+  "ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingNumber",
+  "ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingWeightedAverageExercisePrice",
+  "ShareBasedCompensationArrangementByShareBasedPaymentAwardEquityInstrumentsOtherThanOptionsNonvestedNumber",
 ] as const;
 
 const DEI = [

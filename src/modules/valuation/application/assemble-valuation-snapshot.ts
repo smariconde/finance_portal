@@ -22,12 +22,15 @@ import { DECIMAL_POLICY } from "../domain/decimal-policy";
 import {
   deriveEmployeeEquity,
   EMPLOYEE_EQUITY_CLAIM_VERSION,
+  EMPLOYEE_OPTIONS_NOT_SUBTRACTED_VERSION,
   employeeOptionMarketAt,
+  employeeOptionsXbrlAt,
   sharesOutstandingAt,
   type EmployeeEquityDecision,
   type EmployeeOptionMarket,
 } from "../domain/employee-equity-claim";
 import { employeeEquityDocumentId } from "../domain/employee-equity";
+import { deriveRigorLevel } from "../domain/rigor-level";
 import {
   ENGINE_VERSION,
   METHODOLOGY_VERSION,
@@ -78,6 +81,11 @@ export type ValuationSnapshotRequest = {
   /** La transcripción aceptada que existía al corte, o `null`. */
   readonly employeeEquity: StoredEmployeeEquity | null;
   readonly shareCounts: readonly ShareCountReading[];
+  /**
+   * Opciones vivas, su strike y unidades no consolidadas del XBRL (`F6-16`):
+   * el respaldo sin transcripción aceptada. Ausente es `[]`.
+   */
+  readonly employeeOptionFacts?: readonly ShareCountReading[];
   readonly prices: {
     readonly sourceId: string;
     readonly closes: readonly ReturnClose[];
@@ -228,17 +236,6 @@ export function assembleValuationSnapshot(
     return notAssembled(assumptions.reason);
   }
 
-  const stored = request.employeeEquity;
-
-  if (
-    stored === null ||
-    stored.proposal.outcome !== "accepted" ||
-    stored.proposal.transcription === null ||
-    stored.proposal.respondedModel === null
-  ) {
-    return notAssembled("employee_equity_not_proposed");
-  }
-
   const knownAt = request.query.knownAt ?? request.query.effectiveAt;
   const asOf = valuationDate(request.prices.closes, knownAt);
   const shares = sharesOutstandingAt(request.shareCounts, { asOf, knownAt });
@@ -247,22 +244,48 @@ export function assembleValuationSnapshot(
     return notAssembled("shares_outstanding_unavailable");
   }
 
-  const decision: EmployeeEquityDecision = {
-    basis: "ai_proposal",
-    proposalId: stored.proposal.proposalId,
-    accessionNumber: stored.proposal.accessionNumber,
-    fiscalYearEnd: stored.proposal.fiscalYearEnd,
-    taskVersion: stored.proposal.taskVersion,
-    promptVersion: stored.proposal.promptVersion,
-    policyVersion: stored.proposal.policyVersion,
-    extractVersion: stored.proposal.extractVersion,
-    respondedModel: stored.proposal.respondedModel,
-    evidenceSha256: stored.evidence.sha256,
-    transcription: stored.proposal.transcription,
-  };
+  // Las opciones, en orden (`F6-16`, ADR 0055): la transcripción aceptada, el
+  // XBRL de la misma presentación y, sin ninguno, no restarlas y decirlo.
+  const stored = request.employeeEquity;
+  const accepted =
+    stored !== null &&
+    stored.proposal.outcome === "accepted" &&
+    stored.proposal.transcription !== null &&
+    stored.proposal.respondedModel !== null
+      ? stored
+      : null;
+  const decision: EmployeeEquityDecision =
+    accepted !== null
+      ? {
+          basis: "ai_proposal",
+          proposalId: accepted.proposal.proposalId,
+          accessionNumber: accepted.proposal.accessionNumber,
+          fiscalYearEnd: accepted.proposal.fiscalYearEnd,
+          taskVersion: accepted.proposal.taskVersion,
+          promptVersion: accepted.proposal.promptVersion,
+          policyVersion: accepted.proposal.policyVersion,
+          extractVersion: accepted.proposal.extractVersion,
+          respondedModel: accepted.proposal.respondedModel!,
+          evidenceSha256: accepted.evidence.sha256,
+          transcription: accepted.proposal.transcription!,
+        }
+      : (employeeOptionsXbrlAt(request.employeeOptionFacts ?? [], {
+          fiscalYearEnd: baseFiscalYearEnd,
+          knownAt,
+          sourceId: request.fundamentalsSourceId,
+        }) ?? {
+          basis: "not_subtracted",
+          version: EMPLOYEE_OPTIONS_NOT_SUBTRACTED_VERSION,
+          fiscalYearEnd: baseFiscalYearEnd,
+          reason: "no_transcription_or_xbrl",
+        });
+  const outstandingOptions =
+    decision.basis === "ai_proposal"
+      ? decision.transcription.optionsStatus === "outstanding"
+      : decision.basis === "xbrl_same_10k" && decision.weightedStrike !== null;
   let market: EmployeeOptionMarket | null = null;
 
-  if (decision.transcription.optionsStatus === "outstanding") {
+  if (outstandingOptions) {
     const reading = employeeOptionMarketAt({
       subjectId: request.subject.securityId,
       asOf,
@@ -327,7 +350,12 @@ export function assembleValuationSnapshot(
     assessment: {
       selection,
       completeness: assessment.completeness,
-      rigor: assessment.rigor,
+      rigor:
+        decision.basis === "not_subtracted"
+          ? deriveRigorLevel(selection, assessment.completeness, {
+              employeeOptionsNotSubtracted: true,
+            })
+          : assessment.rigor,
     },
     costOfCapital,
     failureRisk: assessment.failureRisk,
@@ -380,24 +408,11 @@ export function assembleValuationSnapshot(
       otherClaims: declaredAbsent(
         `${DERIVED_ASSUMPTIONS_V2_VERSION}: no recipe reads preferred or other senior claims; valued at zero and named.`,
       ),
-      employeeOptions:
-        derived.options === null
-          ? declaredAbsent(
-              "The accepted transcription of the equity note has no outstanding employee options.",
-            )
-          : reported({
-              value: derived.options.totalValue,
-              currency: costOfCapital.currency,
-              unit: "monetary",
-              asOf,
-              availableAt: stored.evidence.documentAcceptedAt,
-              sourceId: stored.evidence.sourceId,
-              sourceDocumentId: employeeEquityDocumentId(
-                stored.proposal.proposalId,
-              ),
-              observationId: null,
-              qualityFlags: [],
-            }),
+      employeeOptions: employeeOptionsClaim(decision, derived, {
+        currency: costOfCapital.currency,
+        asOf,
+        stored: accepted,
+      }),
     },
     employeeEquity: {
       version: EMPLOYEE_EQUITY_CLAIM_VERSION,
@@ -412,4 +427,56 @@ export function assembleValuationSnapshot(
   });
 
   return { status: "assembled", input };
+}
+
+/** La claim `employeeOptions` del puente para cada base de la decisión. */
+function employeeOptionsClaim(
+  decision: EmployeeEquityDecision,
+  derived: ReturnType<typeof deriveEmployeeEquity>,
+  context: {
+    readonly currency: string;
+    readonly asOf: string;
+    readonly stored: StoredEmployeeEquity | null;
+  },
+): BridgeItem {
+  if (decision.basis === "not_subtracted") {
+    return declaredAbsent(
+      `${EMPLOYEE_OPTIONS_NOT_SUBTRACTED_VERSION}: no accepted transcription of the equity note and no option count and strike in the XBRL of the same filing; employee options are not subtracted, so the value per share is an upper bound.`,
+    );
+  }
+
+  if (derived.options === null) {
+    return declaredAbsent(
+      decision.basis === "ai_proposal"
+        ? "The accepted transcription of the equity note has no outstanding employee options."
+        : "The XBRL of the same filing reports no outstanding employee options.",
+    );
+  }
+
+  const provenance =
+    decision.basis === "ai_proposal"
+      ? {
+          availableAt: context.stored!.evidence.documentAcceptedAt,
+          sourceId: context.stored!.evidence.sourceId,
+          sourceDocumentId: employeeEquityDocumentId(decision.proposalId),
+          observationId: null,
+        }
+      : {
+          availableAt: [
+            decision.optionsOutstanding.availableAt,
+            decision.weightedStrike!.availableAt,
+          ].sort((left, right) => right.localeCompare(left))[0]!,
+          sourceId: decision.optionsOutstanding.sourceId,
+          sourceDocumentId: decision.sourceDocumentId,
+          observationId: decision.optionsOutstanding.observationId,
+        };
+
+  return reported({
+    value: derived.options.totalValue,
+    currency: context.currency,
+    unit: "monetary",
+    asOf: context.asOf,
+    ...provenance,
+    qualityFlags: [],
+  });
 }

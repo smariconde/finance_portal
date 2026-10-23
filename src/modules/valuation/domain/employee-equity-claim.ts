@@ -56,7 +56,45 @@ export const DIVIDEND_YIELD_VERSION = "dividend-yield-trailing-1.0.0";
 const sha256Schema = z.string().regex(/^[0-9a-f]{64}$/u);
 const versionSchema = z.string().min(1).max(64);
 
-export const employeeEquityDecisionSchema = z.object({
+/**
+ * Sin transcripción aceptada (`F6-16`,
+ * [ADR 0055](../../../../docs/architecture/adr/0055-employee-options-fallback.md)):
+ * las opciones vivas y su strike que publica el XBRL de la **misma
+ * presentación** al cierre del ejercicio base, y las unidades no consolidadas
+ * si las publica. El plazo remanente no está en companyfacts —es un período
+ * XBRL—, así que se valúan a diez años, el plazo contractual de una opción de
+ * empleado y su cota superior: el mismo lado conservador que un strike
+ * desconocido valuado en cero. Decisión del owner del 2026-10-22.
+ */
+export const EMPLOYEE_OPTIONS_XBRL_VERSION = "employee-options-xbrl-1.0.0";
+
+/** Más que esto no vive una opción de empleado: la cota del plazo. */
+export const OPTION_CONTRACTUAL_TERM_YEARS = "10";
+
+export const OPTIONS_OUTSTANDING_CONCEPT =
+  "us-gaap:ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingNumber";
+export const OPTIONS_WEIGHTED_STRIKE_CONCEPT =
+  "us-gaap:ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingWeightedAverageExercisePrice";
+export const UNVESTED_UNITS_CONCEPT =
+  "us-gaap:ShareBasedCompensationArrangementByShareBasedPaymentAwardEquityInstrumentsOtherThanOptionsNonvestedNumber";
+
+/**
+ * Ni transcripción ni XBRL: la corrida no resta opciones, lo dice en el puente
+ * y en la página, y el rigor baja un nivel. Decisión del owner del 2026-10-22.
+ */
+export const EMPLOYEE_OPTIONS_NOT_SUBTRACTED_VERSION =
+  "employee-options-not-subtracted-1.0.0";
+
+/** Un hecho XBRL del snapshot: cantidad en acciones o precio por acción. */
+const xbrlFactSchema = z.object({
+  ...factProvenanceShape,
+  concept: z.string().min(1).max(256),
+  value: engineDecimalSchema,
+});
+
+export type EmployeeOptionsXbrlFact = z.infer<typeof xbrlFactSchema>;
+
+const aiDecisionSchema = z.object({
   basis: z.literal("ai_proposal"),
   proposalId: z.uuid(),
   accessionNumber: z.string().regex(/^[0-9]{10}-[0-9]{2}-[0-9]{6}$/u),
@@ -74,8 +112,34 @@ export const employeeEquityDecisionSchema = z.object({
   ),
 });
 
+export const employeeEquityDecisionSchema = z.discriminatedUnion("basis", [
+  aiDecisionSchema,
+  z.object({
+    basis: z.literal("xbrl_same_10k"),
+    version: z.literal(EMPLOYEE_OPTIONS_XBRL_VERSION),
+    fiscalYearEnd: z.iso.date(),
+    /** La presentación de la que salen todos los hechos. */
+    sourceDocumentId: z.string().min(1).max(256),
+    optionsOutstanding: xbrlFactSchema,
+    /** `null` sólo con cero opciones: sin opciones no hay strike que leer. */
+    weightedStrike: xbrlFactSchema.nullable(),
+    unvestedUnits: xbrlFactSchema.nullable(),
+  }),
+  z.object({
+    basis: z.literal("not_subtracted"),
+    version: z.literal(EMPLOYEE_OPTIONS_NOT_SUBTRACTED_VERSION),
+    fiscalYearEnd: z.iso.date(),
+    reason: z.literal("no_transcription_or_xbrl"),
+  }),
+]);
+
 export type EmployeeEquityDecision = z.infer<
   typeof employeeEquityDecisionSchema
+>;
+
+export type AiEmployeeEquityDecision = Extract<
+  EmployeeEquityDecision,
+  { basis: "ai_proposal" }
 >;
 
 const sharesFactSchema = z.object({
@@ -110,26 +174,183 @@ export const employeeOptionMarketSchema = z.object({
 
 export type EmployeeOptionMarket = z.infer<typeof employeeOptionMarketSchema>;
 
+/**
+ * La lectura de una decisión que no es una transcripción (`F6-16`). La de una
+ * transcripción sigue siendo `employee-equity-reading-1.0.0`, byte por byte.
+ */
+export const EMPLOYEE_EQUITY_FALLBACK_READING_VERSION =
+  "employee-equity-reading-1.1.0";
+
 const readingSchema = z.object({
-  version: z.literal(EMPLOYEE_EQUITY_READING_VERSION),
+  version: z.enum([
+    EMPLOYEE_EQUITY_READING_VERSION,
+    EMPLOYEE_EQUITY_FALLBACK_READING_VERSION,
+  ]),
   options: z.discriminatedUnion("status", [
     z.object({ status: z.literal("none_disclosed") }),
+    z.object({ status: z.literal("not_subtracted") }),
     z.object({
       status: z.literal("outstanding"),
       count: engineDecimalSchema,
       strike: engineDecimalSchema,
-      strikeBasis: z.enum(["printed", "strike_unknown_upper_bound"]),
+      strikeBasis: z.enum(["printed", "strike_unknown_upper_bound", "xbrl"]),
       maturityYears: engineDecimalSchema,
       maturityBasis: z.enum([
         "remaining_years",
         "expiration_year",
         "range_rows",
+        "contractual_term_upper_bound",
       ]),
     }),
   ]),
   unvestedUnits: engineDecimalSchema,
-  unitsBasis: z.enum(["outstanding", "none_disclosed"]),
+  unitsBasis: z.enum(["outstanding", "none_disclosed", "xbrl", "not_reported"]),
 });
+
+type DerivedReading = z.infer<typeof readingSchema>;
+
+/** Lo que se lee de cada base de la decisión. */
+export function readingOfDecision(
+  decision: EmployeeEquityDecision,
+): DerivedReading {
+  if (decision.basis === "ai_proposal") {
+    const reading: EmployeeEquityReading = readEmployeeEquity(
+      decision.transcription,
+      decision.fiscalYearEnd,
+    );
+    return reading;
+  }
+
+  if (decision.basis === "not_subtracted") {
+    return {
+      version: EMPLOYEE_EQUITY_FALLBACK_READING_VERSION,
+      options: { status: "not_subtracted" },
+      unvestedUnits: "0",
+      unitsBasis: "not_reported",
+    };
+  }
+
+  const count = parseDecimal(
+    decision.optionsOutstanding.value,
+    "employeeEquity.decision.optionsOutstanding",
+  );
+  const units = decision.unvestedUnits;
+
+  if (count.greaterThan(0) && decision.weightedStrike === null) {
+    throw new TypeError("Outstanding options from XBRL need their strike.");
+  }
+
+  return {
+    version: EMPLOYEE_EQUITY_FALLBACK_READING_VERSION,
+    options: count.greaterThan(0)
+      ? {
+          status: "outstanding",
+          count: formatDecimal(count, "options.count"),
+          strike: formatDecimal(
+            parseDecimal(decision.weightedStrike!.value, "options.strike"),
+            "options.strike",
+          ),
+          strikeBasis: "xbrl",
+          maturityYears: OPTION_CONTRACTUAL_TERM_YEARS,
+          maturityBasis: "contractual_term_upper_bound",
+        }
+      : { status: "none_disclosed" },
+    unvestedUnits:
+      units === null
+        ? "0"
+        : formatDecimal(parseDecimal(units.value, "units"), "units"),
+    unitsBasis: units === null ? "not_reported" : "xbrl",
+  };
+}
+
+/**
+ * Las opciones del XBRL de una presentación al cierre del ejercicio base
+ * (`employee-options-xbrl-1.0.0`): la última presentación conocida al corte
+ * que publica la cantidad, con el strike de esa misma presentación. Una
+ * cantidad positiva sin strike, o dos valores distintos de un mismo concepto
+ * en la presentación, no son un respaldo: `null`, y la corrida no resta
+ * opciones.
+ */
+export function employeeOptionsXbrlAt<
+  T extends ShareCountObservation & {
+    readonly observationId: string;
+    readonly sourceDocumentId: string | null;
+  },
+>(
+  facts: readonly T[],
+  context: {
+    readonly fiscalYearEnd: string;
+    readonly knownAt: string;
+    readonly sourceId: string;
+  },
+): Extract<EmployeeEquityDecision, { basis: "xbrl_same_10k" }> | null {
+  const visible = facts.filter(
+    (fact) =>
+      fact.asOf === context.fiscalYearEnd &&
+      fact.sourceDocumentId !== null &&
+      Date.parse(fact.availableAt) <= Date.parse(context.knownAt),
+  );
+  const documents = [
+    ...new Set(
+      visible
+        .filter((fact) => fact.concept === OPTIONS_OUTSTANDING_CONCEPT)
+        .sort((left, right) =>
+          right.availableAt.localeCompare(left.availableAt),
+        )
+        .map((fact) => fact.sourceDocumentId!),
+    ),
+  ];
+  const document = documents[0];
+
+  if (document === undefined) {
+    return null;
+  }
+
+  const one = (concept: string): T | null | "conflict" => {
+    const matches = visible.filter(
+      (fact) => fact.sourceDocumentId === document && fact.concept === concept,
+    );
+    if (new Set(matches.map((fact) => fact.value)).size > 1) return "conflict";
+    return matches[0] ?? null;
+  };
+  const count = one(OPTIONS_OUTSTANDING_CONCEPT);
+  const strike = one(OPTIONS_WEIGHTED_STRIKE_CONCEPT);
+  const units = one(UNVESTED_UNITS_CONCEPT);
+
+  if (
+    count === null ||
+    count === "conflict" ||
+    strike === "conflict" ||
+    units === "conflict" ||
+    parseDecimal(count.value, "xbrl.options").lessThan(0) ||
+    (parseDecimal(count.value, "xbrl.options").greaterThan(0) &&
+      strike === null)
+  ) {
+    return null;
+  }
+
+  const frozen = (fact: T): EmployeeOptionsXbrlFact => ({
+    concept: fact.concept,
+    value: fact.value,
+    asOf: fact.asOf,
+    availableAt: fact.availableAt,
+    sourceId: context.sourceId,
+    sourceDocumentId: fact.sourceDocumentId,
+    observationId: fact.observationId,
+    qualityFlags: [],
+  });
+  const positive = parseDecimal(count.value, "xbrl.options").greaterThan(0);
+
+  return {
+    basis: "xbrl_same_10k",
+    version: EMPLOYEE_OPTIONS_XBRL_VERSION,
+    fiscalYearEnd: context.fiscalYearEnd,
+    sourceDocumentId: document,
+    optionsOutstanding: frozen(count),
+    weightedStrike: positive && strike !== null ? frozen(strike) : null,
+    unvestedUnits: units === null ? null : frozen(units),
+  };
+}
 
 const optionValueSchema = z.object({
   version: z.literal(OPTION_VALUE_VERSION),
@@ -169,10 +390,7 @@ export function deriveEmployeeEquity(input: {
   market: EmployeeOptionMarket | null;
   riskFree: string;
 }): EmployeeEquityDerived {
-  const reading: EmployeeEquityReading = readEmployeeEquity(
-    input.decision.transcription,
-    input.decision.fiscalYearEnd,
-  );
+  const reading = readingOfDecision(input.decision);
   const shares = parseDecimal(
     input.sharesOutstanding.value,
     "employeeEquity.sharesOutstanding.value",
@@ -222,8 +440,45 @@ export function employeeEquityMismatches(
   context: { riskFree: string; currency: string; asOf: string },
 ): string[] {
   const mismatches: string[] = [];
-  const outstanding =
-    claim.decision.transcription.optionsStatus === "outstanding";
+  let outstanding: boolean;
+
+  try {
+    outstanding =
+      readingOfDecision(claim.decision).options.status === "outstanding";
+  } catch {
+    return ["employeeEquity.decision"];
+  }
+
+  // Los hechos XBRL son del cierre que dice la decisión, de una sola
+  // presentación: un conteo de otro balance no es el de este ejercicio.
+  if (claim.decision.basis === "xbrl_same_10k") {
+    const { decision } = claim;
+    const facts = [
+      decision.optionsOutstanding,
+      decision.weightedStrike,
+      decision.unvestedUnits,
+    ].filter((fact) => fact !== null);
+    const concepts = [
+      OPTIONS_OUTSTANDING_CONCEPT,
+      OPTIONS_WEIGHTED_STRIKE_CONCEPT,
+      UNVESTED_UNITS_CONCEPT,
+    ];
+
+    if (
+      facts.some(
+        (fact) =>
+          fact.asOf !== decision.fiscalYearEnd ||
+          fact.sourceDocumentId !== decision.sourceDocumentId,
+      ) ||
+      [
+        decision.optionsOutstanding,
+        decision.weightedStrike,
+        decision.unvestedUnits,
+      ].some((fact, index) => fact !== null && fact.concept !== concepts[index])
+    ) {
+      mismatches.push("employeeEquity.decision");
+    }
+  }
 
   if (outstanding !== (claim.market !== null)) {
     mismatches.push("employeeEquity.market");
@@ -403,4 +658,20 @@ export function sharesOutstandingAt<T extends ShareCountObservation>(
     );
 
   return known[0] ?? null;
+}
+
+/**
+ * La decisión, sabiendo que es una transcripción: para fixtures que la editan.
+ * Otra base es un error del llamador, no un caso a manejar.
+ */
+export function aiDecisionOf(
+  decision: EmployeeEquityDecision,
+): AiEmployeeEquityDecision {
+  if (decision.basis !== "ai_proposal") {
+    throw new TypeError(
+      `Expected an ai_proposal decision, got ${decision.basis}.`,
+    );
+  }
+
+  return decision;
 }

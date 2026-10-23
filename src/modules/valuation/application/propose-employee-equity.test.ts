@@ -172,6 +172,7 @@ describe("proposeEmployeeEquity", () => {
     expect(input.xbrl).toStrictEqual({
       optionsOutstanding: "1000000",
       weightedStrike: "42.5",
+      unvestedUnits: null,
     });
 
     const stored = await repository.latestForSubject(SUBJECT);
@@ -182,7 +183,7 @@ describe("proposeEmployeeEquity", () => {
       xbrlOptionsOutstanding: "1000000",
       xbrlWeightedStrike: "42.5",
       accessionNumber: ACCESSION,
-      extractVersion: "sec-10k-equity-compensation-1.1.0",
+      extractVersion: "sec-10k-equity-compensation-1.2.0",
     });
     expect(stored?.evidence.excerpt).toContain("Share-Based Compensation");
   });

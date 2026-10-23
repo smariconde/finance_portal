@@ -75,7 +75,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    47 | `F6-03`    | `done`     | Superficie de resultado sobre empresa real con nivel de rigor, provenance y supuestos distinguidos de los hechos.                                                                                                         | `F6-02`          |
 |    48 | `F6-04`    | `done`     | Acceso CEDEAR en el resultado: programa, depositario, estado y ratio al corte de la corrida, y el valor por CEDEAR en USD.                                                                                                | `F6-02`          |
 |    49 | `F6-05`    | `done`     | Ingesta bajo demanda de la ventana de fundamentals que falta, con presupuesto, reanudación y auditoría point-in-time del sujeto.                                                                                          | `F6-01`          |
-|    50 | `F6-08`    | `queued`   | Precio del CEDEAR en BYMA y valor por CEDEAR en pesos con el CCL implícito del propio CEDEAR, con su ADR de fuente.                                                                                                       | `F6-04`          |
+|    50 | `F6-08`    | `ready`    | Precio del CEDEAR en BYMA y valor por CEDEAR en pesos con el CCL implícito del propio CEDEAR, con su ADR de fuente.                                                                                                       | `F6-04`          |
 |    51 | `F6-09`    | `done`     | Precio de mercado al `as_of` de la corrida y DCF inverso por driver: qué crecimiento, margen, ROIC terminal o tasa exige el precio, al lado de lo que la empresa mostró.                                                  | `F6-03`          |
 |    52 | `F6-10`    | `done`     | `derived-assumptions-2.0.0`: ROIC terminal por regla con el dataset de Damodaran, crecimiento por tendencia y escenarios bear/bull derivados.                                                                             | `F6-09`          |
 |    53 | `F6-11`    | `done`     | Lectura cualitativa de la IA sobre lo que exige el precio: plausibilidad por driver con citas del 10-K verificadas, sin mover el valor.                                                                                   | `F6-09`          |
@@ -83,7 +83,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    55 | `F6-13`    | `done`     | La corrida le pide a la IA lo cualitativo que falta —industria ambigua, opciones de empleados, mix— con las tareas y topes de sus comandos, y valúa con lo aceptado en un job con corte nuevo.                            | `F6-05`          |
 |    56 | `F6-14`    | `done`     | La selección y la serie leen los conceptos que los filers usan de verdad, los intereses salen de una receta con bases nombradas y una ventana vieja se baja otra vez.                                                     | `F6-13`          |
 |    57 | `F6-15`    | `done`     | Deuda cero con evidencia y EBIT sin resultado operativo en el puente, congelados en el snapshot y recalculados por el motor.                                                                                              | `F6-14`          |
-|    58 | `F6-16`    | `ready`    | Opciones de empleados robustas: nota bien elegida, etiqueta de ejercicio de los minoristas, XBRL como respaldo y valuación sin restar opciones cuando no hay nada.                                                        | `F6-14`          |
+|    58 | `F6-16`    | `done`     | Opciones de empleados robustas: nota bien elegida, etiqueta de ejercicio de los minoristas, XBRL como respaldo y valuación sin restar opciones cuando no hay nada.                                                        | `F6-14`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -3879,25 +3879,57 @@ Evidencia:
   la carátula (NKE); intereses de arrendamientos financieros en un año de
   pérdida (VRTX).
 
-#### `F6-16` — opciones de empleados robustas
+#### `F6-16` — opciones de empleados robustas (cerrado el 2026-10-22)
 
-- Estado: `ready`
-- Fase y dependencia: Fase 6, después de `F6-14`.
-- Alcance incluido:
-  - el extractor no ancla dentro del estado de patrimonio (regresión de `1.1.0`
-    en Costco);
-  - la policy acepta la etiqueta de ejercicio de un año de 52/53 semanas
-    («Fiscal 2025» para un cierre en febrero de 2026, Home Depot);
-  - el diagnóstico de Coca-Cola (`count_contradicts_xbrl` y salidas cortadas);
-  - sin transcripción aceptada, el reclamo se arma desde el XBRL del mismo 10-K si
-    trae cantidad y strike; si no, la corrida sigue sin restar opciones, lo dice en
-    la página y baja el rigor.
-- Contratos y controles: `TM-05`, `TM-09`, `TM-16`.
-- Criterios de aceptación: KO, HD, COST, WM y Cencora llegan a una corrida, con
-  la base de las opciones nombrada. Desde `F6-15` también frenan acá ALGN,
-  DECK, EXPD y MRK (`equity_note_not_found` o escalera agotada).
-- Evidencia esperada: tests del extractor y de la policy, evals sin regresión,
-  réplica.
+Estado del slice: `done`. `F6-08` queda `ready`.
+
+Decisión del owner del 2026-10-22: sin plazo en companyfacts, las opciones del
+XBRL se valúan a diez años, el plazo contractual y su cota superior
+([ADR 0055](../architecture/adr/0055-employee-options-fallback.md)).
+
+- Diagnóstico sobre los nueve 10-K, antes de cambiar nada: ALGN, DECK, MRK y
+  COST no encontraban la nota (filas de saldo que el extractor no leía; Costco
+  anclaba en el estado de patrimonio); KO tiene dos escalas; HD rotula «Fiscal
+  2025» el ejercicio que cierra en febrero de 2026; WM, EXPD y Cencora tienen la
+  tabla y los modelos se abstienen o la policy rechaza.
+- `sec-10k-equity-compensation-1.2.0`: «Outstanding December 31, 2025»,
+  «Nonvested, March 31, 2026», «Unvested as of …», «Outstanding at the end of
+  2026», y el estado de patrimonio puntúa cero. Los nueve recortan su nota.
+- `employee-equity-1.3.0`, prompt `1.4.0`, policy `1.2.0`: `unitsScale` aparte
+  (y `scale` vacía sin opciones), «fiscal <año − 1>» para un cierre de enero o
+  febrero, y las unidades corroboradas contra el XBRL por orden de magnitud
+  (`units_scale_contradicts_xbrl`).
+- `sec-core-concepts-8.0.0`: opciones vivas, su strike y unidades no
+  consolidadas al cierre. `employee-options-xbrl-1.0.0` arma la decisión con la
+  cantidad y el strike de una misma presentación; sin ellos,
+  `employee-options-not-subtracted-1.0.0` no resta opciones, lo declara en el
+  puente y en la página, y baja el rigor un nivel
+  (`employee_options_not_subtracted`).
+- `employeeEquity.decision` es una unión por `basis`; la transcripción queda byte
+  por byte y `rigor_derived_from_completeness` recalcula con la base congelada.
+  Motor y metodología sin cambio.
+- Superficie: el bloque de opciones de `/valuacion/[ticker]` tiene una variante
+  por base, con su marca de origen (`impeccable`, detector sin hallazgos).
+- Controles: `TM-05` (una opción sin dato no se presume cero: o se valúa con la
+  cota, o no se resta y se dice), `TM-09` (misma tarea con evidencia delimitada,
+  policy más estricta) y `TM-16` (base, hechos XBRL y presentación congelados y
+  recalculados).
+
+Evidencia:
+
+- 3.093 unit y 220 integration; formato, lint, tipos y build; 204 E2E con axe
+  (2 omitidos).
+- Réplica, worker real: **KO, HD, COST, WM, Cencora, ALGN, DECK, EXPD y MRK
+  llegan a una corrida** con la base de las opciones nombrada: transcripción
+  (KO, MRK, COST, DECK, ALGN), XBRL (Cencora, EXPD) y sin restar (HD, WM, en
+  `screening`). WM pide revisión por `terminal_value_share`.
+- Dos errores encontrados en la réplica y corregidos antes de cerrar: `scale`
+  obligatoria sin opciones (cuatro escalones `schema_invalid` en Costco, Deckers
+  y Align) y la escala de las unidades de Costco multiplicada por mil (96,53 USD
+  en lugar de 529,79 USD), que ahora rechaza la policy.
+- Las 44 corridas guardadas de quince empresas se reproducen. USD 0,26 de IA en
+  la tanda final.
+- No hay evals de esta tarea: la regresión es la de sus tests y la réplica.
 
 #### `F6-13` — la corrida le pide a la IA lo cualitativo que falta (cerrado el 2026-10-22)
 

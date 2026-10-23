@@ -46,10 +46,39 @@ describe("extractEquityCompensationFromText", () => {
         `${FILLER} ${EQUITY_STATEMENT} ${FILLER} ${FILLER} ${note} ${FILLER}`,
       );
 
-      expect(result?.version).toBe("sec-10k-equity-compensation-1.1.0");
+      expect(result?.version).toBe(SEC_10K_EQUITY_COMPENSATION_VERSION);
       expect(result?.section.text).toContain("Granted");
       expect(result?.section.text).not.toContain("Consolidated Statements");
     }
+  });
+
+  it("reads the balance rows 1.1.0 skipped (1.2.0)", () => {
+    // Merck, Deckers, Align y Costco: sin preposición, con coma, «Unvested» y
+    // «at the end of <año>». Montos sintéticos.
+    for (const row of [
+      "Outstanding December 31, 2025 1,247 $ 87.95",
+      "Nonvested, March 31, 2026 365,872 114.20",
+      "Unvested as of December 31, 2025 1,250 $ 256.80",
+      "Outstanding at the end of 2026 2,000 $ 728.17",
+    ]) {
+      const note = `Stock-based compensation. The following table summarizes award activity. Number of Units Weighted-Average Grant Date Fair Value Granted 1,088 933.56 Vested and delivered (1,303) 669.59 Forfeited (93) 696.05 ${row} restricted stock units vested and forfeited.`;
+      const result = extractEquityCompensationFromText(
+        `${FILLER} ${note} ${FILLER}`,
+      );
+
+      expect(result?.section.text).toContain(row);
+    }
+  });
+
+  it("does not take a small-caps equity statement for the note (Costco)", () => {
+    const statement =
+      "Stock-based compensation — — 822 — — 822 Release of vested restricted stock units (RSUs), including tax effects 1,337 — (315) — — (315) Repurchases of common stock (1,004) — (18) — (680) (698) Cash dividends declared — — — — (8,589) (8,589) BALANCE AT SEPTEMBER 1, 2024 443,126 2 7,829 (1,828) 17,619 23,622 Net income — — — — 8,099 8,099 Stock-based compensation — — 864 — — 864 Release of vested RSUs, including tax effects 1,054 — (393) — — (393) BALANCE AT AUGUST 31, 2025 443,237 2 8,282";
+
+    expect(
+      rankEquityCompensationAnchors(`${FILLER} ${statement} ${FILLER}`).every(
+        (anchor) => anchor.score === 0,
+      ),
+    ).toBe(true);
   });
 
   it("reads an incentive program note whose balance rows print no year", () => {
