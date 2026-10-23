@@ -27,9 +27,18 @@ import {
  * 2025» (Coca-Cola) y la versalita «OUTSTANDING AT JULY 1, 2025» (Procter &
  * Gamble). Con `1.0.0` las dos notas puntuaban cero y la tarea salteaba con
  * `equity_note_not_found`, lo que dejaba la corrida sin snapshot.
+ *
+ * `1.2.0` (`F6-16`): más formas de la fila de saldo, medidas en los 10-K que
+ * salteaban —«Outstanding December 31, 2025» sin preposición (Merck),
+ * «Nonvested, March 31, 2026» (Deckers), «Unvested as of December 31, 2025»
+ * (Align) y «Outstanding at the end of 2026» (Costco)—. Y el estado de
+ * patrimonio deja de ganar: Costco imprime «BALANCE AT SEPTEMBER 1, 2024» en
+ * versalitas junto a «Release of vested RSUs», y `1.1.0` recortaba ahí. Un
+ * cuerpo con resultado neto y dividendos o recompras es ese estado, no la
+ * nota, y el «BALANCE» en versalitas ya no cuenta como saldo.
  */
 export const SEC_10K_EQUITY_COMPENSATION_VERSION =
-  "sec-10k-equity-compensation-1.1.0";
+  "sec-10k-equity-compensation-1.2.0";
 
 /** Opciones y unidades de una nota entran; la nota entera de otra no. */
 export const EQUITY_COMPENSATION_CEILING_BYTES = 12_000;
@@ -47,13 +56,50 @@ const AWARD_TERMS =
 const MIN_AWARD_TERMS = 3;
 
 /**
- * Una fila con saldo: «Balance as of …», «Shares at …», «Outstanding at …» u
- * «Outstanding on …» —con o sin año: ExxonMobil imprime «Issued and
- * outstanding at December 31» y deja el año en el encabezado—, la misma fila
- * en versalitas, o «Outstanding, end of year …» (Ford).
+ * Una fila con saldo: «Balance as of …», «Shares at …», «Outstanding at …»,
+ * «Outstanding on …» u «Outstanding December 31, 2025» —con o sin año:
+ * ExxonMobil imprime «Issued and outstanding at December 31» y deja el año en el
+ * encabezado—, «Nonvested, March 31, 2026», «Unvested as of …», la misma fila en
+ * versalitas, u «Outstanding, end of year …» (Ford) y «Outstanding at the end of
+ * 2026» (Costco). Sin preposición sólo con mes y día: «outstanding 2025» en
+ * prosa no es una fila.
  */
-const BALANCE_ROW =
-  /\b(?:(?:[Bb]alance|BALANCE|[Ss]hares|SHARES|[Oo]utstanding|OUTSTANDING)\s+(?:as\s+of|AS\s+OF|at|AT|on|ON)\s+(?:(?:[A-Z][a-z]+|[A-Z]{3,9})\s+[0-9]{1,2}(?:,\s+[0-9]{4})?|[0-9]{4})\b|(?:[Bb]alance|[Oo]utstanding),?\s+(?:at\s+)?end\s+of\s+(?:the\s+)?(?:year|period)\b)[^.]{0,80}?[0-9]{1,3}(?:,[0-9]{3})*/gu;
+const BALANCE_LABEL =
+  "(?:[Bb]alance|[Ss]hares|SHARES|[Oo]utstanding|OUTSTANDING|[Nn]on-?vested|NONVESTED|[Uu]nvested|UNVESTED)";
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+const MONTH = `(?:${[...MONTH_NAMES, ...MONTH_NAMES.map((name) => name.toUpperCase())].join("|")})`;
+const MONTH_DAY = `${MONTH}\\s+[0-9]{1,2}(?:,\\s+[0-9]{4})?`;
+const PREPOSITION = "(?:as\\s+of|AS\\s+OF|at|AT|on|ON)";
+const BALANCE_ROW = new RegExp(
+  [
+    "\\b(?:",
+    `${BALANCE_LABEL},?\\s+(?:${PREPOSITION}\\s+)?${MONTH_DAY}\\b`,
+    `|${BALANCE_LABEL}\\s+${PREPOSITION}\\s+[0-9]{4}\\b`,
+    "|(?:[Bb]alance|[Oo]utstanding|[Nn]on-?vested|[Uu]nvested),?\\s+(?:at\\s+)?(?:the\\s+)?end\\s+of\\s+(?:the\\s+)?(?:fiscal\\s+)?(?:year|period|[0-9]{4})\\b",
+    ")[^.]{0,80}?[0-9]{1,3}(?:,[0-9]{3})*",
+  ].join(""),
+  "gu",
+);
+
+/**
+ * El estado de patrimonio: resultado neto y, cerca, dividendos o recompras.
+ * Tiene saldos y «vested RSUs», pero no es la nota.
+ */
+const EQUITY_STATEMENT =
+  /\bnet\s+income\b[\s\S]{0,600}?\b(?:dividends?\s+declared|repurchases?\s+of\s+common\s+stock|common\s+stock\s+repurchased)\b/iu;
 
 /** Dónde se cuenta el vocabulario: la tabla que sigue al ancla. */
 const BODY_CHARS = 4_000;
@@ -78,7 +124,11 @@ function scoreOf(text: string, anchor: number): number {
 
   // Sin una fila de saldo no hay tabla, y sin vocabulario de premios la tabla
   // es de otra cosa: el estado de patrimonio también tiene saldos.
-  return balances === 0 || terms < MIN_AWARD_TERMS ? 0 : terms + balances * 5;
+  return balances === 0 ||
+    terms < MIN_AWARD_TERMS ||
+    EQUITY_STATEMENT.test(body.slice(0, 1_500))
+    ? 0
+    : terms + balances * 5;
 }
 
 /** Cada ancla con su posición y su puntaje, en orden de aparición. */

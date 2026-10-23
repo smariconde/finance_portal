@@ -5,8 +5,14 @@ import { zeroDebtEvidenceFixture } from "../infrastructure/zero-debt-evidence-fi
 
 import { DEMO_VALUATION_INPUT } from "../infrastructure/demo-valuation-fixtures";
 import type { AnnualFundamentals } from "../domain/annual-fundamentals";
-import { SHARES_OUTSTANDING_CONCEPT } from "../domain/employee-equity-claim";
-import type { EmployeeEquityDecision } from "../domain/employee-equity-claim";
+import {
+  SHARES_OUTSTANDING_CONCEPT,
+  aiDecisionOf,
+  type AiEmployeeEquityDecision,
+  OPTIONS_OUTSTANDING_CONCEPT,
+  OPTIONS_WEIGHTED_STRIKE_CONCEPT,
+  UNVESTED_UNITS_CONCEPT,
+} from "../domain/employee-equity-claim";
 import {
   assembleValuationSnapshot,
   type ValuationSnapshotRequest,
@@ -62,9 +68,10 @@ const ASSESSMENT = {
   normalization: demo.normalization,
 } as unknown as CompanyAssessment;
 
-const OUTSTANDING: EmployeeEquityDecision["transcription"] =
-  demo.employeeEquity.decision.transcription;
-const NONE: EmployeeEquityDecision["transcription"] = {
+const OUTSTANDING: AiEmployeeEquityDecision["transcription"] = aiDecisionOf(
+  demo.employeeEquity.decision,
+).transcription;
+const NONE: AiEmployeeEquityDecision["transcription"] = {
   ...OUTSTANDING,
   optionsStatus: "none_disclosed",
   optionsCount: null,
@@ -78,9 +85,9 @@ const NONE: EmployeeEquityDecision["transcription"] = {
 };
 
 function stored(
-  transcription: EmployeeEquityDecision["transcription"],
+  transcription: AiEmployeeEquityDecision["transcription"],
 ): StoredEmployeeEquity {
-  const decision = demo.employeeEquity.decision;
+  const decision = aiDecisionOf(demo.employeeEquity.decision);
 
   return {
     proposal: {
@@ -319,10 +326,159 @@ describe("valuation-snapshot-1.0.0", () => {
     expect(left).toEqual(right);
   });
 
+  describe("employee options without an accepted transcription (F6-16)", () => {
+    const fact = (
+      concept: string,
+      value: string,
+      document = "0000000000-25-000001",
+    ) => ({
+      concept,
+      asOf: "2024-12-31",
+      availableAt: "2025-02-20T21:00:00.000Z",
+      value,
+      observationId: "70000000-0000-4000-8000-0000000000a1",
+      sourceDocumentId: document,
+    });
+    const xbrl = [
+      fact(OPTIONS_OUTSTANDING_CONCEPT, "300000"),
+      fact(OPTIONS_WEIGHTED_STRIKE_CONCEPT, "9"),
+      fact(UNVESTED_UNITS_CONCEPT, "200000"),
+    ];
+    const valued = (overrides: Partial<ValuationSnapshotRequest>) => {
+      const result = assembleValuationSnapshot(
+        request({ employeeEquity: null, ...overrides }),
+      );
+      if (result.status !== "assembled") throw new Error(result.gap);
+      return {
+        input: result.input,
+        run: runValuation(result.input, {
+          now: () => "2026-10-21T00:00:00.000Z",
+          newValuationRunId: () => "00000000-0000-4000-8000-0000000000fc",
+        }),
+      };
+    };
+
+    /** Seis años de cierres hábiles que alternan: la volatilidad pide cinco. */
+    const longSeries = () => {
+      const closes: { marketDate: string; close: string; currency: string }[] =
+        [];
+      for (
+        let day = Date.parse("2019-05-01T00:00:00Z"), index = 0;
+        day <= Date.parse("2025-06-02T00:00:00Z");
+        day += 86_400_000
+      ) {
+        const weekday = new Date(day).getUTCDay();
+        if (weekday === 0 || weekday === 6) continue;
+        closes.push({
+          marketDate: new Date(day).toISOString().slice(0, 10),
+          close: index % 2 === 0 ? "14.5" : "15",
+          currency: "USD",
+        });
+        index += 1;
+      }
+      return { sourceId: "yahoo-finance", closes, events: [] };
+    };
+
+    it("subtracts the options the XBRL of the same filing reports, at ten years", () => {
+      const { input, run } = valued({
+        employeeOptionFacts: xbrl,
+        prices: longSeries(),
+      });
+
+      expect(input.employeeEquity.decision).toMatchObject({
+        basis: "xbrl_same_10k",
+        sourceDocumentId: "0000000000-25-000001",
+      });
+      expect(input.employeeEquity.derived.reading).toMatchObject({
+        options: {
+          status: "outstanding",
+          count: "300000",
+          strike: "9",
+          maturityYears: "10",
+          maturityBasis: "contractual_term_upper_bound",
+        },
+        unvestedUnits: "200000",
+        unitsBasis: "xbrl",
+      });
+      expect(input.bridge.employeeOptions.status).toBe("reported");
+      expect(input.assessment.rigor).toEqual(demo.assessment.rigor);
+      expect(run.failure).toBeNull();
+      expect(
+        run.result?.checks.find(
+          (check) => check.id === "employee_equity_recomputed",
+        )?.status,
+      ).toBe("passed");
+    });
+
+    it("declares no options when the XBRL reports zero", () => {
+      const { input } = valued({
+        employeeOptionFacts: [fact(OPTIONS_OUTSTANDING_CONCEPT, "0")],
+      });
+
+      expect(input.employeeEquity.market).toBeNull();
+      expect(input.bridge.employeeOptions.status).toBe("declared_absent");
+      expect(input.employeeEquity.derived.reading.unitsBasis).toBe(
+        "not_reported",
+      );
+    });
+
+    it("does not subtract options without transcription or XBRL, says so and lowers rigor", () => {
+      const { input, run } = valued({
+        // Una cantidad sin strike, o de otra presentación, no es un respaldo.
+        employeeOptionFacts: [
+          fact(OPTIONS_OUTSTANDING_CONCEPT, "300000"),
+          fact(OPTIONS_WEIGHTED_STRIKE_CONCEPT, "9", "0000000000-24-000001"),
+        ],
+      });
+
+      expect(input.employeeEquity.decision).toMatchObject({
+        basis: "not_subtracted",
+        reason: "no_transcription_or_xbrl",
+      });
+      expect(input.bridge.employeeOptions).toMatchObject({
+        status: "declared_absent",
+      });
+      expect(input.bridge.employeeOptions.rationale).toContain(
+        "not subtracted",
+      );
+      expect(input.assessment.rigor.degradedBy).toContain(
+        "employee_options_not_subtracted",
+      );
+      expect(input.assessment.rigor.declarations).toContain(
+        "employee_options_not_subtracted",
+      );
+      expect(run.failure?.subjects ?? null).toBeNull();
+      expect(
+        run.result?.checks.find(
+          (check) => check.id === "rigor_derived_from_completeness",
+        )?.status,
+      ).toBe("passed");
+    });
+
+    it("refuses two values of one concept in the same filing", () => {
+      const { input } = valued({
+        employeeOptionFacts: [
+          ...xbrl,
+          fact(OPTIONS_WEIGHTED_STRIKE_CONCEPT, "9.5"),
+        ],
+      });
+
+      expect(input.employeeEquity.decision.basis).toBe("not_subtracted");
+    });
+
+    it("still prefers the accepted transcription", () => {
+      const result = assembleValuationSnapshot(
+        request({ employeeOptionFacts: xbrl }),
+      );
+
+      expect(
+        result.status === "assembled" &&
+          result.input.employeeEquity.decision.basis,
+      ).toBe("ai_proposal");
+    });
+  });
+
   it("names the gap before a snapshot exists", () => {
-    expect(
-      assembleValuationSnapshot(request({ employeeEquity: null })),
-    ).toEqual({ status: "not_assembled", gap: "employee_equity_not_proposed" });
     expect(assembleValuationSnapshot(request({ shareCounts: [] }))).toEqual({
       status: "not_assembled",
       gap: "shares_outstanding_unavailable",

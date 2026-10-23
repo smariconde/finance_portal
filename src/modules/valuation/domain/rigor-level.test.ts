@@ -121,3 +121,36 @@ describe(RIGOR_LEVEL_VERSION, () => {
     });
   });
 });
+
+describe("rigor without employee options subtracted (F6-16)", () => {
+  const lowered = { employeeOptionsNotSubtracted: true };
+
+  it("lowers one level and declares why", () => {
+    expect(deriveRigorLevel(SELECTED, profile(), lowered)).toEqual({
+      version: RIGOR_LEVEL_VERSION,
+      level: "standard",
+      degradedBy: ["employee_options_not_subtracted"],
+      declarations: ["employee_options_not_subtracted"],
+    });
+    expect(
+      deriveRigorLevel(
+        SELECTED,
+        profile({ geographic_revenue_mix: "missing" }),
+        lowered,
+      ).level,
+    ).toBe("screening");
+  });
+
+  it("leaves an unsupported run unsupported and the default unchanged", () => {
+    expect(
+      deriveRigorLevel(
+        SELECTED,
+        profile({ structural_inputs: "missing" }),
+        lowered,
+      ).level,
+    ).toBe("unsupported");
+    expect(deriveRigorLevel(SELECTED, profile(), {})).toEqual(
+      deriveRigorLevel(SELECTED, profile()),
+    );
+  });
+});

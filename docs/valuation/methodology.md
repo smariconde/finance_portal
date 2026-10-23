@@ -1100,6 +1100,23 @@ cotización de octubre de 2026: las opciones restan del 0,01 % (American Tower)
 al 6,05 % (Moderna) de la capitalización, y las unidades suman hasta un 4,64 %
 al denominador (Incyte).
 
+Desde `F6-16` ([ADR 0055](../architecture/adr/0055-employee-options-fallback.md))
+la decisión congelada tiene tres bases, en este orden:
+
+1. `ai_proposal`: la transcripción aceptada, como hasta ahora
+   (`employee-equity-1.3.0` lleva la escala de las unidades aparte);
+2. `xbrl_same_10k` (`employee-options-xbrl-1.0.0`): las opciones vivas y su
+   strike del XBRL de la misma presentación al cierre del ejercicio base, y
+   las unidades no consolidadas si las publica. El plazo no está en
+   companyfacts y se toma de **diez años**, el plazo contractual y su cota
+   superior;
+3. `not_subtracted`: ni una ni otra. La claim `employeeOptions` es una
+   ausencia declarada, el valor por acción es una cota superior y el rigor baja
+   un nivel (`employee_options_not_subtracted`).
+
+`employee_equity_recomputed` recalcula cada base y `rigor_derived_from_completeness`
+recalcula el rigor con la base congelada.
+
 ## Costo de capital
 
 1. Elegir moneda nominal o real antes de estimar tasas.

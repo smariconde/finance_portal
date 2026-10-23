@@ -20,6 +20,7 @@ const COMPLETENESS_CHECK_LABELS: Record<string, string> = {
   tax_rate_inputs: "Resultado antes de impuestos e impuesto",
   industry_mapping: "Industria de Damodaran",
   geographic_revenue_mix: "Mix geográfico de ingresos",
+  employee_options_not_subtracted: "Opciones de empleados sin restar",
 };
 
 export function completenessCheckLabel(code: string): string {
@@ -45,6 +46,8 @@ const RIGOR_DECLARATION_LABELS: Record<string, string> = {
     "Sin mix geográfico, el riesgo país sale del domicilio legal.",
   invested_capital_not_reconstructed:
     "Sin capital invertido reconstruido: el rango es amplio y el ROIC no es confiable.",
+  employee_options_not_subtracted:
+    "Sin transcripción ni XBRL de las opciones de empleados, el puente no las resta: el valor por acción es una cota superior.",
 };
 
 export function rigorDeclarationLabel(code: string): string {

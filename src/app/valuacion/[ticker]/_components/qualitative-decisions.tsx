@@ -270,6 +270,89 @@ function OperationsMixDecision({ run }: { run: ValuationRun }) {
 function EmployeeEquityDecision({ run }: { run: ValuationRun }) {
   const claim = run.input.employeeEquity;
   const { decision, derived } = claim;
+  const options = derived.reading.options;
+  const sharedFields = (
+    <>
+      <Field
+        term="Unidades no consolidadas"
+        hint={
+          derived.reading.unitsBasis === "not_reported"
+            ? "No publicadas: no suman al denominador"
+            : "RSU y PSU, suman al denominador"
+        }
+      >
+        <span className="numeric">
+          {formatShares(derived.reading.unvestedUnits)}
+        </span>
+      </Field>
+      <Field term="Acciones del denominador" hint="Carátula más unidades">
+        <span className="numeric">{formatShares(derived.shareCount)}</span>
+      </Field>
+    </>
+  );
+
+  if (decision.basis === "not_subtracted") {
+    return (
+      <section className="flex flex-col gap-3">
+        <DecisionHeading
+          title="Opciones y unidades de empleados"
+          kind="declared_absent"
+        />
+        <p className="text-sm text-muted-foreground">
+          No se restan. No hay una transcripción aceptada de la nota de
+          compensación en acciones del ejercicio{" "}
+          <time dateTime={decision.fiscalYearEnd}>
+            {formatCalendarDate(decision.fiscalYearEnd)}
+          </time>
+          , y el XBRL de la misma presentación no publica la cantidad y el
+          strike de las opciones vivas. Si la empresa tiene opciones, el valor
+          por acción es una cota superior; por eso el rigor baja un nivel.
+        </p>
+        <FieldList className="sm:grid-cols-3">
+          {sharedFields}
+          <Field term="Regla">
+            <CodeValue>{decision.version}</CodeValue>
+          </Field>
+        </FieldList>
+      </section>
+    );
+  }
+
+  if (decision.basis === "xbrl_same_10k") {
+    return (
+      <section className="flex flex-col gap-3">
+        <DecisionHeading
+          title="Opciones y unidades de empleados"
+          kind="reported_fact"
+        />
+        <p className="text-sm text-muted-foreground">
+          Del XBRL de la presentación{" "}
+          <CodeValue>{decision.sourceDocumentId}</CodeValue> al cierre del
+          ejercicio{" "}
+          <time dateTime={decision.fiscalYearEnd}>
+            {formatCalendarDate(decision.fiscalYearEnd)}
+          </time>
+          , porque no hay una transcripción aceptada de la nota. El XBRL no trae
+          el plazo remanente: las opciones se valúan a{" "}
+          {options.status === "outstanding" ? options.maturityYears : "10"}{" "}
+          años, el plazo contractual de una opción de empleado, que es su cota
+          superior y resta lo más posible.
+        </p>
+        <FieldList className="sm:grid-cols-3">
+          <Field term="Opciones">
+            {options.status === "outstanding"
+              ? `${formatShares(options.count)} a ${options.strike}`
+              : "Ninguna en el XBRL"}
+          </Field>
+          {sharedFields}
+          <Field term="Regla">
+            <CodeValue>{decision.version}</CodeValue>
+          </Field>
+        </FieldList>
+      </section>
+    );
+  }
+
   const transcription = decision.transcription;
 
   return (
@@ -289,21 +372,11 @@ function EmployeeEquityDecision({ run }: { run: ValuationRun }) {
       </p>
       <FieldList className="sm:grid-cols-3">
         <Field term="Opciones">
-          {derived.reading.options.status === "none_disclosed"
-            ? "Ninguna en la nota"
-            : `${formatShares(derived.reading.options.count)} a ${derived.reading.options.strike}`}
+          {options.status === "outstanding"
+            ? `${formatShares(options.count)} a ${options.strike}`
+            : "Ninguna en la nota"}
         </Field>
-        <Field
-          term="Unidades no consolidadas"
-          hint="RSU y PSU, suman al denominador"
-        >
-          <span className="numeric">
-            {formatShares(derived.reading.unvestedUnits)}
-          </span>
-        </Field>
-        <Field term="Acciones del denominador" hint="Carátula más unidades">
-          <span className="numeric">{formatShares(derived.shareCount)}</span>
-        </Field>
+        {sharedFields}
         <Field
           term="Modelo"
           hint={`Confianza ${CONFIDENCE_LABELS[transcription.confidence] ?? transcription.confidence}`}

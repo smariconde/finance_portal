@@ -485,8 +485,28 @@ coverage is the top floor (`no_interest_expense`, declared), and
 (`ebit-from-pretax-1.0.0`), frozen in `capitalization.ebitDerivation` and
 recomputed. Engine and methodology versions do not move: every new field is
 optional. Measured on a replica: ADP and ETN `computed` with derived EBIT; ALGN,
-DECK and EXPD resolve zero debt and stop on employee options (`F6-16`, next); DHI
-stays unresolved; 16 stored runs replay.
+DECK and EXPD resolve zero debt; DHI stays unresolved; 16 stored runs replay.
+
+Employee options no longer stop a run (`F6-16`,
+[ADR 0055](docs/architecture/adr/0055-employee-options-fallback.md)).
+`sec-10k-equity-compensation-1.2.0` reads balance rows without a preposition,
+«Nonvested, <date>», «Unvested as of …» and «at the end of <year>», and an
+equity-statement body (net income near dividends or buybacks) scores zero.
+`employee-equity-1.3.0` (prompt `1.4.0`) gives units their own `unitsScale`
+—`scale` may be null with no options—; policy `1.2.0` reads «fiscal <year − 1>»
+as a January/February close and rejects units more than 10× off the XBRL of the
+same 10-K (`units_scale_contradicts_xbrl`). `employeeEquity.decision` is a union
+by `basis`: the accepted transcription (unchanged, byte for byte); else
+`xbrl_same_10k` (`employee-options-xbrl-1.0.0`, count and strike from one filing
+at the base fiscal-year end, ingested by `sec-core-concepts-8.0.0`, valued at a
+ten-year term because companyfacts has no remaining term: the upper bound,
+owner's decision); else `not_subtracted`, a `declared_absent` claim that says the
+value per share is an upper bound and lowers rigor one level
+(`employee_options_not_subtracted`), which `rigor_derived_from_completeness`
+recomputes from the frozen basis. The job no longer ends in
+`employee_equity_not_proposed`. Measured on a replica: KO, HD, COST, WM,
+Cencora, ALGN, DECK, EXPD and MRK reach a run with the basis named; 44 stored
+runs replay. The next slice is `F6-08`.
 
 Since `F6-12` `/valuacion` is only the entry: it enqueues and navigates to
 `/valuacion/[ticker]`, whose `ValuationRunner` follows an open job, announces its state

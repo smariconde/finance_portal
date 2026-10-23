@@ -499,3 +499,156 @@ describe("readEmployeeEquity", () => {
     });
   });
 });
+
+describe("employee-equity-1.3.0 and its policy 1.2.0", () => {
+  // Coca-Cola: opciones en millones y unidades en miles. Montos sintéticos.
+  const TWO_SCALES_NOTE =
+    "Stock option activity: Shares (In millions) Weighted-Average Exercise Price Outstanding on January 1, 2025 31 $ 52.81 Outstanding on December 31, 2025 27 $ 55.74 5.3 years. Restricted Stock Units (In thousands) Nonvested on January 1, 2025 4,210 Nonvested on December 31, 2025 4,536 $ 59.24";
+  const TWO_SCALES_ANSWER = employeeEquityOutputSchema.parse({
+    ...TABLE_ANSWER,
+    scale: "millions",
+    unitsScale: "thousands",
+    optionsCount: "27",
+    optionsCountQuote: "Outstanding on December 31, 2025 27 $ 55.74 5.3 years",
+    optionsStrike: "$ 55.74",
+    optionsStrikeQuote: "Outstanding on December 31, 2025 27 $ 55.74",
+    optionsLife: "5.3",
+    optionsLifeQuote: "Outstanding on December 31, 2025 27 $ 55.74 5.3 years",
+    units: [
+      {
+        kind: "restricted",
+        count: "4,536",
+        quote: "Nonvested on December 31, 2025 4,536 $ 59.24",
+      },
+    ],
+  });
+
+  it("reads options and units each with its own scale (Coca-Cola)", () => {
+    const fiscal = input(TWO_SCALES_NOTE, {
+      fiscalYearEnd: "2025-12-31",
+      xbrl: { optionsOutstanding: "27000000", weightedStrike: "55.74" },
+    });
+
+    expect(judgeEmployeeEquity(TWO_SCALES_ANSWER, fiscal)).toEqual({
+      verdict: "accept",
+    });
+
+    const reading = readEmployeeEquity(TWO_SCALES_ANSWER, "2025-12-31");
+
+    expect(reading.options).toMatchObject({ count: "27000000" });
+    expect(reading.unvestedUnits).toBe("4536000");
+  });
+
+  it("keeps one scale for a transcription that has no unitsScale", () => {
+    const legacy = Object.fromEntries(
+      Object.entries(TWO_SCALES_ANSWER).filter(([key]) => key !== "unitsScale"),
+    );
+    const reading = readEmployeeEquity(
+      employeeEquityOutputSchema.parse(legacy),
+      "2025-12-31",
+    );
+
+    expect(reading.unvestedUnits).toBe("4536000000");
+  });
+
+  it("accepts no scale for options when there are none (Costco, Deckers, Align)", () => {
+    const unitsOnly = employeeEquityOutputSchema.parse({
+      ...RSU_ONLY_ANSWER,
+      scale: null,
+      unitsScale: "thousands",
+    });
+
+    expect(
+      judgeEmployeeEquity(
+        unitsOnly,
+        input(RSU_ONLY_NOTE, { fiscalYearEnd: "2025-09-27" }),
+      ),
+    ).toEqual({ verdict: "accept" });
+    expect(readEmployeeEquity(unitsOnly, "2025-09-27").unvestedUnits).toBe(
+      "151574000",
+    );
+    // Unidades sin ninguna escala no son una propuesta.
+    expect(
+      employeeEquityOutputSchema.safeParse({
+        ...unitsOnly,
+        unitsScale: null,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects units a thousand times the XBRL of the same 10-K (Costco)", () => {
+    const multiplied = employeeEquityOutputSchema.parse({
+      ...RSU_ONLY_ANSWER,
+      scale: null,
+      unitsScale: "thousands",
+    });
+    const at = (units: string) =>
+      input(RSU_ONLY_NOTE, {
+        fiscalYearEnd: "2025-09-27",
+        xbrl: {
+          optionsOutstanding: null,
+          weightedStrike: null,
+          unvestedUnits: units,
+        },
+      });
+
+    // 151.574 miles contra 151,6 millones del XBRL: la escala es de la nota.
+    expect(judgeEmployeeEquity(multiplied, at("151574000"))).toEqual({
+      verdict: "accept",
+    });
+    // Contra 151.574 unidades, la escala fue un factor de mil.
+    expect(judgeEmployeeEquity(multiplied, at("151574"))).toEqual({
+      verdict: "reject",
+      code: "units_scale_contradicts_xbrl",
+    });
+    // Sólo las RSU en el XBRL y RSU más PSU en la nota: un orden de magnitud no cambia.
+    expect(judgeEmployeeEquity(multiplied, at("120000000"))).toEqual({
+      verdict: "accept",
+    });
+  });
+
+  it("asks the model for unitsScale", () => {
+    expect(
+      (EMPLOYEE_EQUITY_TASK.output.jsonSchema as { required: string[] })
+        .required,
+    ).toContain("unitsScale");
+  });
+
+  // Home Depot: el ejercicio que cierra el 2026-02-01 es su «Fiscal 2025».
+  const FISCAL_LABEL_NOTE =
+    "Summary of stock option activity during fiscal 2025: shares in thousands Outstanding at beginning of year 2,201 $ 228.23 Granted 249 364.09 Outstanding at end of year fiscal 2025 2,156 249.25";
+
+  it("reads «fiscal 2025» as the year that closes in February 2026", () => {
+    const answer = employeeEquityOutputSchema.parse({
+      ...TABLE_ANSWER,
+      optionsCount: "2,156",
+      optionsCountQuote: "Outstanding at end of year fiscal 2025 2,156 249.25",
+      optionsStrike: "249.25",
+      optionsStrikeQuote: "Outstanding at end of year fiscal 2025 2,156 249.25",
+      optionsLifeBasis: "expiration_year",
+      optionsLife: "2030",
+      optionsLifeQuote:
+        "Outstanding at end of year fiscal 2025 2,156 249.25 2030",
+      unitsStatus: "none_disclosed",
+      unitsScale: null,
+      units: [],
+    });
+    const note = `${FISCAL_LABEL_NOTE} 2030`;
+
+    expect(
+      judgeEmployeeEquity(answer, input(note, { fiscalYearEnd: "2026-02-01" })),
+    ).toEqual({ verdict: "accept" });
+    // «fiscal 2024» sigue siendo otro año para el cierre de febrero.
+    expect(
+      judgeEmployeeEquity(
+        {
+          ...answer,
+          optionsCountQuote: answer.optionsCountQuote!.replace("2025", "2024"),
+        },
+        input(note.replace("fiscal 2025 2,156", "fiscal 2024 2,156"), {
+          fiscalYearEnd: "2026-02-01",
+        }),
+      ),
+    ).toEqual({ verdict: "reject", code: "figure_not_at_year_end" });
+  });
+});

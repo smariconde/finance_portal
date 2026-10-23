@@ -104,7 +104,12 @@ export function isGrowthWithinRiskFree(growth: Dec, riskFree: Dec): boolean {
  */
 function checkAssessment(input: ValuationInput): PolicyCheck[] {
   const { selection, completeness, rigor } = input.assessment;
-  const derived = deriveRigorLevel(selection, completeness);
+  // Sin opciones restadas el nivel baja uno (`F6-16`): lo dice la decisión
+  // congelada, no algo que la corrida pueda declarar aparte.
+  const derived = deriveRigorLevel(selection, completeness, {
+    employeeOptionsNotSubtracted:
+      input.employeeEquity.decision.basis === "not_subtracted",
+  });
 
   return [
     check(

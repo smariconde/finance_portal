@@ -57,6 +57,12 @@ export const OPTIONS_WEIGHTED_STRIKE_CONCEPT = Object.freeze({
     "ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingWeightedAverageExercisePrice",
 });
 
+export const UNVESTED_UNITS_CONCEPT = Object.freeze({
+  taxonomy: "us-gaap",
+  concept:
+    "ShareBasedCompensationArrangementByShareBasedPaymentAwardEquityInstrumentsOtherThanOptionsNonvestedNumber",
+});
+
 export type ProposeEmployeeEquityRequest = {
   readonly legalEntityId: string;
   readonly cik: string;
@@ -197,13 +203,15 @@ export async function proposeEmployeeEquity(
   // Antes de reservar nada: la evidencia tiene que poder viajar a un modelo.
   assertAiTransferable([SEC_SOURCE_ID], dependencies.registry);
 
-  const [countFacts, strikeFacts] = await Promise.all([
+  const [countFacts, strikeFacts, unitFacts] = await Promise.all([
     dependencies.loadConceptFacts(reportCik, OPTIONS_OUTSTANDING_CONCEPT),
     dependencies.loadConceptFacts(reportCik, OPTIONS_WEIGHTED_STRIKE_CONCEPT),
+    dependencies.loadConceptFacts(reportCik, UNVESTED_UNITS_CONCEPT),
   ]);
   const xbrl = {
     optionsOutstanding: xbrlValueAtYearEnd(countFacts, annualReport, "shares"),
     weightedStrike: xbrlValueAtYearEnd(strikeFacts, annualReport, "USD/shares"),
+    unvestedUnits: xbrlValueAtYearEnd(unitFacts, annualReport, "shares"),
   };
 
   const ladder = await dependencies.runLadder(EMPLOYEE_EQUITY_TASK, {

@@ -12,6 +12,12 @@ import {
   employeeOptionMarketAt,
   sharesOutstandingAt,
   type EmployeeEquityClaim,
+  aiDecisionOf,
+  EMPLOYEE_EQUITY_FALLBACK_READING_VERSION,
+  employeeOptionsXbrlAt,
+  OPTIONS_OUTSTANDING_CONCEPT,
+  OPTIONS_WEIGHTED_STRIKE_CONCEPT,
+  readingOfDecision,
 } from "./employee-equity-claim";
 import { checkValuationInput } from "./policy-checks";
 import { valuationInputSchema, type ValuationInput } from "./valuation-input";
@@ -56,7 +62,7 @@ describe("deriveEmployeeEquity", () => {
   });
 
   it("needs no market without outstanding options", () => {
-    const decision = structuredClone(claim.decision);
+    const decision = aiDecisionOf(structuredClone(claim.decision));
     decision.transcription = {
       ...decision.transcription,
       optionsStatus: "none_disclosed",
@@ -328,5 +334,100 @@ describe("sharesOutstandingAt", () => {
         knownAt: "2026-10-20T00:00:00.000Z",
       }),
     ).toBeNull();
+  });
+});
+
+describe("employee-options-xbrl-1.0.0", () => {
+  const fact = (
+    concept: string,
+    value: string,
+    overrides: Partial<{
+      sourceDocumentId: string;
+      availableAt: string;
+      asOf: string;
+    }> = {},
+  ) => ({
+    concept,
+    value,
+    asOf: "2024-12-31",
+    availableAt: "2025-02-20T21:00:00.000Z",
+    observationId: "70000000-0000-4000-8000-0000000000a1",
+    sourceDocumentId: "0000000000-25-000001",
+    ...overrides,
+  });
+  const at = {
+    fiscalYearEnd: "2024-12-31",
+    knownAt: "2025-06-01T00:00:00.000Z",
+    sourceId: "sec-edgar",
+  };
+
+  it("takes the latest filing known at the cutoff, count and strike together", () => {
+    const amended = {
+      sourceDocumentId: "0000000000-25-000009",
+      availableAt: "2025-04-01T21:00:00.000Z",
+    };
+    const late = {
+      sourceDocumentId: "0000000000-25-000010",
+      availableAt: "2025-07-01T21:00:00.000Z",
+    };
+    const decision = employeeOptionsXbrlAt(
+      [
+        fact(OPTIONS_OUTSTANDING_CONCEPT, "300000"),
+        fact(OPTIONS_WEIGHTED_STRIKE_CONCEPT, "9"),
+        fact(OPTIONS_OUTSTANDING_CONCEPT, "310000", amended),
+        fact(OPTIONS_WEIGHTED_STRIKE_CONCEPT, "9.1", amended),
+        // Publicado después del corte: no se ve.
+        fact(OPTIONS_OUTSTANDING_CONCEPT, "999", late),
+        fact(OPTIONS_WEIGHTED_STRIKE_CONCEPT, "1", late),
+        // De otro cierre: no es este balance.
+        fact(OPTIONS_OUTSTANDING_CONCEPT, "1", { asOf: "2023-12-31" }),
+      ],
+      at,
+    );
+
+    expect(decision).toMatchObject({
+      sourceDocumentId: "0000000000-25-000009",
+      optionsOutstanding: { value: "310000" },
+      weightedStrike: { value: "9.1" },
+      unvestedUnits: null,
+    });
+    expect(readingOfDecision(decision!)).toMatchObject({
+      version: EMPLOYEE_EQUITY_FALLBACK_READING_VERSION,
+      unitsBasis: "not_reported",
+    });
+  });
+
+  it("is no fallback without a strike for outstanding options", () => {
+    expect(
+      employeeOptionsXbrlAt([fact(OPTIONS_OUTSTANDING_CONCEPT, "300000")], at),
+    ).toBeNull();
+    expect(employeeOptionsXbrlAt([], at)).toBeNull();
+  });
+
+  it("recomputes a frozen XBRL decision and names a fact of another filing", () => {
+    const decision = employeeOptionsXbrlAt(
+      [
+        fact(OPTIONS_OUTSTANDING_CONCEPT, "300000"),
+        fact(OPTIONS_WEIGHTED_STRIKE_CONCEPT, "9"),
+      ],
+      at,
+    )!;
+    const derived = deriveEmployeeEquity({
+      decision,
+      sharesOutstanding: claim.sharesOutstanding,
+      market: claim.market,
+      riskFree: context.riskFree,
+    });
+    const frozen = { ...claim, decision, derived };
+    const moved = structuredClone(frozen);
+    if (moved.decision.basis === "xbrl_same_10k") {
+      moved.decision.weightedStrike!.sourceDocumentId = "0000000000-24-000001";
+    }
+
+    expect(derived.options).not.toBeNull();
+    expect(employeeEquityMismatches(frozen, context)).toEqual([]);
+    expect(employeeEquityMismatches(moved, context)).toContain(
+      "employeeEquity.decision",
+    );
   });
 });

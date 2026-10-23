@@ -39,7 +39,12 @@ import {
   type ValuationResultReading,
 } from "@/modules/valuation/application/read-valuation-result";
 import { INDUSTRY_RETURNS_DATASET } from "@/modules/valuation/domain/derived-assumptions";
-import { SHARES_OUTSTANDING_CONCEPT } from "@/modules/valuation/domain/employee-equity-claim";
+import {
+  OPTIONS_OUTSTANDING_CONCEPT,
+  OPTIONS_WEIGHTED_STRIKE_CONCEPT,
+  SHARES_OUTSTANDING_CONCEPT,
+  UNVESTED_UNITS_CONCEPT,
+} from "@/modules/valuation/domain/employee-equity-claim";
 import { readLineageObservations } from "@/modules/corporate-actions/application/read-lineage-observations";
 import { resolveReportingLineage } from "@/modules/corporate-actions/domain/reporting-lineage";
 import { ensureValuationData } from "@/modules/valuation/application/ensure-valuation-data";
@@ -518,7 +523,12 @@ export async function prepareValuationRun(
       assessment,
       fundamentalsSourceId: SEC_SOURCE_ID,
       employeeEquity,
-      shareCounts,
+      shareCounts: shareCounts.filter(
+        (fact) => fact.concept === SHARES_OUTSTANDING_CONCEPT,
+      ),
+      employeeOptionFacts: shareCounts.filter(
+        (fact) => fact.concept !== SHARES_OUTSTANDING_CONCEPT,
+      ),
       prices: { sourceId: PRICES_SOURCE_ID, ...prices },
       industryReturns,
     }),
@@ -554,10 +564,21 @@ async function storedSelectionVersion(cik: string): Promise<string | null> {
   return run?.selectionVersion ?? null;
 }
 
-/** Las acciones de la carátula al corte, por el linaje del emisor. */
+/**
+ * Las acciones de la carátula y, desde `F6-16`, las opciones, su strike y las
+ * unidades no consolidadas del XBRL, al corte y por el linaje del emisor.
+ */
 async function readShareCounts(legalEntityId: string, query: PointInTimeQuery) {
   const selection = await readLineageObservations(
-    { legalEntityId, metricIds: [SHARES_OUTSTANDING_CONCEPT] },
+    {
+      legalEntityId,
+      metricIds: [
+        SHARES_OUTSTANDING_CONCEPT,
+        OPTIONS_OUTSTANDING_CONCEPT,
+        OPTIONS_WEIGHTED_STRIKE_CONCEPT,
+        UNVESTED_UNITS_CONCEPT,
+      ],
+    },
     query,
     {
       corporateActions: getCorporateActionRepository(),

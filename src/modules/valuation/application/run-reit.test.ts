@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { deriveEmployeeEquity } from "../domain/employee-equity-claim";
+import {
+  deriveEmployeeEquity,
+  aiDecisionOf,
+} from "../domain/employee-equity-claim";
 import { selectValuationMethod } from "../domain/method-selection";
 import { reitInputSchema, type ReitInput } from "../domain/reit-input";
 import { reitRunSchema } from "../domain/reit-run";
@@ -446,8 +449,8 @@ describe("property REIT AFFO and NAV", () => {
   it("recomputes employee units and options once for both valuations", () => {
     const input = fixtureReitValuation();
     const claim = input.employeeEquity!;
-    claim.decision.transcription.unitsStatus = "outstanding";
-    claim.decision.transcription.units = [
+    aiDecisionOf(claim.decision).transcription.unitsStatus = "outstanding";
+    aiDecisionOf(claim.decision).transcription.units = [
       { kind: "restricted", count: "2", quote: "2 synthetic RSUs" },
     ];
     // Use the existing task contract for options and its independent pricing tests.
@@ -497,10 +500,10 @@ describe("property REIT AFFO and NAV", () => {
     const original = run(input).result!.base;
     const claim = structuredClone(DEMO_VALUATION_INPUT.employeeEquity);
     claim.sharesOutstanding.value = "10";
-    claim.decision.transcription.scale = "units";
-    claim.decision.transcription.optionsCount = "1";
-    claim.decision.transcription.unitsStatus = "none_disclosed";
-    claim.decision.transcription.units = [];
+    aiDecisionOf(claim.decision).transcription.scale = "units";
+    aiDecisionOf(claim.decision).transcription.optionsCount = "1";
+    aiDecisionOf(claim.decision).transcription.unitsStatus = "none_disclosed";
+    aiDecisionOf(claim.decision).transcription.units = [];
     claim.derived = deriveEmployeeEquity({
       ...claim,
       riskFree: input.risk.riskFree!.value,
