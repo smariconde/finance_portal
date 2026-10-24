@@ -4259,7 +4259,8 @@ Evidencia:
 - Al 23/10, AAPL: 28.660 ARS, CCL 1.648,405372 ARS/USD y valor 14.892,87 ARS;
   AMZN: 2.850 ARS, CCL 1.654,838710 y valor 1.648,00 ARS. Dos jobs completos
   sin IA; seis corridas AAPL (anteriores y nueva) reproducidas sin divergencia.
-  No se escribió la base personal.
+  No se publicaron datos ni corridas en la base personal; los sondeos sólo
+  registraron el consumo de las fuentes.
 - 3.126 unit, 221 integration, lint, tipos, formato, build y 204 E2E con axe
   (2 omitidos). Fixtures sintéticas; sin red en unit/contratos. Integración
   prueba listing, supersesión, conocimiento anterior e idempotencia.

@@ -65,6 +65,6 @@ Un cierre posterior a la corrida no cambia su comparación.
 
 En réplica privada: 153 listings de Comafi y 8 de Caja. Un programa Comafi carece
 de símbolo corroborado. AAPL y AMZN al 23/10: precios 28.660 y 2.850 ARS; CCL
-1.648,405372 y 1.654,838710 ARS/USD; valores 14.892,87 y 1.648,00 ARS. Ninguna
-escritura personal ni llamada IA. Fixtures sintéticas de ambos emisores y de
+1.648,405372 y 1.654,838710 ARS/USD; valores 14.892,87 y 1.648,00 ARS. Sin publicaciones en la base personal ni llamadas IA; los sondeos originales
+sólo registraron su consumo de cuota. Fixtures sintéticas de ambos emisores y de
 Yahoo; no se guardan capturas de payloads ni capturas visuales en el repo público.
