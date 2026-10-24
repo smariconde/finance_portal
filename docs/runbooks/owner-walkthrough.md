@@ -108,7 +108,8 @@ y resolver desde la interfaz, sin abrir el código:
 4. ¿Cuál es el rango bear/base/bull y qué driver cambia? Si tiene CEDEAR, ¿cuál
    es su ratio, valor USD y valor ARS o motivo de ausencia? ¿El CCL se entiende
    como una relación entre cierres diarios, no como una cotización simultánea?
-5. Reabrir la corrida desde el historial sin pedir otra. ¿Se conserva el corte?
+5. Consultar el historial y recargar la página sin pedir otra corrida. ¿Se
+   conserva el corte y se entiende qué cambió respecto del pedido anterior?
    ¿Se distingue de «Volver a valuar», que puede bajar datos, pedir IA y guardar
    otra corrida? No ejecutar un refresco adicional sólo para contestar.
 6. ¿Qué capacidad promete la página que no entrega? Anotar controles marcados

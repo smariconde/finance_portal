@@ -92,5 +92,5 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 
 ## Estado actual
 
-Las fases 0, 1, 2, 7, 3 y 5 están cerradas. La Fase 4 está en curso: FCFF maduro con ajustes, escenarios y supervivencia, y arquetipos experimentales de bancos/aseguradoras y cíclicas/commodities entregados. Sigue `F4-06 / 4.3`, pérdidas y high growth. El estado operativo y el historial de sesiones viven en `06_PHASED_ROADMAP.md`; el orden ejecutable vive en `../backlog/README.md`.
+Las fases 0, 1, 2, 7, 3, 5 y 4 están cerradas. La Fase 6 está en curso: valuación por ticker, ingesta y decisiones cualitativas bajo demanda, resultado e historial y acceso CEDEAR con valor en pesos entregados. `F6-06` prepara el despliegue remoto protegido y el walkthrough real del owner; la selección de PostgreSQL hosteada y la evidencia remota siguen pendientes. El estado operativo y el historial de sesiones viven en `06_PHASED_ROADMAP.md`; el orden ejecutable vive en `../backlog/README.md`.
 La existencia de una página o documento no demuestra avance.
