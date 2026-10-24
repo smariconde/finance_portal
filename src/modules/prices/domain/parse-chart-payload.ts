@@ -16,7 +16,7 @@ import { z } from "zod";
  * —`currentTradingPeriod.regular` y `regularMarketTime`—, sin la cual no hay
  * forma de saber si la última rueda es un cierre o un precio intradía.
  */
-export const CHART_PARSER_VERSION = "yahoo-chart-1.1.0";
+export const CHART_PARSER_VERSION = "yahoo-chart-1.2.0";
 
 const finiteNumber = z.number().finite();
 
@@ -28,6 +28,7 @@ const chartPayloadSchema = z.object({
           meta: z.object({
             currency: z.string().trim().min(1).max(8).nullish(),
             symbol: z.string().trim().min(1).max(32),
+            exchangeName: z.string().nullish(),
             /** Desfase en segundos del mercado respecto de UTC. */
             gmtoffset: z.number().int().nullish(),
             /** Instante del último precio publicado, en epoch segundos. */
@@ -131,6 +132,7 @@ export type ChartParseResult =
       readonly parserVersion: string;
       readonly symbol: string;
       readonly currency: string;
+      readonly exchange: string | null;
       /** `null` si la respuesta no declaró su sesión. */
       readonly session: ChartSession | null;
       /** Desfase del mercado respecto de UTC, en segundos. */
@@ -305,6 +307,7 @@ export function parseChartPayload(body: unknown): ChartParseResult {
     parserVersion: CHART_PARSER_VERSION,
     symbol: result.meta.symbol,
     currency,
+    exchange: result.meta.exchangeName ?? null,
     session,
     gmtOffsetSeconds: gmtOffset,
     bars,

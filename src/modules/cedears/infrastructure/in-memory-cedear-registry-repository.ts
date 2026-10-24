@@ -188,6 +188,20 @@ export class InMemoryCedearRegistryRepository implements CedearRegistryRepositor
       ...graph,
       legalEntities: [...graph.legalEntities, ...plan.legalEntities],
       securities: [...graph.securities, ...plan.securities],
+      listings: [...graph.listings, ...plan.listings],
+      listingSymbols: [
+        ...plan.symbolSupersessions.reduce(
+          (rows, old) =>
+            InMemoryCedearRegistryRepository.supersede(
+              rows,
+              old,
+              (row) => row.listingSymbolId,
+              "symbol",
+            ),
+          [...graph.listingSymbols],
+        ),
+        ...plan.listingSymbols,
+      ],
       identifierAssignments: [
         ...graph.identifierAssignments,
         ...plan.identifierAssignments,

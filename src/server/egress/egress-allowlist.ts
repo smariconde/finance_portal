@@ -105,10 +105,12 @@ const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
     origins: [
       {
         host: "www.comafi.com.ar",
-        // Sólo el JSON que alimenta la tabla de programas. El host sirve el home
-        // banking y el sitio institucional entero; el prefijo es lo que separa
-        // "el registro de programas" de todo lo demás (ADR 0027).
-        pathPrefixes: ["/custodiaglobal/json/apps/getproducts.aspx"],
+        // Registro JSON y una planilla fija sólo para símbolos locales (ADR 0056).
+        // No se abre el resto del sitio ni la banca electrónica.
+        pathPrefixes: [
+          "/custodiaglobal/json/apps/getproducts.aspx",
+          "/custodiaglobal/Multimedios/otros/14779.xlsx",
+        ],
       },
     ],
     // El registro entero son ~350 KB de JSON. El techo deja margen para que

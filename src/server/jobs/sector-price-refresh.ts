@@ -1,3 +1,5 @@
+import { cedearPriceTargets } from "@/modules/cedears/domain/cedear-price-targets";
+import { getCedearRegistryRepository } from "@/server/persistence/get-cedear-registry-repository";
 import "server-only";
 
 import { createHash, randomUUID } from "node:crypto";
@@ -150,6 +152,8 @@ export async function runPriceRefreshJob(
     indexId: SP500_INDEX_ID,
   });
 
+  const cedears = await getCedearRegistryRepository().loadRegistry({});
+
   const holder = `web/${hostname().replace(/[^A-Za-z0-9.-]/gu, "-")}/${process.pid}/${randomUUID().slice(0, 8)}`;
 
   return runIngestionJob(
@@ -171,8 +175,29 @@ export async function runPriceRefreshJob(
             throw new PriceSubjectUnresolvedError(securityId);
           }
 
+          const cedear = cedears.programs.find(
+            (program) => program.depositarySecurityId === securityId,
+          );
+          const target =
+            cedear === undefined
+              ? null
+              : cedearPriceTargets(
+                  state.graph,
+                  cedears,
+                  cedear.underlyingSecurityId,
+                  cutoff,
+                ).find((row) => row.securityId === securityId);
+          const symbol = target?.symbol ?? ticker.symbol;
+          if (ticker.mic === "XBUE" && target == null)
+            throw new PriceSubjectUnresolvedError(securityId);
           const outcome = await ingestPrices(
-            { securityId, symbol: ticker.symbol },
+            {
+              securityId,
+              symbol,
+              ...(target == null
+                ? {}
+                : { expectedCurrency: "ARS", expectedExchange: "BUE" }),
+            },
             shared,
           );
 

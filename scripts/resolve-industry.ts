@@ -1,3 +1,4 @@
+import { usMarketGraph } from "@/modules/identity/domain/us-market-graph";
 import { createHash, randomUUID } from "node:crypto";
 import { parseArgs } from "node:util";
 
@@ -131,7 +132,7 @@ const state = await getUniverseRepository().loadState({
   indexId: SP500_INDEX_ID,
   versions: "all",
 });
-const identity = createGraphIdentityResolver(() => state.graph);
+const identity = createGraphIdentityResolver(() => usMarketGraph(state.graph));
 const classifications = getClassificationRepository();
 const referenceDatasets = getReferenceDatasetRepository();
 const repository = getIndustryResolutionRepository();

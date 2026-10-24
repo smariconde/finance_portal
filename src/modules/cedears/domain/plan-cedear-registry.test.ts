@@ -591,3 +591,74 @@ function syntheticPublication(
     listedIsins: new Set(claims.map((claim) => claim.cedearIsin)),
   };
 }
+
+describe("CEDEAR local listing", () => {
+  it("keeps the local symbol separate, is idempotent and versions a later symbol", async () => {
+    const { securityTickersAt } =
+      await import("@/modules/identity/domain/resolve-identity");
+    const { pointInTimeQuerySchema } =
+      await import("@/modules/temporal/domain/point-in-time-query");
+    const repository = new InMemoryCedearRegistryRepository(
+      fixtureCedearGraph(),
+    );
+    const publication = caja();
+    const first = await observe(
+      repository,
+      CAJA_VALORES_DEPOSITARY,
+      publication,
+      FIXTURE_OBSERVED_AT,
+    );
+    expect(first.listings).toHaveLength(1);
+    expect(first.listings[0]).toMatchObject({
+      mic: "XBUE",
+      quoteCurrency: "ARS",
+    });
+    const id = first.listings[0]!.securityId;
+    expect(first.listingSymbols[0]?.symbol).toBe("FXD");
+    expect(
+      (await observe(repository, CAJA_VALORES_DEPOSITARY, publication, LATER))
+        .listingSymbols,
+    ).toEqual([]);
+    const changed = {
+      ...publication,
+      claims: publication.claims.map((claim) => ({
+        ...claim,
+        bymaSymbol: claim.bymaSymbol === "FXD" ? "LOCAL" : claim.bymaSymbol,
+      })),
+    };
+    await observe(repository, CAJA_VALORES_DEPOSITARY, changed, LATEST);
+    const query = (at: string) =>
+      pointInTimeQuerySchema.parse({
+        effectiveAt: at,
+        knownAt: at,
+        revisionPolicy: "as_known",
+        sourcePolicyVersion: "source-policy-1.0.0",
+      });
+    expect(
+      securityTickersAt(repository.graph(), id, query(LATER))[0]?.symbol,
+    ).toBe("FXD");
+    expect(
+      securityTickersAt(repository.graph(), id, query(LATEST))[0]?.symbol,
+    ).toBe("LOCAL");
+    expect(
+      securityTickersAt(
+        repository.graph(),
+        id,
+        query("2020-01-01T00:00:00.000Z"),
+      ),
+    ).toEqual([]);
+  });
+  it("does not infer a local symbol from an origin ticker", async () => {
+    const repository = new InMemoryCedearRegistryRepository(
+      fixtureCedearGraph(),
+    );
+    const plan = await observe(
+      repository,
+      COMAFI_DEPOSITARY,
+      comafi(),
+      FIXTURE_OBSERVED_AT,
+    );
+    expect(plan.listings).toEqual([]);
+    expect(plan.programs.length).toBeGreaterThan(0);
+  });
+});

@@ -26,6 +26,9 @@ export type CedearRegistrySummary = {
   readonly applied: {
     readonly legalEntities: number;
     readonly securities: number;
+    readonly listings: number;
+    readonly listingSymbols: number;
+    readonly symbolSupersessions: number;
     readonly identifierAssignments: number;
     readonly programs: number;
     readonly programSupersessions: number;
@@ -70,6 +73,9 @@ export function summarizeCedearPlan(
     applied: {
       legalEntities: plan.legalEntities.length,
       securities: plan.securities.length,
+      listings: plan.listings.length,
+      listingSymbols: plan.listingSymbols.length,
+      symbolSupersessions: plan.symbolSupersessions.length,
       identifierAssignments: plan.identifierAssignments.length,
       programs: plan.programs.length,
       programSupersessions: plan.programSupersessions.length,

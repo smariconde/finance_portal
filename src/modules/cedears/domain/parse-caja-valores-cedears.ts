@@ -23,7 +23,7 @@ import { htmlToText } from "@/modules/ingestion/domain/html-text";
  * monto máximo, y eso tiene que ser un rechazo de la publicación entera, no
  * quinientos ratios equivocados.
  */
-export const CAJA_VALORES_CEDEARS_PARSER_VERSION = "cajval-cedears-html-1.0.0";
+export const CAJA_VALORES_CEDEARS_PARSER_VERSION = "cajval-cedears-html-1.1.0";
 
 /**
  * Encabezados esperados, normalizados, desde la segunda columna. La primera
@@ -46,6 +46,7 @@ const EXPECTED_HEADERS: readonly string[] = [
 
 const COLUMN = {
   name: 0,
+  bymaSymbol: 1,
   originSymbol: 2,
   cajaValoresCode: 3,
   cedearIsin: 4,
@@ -62,10 +63,13 @@ function cellsOf(rowHtml: string): string[] {
 }
 
 function headersMatch(headers: readonly string[]): boolean {
-  if (headers.length !== EXPECTED_HEADERS.length + 1) {
+  const base = EXPECTED_HEADERS.length + 1;
+  if (headers.length !== base && headers.length !== base + 1) return false;
+  if (
+    headers.length === base + 1 &&
+    normalizeLabel(headers[base]!) !== "prospecto"
+  )
     return false;
-  }
-
   return EXPECTED_HEADERS.every((expected, index) =>
     normalizeLabel(headers[index + 1]!).startsWith(expected),
   );
@@ -89,7 +93,8 @@ export function parseCajaValoresCedears(html: string): CedearPublication {
     const head = /<thead[^>]*>([\s\S]*?)<\/thead>/iu.exec(table);
     const body = /<tbody[^>]*>([\s\S]*?)<\/tbody>/iu.exec(table);
 
-    if (head === null || body === null || !headersMatch(cellsOf(head[1]!))) {
+    const headers = head === null ? [] : cellsOf(head[1]!);
+    if (head === null || body === null || !headersMatch(headers)) {
       return { ok: false, code: "payload_unparsable" };
     }
 
@@ -102,7 +107,7 @@ export function parseCajaValoresCedears(html: string): CedearPublication {
 
       const cells = cellsOf(row[1]!);
 
-      if (cells.length !== EXPECTED_HEADERS.length + 1) {
+      if (cells.length !== headers.length) {
         return { ok: false, code: "payload_unparsable" };
       }
 
@@ -146,11 +151,13 @@ export function parseCajaValoresCedears(html: string): CedearPublication {
       const market = cells[COLUMN.originMarket]!;
 
       claims.push({
+        bymaSymbol: /^[A-Z][A-Z0-9]{0,11}$/u.test(cells[COLUMN.bymaSymbol]!)
+          ? cells[COLUMN.bymaSymbol]!
+          : null,
         cedearIsin: isin,
         cajaValoresCode: code,
         programName: programName.length === 0 ? isin : programName,
-        // La columna «Símbolo BYMA» es el símbolo del CEDEAR, no el del
-        // subyacente: no es un segundo ticker de origen y no se usa acá.
+        // El ticker local es independiente del ticker del subyacente.
         originSymbols: [symbol],
         originMarket: market.length === 0 ? null : market,
         reportedUnderlyingIsin: isValidIsin(underlyingIsin)

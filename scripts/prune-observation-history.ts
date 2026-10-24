@@ -1,3 +1,4 @@
+import { usMarketGraph } from "@/modules/identity/domain/us-market-graph";
 import { randomUUID } from "node:crypto";
 import { parseArgs } from "node:util";
 
@@ -73,7 +74,7 @@ if (!DRY_RUN && reason.length < 3) {
 const state = await getUniverseRepository().loadState({
   indexId: SP500_INDEX_ID,
 });
-const identity = createGraphIdentityResolver(() => state.graph);
+const identity = createGraphIdentityResolver(() => usMarketGraph(state.graph));
 const now = new Date().toISOString();
 const cutoff = pointInTimeQuerySchema.parse({
   effectiveAt: now,

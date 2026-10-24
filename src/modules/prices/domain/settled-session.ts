@@ -71,3 +71,37 @@ export function settleSession<TBar extends SessionBar>(
       .map((bar) => bar.marketDate),
   };
 }
+
+export const CEDEAR_SETTLED_SESSION_VERSION = "cedear-settled-session-1.0.0";
+
+/**
+ * BYMA's last trade may precede the bell. Keep the existing same-day guard;
+ * on a later local calendar day, after the delay, the prior daily bar is settled.
+ * Future bars and bars without a declared session still fail closed.
+ */
+export function settleCedearSession<TBar extends SessionBar>(
+  bars: readonly TBar[],
+  evidence: SessionEvidence,
+  fetchedAt: string,
+): SettledBars<TBar> {
+  const localDate = new Date(
+    Date.parse(fetchedAt) + evidence.gmtOffsetSeconds * 1000,
+  )
+    .toISOString()
+    .slice(0, 10);
+  const { session } = evidence;
+  if (
+    session !== null &&
+    localDate > session.marketDate &&
+    Date.parse(fetchedAt) >=
+      Date.parse(session.regularEnd) + SETTLEMENT_DELAY_MINUTES * 60_000
+  ) {
+    return {
+      bars: bars.filter((bar) => bar.marketDate <= session.marketDate),
+      unsettled: bars
+        .filter((bar) => bar.marketDate > session.marketDate)
+        .map((bar) => bar.marketDate),
+    };
+  }
+  return settleSession(bars, evidence, fetchedAt);
+}

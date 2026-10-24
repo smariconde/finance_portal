@@ -23,7 +23,7 @@ import type { CedearClaim } from "./cedear-claim";
  * coincide se marca y no decide.
  */
 export const CEDEAR_UNDERLYING_RESOLUTION_VERSION =
-  "cedear-underlying-resolution-1.0.0";
+  "cedear-underlying-resolution-1.1.0";
 
 export type UnderlyingCandidate = {
   readonly securityId: string;
@@ -69,7 +69,7 @@ export function buildUnderlyingSymbolIndex(
 
   const listingById = new Map(
     graph.listings
-      .filter(current)
+      .filter((listing) => current(listing) && listing.country === "US")
       .map((listing) => [listing.listingId, listing]),
   );
   const index = new Map<string, UnderlyingCandidate[]>();

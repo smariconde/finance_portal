@@ -1,3 +1,4 @@
+import { securityTickersAt } from "@/modules/identity/domain/resolve-identity";
 import { createHash, randomUUID } from "node:crypto";
 
 import { inArray } from "drizzle-orm";
@@ -38,6 +39,7 @@ let database: PostgresJsDatabase<typeof schema>;
 function source(
   observedAt: string,
   overrides: Parameters<typeof fixtureComafiProducts>[0] = {},
+  localSymbol?: string,
 ): CedearSourceProvider {
   return {
     async load(sourceId) {
@@ -47,7 +49,21 @@ function source(
         throw new Error(publication.code);
       }
 
-      return { sourceId, publication, byteLength: 2048, fetchedAt: observedAt };
+      return {
+        sourceId,
+        publication: {
+          ...publication,
+          claims: publication.claims.map((claim) => ({
+            ...claim,
+            ...(claim.cedearIsin === FIXTURE_CEDEAR_ISINS.alpha &&
+            localSymbol !== undefined
+              ? { bymaSymbol: localSymbol }
+              : {}),
+          })),
+        },
+        byteLength: 2048,
+        fetchedAt: observedAt,
+      };
     },
   };
 }
@@ -55,13 +71,14 @@ function source(
 function record(
   observedAt: string,
   overrides: Parameters<typeof fixtureComafiProducts>[0] = {},
+  localSymbol?: string,
 ) {
   const universe = createPostgresUniverseRepository(database);
 
   return recordCedearRegistry(
     { sourceId: "comafi-cedear" },
     {
-      source: source(observedAt, overrides),
+      source: source(observedAt, overrides, localSymbol),
       repository: createPostgresCedearRegistryRepository(database),
       ingestionRuns: createPostgresIngestionRunRepository(database),
       loadGraph: async () =>
@@ -195,6 +212,46 @@ beforeEach(async () => {
 });
 
 describe("CEDEAR registry on PostgreSQL", () => {
+  it("persists a local listing and versions its ticker without changing the US listing", async () => {
+    const first = await record(FIRST_SEEN, {}, "FXLOCAL");
+    expect(first.summary?.applied).toMatchObject({
+      listings: 1,
+      listingSymbols: 1,
+    });
+    const id = first.plan.listings[0]!.securityId;
+    const second = await record(RATIO_CHANGE_SEEN, {}, "FXNEXT");
+    expect(second.summary?.applied).toMatchObject({
+      listings: 0,
+      listingSymbols: 1,
+      symbolSupersessions: 1,
+    });
+    const state = await createPostgresUniverseRepository(database).loadState({
+      indexId: "sp500",
+      versions: "all",
+    });
+    const at = (knownAt: string) =>
+      pointInTimeQuerySchema.parse({
+        effectiveAt: knownAt,
+        knownAt,
+        revisionPolicy: "as_known",
+        sourcePolicyVersion: "source-policy-1.0.0",
+      });
+    expect(securityTickersAt(state.graph, id, at(FIRST_SEEN))[0]).toMatchObject(
+      { symbol: "FXLOCAL", mic: "XBUE" },
+    );
+    expect(
+      securityTickersAt(state.graph, id, at(RATIO_CHANGE_SEEN))[0],
+    ).toMatchObject({ symbol: "FXNEXT", mic: "XBUE" });
+    expect(
+      securityTickersAt(
+        state.graph,
+        FIXTURE_UNDERLYING_IDS.alphaSecurity,
+        at(RATIO_CHANGE_SEEN),
+      )[0]?.symbol,
+    ).toBe("FXA");
+    expect((await record(WITHDRAWAL_SEEN, {}, "FXNEXT")).summary).toBeNull();
+  });
+
   it("records the depositary, each CEDEAR as its own security, its program and its ratio", async () => {
     const outcome = await record(FIRST_SEEN);
 
@@ -202,6 +259,9 @@ describe("CEDEAR registry on PostgreSQL", () => {
     expect(outcome.summary?.applied).toEqual({
       legalEntities: 1,
       securities: 3,
+      listings: 0,
+      listingSymbols: 0,
+      symbolSupersessions: 0,
       identifierAssignments: 6,
       programs: 3,
       programSupersessions: 0,

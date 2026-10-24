@@ -114,3 +114,33 @@ describe("settleSession", () => {
     expect(SETTLED_SESSION_RULE_VERSION).toBe("settled-session-1.0.0");
   });
 });
+
+describe("BYMA closes whose last tick precedes the bell", () => {
+  it("keeps the prior local day's close, but never today's or a future bar", async () => {
+    const { settleCedearSession } = await import("./settled-session");
+    const evidence = {
+      session: { ...session, lastPriceAt: "2026-09-30T19:59:18.000Z" },
+      gmtOffsetSeconds: -3 * 3600,
+    };
+    expect(
+      settleCedearSession(bars, evidence, "2026-10-01T12:00:00.000Z").unsettled,
+    ).toEqual([]);
+    expect(
+      settleCedearSession(bars, evidence, "2026-10-01T01:00:00.000Z").unsettled,
+    ).toEqual(["2026-09-30"]);
+    expect(
+      settleCedearSession(
+        [...bars, { marketDate: "2026-10-02" }],
+        evidence,
+        "2026-10-01T12:00:00.000Z",
+      ).unsettled,
+    ).toEqual(["2026-10-02"]);
+    expect(
+      settleCedearSession(
+        bars,
+        { session: null, gmtOffsetSeconds: -3 * 3600 },
+        "2026-09-30T23:00:00.000Z",
+      ).unsettled,
+    ).toEqual(["2026-09-30"]);
+  });
+});

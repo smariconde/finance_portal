@@ -228,6 +228,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
       datasets: ["comafi.cedear-programs"],
       endpoints: [
         "https://www.comafi.com.ar/custodiaglobal/json/apps/getproducts.aspx",
+        "https://www.comafi.com.ar/custodiaglobal/Multimedios/otros/14779.xlsx",
       ],
       authentication: "none",
       applicablePlan: null,

@@ -1,3 +1,4 @@
+import { usMarketGraph } from "@/modules/identity/domain/us-market-graph";
 import {
   FAILURE_RATES_DATASET,
   failureProbability,
@@ -115,7 +116,7 @@ const state = await getUniverseRepository().loadState({
   indexId: SP500_INDEX_ID,
   versions: "all",
 });
-const identity = createGraphIdentityResolver(() => state.graph);
+const identity = createGraphIdentityResolver(() => usMarketGraph(state.graph));
 const fundamentalReaders = createFundamentalReaders(cikOf);
 
 /** El CIK vigente o, para un antecesor del linaje, el último que tuvo. */

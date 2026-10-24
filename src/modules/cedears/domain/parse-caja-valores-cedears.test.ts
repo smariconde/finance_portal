@@ -26,6 +26,7 @@ describe("parseCajaValoresCedears", () => {
         (claim) => claim.cedearIsin === FIXTURE_CEDEAR_ISINS.delta,
       ),
     ).toEqual({
+      bymaSymbol: "FXD",
       cedearIsin: FIXTURE_CEDEAR_ISINS.delta,
       cajaValoresCode: "8602",
       programName: "FIXTURE DELTA CO",
@@ -62,5 +63,19 @@ describe("parseCajaValoresCedears", () => {
     expect(
       parseCajaValoresCedears("<html><body><p>Mantenimiento</p></body></html>"),
     ).toEqual({ ok: false, code: "payload_unparsable" });
+  });
+});
+
+describe("Caja prospectus column", () => {
+  it("accepts only the measured trailing Prospecto column, never an unknown shift", () => {
+    const html = fixtureCajaValoresHtml()
+      .replaceAll("</tr>\n</thead>", "<th>Prospecto</th></tr>\n</thead>")
+      .replaceAll("\t\t\t\t</tr>", "<td>Prospecto</td>\t\t\t\t</tr>");
+    expect(parseCajaValoresCedears(html).ok).toBe(true);
+    expect(
+      parseCajaValoresCedears(
+        html.replaceAll("<th>Prospecto</th>", "<th>Otro</th>"),
+      ).ok,
+    ).toBe(false);
   });
 });

@@ -217,7 +217,7 @@ describe("egress allowlist", () => {
     }
   });
 
-  it("authorizes one registry path per CEDEAR issuer and nothing else on those hosts", () => {
+  it("authorizes the declared CEDEAR publications and no neighboring paths", () => {
     const comafi = findEgressAllowlistEntry("comafi-cedear")!;
     const caja = findEgressAllowlistEntry("caja-valores-cedear")!;
 
@@ -232,9 +232,15 @@ describe("egress allowlist", () => {
         .allowed,
     ).toBe(true);
 
+    expect(
+      authorizeEgressUrl(
+        "https://www.comafi.com.ar/custodiaglobal/Multimedios/otros/14779.xlsx",
+        comafi,
+      ).allowed,
+    ).toBe(true);
     for (const url of [
       "https://www.comafi.com.ar/custodiaglobal/json/apps/getfiles.aspx?Category=1",
-      "https://www.comafi.com.ar/custodiaglobal/Multimedios/otros/14779.xlsx",
+      "https://www.comafi.com.ar/custodiaglobal/Multimedios/otros/99999.xlsx",
       "https://hb.comafi.com.ar/",
     ]) {
       expect(authorizeEgressUrl(url, comafi).allowed).toBe(false);

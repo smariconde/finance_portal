@@ -1,3 +1,6 @@
+import { usMarketGraph } from "@/modules/identity/domain/us-market-graph";
+import { cedearPriceTargets } from "@/modules/cedears/domain/cedear-price-targets";
+import { getCedearRegistryRepository } from "@/server/persistence/get-cedear-registry-repository";
 import { randomUUID } from "node:crypto";
 import { createHash } from "node:crypto";
 import { parseArgs } from "node:util";
@@ -52,6 +55,7 @@ import { getUniverseRepository } from "@/server/persistence/get-universe-reposit
  */
 const { values } = parseArgs({
   options: {
+    cedear: { type: "string", multiple: true, default: [] },
     ticker: { type: "string", multiple: true, default: [] },
     sector: { type: "string", multiple: true, default: [] },
     benchmark: { type: "string", multiple: true, default: [] },
@@ -66,6 +70,7 @@ function log(label: string, value: unknown): void {
 }
 
 if (
+  values.cedear.length === 0 &&
   values.ticker.length === 0 &&
   values.sector.length === 0 &&
   values.benchmark.length === 0
@@ -91,7 +96,7 @@ const universe = getUniverseRepository();
 const state = await universe.loadState({
   indexId: SP500_INDEX_ID,
 });
-const identity = createGraphIdentityResolver(() => state.graph);
+const identity = createGraphIdentityResolver(() => usMarketGraph(state.graph));
 const now = new Date().toISOString();
 const cutoff = pointInTimeQuerySchema.parse({
   effectiveAt: now,
@@ -100,8 +105,35 @@ const cutoff = pointInTimeQuerySchema.parse({
   sourcePolicyVersion: "source-policy-1.0.0",
 });
 
-type Target = { readonly symbol: string; readonly securityId: string };
+type Target = {
+  readonly symbol: string;
+  readonly securityId: string;
+  readonly expectedCurrency?: string;
+  readonly expectedExchange?: string;
+};
 const targets: Target[] = [];
+
+for (const ticker of values.cedear) {
+  const resolution = await identity.resolve({ symbol: ticker }, cutoff);
+  if (resolution.status !== "resolved" || resolution.securityId === null)
+    throw new Error("Underlying not resolved");
+  const registry = await getCedearRegistryRepository().loadRegistry({});
+  const local = cedearPriceTargets(
+    state.graph,
+    registry,
+    resolution.securityId,
+    cutoff,
+  );
+  if (local.length === 0)
+    throw new Error("No corroborated CEDEAR listing; run cedears:record first");
+  targets.push(
+    ...local.map((row) => ({
+      ...row,
+      expectedCurrency: "ARS",
+      expectedExchange: "BUE",
+    })),
+  );
+}
 
 for (const ticker of values.ticker) {
   const resolution = await identity.resolve({ symbol: ticker }, cutoff);
@@ -179,7 +211,7 @@ for (const target of targets) {
   log(target.symbol, target.securityId);
 
   const outcome = await ingestPrices(
-    { securityId: target.securityId, symbol: target.symbol },
+    { ...target },
     {
       source,
       repository,

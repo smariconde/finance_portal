@@ -28,7 +28,7 @@ import { getUniverseRepository } from "@/server/persistence/get-universe-reposit
  *   pnpm cedears:record --source comafi-cedear --apply
  *   pnpm cedears:record --apply --accept-withdrawals     # destraba el guard de bajas
  *
- * Una request por emisor trae su registro entero. Sólo se registran los programas
+ * Caja usa una request; Comafi, dos (JSON y símbolos locales de la planilla). Sólo se registran los programas
  * cuyo subyacente ya está en el grafo; el resto se cuenta y se nombra. Lo que se
  * guarda son hechos normalizados: ni el JSON de Comafi ni el HTML de Caja de
  * Valores se conservan.
@@ -88,7 +88,7 @@ for (const sourceId of sources) {
   const verdict = await checkSourceBudget(
     budgets,
     sourceId,
-    1,
+    sourceId === "comafi-cedear" ? 2 : 1,
     new Date().toISOString(),
   );
 
@@ -133,6 +133,8 @@ for (const sourceId of sources) {
   log("  bytes", outcome.byteLength);
   log("  filas", plan.counts.rowsSeen);
   log("  resueltas", plan.counts.resolved);
+  log("  listings ARS nuevos", plan.listings.length);
+  log("  símbolos nuevos", plan.listingSymbols.length);
   log("  programas nuevos", plan.counts.programsOpened);
   log("  estado cambiado", plan.counts.statusChanged);
   log("  ratio cambiado", plan.counts.ratiosChanged);

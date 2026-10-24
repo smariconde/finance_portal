@@ -4,6 +4,10 @@ import {
   identifierAssignmentSchema,
   legalEntitySchema,
   securitySchema,
+  listingSchema,
+  listingSymbolSchema,
+  type Listing,
+  type ListingSymbol,
   type DepositaryProgram,
   type DepositaryRatio,
   type IdentifierAssignment,
@@ -38,7 +42,7 @@ import {
  * las dos publicaciones dice desde cuándo vale lo que publica, y la observación
  * es la primera fecha que se puede probar (decisión 5).
  */
-export const CEDEAR_REGISTRY_RULE_VERSION = "cedear-registry-1.0.0";
+export const CEDEAR_REGISTRY_RULE_VERSION = "cedear-registry-1.1.0";
 
 /** El ISIN identifica al instrumento: ISO 6166, cuya agencia en Argentina es Caja de Valores. */
 export const CEDEAR_ISIN_IDENTIFIER = {
@@ -108,6 +112,9 @@ export type CedearRegistryPlan = {
   } | null;
   readonly legalEntities: readonly LegalEntity[];
   readonly securities: readonly Security[];
+  readonly listings: readonly Listing[];
+  readonly listingSymbols: readonly ListingSymbol[];
+  readonly symbolSupersessions: readonly CedearSupersession[];
   readonly identifierAssignments: readonly IdentifierAssignment[];
   readonly programs: readonly DepositaryProgram[];
   readonly programSupersessions: readonly CedearSupersession[];
@@ -287,6 +294,9 @@ export function planCedearRegistry(
   // --- plan -----------------------------------------------------------------
   const legalEntities: LegalEntity[] = [];
   const securities: Security[] = [];
+  const listings: Listing[] = [];
+  const listingSymbols: ListingSymbol[] = [];
+  const symbolSupersessions: CedearSupersession[] = [];
   const identifierAssignments: IdentifierAssignment[] = [];
   const programs: DepositaryProgram[] = [];
   const programSupersessions: CedearSupersession[] = [];
@@ -469,6 +479,97 @@ export function planCedearRegistry(
       }
     }
 
+    // El símbolo local abre un listing ARS de la security depositaria.
+    // La observación no fecha un cambio histórico: supersede sin retrofechar.
+    if (claim.bymaSymbol != null) {
+      if (
+        publication.claims.some(
+          (other) =>
+            other.cedearIsin !== claim.cedearIsin &&
+            other.bymaSymbol === claim.bymaSymbol,
+        )
+      )
+        throw new Error("duplicate BYMA symbol in publication");
+      const foreignListingIds = new Set(
+        graph.listings
+          .filter(
+            (row) =>
+              row.securityId !== cedearSecurityId &&
+              row.mic === "XBUE" &&
+              row.quoteCurrency === "ARS" &&
+              isOpen(row),
+          )
+          .map((row) => row.listingId),
+      );
+      if (
+        graph.listingSymbols.some(
+          (row) =>
+            foreignListingIds.has(row.listingId) &&
+            isOpen(row) &&
+            row.symbolType === "ticker" &&
+            row.symbol === claim.bymaSymbol,
+        )
+      )
+        throw new Error("BYMA symbol already assigned to another security");
+      const existing = graph.listings.filter(
+        (row) =>
+          row.securityId === cedearSecurityId &&
+          row.mic === "XBUE" &&
+          row.quoteCurrency === "ARS" &&
+          isOpen(row),
+      );
+      if (existing.length > 1) throw new Error("ambiguous CEDEAR ARS listing");
+      let listingId = existing[0]?.listingId;
+      if (listingId === undefined) {
+        listingId = newId();
+        listings.push(
+          listingSchema.parse({
+            ...opening,
+            listingId,
+            securityId: cedearSecurityId,
+            mic: "XBUE",
+            quoteCurrency: "ARS",
+            country: "AR",
+            status: "active",
+            primaryListing: true,
+            contentHash: hashContent(
+              `cedear-listing|${cedearSecurityId}|XBUE|ARS`,
+            ),
+          }),
+        );
+      }
+      const symbols = graph.listingSymbols.filter(
+        (row) =>
+          row.listingId === listingId &&
+          row.symbolType === "ticker" &&
+          isOpen(row),
+      );
+      if (symbols.length > 1) throw new Error("ambiguous CEDEAR ticker");
+      const old = symbols[0];
+      if (old?.symbol !== claim.bymaSymbol) {
+        if (old !== undefined) {
+          requireAfter(old.availableAt, claim.cedearIsin);
+          symbolSupersessions.push({
+            id: old.listingSymbolId,
+            validFrom: old.validFrom,
+            supersededAt: observedAt,
+          });
+        }
+        listingSymbols.push(
+          listingSymbolSchema.parse({
+            ...opening,
+            listingSymbolId: newId(),
+            listingId,
+            symbol: claim.bymaSymbol,
+            symbolType: "ticker",
+            contentHash: hashContent(
+              `byma-symbol|${listingId}|${claim.bymaSymbol}`,
+            ),
+          }),
+        );
+      }
+    }
+
     // --- el programa ---------------------------------------------------------
     const programId = knownProgramId ?? newId();
 
@@ -619,6 +720,9 @@ export function planCedearRegistry(
     // Un plan negado no escribe nada, pero sigue diciendo qué habría hecho.
     legalEntities: refused ? [] : legalEntities,
     securities: refused ? [] : securities,
+    listings: refused ? [] : listings,
+    listingSymbols: refused ? [] : listingSymbols,
+    symbolSupersessions: refused ? [] : symbolSupersessions,
     identifierAssignments: refused ? [] : identifierAssignments,
     programs: refused ? [] : programs,
     programSupersessions: refused ? [] : programSupersessions,
@@ -650,6 +754,9 @@ export function isEmptyCedearPlan(plan: CedearRegistryPlan): boolean {
   return (
     plan.legalEntities.length === 0 &&
     plan.securities.length === 0 &&
+    plan.listings.length === 0 &&
+    plan.listingSymbols.length === 0 &&
+    plan.symbolSupersessions.length === 0 &&
     plan.identifierAssignments.length === 0 &&
     plan.programs.length === 0 &&
     plan.programSupersessions.length === 0 &&

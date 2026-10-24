@@ -1,3 +1,4 @@
+import { usMarketGraph } from "@/modules/identity/domain/us-market-graph";
 import { createHash } from "node:crypto";
 import { parseArgs } from "node:util";
 
@@ -128,7 +129,7 @@ const state = await getUniverseRepository().loadState({
   indexId: SP500_INDEX_ID,
   versions: "all",
 });
-const identity = createGraphIdentityResolver(() => state.graph);
+const identity = createGraphIdentityResolver(() => usMarketGraph(state.graph));
 const referenceDatasets = getReferenceDatasetRepository();
 const repository = getOperationsMixRepository();
 const secFetch: EgressFetch = getSourceEgressFetch(SEC_REQUEST_PACING);

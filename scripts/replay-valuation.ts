@@ -1,3 +1,4 @@
+import { usMarketGraph } from "@/modules/identity/domain/us-market-graph";
 import { parseArgs } from "node:util";
 
 import { createGraphIdentityResolver } from "@/modules/identity/application/identity-resolver";
@@ -60,7 +61,9 @@ if (values.ticker.length > 0) {
     indexId: SP500_INDEX_ID,
     versions: "all",
   });
-  const identity = createGraphIdentityResolver(() => state.graph);
+  const identity = createGraphIdentityResolver(() =>
+    usMarketGraph(state.graph),
+  );
   const query = pointInTimeQuerySchema.parse({
     effectiveAt: now,
     knownAt: now,
