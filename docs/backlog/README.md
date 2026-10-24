@@ -3653,6 +3653,10 @@ ejecuta sobre la primera valuación real, con el protocolo del
 
 Estado: `in_progress`; no cierra el gate de Fase 6.
 
+El owner confirmó en esta sesión que todavía no eligió proyecto Vercel ni base
+remota y pidió preparar el despliegue. Esta entrega cumple esa preparación;
+la creación de recursos y la ejecución remota quedan para el siguiente incremento.
+
 `F6-08` se integró con merge commit por el [PR #67](https://github.com/smariconde/finance_portal/pull/67),
 con Quality y E2E aprobados. Esta sección parte de `main` actualizado.
 El [runbook de despliegue](../runbooks/protected-deployment.md) ordena la
