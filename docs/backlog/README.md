@@ -3653,9 +3653,9 @@ ejecuta sobre la primera valuación real, con el protocolo del
 
 Estado: `in_progress`; no cierra el gate de Fase 6.
 
-El owner confirmó en esta sesión que todavía no eligió proyecto Vercel ni base
-remota y pidió preparar el despliegue. Esta entrega cumple esa preparación;
-la creación de recursos y la ejecución remota quedan para el siguiente incremento.
+Al inicio de la sesión el owner pidió preparar el despliegue. Después eligió
+Neon, creó el proyecto y autorizó su configuración y traslado; ese incremento
+se registra abajo. Vercel y el walkthrough siguen pendientes.
 
 `F6-08` se integró con merge commit por el [PR #67](https://github.com/smariconde/finance_portal/pull/67),
 con Quality y E2E aprobados. Esta sección parte de `main` actualizado.
@@ -3679,13 +3679,51 @@ superficies de datos (diagnóstico accesible, inexistente 404). Usa el build ya
 existente del código de `F6-08`; no es un nuevo build ni una sesión del owner.
 Sin UI, migraciones, llamadas a proveedores ni gasto IA.
 
-Pendientes para continuar: elegir proyecto Vercel y proveedor/región/plan de
-PostgreSQL en una ADR, habilitar acceso a esos servicios y autorizar los recursos
-concretos antes de crearlos, comprobar protección de todos los hosts, preparar la
-base, medir y completar el job remoto y replay, y ejecutar el walkthrough
-cronometrado del owner. Vercel y Neon tienen integraciones disponibles, todavía
-sin conexión confirmada. No hay deployment remoto ni hosting contratado en esta
-entrega. El próximo incremento sigue siendo `F6-06`; no habilita Fase 8.
+**Incremento de configuración Neon del 2026-10-24.** El owner eligió Neon,
+creó un proyecto y suministró organización/proyecto y rama `production`; la
+[ADR 0057](../architecture/adr/0057-neon-hosted-postgres.md) registra esa decisión.
+CLI oficial 8.11.3 instalado, skills oficiales `neon` y `neon-postgres` leídas y
+fijadas por hash en el inventario, MCP de Codex registrado por OAuth y limitado
+al proyecto, y `neon.ts` PostgreSQL con `@neon/config` 1.9.4 de desarrollo. Se
+conservan Drizzle, `postgres.js`, el schema, el validador y la DB de integración.
+`.env.local` respaldado privadamente y su hash conservado; el enlace y deploy
+previstos usan `--no-env-pull`, con descarga a `.env.neon.local`.
+
+El owner completó `neon login` y autorizó expresamente el traslado íntegro al
+proyecto/rama/base suministrados y el alcance del rol de runtime. Se verificaron
+Free, N. Virginia, PostgreSQL 17.11 y destino vacío. Link y deploy conservan
+`.env.local`; el plan no tenía cambios y utiliza sólo PostgreSQL. MCP de Codex
+autenticado por OAuth, limitado al proyecto. No se creó otro proyecto, cambió
+el plan ni habilitó otro servicio.
+
+Un dump PostgreSQL 17 con snapshot exportado y manifiesto se restauró en una
+transacción, sin limpiar el destino ni copiar roles/ACLs locales. Las 46 tablas
+coincidieron por conteo y hashes de filas antes de la prueba de escritura; backup
+SHA-256 y verificación son privados fuera de Git. Se conserva la base local.
+El rol `finance_portal_runtime` tiene SELECT/INSERT/UPDATE/DELETE sobre las 45
+tablas públicas y defaults para las futuras del owner; sin CREATE en public,
+TEMP, SUPERUSER, CREATEDB, CREATEROLE ni BYPASSRLS. La conexión directa del owner
+es exclusiva del comando administrativo. El perfil explícito añade
+`dev:neon`, `start:neon` y `db:migrate:neon`; los servidores escuchan en localhost.
+
+Validación: 3.126 unit, lint, tipos, formato y diff pasan. Turbopack no puede
+abrir su puerto de compilación ni con ejecución ampliada; se registra la
+limitación y `npm run build -- --webpack` pasa. Las migraciones están al día.
+En Neon, gate point-in-time pasa (28.268 cadenas, 29.086 revisiones, cero fallas)
+y 10 corridas AAPL/AMZN reproducen sus hashes. Portal real AAPL servido con el
+rol limitado, desktop y mobile 390 px sin overflow; axe tras hidratación sin
+serious/critical en ambas medidas; mismo artefacto sin declarar niega datos.
+Un pedido web `ZZZZ` se guardó y su worker terminó `unresolved_ticker`; se conserva
+como auditoría de prueba. Los hashes de budgets y spend no cambiaron: cero
+requests de proveedores de datos y cero gasto IA. Artefacto: 671 archivos, cero
+hallazgos de las claves buscadas; `.env.local` conserva su hash original. No se
+publicaron capturas, payloads, snapshots ni credenciales.
+
+Pendientes para continuar: elegir y proteger el proyecto Vercel, establecer la
+retención del backup operativo, probar ahí el job y replay, y ejecutar el
+walkthrough cronometrado del owner. El uso desde localhost contra Neon ya fue
+verificado; eso no acredita `TM-14`. El próximo incremento sigue siendo `F6-06`;
+no habilita Fase 8.
 
 #### `F6-01` — corrida por ticker encolada (cerrado el 2026-10-21)
 

@@ -48,6 +48,7 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 
 ## Documentos derivados
 
+- [`../architecture/adr/0057-neon-hosted-postgres.md`](../architecture/adr/0057-neon-hosted-postgres.md): Neon elegido para PostgreSQL personal; configuración del CLI/MCP, conexiones separadas y traslado verificable de la base.
 - [`../runbooks/protected-deployment.md`](../runbooks/protected-deployment.md): preparación de `F6-06`, protección de todos los hosts antes de conectar datos, PostgreSQL hosteada y walkthrough real.
 - [`../backlog/README.md`](../backlog/README.md): tracker ejecutable con orden, dependencias, criterios de aceptación y trazabilidad de deuda.
 - [`../architecture/adr/0001-stack-cache-postgres.md`](../architecture/adr/0001-stack-cache-postgres.md): decision aceptada sobre stack, Cache Components y conexiones PostgreSQL.
@@ -92,5 +93,5 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 
 ## Estado actual
 
-Las fases 0, 1, 2, 7, 3, 5 y 4 están cerradas. La Fase 6 está en curso: valuación por ticker, ingesta y decisiones cualitativas bajo demanda, resultado e historial y acceso CEDEAR con valor en pesos entregados. `F6-06` prepara el despliegue remoto protegido y el walkthrough real del owner; la selección de PostgreSQL hosteada y la evidencia remota siguen pendientes. El estado operativo y el historial de sesiones viven en `06_PHASED_ROADMAP.md`; el orden ejecutable vive en `../backlog/README.md`.
+Las fases 0, 1, 2, 7, 3, 5 y 4 están cerradas. La Fase 6 está en curso: valuación por ticker, ingesta y decisiones cualitativas bajo demanda, resultado e historial y acceso CEDEAR con valor en pesos entregados. `F6-06` ya tiene PostgreSQL personal en Neon, trasladada y verificada, con CLI/MCP autenticados y perfil local explícito; siguen pendientes Vercel protegido y el walkthrough real del owner. El estado operativo y el historial de sesiones viven en `06_PHASED_ROADMAP.md`; el orden ejecutable vive en `../backlog/README.md`.
 La existencia de una página o documento no demuestra avance.

@@ -1,21 +1,97 @@
 # Despliegue personal protegido
 
 - Slice: `F6-06`; controles `TM-14`, `TM-01`, `TM-02` y `UI-02`.
-- Estado: preparación; sin recurso remoto provisionado ni protección verificada.
+- Estado: Neon autenticado, base trasladada y rol de runtime verificado; aplicación
+  probada desde localhost contra Neon. Vercel y walkthrough del owner pendientes.
 - Contrato: [ADR 0008](../architecture/adr/0008-remote-personal-access.md).
 
-## Decisión pendiente
+## Decisión de PostgreSQL
 
-Antes de crear recursos, registrar en una ADR el proveedor PostgreSQL elegido,
-región, plan y límite de gasto, recuperación disponible, roles de runtime y
-migración, y si se trasladará la base personal o se constituirá otra. La ADR 0008
-exige esa decisión para la dependencia hosteada. El destino previsto es Vercel;
+La [ADR 0057](../architecture/adr/0057-neon-hosted-postgres.md) registra la elección
+de Neon y del proyecto existente suministrado por el owner, con PostgreSQL como
+único servicio. Se verificaron rama `production`, AWS N. Virginia, PostgreSQL
+17.11 y organización Free contra el recurso autenticado antes del traslado; la decisión
+no contrata un plan pago. El destino de la aplicación sigue siendo Vercel;
 crear un proyecto no confirma que su URL esté protegida.
 
-La propuesta a revisar es Vercel con **Vercel Authentication / All Deployments**
-y PostgreSQL con endpoint pooled y directo. Neon es un candidato, no una
-dependencia elegida. No se instalan integraciones ni se aceptan planes en esta
-preparación.
+La protección prevista es **Vercel Authentication / All Deployments** y la base
+usa endpoint pooled y directo. El traslado conserva la base local y requiere
+backup, destino vacío y verificación del restore.
+
+## Configuración local de Neon
+
+CLI oficial instalado en la máquina: `neon` 8.11.3. La configuración `neon.ts`
+usa `@neon/config` 1.9.4 como dependencia de desarrollo y conserva Auth apagado.
+El MCP de Codex se registró por OAuth, limitado al proyecto del owner; ese
+registro y la autenticación OAuth se verificaron en esta máquina. Cada
+colaborador configura su propia sesión; no hay tokens en el repositorio.
+
+El owner completa `neon login` en el navegador. Después, desde la raíz:
+
+```bash
+neon link --org-id <org-id> --project-id <project-id> --branch production --no-env-pull -y
+neon config plan
+# Aplicar sólo después de revisar el plan contra el alcance PostgreSQL:
+neon deploy --no-env-pull
+neon env pull --services postgres --file .env.neon.bootstrap.local
+```
+
+`init` combinado también instala herramientas y descarga variables. Para esta
+aplicación existente se usa la alternativa manual de la skill, que conserva
+`.env.local`. Antes de la configuración se respaldó ese archivo en un directorio
+privado fuera de Git. `.neon` y `.env.neon.local` quedan ignorados.
+
+Esos comandos son de bootstrap. La descarga inicial ofrece `DATABASE_URL`
+pooled y `DATABASE_URL_UNPOOLED` directa del owner; se conserva privadamente
+antes de preparar el perfil definitivo. `.env.neon.local` usa ahora la pooled
+del rol `finance_portal_runtime` y `DATABASE_DIRECT_URL` del owner. No volver a
+descargar una conexión de owner sobre ese perfil: al renovar conexiones con el
+CLI se elige explícitamente el rol y la base. No modificar `DATABASE_TEST_URL`
+ni ejecutar la integración sobre Neon personal.
+
+```bash
+pnpm dev:neon
+# O, para servir el artefacto ya compilado:
+pnpm start:neon
+# Sólo para administrar las migraciones:
+pnpm db:migrate:neon
+```
+
+Los servidores del perfil escuchan en `127.0.0.1`. `.env.local` y los comandos
+locales originales conservan sus conexiones anteriores. Para ejecutar una
+lectura existente sobre Neon se cargan ambos archivos con el perfil al final:
+
+```bash
+node --network-family-autoselection-attempt-timeout=2000 \
+  --env-file=.env.local --env-file=.env.neon.local --conditions=react-server \
+  --import tsx scripts/audit-point-in-time.ts --page-size 500
+node --network-family-autoselection-attempt-timeout=2000 \
+  --env-file=.env.local --env-file=.env.neon.local --conditions=react-server \
+  --import tsx scripts/replay-valuation.ts --ticker AAPL --ticker AMZN
+```
+
+Los dos segundos ajustan el intento por dirección de Node para esta conexión
+local; no cambian el timeout del proveedor, la Function ni las fórmulas. El
+driver y schema siguen siendo los existentes. Vercel recibe sólo la pooled del
+runtime: la directa administrativa se queda fuera de su entorno.
+
+## Traslado verificado el 2026-10-24
+
+Con autorización explícita del owner, se restauró un dump consistente de la
+personal local sobre Neon vacío, incluyendo el journal. Las 46 tablas
+coincidieron por conteo y hashes de contenido antes de probar la aplicación.
+Backup y manifiesto permanecen privados fuera de Git, y la base Docker se
+conserva. El respaldo del traslado es temporal; no acredita una retención de
+backups de producción. La política durable se define antes del uso remoto
+continuado.
+
+`finance_portal_runtime` tiene los cuatro permisos DML sobre las 45 tablas
+públicas y permisos por defecto para las futuras tablas del owner. No puede
+crear tablas persistentes ni temporales, roles o bases. Se verificaron TLS y
+ambas conexiones; las migraciones están al día. El gate point-in-time pasó con
+28.268 cadenas y 29.086 revisiones; 10 corridas AAPL/AMZN se reprodujeron sin
+divergencias. El mismo build sirve el resultado desde Neon en localhost y niega
+datos bajo el entorno sin declarar. Esto no prueba la protección de Vercel.
 
 ## 1. Integrar y desplegar trabado
 
@@ -60,7 +136,8 @@ la protección antes de seguir.
 
 ## 3. Preparar PostgreSQL
 
-Una vez aceptada la ADR del hosting:
+Este paso ya se verificó en Neon según la ADR 0057. El checklist se conserva
+para recuperación o para otro entorno autorizado:
 
 1. Crear una base personal dedicada, compatible con las migraciones PostgreSQL
    del repo. Elegir la región de Functions junto con la de la base y registrar
@@ -78,10 +155,10 @@ Una vez aceptada la ADR del hosting:
    y registros mediante los comandos existentes. No ejecutar ambas estrategias
    sobre el mismo destino ni copiar sólo `valuation_runs`: sus snapshots y
    relaciones dependen del resto de la base.
-5. Ejecutar `pnpm db:migrate` desde un entorno administrativo con
-   `DATABASE_DIRECT_URL` apuntando explícitamente al destino. El script carga
-   `.env.local`; una variable ya exportada tiene prioridad. Revisar el destino
-   sin imprimir credenciales. Procedimiento y recuperación en
+5. En Neon, ejecutar `pnpm db:migrate:neon`; para otro entorno, `pnpm db:migrate`
+   con `DATABASE_DIRECT_URL` exportada apuntando explícitamente al destino. El
+   comando original carga `.env.local`; el perfil Neon carga `.env.neon.local`.
+   Revisar el destino sin imprimir credenciales. Procedimiento y recuperación en
    [migraciones](database-migrations.md).
 6. Auditar point-in-time y reproducir una corrida contra el destino con los
    comandos existentes. En una base sin revisiones suficientes, un gate

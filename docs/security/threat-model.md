@@ -36,6 +36,18 @@
 
 ## Objetivo y método
 
+Revisión del 2026-10-24 (`F6-06`, ADR 0057): el owner autorizó expresamente
+copiar la base personal completa al proyecto Neon suministrado y crear el rol
+`finance_portal_runtime` con DML sobre el schema público. Dump consistente y
+restore transaccional sobre destino vacío, comparación de las 46 tablas,
+point-in-time y replay verificados; fuente local conservada. `TM-01` mantiene
+el modo resuelto en el request y el perfil Neon escucha sólo en localhost.
+`TM-02`: archivos de entorno y enlace fuera de Git, MCP por OAuth, conexión
+administrativa separada y artefacto sin las claves comprobadas. El rol no tiene
+CREATE en `public`, TEMP, SUPERUSER, CREATEDB ni CREATEROLE. `TM-14` sigue
+pendiente: la base hosteada no verifica la protección de Vercel. No se agrega
+auth de aplicación, Route Handler, fuente de datos ni capacidad IA.
+
 Este documento modela amenazas contra confidencialidad, integridad financiera,
 disponibilidad y control de costo. Sigue las cuatro actividades propuestas por
 OWASP: descomponer el sistema, identificar y priorizar amenazas, registrar

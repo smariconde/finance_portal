@@ -13,6 +13,8 @@ Generated code uses `src/app/` for routes, `src/modules/<domain>/` for domains, 
 The current application command contract is:
 
 - `pnpm dev`: start local Next.js development.
+- `pnpm dev:neon`: start local development against the private `.env.neon.local` PostgreSQL profile.
+- `pnpm start:neon`: serve an existing production build locally against that Neon profile.
 - `pnpm lint && pnpm typecheck`: run static checks.
 - `pnpm test`: run unit and property tests without network access.
 - `pnpm test:integration`: run PostgreSQL integration tests with a dedicated `DATABASE_TEST_URL`.
@@ -21,6 +23,7 @@ The current application command contract is:
 - `pnpm build`: verify the production build.
 - `pnpm db:generate`: generate reviewed SQL migrations from the Drizzle schema.
 - `pnpm db:migrate`: apply migrations through the direct administrative connection.
+- `pnpm db:migrate:neon`: apply those same migrations through `.env.neon.local`'s separate administrative connection.
 - `pnpm db:up`: start the local PostgreSQL container that hosts the personal and the disposable test database.
 - `pnpm db:down`: stop the local PostgreSQL container without deleting its volume.
 - `pnpm universe:constitute`: constitute the S&P 500 universe; dry run unless `--apply`.

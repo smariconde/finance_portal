@@ -279,6 +279,15 @@ El [procedimiento de despliegue protegido](docs/runbooks/protected-deployment.md
 prepara `F6-06`: decisión de PostgreSQL hosteada, verificación de protección antes
 de conectar datos, prueba del job remoto y walkthrough del owner.
 
+El perfil privado de Neon usa `.env.neon.local`, fuera de Git, y conserva
+`.env.local` y la base Docker. `pnpm dev:neon` ejecuta el portal en localhost
+contra Neon; `pnpm start:neon` sirve un build existente con ese mismo perfil.
+`pnpm db:migrate:neon` reserva la conexión directa para el job administrativo.
+El archivo privado se requiere explícitamente: estos comandos no sustituyen un
+perfil ausente por otra base. Las pruebas de integración conservan su base local
+dedicada. El [runbook](docs/runbooks/protected-deployment.md) explica cómo ejecutar
+los comandos de lectura sobre Neon y distingue esa prueba del despliegue Vercel.
+
 - No hay ni habrá una URL pública anónima con datos: cualquier entorno que no
   pruebe ser privado queda `locked`.
 - La instancia personal con datos reales corre localmente o en un despliegue cuya
@@ -290,8 +299,8 @@ de conectar datos, prueba del job remoto y walkthrough del owner.
 - El modo se resuelve en cada request, no al compilar
   ([ADR 0005](docs/architecture/adr/0005-request-time-runtime-boundary.md)): un
   build hecho en la máquina del owner no sirve datos al desplegarse en otro lado.
-- PostgreSQL se provisionará con pooling para runtime y una conexión directa separada para migraciones.
-- Las migraciones se ejecutarán como un job controlado, nunca automáticamente desde cada Function.
+- PostgreSQL personal ya está configurada en Neon, con pooling para el rol de runtime y una conexión administrativa directa separada para migraciones.
+- Las migraciones se ejecutan como un job controlado, nunca automáticamente desde cada Function.
 
 ## Roadmap y documentación técnica
 
