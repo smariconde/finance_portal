@@ -427,3 +427,20 @@ describe("cedearAccessAt", () => {
     ).toMatchObject({ status: "unavailable", reason: "no_value_per_share" });
   });
 });
+
+describe("local identity cutoff", () => {
+  it("does not infer a BYMA ticker whose assignment was observed after the run", () => {
+    const run = buildDemoValuationRun();
+    const graph = {
+      ...DEMO_IDENTITY_GRAPH,
+      listingSymbols: DEMO_IDENTITY_GRAPH.listingSymbols.map((symbol) => ({
+        ...symbol,
+        availableAt: "2099-01-01T00:00:00.000Z",
+      })),
+    };
+    const access = cedearAccessAt(graph, REGISTRY, run);
+    expect(
+      access.status === "program" && access.programs[0]?.bymaSymbol,
+    ).toBeNull();
+  });
+});

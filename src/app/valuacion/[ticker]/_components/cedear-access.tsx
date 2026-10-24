@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import type { ValuationResultCedear } from "@/modules/valuation/application/read-valuation-result";
 import {
   formatAmount,
+  formatCalendarDate,
   formatUtcTimestamp,
 } from "@/modules/valuation/domain/display-format";
 
@@ -31,6 +32,21 @@ const SCOPE_LABELS: Record<string, string> = {
 };
 
 const UNAVAILABLE_LABELS: Record<string, string> = {
+  no_byma_symbol:
+    "No hay símbolo BYMA corroborado al corte. Actualizá el registro CEDEAR antes de volver a valuar.",
+  no_cedear_close_at_as_of:
+    "No hay cierre del CEDEAR en el día de la corrida. Volvé a valuar para pedir los precios faltantes.",
+  underlying_not_comparable:
+    "El precio de la acción no es comparable con esta corrida; no se calcula el CCL ni el valor en pesos.",
+  currency_mismatch:
+    "Los cierres deben estar en ARS para el CEDEAR y en USD para la acción.",
+  non_positive_close:
+    "Un cierre no positivo no permite calcular el CCL implícito.",
+  ratio_after_price_date:
+    "El ratio se conoció después del día del cierre; hace falta una rueda posterior para convertir sin mezclar fechas.",
+  split_after_ratio_basis:
+    "Hay un split del CEDEAR posterior al ratio registrado. Actualizá el registro antes de convertir.",
+  invalid_number: "La conversión no tiene entradas numéricas válidas.",
   no_value_per_share:
     "La corrida no tiene valor por acción, así que no hay qué convertir.",
   no_ratio: "El programa no tiene un ratio vigente al corte de la corrida.",
@@ -46,9 +62,7 @@ function unitsLabel(value: string, singular: string, plural: string): string {
  *
  * El CEDEAR es otro instrumento, emitido por el depositario: la valuación
  * corre sobre la subyacente y esta sección sólo convierte su valor por acción
- * con el ratio vigente al corte de la corrida. No muestra el precio del CEDEAR
- * en BYMA ni el valor en pesos: el tipo al que cotiza sale de ese precio, y
- * es un slice posterior.
+ * con el ratio vigente al corte de la corrida y el CCL de cierres comparables.
  */
 export function CedearAccess({ cedear }: { cedear: ValuationResultCedear }) {
   return (
@@ -121,6 +135,9 @@ export function CedearAccess({ cedear }: { cedear: ValuationResultCedear }) {
                     </span>
                   )}
                 </Field>
+                <Field term="Símbolo BYMA (ARS)">
+                  {program.bymaSymbol ?? "Sin símbolo corroborado"}
+                </Field>
                 <Field term="Estado del programa">
                   {STATUS_LABELS[program.status] ?? program.status}
                 </Field>
@@ -172,8 +189,7 @@ export function CedearAccess({ cedear }: { cedear: ValuationResultCedear }) {
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Valor por acción × acciones por CEDEAR. Es el mismo
-                    resultado en otra unidad, no un precio: el precio en BYMA y
-                    el valor en pesos todavía no se leen.
+                    resultado en otra unidad; no es un precio de mercado.
                   </p>
                 </>
               ) : (
@@ -181,6 +197,62 @@ export function CedearAccess({ cedear }: { cedear: ValuationResultCedear }) {
                   {UNAVAILABLE_LABELS[program.equivalent.reason]}
                 </p>
               )}
+              <div className="mt-3 border-t pt-3">
+                {program.pesos.status === "computed" ? (
+                  <>
+                    <p className="mb-3 text-xs text-muted-foreground">
+                      Cierres del{" "}
+                      {formatCalendarDate(program.pesos.price.marketDate)} ·
+                      Yahoo Finance
+                    </p>
+                    <FieldList>
+                      <Field
+                        term="Precio CEDEAR en BYMA"
+                        hint="Dato de referencia · cierre crudo"
+                      >
+                        <span className="numeric">
+                          {formatAmount(program.pesos.price.close)} ARS
+                        </span>
+                      </Field>
+                      <Field
+                        term="CCL implícito del CEDEAR"
+                        hint="Derivado por regla · ARS por USD"
+                      >
+                        <span className="numeric">
+                          {formatAmount(program.pesos.implicitCcl)} ARS/USD
+                        </span>
+                      </Field>
+                      <Field
+                        term="Valor por CEDEAR en pesos"
+                        hint="Derivado por regla · al CCL implícito"
+                      >
+                        <span className="numeric font-semibold">
+                          {formatAmount(program.pesos.valueArs)} ARS
+                        </span>
+                      </Field>
+                    </FieldList>
+                    <p className="mt-3 text-xs text-muted-foreground">
+                      Acción:{" "}
+                      {formatAmount(program.pesos.underlyingPrice.close)} USD.
+                      CCL = precio CEDEAR × CEDEAR por acción ÷ precio de la
+                      acción. Valor en pesos = valor en USD × CCL. Dos cierres
+                      del mismo día, que pueden no ser simultáneos; no es un
+                      tipo de cambio ejecutable. La conversión conserva la
+                      relación valor/precio de la acción.
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Precio BYMA y valor en pesos:{" "}
+                    {UNAVAILABLE_LABELS[program.pesos.reason]}
+                  </p>
+                )}
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Fuente de precios: Yahoo Finance, uso personal aceptado por el
+                  owner, sin concesión contractual. Sólo cierres diarios
+                  guardados. <CodeValue>{program.pesos.version}</CodeValue>
+                </p>
+              </div>
               <p className="text-xs text-muted-foreground">
                 <CodeValue>{program.equivalent.version}</CodeValue>{" "}
                 <CodeValue>{cedear.rule}</CodeValue>

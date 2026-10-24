@@ -56,6 +56,7 @@ export type ValuationDataDependencies = {
     readonly legalEntityId: string;
     readonly cik: string;
   }) => Promise<SicObservation>;
+  readonly ensureCedearPrices?: (securityId: string) => Promise<void>;
   readonly latestClose: (securityId: string) => Promise<string | null>;
   /** Cuándo un job de precios terminado revisó la security por última vez. */
   readonly lastPriceCheck: (securityId: string) => Promise<string | null>;
@@ -173,6 +174,7 @@ async function pricesStep(
     return { status: "not_applicable" };
   }
 
+  if (request.mayDownload) await dependencies.ensureCedearPrices?.(securityId);
   const [latestClose, lastCheckedAt] = await Promise.all([
     dependencies.latestClose(securityId),
     dependencies.lastPriceCheck(securityId),

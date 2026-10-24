@@ -331,3 +331,20 @@ describe("classifyDurableRun", () => {
     });
   });
 });
+
+describe("on-demand CEDEAR prices", () => {
+  it("checks the CEDEAR even if the US close is current, and never on a continuation", async () => {
+    const { dependencies } = fake();
+    const calls: string[] = [];
+    const local = {
+      ...dependencies,
+      ensureCedearPrices: async (id: string) => {
+        calls.push(id);
+      },
+    };
+    await ensureValuationData(request(), local);
+    expect(calls).toEqual([SECURITY]);
+    await ensureValuationData(request({ mayDownload: false }), local);
+    expect(calls).toEqual([SECURITY]);
+  });
+});

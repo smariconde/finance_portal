@@ -1,3 +1,8 @@
+import { securityTickersAt } from "@/modules/identity/domain/resolve-identity";
+import {
+  cedearPesoValue,
+  type CedearPesoValue,
+} from "../domain/cedear-peso-value";
 import type { CedearRegistryRepository } from "@/modules/cedears/application/cedear-registry-repository";
 import { CEDEAR_DEPOSITARIES } from "@/modules/cedears/domain/cedear-depositaries";
 import type { StoredCedearRegistry } from "@/modules/cedears/domain/plan-cedear-registry";
@@ -78,6 +83,8 @@ export type ValuationResultSubject = {
  * lo conoce— y ningún ID interno.
  */
 export type ValuationResultCedearProgram = {
+  readonly bymaSymbol: string | null;
+  readonly pesos: CedearPesoValue;
   readonly depositaryName: string | null;
   readonly status: DepositaryProgram["status"];
   readonly investorScope: string | null;
@@ -340,6 +347,12 @@ export function cedearAccessAt(
     rule: CEDEAR_ACCESS_RULE_VERSION,
     status: "program",
     programs: access.programs.map(({ program, ratio }) => ({
+      bymaSymbol: localSymbolAt(graph, program.depositarySecurityId, query),
+      pesos: {
+        status: "unavailable",
+        version: "cedear-peso-value-1.0.0",
+        reason: "no_cedear_close_at_as_of",
+      },
       depositaryName:
         CEDEAR_DEPOSITARIES.find(
           (depositary) =>
@@ -367,6 +380,76 @@ export function cedearAccessAt(
         ratio,
       }),
     })),
+  };
+}
+
+function localSymbolAt(
+  graph: IdentityGraph,
+  securityId: string,
+  query: PointInTimeQuery,
+): string | null {
+  const ids = new Set(
+    versionsAt(graph.listings, query)
+      .filter(
+        (row) =>
+          row.securityId === securityId &&
+          row.mic === "XBUE" &&
+          row.quoteCurrency === "ARS" &&
+          row.status === "active",
+      )
+      .map((row) => row.listingId),
+  );
+  const symbols = securityTickersAt(graph, securityId, query).filter((row) =>
+    ids.has(row.listingId),
+  );
+  return symbols.length === 1 ? symbols[0]!.symbol : null;
+}
+
+export async function cedearMarketAt(
+  graph: IdentityGraph,
+  registry: StoredCedearRegistry,
+  run: ValuationRun,
+  market: ValuationResultMarket,
+  prices: ValuationResultDependencies["prices"],
+): Promise<ValuationResultCedear> {
+  const cedear = cedearAccessAt(graph, registry, run);
+  const access = resolveCedearAccess(
+    registry,
+    run.subject.securityId,
+    run.provenance.knowledge,
+  );
+  const securityIds =
+    access.status === "program"
+      ? access.programs.map(({ program }) => program.depositarySecurityId)
+      : [];
+  if (cedear.status !== "program") return cedear;
+  return {
+    ...cedear,
+    programs: await Promise.all(
+      cedear.programs.map(async (program, index) => ({
+        ...program,
+        pesos: cedearPesoValue({
+          asOf: run.asOf,
+          symbol: program.bymaSymbol,
+          ratio: program.ratio,
+          ratioKnownOn: program.ratio?.availableAt.slice(0, 10) ?? null,
+          events:
+            program.bymaSymbol === null
+              ? []
+              : await prices.loadEvents({ securityId: securityIds[index]! }),
+          comparison: market.comparison,
+          closes:
+            program.bymaSymbol === null
+              ? []
+              : await prices.loadSeries({
+                  securityId: securityIds[index]!,
+                  from: run.asOf,
+                  to: run.asOf,
+                  limit: 2,
+                }),
+        }),
+      })),
+    ),
   };
 }
 
@@ -425,7 +508,13 @@ export async function readValuationResult(
     job: jobReading(recordedJob),
     newerGap: recordedIndex === 0 ? null : gapReading(latest),
     subject: subjectAt(state.graph, run),
-    cedear: cedearAccessAt(state.graph, registry, run),
+    cedear: await cedearMarketAt(
+      state.graph,
+      registry,
+      run,
+      market,
+      dependencies.prices,
+    ),
     market,
   };
 }

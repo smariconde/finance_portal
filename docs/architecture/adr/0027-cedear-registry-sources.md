@@ -254,3 +254,12 @@ ningún programa. La respuesta es `not_effective_at_cutoff`, nunca «sin CEDEAR�
   determinista.
 - **Cerrar el ratio viejo en la fecha de la corrida.** Inventa una fecha efectiva.
   Ver la decisión 5.
+
+## Enmienda del 2026-10-24 (`F6-08`)
+
+La [ADR 0056](0056-cedear-peso-value.md) agrega listings `XBUE` en ARS y sus
+símbolos versionados. Caja aporta su columna local y la planilla de Comafi aporta
+únicamente el símbolo, corroborado con ISIN y código contra el JSON. Sus ratios,
+estado y subyacente siguen viniendo del JSON. Son dos requests de Comafi y una
+de Caja; no se conserva ninguna publicación. El parser de Caja admite la columna
+final «Prospecto» medida ese día y rechaza cualquier otra extensión.

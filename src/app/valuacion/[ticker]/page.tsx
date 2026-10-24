@@ -504,9 +504,9 @@ export default async function ValuationResultPage({ params }: PageProps) {
             cambiarla produce otra corrida.
           </li>
           <li>
-            El precio es el último cierre guardado al corte: esta página no lo
-            baja. El precio del CEDEAR en BYMA, su valor en pesos y la descarga
-            de fundamentals o precios que falten son slices posteriores.
+            El CCL implícito combina cierres diarios del CEDEAR y la acción, que
+            pueden no ser simultáneos. Sin ambos cierres comparables del día de
+            la corrida, el valor en pesos queda sin calcular.
           </li>
         </ul>
       </section>
