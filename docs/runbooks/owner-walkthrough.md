@@ -1,6 +1,6 @@
 # Runbook: walkthrough del owner
 
-- Slice: `F1-08` — cierre del gate de Fase 1
+- Slice: `F6-06` — reingreso del walkthrough diferido de `F1-08`
 - Depende de: [ADR 0004](../architecture/adr/0004-personal-first-runtime.md) y
   [ADR 0005](../architecture/adr/0005-request-time-runtime-boundary.md)
 - Complementa —no reemplaza— al
@@ -23,7 +23,7 @@ sobre una sesión limpia.
 ## Cómo se levanta la sesión
 
 ```bash
-pnpm walkthrough
+pnpm walkthrough --ticker AAPL
 ```
 
 Compila una vez y sirve **ese mismo artefacto** desde dos servidores que sólo se
@@ -37,8 +37,13 @@ diferencian en su entorno:
 Para iterar sin recompilar, cuando el build ya está hecho:
 
 ```bash
-pnpm walkthrough --no-build
+pnpm walkthrough --no-build --ticker AAPL
 ```
+
+`--ticker` elige la empresa del recorrido (AAPL por defecto); valida el símbolo,
+pero no confirma su pertenencia al universo ni crea una corrida. El owner la
+pide desde la interfaz. Pedir una valuación puede descargar datos y llamar a la
+IA bajo los presupuestos existentes; abrir una corrida guardada sólo lee.
 
 Los puertos son 3120 y 3121 —no los 3110/3111 del gate E2E— así que las dos
 cosas pueden convivir. `Ctrl+C` corta ambos servidores.
@@ -71,20 +76,43 @@ límite deje afuera queda para `F10-06`.
   que abrir un archivo para contestar, eso es el hallazgo.
 - Cronómetro arrancado antes de abrir la primera URL.
 
+## Sesión remota de F6-06
+
+Aplicar primero el [procedimiento de despliegue protegido](protected-deployment.md).
+Registrar el commit del deployment y el mismo ticker para todo el recorrido.
+Las tareas 1 y 2 usan su origen remoto con la sesión de Vercel del owner. No hace
+falta levantar el harness local para esas dos tareas.
+
+La tarea 3 comprueba dos fronteras distintas: el artefacto local sin declarar,
+con `pnpm walkthrough --no-build --ticker AAPL` sobre ese mismo commit, y cada host
+remoto en una ventana privada sin sesión de Vercel ni bypass. La plataforma debe
+interceptar esas visitas antes de entregar la aplicación. Autenticado, confirmar
+que el owner sí puede entrar. Registrar ambos resultados por separado; una
+negativa local no prueba la protección remota.
+
 ## Las tres tareas
 
 ### Tarea 1 — desktop, 1440×900
 
-Entrar en `http://127.0.0.1:3120` y responder por escrito, sin salir del
-navegador:
+Entrar en el origen personal (local `http://127.0.0.1:3120` o remoto protegido)
+y resolver desde la interfaz, sin abrir el código:
 
-1. ¿Qué valor por acción produjo la corrida de referencia y en qué moneda?
-2. ¿Sobre qué hechos reportados se apoya, con qué fecha de corte y qué
-   antigüedad tiene cada uno?
-3. ¿Qué se declaró ausente y con qué motivo? ¿Alguna ausencia se lee como cero?
-4. ¿Qué pasa con el valor si el corte de conocimiento es el 2025-03-01 en vez del
-   2025-06-01, y por qué son dos corridas y no una corrección?
-5. ¿La página promete en algún lado una capacidad que el portal todavía no tiene?
+1. Llegar a Valuación, escribir el ticker elegido y seguir el estado hasta una
+   corrida o una negativa con motivo. Separar tiempo de espera del tiempo de
+   lectura. Un ticker sin datos suficientes no cumple la tarea de leer un valor:
+   registrar la negativa y repetir con una empresa que sí tenga corrida.
+2. ¿Qué valor por acción, moneda, método y nivel de rigor declara? ¿Cómo se
+   compara con el precio guardado, y de qué día es ese precio?
+3. ¿Qué hechos, fechas y fuentes sostienen el resultado? ¿Cómo distingue hechos,
+   reglas, propuestas de IA y ausencias? ¿Alguna ausencia se entiende como cero?
+4. ¿Cuál es el rango bear/base/bull y qué driver cambia? Si tiene CEDEAR, ¿cuál
+   es su ratio, valor USD y valor ARS o motivo de ausencia? ¿El CCL se entiende
+   como una relación entre cierres diarios, no como una cotización simultánea?
+5. Reabrir la corrida desde el historial sin pedir otra. ¿Se conserva el corte?
+   ¿Se distingue de «Volver a valuar», que puede bajar datos, pedir IA y guardar
+   otra corrida? No ejecutar un refresco adicional sólo para contestar.
+6. ¿Qué capacidad promete la página que no entrega? Anotar controles marcados
+   para revisión y faltantes en vez de tratarlos como una valuación cerrada.
 
 Registrar: tiempo total, en qué paso hubo que volver atrás y qué término no se
 entendió a la primera.
@@ -93,7 +121,7 @@ entendió a la primera.
 
 Con emulación de dispositivo, desde la misma sesión:
 
-1. Llegar a la corrida de referencia usando la navegación, no la URL.
+1. Llegar a la corrida real del ticker usando la navegación, no la URL.
 2. Leer la sensibilidad WACC/g: encontrar el caso base, una celda donde el valor
    cae y las celdas sin definir con su motivo.
 3. Volver al diagnóstico de configuración y confirmar qué modo está activo.
@@ -106,7 +134,8 @@ y en qué momento se perdió el foco.
 ### Tarea 3 — el entorno sin declarar
 
 Abrir `http://127.0.0.1:3121` en la misma sesión y confirmar, ruta por ruta —`/`,
-`/configuracion`, `/valuacion/referencia` y una ruta inexistente—:
+`/configuracion`, `/valuacion`, `/valuacion/<ticker>`, `/valuacion/referencia`
+y una ruta inexistente—:
 
 1. Ninguna sirve datos ni una versión reducida de ellos.
 2. La negativa explica qué falta de forma accionable, y nombra variables sin
@@ -130,15 +159,20 @@ del issue en [el backlog](../backlog/README.md) y como fila del registro de
 sesiones del roadmap.
 
 Regla de hallazgos, heredada de la ADR 0006: **no se capturan pantallas del
-runtime personal sobre datos reales**, ni recortadas. Hoy la única superficie con
-contenido es sintética y declarada como tal, así que capturarla es seguro; cuando
-`F2-*` conecte fuentes reales, un hallazgo sobre ellas se describe por escrito.
+runtime personal sobre datos reales**, ni recortadas. Describir los hallazgos
+por escrito, sin payloads, snapshots privados, credenciales, cookies ni bypasses.
+Guardar la identificación detallada del deployment en el registro privado de
+operación y sólo su referencia segura en el repositorio.
 
 Cada hallazgo se clasifica antes de cerrar el slice:
 
 - **issue**: entra al backlog con ID, criterio de aceptación y fase;
 - **diferido**: se registra con motivo y condición de reingreso;
 - **no es un hallazgo**: se anota igual, con la razón por la que se descartó.
+
+El registro declara `F6-06` pendiente mientras falte la prueba remota, el replay
+o la sesión cronometrada del owner. Preparar esta plantilla no es ejecutar el
+walkthrough ni cerrar la fase.
 
 Un walkthrough que no produce hallazgos es un resultado válido y también se
 registra. Lo que no vale es cerrarlo sin el registro.

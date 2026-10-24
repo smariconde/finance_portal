@@ -1,7 +1,10 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { parseArgs } from "node:util";
+
+import { valuationTickerSchema } from "../src/modules/valuation/domain/valuation-job";
 
 /**
- * Harness del walkthrough del owner (`F1-08`).
+ * Harness del walkthrough del owner (`F6-06`, reingreso de `F1-08`).
  *
  * El gate de `F1-07` prueba con Playwright que el runtime personal sirve y que
  * el trabado niega. Este script no repite esa prueba: prepara la sesión para que
@@ -36,7 +39,33 @@ const UNDECLARED_PORT = 3121;
 const READINESS_TIMEOUT_MS = 120_000;
 const READINESS_INTERVAL_MS = 500;
 
-const shouldBuild = !process.argv.includes("--no-build");
+const { values } = parseArgs({
+  options: {
+    "no-build": { type: "boolean", default: false },
+    ticker: { type: "string", default: "AAPL" },
+    help: { type: "boolean", default: false },
+  },
+});
+
+if (values.help) {
+  console.log("Uso: pnpm walkthrough [--no-build] [--ticker AAPL]");
+  console.log(
+    "Prepara la sesión local de F6-06; no registra respuestas del owner.",
+  );
+  process.exit(0);
+}
+
+const parsedTicker = valuationTickerSchema.safeParse(values.ticker);
+
+if (!parsedTicker.success) {
+  console.error(
+    "--ticker debe ser un símbolo válido del universo, no una URL.",
+  );
+  process.exit(1);
+}
+
+const ticker = parsedTicker.data;
+const shouldBuild = !values["no-build"];
 
 const baseEnvironment: NodeJS.ProcessEnv = {
   ...process.env,
@@ -58,7 +87,7 @@ const servers: readonly ServerSpec[] = [
     id: "personal",
     label: "personal",
     port: PERSONAL_PORT,
-    expectation: "sirve shell, diagnóstico y corrida de referencia",
+    expectation: `sirve shell, diagnóstico y valuación de ${ticker}`,
     environment: baseEnvironment,
   },
   {
@@ -214,7 +243,7 @@ async function waitUntilReady(server: ServerSpec): Promise<void> {
 function announce(): void {
   const lines = [
     "",
-    "Walkthrough del owner — F1-08",
+    "Walkthrough del owner — F6-06",
     "=============================",
     "",
     "Un mismo build servido bajo dos entornos:",
@@ -229,7 +258,9 @@ function announce(): void {
 
   lines.push(
     "",
-    "Rutas: /  ·  /configuracion  ·  /valuacion/referencia  ·  /ruta-que-no-existe",
+    `Rutas: /  ·  /configuracion  ·  /valuacion  ·  /valuacion/${ticker}  ·  /ruta-que-no-existe`,
+    "La valuación se pide desde la interfaz. Puede descargar datos y gastar IA",
+    "contra los presupuestos existentes; abrir el resultado sólo lee lo guardado.",
     "",
     "Sesión limpia: ventana privada nueva, sin extensiones y sin estado previo",
     "de la sidebar. Mobile: emulación de dispositivo a 390×844; los servidores",

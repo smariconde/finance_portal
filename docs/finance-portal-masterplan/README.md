@@ -48,6 +48,7 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 
 ## Documentos derivados
 
+- [`../runbooks/protected-deployment.md`](../runbooks/protected-deployment.md): preparación de `F6-06`, protección de todos los hosts antes de conectar datos, PostgreSQL hosteada y walkthrough real.
 - [`../backlog/README.md`](../backlog/README.md): tracker ejecutable con orden, dependencias, criterios de aceptación y trazabilidad de deuda.
 - [`../architecture/adr/0001-stack-cache-postgres.md`](../architecture/adr/0001-stack-cache-postgres.md): decision aceptada sobre stack, Cache Components y conexiones PostgreSQL.
 - [`../architecture/adr/0002-runtime-modes-persistence-exposure.md`](../architecture/adr/0002-runtime-modes-persistence-exposure.md): modos efectivos, persistencia durable y limite de exposicion de datos.

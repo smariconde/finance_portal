@@ -275,6 +275,10 @@ Cada observación persistida conserva provenance, fecha efectiva, fecha de dispo
 
 El destino previsto es Vercel, pero el repositorio todavía no publica una URL de producción.
 
+El [procedimiento de despliegue protegido](docs/runbooks/protected-deployment.md)
+prepara `F6-06`: decisión de PostgreSQL hosteada, verificación de protección antes
+de conectar datos, prueba del job remoto y walkthrough del owner.
+
 - No hay ni habrá una URL pública anónima con datos: cualquier entorno que no
   pruebe ser privado queda `locked`.
 - La instancia personal con datos reales corre localmente o en un despliegue cuya
