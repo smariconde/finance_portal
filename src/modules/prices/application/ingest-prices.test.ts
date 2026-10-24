@@ -259,3 +259,81 @@ describe("ingestPrices", () => {
     ).rejects.toThrow(/exceeded its limit/u);
   });
 });
+
+describe("price identity before publication", () => {
+  it.each([
+    { symbol: "OTHER" },
+    { symbol: FIXTURE_CHART_SYMBOL, expectedCurrency: "ARS" },
+    { symbol: FIXTURE_CHART_SYMBOL, expectedExchange: "BUE" },
+  ])(
+    "rejects a mismatched payload %j without writing a row or run",
+    async (command) => {
+      const repository = new InMemoryPriceRepository();
+      const dependencies = deps(repository);
+      await expect(
+        ingestPrices({ securityId: SECURITY, ...command }, dependencies),
+      ).rejects.toMatchObject({
+        code: "payload_rejected",
+        detail: "price_identity_mismatch",
+      });
+      expect(await repository.loadSeries({ securityId: SECURITY })).toEqual([]);
+    },
+  );
+});
+
+describe("CEDEAR price storage", () => {
+  it("stores ARS bars on the depositary security and names its settlement policy", async () => {
+    const repository = new InMemoryPriceRepository();
+    const parsed = {
+      ...parsedFixture(),
+      symbol: "LOCAL.BA",
+      currency: "ARS",
+      exchange: "BUE",
+    };
+    const source: PriceSourceProvider = {
+      sourceId: "yahoo-finance",
+      load: async (symbol) => ({
+        sourceId: "yahoo-finance",
+        symbol,
+        parsed,
+        byteLength: 100,
+        fetchedAt: "2026-10-24T12:00:00.000Z",
+      }),
+    };
+    const dependencies = deps(repository, source);
+    const outcome = await ingestPrices(
+      {
+        securityId: SECURITY,
+        symbol: "LOCAL.BA",
+        expectedCurrency: "ARS",
+        expectedExchange: "BUE",
+      },
+      dependencies,
+    );
+    const rows = await repository.loadSeries({ securityId: SECURITY });
+    expect(rows).toHaveLength(4);
+    expect(rows[0]).toMatchObject({
+      securityId: SECURITY,
+      currency: "ARS",
+      close: "1000",
+    });
+    expect(
+      (
+        await dependencies.ingestionRuns.list({ sourceId: "yahoo-finance" })
+      ).find((run) => run.runId === outcome.runId),
+    ).toMatchObject({ selectionVersion: "cedear-settled-session-1.0.0" });
+    const repeat = await ingestPrices(
+      {
+        securityId: SECURITY,
+        symbol: "LOCAL.BA",
+        expectedCurrency: "ARS",
+        expectedExchange: "BUE",
+      },
+      dependencies,
+    );
+    expect(repeat.summary).toMatchObject({
+      closesInserted: 0,
+      closesDuplicate: 4,
+    });
+  });
+});

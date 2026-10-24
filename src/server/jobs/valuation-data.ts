@@ -1,3 +1,6 @@
+import { cedearPriceTargets } from "@/modules/cedears/domain/cedear-price-targets";
+import { pointInTimeQuerySchema } from "@/modules/temporal/domain/point-in-time-query";
+import { getCedearRegistryRepository } from "@/server/persistence/get-cedear-registry-repository";
 import "server-only";
 
 import { createHash, randomUUID } from "node:crypto";
@@ -46,6 +49,7 @@ import {
   buildPriceRefreshJobPlan,
   loadRecentPriceChecks,
 } from "@/modules/prices/application/sector-price-refresh";
+import { assessReferenceFreshness } from "@/modules/prices/domain/price-freshness";
 import { subtractDays } from "@/modules/temporal/domain/calendar-date";
 import {
   classifyDurableRun,
@@ -228,6 +232,47 @@ export function createValuationDataDependencies(
       const checks = await loadRecentPriceChecks(jobs);
 
       return checks.get(securityId)?.checkedAt ?? null;
+    },
+    async ensureCedearPrices(securityId) {
+      await syncRegistry();
+      const at = now();
+      const registry = await getCedearRegistryRepository().loadRegistry({});
+      const query = pointInTimeQuerySchema.parse({
+        effectiveAt: at,
+        knownAt: at,
+        revisionPolicy: "as_known",
+        sourcePolicyVersion: "source-policy-1.0.0",
+      });
+      const targets = cedearPriceTargets(graph, registry, securityId, query);
+      // Una falla depositaria no bloquea la valuación del subyacente.
+      for (const target of targets) {
+        const last = await getPriceRepository().loadSeries({
+          securityId: target.securityId,
+          from: subtractDays(at.slice(0, 10), 14),
+          limit: 30,
+        });
+        const checks = await loadRecentPriceChecks(jobs);
+        const freshness = assessReferenceFreshness({
+          latestClose: last.at(-1)?.marketDate ?? null,
+          lastCheckedAt: checks.get(target.securityId)?.checkedAt ?? null,
+          now: at,
+        });
+        if (freshness.status === "fresh") continue;
+        const { job: localJob } = await jobs.createJob(
+          buildPriceRefreshJobPlan("securities", [target.securityId]),
+          { now: now() },
+        );
+        try {
+          await runPriceRefreshJob(localJob.jobId, {
+            policy: ON_DEMAND_POLICY,
+          });
+        } catch (error) {
+          console.error(
+            "CEDEAR price refresh failed",
+            error instanceof Error ? error.name : typeof error,
+          );
+        }
+      }
     },
     async ingestPrices(securityId) {
       const { job } = await jobs.createJob(

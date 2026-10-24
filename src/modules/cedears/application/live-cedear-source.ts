@@ -1,3 +1,5 @@
+import { readXlsxSheets } from "@/modules/reference-data/domain/xlsx-sheet-reader";
+import { withComafiLocalSymbols } from "../domain/comafi-local-symbols";
 import type { EgressFetch } from "@/modules/ingestion/application/egress-fetch";
 import type { SourceRegistryRepository } from "@/modules/ingestion/application/source-registry-repository";
 import {
@@ -17,7 +19,7 @@ import { parseComafiProducts } from "../domain/parse-comafi-products";
  * Adaptador vivo de las dos publicaciones del registro
  * ([ADR 0027](../../../../docs/architecture/adr/0027-cedear-registry-sources.md)).
  *
- * Una request por emisor trae su registro entero. La respuesta se normaliza y
+ * Una request de Caja y dos de Comafi (JSON + símbolos de la planilla) traen el registro. La respuesta se normaliza y
  * **no se conserva**: las dos filas de derechos declaran `rawStorage`
  * `restricted` —Comafi lo prohíbe por escrito—, y el gate se negaría si esta
  * corrida dijera que guarda el payload.
@@ -146,7 +148,7 @@ export function createLiveCedearSource(
         );
       }
 
-      const publication = endpoint.parse(
+      let publication = endpoint.parse(
         new TextDecoder("utf-8").decode(response.body),
       );
 
@@ -158,11 +160,38 @@ export function createLiveCedearSource(
         );
       }
 
+      let extraBytes = 0;
+      let fetchedAt = response.fetchedAt;
+      if (sourceId === COMAFI_DEPOSITARY.sourceId) {
+        const sheet = await dependencies.fetch({
+          sourceId,
+          url: "https://www.comafi.com.ar/custodiaglobal/Multimedios/otros/14779.xlsx",
+          accept:
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        });
+        if (sheet.status !== 200)
+          throw new CedearSourceError("unexpected_status", sourceId);
+        const book = readXlsxSheets(sheet.body, ["LISTA TOTAL DE CEDEARS"]);
+        if (!book.ok)
+          throw new CedearSourceError("payload_rejected", sourceId, book.code);
+        publication = withComafiLocalSymbols(
+          publication,
+          book.sheets.get("LISTA TOTAL DE CEDEARS")!,
+        );
+        if (!publication.ok)
+          throw new CedearSourceError(
+            "payload_rejected",
+            sourceId,
+            publication.code,
+          );
+        extraBytes = sheet.byteLength;
+        fetchedAt = sheet.fetchedAt > fetchedAt ? sheet.fetchedAt : fetchedAt;
+      }
       return {
         sourceId,
         publication,
-        byteLength: response.byteLength,
-        fetchedAt: response.fetchedAt,
+        byteLength: response.byteLength + extraBytes,
+        fetchedAt,
       };
     },
   };

@@ -235,3 +235,13 @@ contarlo como duplicado. La historia pedida pasa de `range=5y` a cinco años má
   alimentar funciones que el alcance no tiene.
 - **Marcar los derechos como `allowed`.** Corrompe el gate para siempre. Ver la
   decisión 2.
+
+## Enmienda del 2026-10-24 (`F6-08`)
+
+La [ADR 0056](0056-cedear-peso-value.md) extiende la misma fuente personal a
+`<símbolo BYMA>.BA`, en ARS sobre la security CEDEAR. El importador verifica
+símbolo, moneda y mercado antes de publicar (`yahoo-chart-1.2.0`). La política
+`cedear-settled-session-1.0.0` admite una rueda de BYMA con último tick anterior
+a la campana sólo desde el siguiente día local y con el asentamiento cumplido;
+el mismo día conserva la guarda anterior. Los precios y eventos siguen crudos y
+append-only; no se cambia la política del índice ni se incorpora un feed CCL.

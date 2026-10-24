@@ -665,3 +665,13 @@ colapsada, idempotencia, renombre historizado y salida del índice sin borrado.
 - [ISO 10383, Market Identifier Codes](https://www.iso20022.org/market-identifier-codes)
 - [OpenFIGI API](https://www.openfigi.com/api/documentation)
 - [Caja de Valores: CEDEAR](https://cajadevalores.com.ar/Servicios/Cedears)
+
+## Listing CEDEAR en pesos (`F6-08`)
+
+[ADR 0056](../architecture/adr/0056-cedear-peso-value.md): el símbolo BYMA
+publicado abre un listing `XBUE`, `quoteCurrency = ARS`, sobre la security
+depositaria. El símbolo se supersede cuando cambia, sin fechar retrospectivamente
+el cambio. No existe un símbolo inferido del subyacente ni se agregan listings en
+USD: son especies fuera de este slice. Los workflows de acciones estadounidenses
+acotan el grafo a listings del país `US`; el resolvedor general conserva la
+ambigüedad de un ticker sin mercado que alcance ambos instrumentos.

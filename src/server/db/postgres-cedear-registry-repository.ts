@@ -18,6 +18,9 @@ import {
   identifierAssignmentSchema,
   legalEntitySchema,
   securitySchema,
+  listingSchema,
+  listingSymbolSchema,
+  normalizeSymbol,
 } from "@/modules/identity/domain/identity-graph";
 
 import * as schema from "./schema";
@@ -183,7 +186,27 @@ export function createPostgresCedearRegistryRepository(
         depositaryRatioSchema.parse(version),
       );
 
+      const listings = plan.listings.map((row) => listingSchema.parse(row));
+      const symbols = plan.listingSymbols.map((row) =>
+        listingSymbolSchema.parse(row),
+      );
       await database.transaction(async (tx) => {
+        for (const old of plan.symbolSupersessions) {
+          const changed = await tx
+            .update(schema.listingSymbols)
+            .set({ supersededAt: new Date(old.supersededAt) })
+            .where(
+              and(
+                eq(schema.listingSymbols.listingSymbolId, old.id),
+                eq(schema.listingSymbols.validFrom, new Date(old.validFrom)),
+                isNull(schema.listingSymbols.supersededAt),
+                isNull(schema.listingSymbols.validTo),
+              ),
+            )
+            .returning({ id: schema.listingSymbols.listingSymbolId });
+          if (changed.length !== 1)
+            throw new Error("CEDEAR symbol changed concurrently");
+        }
         for (const supersession of plan.programSupersessions) {
           await supersede(tx, supersession, "program");
         }
@@ -228,6 +251,36 @@ export function createPostgresCedearRegistryRepository(
               shareClass: version.shareClass,
               economicCurrency: version.economicCurrency,
               status: version.status,
+            })),
+          );
+        }
+
+        if (listings.length > 0) {
+          await tx
+            .insert(schema.listings)
+            .values(listings.map((row) => ({ listingId: row.listingId })));
+          await tx.insert(schema.listingVersions).values(
+            listings.map((row) => ({
+              ...toTemporalRow(row),
+              listingId: row.listingId,
+              securityId: row.securityId,
+              mic: row.mic,
+              quoteCurrency: row.quoteCurrency,
+              country: row.country,
+              status: row.status,
+              primaryListing: row.primaryListing,
+            })),
+          );
+        }
+        if (symbols.length > 0) {
+          await tx.insert(schema.listingSymbols).values(
+            symbols.map((row) => ({
+              ...toTemporalRow(row),
+              listingSymbolId: row.listingSymbolId,
+              listingId: row.listingId,
+              symbol: row.symbol,
+              normalizedSymbol: normalizeSymbol(row.symbol),
+              symbolType: row.symbolType,
             })),
           );
         }

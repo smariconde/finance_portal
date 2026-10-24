@@ -1,3 +1,4 @@
+import { fixtureComafiSymbols } from "../infrastructure/fixture-comafi-symbols";
 import { describe, expect, it } from "vitest";
 
 import type { EgressFetch } from "@/modules/ingestion/application/egress-fetch";
@@ -34,6 +35,15 @@ describe("createLiveCedearSource", () => {
     const fetch: EgressFetch = async (request) => {
       requested.push(`${request.sourceId} ${request.url} ${request.accept}`);
 
+      if (request.url.endsWith(".xlsx")) {
+        const body = fixtureComafiSymbols();
+        return {
+          status: 200,
+          body,
+          byteLength: body.byteLength,
+          fetchedAt: FETCHED_AT,
+        };
+      }
       return respond(
         request.sourceId === "comafi-cedear"
           ? comafiBody
@@ -50,6 +60,7 @@ describe("createLiveCedearSource", () => {
 
     expect(requested).toEqual([
       "comafi-cedear https://www.comafi.com.ar/custodiaglobal/json/apps/getproducts.aspx application/json",
+      "comafi-cedear https://www.comafi.com.ar/custodiaglobal/Multimedios/otros/14779.xlsx application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "caja-valores-cedear https://cajadevalores.com.ar/Servicios/Cedears text/html",
     ]);
     expect(comafi.publication.claims).toHaveLength(6);
@@ -113,4 +124,22 @@ describe("createLiveCedearSource", () => {
       }).load("comafi-cedear"),
     ).rejects.toBeInstanceOf(CedearSourceError);
   });
+});
+
+describe("Comafi supplemental publication failure", () => {
+  it.each([503, 200])(
+    "refuses a failed or malformed workbook (%s)",
+    async (status) => {
+      const source = createLiveCedearSource({
+        sourceRegistry: createInMemorySourceRegistryRepository(),
+        fetch: async (request) =>
+          request.url.endsWith(".xlsx")
+            ? respond("not a workbook", status)(request)
+            : respond(JSON.stringify(fixtureComafiProducts()))(request),
+      });
+      await expect(source.load("comafi-cedear")).rejects.toMatchObject({
+        code: status === 503 ? "unexpected_status" : "payload_rejected",
+      });
+    },
+  );
 });

@@ -17,10 +17,17 @@ import {
   unadjustSeries,
   PRICE_UNADJUST_RULE_VERSION,
 } from "../domain/unadjust-series";
-import { settleSession } from "../domain/settled-session";
+import {
+  settleSession,
+  settleCedearSession,
+  CEDEAR_SETTLED_SESSION_VERSION,
+} from "../domain/settled-session";
 
 import type { PriceRepository, PriceWriteSummary } from "./price-repository";
-import type { PriceSourceProvider } from "./live-price-source";
+import {
+  PriceSourceError,
+  type PriceSourceProvider,
+} from "./live-price-source";
 
 /**
  * Ingesta de la serie diaria de una security
@@ -36,6 +43,8 @@ export const PRICES_DATASET_ID = "yahoo.daily-close";
 export const ingestPricesCommandSchema = z.object({
   securityId: z.uuid(),
   symbol: z.string().trim().min(1).max(32),
+  expectedCurrency: z.string().length(3).optional(),
+  expectedExchange: z.string().min(1).optional(),
 });
 
 export type IngestPricesCommand = z.input<typeof ingestPricesCommandSchema>;
@@ -152,10 +161,24 @@ export async function ingestPrices(
   } = dependencies;
 
   const fetched = await source.load(parsedCommand.symbol);
+  if (
+    fetched.parsed.symbol !== parsedCommand.symbol ||
+    (parsedCommand.expectedCurrency !== undefined &&
+      fetched.parsed.currency !== parsedCommand.expectedCurrency) ||
+    (parsedCommand.expectedExchange !== undefined &&
+      fetched.parsed.exchange !== parsedCommand.expectedExchange)
+  ) {
+    throw new PriceSourceError(
+      "payload_rejected",
+      parsedCommand.symbol,
+      "price_identity_mismatch",
+    );
+  }
   const startedAt = now();
   // La rueda en curso no se guarda: una fila cruda es inmutable y un intradía
   // guardado como cierre no se corrige con la próxima descarga.
-  const settled = settleSession(
+  const local = parsedCommand.expectedExchange === "BUE";
+  const settled = (local ? settleCedearSession : settleSession)(
     fetched.parsed.bars,
     fetched.parsed,
     fetched.fetchedAt,
@@ -190,6 +213,8 @@ export async function ingestPrices(
   const contentHash = hashContent(
     JSON.stringify({
       securityId: parsedCommand.securityId,
+      currency: fetched.parsed.currency,
+      settlement: local ? CEDEAR_SETTLED_SESSION_VERSION : null,
       closes: closes.map((close) => [close.marketDate, close.close]),
       events: events.map((event) => [
         event.eventType,
@@ -218,7 +243,7 @@ export async function ingestPrices(
       cursor: null,
       nextCursor: null,
       subjectKey: parsedCommand.symbol,
-      selectionVersion: null,
+      selectionVersion: local ? CEDEAR_SETTLED_SESSION_VERSION : null,
       selectionAnchorOn: null,
       status: replayOf === null ? "succeeded" : "duplicate",
       startedAt,

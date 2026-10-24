@@ -36,6 +36,8 @@ export type CedearRatio = {
 };
 
 export type CedearClaim = {
+  /** Local ticker explicitly published, never inferred from the underlying. */
+  readonly bymaSymbol?: string | null;
   readonly cedearIsin: string;
   readonly cajaValoresCode: string;
   /** Sólo para nombrar el programa en un reporte; nunca identifica. */

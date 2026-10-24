@@ -1,3 +1,4 @@
+import { usMarketGraph } from "@/modules/identity/domain/us-market-graph";
 import "server-only";
 
 import { randomUUID } from "node:crypto";
@@ -305,7 +306,7 @@ export async function prepareValuationRun(
     limit: 50_000,
   });
   const resolution = resolveIdentity(
-    state.graph,
+    usMarketGraph(state.graph),
     { symbol: job.ticker },
     query,
   );

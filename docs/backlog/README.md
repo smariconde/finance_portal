@@ -75,7 +75,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    47 | `F6-03`    | `done`     | Superficie de resultado sobre empresa real con nivel de rigor, provenance y supuestos distinguidos de los hechos.                                                                                                         | `F6-02`          |
 |    48 | `F6-04`    | `done`     | Acceso CEDEAR en el resultado: programa, depositario, estado y ratio al corte de la corrida, y el valor por CEDEAR en USD.                                                                                                | `F6-02`          |
 |    49 | `F6-05`    | `done`     | Ingesta bajo demanda de la ventana de fundamentals que falta, con presupuesto, reanudación y auditoría point-in-time del sujeto.                                                                                          | `F6-01`          |
-|    50 | `F6-08`    | `ready`    | Precio del CEDEAR en BYMA y valor por CEDEAR en pesos con el CCL implícito del propio CEDEAR, con su ADR de fuente.                                                                                                       | `F6-04`          |
+|    50 | `F6-08`    | `done`     | Precio del CEDEAR en BYMA y valor por CEDEAR en pesos con el CCL implícito del propio CEDEAR, con su ADR de fuente.                                                                                                       | `F6-04`          |
 |    51 | `F6-09`    | `done`     | Precio de mercado al `as_of` de la corrida y DCF inverso por driver: qué crecimiento, margen, ROIC terminal o tasa exige el precio, al lado de lo que la empresa mostró.                                                  | `F6-03`          |
 |    52 | `F6-10`    | `done`     | `derived-assumptions-2.0.0`: ROIC terminal por regla con el dataset de Damodaran, crecimiento por tendencia y escenarios bear/bull derivados.                                                                             | `F6-09`          |
 |    53 | `F6-11`    | `done`     | Lectura cualitativa de la IA sobre lo que exige el precio: plausibilidad por driver con citas del 10-K verificadas, sin mover el valor.                                                                                   | `F6-09`          |
@@ -84,6 +84,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    56 | `F6-14`    | `done`     | La selección y la serie leen los conceptos que los filers usan de verdad, los intereses salen de una receta con bases nombradas y una ventana vieja se baja otra vez.                                                     | `F6-13`          |
 |    57 | `F6-15`    | `done`     | Deuda cero con evidencia y EBIT sin resultado operativo en el puente, congelados en el snapshot y recalculados por el motor.                                                                                              | `F6-14`          |
 |    58 | `F6-16`    | `done`     | Opciones de empleados robustas: nota bien elegida, etiqueta de ejercicio de los minoristas, XBRL como respaldo y valuación sin restar opciones cuando no hay nada.                                                        | `F6-14`          |
+|    59 | `F6-06`    | `ready`    | Despliegue remoto: Postgres hosteada, protección de la plataforma verificada y walkthrough del owner sobre una valuación real.                                                                                            | `F6-08`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -3622,7 +3623,7 @@ repararon contra `source_documents`.
 | `F6-04` | Anotación de acceso CEDEAR sobre el registro de `F7-03`: si existe programa, su ratio vigente y su precio, sin fusionar los dos instrumentos.                                                                                         | `F6-02`    | `TM-05`, `TM-06`                            |
 | `F6-05` | Ingesta bajo demanda: si el ticker pedido no tiene la ventana de fundamentals, la corrida la baja con presupuesto y reanudación, y audita el contrato point-in-time del sujeto antes de valuar. No hay valuación por lote (ADR 0016). | `F6-01`    | `TM-06`, `TM-10`, `TM-11`, `TM-16`          |
 | `F6-06` | Despliegue remoto: Postgres hosteada, protección del deployment verificada y walkthrough del owner sobre datos reales.                                                                                                                | `F6-03`    | `TM-14`, `UI-02`                            |
-| `F6-08` | Precio del CEDEAR en BYMA (símbolo de Caja de Valores, fuente con ADR) y valor por CEDEAR en pesos con el CCL implícito, sin feed MEP/CCL.                                                                                            | `F6-04`    | `TM-05`, `TM-06`, `TM-08`, `TM-10`          |
+| `F6-08` | Precio del CEDEAR en BYMA (símbolo corroborado de ambos emisores, ADR 0056) y valor por CEDEAR en pesos con el CCL implícito, sin feed MEP/CCL.                                                                                       | `F6-04`    | `TM-05`, `TM-06`, `TM-08`, `TM-10`          |
 | `F6-09` | Precio al `as_of` de la corrida contra su valor y DCF inverso por driver con el mismo motor, al lado de lo que la empresa mostró; sin recomendación ni color de compra o venta.                                                       | `F6-03`    | `TM-05`, `TM-06`, `TM-15`, `UI-03`          |
 | `F6-10` | `derived-assumptions-2.0.0`: ROIC terminal por regla (dataset de ROIC por industria de Damodaran, acotado entre el WACC y el ROIC propio), crecimiento por tendencia log-lineal y escenarios bear/bull derivados con su rationale.    | `F6-09`    | `TM-05`, `TM-06`, `TM-16`                   |
 | `F6-11` | Lectura cualitativa de la IA sobre las expectativas implícitas: plausibilidad por driver con citas verbatim del 10-K que una policy verifica; se guarda con su evidencia y nunca entra al valor.                                      | `F6-09`    | `TM-09`, `TM-10`, `TM-12`, `TM-15`, `TM-16` |
@@ -4220,6 +4221,56 @@ Evidencia:
   equity 10,04 %); el ROIC terminal solo no alcanza (213,63 USD con 500 %).
   ~100 ms por render. Build servido: axe sin hallazgos nuevos en escritorio
   claro y móvil oscuro (`region` de la sidebar ya estaba), sin desborde.
+
+#### `F6-08` — precio CEDEAR y valor en pesos (cerrado el 2026-10-24)
+
+Estado: `done`. [ADR 0056](../architecture/adr/0056-cedear-peso-value.md).
+Controles: `TM-05`, `TM-06`, `TM-08`, `TM-10`; sin frontera web nueva.
+
+- Registro `cedear-registry-1.1.0`: listing `XBUE` en ARS y símbolo versionado
+  sobre la security depositaria. Caja conserva su columna BYMA; Comafi usa sólo
+  la identificación local de su planilla, reconciliada por ISIN y código contra
+  el JSON. No cambia la autoridad de ratios ni se guarda payload.
+- El sondeo detectó la columna final «Prospecto» en Caja: el parser acepta esa
+  extensión exacta y sigue negando encabezados corridos o desconocidos.
+- Los workflows por ticker declaran alcance de mercados estadounidenses. El
+  grafo entero conserva la ambigüedad acción/CEDEAR cuando no se declara venue;
+  registrar símbolos locales no rompe la valuación ni sus comandos.
+- Yahoo es la misma fuente personal `owner_accepted`, con su lease, contador y
+  kill switch. `yahoo-chart-1.2.0` lee el mercado; el importador comprueba símbolo,
+  ARS y `BUE` antes de publicar sobre la security CEDEAR. La regla de cierre local
+  conserva la guarda intradía y admite el tick anterior a la campana sólo desde
+  el día local siguiente y tras el asentamiento. No cambia la regla del índice.
+- «Volver a valuar» pide los cierres locales faltantes como jobs durables incluso
+  cuando la acción ya está al día; una falla local no bloquea su valuación. El
+  render sólo lee. `prices:ingest --cedear <subyacente>` permite inspección o
+  ingesta explícita, en seco salvo `--apply`.
+- `cedear-peso-value-1.0.0`: cierres crudos del mismo `as_of`, ratio conocido al
+  corte y bases compatibles. Sin símbolo, ratio, valor, cierre, moneda correcta
+  o ante un split/ratio posterior, se nombra el motivo sin cero ni rueda vecina.
+  La sección distingue precio y valor, USD y ARS, con fecha, fuente, fórmula y
+  límite de cierres no simultáneos. No añade feed CCL ni altera snapshots/hashes.
+
+Evidencia:
+
+- Réplica privada: 153 listings de Comafi y 8 de Caja; un programa Comafi sin
+  símbolo corroborado. Repetición del registro: cero escrituras en ambos
+  emisores. AAPL y AMZN publican 1.231 cierres ARS cada uno.
+- Al 23/10, AAPL: 28.660 ARS, CCL 1.648,405372 ARS/USD y valor 14.892,87 ARS;
+  AMZN: 2.850 ARS, CCL 1.654,838710 y valor 1.648,00 ARS. Dos jobs completos
+  sin IA; seis corridas AAPL (anteriores y nueva) reproducidas sin divergencia.
+  No se publicaron datos ni corridas en la base personal; los sondeos sólo
+  registraron el consumo de las fuentes.
+- 3.126 unit, 221 integration, lint, tipos, formato, build y 204 E2E con axe
+  (2 omitidos). Fixtures sintéticas; sin red en unit/contratos. Integración
+  prueba listing, supersesión, conocimiento anterior e idempotencia.
+- Revisión renderizada: escritorio 1440 claro y móvil 390 oscuro, 0 px de
+  overflow, sin errores del navegador ni IDs duplicados, axe sin serious/critical
+  (el `region` moderado del shell en desktop es previo). Detector Impeccable `[]`;
+  revisión de cierre y brief de superficie actualizados. Capturas privadas.
+
+Sigue `F6-06`: despliegue remoto y walkthrough; no se inició. El gate de Fase 6
+sigue abierto por ese requisito. [Runbook](../runbooks/cedear-peso-value.md).
 
 #### `F6-04` — acceso CEDEAR en el resultado (cerrado el 2026-10-21)
 

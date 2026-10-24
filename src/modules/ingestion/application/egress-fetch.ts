@@ -73,7 +73,7 @@ export const PRICES_REQUEST_PACING: RequestPacingPolicy = Object.freeze({
 });
 
 /**
- * El registro CEDEAR es **una request por emisor**: dos por corrida
+ * El registro CEDEAR usa **dos requests de Comafi y una de Caja**: tres por corrida
  * ([ADR 0027](../../../../docs/architecture/adr/0027-cedear-registry-sources.md)).
  * Ninguno de los dos publica cuota; el techo del proceso deja lugar a un
  * reintento manual sin habilitar un bucle.
