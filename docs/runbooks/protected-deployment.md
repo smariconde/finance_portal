@@ -1,8 +1,9 @@
 # Despliegue personal protegido
 
 - Slice: `F6-06`; controles `TM-14`, `TM-01`, `TM-02` y `UI-02`.
-- Estado: Neon autenticado, base trasladada y rol de runtime verificado; aplicación
-  probada desde localhost contra Neon. Vercel y walkthrough del owner pendientes.
+- Estado: Neon operativo y Vercel Authentication / All Deployments activado;
+  Production sirve `personal` con el rol pooled, Preview permanece `locked`.
+  Faltan backup operativo, prueba del job y walkthrough del owner.
 - Contrato: [ADR 0008](../architecture/adr/0008-remote-personal-access.md).
 
 ## Decisión de PostgreSQL
@@ -92,6 +93,36 @@ ambas conexiones; las migraciones están al día. El gate point-in-time pasó co
 28.268 cadenas y 29.086 revisiones; 10 corridas AAPL/AMZN se reprodujeron sin
 divergencias. El mismo build sirve el resultado desde Neon en localhost y niega
 datos bajo el entorno sin declarar. Esto no prueba la protección de Vercel.
+
+## Primer deployment Vercel verificado el 2026-10-24
+
+El proyecto `smaricondes-projects/finance-portal` quedó vinculado al repo con
+Next.js, `pnpm install --frozen-lockfile`, `pnpm build`, Node 22.x y Functions en
+`iad1`, junto a Neon en N. Virginia. Vercel Authentication usa `All Deployments`.
+Antes y después del deployment personal, los hosts de producción, Git y URL
+generada conocidos devolvieron `302` al login de Vercel sin credenciales en las
+seis rutas del paso 1. El detalle por host se conserva en un registro privado.
+
+Production tiene `APP_MODE=personal`, `APP_RUNTIME_ACCESS=protected`, la URL
+pooled de `finance_portal_runtime`, `SEC_USER_AGENT` y las claves OpenRouter y
+Tavily como Secrets sólo de Production. Preview tiene `APP_MODE=locked`, acceso
+declarado `protected` y ninguna conexión ni clave de proveedor. La conexión
+administrativa y la base de test no se cargaron en Vercel.
+
+El commit `549320e` se desplegó desde un archivo Git limpio; el manifiesto no
+incluyó `.env.local`, `.env.neon.local`, `.neon` ni `.vercel`. El build quedó
+`READY` bajo la protección de plataforma. La página de configuración autenticada
+resolvió `personal` y la lectura autenticada de AAPL respondió `200` con datos.
+No se inició un job ni se midió su duración; tampoco se hizo el walkthrough.
+
+**Comportamiento observado del CLI:** `vercel deploy --prod --skip-domain`
+asignó el alias del equipo pese a la opción, pero no el dominio principal.
+Después de verificar el deployment, `vercel promote` asignó también el dominio
+principal; todos los hosts conocidos siguieron redirigiendo anónimos al login.
+No asumir staging sin alias por esa bandera: confirmar aliases después del deploy.
+`vercel curl` generó automáticamente un bypass de automatización para la lectura;
+se revocó tras la prueba y el proyecto terminó con cero bypasses activos. No
+volver a usar `vercel curl` en este walkthrough sin planear su revocación.
 
 ## 1. Integrar y desplegar trabado
 

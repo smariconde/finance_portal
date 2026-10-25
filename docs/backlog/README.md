@@ -3655,7 +3655,8 @@ Estado: `in_progress`; no cierra el gate de Fase 6.
 
 Al inicio de la sesión el owner pidió preparar el despliegue. Después eligió
 Neon, creó el proyecto y autorizó su configuración y traslado; ese incremento
-se registra abajo. Vercel y el walkthrough siguen pendientes.
+se registra abajo. Vercel ya sirve la lectura personal protegida; el backup
+operativo, el job remoto y el walkthrough siguen pendientes.
 
 `F6-08` se integró con merge commit por el [PR #67](https://github.com/smariconde/finance_portal/pull/67),
 con Quality y E2E aprobados. Esta sección parte de `main` actualizado.
@@ -3719,11 +3720,27 @@ requests de proveedores de datos y cero gasto IA. Artefacto: 671 archivos, cero
 hallazgos de las claves buscadas; `.env.local` conserva su hash original. No se
 publicaron capturas, payloads, snapshots ni credenciales.
 
-Pendientes para continuar: elegir y proteger el proyecto Vercel, establecer la
-retención del backup operativo, probar ahí el job y replay, y ejecutar el
-walkthrough cronometrado del owner. El uso desde localhost contra Neon ya fue
-verificado; eso no acredita `TM-14`. El próximo incremento sigue siendo `F6-06`;
-no habilita Fase 8.
+**Incremento Vercel del 2026-10-24.** Proyecto del owner
+`smaricondes-projects/finance-portal` vinculado al repo; Node 22.x y Functions
+`iad1` junto a Neon N. Virginia. `All Deployments` activo. Cinco hosts conocidos
+y las seis rutas del runbook redirigen anónimos al login antes y después de
+habilitar Production `personal`; Preview sigue `locked` sin DB ni claves. La
+pooled de `finance_portal_runtime` y SEC/OpenRouter/Tavily quedaron como Secrets
+sólo de Production por autorización explícita; ni conexión administrativa ni
+base de test se cargaron. El commit `549320e` se subió desde un archivo limpio
+sin archivos locales y el build quedó `READY`. `/configuracion` autenticada
+resolvió `personal`; AAPL devolvió `200` con datos de Neon. El CLI asignó el
+alias del equipo pese a `--skip-domain`; tras verificarlo se promovió el mismo
+build al dominio principal. Todos los hosts conocidos siguieron negando
+anónimos. `vercel curl` creó un bypass automático durante la lectura; se revocó
+y se verificó cero bypasses activos. No hubo job, nuevas llamadas a proveedores
+ni gasto IA en estas comprobaciones.
+
+Pendientes: retención y prueba del backup operativo, job y replay remotos bajo
+duración real de Function, y walkthrough cronometrado del owner. `TM-14` tiene
+evidencia de rechazo anónimo, pero el gate `F6-06` no cierra sin la sesión y
+las pruebas restantes. El próximo incremento sigue siendo `F6-06`; no habilita
+Fase 8.
 
 #### `F6-01` — corrida por ticker encolada (cerrado el 2026-10-21)
 
