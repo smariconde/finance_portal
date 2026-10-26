@@ -45,8 +45,10 @@ dos páginas.
 | `restatement_changes_content`      | Una revisión nueva cambia algo. Si repite valor, parser y flags, es un duplicado.                  |
 
 La cuarta se evalúa **a través de `queryObservations`**, el mismo dominio que lee
-la aplicación. Un verificador con su propia copia de la selección probaría la
-copia.
+la aplicación. Desde `point-in-time-audit-1.1.0` fija el corte económico al menos
+en el `as_of` del hecho y mueve sólo el corte de conocimiento: una presentación
+puede informar hoy un vencimiento de deuda futuro. Un verificador con su propia
+copia de la selección probaría la copia.
 
 `filas sin documento citado` es un conteo, no una afirmación: una fuente de
 fixture no publica documentos. Para la SEC vale cero, y pasar de cero a N es la
@@ -73,9 +75,8 @@ el `observation_id`. Cada motivo dice qué mirar:
 - `later_revision_leaked_into_earlier_query` — **la falla grave**: una consulta
   anterior a un restatement devolvió el valor enmendado. Es `TM-06` roto.
 - `revision_not_visible_at_its_own_availability` o
-  `earlier_knowledge_returned_nothing` — el hecho no se puede leer en el instante
-  en que se volvió público, normalmente porque su `as_of` es posterior a la
-  aceptación del filing que lo reporta.
+  `earlier_knowledge_returned_nothing` — la cadena no devuelve la revisión
+  esperada al variar sólo el corte de conocimiento.
 - `duplicate_content_hash` o `identical_value_without_reason` — el dedupe dejó
   pasar una revisión que no aporta nada.
 

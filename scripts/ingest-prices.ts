@@ -41,12 +41,14 @@ import { getUniverseRepository } from "@/server/persistence/get-universe-reposit
  *   pnpm prices:ingest --ticker AAPL
  *   pnpm prices:ingest --ticker AAPL --ticker NVDA --apply
  *   pnpm prices:ingest --sector information-technology --apply
+ *   pnpm prices:ingest --sector information-technology --fiscal-history --apply
  *   pnpm prices:ingest --benchmark sp500-total-return --apply
  *
  * El ticker se resuelve contra el grafo persistido: lo que sale por la red es el
  * símbolo que el universo ya asignó. `--sector` toma la población del sector a
  * hoy (ADR 0025) y `--benchmark` una serie de referencia declarada (ADR 0029).
- * Una request por serie trae cinco años y dos semanas.
+ * Una request por serie trae cinco años y dos semanas; `--fiscal-history`
+ * trae siete años para alcanzar el cierre de hace cinco ejercicios fiscales.
  *
  * Lo que se guarda es la serie **cruda**. La fuente publica la serie ajustada
  * por los splits posteriores y la reescribe hacia atrás en cada uno, así que
@@ -60,6 +62,7 @@ const { values } = parseArgs({
     sector: { type: "string", multiple: true, default: [] },
     benchmark: { type: "string", multiple: true, default: [] },
     apply: { type: "boolean", default: false },
+    "fiscal-history": { type: "boolean", default: false },
   },
 });
 
@@ -191,6 +194,7 @@ const source = createLivePriceSource({
   sourceRegistry: registry,
   fetch: getSourceEgressFetch(PRICES_REQUEST_PACING),
   now: () => new Date(),
+  historyYears: values["fiscal-history"] ? 7 : 5,
 });
 
 const repository = getPriceRepository();
@@ -200,6 +204,7 @@ console.log("");
 log("fuente", PRICES_SOURCE_ID);
 log("parser", CHART_PARSER_VERSION);
 log("securities", targets.length);
+log("historia de precios", values["fiscal-history"] ? "7 años" : "5 años");
 log("referencias", values.benchmark.join(", ") || "—");
 log("modo", DRY_RUN ? "dry run (no escribe)" : "apply");
 

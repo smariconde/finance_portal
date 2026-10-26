@@ -36,4 +36,16 @@ describe("buildChartUrl", () => {
       ),
     ).toBe(true);
   });
+
+  it("supports seven years for fiscal endpoints without changing the default", () => {
+    const now = new Date("2026-10-26T20:00:00.000Z");
+    const fiscal = new URL(buildChartUrl("AAPL", now, 7));
+    const risk = new URL(buildChartUrl("AAPL", now));
+    expect(fiscal.searchParams.get("period1")).toBe(
+      String(Date.parse("2019-10-12T00:00:00.000Z") / 1000),
+    );
+    expect(risk.searchParams.get("period1")).toBe(
+      String(Date.parse("2021-10-12T00:00:00.000Z") / 1000),
+    );
+  });
 });

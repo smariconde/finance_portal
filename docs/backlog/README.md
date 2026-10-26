@@ -85,6 +85,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    57 | `F6-15`    | `done`     | Deuda cero con evidencia y EBIT sin resultado operativo en el puente, congelados en el snapshot y recalculados por el motor.                                                                                              | `F6-14`          |
 |    58 | `F6-16`    | `done`     | Opciones de empleados robustas: nota bien elegida, etiqueta de ejercicio de los minoristas, XBRL como respaldo y valuación sin restar opciones cuando no hay nada.                                                        | `F6-14`          |
 |    59 | `F6-06`    | `done`     | Despliegue remoto: Postgres hosteada, protección de la plataforma verificada y walkthrough del owner sobre una valuación real.                                                                                            | `F6-08`          |
+|    60 | `F8-01`    | `done`     | Pipeline fiscal-aligned point-in-time de precio, market cap, net income, EPS y acciones para los filers del sector elegido, sin cargar el universo.                                                                       | Fase 6           |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -5178,6 +5179,93 @@ versionada y su límite de una sola fuente aparece junto al resultado.
 `F3-01` está en curso: selector determinista de arquetipo.
 
 ### Fase 8 — divergencias fundamentales
+
+`F8-01` está en curso desde el 2026-10-26. El primer incremento implementó
+`fiscal-endpoints-1.0.0`: selección de dos cierres fiscales a 2/5 años (±45 días),
+precio de la fecha de cierre o de los siete días calendario anteriores,
+capitalización con acciones instantáneas al cierre (no con las diluidas promedio),
+y faltantes nombrados por extremo. El EPS diluido se elige entre operaciones
+continuas y GAAP reportado, sólo entre observaciones anuales visibles al corte.
+Como el cierre crudo no guarda instante de publicación, una consulta `as_known`
+del mismo día no lo usa: exige una fecha de conocimiento posterior a la rueda.
+Las pruebas cubren tolerancias, revisión futura, nulos, cero, negativos, moneda
+distinta y texto no finito. Al cerrar ese primer incremento faltaban la lectura
+sectorial, el ajuste por splits y el job durable.
+
+**Segundo incremento, 2026-10-26.** La lectura de sólo lectura une esa
+población con seis conceptos SEC por emisor y una serie de cierres por security,
+con concurrencia y límites explícitos. Reutiliza la lectura fiscal si el emisor
+tiene más de una security; en ese caso deja la capitalización sin calcular hasta
+reconciliar acciones por clase. `pnpm divergences:inspect --sector <code>` mide la
+cobertura guardada sin proveedores. En la base personal, Communication Services
+tiene 24 securities: dos con pares fiscales 2Y y 5Y, ninguna con todos los
+extremos completos. Las demás carecen de ventana SEC; los pares disponibles
+señalan EPS, acciones diluidas y cierres faltantes. La lectura operativa se limita
+al corte actual porque el repositorio de corridas sólo expone la última ancla
+fiscal. Siguen pendientes la ingesta durable por sector, el ajuste entre bases de
+splits y la lectura histórica del ancla. Aún no hay matriz. `F8-01` permanece
+`in_progress`.
+
+**Tercer incremento, 2026-10-26.** `fundamentals:backfill --sector` reutiliza
+el job SEC durable, con lease, presupuesto y pausa/reanudación, pero filtra los
+filers por la población versionada del sector y conserva sus antecesores de
+reporte. El plan de Communication Services contiene 24 securities y 21 filers,
+sin antecesores de reporte; el techo conservador es 1.386 requests, repartibles
+en varias jornadas por el presupuesto diario. Sólo se ejecutó el plan sin red
+ni escritura; no se creó un job. `prices:ingest --sector <code>
+--fiscal-history` pide siete años para alcanzar el cierre de hace cinco
+ejercicios fiscales; el modo habitual conserva cinco años. La ingesta de precios
+sigue siendo manual y su dry run sí consulta al proveedor. Faltan una ejecución
+sectorial, el ajuste entre bases de splits y el ancla histórica antes del gate.
+
+**Cuarto incremento, 2026-10-26.** `fiscal-endpoints-1.1.0` lee los eventos de
+precio de cada security. Si un split posterior al cierre fiscal precede la
+publicación de las acciones o del EPS elegido, conserva el dato y su fuente,
+pero marca esa base como no reconciliada y no calcula la capitalización con
+precio crudo y acciones posiblemente reexpresadas. El caso de split queda
+probado sin red. Aún falta convertir esas bases para cerrar `F8-01`.
+
+**Quinto incremento, 2026-10-26.** La lectura sectorial admite un corte histórico
+explícito y busca, para cada CIK del linaje, la última corrida con ancla que ya
+estaba registrada en `knownAt`. Una corrida posterior no presta su ancla al
+pasado; si no hay ninguna, el emisor queda sin par fiscal en ese corte. La
+selección de observaciones conserva su propia política `as_known`. Es una lectura
+local sin red, migración ni cambio en las filas publicadas. Falta reconciliar la
+base de splits y ejecutar las ingestas sectoriales antes de cerrar `F8-01`.
+
+**Sexto incremento, 2026-10-26.** `fiscal-split-basis-1.0.0` y
+`fiscal-endpoints-1.2.0` llevan el precio crudo, EPS y acciones a la última base
+de split verificada al corte. Cada split de mercado posterior al precio necesita
+una única acción SEC visible con el mismo ratio y orden de publicación: el
+`effectiveOn` de SEC es el cierre del primer período en base nueva, no el día de
+la rueda. La vintage SEC decide si su valor ya estaba reexpresado; el precio se
+divide y las acciones se multiplican por el factor necesario. Se conservan los
+valores crudos, los IDs de las acciones, el factor y los valores comparables. Si
+falta una fuente, hay más de una correspondencia o se mezclan sujetos de reporte,
+se nombra la falta y no se calcula market cap. No se agregaron rutas, migraciones
+ni llamadas de proveedor. La lectura local de Communication Services sigue con
+24 securities, dos pares por ventana y cero pares completos; faltan la ingesta
+sectorial y validación con datos reales antes de cerrar `F8-01`.
+
+**Séptimo incremento y cierre, 2026-10-26.** El job SEC de Communication
+Services terminó con 21/21 filers, 52 solicitudes y cero fallas; la ingesta de
+precios amplió a siete años las 24 securities (37.418 ruedas recibidas). El
+lector corrigió la unidad real de EPS de la SEC (`monetary_per_share`) y el cruce
+de splits: el cierre de período que publica la SEC puede preceder al día del
+evento de mercado. `fiscal-endpoints-1.3.0` y `fiscal-split-basis-1.1.0`
+preservan ambos tiempos y exigen ratio y orden de publicación concordantes.
+Netflix reconcilia su 10:1; Alphabet reconcilia el 20:1 pero no atribuye las
+acciones agregadas a cada clase. La auditoría `point-in-time-audit-1.1.0`
+mantiene fijo el corte económico al comprobar revisiones de hechos con `as_of`
+futuro, como vencimientos de deuda.
+
+La lectura guardada ahora tiene 21 pares fiscales a 2 años y 19 a 5; 6 y 4
+tienen todos los extremos. Los demás conservan faltantes explícitos: historia
+demasiado corta, acciones al cierre no reportadas, varias clases o un split sin
+confirmación SEC. Ninguno se convierte en cero o en capitalización inventada.
+Pasaron 3.149 unit y el gate point-in-time sobre 48.079 revisiones y 1.802
+transiciones sin fallas. `F8-01` queda `done`; sigue `F8-02`, que calculará las
+vistas y categorías sin CAGR antes de abrir la interfaz.
 
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |

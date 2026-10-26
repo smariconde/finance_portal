@@ -32,6 +32,7 @@ function ingestionRuns(
     findByIdempotencyKey: vi.fn().mockResolvedValue(null),
     findLatestPublishable: vi.fn().mockResolvedValue(null),
     findLatestAnchored: vi.fn().mockResolvedValue(null),
+    findLatestAnchoredAt: vi.fn().mockResolvedValue(null),
     list: vi.fn().mockResolvedValue([]),
     append: vi.fn(),
   };

@@ -20,8 +20,9 @@ export const PRICES_SOURCE_ID = "yahoo-finance";
  * Adaptador vivo de la serie diaria
  * ([ADR 0026](../../../../docs/architecture/adr/0026-daily-prices-source.md)).
  *
- * Una request por security trae cinco años y dos semanas de cierres más los splits y
- * dividendos fechados. La respuesta se normaliza y **no se conserva**: la fila
+ * Una request por security trae cinco años y dos semanas de cierres por defecto,
+ * o siete años para extremos fiscales, más los splits y dividendos fechados.
+ * La respuesta se normaliza y **no se conserva**: la fila
  * de derechos declara `rawStorage: "restricted"`, así que el gate se negaría si
  * esta corrida dijera que guarda el payload.
  */
@@ -69,10 +70,14 @@ export class PriceSourceError extends Error {
 export const PRICE_HISTORY_YEARS = 5;
 export const PRICE_HISTORY_MARGIN_DAYS = 14;
 
-export function buildChartUrl(symbol: string, now: Date): string {
+export function buildChartUrl(
+  symbol: string,
+  now: Date,
+  historyYears: 5 | 7 = PRICE_HISTORY_YEARS,
+): string {
   const today = now.toISOString().slice(0, 10);
   const from = subtractDays(
-    subtractCalendarYears(today, PRICE_HISTORY_YEARS),
+    subtractCalendarYears(today, historyYears),
     PRICE_HISTORY_MARGIN_DAYS,
   );
   const period1 = Date.parse(`${from}T00:00:00.000Z`) / 1000;
@@ -91,6 +96,8 @@ export type PriceSourceDependencies = {
   readonly sourceRegistry: SourceRegistryRepository;
   readonly fetch: EgressFetch;
   readonly now: () => Date;
+  /** Seven years covers a five-fiscal-year endpoint behind the latest filing. */
+  readonly historyYears?: 5 | 7;
 };
 
 export type FetchedSeries = {
@@ -137,7 +144,11 @@ export function createLivePriceSource(
       try {
         response = await dependencies.fetch({
           sourceId: PRICES_SOURCE_ID,
-          url: buildChartUrl(symbol, dependencies.now()),
+          url: buildChartUrl(
+            symbol,
+            dependencies.now(),
+            dependencies.historyYears,
+          ),
           accept: "application/json",
         });
       } catch (cause) {

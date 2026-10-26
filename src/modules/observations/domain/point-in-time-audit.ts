@@ -39,7 +39,7 @@ export type PointInTimeClaim = z.infer<typeof pointInTimeClaimSchema>;
 export const POINT_IN_TIME_CLAIMS: readonly PointInTimeClaim[] =
   pointInTimeClaimSchema.options;
 
-export const AUDIT_RULE_VERSION = "point-in-time-audit-1.0.0";
+export const AUDIT_RULE_VERSION = "point-in-time-audit-1.1.0";
 
 /**
  * Techo de fallas conservadas. Los conteos no tienen techo: una base rota debe
@@ -169,6 +169,15 @@ function revisionKnownAt(
     return null;
   }
 
+  // Keep the economic cutoff identical across all knowledge probes. SEC facts
+  // can describe a future instant (for example a debt maturity).
+  const effectiveAt = new Date(
+    revisions.reduce(
+      (latest, revision) => Math.max(latest, Date.parse(revision.availableAt)),
+      Date.parse(`${head.asOf}T00:00:00.000Z`),
+    ),
+  ).toISOString();
+
   const selected = queryObservations(
     revisions,
     {
@@ -177,7 +186,7 @@ function revisionKnownAt(
       metricIds: [head.metricId],
     },
     pointInTimeQuerySchema.parse({
-      effectiveAt: knownAt,
+      effectiveAt,
       knownAt,
       revisionPolicy: "as_known",
       knowledgeBasis: "public_availability",

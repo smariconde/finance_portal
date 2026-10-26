@@ -421,6 +421,17 @@ Reglas implementadas en `F2-03` ([ADR 0010](../architecture/adr/0010-sec-xbrl-in
 - La política de corporate actions se guarda con la transformación.
 - Un ticker rename no relabela destructivamente el listing histórico.
 
+Para los extremos fiscales de divergencias (`fiscal-split-basis-1.1.0`), el
+precio guardado sigue siendo el cierre crudo. Una lectura que necesita otra base
+empareja cada split de la serie de mercado con una única acción SEC conocible por
+ratio y orden de publicación. Sus fechas `effectiveOn` no son equivalentes: la
+del mercado es la rueda del split y la de SEC es el cierre del primer período
+presentado en la base nueva, que puede preceder a esa rueda. La presentación
+de cada vintage SEC determina si
+el valor reportado ya estaba reexpresado; el lector conserva el valor original
+junto al transformado, el factor y las acciones usadas. Una correspondencia
+ausente o ambigua deja la capitalización sin calcular.
+
 ### Macro
 
 - `as_of` describe el período económico; `published_at/available_at` describen el

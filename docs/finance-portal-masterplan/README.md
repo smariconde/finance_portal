@@ -93,5 +93,5 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 
 ## Estado actual
 
-Las fases 0, 1, 2, 7, 3, 5 y 4 están cerradas. La Fase 6 está en curso: valuación por ticker, ingesta y decisiones cualitativas bajo demanda, resultado e historial y acceso CEDEAR con valor en pesos entregados. `F6-06` ya tiene PostgreSQL personal en Neon, trasladada y verificada, y un deployment Vercel personal bajo Authentication / All Deployments con rechazo anónimo comprobado. Faltan backup operativo, prueba del job remoto y walkthrough real del owner. El estado operativo y el historial de sesiones viven en `06_PHASED_ROADMAP.md`; el orden ejecutable vive en `../backlog/README.md`.
+Las fases 0, 1, 2, 7, 3, 5, 4 y 6 están cerradas. La Fase 8 está en curso: `F8-01` cerró con ingesta sectorial real, extremos fiscales trazables y faltantes explícitos. Sigue `F8-02`, el cálculo de las vistas de divergencia y el sesgo de acciones. El estado operativo y el historial de sesiones viven en `06_PHASED_ROADMAP.md`; el orden ejecutable vive en `../backlog/README.md`.
 La existencia de una página o documento no demuestra avance.
