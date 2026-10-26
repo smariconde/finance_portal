@@ -1,4 +1,7 @@
-import type { DailyClose } from "@/modules/prices/domain/daily-close";
+import type {
+  DailyClose,
+  PriceEvent,
+} from "@/modules/prices/domain/daily-close";
 import { createDecimalOperations } from "@/modules/numeric/domain/decimal-policy";
 import type { PointInTimeQuery } from "@/modules/temporal/domain/point-in-time-query";
 import type {
@@ -11,7 +14,7 @@ import type {
 export const FISCAL_PRICE_MAX_LAG_DAYS = 7;
 /** A 52/53-week fiscal year can move; reject a mismatched comparison year. */
 export const FISCAL_HORIZON_TOLERANCE_DAYS = 45;
-export const FISCAL_ENDPOINTS_VERSION = "fiscal-endpoints-1.0.0";
+export const FISCAL_ENDPOINTS_VERSION = "fiscal-endpoints-1.1.0";
 
 const DAY_MS = 86_400_000;
 const DAYS_PER_YEAR = 365.2425;
@@ -103,6 +106,7 @@ function endpoint(
   year: AnnualFundamentals["fiscalYears"][number],
   epsRows: readonly FundamentalRow[],
   closes: readonly DailyClose[],
+  events: readonly PriceEvent[],
   query: PointInTimeQuery,
 ): FiscalEndpoint {
   const end = year.fiscalYearEnd;
@@ -123,16 +127,30 @@ function endpoint(
   const sharesOutstanding = year.items.shares_outstanding ?? null;
   const dilutedEps = fiscalEps(epsRows, end, query);
   const missing: string[] = [];
+  const laterSplitRestates = (availableAt: string) =>
+    events.some(
+      (event) =>
+        event.eventType === "split" &&
+        event.effectiveOn > end &&
+        event.effectiveOn <= availableAt.slice(0, 10) &&
+        event.effectiveOn <= query.effectiveAt.slice(0, 10),
+    );
 
   if (price === null) missing.push("price_near_fiscal_close");
   if (netIncome === null) missing.push("net_income");
   if (dilutedEps === null) missing.push("diluted_eps");
   if (dilutedShares === null) missing.push("diluted_shares");
   if (sharesOutstanding === null) missing.push("shares_outstanding_at_close");
+  if (dilutedEps !== null && laterSplitRestates(dilutedEps.availableAt))
+    missing.push("diluted_eps_split_basis_unreconciled");
+  if (dilutedShares !== null && laterSplitRestates(dilutedShares.availableAt))
+    missing.push("diluted_shares_split_basis_unreconciled");
 
   let marketCap: string | null = null;
   if (price !== null && sharesOutstanding !== null) {
-    if (
+    if (laterSplitRestates(sharesOutstanding.availableAt)) {
+      missing.push("market_cap_split_basis_unreconciled");
+    } else if (
       price.currency !== "USD" ||
       sharesOutstanding.unit !== "shares" ||
       sharesOutstanding.currency !== null
@@ -168,16 +186,19 @@ function endpoint(
 /**
  * Align two fiscal closes before calculating any divergence. The caller supplies
  * the point-in-time selected annual series and SEC rows, plus raw close prices
- * for the same security. A missing input remains named rather than becoming zero.
+ * and split events for the same security. A missing input remains named rather
+ * than becoming zero.
  */
 export function selectFiscalEndpoints(input: {
   readonly series: AnnualFundamentals | null;
   readonly epsRows: readonly FundamentalRow[];
   readonly closes: readonly DailyClose[];
+  readonly events: readonly PriceEvent[];
   readonly query: PointInTimeQuery;
   readonly horizonYears: 2 | 5;
 }): FiscalEndpointPair {
   const { series, epsRows, closes, query, horizonYears } = input;
+  const { events } = input;
   const cutoff =
     query.revisionPolicy === "as_known"
       ? [query.effectiveAt.slice(0, 10), query.knownAt.slice(0, 10)].sort()[0]!
@@ -220,11 +241,11 @@ export function selectFiscalEndpoints(input: {
     horizonYears,
     actualYears:
       earlierYear === undefined ? null : earlierYear.distance / DAYS_PER_YEAR,
-    latest: endpoint(latestYear, epsRows, closes, query),
+    latest: endpoint(latestYear, epsRows, closes, events, query),
     earlier:
       earlierYear === undefined
         ? null
-        : endpoint(earlierYear.year, epsRows, closes, query),
+        : endpoint(earlierYear.year, epsRows, closes, events, query),
     reason: earlierYear === undefined ? "no_comparable_year" : null,
   };
 }

@@ -43,6 +43,7 @@
     "gate:point-in-time": "tsx --conditions=react-server --env-file=.env.local scripts/audit-point-in-time.ts",
     "gate:reconcile": "tsx --conditions=react-server --env-file=.env.local scripts/reconcile-gate-sample.ts",
     "prices:ingest": "tsx --conditions=react-server --env-file=.env.local scripts/ingest-prices.ts",
+    "divergences:inspect": "node --conditions=react-server --env-file=.env.local --import tsx scripts/inspect-sector-divergences.ts",
     "cedears:record": "tsx --conditions=react-server --env-file=.env.local scripts/record-cedears.ts",
     "valuation:assess": "tsx --conditions=react-server --env-file=.env.local scripts/assess-company.ts",
     "damodaran:record": "tsx --conditions=react-server --env-file=.env.local scripts/record-damodaran.ts",

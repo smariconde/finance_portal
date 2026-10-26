@@ -3,6 +3,10 @@ import { hostname } from "node:os";
 import { setTimeout as sleep } from "node:timers/promises";
 import { parseArgs } from "node:util";
 
+import { loadSectorPopulation } from "@/modules/classification/application/load-sector-population";
+import { listSectors } from "@/modules/classification/domain/sector-taxonomy";
+import { sectorFilers } from "@/modules/divergences/domain/sector-filer-plan";
+
 import {
   assertCompanyFactsJob,
   buildCompanyFactsJobPlan,
@@ -30,6 +34,7 @@ import { pointInTimeQuerySchema } from "@/modules/temporal/domain/point-in-time-
 import { SP500_INDEX_ID } from "@/modules/universe/application/live-universe-source";
 import { getMeteredEgressFetch } from "@/server/egress/get-source-egress-fetch";
 import { getSourceBudgetStore } from "@/server/persistence/get-source-budget-store";
+import { getClassificationRepository } from "@/server/persistence/get-classification-repository";
 import { getCorporateActionRepository } from "@/server/persistence/get-corporate-action-repository";
 import { getIngestionJobStore } from "@/server/persistence/get-ingestion-job-store";
 import { getIngestionRunRepository } from "@/server/persistence/get-ingestion-run-repository";
@@ -44,6 +49,7 @@ import { getUniverseRepository } from "@/server/persistence/get-universe-reposit
  *   pnpm fundamentals:backfill                         # plan: sin red ni escritura
  *   pnpm fundamentals:backfill --apply                 # crea o encuentra el job del plan
  *   pnpm fundamentals:backfill --cik 320193 --apply    # job acotado a filers del plan
+ *   pnpm fundamentals:backfill --sector communication-services # sólo el sector
  *   pnpm fundamentals:backfill --job <id>              # estado y próximo item, sin tomar la fuente
  *   pnpm fundamentals:backfill --job <id> --apply      # corre el job
  *   pnpm fundamentals:backfill --job <id> --apply --limit 20
@@ -59,12 +65,26 @@ const { values } = parseArgs({
   options: {
     job: { type: "string" },
     cik: { type: "string", multiple: true, default: [] },
+    sector: { type: "string" },
     limit: { type: "string" },
     apply: { type: "boolean", default: false },
   },
 });
 
 const DRY_RUN = !values.apply;
+
+if (values.sector !== undefined && values.cik.length > 0) {
+  console.error("Usá --sector o --cik, no ambos.");
+  process.exit(2);
+}
+
+if (
+  values.sector !== undefined &&
+  !listSectors().some((sector) => sector.code === values.sector)
+) {
+  console.error("--sector no pertenece a la taxonomía declarada.");
+  process.exit(2);
+}
 
 function log(label: string, value: unknown): void {
   console.log(`${label.padEnd(28)} ${String(value)}`);
@@ -93,6 +113,27 @@ const plan = planCompanyFactsBackfill({
     sourcePolicyVersion: "source-policy-1.0.0",
   }),
 });
+const sectorPopulation =
+  values.sector === undefined
+    ? null
+    : (
+        await loadSectorPopulation(
+          {
+            indexId: SP500_INDEX_ID,
+            code: values.sector,
+            query: pointInTimeQuerySchema.parse({
+              effectiveAt: plannedAt,
+              revisionPolicy: "as_known",
+              knownAt: plannedAt,
+              sourcePolicyVersion: "source-policy-1.0.0",
+            }),
+          },
+          {
+            universe: getUniverseRepository(),
+            classifications: getClassificationRepository(),
+          },
+        )
+      ).population;
 const names = new Map(
   universe.graph.legalEntities.map((entity) => [
     entity.legalEntityId,
@@ -119,12 +160,18 @@ if (values.job === undefined) {
   }
 
   const subjects =
-    requested.length === 0
-      ? plan.subjects
-      : plan.subjects.filter((subject) => requested.includes(subject.cik));
+    sectorPopulation !== null
+      ? sectorFilers(sectorPopulation.members, plan.subjects)
+      : requested.length === 0
+        ? plan.subjects
+        : plan.subjects.filter((subject) => requested.includes(subject.cik));
 
   log("plan", plan.planVersion);
   log("miembros del índice", plan.members);
+  if (sectorPopulation !== null) {
+    log("sector", values.sector);
+    log("securities del sector", sectorPopulation.members.length);
+  }
   log("filers", subjects.length);
   log(
     "antecesores de reporte",
@@ -136,7 +183,13 @@ if (values.job === undefined) {
     subjects.length * MAX_REQUESTS_PER_COMPANY_FACTS_LOAD,
   );
 
-  for (const rejection of plan.rejections) {
+  const sectorIssuerIds = new Set(
+    sectorPopulation?.members.map((member) => member.issuerLegalEntityId) ?? [],
+  );
+  for (const rejection of plan.rejections.filter(
+    (entry) =>
+      sectorPopulation === null || sectorIssuerIds.has(entry.subjectId),
+  )) {
     log(`  rechazo ${rejection.code}`, rejection.subjectId);
   }
 

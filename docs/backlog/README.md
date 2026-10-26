@@ -5180,10 +5180,41 @@ continuas y GAAP reportado, sólo entre observaciones anuales visibles al corte.
 Como el cierre crudo no guarda instante de publicación, una consulta `as_known`
 del mismo día no lo usa: exige una fecha de conocimiento posterior a la rueda.
 Las pruebas cubren tolerancias, revisión futura, nulos, cero, negativos, moneda
-distinta y texto no finito. La lectura sectorial, el ajuste por splits para la
-comparación entre años y el job durable siguen pendientes: no hay matriz ni
-pipeline ejecutable todavía. El próximo incremento une la población versionada
-del sector con los lectores SEC y de precios, sin descargar todo el universo.
+distinta y texto no finito. Al cerrar ese primer incremento faltaban la lectura
+sectorial, el ajuste por splits y el job durable.
+
+**Segundo incremento, 2026-10-26.** La lectura de sólo lectura une esa
+población con seis conceptos SEC por emisor y una serie de cierres por security,
+con concurrencia y límites explícitos. Reutiliza la lectura fiscal si el emisor
+tiene más de una security; en ese caso deja la capitalización sin calcular hasta
+reconciliar acciones por clase. `pnpm divergences:inspect --sector <code>` mide la
+cobertura guardada sin proveedores. En la base personal, Communication Services
+tiene 24 securities: dos con pares fiscales 2Y y 5Y, ninguna con todos los
+extremos completos. Las demás carecen de ventana SEC; los pares disponibles
+señalan EPS, acciones diluidas y cierres faltantes. La lectura operativa se limita
+al corte actual porque el repositorio de corridas sólo expone la última ancla
+fiscal. Siguen pendientes la ingesta durable por sector, el ajuste entre bases de
+splits y la lectura histórica del ancla. Aún no hay matriz. `F8-01` permanece
+`in_progress`.
+
+**Tercer incremento, 2026-10-26.** `fundamentals:backfill --sector` reutiliza
+el job SEC durable, con lease, presupuesto y pausa/reanudación, pero filtra los
+filers por la población versionada del sector y conserva sus antecesores de
+reporte. El plan de Communication Services contiene 24 securities y 21 filers,
+sin antecesores de reporte; el techo conservador es 1.386 requests, repartibles
+en varias jornadas por el presupuesto diario. Sólo se ejecutó el plan sin red
+ni escritura; no se creó un job. `prices:ingest --sector <code>
+--fiscal-history` pide siete años para alcanzar el cierre de hace cinco
+ejercicios fiscales; el modo habitual conserva cinco años. La ingesta de precios
+sigue siendo manual y su dry run sí consulta al proveedor. Faltan una ejecución
+sectorial, el ajuste entre bases de splits y el ancla histórica antes del gate.
+
+**Cuarto incremento, 2026-10-26.** `fiscal-endpoints-1.1.0` lee los eventos de
+precio de cada security. Si un split posterior al cierre fiscal precede la
+publicación de las acciones o del EPS elegido, conserva el dato y su fuente,
+pero marca esa base como no reconciliada y no calcula la capitalización con
+precio crudo y acciones posiblemente reexpresadas. El caso de split queda
+probado sin red. Aún falta convertir esas bases para cerrar `F8-01`.
 
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |

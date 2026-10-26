@@ -96,6 +96,7 @@ describe("selectFiscalEndpoints", () => {
         close("2023-12-29", "30"),
         close("2020-12-30", "20"),
       ],
+      events: [],
       query,
     };
     const two = selectFiscalEndpoints({ ...input, horizonYears: 2 });
@@ -114,6 +115,7 @@ describe("selectFiscalEndpoints", () => {
       series: series(),
       epsRows: [],
       closes: [close("2025-12-20", "50"), close("2023-12-29", "30", "ARS")],
+      events: [],
       query,
       horizonYears: 2,
     });
@@ -134,10 +136,44 @@ describe("selectFiscalEndpoints", () => {
         eps("2025-12-31", "11", "2026-03-01T00:00:00.000Z"),
       ],
       closes: [close("2025-12-31", "50")],
+      events: [],
       query,
       horizonYears: 2,
     });
     expect(result.latest?.dilutedEps?.value).toBe("10");
+  });
+
+  it("refuses a historical raw price times share figures reexpressed after a split", () => {
+    const result = selectFiscalEndpoints({
+      series: series(),
+      epsRows: [eps("2020-12-31", "4")],
+      closes: [close("2020-12-30", "20")],
+      events: [
+        {
+          securityId,
+          eventType: "split",
+          effectiveOn: "2022-01-01",
+          value: "4",
+          currency: null,
+        },
+      ],
+      query,
+      horizonYears: 5,
+    });
+    expect(result.earlier?.price?.close).toBe("20");
+    expect(result.earlier?.marketCap).toBeNull();
+    expect(result.earlier?.missing).toContain(
+      "market_cap_split_basis_unreconciled",
+    );
+    expect(result.earlier?.missing).toContain(
+      "diluted_eps_split_basis_unreconciled",
+    );
+    expect(result.earlier?.missing).toContain(
+      "diluted_shares_split_basis_unreconciled",
+    );
+    expect(result.latest?.missing).not.toContain(
+      "market_cap_split_basis_unreconciled",
+    );
   });
 
   it("does not claim a raw close was known earlier on its market date", () => {
@@ -151,6 +187,7 @@ describe("selectFiscalEndpoints", () => {
       series: series(),
       epsRows: [],
       closes: [close("2025-12-31", "50")],
+      events: [],
       query: sameDay,
       horizonYears: 2,
     });
@@ -180,6 +217,7 @@ describe("selectFiscalEndpoints", () => {
       },
       epsRows: [],
       closes: [close("2025-12-31", "50")],
+      events: [],
       query,
       horizonYears: 2,
     });
@@ -210,6 +248,7 @@ describe("selectFiscalEndpoints", () => {
     const input = {
       epsRows: [],
       closes: [close("2025-12-31", "50")],
+      events: [],
       query,
       horizonYears: 2 as const,
     };
@@ -228,6 +267,7 @@ describe("selectFiscalEndpoints", () => {
       series: { ...original, fiscalYears: original.fiscalYears.slice(0, 1) },
       epsRows: [],
       closes: [],
+      events: [],
       query,
       horizonYears: 5,
     });
