@@ -2,6 +2,7 @@ import type {
   DailyClose,
   PriceEvent,
 } from "@/modules/prices/domain/daily-close";
+import type { CorporateAction } from "@/modules/corporate-actions/domain/reporting-succession";
 import { createDecimalOperations } from "@/modules/numeric/domain/decimal-policy";
 import type { PointInTimeQuery } from "@/modules/temporal/domain/point-in-time-query";
 import type {
@@ -10,11 +11,16 @@ import type {
   LineItemValue,
 } from "@/modules/valuation/domain/annual-fundamentals";
 
+import {
+  reconcileFiscalSplitBasis,
+  type FiscalSplitBasis,
+} from "./fiscal-split-basis";
+
 /** A price must be the fiscal close or one of the preceding seven calendar days. */
 export const FISCAL_PRICE_MAX_LAG_DAYS = 7;
 /** A 52/53-week fiscal year can move; reject a mismatched comparison year. */
 export const FISCAL_HORIZON_TOLERANCE_DAYS = 45;
-export const FISCAL_ENDPOINTS_VERSION = "fiscal-endpoints-1.1.0";
+export const FISCAL_ENDPOINTS_VERSION = "fiscal-endpoints-1.2.0";
 
 const DAY_MS = 86_400_000;
 const DAYS_PER_YEAR = 365.2425;
@@ -32,6 +38,8 @@ export type FiscalEndpoint = {
   readonly dilutedShares: LineItemValue | null;
   /** Instant shares at fiscal close, never weighted-average diluted shares. */
   readonly sharesOutstanding: LineItemValue | null;
+  /** Comparable values on the last verified split basis at the query cutoff. */
+  readonly splitBasis: FiscalSplitBasis;
   readonly marketCap: string | null;
   readonly missing: readonly string[];
 };
@@ -107,6 +115,7 @@ function endpoint(
   epsRows: readonly FundamentalRow[],
   closes: readonly DailyClose[],
   events: readonly PriceEvent[],
+  actions: readonly CorporateAction[],
   query: PointInTimeQuery,
 ): FiscalEndpoint {
   const end = year.fiscalYearEnd;
@@ -126,29 +135,42 @@ function endpoint(
   const dilutedShares = year.items.diluted_shares ?? null;
   const sharesOutstanding = year.items.shares_outstanding ?? null;
   const dilutedEps = fiscalEps(epsRows, end, query);
+  const selectedRow = (item: LineItemValue | null) =>
+    item === null
+      ? null
+      : (epsRows.find((row) => row.observationId === item.observationId) ??
+        null);
+  const dilutedSharesRow = selectedRow(dilutedShares);
+  const sharesOutstandingRow = selectedRow(sharesOutstanding);
+  let splitBasis = reconcileFiscalSplitBasis({
+    fiscalYearEnd: end,
+    price,
+    events,
+    actions,
+    query,
+    eps: dilutedEps,
+    dilutedShares: dilutedSharesRow,
+    sharesOutstanding: sharesOutstandingRow,
+  });
+  if (
+    splitBasis.actionIds.length > 0 &&
+    ((dilutedShares !== null && dilutedSharesRow === null) ||
+      (sharesOutstanding !== null && sharesOutstandingRow === null))
+  ) {
+    splitBasis = { ...splitBasis, reason: "split_subject_unreconciled" };
+  }
   const missing: string[] = [];
-  const laterSplitRestates = (availableAt: string) =>
-    events.some(
-      (event) =>
-        event.eventType === "split" &&
-        event.effectiveOn > end &&
-        event.effectiveOn <= availableAt.slice(0, 10) &&
-        event.effectiveOn <= query.effectiveAt.slice(0, 10),
-    );
 
   if (price === null) missing.push("price_near_fiscal_close");
   if (netIncome === null) missing.push("net_income");
   if (dilutedEps === null) missing.push("diluted_eps");
   if (dilutedShares === null) missing.push("diluted_shares");
   if (sharesOutstanding === null) missing.push("shares_outstanding_at_close");
-  if (dilutedEps !== null && laterSplitRestates(dilutedEps.availableAt))
-    missing.push("diluted_eps_split_basis_unreconciled");
-  if (dilutedShares !== null && laterSplitRestates(dilutedShares.availableAt))
-    missing.push("diluted_shares_split_basis_unreconciled");
+  if (splitBasis.reason !== null) missing.push(splitBasis.reason);
 
   let marketCap: string | null = null;
   if (price !== null && sharesOutstanding !== null) {
-    if (laterSplitRestates(sharesOutstanding.availableAt)) {
+    if (splitBasis.reason !== null) {
       missing.push("market_cap_split_basis_unreconciled");
     } else if (
       price.currency !== "USD" ||
@@ -157,10 +179,13 @@ function endpoint(
     ) {
       missing.push("market_cap_unit_or_currency_mismatch");
     } else {
-      const close = decimal.parseDecimal(price.close, "price.close");
+      const close = decimal.parseDecimal(
+        splitBasis.adjustedPrice!,
+        "splitBasis.adjustedPrice",
+      );
       const shares = decimal.parseDecimal(
-        sharesOutstanding.value,
-        "sharesOutstanding.value",
+        splitBasis.adjustedSharesOutstanding ?? sharesOutstanding.value,
+        "splitBasis.adjustedSharesOutstanding",
       );
       if (close.lte(0) || shares.lte(0)) {
         missing.push("market_cap_non_positive_input");
@@ -178,6 +203,7 @@ function endpoint(
     dilutedEps,
     dilutedShares,
     sharesOutstanding,
+    splitBasis,
     marketCap,
     missing,
   };
@@ -194,11 +220,12 @@ export function selectFiscalEndpoints(input: {
   readonly epsRows: readonly FundamentalRow[];
   readonly closes: readonly DailyClose[];
   readonly events: readonly PriceEvent[];
+  readonly actions: readonly CorporateAction[];
   readonly query: PointInTimeQuery;
   readonly horizonYears: 2 | 5;
 }): FiscalEndpointPair {
   const { series, epsRows, closes, query, horizonYears } = input;
-  const { events } = input;
+  const { events, actions } = input;
   const cutoff =
     query.revisionPolicy === "as_known"
       ? [query.effectiveAt.slice(0, 10), query.knownAt.slice(0, 10)].sort()[0]!
@@ -241,11 +268,11 @@ export function selectFiscalEndpoints(input: {
     horizonYears,
     actualYears:
       earlierYear === undefined ? null : earlierYear.distance / DAYS_PER_YEAR,
-    latest: endpoint(latestYear, epsRows, closes, events, query),
+    latest: endpoint(latestYear, epsRows, closes, events, actions, query),
     earlier:
       earlierYear === undefined
         ? null
-        : endpoint(earlierYear.year, epsRows, closes, events, query),
+        : endpoint(earlierYear.year, epsRows, closes, events, actions, query),
     reason: earlierYear === undefined ? "no_comparable_year" : null,
   };
 }

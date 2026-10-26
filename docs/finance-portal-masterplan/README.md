@@ -93,5 +93,5 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 
 ## Estado actual
 
-Las fases 0, 1, 2, 7, 3, 5, 4 y 6 están cerradas. La Fase 8 está en curso con `F8-01`: extremos fiscales y lectura sectorial guardada, planificación acotada de ingesta, resguardo de splits y anclas históricas. Faltan reconciliar bases de splits y ejecutar la ingesta del sector antes de cerrar el pipeline. El estado operativo y el historial de sesiones viven en `06_PHASED_ROADMAP.md`; el orden ejecutable vive en `../backlog/README.md`.
+Las fases 0, 1, 2, 7, 3, 5, 4 y 6 están cerradas. La Fase 8 está en curso con `F8-01`: extremos fiscales y lectura sectorial guardada, planificación acotada de ingesta, anclas históricas y reconciliación de splits cuando coinciden las evidencias SEC y de mercado. Falta ejecutar la ingesta del sector y validar los extremos con datos reales antes de cerrar el pipeline. El estado operativo y el historial de sesiones viven en `06_PHASED_ROADMAP.md`; el orden ejecutable vive en `../backlog/README.md`.
 La existencia de una página o documento no demuestra avance.

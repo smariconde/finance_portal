@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { corporateActionSchema } from "@/modules/corporate-actions/domain/reporting-succession";
 import type { DailyClose } from "@/modules/prices/domain/daily-close";
 import { pointInTimeQuerySchema } from "@/modules/temporal/domain/point-in-time-query";
 import {
@@ -97,6 +98,7 @@ describe("selectFiscalEndpoints", () => {
         close("2020-12-30", "20"),
       ],
       events: [],
+      actions: [],
       query,
     };
     const two = selectFiscalEndpoints({ ...input, horizonYears: 2 });
@@ -116,6 +118,7 @@ describe("selectFiscalEndpoints", () => {
       epsRows: [],
       closes: [close("2025-12-20", "50"), close("2023-12-29", "30", "ARS")],
       events: [],
+      actions: [],
       query,
       horizonYears: 2,
     });
@@ -137,6 +140,7 @@ describe("selectFiscalEndpoints", () => {
       ],
       closes: [close("2025-12-31", "50")],
       events: [],
+      actions: [],
       query,
       horizonYears: 2,
     });
@@ -157,6 +161,7 @@ describe("selectFiscalEndpoints", () => {
           currency: null,
         },
       ],
+      actions: [],
       query,
       horizonYears: 5,
     });
@@ -166,14 +171,91 @@ describe("selectFiscalEndpoints", () => {
       "market_cap_split_basis_unreconciled",
     );
     expect(result.earlier?.missing).toContain(
-      "diluted_eps_split_basis_unreconciled",
-    );
-    expect(result.earlier?.missing).toContain(
-      "diluted_shares_split_basis_unreconciled",
+      "split_evidence_missing_or_ambiguous",
     );
     expect(result.latest?.missing).not.toContain(
       "market_cap_split_basis_unreconciled",
     );
+  });
+
+  it("calculates a historical market cap only after SEC and market split evidence agree", () => {
+    const original = series();
+    const old = "2020-12-31";
+    const published = "2021-02-01T10:00:00.000Z";
+    const earlier = original.fiscalYears.find(
+      (year) => year.fiscalYearEnd === old,
+    )!;
+    const shares = earlier.items.shares_outstanding!;
+    const diluted = earlier.items.diluted_shares!;
+    const selectedRows: FundamentalRow[] = [
+      eps(old, "8", published),
+      ...[shares, diluted].map((item) => ({
+        observationId: item.observationId,
+        subjectId: securityId,
+        concept: item.concept,
+        periodType: item.item === "shares_outstanding" ? "instant" : "annual",
+        periodStart: item.item === "shares_outstanding" ? null : "2020-01-01",
+        asOf: old,
+        unit: "shares",
+        currency: null,
+        value: item.value,
+        availableAt: published,
+        recordedAt: published,
+        sourceDocumentId: "original-filing",
+      })),
+    ];
+    const result = selectFiscalEndpoints({
+      series: {
+        ...original,
+        fiscalYears: original.fiscalYears.map((year) =>
+          year.fiscalYearEnd === old
+            ? {
+                ...year,
+                items: {
+                  ...year.items,
+                  shares_outstanding: { ...shares, availableAt: published },
+                  diluted_shares: { ...diluted, availableAt: published },
+                },
+              }
+            : year,
+        ),
+      },
+      epsRows: selectedRows,
+      closes: [close("2020-12-30", "20")],
+      events: [
+        {
+          securityId,
+          eventType: "split",
+          effectiveOn: "2022-01-10",
+          value: "4",
+          currency: null,
+        },
+      ],
+      actions: [
+        corporateActionSchema.parse({
+          corporateActionId: "44444444-4444-4444-8444-444444444444",
+          actionType: "split",
+          subjectType: "legal_entity",
+          subjectId: securityId,
+          announcedAt: null,
+          effectiveOn: "2022-02-28",
+          availableAt: "2022-03-01T10:00:00.000Z",
+          sourceId: "sec-edgar",
+          sourceDocumentId: "split-filing",
+          terms: { ratio: "4" },
+          contentHash: "a".repeat(64),
+          recordedAt: "2022-03-01T10:00:00.000Z",
+        }),
+      ],
+      query,
+      horizonYears: 5,
+    });
+    expect(result.earlier?.price?.close).toBe("20");
+    expect(result.earlier?.sharesOutstanding?.value).toBe("100");
+    expect(result.earlier?.splitBasis.adjustedPrice).toBe("5");
+    expect(result.earlier?.splitBasis.adjustedSharesOutstanding).toBe("400");
+    expect(result.earlier?.splitBasis.adjustedEps).toBe("2");
+    expect(result.earlier?.marketCap).toBe("2000");
   });
 
   it("does not claim a raw close was known earlier on its market date", () => {
@@ -188,6 +270,7 @@ describe("selectFiscalEndpoints", () => {
       epsRows: [],
       closes: [close("2025-12-31", "50")],
       events: [],
+      actions: [],
       query: sameDay,
       horizonYears: 2,
     });
@@ -218,6 +301,7 @@ describe("selectFiscalEndpoints", () => {
       epsRows: [],
       closes: [close("2025-12-31", "50")],
       events: [],
+      actions: [],
       query,
       horizonYears: 2,
     });
@@ -249,6 +333,7 @@ describe("selectFiscalEndpoints", () => {
       epsRows: [],
       closes: [close("2025-12-31", "50")],
       events: [],
+      actions: [],
       query,
       horizonYears: 2 as const,
     };
@@ -268,6 +353,7 @@ describe("selectFiscalEndpoints", () => {
       epsRows: [],
       closes: [],
       events: [],
+      actions: [],
       query,
       horizonYears: 5,
     });

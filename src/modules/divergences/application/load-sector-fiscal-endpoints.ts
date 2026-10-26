@@ -1,4 +1,5 @@
 import type { ClassificationRepository } from "@/modules/classification/application/classification-repository";
+import type { CorporateAction } from "@/modules/corporate-actions/domain/reporting-succession";
 import { loadSectorPopulation } from "@/modules/classification/application/load-sector-population";
 import { listSectors } from "@/modules/classification/domain/sector-taxonomy";
 import type { IdentityGraph } from "@/modules/identity/domain/identity-graph";
@@ -44,6 +45,9 @@ export type FiscalFactReaders = {
     legalEntityIds: readonly string[],
     query: PointInTimeQuery,
   ) => Promise<readonly string[]>;
+  readonly readSplits: (
+    legalEntityIds: readonly string[],
+  ) => Promise<readonly CorporateAction[]>;
 };
 
 export type LoadSectorFiscalDependencies = {
@@ -138,6 +142,7 @@ export async function loadSectorFiscalEndpoints(
     Promise<{
       readonly rows: readonly FundamentalRow[];
       readonly anchor: string | null;
+      readonly actions: readonly CorporateAction[];
     }>
   >();
 
@@ -149,11 +154,12 @@ export async function loadSectorFiscalEndpoints(
         const subjects = [
           ...new Set([legalEntityId, ...rows.map((row) => row.subjectId)]),
         ];
-        const anchor = chooseFiscalYearAnchor(
-          await readers.fiscalYearAnchors(subjects, query),
-          rows,
-        );
-        return { rows, anchor };
+        const [anchors, actions] = await Promise.all([
+          readers.fiscalYearAnchors(subjects, query),
+          readers.readSplits(subjects),
+        ]);
+        const anchor = chooseFiscalYearAnchor(anchors, rows);
+        return { rows, anchor, actions };
       })();
       issuerReads.set(legalEntityId, pending);
     }
@@ -188,7 +194,14 @@ export async function loadSectorFiscalEndpoints(
               ? null
               : buildAnnualFundamentals(facts.rows, facts.anchor, to);
           const [ticker] = securityTickersAt(graph, member.securityId, query);
-          const common = { series, epsRows: facts.rows, closes, events, query };
+          const common = {
+            series,
+            epsRows: facts.rows,
+            closes,
+            events,
+            actions: facts.actions,
+            query,
+          };
           const refuseIssuerWideShares = (
             pair: FiscalEndpointPair,
           ): FiscalEndpointPair => {

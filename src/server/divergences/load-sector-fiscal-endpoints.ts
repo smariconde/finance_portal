@@ -105,6 +105,11 @@ export async function loadStoredSectorFiscalEndpoints(
           );
           return anchors.filter((anchor): anchor is string => anchor !== null);
         },
+        readSplits: (subjectIds) =>
+          corporateActions.listCorporateActions({
+            subjectIds: [...subjectIds],
+            actionTypes: ["split", "reverse_split"],
+          }),
       }),
     },
   );

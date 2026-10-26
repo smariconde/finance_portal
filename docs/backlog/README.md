@@ -5224,6 +5224,20 @@ selección de observaciones conserva su propia política `as_known`. Es una lect
 local sin red, migración ni cambio en las filas publicadas. Falta reconciliar la
 base de splits y ejecutar las ingestas sectoriales antes de cerrar `F8-01`.
 
+**Sexto incremento, 2026-10-26.** `fiscal-split-basis-1.0.0` y
+`fiscal-endpoints-1.2.0` llevan el precio crudo, EPS y acciones a la última base
+de split verificada al corte. Cada split de mercado posterior al precio necesita
+una única acción SEC visible con el mismo ratio y orden de publicación: el
+`effectiveOn` de SEC es el cierre del primer período en base nueva, no el día de
+la rueda. La vintage SEC decide si su valor ya estaba reexpresado; el precio se
+divide y las acciones se multiplican por el factor necesario. Se conservan los
+valores crudos, los IDs de las acciones, el factor y los valores comparables. Si
+falta una fuente, hay más de una correspondencia o se mezclan sujetos de reporte,
+se nombra la falta y no se calcula market cap. No se agregaron rutas, migraciones
+ni llamadas de proveedor. La lectura local de Communication Services sigue con
+24 securities, dos pares por ventana y cero pares completos; faltan la ingesta
+sectorial y validación con datos reales antes de cerrar `F8-01`.
+
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
 | `F8-01` | Pipeline fiscal-aligned point-in-time de precio, market cap, net income, EPS y acciones para los filers del sector elegido, sin cargar el universo.                                   | Fase 6     | `TM-05`, `TM-06`, `TM-16` |

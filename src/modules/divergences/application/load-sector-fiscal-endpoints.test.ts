@@ -117,6 +117,7 @@ describe("loadSectorFiscalEndpoints", () => {
     );
     const readFacts = vi.fn(async () => facts());
     const fiscalYearAnchors = vi.fn(async () => ["2025-12-31"]);
+    const readSplits = vi.fn(async () => []);
     const fixtureClass = DEMO_IDENTITY_GRAPH.securities.find(
       (security) => security.securityId === DEMO_IDENTITY_IDS.fixtureCoClassA,
     )!;
@@ -152,6 +153,7 @@ describe("loadSectorFiscalEndpoints", () => {
         createFactReaders: () => ({
           readFacts,
           fiscalYearAnchors,
+          readSplits,
         }),
       },
     );
@@ -166,6 +168,9 @@ describe("loadSectorFiscalEndpoints", () => {
       [DEMO_IDENTITY_IDS.fixtureCoEntity],
       query,
     );
+    expect(readSplits).toHaveBeenCalledWith([
+      DEMO_IDENTITY_IDS.fixtureCoEntity,
+    ]);
     expect(reading.members[0]?.twoYears.earlier?.fiscalYearEnd).toBe(
       "2023-12-31",
     );
@@ -197,6 +202,7 @@ describe("loadSectorFiscalEndpoints", () => {
           createFactReaders: () => ({
             readFacts: async () => [],
             fiscalYearAnchors: async () => [],
+            readSplits: async () => [],
           }),
         },
       ),
