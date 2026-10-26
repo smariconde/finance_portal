@@ -11,8 +11,8 @@ import type { ValuationRunStatus } from "@/modules/valuation/domain/valuation-ru
 import { enqueueValuation } from "../actions";
 import {
   describeDataStep,
+  describeJobGap,
   describeQualitativeStep,
-  GAP_COPY,
   SNAPSHOT_GAP_COPY,
 } from "./job-copy";
 
@@ -98,9 +98,7 @@ export function ValuationRunner({
             message:
               view.runStatus !== null
                 ? RUN_STATUS_COPY[view.runStatus]
-                : `No se registró una corrida: ${
-                    view.gap === null ? "sin resultado." : GAP_COPY[view.gap]
-                  }${view.snapshotGap === null ? "" : ` ${SNAPSHOT_GAP_COPY[view.snapshotGap]}.`}${
+                : `No se registró una corrida: ${describeJobGap(view.gap, view.assetProfile, view.unsupportedReason)}${view.snapshotGap === null ? "" : ` ${SNAPSHOT_GAP_COPY[view.snapshotGap]}.`}${
                     describeDataStep(view.dataStep) === null
                       ? ""
                       : ` ${describeDataStep(view.dataStep)}`
@@ -162,7 +160,13 @@ export function ValuationRunner({
         ) : (
           <RefreshCw aria-hidden="true" />
         )}
-        {working ? "Valuando" : hasRun ? "Volver a valuar" : `Valuar ${ticker}`}
+        {working
+          ? phase.kind === "working" && phase.state === "queued"
+            ? "En cola"
+            : "Procesando"
+          : hasRun
+            ? "Volver a valuar"
+            : `Valuar ${ticker}`}
       </Button>
       <p
         aria-live="polite"
@@ -172,7 +176,7 @@ export function ValuationRunner({
         {phase.kind === "working"
           ? phase.state === "queued"
             ? "En cola: el pedido espera su turno."
-            : "Bajando lo que falta, auditando, consultando a la IA si hace falta y valuando: la página se actualiza al terminar."
+            : "Procesando en segundo plano: descarga de SEC y precios, auditoría, consulta cualitativa si hace falta y evaluación. La página se actualiza al terminar."
           : phase.kind === "done"
             ? phase.message
             : phase.kind === "failed"
@@ -181,6 +185,17 @@ export function ValuationRunner({
                 ? "Baja el cierre del día si falta, audita la empresa, pide a la IA lo cualitativo que falte y vuelve a valuar al corte de hoy."
                 : null}
       </p>
+      {phase.kind === "working" ? (
+        <progress
+          aria-label={`Procesamiento de ${ticker}`}
+          aria-valuetext={
+            phase.state === "queued"
+              ? "El pedido espera su turno"
+              : "El pedido está procesando datos y evaluando la empresa"
+          }
+          className="h-1.5 w-full max-w-xs accent-primary"
+        />
+      ) : null}
     </div>
   );
 }

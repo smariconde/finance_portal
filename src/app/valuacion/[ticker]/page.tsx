@@ -34,8 +34,8 @@ import {
 
 import {
   describeDataStep,
+  describeJobGap,
   describeQualitativeStep,
-  GAP_COPY,
   RIGOR_COPY,
   SNAPSHOT_GAP_COPY,
 } from "../_components/job-copy";
@@ -121,7 +121,8 @@ function NewerGapAlert({ gap }: { gap: ValuationResultNewerGap }) {
       <AlertDescription>
         El del{" "}
         <time dateTime={gap.knownAt}>{formatUtcTimestamp(gap.knownAt)}</time>{" "}
-        terminó así: {gap.gap === null ? "sin resultado." : GAP_COPY[gap.gap]}
+        terminó así:{" "}
+        {describeJobGap(gap.gap, gap.assetProfile, gap.unsupportedReason)}
         {gap.snapshotGap === null
           ? null
           : ` Motivo: ${SNAPSHOT_GAP_COPY[gap.snapshotGap]}.`}
@@ -238,9 +239,11 @@ function WithoutRun({
     const data = describeDataStep(reading.latest.dataStep);
     const qualitative = describeQualitativeStep(reading.latest.qualitativeStep);
 
-    message = `Ningún pedido registró una corrida. El último terminó así: ${
-      gap === null ? "sin resultado." : GAP_COPY[gap]
-    }${snapshotGap === null ? "" : ` Motivo: ${SNAPSHOT_GAP_COPY[snapshotGap]}.`}${data === null ? "" : ` ${data}`}${qualitative === null ? "" : ` ${qualitative}`}`;
+    message = `Ningún pedido registró una corrida. El último terminó así: ${describeJobGap(
+      gap,
+      reading.latest.assetProfile,
+      reading.latest.unsupportedReason,
+    )}${snapshotGap === null ? "" : ` Motivo: ${SNAPSHOT_GAP_COPY[snapshotGap]}.`}${data === null ? "" : ` ${data}`}${qualitative === null ? "" : ` ${qualitative}`}`;
   }
 
   return (
