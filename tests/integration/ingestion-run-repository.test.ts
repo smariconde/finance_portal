@@ -262,6 +262,22 @@ describe("PostgreSQL ingestion persistence", () => {
     await expect(runs.findByIdempotencyKey("d".repeat(64))).resolves.toEqual(
       run,
     );
+    await expect(
+      runs.findLatestAnchoredAt(
+        DEMO_SOURCE_ID,
+        DEMO_DATASETS.partial,
+        "0000320193",
+        "2026-08-23T09:59:59.999Z",
+      ),
+    ).resolves.toBeNull();
+    await expect(
+      runs.findLatestAnchoredAt(
+        DEMO_SOURCE_ID,
+        DEMO_DATASETS.partial,
+        "0000320193",
+        FIXED_NOW,
+      ),
+    ).resolves.toEqual(run);
 
     // El check espeja al schema aunque alguien escriba sin pasar por Zod.
     await expectConstraintViolation(

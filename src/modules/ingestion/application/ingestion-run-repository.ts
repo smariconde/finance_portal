@@ -45,6 +45,13 @@ export interface IngestionRunRepository {
     datasetId: string,
     subjectKey: string,
   ): Promise<IngestionRun | null>;
+  /** Latest anchored run already recorded at a historical knowledge cutoff. */
+  findLatestAnchoredAt(
+    sourceId: string,
+    datasetId: string,
+    subjectKey: string,
+    knownAt: string,
+  ): Promise<IngestionRun | null>;
   list(query: IngestionRunListQuery): Promise<IngestionRun[]>;
   /** Append-only: una corrida ya registrada no se reescribe. */
   append(run: IngestionRun): Promise<IngestionRun>;

@@ -5216,6 +5216,14 @@ pero marca esa base como no reconciliada y no calcula la capitalización con
 precio crudo y acciones posiblemente reexpresadas. El caso de split queda
 probado sin red. Aún falta convertir esas bases para cerrar `F8-01`.
 
+**Quinto incremento, 2026-10-26.** La lectura sectorial admite un corte histórico
+explícito y busca, para cada CIK del linaje, la última corrida con ancla que ya
+estaba registrada en `knownAt`. Una corrida posterior no presta su ancla al
+pasado; si no hay ninguna, el emisor queda sin par fiscal en ese corte. La
+selección de observaciones conserva su propia política `as_known`. Es una lectura
+local sin red, migración ni cambio en las filas publicadas. Falta reconciliar la
+base de splits y ejecutar las ingestas sectoriales antes de cerrar `F8-01`.
+
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
 | `F8-01` | Pipeline fiscal-aligned point-in-time de precio, market cap, net income, EPS y acciones para los filers del sector elegido, sin cargar el universo.                                   | Fase 6     | `TM-05`, `TM-06`, `TM-16` |

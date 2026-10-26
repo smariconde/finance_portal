@@ -42,6 +42,7 @@ export type FiscalFactReaders = {
   ) => Promise<readonly FundamentalRow[]>;
   readonly fiscalYearAnchors: (
     legalEntityIds: readonly string[],
+    query: PointInTimeQuery,
   ) => Promise<readonly string[]>;
 };
 
@@ -149,7 +150,7 @@ export async function loadSectorFiscalEndpoints(
           ...new Set([legalEntityId, ...rows.map((row) => row.subjectId)]),
         ];
         const anchor = chooseFiscalYearAnchor(
-          await readers.fiscalYearAnchors(subjects),
+          await readers.fiscalYearAnchors(subjects, query),
           rows,
         );
         return { rows, anchor };

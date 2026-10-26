@@ -8,6 +8,7 @@ import type { IdentityGraph } from "@/modules/identity/domain/identity-graph";
 import {
   pointInTimeQuerySchema,
   DEFAULT_SOURCE_POLICY_VERSION,
+  type PointInTimeQueryInput,
 } from "@/modules/temporal/domain/point-in-time-query";
 import { getClassificationRepository } from "@/server/persistence/get-classification-repository";
 import { getCorporateActionRepository } from "@/server/persistence/get-corporate-action-repository";
@@ -41,20 +42,21 @@ function cikOf(graph: IdentityGraph, legalEntityId: string): string | null {
   return (open ?? assignments[0])?.normalizedValue ?? null;
 }
 
-/**
- * Stored-only current snapshot. The run repository exposes the latest fiscal
- * anchor, not its historical versions, so this entrypoint cannot claim a past
- * knowledge cutoff until that reader is added.
- */
-export async function loadStoredSectorFiscalEndpoints(sectorCode: string) {
+/** Stored-only sector read; the default is the current personal snapshot. */
+export async function loadStoredSectorFiscalEndpoints(
+  sectorCode: string,
+  historicalQuery?: PointInTimeQueryInput,
+) {
   const instant = new Date().toISOString();
-  const query = pointInTimeQuerySchema.parse({
-    effectiveAt: instant,
-    knownAt: instant,
-    revisionPolicy: "as_known",
-    adjustmentPolicy: "as_known",
-    sourcePolicyVersion: DEFAULT_SOURCE_POLICY_VERSION,
-  });
+  const query = pointInTimeQuerySchema.parse(
+    historicalQuery ?? {
+      effectiveAt: instant,
+      knownAt: instant,
+      revisionPolicy: "as_known",
+      adjustmentPolicy: "as_known",
+      sourcePolicyVersion: DEFAULT_SOURCE_POLICY_VERSION,
+    },
+  );
   const corporateActions = getCorporateActionRepository();
   const observations = getObservationRepository();
   const ingestionRuns = getIngestionRunRepository();
@@ -87,15 +89,16 @@ export async function loadStoredSectorFiscalEndpoints(sectorCode: string) {
             sourceDocumentId: row.observation.sourceDocumentId,
           }));
         },
-        fiscalYearAnchors: async (subjectIds) => {
+        fiscalYearAnchors: async (subjectIds, cutoff) => {
           const anchors = await Promise.all(
             subjectIds.map(async (subjectId) => {
               const cik = cikOf(graph, subjectId);
               if (cik === null) return null;
-              const run = await ingestionRuns.findLatestAnchored(
+              const run = await ingestionRuns.findLatestAnchoredAt(
                 SEC_SOURCE_ID,
                 COMPANY_FACTS_DATASET_ID,
                 cik,
+                cutoff.knownAt ?? instant,
               );
               return run?.selectionAnchorOn ?? null;
             }),

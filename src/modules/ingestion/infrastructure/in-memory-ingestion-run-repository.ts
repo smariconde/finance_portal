@@ -70,6 +70,24 @@ export function createInMemoryIngestionRunRepository(
           )[0] ?? null
       );
     },
+    async findLatestAnchoredAt(sourceId, datasetId, subjectKey, knownAt) {
+      return (
+        runs
+          .filter(
+            (run) =>
+              run.sourceId === sourceId &&
+              run.datasetId === datasetId &&
+              run.subjectKey === subjectKey &&
+              run.selectionAnchorOn !== null &&
+              run.recordedAt <= knownAt,
+          )
+          .sort(
+            (left, right) =>
+              right.recordedAt.localeCompare(left.recordedAt) ||
+              right.startedAt.localeCompare(left.startedAt),
+          )[0] ?? null
+      );
+    },
     async list(query) {
       const parsedQuery = ingestionRunListQuerySchema.parse(query);
 
