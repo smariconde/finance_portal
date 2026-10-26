@@ -9,8 +9,10 @@
   "packageManager": "pnpm@10.33.2",
   "scripts": {
     "dev": "next dev",
+    "dev:neon": "node --network-family-autoselection-attempt-timeout=2000 --env-file=.env.neon.local node_modules/next/dist/bin/next dev --hostname 127.0.0.1",
     "build": "next build",
     "start": "next start",
+    "start:neon": "node --network-family-autoselection-attempt-timeout=2000 --env-file=.env.neon.local node_modules/next/dist/bin/next start --hostname 127.0.0.1",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
@@ -23,6 +25,7 @@
     "walkthrough": "tsx scripts/run-walkthrough.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file=.env.local scripts/migrate.ts",
+    "db:migrate:neon": "node --network-family-autoselection-attempt-timeout=2000 --env-file=.env.neon.local --import tsx scripts/migrate.ts",
     "universe:constitute": "tsx --conditions=react-server --env-file=.env.local scripts/constitute-universe.ts",
     "fundamentals:ingest": "tsx --conditions=react-server --env-file=.env.local scripts/ingest-company-facts.ts",
     "corporate-actions:record": "tsx --conditions=react-server --env-file=.env.local scripts/record-successions.ts",
@@ -78,6 +81,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
+    "@neon/config": "1.9.4",
     "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "22.19.7",

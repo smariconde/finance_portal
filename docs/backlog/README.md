@@ -84,7 +84,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    56 | `F6-14`    | `done`     | La selección y la serie leen los conceptos que los filers usan de verdad, los intereses salen de una receta con bases nombradas y una ventana vieja se baja otra vez.                                                     | `F6-13`          |
 |    57 | `F6-15`    | `done`     | Deuda cero con evidencia y EBIT sin resultado operativo en el puente, congelados en el snapshot y recalculados por el motor.                                                                                              | `F6-14`          |
 |    58 | `F6-16`    | `done`     | Opciones de empleados robustas: nota bien elegida, etiqueta de ejercicio de los minoristas, XBRL como respaldo y valuación sin restar opciones cuando no hay nada.                                                        | `F6-14`          |
-|    59 | `F6-06`    | `ready`    | Despliegue remoto: Postgres hosteada, protección de la plataforma verificada y walkthrough del owner sobre una valuación real.                                                                                            | `F6-08`          |
+|    59 | `F6-06`    | `done`     | Despliegue remoto: Postgres hosteada, protección de la plataforma verificada y walkthrough del owner sobre una valuación real.                                                                                            | `F6-08`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -3622,7 +3622,7 @@ repararon contra `source_documents`.
 | `F6-03` | Superficie de resultado sobre empresa real con nivel de rigor, provenance y supuestos distinguidos de los hechos.                                                                                                                     | `F6-02`    | `TM-12`, `TM-15`, `UI-02`, `UI-03`          |
 | `F6-04` | Anotación de acceso CEDEAR sobre el registro de `F7-03`: si existe programa, su ratio vigente y su precio, sin fusionar los dos instrumentos.                                                                                         | `F6-02`    | `TM-05`, `TM-06`                            |
 | `F6-05` | Ingesta bajo demanda: si el ticker pedido no tiene la ventana de fundamentals, la corrida la baja con presupuesto y reanudación, y audita el contrato point-in-time del sujeto antes de valuar. No hay valuación por lote (ADR 0016). | `F6-01`    | `TM-06`, `TM-10`, `TM-11`, `TM-16`          |
-| `F6-06` | Despliegue remoto: Postgres hosteada, protección del deployment verificada y walkthrough del owner sobre datos reales.                                                                                                                | `F6-03`    | `TM-14`, `UI-02`                            |
+| `F6-06` | Despliegue remoto: Postgres hosteada, protección del deployment verificada y walkthrough del owner sobre datos reales.                                                                                                                | `F6-08`    | `TM-14`, `UI-02`                            |
 | `F6-08` | Precio del CEDEAR en BYMA (símbolo corroborado de ambos emisores, ADR 0056) y valor por CEDEAR en pesos con el CCL implícito, sin feed MEP/CCL.                                                                                       | `F6-04`    | `TM-05`, `TM-06`, `TM-08`, `TM-10`          |
 | `F6-09` | Precio al `as_of` de la corrida contra su valor y DCF inverso por driver con el mismo motor, al lado de lo que la empresa mostró; sin recomendación ni color de compra o venta.                                                       | `F6-03`    | `TM-05`, `TM-06`, `TM-15`, `UI-03`          |
 | `F6-10` | `derived-assumptions-2.0.0`: ROIC terminal por regla (dataset de ROIC por industria de Damodaran, acotado entre el WACC y el ROIC propio), crecimiento por tendencia log-lineal y escenarios bear/bull derivados con su rationale.    | `F6-09`    | `TM-05`, `TM-06`, `TM-16`                   |
@@ -3648,6 +3648,131 @@ que falla, no para lo que no hubo cómo probar. Cuesta lecturas, no requests.
 `F6-06` es la condición de reingreso de `F1-08`: la sesión cronometrada del owner se
 ejecuta sobre la primera valuación real, con el protocolo del
 [runbook](../runbooks/owner-walkthrough.md).
+
+#### `F6-06` — preparación del despliegue protegido (2026-10-24)
+
+Estado: `done` el 2026-10-26; cierra el gate de Fase 6 con la limitación del walkthrough aceptada por el owner.
+
+Al inicio de la sesión el owner pidió preparar el despliegue. Después eligió
+Neon, creó el proyecto y autorizó su configuración y traslado; ese incremento
+se registra abajo. Vercel sirve la lectura personal protegida. El backup y el
+job remoto se verificaron el 2026-10-26; el owner confirmó su walkthrough sin
+tiempos medidos. La limitación y el cierre constan abajo.
+
+`F6-08` se integró con merge commit por el [PR #67](https://github.com/smariconde/finance_portal/pull/67),
+con Quality y E2E aprobados. Esta sección parte de `main` actualizado.
+El [runbook de despliegue](../runbooks/protected-deployment.md) ordena la
+verificación de todos los hosts antes de conectar datos, el aislamiento de
+secretos por entorno, la decisión y traslado de PostgreSQL, la prueba del worker
+bajo el límite real de la Function y el replay. `TM-14` continúa pendiente de
+evidencia remota; escribir `protected` no constituye esa evidencia.
+
+El walkthrough de `F1-08` reingresa sobre una empresa real: el harness acepta
+`--ticker` (AAPL por defecto), valida con el esquema del dominio antes de
+compilar y anuncia el recorrido por `/valuacion/<ticker>`. El protocolo y la
+plantilla distinguen tiempos de espera y lectura, precio, rigor, escenarios,
+CEDEAR, historial, runtime sin declarar y protección anónima remota. No se
+registraron respuestas ni tiempos del owner.
+
+Evidencia de preparación: lint, tipos, formato y diff sin errores; ayuda y ticker
+inválido comprobados sin arrancar servidores. `pnpm walkthrough --no-build --ticker aapl` normaliza a AAPL y levanta ambos procesos sólo en localhost; seis
+rutas revisadas por entorno, personal disponible y negativa trabada en las cuatro
+superficies de datos (diagnóstico accesible, inexistente 404). Usa el build ya
+existente del código de `F6-08`; no es un nuevo build ni una sesión del owner.
+Sin UI, migraciones, llamadas a proveedores ni gasto IA.
+
+**Incremento de configuración Neon del 2026-10-24.** El owner eligió Neon,
+creó un proyecto y suministró organización/proyecto y rama `production`; la
+[ADR 0057](../architecture/adr/0057-neon-hosted-postgres.md) registra esa decisión.
+CLI oficial 8.11.3 instalado, skills oficiales `neon` y `neon-postgres` leídas y
+fijadas por hash en el inventario, MCP de Codex registrado por OAuth y limitado
+al proyecto, y `neon.ts` PostgreSQL con `@neon/config` 1.9.4 de desarrollo. Se
+conservan Drizzle, `postgres.js`, el schema, el validador y la DB de integración.
+`.env.local` respaldado privadamente y su hash conservado; el enlace y deploy
+previstos usan `--no-env-pull`, con descarga a `.env.neon.local`.
+
+El owner completó `neon login` y autorizó expresamente el traslado íntegro al
+proyecto/rama/base suministrados y el alcance del rol de runtime. Se verificaron
+Free, N. Virginia, PostgreSQL 17.11 y destino vacío. Link y deploy conservan
+`.env.local`; el plan no tenía cambios y utiliza sólo PostgreSQL. MCP de Codex
+autenticado por OAuth, limitado al proyecto. No se creó otro proyecto, cambió
+el plan ni habilitó otro servicio.
+
+Un dump PostgreSQL 17 con snapshot exportado y manifiesto se restauró en una
+transacción, sin limpiar el destino ni copiar roles/ACLs locales. Las 46 tablas
+coincidieron por conteo y hashes de filas antes de la prueba de escritura; backup
+SHA-256 y verificación son privados fuera de Git. Se conserva la base local.
+El rol `finance_portal_runtime` tiene SELECT/INSERT/UPDATE/DELETE sobre las 45
+tablas públicas y defaults para las futuras del owner; sin CREATE en public,
+TEMP, SUPERUSER, CREATEDB, CREATEROLE ni BYPASSRLS. La conexión directa del owner
+es exclusiva del comando administrativo. El perfil explícito añade
+`dev:neon`, `start:neon` y `db:migrate:neon`; los servidores escuchan en localhost.
+
+Validación: 3.126 unit, lint, tipos, formato y diff pasan. Turbopack no puede
+abrir su puerto de compilación ni con ejecución ampliada; se registra la
+limitación y `npm run build -- --webpack` pasa. Las migraciones están al día.
+En Neon, gate point-in-time pasa (28.268 cadenas, 29.086 revisiones, cero fallas)
+y 10 corridas AAPL/AMZN reproducen sus hashes. Portal real AAPL servido con el
+rol limitado, desktop y mobile 390 px sin overflow; axe tras hidratación sin
+serious/critical en ambas medidas; mismo artefacto sin declarar niega datos.
+Un pedido web `ZZZZ` se guardó y su worker terminó `unresolved_ticker`; se conserva
+como auditoría de prueba. Los hashes de budgets y spend no cambiaron: cero
+requests de proveedores de datos y cero gasto IA. Artefacto: 671 archivos, cero
+hallazgos de las claves buscadas; `.env.local` conserva su hash original. No se
+publicaron capturas, payloads, snapshots ni credenciales.
+
+**Incremento Vercel del 2026-10-24.** Proyecto del owner
+`smaricondes-projects/finance-portal` vinculado al repo; Node 22.x y Functions
+`iad1` junto a Neon N. Virginia. `All Deployments` activo. Cinco hosts conocidos
+y las seis rutas del runbook redirigen anónimos al login antes y después de
+habilitar Production `personal`; Preview sigue `locked` sin DB ni claves. La
+pooled de `finance_portal_runtime` y SEC/OpenRouter/Tavily quedaron como Secrets
+sólo de Production por autorización explícita; ni conexión administrativa ni
+base de test se cargaron. El commit `549320e` se subió desde un archivo limpio
+sin archivos locales y el build quedó `READY`. `/configuracion` autenticada
+resolvió `personal`; AAPL devolvió `200` con datos de Neon. El CLI asignó el
+alias del equipo pese a `--skip-domain`; tras verificarlo se promovió el mismo
+build al dominio principal. Todos los hosts conocidos siguieron negando
+anónimos. `vercel curl` creó un bypass automático durante la lectura; se revocó
+y se verificó cero bypasses activos. No hubo job, nuevas llamadas a proveedores
+ni gasto IA en estas comprobaciones.
+
+Pendientes: retención y prueba del backup operativo, job y replay remotos bajo
+duración real de Function, y walkthrough cronometrado del owner. `TM-14` tiene
+evidencia de rechazo anónimo, pero el gate `F6-06` no cierra sin la sesión y
+las pruebas restantes. El próximo incremento sigue siendo `F6-06`; no habilita
+Fase 8.
+
+**Incremento operativo del 2026-10-26.** Un dump nuevo de Neon se restauró en
+una base local descartable: 46 tablas y los conteos de corridas, jobs y
+observaciones coincidieron (11, 22 y 29.146). Se verificó SHA-256, se conservó
+una copia privada fuera del repo y se eliminó sólo la base de prueba. El script
+`scripts/backup-neon.ts` verifica el archivo, deja manifiesto y conserva 30 días
+con piso de dos copias; el timer de usuario en `ops/systemd/` quedó activado
+para la corrida diaria y su servicio corrió con `Result=success` (84 s, 46
+tablas, 7.508.879 bytes). La siguiente activación quedó programada para el
+2026-10-27 a las 04:20 ART. [Procedimiento](../runbooks/protected-deployment.md).
+
+La Function protegida completó AAPL en unos 10 s desde el clic; el job terminó
+`run_recorded/computed` en 1,5 s y la corrida nueva se reprodujo desde Neon
+sin divergencias de hash. MSFT no tenía job: descargó 1.163 observaciones y
+terminó `unsupported_method` con motivo visible en unos 13 s, mediante dos
+jobs de 4,7 y 0,7 s. Su repetición tardó unos 9 s y no aumentó observaciones
+ni requests: el día quedó en cuatro de SEC y uno de Yahoo; sin gasto IA en
+esta prueba. `All Deployments` siguió activo, el bypass temporal se revocó,
+quedaron cero bypasses y una visita anónima a AAPL volvió a recibir `302`.
+
+El owner informó que hizo la [sesión](../walkthroughs/2026-10-26-f6-06.md),
+que funcionó bien y que no hubo dificultades, pero no midió tiempos ni dejó
+respuestas por paso. Esa limitación queda explícita: la parte cronometrada del
+protocolo aún no tiene evidencia. Localmente pasan lint, tipos, formato,
+`git diff --check`, 3.128 unit y el gate E2E (204 pasan, 2 omitidos).
+[Quality y E2E de CI](https://github.com/smariconde/finance_portal/actions/runs/40388604090)
+pasaron sobre `8d428a6`; el preview de Vercel también pasó. El owner aceptó
+explícitamente cerrar con la limitación documentada: no hay medida de tiempo
+hasta encontrar y leer la respuesta, y una revisión de esa experiencia requerirá
+repetir las tareas con cronómetro. Con esa excepción, `F6-06` y el gate de Fase 6
+quedan `done`. La siguiente slice autorizada es `F8-01`.
 
 #### `F6-01` — corrida por ticker encolada (cerrado el 2026-10-21)
 
@@ -5096,7 +5221,7 @@ probar el control; fases posteriores pueden volver a verificarlo.
 | `TM-11` | `F2-05`                                 | `F6-05`, `F9-01`, `F10-05`               | `done` para el backfill y el refresh de la SEC: lease, `429`, crash y recuperación manual probados sobre los dos kinds (ADR 0015, ADR 0022); cron sigue apagado                                                                                                                                 |
 | `TM-12` | `F1-01`                                 | cada UI externa, `F10-06`                | headers base y render seguro verificados                                                                                                                                                                                                                                                        |
 | `TM-13` | `F10-07`                                | cada actualización de dependencia        | baseline implementada; scans pendientes                                                                                                                                                                                                                                                         |
-| `TM-14` | `F2-01`, antes del primer deploy remoto | `F6-06`, `F10-03`                        | required: `F2-01` habilita produccion; la proteccion del deployment es su precondicion                                                                                                                                                                                                          |
+| `TM-14` | `F2-01`, antes del primer deploy remoto | `F6-06`, `F10-03`                        | done en `F6-06`: All Deployments intercepta los hosts conocidos, Production sirve datos sólo autenticado y no quedan bypasses activos                                                                                                                                                           |
 | `TM-15` | `F3-03`, nivel de rigor declarado       | cada IA/export, `F5-03`, `F6-03`         | rescopeado por ADR 0007: derechos pasan a procedencia informativa; el control ahora es el nivel de rigor declarado                                                                                                                                                                              |
 | `TM-16` | `F1-03`                                 | cada operación y gate                    | `done` sobre ingesta y valuación: corridas append-only con hash, versión y error seguro                                                                                                                                                                                                         |
 | `UI-01` | Fase `0B.7`                             | revisar copy al cambiar roadmap          | revisar: el copy de la home cita el orden de fases anterior al pivote                                                                                                                                                                                                                           |

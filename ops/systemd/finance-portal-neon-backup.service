@@ -1,0 +1,10 @@
+[Unit]
+Description=Back up the personal finance portal Neon database
+ConditionPathExists=%h/Work/github/finance_portal/.env.neon.local
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/Work/github/finance_portal
+UMask=0077
+ExecStart=/usr/bin/node --env-file=.env.neon.local --import tsx scripts/backup-neon.ts
+TimeoutStartSec=10min

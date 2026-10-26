@@ -63,6 +63,30 @@ cambio.
   supporting evidence, validation and inventory update.
 - The learning loop never enables hooks, downloads rules or makes network calls.
 
+## Consulta puntual: Neon (2026-10-24)
+
+El owner proporcionó el prompt de su proyecto Neon y pidió seguir la skill
+oficial para configurar CLI, MCP y PostgreSQL. Se leyeron desde el sitio oficial,
+sin vendorizarlas ni instalar hooks o actualizaciones automáticas:
+
+| Skill           | Fuente                                                             | SHA-256 del contenido leído                                        |
+| --------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| `neon`          | `https://neon.com/.well-known/agent-skills/neon/SKILL.md`          | `0a90876a53bac24f337aa7555b12e96b59e8f75bc7e485d26e95929965361c61` |
+| `neon-postgres` | `https://neon.com/.well-known/agent-skills/neon-postgres/SKILL.md` | `2a678875655810d33e42284de50d19a8c669691a39c2924d2c03f770068a1a87` |
+
+El CLI oficial `neon` 8.11.3 se instaló en la máquina del owner. El MCP de Codex
+se registró por OAuth, se autenticó y quedó limitado al proyecto suministrado; los perfiles y tokens
+son locales al agente. La consulta no instala una dependencia de skills para
+otros contribuidores. `@neon/config` 1.9.4 sí se registra como herramienta de
+desarrollo en el lockfile del repositorio.
+
+La skill recomienda conservar ORM y driver; se conserva Drizzle y `postgres.js`.
+Su alternativa manual `link --no-env-pull` permite preservar `.env.local`; se usa
+en lugar del `init` combinado cuando hay conexiones existentes. El deploy usa
+`--no-env-pull` y las variables de PostgreSQL se descargan a un archivo privado
+separado. Autoactualizaciones, servicios adicionales, cambios de driver,
+telemetría del producto y política automática de ramas quedan fuera del alcance.
+
 ## Deferred candidates
 
 Nothing in this table is installed or approved by being listed. Installation requires
