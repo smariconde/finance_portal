@@ -48,6 +48,23 @@ export const GAP_COPY: Record<ValuationJobGap, string> = {
     "La IA resolvió lo cualitativo que faltaba, con citas del 10-K que una policy verificó; otro pedido valúa con un corte que lo ve.",
 };
 
+/** El selector conserva el perfil y el motivo; el gap solo no explica el caso. */
+export function describeJobGap(
+  gap: ValuationJobGap | null,
+  assetProfile: AssetProfile | null,
+  unsupportedReason: MethodSelectionReason | null,
+): string {
+  if (
+    gap === "unsupported_method" &&
+    (assetProfile === "cyclical" || assetProfile === "commodity") &&
+    unsupportedReason === "missing_required_input"
+  ) {
+    return `La empresa fue clasificada como ${assetProfile === "cyclical" ? "cíclica" : "commodity"}. Para valuarla hacen falta entre cinco y diez ejercicios comparables que representen el ciclo y supuestos de convergencia de márgenes. Esta página todavía no permite cargarlos.`;
+  }
+
+  return gap === null ? "sin resultado." : GAP_COPY[gap];
+}
+
 const TASK_COPY: Record<QualitativeTask, string> = {
   industry: "la industria",
   employeeEquity: "las opciones de empleados",

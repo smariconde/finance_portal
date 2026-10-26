@@ -4233,6 +4233,15 @@ Evidencia:
 - Axe en escritorio claro y móvil oscuro sin hallazgos nuevos (`region` de la
   sidebar ya estaba); sin desborde a 390 px.
 
+Corrección transversal del 2026-10-26: el pedido por ticker ya descargaba datos
+en segundo plano, pero el estado no mostraba una barra y el resultado de CAT
+ocultaba el motivo del rechazo bajo «método no admitido». El estado ahora muestra
+una barra indeterminada mientras el job está abierto y distingue cola de
+procesamiento. El resultado nombra el perfil cíclico y los datos y supuestos de
+ciclo que exige la ADR 0042. No declara progreso porcentual: el job no publica
+etapas intermedias. CAT sigue sin valuación automática por ticker hasta contar
+con una entrada revisable para ese snapshot privado.
+
 #### `F6-11` — lectura del 10-K frente a lo que exige el precio (cerrado el 2026-10-21)
 
 Estado del slice: `done`. No cierra el gate de la Fase 6. `F6-12` queda

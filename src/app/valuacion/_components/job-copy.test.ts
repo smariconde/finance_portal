@@ -2,7 +2,25 @@ import { describe, expect, it } from "vitest";
 
 import { VALUATION_QUALITATIVE_RULE_VERSION } from "@/modules/valuation/domain/valuation-qualitative-step";
 
-import { describeQualitativeStep } from "./job-copy";
+import { describeJobGap, describeQualitativeStep } from "./job-copy";
+
+describe("describeJobGap", () => {
+  it("explains why a cyclical ticker cannot yet be valued from the page", () => {
+    expect(
+      describeJobGap(
+        "unsupported_method",
+        "cyclical",
+        "missing_required_input",
+      ),
+    ).toContain("Esta página todavía no permite cargarlos.");
+  });
+
+  it("keeps the generic reason when the missing input belongs to another profile", () => {
+    expect(
+      describeJobGap("unsupported_method", "bank", "missing_required_input"),
+    ).toBe("El método que le corresponde no está admitido.");
+  });
+});
 
 const base = {
   ruleVersion: VALUATION_QUALITATIVE_RULE_VERSION,
