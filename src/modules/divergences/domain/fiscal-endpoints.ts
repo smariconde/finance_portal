@@ -20,7 +20,7 @@ import {
 export const FISCAL_PRICE_MAX_LAG_DAYS = 7;
 /** A 52/53-week fiscal year can move; reject a mismatched comparison year. */
 export const FISCAL_HORIZON_TOLERANCE_DAYS = 45;
-export const FISCAL_ENDPOINTS_VERSION = "fiscal-endpoints-1.2.0";
+export const FISCAL_ENDPOINTS_VERSION = "fiscal-endpoints-1.3.0";
 
 const DAY_MS = 86_400_000;
 const DAYS_PER_YEAR = 365.2425;
@@ -93,7 +93,8 @@ function fiscalEps(
           row.asOf !== end ||
           row.periodStart === null ||
           row.value === null ||
-          row.unit !== "USD/shares" ||
+          row.unit !== "monetary_per_share" ||
+          row.currency !== "USD" ||
           !known(row.availableAt, row.recordedAt, query)
         )
           return false;

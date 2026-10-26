@@ -66,7 +66,7 @@ function eps(
     periodType: "annual",
     periodStart: `${Number(end.slice(0, 4))}-01-01`,
     asOf: end,
-    unit: "USD/shares",
+    unit: "monetary_per_share",
     currency: "USD",
     value,
     availableAt,

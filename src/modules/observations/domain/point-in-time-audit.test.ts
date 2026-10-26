@@ -336,9 +336,9 @@ describe("auditRevisionChain", () => {
   });
 
   describe("as_known_excludes_later_revision", () => {
-    it("names a fact that cannot be read at its own acceptance", () => {
-      // `as_of` posterior a la aceptación del filing que lo reporta: el corte
-      // económico lo esconde justo cuando se volvió público.
+    it("keeps the economic cutoff at a future fact while testing revision knowledge", () => {
+      // A debt maturity can have an `as_of` after the filing accepted it.
+      // The audit must vary knowledge time without hiding the fact by date.
       const key = { asOf: "2025-12-31", periodEnd: "2025-12-31" };
       const first = observation({
         key,
@@ -362,13 +362,10 @@ describe("auditRevisionChain", () => {
       );
 
       expect(
-        result.findings.map((finding) => [finding.claim, finding.detail]),
-      ).toEqual([
-        [
-          "as_known_excludes_later_revision",
-          "earlier_knowledge_returned_nothing",
-        ],
-      ]);
+        result.findings.filter(
+          (finding) => finding.claim === "as_known_excludes_later_revision",
+        ),
+      ).toEqual([]);
     });
 
     it("names a revision number that does not track availability", () => {

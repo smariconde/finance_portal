@@ -71,7 +71,7 @@ function row(
   const unit = concept.includes("Shares")
     ? "shares"
     : concept.includes("EarningsPerShare")
-      ? "USD/shares"
+      ? "monetary_per_share"
       : "USD";
   return {
     observationId: `${concept}-${end}`,
@@ -81,7 +81,7 @@ function row(
     asOf: end,
     periodStart: periodType === "annual" ? `${end.slice(0, 4)}-01-01` : null,
     unit,
-    currency: unit === "USD" || unit === "USD/shares" ? "USD" : null,
+    currency: unit === "USD" || unit === "monetary_per_share" ? "USD" : null,
     value,
     availableAt: "2026-01-20T00:00:00.000Z",
     recordedAt: "2026-01-21T00:00:00.000Z",

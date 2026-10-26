@@ -12,7 +12,7 @@ import type { PointInTimeQuery } from "@/modules/temporal/domain/point-in-time-q
 import type { FundamentalRow } from "@/modules/valuation/domain/annual-fundamentals";
 
 /** SEC publication dates and market split dates describe different events. */
-export const FISCAL_SPLIT_BASIS_VERSION = "fiscal-split-basis-1.0.0";
+export const FISCAL_SPLIT_BASIS_VERSION = "fiscal-split-basis-1.1.0";
 
 const decimal = createDecimalOperations((code, message) => {
   const error = new Error(message);
@@ -126,7 +126,7 @@ export function reconcileFiscalSplitBasis(input: {
     const candidates = actions.filter(
       (action) =>
         !matched.includes(action) &&
-        action.effectiveOn >= event.effectiveOn &&
+        action.effectiveOn > fiscalYearEnd &&
         action.availableAt.slice(0, 10) >= event.effectiveOn &&
         (matched.length === 0 ||
           action.availableAt >= matched[matched.length - 1]!.availableAt) &&

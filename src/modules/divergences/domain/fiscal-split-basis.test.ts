@@ -28,7 +28,9 @@ function row(
       concept === "CommonStockSharesOutstanding" ? "instant" : "annual",
     asOf: "2020-12-31",
     periodStart: "2020-01-01",
-    unit: concept.includes("EarningsPerShare") ? "USD/shares" : "shares",
+    unit: concept.includes("EarningsPerShare")
+      ? "monetary_per_share"
+      : "shares",
     currency: concept.includes("EarningsPerShare") ? "USD" : null,
     value,
     availableAt,
@@ -85,7 +87,7 @@ describe("reconcileFiscalSplitBasis", () => {
   it("carries raw price and pre-split SEC facts into the verified new basis", () => {
     const result = reconcileFiscalSplitBasis(input());
     expect(result).toMatchObject({
-      version: "fiscal-split-basis-1.0.0",
+      version: "fiscal-split-basis-1.1.0",
       reason: null,
       priceFactor: "4",
       adjustedPrice: "5",
@@ -94,6 +96,30 @@ describe("reconcileFiscalSplitBasis", () => {
       adjustedSharesOutstanding: "400",
       actionIds: ["33333333-3333-4333-8333-333333333333"],
     });
+  });
+
+  it("matches a split when the SEC period end precedes the market date", () => {
+    const result = reconcileFiscalSplitBasis({
+      ...input("20"),
+      events: [
+        {
+          securityId,
+          eventType: "split",
+          effectiveOn: "2022-07-18",
+          value: "20",
+          currency: null,
+        },
+      ],
+      actions: [
+        {
+          ...action("20", "2022-07-26T23:29:36.000Z"),
+          effectiveOn: "2022-06-30",
+        },
+      ],
+    });
+    expect(result.reason).toBeNull();
+    expect(result.adjustedPrice).toBe("1");
+    expect(result.adjustedSharesOutstanding).toBe("2000");
   });
 
   it("does not adjust a fact already published in the split basis", () => {
@@ -141,7 +167,7 @@ describe("reconcileFiscalSplitBasis", () => {
     expect(
       reconcileFiscalSplitBasis({
         ...input(),
-        actions: [{ ...action(), effectiveOn: "2021-12-31" }],
+        actions: [{ ...action(), effectiveOn: "2020-12-31" }],
       }).reason,
     ).toBe("split_evidence_missing_or_ambiguous");
     expect(
