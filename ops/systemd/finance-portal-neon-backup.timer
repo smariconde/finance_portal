@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily private backup of the finance portal Neon database
+
+[Timer]
+OnCalendar=*-*-* 04:15:00
+Persistent=true
+RandomizedDelaySec=30min
+Unit=finance-portal-neon-backup.service
+
+[Install]
+WantedBy=timers.target
