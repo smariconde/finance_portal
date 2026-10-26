@@ -3655,8 +3655,9 @@ Estado: `in_progress`; no cierra el gate de Fase 6.
 
 Al inicio de la sesión el owner pidió preparar el despliegue. Después eligió
 Neon, creó el proyecto y autorizó su configuración y traslado; ese incremento
-se registra abajo. Vercel ya sirve la lectura personal protegida; el backup
-operativo, el job remoto y el walkthrough siguen pendientes.
+se registra abajo. Vercel sirve la lectura personal protegida. El backup y el
+job remoto se verificaron el 2026-10-26; el owner confirmó su walkthrough sin
+tiempos medidos. La limitación y el cierre pendiente constan abajo.
 
 `F6-08` se integró con merge commit por el [PR #67](https://github.com/smariconde/finance_portal/pull/67),
 con Quality y E2E aprobados. Esta sección parte de `main` actualizado.
@@ -3741,6 +3742,33 @@ duración real de Function, y walkthrough cronometrado del owner. `TM-14` tiene
 evidencia de rechazo anónimo, pero el gate `F6-06` no cierra sin la sesión y
 las pruebas restantes. El próximo incremento sigue siendo `F6-06`; no habilita
 Fase 8.
+
+**Incremento operativo del 2026-10-26.** Un dump nuevo de Neon se restauró en
+una base local descartable: 46 tablas y los conteos de corridas, jobs y
+observaciones coincidieron (11, 22 y 29.146). Se verificó SHA-256, se conservó
+una copia privada fuera del repo y se eliminó sólo la base de prueba. El script
+`scripts/backup-neon.ts` verifica el archivo, deja manifiesto y conserva 30 días
+con piso de dos copias; el timer de usuario en `ops/systemd/` quedó activado
+para la corrida diaria y su servicio corrió con `Result=success` (84 s, 46
+tablas, 7.508.879 bytes). La siguiente activación quedó programada para el
+2026-10-27 a las 04:20 ART. [Procedimiento](../runbooks/protected-deployment.md).
+
+La Function protegida completó AAPL en unos 10 s desde el clic; el job terminó
+`run_recorded/computed` en 1,5 s y la corrida nueva se reprodujo desde Neon
+sin divergencias de hash. MSFT no tenía job: descargó 1.163 observaciones y
+terminó `unsupported_method` con motivo visible en unos 13 s, mediante dos
+jobs de 4,7 y 0,7 s. Su repetición tardó unos 9 s y no aumentó observaciones
+ni requests: el día quedó en cuatro de SEC y uno de Yahoo; sin gasto IA en
+esta prueba. `All Deployments` siguió activo, el bypass temporal se revocó,
+quedaron cero bypasses y una visita anónima a AAPL volvió a recibir `302`.
+
+El owner informó que hizo la [sesión](../walkthroughs/2026-10-26-f6-06.md),
+que funcionó bien y que no hubo dificultades, pero no midió tiempos ni dejó
+respuestas por paso. Esa limitación queda explícita: la parte cronometrada del
+protocolo aún no tiene evidencia. Localmente pasan lint, tipos, formato,
+`git diff --check`, 3.128 unit y el gate E2E (204 pasan, 2 omitidos). `F6-06`
+sigue `in_progress` hasta resolver ese criterio y pasar Quality/E2E en CI
+antes del merge.
 
 #### `F6-01` — corrida por ticker encolada (cerrado el 2026-10-21)
 
@@ -5189,7 +5217,7 @@ probar el control; fases posteriores pueden volver a verificarlo.
 | `TM-11` | `F2-05`                                 | `F6-05`, `F9-01`, `F10-05`               | `done` para el backfill y el refresh de la SEC: lease, `429`, crash y recuperación manual probados sobre los dos kinds (ADR 0015, ADR 0022); cron sigue apagado                                                                                                                                 |
 | `TM-12` | `F1-01`                                 | cada UI externa, `F10-06`                | headers base y render seguro verificados                                                                                                                                                                                                                                                        |
 | `TM-13` | `F10-07`                                | cada actualización de dependencia        | baseline implementada; scans pendientes                                                                                                                                                                                                                                                         |
-| `TM-14` | `F2-01`, antes del primer deploy remoto | `F6-06`, `F10-03`                        | required: `F2-01` habilita produccion; la proteccion del deployment es su precondicion                                                                                                                                                                                                          |
+| `TM-14` | `F2-01`, antes del primer deploy remoto | `F6-06`, `F10-03`                        | done en `F6-06`: All Deployments intercepta los hosts conocidos, Production sirve datos sólo autenticado y no quedan bypasses activos                                                                                                                                                           |
 | `TM-15` | `F3-03`, nivel de rigor declarado       | cada IA/export, `F5-03`, `F6-03`         | rescopeado por ADR 0007: derechos pasan a procedencia informativa; el control ahora es el nivel de rigor declarado                                                                                                                                                                              |
 | `TM-16` | `F1-03`                                 | cada operación y gate                    | `done` sobre ingesta y valuación: corridas append-only con hash, versión y error seguro                                                                                                                                                                                                         |
 | `UI-01` | Fase `0B.7`                             | revisar copy al cambiar roadmap          | revisar: el copy de la home cita el orden de fases anterior al pivote                                                                                                                                                                                                                           |

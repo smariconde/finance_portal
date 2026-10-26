@@ -3,7 +3,9 @@
 - Slice: `F6-06`; controles `TM-14`, `TM-01`, `TM-02` y `UI-02`.
 - Estado: Neon operativo y Vercel Authentication / All Deployments activado;
   Production sirve `personal` con el rol pooled, Preview permanece `locked`.
-  Faltan backup operativo, prueba del job y walkthrough del owner.
+  Backup y jobs remotos verificados el 2026-10-26. El owner confirmó que su
+  recorrido funcionó, sin tiempos medidos; el gate sigue abierto por ese
+  criterio y CI.
 - Contrato: [ADR 0008](../architecture/adr/0008-remote-personal-access.md).
 
 ## Decisión de PostgreSQL
@@ -82,9 +84,43 @@ Con autorización explícita del owner, se restauró un dump consistente de la
 personal local sobre Neon vacío, incluyendo el journal. Las 46 tablas
 coincidieron por conteo y hashes de contenido antes de probar la aplicación.
 Backup y manifiesto permanecen privados fuera de Git, y la base Docker se
-conserva. El respaldo del traslado es temporal; no acredita una retención de
-backups de producción. La política durable se define antes del uso remoto
-continuado.
+conserva. El respaldo del traslado es temporal y no sustituye el backup
+operativo de producción que se describe abajo.
+
+## Backup operativo de Neon
+
+`scripts/backup-neon.ts` usa únicamente `DATABASE_DIRECT_URL` del perfil
+`.env.neon.local`. Produce un dump PostgreSQL custom en
+`~/.local/share/finance-portal/backups/`, comprueba que `pg_restore --list`
+pueda leerlo y escribe un manifiesto privado con SHA-256, bytes, fecha y
+cantidad de tablas. La carpeta tiene modo `0700`; dump y manifiesto, `0600`.
+La contraseña llega a `pg_dump` por el entorno del proceso, no por sus
+argumentos ni por el log. El script nunca limpia un backup si el nuevo falla.
+
+El timer de usuario versionado en `ops/systemd/` corre diariamente a las
+04:15 hora local con hasta 30 minutos de dispersión. `Persistent=true` intenta
+la corrida pendiente al volver a iniciar sesión si la máquina estaba apagada.
+Conserva todos los dumps verificados de los últimos 30 días y, como mínimo,
+los dos más nuevos. Al ser un backup local, una máquina apagada no hace una
+copia remota: revisar el timer y la antigüedad del último manifiesto antes de
+una migración. No se instaló un servicio de almacenamiento externo.
+
+```bash
+systemctl --user list-timers finance-portal-neon-backup.timer
+systemctl --user status finance-portal-neon-backup.service
+journalctl --user -u finance-portal-neon-backup.service -n 30 --no-pager
+# Copia extra antes de una migración:
+/usr/bin/node --env-file=.env.neon.local --import tsx scripts/backup-neon.ts
+```
+
+El 2026-10-26, un dump de Neon se restauró en una base **local descartable**;
+las 46 tablas y los conteos de `valuation_runs`, `valuation_jobs` y
+`observations` coincidieron (11, 22 y 29.146). La base de prueba se eliminó
+después. El backup privado se conserva fuera de Git. Una ejecución posterior
+del script verificó 46 tablas y el servicio de systemd se comprobó por
+separado. Para recuperar de verdad, verificar primero el SHA-256 del manifiesto,
+restaurar en una base nueva y comparar esquema y conteos antes de cambiar
+ninguna conexión de producción; no restaurar sobre la rama activa.
 
 `finance_portal_runtime` tiene los cuatro permisos DML sobre las 45 tablas
 públicas y permisos por defecto para las futuras tablas del owner. No puede
