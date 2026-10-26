@@ -4,8 +4,8 @@
 - Estado: Neon operativo y Vercel Authentication / All Deployments activado;
   Production sirve `personal` con el rol pooled, Preview permanece `locked`.
   Backup y jobs remotos verificados el 2026-10-26. El owner confirmó que su
-  recorrido funcionó, sin tiempos medidos; el gate sigue abierto por ese
-  criterio y CI.
+  recorrido funcionó, sin tiempos medidos. Aceptó cerrar con esa limitación
+  documentada; Quality y E2E pasaron en CI y el gate quedó cerrado.
 - Contrato: [ADR 0008](../architecture/adr/0008-remote-personal-access.md).
 
 ## Decisión de PostgreSQL
@@ -277,6 +277,10 @@ mismo commit, y la negativa anónima se comprueba además en la plataforma remot
 `F6-06` sólo pasa a `done` con ADR aceptada, DB hosteada validada, protección
 probada en cada host, job remoto completo, replay y registro del owner. Quality y
 E2E deben pasar antes del merge. La preparación documental no cierra ese gate.
+El cierre del 2026-10-26 registra la [excepción aceptada por el owner](../walkthroughs/2026-10-26-f6-06.md):
+la sesión funcionó sin dificultades, pero no se midieron los tiempos ni se
+registraron respuestas por paso. Esa medición queda pendiente de una futura
+repetición cronometrada; no se le atribuye un resultado numérico.
 
 Ante exposición, quitar el acceso al deployment en la plataforma primero,
 restablecer `locked/public`, retirar secretos y redeployar. Verificar también las
