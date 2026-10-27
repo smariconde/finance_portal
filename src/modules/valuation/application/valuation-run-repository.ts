@@ -10,7 +10,10 @@ import {
 
 import type { AppMode } from "@/modules/configuration/domain/config-health";
 import { selectPersonalDependency } from "@/modules/configuration/domain/runtime-lock";
-import { contentHashSchema } from "@/modules/temporal/domain/temporal-version";
+import {
+  calendarDateSchema,
+  contentHashSchema,
+} from "@/modules/temporal/domain/temporal-version";
 
 import { ENGINE_VERSION, METHODOLOGY_VERSION } from "../domain/valuation-input";
 import {
@@ -68,6 +71,35 @@ export const valuationRunListQuerySchema = z.object({
 
 export type ValuationRunListQuery = z.input<typeof valuationRunListQuerySchema>;
 
+/**
+ * La última corrida con valor de cada empresa en una ventana de `as_of`
+ * (`F6-19`): la de `as_of` más reciente y, en empate, la registrada última.
+ * Superar el techo es un error, no un truncado: una mediana con empresas de
+ * menos sin aviso sería otra mediana (`TM-07`).
+ */
+export const valuationRunWindowQuerySchema = z
+  .object({
+    from: calendarDateSchema,
+    to: calendarDateSchema,
+    methods: z.array(z.string().trim().min(1).max(64)).min(1).max(8),
+    limit: z.number().int().min(1).max(1_000).default(600),
+  })
+  .refine((query) => query.from <= query.to, {
+    message: "A window starts on or before its end.",
+    path: ["from"],
+  });
+
+export type ValuationRunWindowQuery = z.input<
+  typeof valuationRunWindowQuerySchema
+>;
+
+/** Los estados que tienen valor por acción. */
+export const VALUED_RUN_STATUSES = ["computed", "requires_review"] as const;
+
+export class ValuationRunWindowLimitError extends Error {
+  override readonly name = "ValuationRunWindowLimitError";
+}
+
 export interface ValuationRunRepository {
   readonly storage: "in-memory-fixture" | "personal-postgres";
   /**
@@ -80,6 +112,9 @@ export interface ValuationRunRepository {
   /** Una corrida por su ID, para volver a calcularla (`F5-06`). */
   findById(valuationRunId: string): Promise<StoredValuationRun | null>;
   list(query: ValuationRunListQuery): Promise<StoredValuationRun[]>;
+  listLatestInWindow(
+    query: ValuationRunWindowQuery,
+  ): Promise<StoredValuationRun[]>;
 }
 
 type RepositoryFactories = {

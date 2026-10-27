@@ -59,6 +59,7 @@ import { CostOfCapitalTable } from "./_components/cost-of-capital-table";
 import { DerivationSummary } from "./_components/derivation-summary";
 import { AuditGroup } from "./_components/audit-group";
 import { CompanyHistory } from "./_components/company-history";
+import { PeerContext } from "./_components/peer-context";
 import { PriceRequirements } from "./_components/price-requirements";
 import { ValueWalkthrough } from "./_components/value-walkthrough";
 import { VerdictPanel } from "./_components/verdict-panel";
@@ -192,6 +193,7 @@ function PageFrame({
 const SECTIONS = [
   { id: "veredicto", label: "Precio contra valor" },
   { id: "exigencias", label: "Qué tendría que pasar" },
+  { id: "pares", label: "Frente a sus pares" },
   { id: "historia", label: "Cómo viene la empresa" },
   { id: "valor", label: "Por qué vale eso" },
   { id: "escenarios", label: "Escenarios" },
@@ -421,6 +423,10 @@ export default async function ValuationResultPage({ params }: PageProps) {
 
       <Anchor id="exigencias">
         <PriceRequirements run={run} market={reading.market} />
+      </Anchor>
+
+      <Anchor id="pares">
+        <PeerContext context={reading.peers} />
       </Anchor>
 
       <Anchor id="historia">

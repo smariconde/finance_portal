@@ -29,6 +29,7 @@ import {
   subjectAt,
 } from "./read-valuation-result";
 import type { ValuationRun } from "../domain/valuation-run";
+import { InMemoryClassificationRepository } from "@/modules/classification/infrastructure/in-memory-classification-repository";
 import type { ValuationJobStore } from "./valuation-job-store";
 
 const T0 = "2026-10-21T15:00:00.000Z";
@@ -55,6 +56,7 @@ const REGISTRY: StoredCedearRegistry = {
 const cedears = { loadRegistry: async () => REGISTRY };
 const prices = new InMemoryPriceRepository();
 const expectations = createInMemoryMarketExpectationsRepository();
+const classifications = new InMemoryClassificationRepository();
 /** Sin fundamentals ingeridos: la historia queda nula, no inventada. */
 const fundamentals = () => ({
   readFundamentals: async () => [],
@@ -99,6 +101,7 @@ describe("readValuationResult", () => {
         jobs: createInMemoryValuationJobStore(),
         runs: createInMemoryValuationRunRepository(),
         universe,
+        classifications,
         cedears,
         prices,
         expectations,
@@ -144,6 +147,7 @@ describe("readValuationResult", () => {
         jobs,
         runs,
         universe,
+        classifications,
         cedears,
         prices,
         expectations,
@@ -185,7 +189,16 @@ describe("readValuationResult", () => {
 
     const reading = await readValuationResult(
       { ticker: "AAPL" },
-      { jobs, runs, universe, cedears, prices, expectations, fundamentals },
+      {
+        jobs,
+        runs,
+        universe,
+        classifications,
+        cedears,
+        prices,
+        expectations,
+        fundamentals,
+      },
     );
 
     expect(reading.state === "run" && reading.trajectory).toBeNull();
@@ -205,6 +218,7 @@ describe("readValuationResult", () => {
         jobs,
         runs: createInMemoryValuationRunRepository(),
         universe,
+        classifications,
         cedears,
         prices,
         expectations,
@@ -236,7 +250,16 @@ describe("readValuationResult", () => {
 
     const reading = await readValuationResult(
       { ticker: "AAPL" },
-      { jobs, runs, universe, cedears, prices, expectations, fundamentals },
+      {
+        jobs,
+        runs,
+        universe,
+        classifications,
+        cedears,
+        prices,
+        expectations,
+        fundamentals,
+      },
     );
 
     expect(reading.state).toBe("run");
@@ -265,7 +288,16 @@ describe("readValuationResult", () => {
 
     const reading = await readValuationResult(
       { ticker: "AAPL" },
-      { jobs, runs, universe, cedears, prices, expectations, fundamentals },
+      {
+        jobs,
+        runs,
+        universe,
+        classifications,
+        cedears,
+        prices,
+        expectations,
+        fundamentals,
+      },
     );
 
     expect(reading.state === "run" && reading.newerGap).toBeNull();
@@ -306,6 +338,7 @@ describe("readValuationResult", () => {
         jobs,
         runs,
         universe,
+        classifications,
         cedears,
         prices: series,
         expectations,
@@ -404,6 +437,7 @@ describe("readValuationResult", () => {
         jobs,
         runs,
         universe,
+        classifications,
         cedears,
         prices: series,
         expectations: readings,

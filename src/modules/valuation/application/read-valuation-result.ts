@@ -57,6 +57,9 @@ import {
 } from "./assess-company";
 import { issuerFactsAt } from "./issuer-facts";
 import type { MarketExpectationsRepository } from "./market-expectations-repository";
+import { readPeerContext } from "./read-peer-context";
+import type { PeerContext } from "../domain/peer-context";
+import type { ClassificationRepository } from "@/modules/classification/application/classification-repository";
 import type { ValuationRunRepository } from "./valuation-run-repository";
 import {
   VALUATION_HISTORY_LIMIT,
@@ -190,11 +193,20 @@ export type ValuationResultReading =
        * la corrida. `null` cuando la empresa no tiene fundamentals ingeridos.
        */
       readonly trajectory: CompanyTrajectory | null;
+      /** La brecha frente a lo demás que se valuó (`F6-19`). */
+      readonly peers: PeerContext;
     };
 
 export type ValuationResultDependencies = {
   readonly jobs: Pick<ValuationJobStore, "listCompletedByTicker">;
-  readonly runs: Pick<ValuationRunRepository, "findById">;
+  readonly runs: Pick<
+    ValuationRunRepository,
+    "findById" | "listLatestInWindow"
+  >;
+  readonly classifications: Pick<
+    ClassificationRepository,
+    "loadClassifications"
+  >;
   readonly universe: Pick<UniverseRepository, "loadState">;
   readonly cedears: Pick<CedearRegistryRepository, "loadRegistry">;
   readonly prices: Pick<PriceRepository, "loadSeries" | "loadEvents">;
@@ -553,5 +565,15 @@ export async function readValuationResult(
     ),
     market,
     trajectory: series === null ? null : companyTrajectory(series),
+    peers: await readPeerContext(
+      {
+        run,
+        series,
+        comparison: market.comparison,
+        graph: state.graph,
+        subjectOf: (peerRun) => subjectAt(state.graph, peerRun),
+      },
+      dependencies,
+    ),
   };
 }

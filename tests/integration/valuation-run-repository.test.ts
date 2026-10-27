@@ -138,6 +138,47 @@ describe("PostgreSQL valuation runs", () => {
     );
   });
 
+  it("reads one latest valued run per company inside an as_of window", async () => {
+    const repository = createPostgresValuationRunRepository(database);
+    const latest = await repository.record(
+      valuation(DEMO_VALUATION_INPUT, { now: LATER_CLOCK }),
+    );
+    const asOf = latest.asOf;
+    const ours = <T extends { subject: { legalEntityId: string } }>(
+      runs: readonly T[],
+    ) => runs.filter((run) => run.subject.legalEntityId === LEGAL_ENTITY_ID);
+
+    const inWindow = ours(
+      await repository.listLatestInWindow({
+        from: asOf,
+        to: asOf,
+        methods: ["fcff_base"],
+      }),
+    );
+
+    expect(inWindow.map((run) => run.valuationRunId)).toStrictEqual([
+      latest.valuationRunId,
+    ]);
+    expect(
+      ours(
+        await repository.listLatestInWindow({
+          from: "2000-01-01",
+          to: "2000-01-07",
+          methods: ["fcff_base"],
+        }),
+      ),
+    ).toHaveLength(0);
+    expect(
+      ours(
+        await repository.listLatestInWindow({
+          from: asOf,
+          to: asOf,
+          methods: ["normalized_fcff"],
+        }),
+      ),
+    ).toHaveLength(0);
+  });
+
   it("persists a rejected run so the refusal stays explainable", async () => {
     const repository = createPostgresValuationRunRepository(database);
     const rejected = await repository.record(
