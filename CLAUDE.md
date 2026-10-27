@@ -541,6 +541,20 @@ cost of capital and that may need the AI's industry. Cycle runs are `screening` 
 always `requires_review` (`cycle_model_experimental`). CAT and DE still stop on debt
 with no recipe (captive finance arms, `F6-23`).
 
+Since `F6-19` ([ADR 0060](docs/architecture/adr/0060-valuation-peer-context.md))
+the result reads the gap against what else was valued (`valuation-peer-context-1.0.0`),
+at render time and never in the snapshot: the model (median price/value of every
+company's latest `computed` or `requires_review` run with an `as_of` up to seven days
+before the company's), the sector (median price/value, P/E and EV/EBIT among valued
+peers of its sector at the company's cutoff) and the company against the sector. Each
+peer uses its own run's close through `market-price-comparison-1.0.0`; P/E is cover
+shares × close over the base year's reported net income at that run's cutoff, EV/EBIT
+the run's own bridge and adjusted EBIT, and a `missing` claim leaves it null. Below
+three values there is no median, only «pares insuficientes» with its `n`. There is no
+sector batch: the sample grows with what the owner values (owner's decision).
+`listLatestInWindow` reads one run per company with `DISTINCT ON` and fails above 600
+instead of truncating.
+
 The run history (`F6-02`,
 [ADR 0047](docs/architecture/adr/0047-valuation-run-history.md)) lists a
 ticker's last 20 completed jobs at render time (its `loadValuationHistory` action was

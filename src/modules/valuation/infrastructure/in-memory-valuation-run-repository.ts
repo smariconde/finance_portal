@@ -2,6 +2,9 @@ import {
   toReplayKey,
   valuationReplayKeySchema,
   valuationRunListQuerySchema,
+  valuationRunWindowQuerySchema,
+  VALUED_RUN_STATUSES,
+  ValuationRunWindowLimitError,
   type ValuationReplayKey,
   type ValuationRunRepository,
 } from "../application/valuation-run-repository";
@@ -68,6 +71,38 @@ export function createInMemoryValuationRunRepository(
         )
         .sort((left, right) => right.recordedAt.localeCompare(left.recordedAt))
         .slice(0, parsedQuery.limit);
+    },
+    async listLatestInWindow(query) {
+      const parsedQuery = valuationRunWindowQuerySchema.parse(query);
+      const latest = new Map<string, ValuationRun>();
+
+      for (const run of stored) {
+        if (
+          run.asOf < parsedQuery.from ||
+          run.asOf > parsedQuery.to ||
+          !parsedQuery.methods.includes(run.method) ||
+          !(VALUED_RUN_STATUSES as readonly string[]).includes(run.status)
+        ) {
+          continue;
+        }
+
+        const current = latest.get(run.subject.legalEntityId);
+        if (
+          current === undefined ||
+          run.asOf > current.asOf ||
+          (run.asOf === current.asOf && run.recordedAt > current.recordedAt)
+        ) {
+          latest.set(run.subject.legalEntityId, run);
+        }
+      }
+
+      if (latest.size > parsedQuery.limit) {
+        throw new ValuationRunWindowLimitError(
+          "More companies were valued in the window than the read allows.",
+        );
+      }
+
+      return [...latest.values()];
     },
   };
 }

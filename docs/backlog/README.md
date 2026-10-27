@@ -88,8 +88,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    60 | `F8-01`    | `done`     | Pipeline fiscal-aligned point-in-time de precio, market cap, net income, EPS y acciones para los filers del sector elegido, sin cargar el universo.                                                                       | Fase 6           |
 |    61 | `F6-17`    | `done`     | Resultado de la valuación legible: veredicto precio contra valor, lo que exige el precio en palabras, historia reportada de la empresa, cadena del valor y auditoría plegada.                                             | `F6-12`          |
 |    62 | `F6-18`    | `done`     | Cíclicas y commodities valuadas desde la app: el job deriva el snapshot de margen de ciclo y la página lee corridas `normalized_fcff`.                                                                                    | `F6-17`          |
-|    63 | `F6-19`    | `ready`    | Contexto de la brecha: precio sobre valor de la empresa frente a su sector y a todo lo valuado, y múltiplos contra el sector.                                                                                             | `F6-18`, `F8-01` |
-|    64 | `F6-20`    | `queued`   | Bancos y aseguradoras valuados desde la app: el job deriva el snapshot de exceso de retorno sobre el patrimonio.                                                                                                          | `F6-18`          |
+|    63 | `F6-19`    | `done`     | Contexto de la brecha: precio sobre valor de la empresa frente a su sector y a todo lo valuado, y múltiplos contra el sector.                                                                                             | `F6-18`, `F8-01` |
+|    64 | `F6-20`    | `ready`    | Bancos y aseguradoras valuados desde la app: el job deriva el snapshot de exceso de retorno sobre el patrimonio.                                                                                                          | `F6-18`          |
 |    65 | `F6-21`    | `queued`   | Empresas en pérdidas o de alto crecimiento valuadas desde la app: el job deriva el snapshot de ventas a margen con supervivencia.                                                                                         | `F6-20`          |
 |    66 | `F6-22`    | `queued`   | REIT de propiedades valuados desde la app: AFFO transcripto del 10-K por la IA y conciliado, y NAV.                                                                                                                       | `F6-21`          |
 |    67 | `F8-02`    | `queued`   | Vista principal market cap vs EPS con sesgo de recompras visible y vistas alternativas con puente de dilución.                                                                                                            | `F8-01`          |
@@ -3646,7 +3646,7 @@ repararon contra `source_documents`.
 | `F6-16` | Opciones de empleados: anclas fuera del estado de patrimonio, ejercicio de 52/53 semanas en la policy, reclamo desde el XBRL del mismo 10-K y, sin nada, corrida sin restar opciones con rigor más bajo y nombrado.                   | `F6-14`          | `TM-05`, `TM-09`, `TM-16`                   |
 | `F6-17` | Resultado legible: veredicto como ubicación del precio en el rango, exigencias del precio en palabras, historia reportada al corte, cadena del valor y auditoría plegada; sin cambiar snapshot ni hashes.                             | `F6-12`          | `TM-05`, `TM-06`, `UI-02`, `UI-03`          |
 | `F6-18` | El job deriva el snapshot `normalized_fcff` de cíclicas y commodities desde la serie anual guardada y la página lo lee; sin datos de ciclo suficientes, nombra el faltante.                                                           | `F6-17`          | `TM-05`, `TM-06`, `TM-16`                   |
-| `F6-19` | Precio sobre valor frente a la mediana del sector y de todas las corridas al mismo corte, y P/E y EV/EBIT contra el sector; valuación por sector como lote acotado.                                                                   | `F6-18`, `F8-01` | `TM-05`, `TM-06`, `TM-10`                   |
+| `F6-19` | Precio sobre valor frente a la mediana del sector y de todo lo valuado en una ventana de siete días, y P/E y EV/EBIT contra el sector entre empresas valuadas; sin lote.                                                              | `F6-18`, `F8-01` | `TM-05`, `TM-06`, `TM-10`                   |
 | `F6-20` | El job deriva el snapshot `excess_return` de bancos y aseguradoras desde el patrimonio y el ROE reportados.                                                                                                                           | `F6-18`          | `TM-05`, `TM-06`, `TM-16`                   |
 | `F6-21` | El job deriva el snapshot `revenue_margin_survival` con margen objetivo de la industria y probabilidad de supervivencia fechada.                                                                                                      | `F6-20`          | `TM-05`, `TM-06`, `TM-16`                   |
 | `F6-22` | El job valúa REIT de propiedades con AFFO transcripto y conciliado por policy, y NAV independiente.                                                                                                                                   | `F6-21`          | `TM-05`, `TM-09`, `TM-16`                   |
@@ -3902,15 +3902,48 @@ Evidencia:
   financiera cautiva), y decidir con la tabla si se valúa con la deuda
   consolidada y el motivo nombrado, o separando la financiera.
 
-#### `F6-19` — la brecha frente al sector y al mercado
+#### `F6-19` — la brecha frente al sector y al mercado (cerrado el 2026-10-27)
 
-- Estado: `ready`.
-- Alcance: precio sobre valor de la empresa contra la mediana de su sector y
-  de todas las corridas registradas, al mismo corte y con la misma regla; y
-  P/E y EV/EBIT contra el sector con el pipeline de `F8-01`. Valuar el sector
-  es un lote acotado (ADR 0016), con presupuesto y sin cargar el universo.
-- Aceptación: la página separa sesgo del modelo, sector y empresa con `n` y
-  nulos con motivo; nunca presenta la brecha como señal de compra.
+Estado del slice: `done`. `F6-20` queda `ready`.
+
+Decisiones del owner del 2026-10-27, con lo guardado medido a la vista
+([ADR 0060](../architecture/adr/0060-valuation-peer-context.md)): ningún
+sector tenía más de dos empresas valuadas en ninguna base.
+
+- Un par cuenta si su última corrida cae entre siete días antes del `as_of`
+  de la empresa y ese mismo día.
+- Entran `computed` y `requires_review`, con cuántos están en revisión.
+- P/E y EV/EBIT salen sólo de las empresas valuadas.
+- Sin lote por sector: la comparación crece con lo que se valúa.
+
+Qué se hizo:
+
+- `valuation-peer-context-1.0.0` separa el modelo (mediana de precio sobre
+  valor de todo lo valuado), el sector (mediana de precio sobre valor, P/E y
+  EV/EBIT) y la empresa frente al sector. Con menos de tres valores dice
+  «pares insuficientes» con su `n`; cada nulo lleva su motivo.
+- Cada par usa el cierre del día de su propia corrida y la comparación de
+  `F6-09`. El P/E usa la ganancia neta reportada del ejercicio base al corte
+  de esa corrida; el EV/EBIT, el puente y el EBIT ajustado del modelo. Un
+  reclamo `missing` deja el múltiplo nulo.
+- `listLatestInWindow` lee una corrida por empresa con `DISTINCT ON`, con
+  techo de 600 que falla en vez de truncar. Sin migración.
+- La página suma «Frente a sus pares» después de «Qué tendría que pasar»:
+  frases para modelo, sector y empresa, la tabla de las tres cifras y los
+  pares del sector plegados, con enlace a su valuación.
+- Controles: `TM-05` (nulos con motivo, nunca cero), `TM-06` (sector al
+  corte de la empresa; cada par con su propio corte) y `TM-10` (lectura
+  acotada que falla en vez de truncar). No entra al snapshot ni mueve hashes.
+
+Evidencia:
+
+- Réplica: FCX 1,53 / 42,46 / 16,88; CVX 2,79 / 37,27 / 24,18, recalculado a
+  mano desde el cierre, las acciones y la ganancia neta; AAPL 1,84 / 43,39 /
+  33,96. En las tres, pares insuficientes (`n` de 0 a 2).
+- Revisión renderizada en 1280 px claro y 390 px oscuro: axe sin hallazgos
+  en la sección, sin desborde. Detector `impeccable` sin hallazgos.
+- 3.213 unit y 222 integration; formato, lint, tipos y build; 204 E2E con axe
+  (2 omitidos).
 
 #### `F6-24` — año base TTM desde el 10-Q
 

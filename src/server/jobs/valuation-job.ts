@@ -160,6 +160,7 @@ export async function readValuationResultForRequest(
     {
       jobs: getValuationJobStore(),
       runs: getValuationRunRepository(),
+      classifications: getClassificationRepository(),
       universe: getUniverseRepository(),
       cedears: getCedearRegistryRepository(),
       prices: getPriceRepository(),

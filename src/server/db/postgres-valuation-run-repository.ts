@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { z } from "zod";
 
@@ -8,6 +8,9 @@ import {
   toReplayKey,
   valuationReplayKeySchema,
   valuationRunListQuerySchema,
+  valuationRunWindowQuerySchema,
+  VALUED_RUN_STATUSES,
+  ValuationRunWindowLimitError,
   type ValuationReplayKey,
   type ValuationRunRepository,
 } from "@/modules/valuation/application/valuation-run-repository";
@@ -186,6 +189,33 @@ export function createPostgresValuationRunRepository(
         )
         .orderBy(desc(schema.valuationRuns.recordedAt))
         .limit(parsedQuery.limit);
+
+      return rows.map(toDomainRun);
+    },
+    async listLatestInWindow(query) {
+      const parsedQuery = valuationRunWindowQuerySchema.parse(query);
+      const table = schema.valuationRuns;
+      // Una fila por empresa: la de `as_of` más reciente y, en empate, la
+      // registrada última. Se pide una de más para saber si hubo truncado.
+      const rows = await database
+        .selectDistinctOn([table.legalEntityId])
+        .from(table)
+        .where(
+          and(
+            gte(table.asOf, parsedQuery.from),
+            lte(table.asOf, parsedQuery.to),
+            inArray(table.method, parsedQuery.methods),
+            inArray(table.status, [...VALUED_RUN_STATUSES]),
+          ),
+        )
+        .orderBy(table.legalEntityId, desc(table.asOf), desc(table.recordedAt))
+        .limit(parsedQuery.limit + 1);
+
+      if (rows.length > parsedQuery.limit) {
+        throw new ValuationRunWindowLimitError(
+          "More companies were valued in the window than the read allows.",
+        );
+      }
 
       return rows.map(toDomainRun);
     },
