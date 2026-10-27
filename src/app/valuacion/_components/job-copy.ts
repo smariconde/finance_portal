@@ -200,6 +200,11 @@ export const SNAPSHOT_GAP_COPY: Record<ValuationSnapshotGap, string> = {
     "faltan las acciones en circulación de la carátula",
   market_unavailable:
     "faltan el precio o la volatilidad para valuar las opciones",
+  financial_base_unavailable:
+    "faltan patrimonio y utilidad comunes comparables, o el ROE no es admisible",
+  financial_base_stale: "el patrimonio común reportado tiene más de 540 días",
+  financial_declaration_missing:
+    "falta la declaración privada de distribución y revisión financiera para ese ejercicio",
 };
 
 export const PROFILE_COPY: Record<AssetProfile, string> = {

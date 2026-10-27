@@ -16,6 +16,9 @@ import { valuationSubjectSchema } from "./valuation-input";
 
 export const EXCESS_RETURN_ENGINE_VERSION = "excess-return-1.0.0";
 export const EXCESS_RETURN_METHODOLOGY_VERSION = "financial-equity-1.0.0";
+export const DERIVED_EXCESS_RETURN_ENGINE_VERSION = "excess-return-1.1.0";
+export const DERIVED_EXCESS_RETURN_METHODOLOGY_VERSION =
+  "financial-equity-1.1.0";
 
 /** A dated component in the valuation currency; beta is an equity assumption. */
 export const financialRateFactSchema = z.object({
@@ -48,8 +51,14 @@ export const financialAssumptionsSchema = z.strictObject({
  */
 export const excessReturnInputSchema = z.strictObject({
   method: z.literal("excess_return"),
-  engineVersion: z.literal(EXCESS_RETURN_ENGINE_VERSION),
-  methodologyVersion: z.literal(EXCESS_RETURN_METHODOLOGY_VERSION),
+  engineVersion: z.enum([
+    EXCESS_RETURN_ENGINE_VERSION,
+    DERIVED_EXCESS_RETURN_ENGINE_VERSION,
+  ]),
+  methodologyVersion: z.enum([
+    EXCESS_RETURN_METHODOLOGY_VERSION,
+    DERIVED_EXCESS_RETURN_METHODOLOGY_VERSION,
+  ]),
   decimalPolicy: decimalPolicySchema,
   subject: valuationSubjectSchema,
   asOf: z.iso.date(),
@@ -59,6 +68,18 @@ export const excessReturnInputSchema = z.strictObject({
   profileEvidence: z.array(profileEvidenceSchema).min(1).max(100),
   /** Common equity, after preferred equity and noncontrolling interests. */
   commonBookEquity: monetaryFactSchema.nullable(),
+  /** F6-20: the reported common-income and prior-book facts behind the ROE. */
+  derivedFinancial: z
+    .strictObject({
+      version: z.literal("derived-financial-equity-1.0.0"),
+      commonIncome: monetaryFactSchema,
+      priorBook: monetaryFactSchema,
+      roe: engineDecimalSchema,
+      equityBeta: financialRateFactSchema,
+      declarationId: z.uuid(),
+      declarationAvailableAt: utcTimestampSchema,
+    })
+    .optional(),
   risk: z.strictObject({
     riskFree: financialRateFactSchema.nullable(),
     matureErp: financialRateFactSchema.nullable(),

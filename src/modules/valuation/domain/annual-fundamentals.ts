@@ -48,8 +48,11 @@ import { z } from "zod";
  * el cronograma lo delata. Cada concepto es una partida propia, porque como
  * alternativas un cero en el primero taparía un monto en el siguiente. Ninguna
  * regla los suma: sólo prueban que la deuda no es cero.
+ * `1.5.0` (`F6-20`): partidas separadas para patrimonio común, preferente y
+ * utilidad disponible a accionistas comunes. El ROE financiero no usa la
+ * utilidad neta ni el patrimonio total como sustitutos silenciosos.
  */
-export const ANNUAL_FUNDAMENTALS_VERSION = "annual-fundamentals-1.4.0";
+export const ANNUAL_FUNDAMENTALS_VERSION = "annual-fundamentals-1.5.0";
 
 export const lineItemIdSchema = z.enum([
   "revenue",
@@ -58,12 +61,15 @@ export const lineItemIdSchema = z.enum([
   "interest_expense",
   "income_tax",
   "net_income",
+  "common_net_income",
   "depreciation_amortization",
   "capital_expenditure",
   "operating_cash_flow",
   "research_development",
   "diluted_shares",
   "equity",
+  "common_equity",
+  "preferred_equity",
   "assets",
   "liabilities",
   "cash",
@@ -160,6 +166,11 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
     concepts: ["us-gaap:NetIncomeLoss", "us-gaap:ProfitLoss"],
   },
   {
+    item: "common_net_income",
+    periodType: "annual",
+    concepts: ["us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic"],
+  },
+  {
     item: "depreciation_amortization",
     periodType: "annual",
     concepts: [
@@ -199,6 +210,19 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
     concepts: [
       "us-gaap:StockholdersEquity",
       "us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+    ],
+  },
+  {
+    item: "common_equity",
+    periodType: "instant",
+    concepts: ["us-gaap:CommonStockholdersEquity"],
+  },
+  {
+    item: "preferred_equity",
+    periodType: "instant",
+    concepts: [
+      "us-gaap:PreferredStockCarryingValue",
+      "us-gaap:PreferredStockValue",
     ],
   },
   { item: "assets", periodType: "instant", concepts: ["us-gaap:Assets"] },

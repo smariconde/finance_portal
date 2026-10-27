@@ -7,6 +7,21 @@ import type { ReactNode } from "react";
 import { DataUnavailableNotice } from "@/app/_components/data-unavailable-notice";
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { servesRealData } from "@/modules/configuration/domain/config-health";
 import { DEMO_SOURCE_REGISTRY } from "@/modules/ingestion/infrastructure/demo-source-registry";
 import type { ValuationHistoryView } from "@/modules/valuation/application/read-valuation-history";
@@ -15,7 +30,9 @@ import type {
   ValuationResultReading,
 } from "@/modules/valuation/application/read-valuation-result";
 import {
+  formatAmount,
   formatCalendarDate,
+  formatPercent,
   formatUtcTimestamp,
 } from "@/modules/valuation/domain/display-format";
 import { valuationTickerSchema } from "@/modules/valuation/domain/valuation-job";
@@ -239,7 +256,7 @@ function Anchor({ id, children }: { id: string; children: ReactNode }) {
 function WithoutRun({
   reading,
 }: {
-  reading: Exclude<ValuationResultReading, { state: "run" }>;
+  reading: Exclude<ValuationResultReading, { state: "run" | "financial_run" }>;
 }) {
   let message: string;
 
@@ -272,6 +289,302 @@ function WithoutRun({
           hoy: si alcanza, la página se completa sola; si no, dice qué falta.
         </p>
       </section>
+    </PageFrame>
+  );
+}
+
+function FinancialRunView({
+  reading,
+  history,
+}: {
+  reading: Extract<ValuationResultReading, { state: "financial_run" }>;
+  history: ValuationHistoryView;
+}) {
+  const { run, market } = reading;
+  const base = run.result?.base;
+  const first = base?.periods[0];
+  const risk = run.input.risk;
+  const reviewChecks =
+    run.result?.checks.filter(
+      (check) => check.mode === "require_review" && check.status === "failed",
+    ) ?? [];
+  return (
+    <PageFrame
+      ticker={reading.ticker}
+      title={reading.subject?.legalName ?? reading.ticker}
+      hasRun
+    >
+      <p className="-mt-3 text-sm text-muted-foreground">
+        Exceso de retorno sobre patrimonio común ·{" "}
+        {run.assetProfile === "bank" ? "Banco" : "Aseguradora"} ·{" "}
+        <time dateTime={run.asOf}>{formatCalendarDate(run.asOf)}</time> · Modelo
+        experimental
+      </p>
+      {reading.newerGap === null ? null : (
+        <NewerGapAlert gap={reading.newerGap} />
+      )}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Valor por acción</CardTitle>
+            <CardDescription>
+              Equity común dividido por acciones y unidades
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="numeric text-3xl font-semibold">
+            {base === undefined
+              ? "Sin valor"
+              : `${run.currency} ${formatAmount(base.valuePerShare)}`}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Precio al corte</CardTitle>
+            <CardDescription>
+              Último cierre guardado de la misma security
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="numeric text-3xl font-semibold">
+            {market.close === null
+              ? "Sin cierre"
+              : `${market.close.currency} ${formatAmount(market.close.close)}`}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {market.priceToValue === null ? "Estado" : "Precio sobre valor"}
+            </CardTitle>
+            <CardDescription>
+              {market.priceToValue === null
+                ? "Resultado del motor y controles"
+                : "Cierre ÷ valor por acción; misma fecha, moneda y base"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-lg font-medium">
+            {market.priceToValue === null ? (
+              run.status === "rejected" ? (
+                "Rechazada"
+              ) : (
+                "Requiere revisión"
+              )
+            ) : (
+              <span className="numeric text-3xl font-semibold">
+                {formatAmount(market.priceToValue)}×
+              </span>
+            )}
+            <p className="mt-1 text-sm font-normal text-muted-foreground">
+              {run.status === "rejected"
+                ? run.failure?.code
+                : `${reviewChecks.length} controles piden revisión`}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+      {!market.comparable && market.reason !== null ? (
+        <Alert>
+          <Info aria-hidden="true" />
+          <AlertTitle>Precio y valor no comparables</AlertTitle>
+          <AlertDescription>
+            {market.reason === "missing_close"
+              ? "Falta el cierre de la fecha de valuación."
+              : market.reason === "currency_mismatch"
+                ? "El cierre usa otra moneda."
+                : market.reason === "split_after_share_basis"
+                  ? "Hubo un split entre la fecha de las acciones y el cierre."
+                  : "El precio o el valor no es positivo."}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      <Card>
+        <CardHeader>
+          <CardTitle>Por qué vale eso</CardTitle>
+          <CardDescription>
+            El patrimonio común observado gana sobre su costo de equity durante
+            la transición; en el terminal converge a ese costo.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <dl className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <dt className="text-muted-foreground">Patrimonio común</dt>
+              <dd className="numeric font-medium">
+                {run.input.commonBookEquity === null
+                  ? "Falta"
+                  : `${run.currency} ${formatAmount(run.input.commonBookEquity.value)}`}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">ROE derivado</dt>
+              <dd className="numeric font-medium">
+                {run.input.derivedFinancial === undefined
+                  ? "Falta"
+                  : formatPercent(run.input.derivedFinancial.roe)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Costo de equity, año 1</dt>
+              <dd className="numeric font-medium">
+                {first === undefined
+                  ? "Sin cálculo"
+                  : formatPercent(first.costOfEquity)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Distribución declarada</dt>
+              <dd className="numeric font-medium">
+                {formatPercent(run.input.assumptions.periods[0]!.payout)}
+              </dd>
+            </div>
+          </dl>
+          {base === undefined ? null : (
+            <p className="mt-4 text-sm text-muted-foreground">
+              Patrimonio inicial {run.currency} {formatAmount(base.bookEquity)}{" "}
+              + valor presente de retornos excedentes {run.currency}{" "}
+              {formatAmount(base.presentValueOfExcessReturns)}. Opciones de
+              empleados: {run.currency} {formatAmount(base.employeeOptionValue)}
+              .
+            </p>
+          )}
+        </CardContent>
+      </Card>
+      {base === undefined ? null : (
+        <Card>
+          <CardHeader>
+            <CardTitle>Proyección de patrimonio</CardTitle>
+            <CardDescription>
+              Diez años explícitos; ROE y beta convergen por regla. Cifras en{" "}
+              {run.currency}.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead scope="col">Año</TableHead>
+                  <TableHead scope="col" className="text-right">
+                    ROE
+                  </TableHead>
+                  <TableHead scope="col" className="text-right">
+                    Costo de equity
+                  </TableHead>
+                  <TableHead scope="col" className="text-right">
+                    Patrimonio final
+                  </TableHead>
+                  <TableHead scope="col" className="text-right">
+                    Retorno excedente
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {base.periods.map((period) => (
+                  <TableRow key={period.periodIndex}>
+                    <TableCell>{period.periodIndex}</TableCell>
+                    <TableCell className="numeric text-right">
+                      {formatPercent(
+                        run.input.assumptions.periods[period.periodIndex - 1]!
+                          .roe,
+                      )}
+                    </TableCell>
+                    <TableCell className="numeric text-right">
+                      {formatPercent(period.costOfEquity)}
+                    </TableCell>
+                    <TableCell className="numeric text-right">
+                      {formatAmount(period.endingBookEquity)}
+                    </TableCell>
+                    <TableCell className="numeric text-right">
+                      {formatAmount(period.excessReturn)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+      <Card>
+        <CardHeader>
+          <CardTitle>Auditoría</CardTitle>
+          <CardDescription>
+            Hechos, fecha y controles de esta corrida.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4 text-sm">
+          <p>
+            Patrimonio común (
+            {run.input.commonBookEquity?.sourceId ===
+            "owner-financial-declaration"
+              ? "declaración del owner"
+              : run.input.commonBookEquity?.sourceId === "sec-edgar"
+                ? "SEC"
+                : "sin fuente"}
+            ):{" "}
+            <time dateTime={run.input.commonBookEquity?.asOf}>
+              {run.input.commonBookEquity?.asOf ?? "sin fecha"}
+            </time>
+            ; utilidad común y patrimonio anterior conservan su observación en
+            el snapshot. La distribución y las revisiones provienen de una
+            declaración privada. Las releases de Damodaran se leen al corte{" "}
+            <time
+              dateTime={
+                run.provenance.knowledge.knownAt ??
+                run.provenance.knowledge.effectiveAt
+              }
+            >
+              {formatUtcTimestamp(
+                run.provenance.knowledge.knownAt ??
+                  run.provenance.knowledge.effectiveAt,
+              )}
+            </time>
+            .
+          </p>
+          <p>
+            Libre de riesgo{" "}
+            {risk.riskFree === null
+              ? "faltante"
+              : formatPercent(risk.riskFree.value)}{" "}
+            · ERP{" "}
+            {risk.matureErp === null
+              ? "faltante"
+              : formatPercent(risk.matureErp.value)}{" "}
+            · CRP por domicilio{" "}
+            {risk.countryRiskPremium === null
+              ? "faltante"
+              : formatPercent(risk.countryRiskPremium.value)}
+            .
+          </p>
+          <dl className="space-y-3">
+            <div>
+              <dt className="font-medium">Capital regulatorio · owner</dt>
+              <dd>
+                {run.input.financialReview.regulatoryCapital ?? "Sin revisión"}
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium">Calidad de activos · owner</dt>
+              <dd>
+                {run.input.financialReview.assetQuality ?? "Sin revisión"}
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium">Cambios del patrimonio · owner</dt>
+              <dd>
+                {run.input.financialReview.cleanSurplus ?? "Sin revisión"}
+              </dd>
+            </div>
+          </dl>
+          {reviewChecks.length > 0 || run.failure !== null ? (
+            <ul className="list-disc space-y-1 pl-5">
+              {run.result?.checks
+                .filter((check) => check.status === "failed")
+                .map((check) => <li key={check.id}>{check.message}</li>) ?? (
+                <li>{run.failure?.message}</li>
+              )}
+            </ul>
+          ) : null}
+        </CardContent>
+      </Card>
+      <ValuationHistory view={history} />
     </PageFrame>
   );
 }
@@ -333,6 +646,9 @@ export default async function ValuationResultPage({ params }: PageProps) {
     return <DataUnavailableNotice surface="El resultado de la valuación" />;
   }
 
+  if (reading.state === "financial_run") {
+    return <FinancialRunView reading={reading} history={history} />;
+  }
   if (reading.state !== "run") {
     return <WithoutRun reading={reading} />;
   }

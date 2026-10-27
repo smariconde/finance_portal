@@ -9,6 +9,12 @@ import type {
 } from "./excess-return-input";
 import { selectValuationMethod } from "./method-selection";
 import {
+  DERIVED_EXCESS_RETURN_ENGINE_VERSION,
+  DERIVED_EXCESS_RETURN_METHODOLOGY_VERSION,
+  EXCESS_RETURN_METHODOLOGY_VERSION,
+} from "./excess-return-input";
+import { divide, sum } from "./decimal-policy";
+import {
   type PolicyCheck,
   hasValidTerminalSpread,
   isGrowthWithinRiskFree,
@@ -46,6 +52,7 @@ function check(
 export function checkExcessReturnInput(
   input: ExcessReturnInput,
 ): PolicyCheck[] {
+  const derived = input.engineVersion === DERIVED_EXCESS_RETURN_ENGINE_VERSION;
   const missing = excessReturnMissingInputs(input);
   const selection = selectValuationMethod({
     legalEntityId: input.subject.legalEntityId,
@@ -81,17 +88,84 @@ export function checkExcessReturnInput(
   // an input assembled from it can prove a system-recorded historical view.
   if (input.knowledge.knowledgeBasis !== "public_availability")
     dates.push("knowledge.knowledgeBasis");
-  if (input.knowledge.effectiveAt.slice(0, 10) !== input.asOf)
+  if (
+    (derived && input.knowledge.effectiveAt.slice(0, 10) < input.asOf) ||
+    (!derived && input.knowledge.effectiveAt.slice(0, 10) !== input.asOf)
+  )
     dates.push("knowledge.effectiveAt");
   if (
     input.commonBookEquity !== null &&
+    !derived &&
     input.commonBookEquity.asOf !== input.asOf
   )
     dates.push("commonBookEquity.asOf");
 
   const employee = input.employeeEquity;
-  if (employee !== null && employee.sharesOutstanding.asOf !== input.asOf)
+  if (
+    employee !== null &&
+    !derived &&
+    employee.sharesOutstanding.asOf !== input.asOf
+  )
     dates.push("employeeEquity.sharesOutstanding.asOf");
+  const derivation = input.derivedFinancial;
+  const knownAt = input.knowledge.knownAt ?? input.knowledge.effectiveAt;
+  const ageDays = (date: string) =>
+    (Date.parse(`${input.asOf}T00:00:00.000Z`) -
+      Date.parse(`${date}T00:00:00.000Z`)) /
+    86_400_000;
+  if (derived) {
+    if (derivation === undefined) dates.push("derivedFinancial");
+    if (
+      input.commonBookEquity !== null &&
+      (ageDays(input.commonBookEquity.asOf) < 0 ||
+        ageDays(input.commonBookEquity.asOf) > 540)
+    )
+      dates.push("commonBookEquity.asOf");
+    if (
+      employee !== null &&
+      (ageDays(employee.sharesOutstanding.asOf) < 0 ||
+        ageDays(employee.sharesOutstanding.asOf) > 180)
+    )
+      dates.push("employeeEquity.sharesOutstanding.asOf");
+    if (derivation !== undefined) {
+      if (
+        derivation.commonIncome.asOf !== input.commonBookEquity?.asOf ||
+        derivation.priorBook.asOf >= derivation.commonIncome.asOf ||
+        derivation.commonIncome.currency !== input.currency ||
+        derivation.priorBook.currency !== input.currency ||
+        derivation.equityBeta.currency !== input.currency ||
+        derivation.equityBeta.asOf > input.asOf ||
+        Date.parse(derivation.declarationAvailableAt) > Date.parse(knownAt)
+      )
+        dates.push("derivedFinancial");
+      for (const fact of [
+        derivation.commonIncome,
+        derivation.priorBook,
+        derivation.equityBeta,
+      ]) {
+        if (Date.parse(fact.availableAt) > Date.parse(knownAt))
+          dates.push("derivedFinancial.availableAt");
+      }
+    }
+  } else if (derivation !== undefined) dates.push("derivedFinancial");
+  const derivedMismatch =
+    derived &&
+    derivation !== undefined &&
+    input.commonBookEquity !== null &&
+    (!divide(
+      parseDecimal(derivation.commonIncome.value, "commonIncome"),
+      divide(
+        sum([
+          parseDecimal(input.commonBookEquity.value, "commonBook"),
+          parseDecimal(derivation.priorBook.value, "priorBook"),
+        ]),
+        parseDecimal("2", "averageBook"),
+        "averageBook",
+      ),
+      "roe",
+    ).eq(parseDecimal(derivation.roe, "derivedFinancial.roe")) ||
+      input.assumptions.periods[0]?.roe !== derivation.roe ||
+      input.assumptions.periods[0]?.equityBeta !== derivation.equityBeta.value);
   if (
     input.employeeEquityAvailableAt !== null &&
     input.knowledge.revisionPolicy === "as_known" &&
@@ -153,7 +227,31 @@ export function checkExcessReturnInput(
       "financial_point_in_time",
       "reject",
       [...new Set(dates)],
-      "Facts must be visible at the cutoff and common book measured at the valuation date.",
+      "Facts must be visible at the cutoff and the financial base within its dated window.",
+    ),
+    check(
+      "financial_derivation",
+      "reject",
+      derivedMismatch ? ["derivedFinancial"] : [],
+      "Reported common earnings, book equity and beta must reproduce the first forecast year.",
+    ),
+    check(
+      "financial_derived_review",
+      "reject",
+      [
+        ...(input.methodologyVersion !==
+        (derived
+          ? DERIVED_EXCESS_RETURN_METHODOLOGY_VERSION
+          : EXCESS_RETURN_METHODOLOGY_VERSION)
+          ? ["methodologyVersion"]
+          : []),
+        ...(derived
+          ? (["regulatoryCapital", "assetQuality", "cleanSurplus"] as const)
+              .filter((key) => input.financialReview[key] === null)
+              .map((key) => `financialReview.${key}`)
+          : []),
+      ],
+      "A derived financial run requires the owner's payout and dated financial review.",
     ),
     check(
       "financial_positive_book",

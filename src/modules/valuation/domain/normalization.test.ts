@@ -496,7 +496,7 @@ describe("normalizationFactsFromSeries", () => {
 
   it("keeps the concept the series chose and up to four previous years", () => {
     const series = {
-      version: "annual-fundamentals-1.4.0",
+      version: "annual-fundamentals-1.5.0",
       fiscalYears: [...ENDS, "2020-12-31", "2019-12-31"].map((end) => ({
         fiscalYearEnd: end,
         items: {
@@ -537,7 +537,7 @@ describe("normalizationFactsFromSeries", () => {
   it("has nothing to normalize without a fiscal year", () => {
     expect(
       normalizationFactsFromSeries(
-        { version: "annual-fundamentals-1.4.0", fiscalYears: [] },
+        { version: "annual-fundamentals-1.5.0", fiscalYears: [] },
         (value) => money(value.value),
       ),
     ).toBeNull();

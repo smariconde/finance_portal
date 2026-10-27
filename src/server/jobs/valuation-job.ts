@@ -17,6 +17,7 @@ import {
 import { SP500_INDEX_ID } from "@/modules/universe/application/live-universe-source";
 import {
   assessCompany,
+  seriesFact,
   type CompanyAssessment,
 } from "@/modules/valuation/application/assess-company";
 import { DECLARED_INDUSTRY_ASSIGNMENTS } from "@/modules/valuation/application/declared-industry-assignments";
@@ -34,6 +35,11 @@ import {
   type ValuationSnapshotResult,
 } from "@/modules/valuation/application/assemble-valuation-snapshot";
 import { runValuation } from "@/modules/valuation/application/run-valuation";
+import { runExcessReturn } from "@/modules/valuation/application/run-excess-return";
+import {
+  assembleFinancialSnapshot,
+  type FinancialSnapshotResult,
+} from "@/modules/valuation/application/assemble-financial-snapshot";
 import {
   readValuationHistory,
   type ValuationHistoryView,
@@ -43,6 +49,9 @@ import {
   type ValuationResultReading,
 } from "@/modules/valuation/application/read-valuation-result";
 import { INDUSTRY_RETURNS_DATASET } from "@/modules/valuation/domain/derived-assumptions";
+import { deriveFinancialEquity } from "@/modules/valuation/domain/derived-financial-equity";
+import { selectValuationMethod } from "@/modules/valuation/domain/method-selection";
+import { deriveRigorLevel } from "@/modules/valuation/domain/rigor-level";
 import {
   OPTIONS_OUTSTANDING_CONCEPT,
   OPTIONS_WEIGHTED_STRIKE_CONCEPT,
@@ -65,6 +74,7 @@ import {
 import { getCedearRegistryRepository } from "@/server/persistence/get-cedear-registry-repository";
 import { getCorporateActionRepository } from "@/server/persistence/get-corporate-action-repository";
 import { getEmployeeEquityRepository } from "@/server/persistence/get-employee-equity-repository";
+import { getFinancialDeclarationRepository } from "@/server/persistence/get-financial-declaration-repository";
 import { getIngestionRunRepository } from "@/server/persistence/get-ingestion-run-repository";
 import { getMarketExpectationsRepository } from "@/server/persistence/get-market-expectations-repository";
 import { getObservationRepository } from "@/server/persistence/get-observation-repository";
@@ -243,10 +253,16 @@ async function assessValuationJob(
     );
   }
 
-  const run = runValuation(prepared.snapshot.input, {
-    now,
-    newValuationRunId: newId,
-  });
+  const run =
+    prepared.snapshot.input.method === "excess_return"
+      ? runExcessReturn(prepared.snapshot.input, {
+          now,
+          newValuationRunId: newId,
+        })
+      : runValuation(prepared.snapshot.input, {
+          now,
+          newValuationRunId: newId,
+        });
   // Idempotente por clave de replay: el mismo snapshot devuelve la corrida
   // que ya estaba, sin duplicarla.
   const recorded = await getValuationRunRepository().record(run);
@@ -267,7 +283,7 @@ export type PreparedValuationRun =
   | {
       readonly kind: "snapshot";
       readonly reading: ValuationAssessmentReading;
-      readonly snapshot: ValuationSnapshotResult;
+      readonly snapshot: ValuationSnapshotResult | FinancialSnapshotResult;
       /** `null` si no se pidió el paso de datos. */
       readonly dataStep: ValuationDataStep | null;
       /** `null` si no se le preguntó nada a la IA (`F6-13`). */
@@ -353,7 +369,7 @@ export async function prepareValuationRun(
   }
 
   const cik = facts.cik;
-  const assessment = await assessCompany(
+  let assessment = await assessCompany(
     {
       legalEntityId,
       query,
@@ -364,6 +380,50 @@ export async function prepareValuationRun(
     },
     await assessmentReaders(cik, query, state.graph),
   );
+  const financialProfile =
+    assessment.selection.assetProfile === "bank" ||
+    assessment.selection.assetProfile === "insurer";
+  const financialYear =
+    assessment.fundamentals.series?.fiscalYears[0]?.fiscalYearEnd;
+  const financialDeclaration =
+    financialProfile && financialYear !== undefined
+      ? await getFinancialDeclarationRepository().latestAsKnown(
+          legalEntityId,
+          financialYear,
+          job.knownAt,
+        )
+      : null;
+  if (
+    financialProfile &&
+    financialDeclaration !== null &&
+    assessment.financialEquity?.status !== "ready"
+  ) {
+    const financialEquity = deriveFinancialEquity(
+      assessment.fundamentals.series,
+      (item) => seriesFact(item, SEC_SOURCE_ID),
+      financialDeclaration,
+    );
+    const selection = selectValuationMethod({
+      legalEntityId,
+      knowledge: query,
+      evidence: [...assessment.evidence],
+      fcffInputsComplete: false,
+      excessReturnMissingInputs: [
+        ...(financialEquity.status === "ready"
+          ? []
+          : ["common_book_equity", "roe"]),
+        ...(assessment.financialRisk?.status === "ready"
+          ? []
+          : ["cost_of_equity"]),
+      ],
+    });
+    assessment = {
+      ...assessment,
+      financialEquity,
+      selection,
+      rigor: deriveRigorLevel(selection, assessment.completeness),
+    };
+  }
   const selected = assessment.selection.status === "selected";
   const reading: ValuationAssessmentReading = {
     legalEntityId,
@@ -527,30 +587,34 @@ export async function prepareValuationRun(
       ),
     ]);
 
+  const snapshotRequest = {
+    subject: { legalEntityId, securityId, listingId: resolution.listingId },
+    query,
+    assessment,
+    fundamentalsSourceId: SEC_SOURCE_ID,
+    employeeEquity,
+    shareCounts: shareCounts.filter(
+      (fact) => fact.concept === SHARES_OUTSTANDING_CONCEPT,
+    ),
+    employeeOptionFacts: shareCounts.filter(
+      (fact) => fact.concept !== SHARES_OUTSTANDING_CONCEPT,
+    ),
+    prices: { sourceId: PRICES_SOURCE_ID, ...prices },
+    industryReturns,
+  };
+
   return {
     kind: "snapshot",
     reading,
     dataStep,
     qualitativeStep,
-    snapshot: assembleValuationSnapshot({
-      subject: {
-        legalEntityId,
-        securityId,
-        listingId: resolution.listingId,
-      },
-      query,
-      assessment,
-      fundamentalsSourceId: SEC_SOURCE_ID,
-      employeeEquity,
-      shareCounts: shareCounts.filter(
-        (fact) => fact.concept === SHARES_OUTSTANDING_CONCEPT,
-      ),
-      employeeOptionFacts: shareCounts.filter(
-        (fact) => fact.concept !== SHARES_OUTSTANDING_CONCEPT,
-      ),
-      prices: { sourceId: PRICES_SOURCE_ID, ...prices },
-      industryReturns,
-    }),
+    snapshot:
+      assessment.selection.recommendedMethod === "excess_return"
+        ? assembleFinancialSnapshot({
+            ...snapshotRequest,
+            declaration: financialDeclaration,
+          })
+        : assembleValuationSnapshot(snapshotRequest),
   };
 }
 

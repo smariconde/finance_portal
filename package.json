@@ -46,6 +46,7 @@
     "divergences:inspect": "node --conditions=react-server --env-file=.env.local --import tsx scripts/inspect-sector-divergences.ts",
     "cedears:record": "tsx --conditions=react-server --env-file=.env.local scripts/record-cedears.ts",
     "valuation:assess": "tsx --conditions=react-server --env-file=.env.local scripts/assess-company.ts",
+    "valuation:financial-declare": "tsx --conditions=react-server --env-file=.env.local scripts/declare-financial.ts",
     "damodaran:record": "tsx --conditions=react-server --env-file=.env.local scripts/record-damodaran.ts",
     "ai:smoke": "tsx --conditions=react-server --env-file=.env.local scripts/ai-smoke.ts",
     "ai:eval-capture": "tsx --conditions=react-server --env-file=.env.local scripts/capture-ai-eval-corpus.ts",

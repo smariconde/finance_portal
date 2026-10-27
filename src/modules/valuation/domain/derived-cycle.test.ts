@@ -50,7 +50,7 @@ function year(
 
 /** Más reciente primero, como la entrega la serie. */
 function series(...years: FiscalYear[]): AnnualFundamentals {
-  return { version: "annual-fundamentals-1.4.0", fiscalYears: years };
+  return { version: "annual-fundamentals-1.5.0", fiscalYears: years };
 }
 
 const toFact = (item: LineItemValue): MonetaryFact => ({

@@ -1,0 +1,1 @@
+ALTER TABLE "financial_declarations" ADD COLUMN "common_book" jsonb;

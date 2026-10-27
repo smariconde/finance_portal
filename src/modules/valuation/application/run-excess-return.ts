@@ -36,6 +36,9 @@ export function runExcessReturn(
     input.risk.matureErp,
     input.risk.countryRiskPremium,
     input.employeeEquity?.sharesOutstanding ?? null,
+    input.derivedFinancial?.commonIncome ?? null,
+    input.derivedFinancial?.priorBook ?? null,
+    input.derivedFinancial?.equityBeta ?? null,
   ].filter((fact) => fact !== null);
   const identity = {
     valuationRunId: dependencies.newValuationRunId(),
@@ -52,6 +55,9 @@ export function runExcessReturn(
         ...new Set([
           ...facts.map((fact) => fact.sourceId),
           ...input.profileEvidence.map((evidence) => evidence.sourceId),
+          ...(input.derivedFinancial === undefined
+            ? []
+            : ["owner-financial-declaration"]),
         ]),
       ].sort(),
       observationIds: [

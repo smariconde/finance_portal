@@ -52,6 +52,11 @@ import {
 } from "../domain/company-trajectory";
 import { valuationRunSchema, type ValuationRun } from "../domain/valuation-run";
 import {
+  excessReturnRunSchema,
+  type ExcessReturnRun,
+} from "../domain/excess-return-run";
+import { divide, parseDecimal, ZERO } from "../domain/decimal-policy";
+import {
   readAnnualFundamentals,
   type CompanyAssessmentDependencies,
 } from "./assess-company";
@@ -178,6 +183,30 @@ export type ValuationResultReading =
       readonly state: "unsupported_run";
       readonly ticker: string;
       readonly job: ValuationResultJob;
+    }
+  | {
+      readonly state: "financial_run";
+      readonly ticker: string;
+      readonly run: ExcessReturnRun;
+      readonly job: ValuationResultJob;
+      readonly newerGap: ValuationResultNewerGap | null;
+      readonly subject: ValuationResultSubject | null;
+      readonly market: {
+        readonly close: {
+          readonly marketDate: string;
+          readonly close: string;
+          readonly currency: string;
+        } | null;
+        readonly comparable: boolean;
+        readonly priceToValue: string | null;
+        readonly reason:
+          | "missing_close"
+          | "currency_mismatch"
+          | "split_after_share_basis"
+          | "non_positive_value"
+          | "non_positive_close"
+          | null;
+      };
     }
   | {
       readonly state: "run";
@@ -309,7 +338,7 @@ function versionsAt<TVersion extends TemporalVersion>(
 /** Nombre, mercado, símbolo y CIK del sujeto, al corte de la corrida. */
 export function subjectAt(
   graph: IdentityGraph,
-  run: ValuationRun,
+  run: Pick<ValuationRun, "subject" | "provenance">,
 ): ValuationResultSubject | null {
   const query = run.provenance.knowledge;
   const entity = versionsAt(graph.legalEntities, query).find(
@@ -517,6 +546,76 @@ export async function readValuationResult(
     // El job apunta a una corrida que la FK garantiza; si no está, no se
     // inventa otra.
     throw new Error("The recorded valuation run is missing.");
+  }
+
+  const financial = excessReturnRunSchema.safeParse(stored);
+  if (financial.success) {
+    const run = financial.data;
+    const [state, closes, events] = await Promise.all([
+      dependencies.universe.loadState({
+        indexId: SP500_INDEX_ID,
+        versions: "all",
+        limit: 50_000,
+      }),
+      dependencies.prices.loadSeries({
+        securityId: run.subject.securityId,
+        from: run.asOf,
+        to: run.asOf,
+        limit: 1,
+      }),
+      dependencies.prices.loadEvents({ securityId: run.subject.securityId }),
+    ]);
+    const close =
+      closes[0] === undefined
+        ? null
+        : {
+            marketDate: closes[0].marketDate,
+            close: closes[0].close,
+            currency: closes[0].currency,
+          };
+    const shareDate =
+      run.input.employeeEquity?.sharesOutstanding.asOf ?? run.asOf;
+    const split = events.some(
+      (event) =>
+        event.eventType === "split" &&
+        event.effectiveOn > shareDate &&
+        event.effectiveOn <= run.asOf,
+    );
+    const value = run.result?.base.valuePerShare ?? null;
+    const reason =
+      close === null
+        ? ("missing_close" as const)
+        : close.currency !== run.currency
+          ? ("currency_mismatch" as const)
+          : split
+            ? ("split_after_share_basis" as const)
+            : value === null ||
+                !parseDecimal(value, "financial.valuePerShare").gt(ZERO)
+              ? ("non_positive_value" as const)
+              : !parseDecimal(close.close, "financial.close").gt(ZERO)
+                ? ("non_positive_close" as const)
+                : null;
+    return {
+      state: "financial_run",
+      ticker,
+      run,
+      job: jobReading(recordedJob),
+      newerGap: recordedIndex === 0 ? null : gapReading(latest),
+      subject: subjectAt(state.graph, run),
+      market: {
+        close,
+        comparable: reason === null,
+        reason,
+        priceToValue:
+          reason === null && close !== null && value !== null
+            ? divide(
+                parseDecimal(close.close, "financial.close"),
+                parseDecimal(value, "financial.valuePerShare"),
+                "financial.priceToValue",
+              ).toString()
+            : null,
+      },
+    };
   }
 
   // El job por ticker registra `fcff_base` y, desde `F6-18`, `normalized_fcff`,
