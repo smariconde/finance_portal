@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   formatAmount,
   formatCalendarDate,
+  displayMagnitude,
+  formatCompactAmount,
+  formatInMagnitude,
   formatPercent,
   formatShares,
   formatSignedAmount,
@@ -91,5 +94,32 @@ describe("es-AR display formatting", () => {
 
     expect(shortenHash(hash)).toBe("fb0277d0…8c25");
     expect(shortenHash("short")).toBe("short");
+  });
+
+  it("reads large amounts in words on the long scale", () => {
+    expect(formatCompactAmount("2644451815199.54")).toBe("2,64 billones");
+    expect(formatCompactAmount("1000000000000")).toBe("1,00 billón");
+    expect(formatCompactAmount("416161000000")).toBe("416,16 mil millones");
+    expect(formatCompactAmount("-99909000000")).toBe("-99,91 mil millones");
+    expect(formatCompactAmount("12490000")).toBe("12,49 millones");
+    expect(formatCompactAmount("999999.5")).toBe("999.999,50");
+    expect(formatCompactAmount("0")).toBe("0,00");
+    expect(formatCompactAmount("2644451815199.54", { scale: 1 })).toBe(
+      "2,6 billones",
+    );
+  });
+
+  it("picks one magnitude per series from its largest absolute value", () => {
+    const magnitude = displayMagnitude(["274515000000", "-416161000000"]);
+
+    expect(magnitude).toEqual({ exponent: 9, unit: "miles de millones" });
+    expect(formatInMagnitude("274515000000", magnitude)).toBe("274,5");
+    expect(formatInMagnitude("-416161000000", magnitude)).toBe("-416,2");
+    expect(displayMagnitude(["6.11", "-0.5"])).toEqual({
+      exponent: 0,
+      unit: null,
+    });
+    expect(displayMagnitude([])).toEqual({ exponent: 0, unit: null });
+    expect(formatInMagnitude("6.11", { exponent: 0, unit: null })).toBe("6,1");
   });
 });

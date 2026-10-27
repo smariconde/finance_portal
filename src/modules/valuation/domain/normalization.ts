@@ -774,7 +774,8 @@ const BALANCE_ITEMS: Readonly<
   marketableSecuritiesNoncurrent: "marketable_securities_noncurrent",
 };
 
-const DEBT_ITEMS: Readonly<Record<DebtComponentKey, LineItemId>> = {
+/** La partida de la serie anual que alimenta cada componente de la deuda. */
+export const DEBT_ITEMS: Readonly<Record<DebtComponentKey, LineItemId>> = {
   longTermTotal: "debt_long_term_total",
   longTermNoncurrent: "debt_long_term_noncurrent",
   longTermCurrent: "debt_long_term_current",

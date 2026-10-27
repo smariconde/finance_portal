@@ -29,6 +29,7 @@ import {
 import { EvidenceKindMark, FreshnessMark } from "./data-marks";
 import { CodeValue } from "./field";
 import { FACT_LABELS, qualityFlagLabel } from "./labels";
+import { storedTextEs } from "./stored-text";
 
 /**
  * Evidencia del snapshot: qué reportó una fuente, cuándo fue conocible, con qué
@@ -179,7 +180,7 @@ export function EvidenceTable({
                   <EvidenceKindMark kind="declared_absent" />
                 </div>
                 <p className="mt-1.5 text-sm text-muted-foreground">
-                  {absence.rationale}
+                  {storedTextEs(absence.rationale)}
                 </p>
               </li>
             ))}

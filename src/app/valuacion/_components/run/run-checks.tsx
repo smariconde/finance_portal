@@ -17,7 +17,7 @@ import {
 import { listTransformations } from "@/modules/valuation/domain/valuation-report";
 import type { ValuationRun } from "@/modules/valuation/domain/valuation-run";
 
-import { checkLabel, TRANSFORMATION_LABELS } from "./labels";
+import { checkLabel, checkRule, TRANSFORMATION_LABELS } from "./labels";
 
 /**
  * Las fórmulas que la corrida aplicó y los controles que el motor ejecutó
@@ -106,7 +106,7 @@ export function RunChecks({ run }: { run: ValuationRun }) {
                     />
                   </TableCell>
                   <TableCell className="text-muted-foreground whitespace-normal">
-                    {check.message}
+                    {checkRule(check.id, check.message)}
                   </TableCell>
                 </TableRow>
               ))}

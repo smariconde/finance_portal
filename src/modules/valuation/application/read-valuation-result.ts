@@ -46,7 +46,16 @@ import {
   valuationTickerSchema,
   type ValuationJob,
 } from "../domain/valuation-job";
+import {
+  companyTrajectory,
+  type CompanyTrajectory,
+} from "../domain/company-trajectory";
 import { valuationRunSchema, type ValuationRun } from "../domain/valuation-run";
+import {
+  readAnnualFundamentals,
+  type CompanyAssessmentDependencies,
+} from "./assess-company";
+import { issuerFactsAt } from "./issuer-facts";
 import type { MarketExpectationsRepository } from "./market-expectations-repository";
 import type { ValuationRunRepository } from "./valuation-run-repository";
 import {
@@ -176,6 +185,11 @@ export type ValuationResultReading =
       readonly subject: ValuationResultSubject | null;
       readonly cedear: ValuationResultCedear;
       readonly market: ValuationResultMarket;
+      /**
+       * Cómo venía la empresa (`F6-17`): la serie anual reportada al corte de
+       * la corrida. `null` cuando la empresa no tiene fundamentals ingeridos.
+       */
+      readonly trajectory: CompanyTrajectory | null;
     };
 
 export type ValuationResultDependencies = {
@@ -187,6 +201,13 @@ export type ValuationResultDependencies = {
   readonly expectations: Pick<
     MarketExpectationsRepository,
     "acceptedForFiscalYear"
+  >;
+  /** Los lectores de la serie anual, con el CIK de cada sujeto del linaje. */
+  readonly fundamentals: (
+    cikOf: (legalEntityId: string) => string | null,
+  ) => Pick<
+    CompanyAssessmentDependencies,
+    "readFundamentals" | "fiscalYearAnchors"
   >;
 };
 
@@ -505,6 +526,17 @@ export async function readValuationResult(
     marketAt(run, dependencies),
   ]);
 
+  // La misma serie que leyó la evaluación de la corrida, al mismo corte: una
+  // publicación posterior no puede aparecer en la historia.
+  const knowledge = run.provenance.knowledge;
+  const { series } = await readAnnualFundamentals(
+    run.subject.legalEntityId,
+    knowledge,
+    dependencies.fundamentals(
+      (subjectId) => issuerFactsAt(state.graph, subjectId, null, knowledge).cik,
+    ),
+  );
+
   return {
     state: "run",
     ticker,
@@ -520,5 +552,6 @@ export async function readValuationResult(
       dependencies.prices,
     ),
     market,
+    trajectory: series === null ? null : companyTrajectory(series),
   };
 }

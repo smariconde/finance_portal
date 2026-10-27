@@ -55,6 +55,11 @@ const REGISTRY: StoredCedearRegistry = {
 const cedears = { loadRegistry: async () => REGISTRY };
 const prices = new InMemoryPriceRepository();
 const expectations = createInMemoryMarketExpectationsRepository();
+/** Sin fundamentals ingeridos: la historia queda nula, no inventada. */
+const fundamentals = () => ({
+  readFundamentals: async () => [],
+  fiscalYearAnchors: async () => [],
+});
 
 let sequence = 0;
 
@@ -97,10 +102,93 @@ describe("readValuationResult", () => {
         cedears,
         prices,
         expectations,
+        fundamentals,
       },
     );
 
     expect(reading).toEqual({ state: "not_requested", ticker: "AAPL" });
+  });
+
+  it("reads the company's history at the run's own cutoff", async () => {
+    const jobs = createInMemoryValuationJobStore();
+    const runs = createInMemoryValuationRunRepository();
+    const run = await runs.record(buildDemoValuationRun());
+    await finished(
+      jobs,
+      outcomeForAssessment(READING, {
+        valuationRunId: run.valuationRunId,
+        runStatus: "computed",
+      }),
+    );
+
+    const queries: unknown[] = [];
+    const ciks: (string | null)[] = [];
+    const revenue = (asOf: string, periodStart: string, value: string) => ({
+      observationId: `40000000-0000-4000-8000-${asOf.replaceAll("-", "").padStart(12, "0")}`,
+      subjectId: run.subject.legalEntityId,
+      concept: "us-gaap:Revenues",
+      periodType: "annual",
+      asOf,
+      periodStart,
+      unit: "USD",
+      currency: "USD",
+      value,
+      availableAt: "2025-03-01T12:00:00.000Z",
+      recordedAt: "2025-03-01T12:00:00.000Z",
+      sourceDocumentId: null,
+    });
+
+    const reading = await readValuationResult(
+      { ticker: "AAPL" },
+      {
+        jobs,
+        runs,
+        universe,
+        cedears,
+        prices,
+        expectations,
+        fundamentals: (cikOf) => ({
+          readFundamentals: async (subjectId, query) => {
+            queries.push(query);
+            ciks.push(cikOf(subjectId));
+            return [
+              revenue("2024-12-31", "2024-01-01", "1100"),
+              revenue("2023-12-31", "2023-01-01", "1000"),
+            ];
+          },
+          fiscalYearAnchors: async () => ["2024-12-31"],
+        }),
+      },
+    );
+
+    if (reading.state !== "run") throw new Error(reading.state);
+
+    expect(queries).toEqual([run.provenance.knowledge]);
+    expect(ciks).toEqual(["0000999901"]);
+    expect(reading.trajectory?.years.map((year) => year.revenue)).toEqual([
+      { status: "value", value: "1000" },
+      { status: "value", value: "1100" },
+    ]);
+  });
+
+  it("leaves the history null when the company has no fundamentals", async () => {
+    const jobs = createInMemoryValuationJobStore();
+    const runs = createInMemoryValuationRunRepository();
+    const run = await runs.record(buildDemoValuationRun());
+    await finished(
+      jobs,
+      outcomeForAssessment(READING, {
+        valuationRunId: run.valuationRunId,
+        runStatus: "computed",
+      }),
+    );
+
+    const reading = await readValuationResult(
+      { ticker: "AAPL" },
+      { jobs, runs, universe, cedears, prices, expectations, fundamentals },
+    );
+
+    expect(reading.state === "run" && reading.trajectory).toBeNull();
   });
 
   it("names the latest gap when no job recorded a run", async () => {
@@ -120,6 +208,7 @@ describe("readValuationResult", () => {
         cedears,
         prices,
         expectations,
+        fundamentals,
       },
     );
 
@@ -147,7 +236,7 @@ describe("readValuationResult", () => {
 
     const reading = await readValuationResult(
       { ticker: "AAPL" },
-      { jobs, runs, universe, cedears, prices, expectations },
+      { jobs, runs, universe, cedears, prices, expectations, fundamentals },
     );
 
     expect(reading.state).toBe("run");
@@ -176,7 +265,7 @@ describe("readValuationResult", () => {
 
     const reading = await readValuationResult(
       { ticker: "AAPL" },
-      { jobs, runs, universe, cedears, prices, expectations },
+      { jobs, runs, universe, cedears, prices, expectations, fundamentals },
     );
 
     expect(reading.state === "run" && reading.newerGap).toBeNull();
@@ -213,7 +302,15 @@ describe("readValuationResult", () => {
 
     const reading = await readValuationResult(
       { ticker: "AAPL" },
-      { jobs, runs, universe, cedears, prices: series, expectations },
+      {
+        jobs,
+        runs,
+        universe,
+        cedears,
+        prices: series,
+        expectations,
+        fundamentals,
+      },
     );
 
     expect(reading.state).toBe("run");
@@ -310,6 +407,7 @@ describe("readValuationResult", () => {
         cedears,
         prices: series,
         expectations: readings,
+        fundamentals,
       },
     );
 

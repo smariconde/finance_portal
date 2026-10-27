@@ -22,6 +22,7 @@ import type { ValuationRun } from "@/modules/valuation/domain/valuation-run";
 
 import { ClaimStatusMark } from "./data-marks";
 import { BRIDGE_LABELS } from "./labels";
+import { storedTextEs } from "./stored-text";
 
 /**
  * Puente enterprise value → equity → valor por acción.
@@ -99,7 +100,9 @@ export function EquityBridgeTable({ run }: { run: ValuationRun }) {
                   <ClaimStatusMark status={component.status} />
                 </TableCell>
                 <TableCell className="text-muted-foreground whitespace-normal">
-                  {component.rationale ?? (
+                  {(component.rationale === null
+                    ? null
+                    : storedTextEs(component.rationale)) ?? (
                     <span className="text-xs">
                       Importe reportado por la fuente.
                     </span>
