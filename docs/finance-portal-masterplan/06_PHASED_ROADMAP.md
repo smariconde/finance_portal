@@ -196,6 +196,9 @@ La espina del producto, ya con todas sus piezas construidas.
 - [x] Resultado legible (`F6-17`, [ADR 0058](../architecture/adr/0058-didactic-valuation-result.md)): precio contra valor como ubicacion en el rango, lo que exige el precio en palabras, historia reportada de la empresa al corte, cadena del valor y auditoria plegada; sin tocar snapshot ni hashes.
 - [ ] Cobertura del universo desde la app, un arquetipo por slice: ciclicas y commodities (`F6-18`, hecho el 2026-10-27, [ADR 0059](../architecture/adr/0059-derived-cycle-normalization.md)), bancos y aseguradoras (`F6-20`), perdidas y alto crecimiento (`F6-21`), REIT (`F6-22`), y la deuda de las empresas con financiera cautiva (`F6-23`). Los motores existen desde la Fase 4; falta que el job derive sus snapshots. Holdings y distress siguen diferidos (4.5).
 - [ ] Contexto de la brecha (`F6-19`): precio sobre valor frente al sector y a todo lo valuado, y multiplos contra el sector sobre el pipeline de `F8-01`.
+- [ ] Año base TTM desde el ultimo 10-Q (`F6-24`): la corrida deja de quedar hasta un año atras del `as_of`.
+- [ ] Ficha de la empresa con multiplos por arquetipo y su historia reportada en barras, con datos propios (`F6-25`).
+- [ ] Logo de la empresa desde una fuente gratuita con derechos declarados, servido desde una ruta propia (`F6-26`).
 
 `F6-01` cerró el 2026-10-21. `F6-07` cerró el mismo día: el job ya escribe `valuation_runs` con supuestos derivados y la corrida se reproduce. `F6-03` cerró el mismo día: `/valuacion/[ticker]` muestra el valor con su rigor y el origen de cada dato. `F6-05` cerró el 2026-10-21 con descarga y auditoría bajo demanda; `F6-08` cerró el 2026-10-24 con precio local y pesos. El deployment y el job remoto de `F6-06` se verificaron el 2026-10-26. Quality y E2E pasaron en CI. El owner aceptó cerrar el gate con la falta de tiempos del walkthrough documentada; una futura medición de usabilidad requiere repetir las tareas con cronómetro.
 

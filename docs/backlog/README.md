@@ -94,6 +94,9 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    66 | `F6-22`    | `queued`   | REIT de propiedades valuados desde la app: AFFO transcripto del 10-K por la IA y conciliado, y NAV.                                                                                                                       | `F6-21`          |
 |    67 | `F8-02`    | `queued`   | Vista principal market cap vs EPS con sesgo de recompras visible y vistas alternativas con puente de dilución.                                                                                                            | `F8-01`          |
 |    68 | `F6-23`    | `queued`   | Deuda de las empresas con brazo financiero cautivo (CAT, DE): medir sus conceptos y decidir cómo se trata la financiera antes de valuarlas.                                                                               | `F6-18`          |
+|    69 | `F6-24`    | `queued`   | Año base TTM: el último 10-Q entra al año base (flujos TTM, balance al último cierre) y la corrida deja de quedar hasta un año atrás.                                                                                     | `F6-22`          |
+|    70 | `F6-25`    | `queued`   | Ficha de la empresa: múltiplos elegidos por arquetipo y su historia reportada en barras, calculados con datos propios.                                                                                                    | `F6-19`          |
+|    71 | `F6-26`    | `queued`   | Logo de la empresa desde una fuente gratuita con derechos declarados, bajado por un job y servido desde una ruta propia.                                                                                                  | `F6-25`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -3648,6 +3651,9 @@ repararon contra `source_documents`.
 | `F6-21` | El job deriva el snapshot `revenue_margin_survival` con margen objetivo de la industria y probabilidad de supervivencia fechada.                                                                                                      | `F6-20`          | `TM-05`, `TM-06`, `TM-16`                   |
 | `F6-22` | El job valúa REIT de propiedades con AFFO transcripto y conciliado por policy, y NAV independiente.                                                                                                                                   | `F6-21`          | `TM-05`, `TM-09`, `TM-16`                   |
 | `F6-23` | Deuda de empresas con brazo financiero cautivo: conceptos medidos y regla para la financiera, sin sumar ni excluir en silencio.                                                                                                       | `F6-18`          | `TM-05`, `TM-06`, `TM-16`                   |
+| `F6-24` | Año base TTM desde el último 10-Q: flujos como FY + acumulado actual − acumulado previo, balance del último cierre, ventana y recómputos ajustados; las corridas anteriores replayan.                                                 | `F6-22`          | `TM-05`, `TM-06`, `TM-16`                   |
+| `F6-25` | Ficha de la empresa con múltiplos por arquetipo y barras de su historia reportada, todo calculado de SEC y precios guardados; nulos con motivo.                                                                                       | `F6-19`          | `TM-05`, `TM-06`, `UI-02`, `UI-03`          |
+| `F6-26` | Logo por empresa desde una fuente gratuita registrada con sus derechos, bajado por job y servido desde una ruta propia, sin `img-src` externo.                                                                                        | `F6-25`          | `TM-05`, `TM-08`, `TM-10`                   |
 
 **Criterio agregado a `F6-05` el 2026-10-20.** Toda ingesta que dispare la
 app —la que baja la ventana que falta y cualquier reingesta o refresh de un
@@ -3905,6 +3911,47 @@ Evidencia:
   es un lote acotado (ADR 0016), con presupuesto y sin cargar el universo.
 - Aceptación: la página separa sesgo del modelo, sector y empresa con `n` y
   nulos con motivo; nunca presenta la brecha como señal de compra.
+
+#### `F6-24` — año base TTM desde el 10-Q
+
+- Estado: `queued` (pedido del owner del 2026-10-27).
+- Contexto: la corrida descuenta desde el último 10-K. La ADR 0049 ya nombró
+  el límite: con un `as_of` casi un año después, el valor queda un año atrás.
+  En KO al 2026-10-27, las ventas TTM son 50,57 B contra 48,39 B del FY2025
+  (+4,5 %) y el resultado operativo 16,1 B contra 15,2 B (+6 %).
+- Alcance: los flujos TTM salen de FY + acumulado del año en curso −
+  acumulado del mismo período del año anterior, y el flujo de fondos sólo
+  existe acumulado. El balance (deuda, caja, capital invertido) se toma del
+  último cierre trimestral. La ventana (ADR 0017) conserva los acumulados del
+  ejercicio en curso, y la normalización, la capitalización y los recómputos
+  leen la base declarada. Las opciones siguen saliendo del 10-K. Lleva ADR.
+- Aceptación: cada dato del año base nombra su base (`annual` o `ttm`) y sus
+  filings; sin el acumulado comparable, la corrida cae a la base anual
+  nombrando el motivo; todas las corridas guardadas replayan.
+
+#### `F6-25` — ficha de la empresa con múltiplos por arquetipo
+
+- Estado: `queued` (pedido del owner del 2026-10-27, con la ficha de Finviz
+  como referencia visual; Finviz sigue sin ser fuente, ADR 0016).
+- Alcance: múltiplos y rentabilidad calculados de la SEC y los precios
+  guardados, elegidos por arquetipo: P/B y ROE para bancos, P/FFO o P/AFFO
+  para REIT, EV/EBITDA sobre el ciclo para cíclicas, EV/Sales para
+  crecimiento, y P/E y P/FCF para maduras. Barras de EPS, ventas y acciones
+  por ejercicio al corte de la corrida. Las estimaciones de analistas, el
+  short interest y la tenencia institucional quedan fuera: no hay fuente.
+- Aceptación: cada múltiplo tiene fórmula versionada, corte y nulo con
+  motivo; la elección por arquetipo es una regla versionada; la revisión pasa
+  `impeccable` y `financial-visualization-review`.
+
+#### `F6-26` — logo de la empresa
+
+- Estado: `queued` (pedido del owner del 2026-10-27).
+- Alcance: una ADR elige la fuente (candidatas: logo.dev con token, Wikimedia
+  Commons con licencia por archivo) y la registra con sus derechos. Un job
+  baja el logo por el egress, lo guarda en la base y una ruta propia lo
+  sirve, así el navegador nunca llama a un tercero. Los logos no se commitean.
+- Aceptación: sin logo, la superficie muestra un monograma, nunca una imagen
+  rota; la CSP no gana `img-src` externo.
 
 #### `F6-20` — bancos y aseguradoras desde la app
 
