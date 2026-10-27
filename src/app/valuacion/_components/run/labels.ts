@@ -81,6 +81,10 @@ const CHECK_LABELS: Record<string, string> = {
   zero_debt_evidence_consistent: "Evidencia de deuda cero consistente",
   share_count_positive: "Cantidad de acciones positiva",
   method_versions_match: "Versiones del método coherentes",
+  cycle_model_experimental: "Modelo de ciclo experimental",
+  cycle_normalization_recomputed: "Normalización de ciclo recalculada",
+  cycle_scenario_margin_target: "Escenarios de ciclo por margen objetivo",
+  cycle_snapshot_known_at_cutoff: "Snapshot de ciclo visible al corte",
 };
 
 /** Qué exige cada control, en castellano; el motor lo guarda en inglés. */
@@ -138,6 +142,14 @@ const CHECK_RULES: Record<string, string> = {
     "Un patrimonio no positivo es un resultado posible, pero no se lee como precio.",
   scenario_value_order:
     "Pesimista, base y optimista quedan ordenados; lo contrario contradice sus nombres.",
+  cycle_model_experimental:
+    "El modelo de ciclo es experimental: si la ventana cubre un ciclo, si la contabilidad es comparable y cuánto habrá que reinvertir lo revisa el owner.",
+  cycle_normalization_recomputed:
+    "La historia del ciclo, la clasificación y la trayectoria del margen explican el flujo normalizado.",
+  cycle_scenario_margin_target:
+    "Un escenario de ciclo mueve el margen objetivo, que reconstruye toda la trayectoria; nunca el margen de un año suelto.",
+  cycle_snapshot_known_at_cutoff:
+    "Los hechos y las tasas del snapshot eran visibles al corte de conocimiento declarado.",
 };
 
 export function checkRule(id: string, message: string): string {

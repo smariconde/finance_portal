@@ -20,6 +20,13 @@ import {
 import type { CompanyAssessment } from "./assess-company";
 import type { StoredEmployeeEquity } from "./employee-equity-repository";
 import { runValuation } from "./run-valuation";
+import { seriesFact } from "./assess-company";
+import { deriveCycleHistory } from "../domain/derived-cycle";
+import {
+  PROFILE_PRECEDENCE,
+  selectValuationMethod,
+} from "../domain/method-selection";
+import { deriveRigorLevel } from "../domain/rigor-level";
 
 const demo = DEMO_VALUATION_INPUT;
 const KNOWN_AT = "2025-06-01T00:00:00.000Z";
@@ -447,7 +454,7 @@ describe("valuation-snapshot-1.0.0", () => {
       expect(input.assessment.rigor.declarations).toContain(
         "employee_options_not_subtracted",
       );
-      expect(run.failure?.subjects ?? null).toBeNull();
+      expect(run.failure).toBeNull();
       expect(
         run.result?.checks.find(
           (check) => check.id === "rigor_derived_from_completeness",
@@ -530,6 +537,126 @@ describe("valuation-snapshot-1.0.0", () => {
         }),
       ),
     ).toEqual({ status: "not_assembled", gap: "revenue_history_insufficient" });
+  });
+
+  it("assembles a derived cycle snapshot that the engine values with its own checks passing", () => {
+    // Cinco ejercicios con ventas y EBIT; el base es el de la normalización.
+    const withEbit = (fiscalYearEnd: string, sales: string, ebit: string) => {
+      const entry = revenue(fiscalYearEnd, sales);
+      return {
+        ...entry,
+        items: {
+          ...entry.items,
+          operating_income: {
+            ...entry.items.revenue,
+            item: "operating_income" as const,
+            concept: "us-gaap:OperatingIncomeLoss",
+            value: ebit,
+          },
+        },
+      };
+    };
+    const cycleSeries = {
+      version: "annual-fundamentals-1.4.0",
+      fiscalYears: [
+        withEbit("2024-12-31", demo.baseRevenue.value, "1"),
+        withEbit("2023-12-31", "90000000", "18000000"),
+        withEbit("2022-12-31", "84000000", "4200000"),
+        withEbit("2021-12-31", "70000000", "14000000"),
+        withEbit("2020-12-31", "60000000", "3000000"),
+      ],
+    } as AnnualFundamentals;
+    const evidence = PROFILE_PRECEDENCE.flat().map((profile) => ({
+      legalEntityId: demo.subject.legalEntityId,
+      profile,
+      present: profile === "cyclical",
+      rule: "sec-sic-profile-2.0.0",
+      derivation: "primary" as const,
+      validFrom: "2020-01-01T00:00:00.000Z",
+      validTo: null,
+      availableAt: "2025-01-10T00:00:00.000Z",
+      recordedAt: "2025-01-10T00:00:00.000Z",
+      supersededAt: null,
+      sourceId: "sec-edgar",
+      sourceDocumentId: "sic-observation",
+      contentHash: "a".repeat(64),
+    }));
+    const selection = selectValuationMethod({
+      legalEntityId: demo.subject.legalEntityId,
+      knowledge: {
+        ...demo.knowledge,
+        revisionPolicy: "as_known",
+        knownAt: KNOWN_AT,
+      },
+      evidence,
+      fcffInputsComplete: true,
+      normalizedFcffMissingInputs: [],
+    });
+    // El fixture FCFF fecha sus releases después de este corte; el ciclo
+    // exige verlas al corte, como hace `fixtureCycleValuation`.
+    const knownCost = {
+      ...demo.costOfCapital,
+      parameters: demo.costOfCapital.parameters.map((parameter) => ({
+        ...parameter,
+        availableAt: "2025-05-01T14:00:00.000Z",
+      })),
+      coverage: {
+        ...demo.costOfCapital.coverage,
+        availableAt: "2025-05-01T14:00:00.000Z",
+      },
+    };
+    const cyclical = {
+      ...ASSESSMENT,
+      costOfCapital: { status: "computed", costOfCapital: knownCost },
+      fundamentals: { anchor: "2024-12-31", series: cycleSeries },
+      evidence,
+      selection,
+      rigor: deriveRigorLevel(selection, demo.assessment.completeness),
+      cycle: deriveCycleHistory(cycleSeries, {
+        toFact: (item) => seriesFact(item, "sec-edgar"),
+        industryKey: demo.costOfCapital.industryKey,
+        preTaxCostOfDebt: demo.costOfCapital.derived.preTaxCostOfDebt,
+        baseEbitAdjusted: demo.normalization.base.ebitAdjusted,
+      }),
+    } as unknown as CompanyAssessment;
+
+    expect(cyclical.cycle?.status).toBe("ready");
+
+    const result = assembleValuationSnapshot(
+      request({
+        assessment: cyclical,
+        query: {
+          ...demo.knowledge,
+          knowledgeBasis: "public_availability",
+          knownAt: KNOWN_AT,
+        } as ValuationSnapshotRequest["query"],
+      }),
+    );
+
+    expect(result.status).toBe("assembled");
+    if (result.status !== "assembled") return;
+
+    const { input } = result;
+    expect(input.method).toBe("normalized_fcff");
+    expect(input.cycleNormalization?.history).toHaveLength(5);
+    expect(
+      input.periods.every(
+        (period) => period.revenueGrowth === input.terminal.growth,
+      ),
+    ).toBe(true);
+
+    const run = runValuation(input, {
+      now: () => "2026-10-21T00:00:00.000Z",
+      newValuationRunId: () => "00000000-0000-4000-8000-0000000000fb",
+    });
+    const failed = (run.result?.checks ?? [])
+      .filter((check) => check.status === "failed")
+      .map((check) => `${check.id}:${check.subjects.join(",")}`);
+
+    expect(run.failure?.subjects ?? null).toBeNull();
+    // El modelo de ciclo es experimental: siempre pide revisión, y nada más.
+    expect(run.status).toBe("requires_review");
+    expect(failed).toEqual(["cycle_model_experimental:cycleNormalization"]);
   });
 
   it("derives assumptions only for fcff_base", () => {

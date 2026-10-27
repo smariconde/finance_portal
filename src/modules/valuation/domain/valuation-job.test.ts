@@ -262,6 +262,16 @@ describe("valuation job", () => {
     ).toBe(false);
   });
 
+  it("registra una corrida de margen de ciclo, que el job sabe derivar (F6-18)", () => {
+    const recorded = outcomeForAssessment(
+      { ...SELECTED, assetProfile: "cyclical", method: "normalized_fcff" },
+      { valuationRunId: RUN, runStatus: "requires_review" },
+    );
+
+    expect(recorded.gap).toBe("run_recorded");
+    expect(valuationJobOutcomeSchema.safeParse(recorded).success).toBe(true);
+  });
+
   it("una fila 1.0.0 conserva lo que dijo, sin motivo ni corrida", () => {
     const job = {
       ...queued(),

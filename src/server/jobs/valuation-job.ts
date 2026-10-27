@@ -15,7 +15,10 @@ import {
   type PointInTimeQuery,
 } from "@/modules/temporal/domain/point-in-time-query";
 import { SP500_INDEX_ID } from "@/modules/universe/application/live-universe-source";
-import { assessCompany } from "@/modules/valuation/application/assess-company";
+import {
+  assessCompany,
+  type CompanyAssessment,
+} from "@/modules/valuation/application/assess-company";
 import { DECLARED_INDUSTRY_ASSIGNMENTS } from "@/modules/valuation/application/declared-industry-assignments";
 import { DECLARED_OPERATIONS_MIXES } from "@/modules/valuation/application/declared-operations-mixes";
 import { issuerFactsAt } from "@/modules/valuation/application/issuer-facts";
@@ -279,7 +282,8 @@ export type PreparedValuationRun =
  * armar el snapshot; eso sí escribe, en las tablas de ingesta. Sin la opción,
  * sólo lee.
  *
- * Con `askAi` (`F6-13`) y un método `fcff_base`, pregunta a la IA lo
+ * Con `askAi` (`F6-13`) y un método FCFF —`fcff_base` o, desde `F6-18`,
+ * `normalized_fcff`—, pregunta a la IA lo
  * cualitativo que falta antes de armar el snapshot; eso escribe en las tablas
  * de cada tarea y gasta. Sólo corre detrás del paso de datos: una tarea sobre
  * una ventana que no pasó la auditoría preguntaría sobre datos rotos.
@@ -447,7 +451,9 @@ export async function prepareValuationRun(
     }
   }
 
-  if (!selected || !reading.hasAnnualFundamentals) {
+  const awaitsCycle = awaitsCycleHistory(assessment.selection);
+
+  if ((!selected && !awaitsCycle) || !reading.hasAnnualFundamentals) {
     return {
       kind: "outcome",
       outcome: outcomeForAssessment(reading, undefined, dataStep),
@@ -461,8 +467,9 @@ export async function prepareValuationRun(
   if (
     options.askAi === true &&
     dataStep !== null &&
-    assessment.selection.status === "selected" &&
-    assessment.selection.recommendedMethod === "fcff_base"
+    (assessment.selection.status === "selected" || awaitsCycle) &&
+    (assessment.selection.recommendedMethod === "fcff_base" ||
+      assessment.selection.recommendedMethod === "normalized_fcff")
   ) {
     const needs = {
       industry: assessment.industry.status === "ambiguous",
@@ -494,6 +501,15 @@ export async function prepareValuationRun(
         return { kind: "outcome", outcome };
       }
     }
+  }
+
+  // Una cíclica que esperaba lo cualitativo y no obtuvo nada nuevo sigue sin
+  // método: termina con el motivo del selector, como antes de `F6-18`.
+  if (!selected) {
+    return {
+      kind: "outcome",
+      outcome: outcomeForAssessment(reading, undefined, dataStep),
+    };
   }
 
   const [employeeEquity, shareCounts, prices, industryReturns] =
@@ -535,6 +551,23 @@ export async function prepareValuationRun(
       industryReturns,
     }),
   };
+}
+
+/**
+ * Una cíclica sin historia de ciclo puede estar esperando lo cualitativo: la
+ * historia necesita el costo de capital, y éste la industria que resuelve la
+ * IA (`F6-18`). Si sólo falta `cycle_margins`, el paso cualitativo corre.
+ */
+function awaitsCycleHistory(
+  selection: CompanyAssessment["selection"],
+): boolean {
+  return (
+    selection.recommendedMethod === "normalized_fcff" &&
+    selection.unsupportedReasons.length === 1 &&
+    selection.unsupportedReasons[0] === "missing_required_input" &&
+    selection.requiredInputs.length === 1 &&
+    selection.requiredInputs[0] === "cycle_margins"
+  );
 }
 
 /**

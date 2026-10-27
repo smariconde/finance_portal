@@ -142,6 +142,12 @@ export const valuationJobMethodStatusSchema = z.enum([
   "unsupported_method",
 ]);
 
+/** Métodos cuyo snapshot arma el job desde lo guardado. */
+const DERIVED_JOB_METHODS: ReadonlySet<string> = new Set([
+  "fcff_base",
+  "normalized_fcff",
+]);
+
 export const valuationJobMethodSchema = z.enum([
   "fcff_base",
   "fcff_three_stage",
@@ -602,11 +608,16 @@ function refineOutcome(
     });
   }
 
-  if (gap === "run_recorded" && (!selected || outcome.method !== "fcff_base")) {
+  // Los métodos que el job sabe derivar: `fcff_base` y, desde `F6-18`, el
+  // margen de ciclo de las cíclicas y commodities (ADR 0059).
+  if (
+    gap === "run_recorded" &&
+    (!selected || !DERIVED_JOB_METHODS.has(outcome.method ?? ""))
+  ) {
     context.addIssue({
       code: "custom",
       path: ["method"],
-      message: "A recorded run values the selected fcff_base method.",
+      message: "A recorded run values a selected method the job derives.",
     });
   }
 

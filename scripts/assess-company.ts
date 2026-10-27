@@ -452,6 +452,15 @@ for (const report of reports) {
   if (selection.alternatives.length > 0) {
     log("  alternativas", selection.alternatives.join(", "));
   }
+  // La historia de ciclo derivada (`F6-18`): por qué está o qué le faltó.
+  if (assessment.cycle != null) {
+    log(
+      "ciclo",
+      assessment.cycle.status === "ready"
+        ? `${assessment.cycle.history.length} ejercicios · margen medio ${assessment.cycle.historicalMargin}`
+        : `sin historia · ${assessment.cycle.reason} · ${assessment.cycle.years} ejercicios`,
+    );
+  }
   if (assessment.costOfCapital.status === "computed") {
     const { derived, coverage, operationsExposure } =
       assessment.costOfCapital.costOfCapital;

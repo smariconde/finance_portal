@@ -61,6 +61,8 @@ function requirementOf(
   reading: MarketImpliedReading,
   context: MarketImpliedContext,
   currency: string,
+  /** Una cíclica (`F6-18`): el margen de la corrida es el del ciclo. */
+  cyclical: boolean,
 ): { headline: ReactNode; detail: string } | null {
   if (reading.status === "unavailable") return null;
 
@@ -99,8 +101,9 @@ function requirementOf(
           ) : (
             unreachable("un margen")
           ),
-        detail:
-          context.baseEbitMargin === null
+        detail: cyclical
+          ? `El modelo lo lleva a ${percent(reading.runValue)}, el promedio de su ciclo.`
+          : context.baseEbitMargin === null
             ? `El modelo usa ${percent(reading.runValue)}.`
             : `El modelo lo mantiene en ${percent(reading.runValue)}, el margen ajustado del último ejercicio.`,
       };
@@ -193,7 +196,12 @@ export function PriceRequirements({
       <CardContent className="flex flex-col gap-5">
         <ol className="flex flex-col gap-4">
           {implied.readings.map((reading) => {
-            const requirement = requirementOf(reading, context, run.currency);
+            const requirement = requirementOf(
+              reading,
+              context,
+              run.currency,
+              run.method === "normalized_fcff",
+            );
             if (requirement === null) return null;
 
             return (

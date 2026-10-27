@@ -31,6 +31,7 @@ import {
   type ZeroDebtAssessment,
   type ZeroDebtEvidence,
 } from "../domain/zero-debt-evidence";
+import { deriveCycleHistory, type DerivedCycle } from "../domain/derived-cycle";
 import {
   buildAnnualFundamentals,
   chooseFiscalYearAnchor,
@@ -215,6 +216,12 @@ export type CompanyAssessment = {
    * cierra. `null` sin serie anual; ausente en una evaluación armada a mano.
    */
   readonly zeroDebt?: ZeroDebtAssessment | null;
+  /**
+   * La historia de ciclo derivada (`F6-18`, ADR 0059), sólo para un perfil
+   * cíclico o commodity con WACC y normalización. Ausente en una evaluación
+   * armada a mano.
+   */
+  readonly cycle?: DerivedCycle | null;
 };
 
 function isVisible(
@@ -226,6 +233,9 @@ function isVisible(
     isKnownAt(classification, query)
   );
 }
+
+/** Perfiles que se valúan con el margen de ciclo (`F6-18`). */
+const CYCLE_PROFILES: ReadonlySet<string> = new Set(["cyclical", "commodity"]);
 
 /** Perfiles que se valúan sobre el equity: no llevan WACC (`F3-06`). */
 const FINANCIAL_PROFILES: ReadonlySet<string> = new Set([
@@ -423,6 +433,43 @@ export async function assessCompany(
       : null,
   );
 
+  const normalization = assessNormalization(
+    series,
+    request.fundamentalsSourceId,
+    capitalization,
+    costOfCapital.status === "computed"
+      ? marginalTaxRateOf(costOfCapital.costOfCapital)
+      : null,
+    zeroDebtEvidence,
+  );
+  const cycle =
+    series === null ||
+    normalization === null ||
+    costOfCapital.status !== "computed" ||
+    !CYCLE_PROFILES.has(selection.assetProfile ?? "")
+      ? null
+      : deriveCycleHistory(series, {
+          toFact: (item) => seriesFact(item, request.fundamentalsSourceId),
+          industryKey: costOfCapital.costOfCapital.industryKey,
+          preTaxCostOfDebt:
+            costOfCapital.costOfCapital.derived.preTaxCostOfDebt,
+          baseEbitAdjusted: normalization.base.ebitAdjusted,
+        });
+  // Con la historia lista, el ciclo deja de faltar: la misma evidencia
+  // vuelve al selector con `cycle_margins` resuelto.
+  const finalSelection =
+    cycle?.status === "ready"
+      ? selectValuationMethod({
+          legalEntityId,
+          knowledge: query,
+          evidence,
+          fcffInputsComplete:
+            completenessCheck(completeness, "structural_inputs").status ===
+            "met",
+          normalizedFcffMissingInputs: [],
+        })
+      : selection;
+
   return {
     legalEntityId,
     query,
@@ -440,8 +487,8 @@ export async function assessCompany(
     fundamentalSignals: fundamental?.signals ?? [],
     evidence,
     completeness,
-    selection,
-    rigor: deriveRigorLevel(selection, completeness),
+    selection: finalSelection,
+    rigor: deriveRigorLevel(finalSelection, completeness),
     qualitativeDecisions,
     costOfCapital,
     failureRisk: buildFailureRisk({
@@ -456,16 +503,9 @@ export async function assessCompany(
       declarations: DECLARED_FAILURE_PROBABILITIES,
     }),
     capitalization,
-    normalization: assessNormalization(
-      series,
-      request.fundamentalsSourceId,
-      capitalization,
-      costOfCapital.status === "computed"
-        ? marginalTaxRateOf(costOfCapital.costOfCapital)
-        : null,
-      zeroDebtEvidence,
-    ),
+    normalization,
     zeroDebt,
+    cycle,
   };
 }
 

@@ -203,6 +203,7 @@ const SECTIONS = [
 /** El método en palabras; el código queda en la auditoría. */
 const METHOD_COPY: Record<string, string> = {
   fcff_base: "Flujo de caja descontado",
+  normalized_fcff: "Flujo de caja con margen de ciclo",
 };
 
 function SectionNav() {
@@ -346,6 +347,10 @@ export default async function ValuationResultPage({ params }: PageProps) {
   ].filter(
     (check) => check.mode === "require_review" && check.status === "failed",
   );
+  // Base, bear y bull repiten el mismo control: se nombra una vez.
+  const reviewLabels = [
+    ...new Set(reviewChecks.map((check) => checkLabel(check.id))),
+  ];
   const attributionOf = (sourceId: string) =>
     DEMO_SOURCE_REGISTRY.find((entry) => entry.sourceId === sourceId)
       ?.attribution ?? null;
@@ -394,11 +399,11 @@ export default async function ValuationResultPage({ params }: PageProps) {
           <Info aria-hidden="true" />
           <AlertTitle>La corrida quedó marcada para revisión</AlertTitle>
           <AlertDescription>
-            {reviewChecks.length} control
-            {reviewChecks.length === 1 ? "" : "es"} en modo revisión no pasó (
-            {reviewChecks.map((check) => checkLabel(check.id)).join(", ")}). El
-            valor se calculó igual, pero no debe leerse como cerrado hasta
-            resolverlos; el detalle está en la auditoría.
+            {reviewLabels.length} control
+            {reviewLabels.length === 1 ? "" : "es"} en modo revisión no pasó (
+            {reviewLabels.join(", ")}). El valor se calculó igual, pero no debe
+            leerse como cerrado hasta resolverlos; el detalle está en la
+            auditoría.
           </AlertDescription>
         </Alert>
       )}

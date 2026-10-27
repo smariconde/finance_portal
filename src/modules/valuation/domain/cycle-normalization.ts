@@ -149,7 +149,10 @@ export function cycleNormalizationMismatches(input: ValuationInput): string[] {
   // Facts have public availability, but no recordedAt: system-recorded cannot be proved.
   if (input.knowledge.knowledgeBasis !== "public_availability")
     mismatches.push("knowledge.knowledgeBasis");
-  if (input.knowledge.effectiveAt.slice(0, 10) !== input.asOf)
+  // Una corrida del job lee al instante del pedido y valúa al último cierre
+  // asentado (`F6-18`, ADR 0059): lo efectivo puede ser posterior al `as_of`,
+  // nunca anterior. Los hechos siguen acotados al corte y al `as_of`.
+  if (input.knowledge.effectiveAt.slice(0, 10) < input.asOf)
     mismatches.push("knowledge.effectiveAt");
   const cutoff = input.knowledge.knownAt ?? `${input.asOf}T23:59:59.999Z`;
   if (Date.parse(cycle.employeeEquityAvailableAt) > Date.parse(cutoff))
