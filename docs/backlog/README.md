@@ -87,12 +87,13 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    59 | `F6-06`    | `done`     | Despliegue remoto: Postgres hosteada, protección de la plataforma verificada y walkthrough del owner sobre una valuación real.                                                                                            | `F6-08`          |
 |    60 | `F8-01`    | `done`     | Pipeline fiscal-aligned point-in-time de precio, market cap, net income, EPS y acciones para los filers del sector elegido, sin cargar el universo.                                                                       | Fase 6           |
 |    61 | `F6-17`    | `done`     | Resultado de la valuación legible: veredicto precio contra valor, lo que exige el precio en palabras, historia reportada de la empresa, cadena del valor y auditoría plegada.                                             | `F6-12`          |
-|    62 | `F6-18`    | `ready`    | Cíclicas y commodities valuadas desde la app: el job deriva el snapshot de margen de ciclo y la página lee corridas `normalized_fcff`.                                                                                    | `F6-17`          |
-|    63 | `F6-19`    | `queued`   | Contexto de la brecha: precio sobre valor de la empresa frente a su sector y a todo lo valuado, y múltiplos contra el sector.                                                                                             | `F6-18`, `F8-01` |
+|    62 | `F6-18`    | `done`     | Cíclicas y commodities valuadas desde la app: el job deriva el snapshot de margen de ciclo y la página lee corridas `normalized_fcff`.                                                                                    | `F6-17`          |
+|    63 | `F6-19`    | `ready`    | Contexto de la brecha: precio sobre valor de la empresa frente a su sector y a todo lo valuado, y múltiplos contra el sector.                                                                                             | `F6-18`, `F8-01` |
 |    64 | `F6-20`    | `queued`   | Bancos y aseguradoras valuados desde la app: el job deriva el snapshot de exceso de retorno sobre el patrimonio.                                                                                                          | `F6-18`          |
 |    65 | `F6-21`    | `queued`   | Empresas en pérdidas o de alto crecimiento valuadas desde la app: el job deriva el snapshot de ventas a margen con supervivencia.                                                                                         | `F6-20`          |
 |    66 | `F6-22`    | `queued`   | REIT de propiedades valuados desde la app: AFFO transcripto del 10-K por la IA y conciliado, y NAV.                                                                                                                       | `F6-21`          |
 |    67 | `F8-02`    | `queued`   | Vista principal market cap vs EPS con sesgo de recompras visible y vistas alternativas con puente de dilución.                                                                                                            | `F8-01`          |
+|    68 | `F6-23`    | `queued`   | Deuda de las empresas con brazo financiero cautivo (CAT, DE): medir sus conceptos y decidir cómo se trata la financiera antes de valuarlas.                                                                               | `F6-18`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -3646,6 +3647,7 @@ repararon contra `source_documents`.
 | `F6-20` | El job deriva el snapshot `excess_return` de bancos y aseguradoras desde el patrimonio y el ROE reportados.                                                                                                                           | `F6-18`          | `TM-05`, `TM-06`, `TM-16`                   |
 | `F6-21` | El job deriva el snapshot `revenue_margin_survival` con margen objetivo de la industria y probabilidad de supervivencia fechada.                                                                                                      | `F6-20`          | `TM-05`, `TM-06`, `TM-16`                   |
 | `F6-22` | El job valúa REIT de propiedades con AFFO transcripto y conciliado por policy, y NAV independiente.                                                                                                                                   | `F6-21`          | `TM-05`, `TM-09`, `TM-16`                   |
+| `F6-23` | Deuda de empresas con brazo financiero cautivo: conceptos medidos y regla para la financiera, sin sumar ni excluir en silencio.                                                                                                       | `F6-18`          | `TM-05`, `TM-06`, `TM-16`                   |
 
 **Criterio agregado a `F6-05` el 2026-10-20.** Toda ingesta que dispare la
 app —la que baja la ventana que falta y cualquier reingesta o refresh de un
@@ -3831,26 +3833,72 @@ Evidencia:
 - 3.179 unit y 221 integration; formato, lint, tipos y build; 204 E2E con axe
   (2 omitidos).
 
-#### `F6-18` — cíclicas y commodities desde la app
+#### `F6-18` — cíclicas y commodities desde la app (cerrado el 2026-10-27)
 
-- Estado: `ready`. CAT terminó `unsupported_method` con perfil cíclico porque
-  `normalized_fcff` (ADR 0042) sólo corre con un snapshot privado.
-- Alcance: una regla versionada arma desde la serie anual guardada la historia
-  de ciclo (cinco a diez ejercicios con ventas y EBIT), los años hasta
-  normalizar y el corrimiento de margen; el job registra la corrida y
-  `/valuacion/[ticker]` la lee con la misma estructura que `fcff_base`, más la
-  comparación con el margen actual. Fuera de alcance: precios normalizados de
-  commodities, reservas y futuros.
-- Antes de codificar: medir sobre una muestra (CAT, MU, DE, FCX, XOM, NUE) qué
-  muestran cinco ejercicios del ciclo y presentar la tabla al owner; una ADR
-  fija la regla.
-- Aceptación: CAT y MU llegan a una corrida o nombran el faltante; replay de
-  las corridas nuevas; rigor a lo sumo `screening` mientras la ventana no
-  cubra un ciclo.
+Estado del slice: `done`. `F6-19` queda `ready`.
+
+Decisiones del owner del 2026-10-26, con la tabla medida a la vista
+([ADR 0059](../architecture/adr/0059-derived-cycle-normalization.md)):
+
+- el margen converge al promedio del ciclo en tres años;
+- en una cíclica, las ventas crecen al ritmo de la economía, porque la
+  tendencia 2020–2025 arranca en el piso del ciclo;
+- CAT y DE se investigan aparte (`F6-23`).
+
+Qué se hizo:
+
+- `derived-cycle-1.0.0` arma la historia desde la serie anual guardada: cinco
+  a diez ejercicios consecutivos, cada uno con la capitalización de sus
+  propios hechos, y el base igual al EBIT ajustado de la normalización.
+- `applyDerivedCycle` aplica el ciclo a la regla derivada: crecimiento
+  terminal, trayectoria del margen, y bear y bull al peor y al mejor margen
+  del ciclo, a cuatro decimales. La comparten el armado y
+  `assumptions_derived_recomputed`.
+- La evaluación resuelve `cycle_margins` cuando la historia está lista.
+- El job pregunta a la IA lo cualitativo también a una cíclica que espera su
+  historia, y registra corridas `normalized_fcff` (migración `0036` con
+  rollback pareado).
+- `cycle_normalization_recomputed` admite una fecha efectiva posterior al
+  `as_of`.
+- La página explica la corrida de ciclo y nombra sus controles en castellano.
+- Controles: `TM-05` (sin historia suficiente nombra el motivo, nunca un
+  margen inventado), `TM-06` (la historia es la de la serie al corte de la
+  corrida) y `TM-16` (snapshot congelado y recalculado; las tres corridas se
+  reproducen).
+
+Evidencia:
+
+- Réplica con nueve empresas medidas y jobs reales:
+  - NUE 233,59 contra 257,35;
+  - FCX 42,60 contra 65,16;
+  - CVX 83,01 contra 232,01, después de que la IA resolvió su industria por
+    USD 0,012.
+
+  Las tres quedan `requires_review` sólo por el aviso de modelo experimental
+  y se reproducen sin red. AAPL y AMZN siguen reproduciéndose.
+
+- CAT y DE eligen `normalized_fcff` y frenan en `sales_to_capital_unavailable`
+  (deuda sin receta). XOM, por acciones diluidas faltantes. MU es
+  `high_growth` (`F6-21`).
+- Unit: regla de ciclo (8), armado de punta a punta con el motor real, fecha
+  efectiva y resultado del job.
+- Revisión renderizada de NUE y CVX en Brave: sin desborde y axe sin hallazgos
+  nuevos.
+
+#### `F6-23` — deuda de empresas con brazo financiero cautivo
+
+- Estado: `queued` (decisión del owner del 2026-10-26).
+- Contexto: CAT publica deuda no corriente y préstamos de corto plazo, sin
+  vencimientos corrientes que la receta reconozca; DE publica deuda corriente
+  y arrendamientos financieros. Ninguna receta de `reported-debt` cierra, así
+  que la deuda queda sin resolver y no hay corrida.
+- Alcance: medir los conceptos de deuda que publican las dos (y otras con
+  financiera cautiva), y decidir con la tabla si se valúa con la deuda
+  consolidada y el motivo nombrado, o separando la financiera.
 
 #### `F6-19` — la brecha frente al sector y al mercado
 
-- Estado: `queued`.
+- Estado: `ready`.
 - Alcance: precio sobre valor de la empresa contra la mediana de su sector y
   de todas las corridas registradas, al mismo corte y con la misma regla; y
   P/E y EV/EBIT contra el sector con el pipeline de `F8-01`. Valuar el sector
@@ -3867,6 +3915,7 @@ Evidencia:
 #### `F6-21` — pérdidas y alto crecimiento desde la app
 
 - Estado: `queued`. `revenue_margin_survival` (ADR 0043) corre sólo por CLI.
+  MU cae acá: el selector la clasifica `high_growth`, no cíclica.
 - Alcance: margen objetivo de la industria (dataset de Damodaran nuevo),
   trayectoria de ventas por regla, supervivencia fechada.
 

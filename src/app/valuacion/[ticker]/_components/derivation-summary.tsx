@@ -177,6 +177,17 @@ export function DerivationSummary({ run }: { run: ValuationRun }) {
               <h3 className="text-sm font-medium">La regla</h3>
               <EvidenceKindMark kind="derived_by_rule" />
             </div>
+            {run.input.cycleNormalization === undefined ? null : (
+              <p className="text-sm">
+                En esta corrida de ciclo,{" "}
+                <CodeValue>derived-cycle-1.0.0</CodeValue> reemplaza tres cosas
+                de la regla de abajo: las ventas crecen a la tasa terminal desde
+                el año 1, el margen converge al promedio de{" "}
+                {run.input.cycleNormalization.history.length} ejercicios en{" "}
+                {run.input.cycleNormalization.convergenceYears} años, y bear y
+                bull llevan el margen al peor y al mejor del ciclo medido.
+              </p>
+            )}
             <ul className="flex list-disc flex-col gap-1.5 pl-5 text-sm text-muted-foreground">
               {explanation !== null ? (
                 <RuleV2 run={run} explanation={explanation} />

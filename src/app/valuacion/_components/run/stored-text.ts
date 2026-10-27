@@ -8,6 +8,22 @@
  */
 const BODIES: readonly (readonly [RegExp, string])[] = [
   [
+    /^The margin converges to the weakest positive margin of the measured cycle\.$/u,
+    "El margen converge al peor margen positivo del ciclo medido.",
+  ],
+  [
+    /^The margin converges to the strongest margin of the measured cycle\.$/u,
+    "El margen converge al mejor margen del ciclo medido.",
+  ],
+  [
+    /^the lowest positive annual margin of the cycle history, to four decimals\.$/u,
+    "el menor margen anual positivo de la historia del ciclo, a cuatro decimales.",
+  ],
+  [
+    /^the highest annual margin of the cycle history, to four decimals\.$/u,
+    "el mayor margen anual de la historia del ciclo, a cuatro decimales.",
+  ],
+  [
     /^Growth at the weakest measured rate and no excess returns after year 10\.$/u,
     "Crecimiento a la tasa más baja medida en su historia y sin retornos extraordinarios después del año 10.",
   ],

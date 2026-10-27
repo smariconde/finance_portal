@@ -18,7 +18,15 @@ import {
   INDUSTRY_RETURNS_DATASET,
   type IndustryReturn,
 } from "../domain/derived-assumptions";
+import {
+  CYCLE_METHODOLOGY_VERSION,
+  NORMALIZED_FCFF_ENGINE_VERSION,
+} from "../domain/cycle-normalization";
 import { DECIMAL_POLICY } from "../domain/decimal-policy";
+import {
+  applyDerivedCycle,
+  derivedCycleNormalization,
+} from "../domain/derived-cycle";
 import {
   deriveEmployeeEquity,
   EMPLOYEE_EQUITY_CLAIM_VERSION,
@@ -174,9 +182,14 @@ export function assembleValuationSnapshot(
   const { assessment } = request;
   const { selection } = assessment;
 
+  // `normalized_fcff` sólo con la historia de ciclo que derivó la evaluación
+  // (`F6-18`, ADR 0059); los demás métodos todavía no tienen regla.
+  const cycle = assessment.cycle?.status === "ready" ? assessment.cycle : null;
+
   if (
     selection.status !== "selected" ||
-    selection.recommendedMethod !== VALUATION_METHOD
+    (selection.recommendedMethod !== VALUATION_METHOD &&
+      !(selection.recommendedMethod === "normalized_fcff" && cycle !== null))
   ) {
     return notAssembled("method_not_derived");
   }
@@ -426,7 +439,36 @@ export function assembleValuationSnapshot(
     scenarios: assumptions.scenarios,
   });
 
-  return { status: "assembled", input };
+  if (cycle === null) {
+    return { status: "assembled", input };
+  }
+
+  // La misma corrida con la regla de ciclo: el motor recalcula la
+  // trayectoria y el check vuelve a aplicar la misma función.
+  const cycleNormalization = derivedCycleNormalization({
+    history: cycle.history,
+    profileEvidence: assessment.evidence,
+    employeeEquityAvailableAt: sharesOutstanding.availableAt,
+  });
+  const reshaped = applyDerivedCycle(input, {
+    cycle: cycleNormalization,
+    baseRevenue: input.baseRevenue.value,
+    baseEbitAdjusted: input.normalization.base.ebitAdjusted,
+  });
+
+  return {
+    status: "assembled",
+    input: valuationInputSchema.parse({
+      ...input,
+      method: "normalized_fcff",
+      engineVersion: NORMALIZED_FCFF_ENGINE_VERSION,
+      methodologyVersion: CYCLE_METHODOLOGY_VERSION,
+      cycleNormalization,
+      periods: reshaped.periods,
+      terminal: reshaped.terminal,
+      scenarios: reshaped.scenarios,
+    }),
+  };
 }
 
 /** La claim `employeeOptions` del puente para cada base de la decisión. */

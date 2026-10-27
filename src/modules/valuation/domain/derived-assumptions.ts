@@ -593,6 +593,19 @@ export function derivedAssumptionsMismatches(input: {
   terminal: TerminalAssumption;
   sensitivity: SensitivitySpec | null;
   scenarios: ScenarioSet | null;
+  /**
+   * Lo que otra regla cambia sobre lo derivado antes de comparar: una cíclica
+   * (`F6-18`) reemplaza crecimiento, margen y escenarios.
+   */
+  reshape?: (rebuilt: {
+    readonly periods: readonly PeriodAssumption[];
+    readonly terminal: TerminalAssumption;
+    readonly scenarios: ScenarioSet | null;
+  }) => {
+    readonly periods: readonly PeriodAssumption[];
+    readonly terminal: TerminalAssumption;
+    readonly scenarios: ScenarioSet | null;
+  };
 }): string[] {
   const mismatches: string[] = [];
   const { derivation } = input;
@@ -617,16 +630,21 @@ export function derivedAssumptionsMismatches(input: {
     mismatches.push("derivedAssumptions.revenueHistory");
   }
 
-  const rebuilt = deriveAssumptions({
+  const derived = deriveAssumptions({
     derivation: input.derivation,
     baseFiscalYearEnd: input.baseRevenue.asOf,
     normalization: input.normalization,
     costOfCapital: input.costOfCapital,
   });
 
-  if (rebuilt.status === "unavailable") {
+  if (derived.status === "unavailable") {
     return [...mismatches, "derivedAssumptions"];
   }
+
+  const rebuilt =
+    input.reshape === undefined
+      ? derived
+      : { ...derived, ...input.reshape(derived) };
 
   if (
     rebuilt.periods.length !== input.periods.length ||

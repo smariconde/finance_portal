@@ -24,6 +24,32 @@ const derive = (input: ValuationInput) =>
   );
 
 describe("normalized FCFF cycle contract", () => {
+  it("admits an effective time after the as-of date, never before it (F6-18)", () => {
+    const input = fixtureCycleValuation();
+    const later = run({
+      ...input,
+      knowledge: {
+        ...input.knowledge,
+        revisionPolicy: "as_known",
+        effectiveAt: "2025-07-02T15:00:00.000Z",
+        knownAt: "2025-07-02T15:00:00.000Z",
+      },
+    });
+    const earlier = run({
+      ...input,
+      knowledge: {
+        ...input.knowledge,
+        revisionPolicy: "as_known",
+        effectiveAt: "2025-06-29T15:00:00.000Z",
+        knownAt: "2025-06-29T15:00:00.000Z",
+      },
+    });
+
+    expect(later.status).toBe("requires_review");
+    expect(earlier.status).toBe("rejected");
+    expect(earlier.failure?.subjects).toContain("knowledge.effectiveAt");
+  });
+
   it.each(["cyclical", "commodity"] as const)(
     "admits %s with its own method and a frozen replay",
     (profile) => {

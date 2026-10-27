@@ -527,6 +527,20 @@ translated at render time (`storedTextEs`); the snapshot and its hashes do not
 move. Cyclicals, financials, growth and REITs have engines since Phase 4 but run
 only from the CLI; `F6-18`–`F6-22` bring them to the job, one archetype per slice.
 
+Since `F6-18` ([ADR 0059](docs/architecture/adr/0059-derived-cycle-normalization.md),
+migration `0036`) the job values cyclicals and commodities with `normalized_fcff`:
+`derived-cycle-1.0.0` builds five to ten consecutive fiscal years from the stored
+series, each with the lease and R&D capitalization of its own facts and the base year
+equal to the normalization's adjusted EBIT; the margin converges to the cycle mean in
+three years, sales grow at the terminal rate from year 1 (the 2020–2025 window starts at
+a cycle trough), and bear/bull move the target to the worst and best positive margin of
+the cycle, to four decimals. `applyDerivedCycle` is shared by the assembler and
+`assumptions_derived_recomputed`, so `fcff_base` snapshots keep their hashes. A cyclical
+that only lacks `cycle_margins` still reaches the AI step, because the history needs the
+cost of capital and that may need the AI's industry. Cycle runs are `screening` and
+always `requires_review` (`cycle_model_experimental`). CAT and DE still stop on debt
+with no recipe (captive finance arms, `F6-23`).
+
 The run history (`F6-02`,
 [ADR 0047](docs/architecture/adr/0047-valuation-run-history.md)) lists a
 ticker's last 20 completed jobs at render time (its `loadValuationHistory` action was

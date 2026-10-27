@@ -30,6 +30,7 @@ import {
   type ValuationInput,
 } from "./valuation-input";
 import { derivedAssumptionsMismatches } from "./derived-assumptions";
+import { applyDerivedCycle } from "./derived-cycle";
 import { zeroDebtEvidenceHasInterest } from "./zero-debt-evidence";
 
 /**
@@ -427,6 +428,11 @@ function checkDerivedAssumptions(input: ValuationInput): PolicyCheck[] {
     return [];
   }
 
+  // En una cíclica (`F6-18`, ADR 0059) la regla de ciclo reemplaza
+  // crecimiento, margen y escenarios; el resto se compara igual.
+  const cycleNormalization =
+    input.method === "normalized_fcff" ? input.cycleNormalization : undefined;
+  const cycle = cycleNormalization !== undefined;
   const mismatches = derivedAssumptionsMismatches({
     derivation: input.derivedAssumptions,
     baseRevenue: input.baseRevenue,
@@ -436,9 +442,19 @@ function checkDerivedAssumptions(input: ValuationInput): PolicyCheck[] {
     terminal: input.terminal,
     sensitivity: input.sensitivity,
     scenarios: input.scenarios,
+    ...(cycleNormalization === undefined
+      ? {}
+      : {
+          reshape: (rebuilt) =>
+            applyDerivedCycle(rebuilt, {
+              cycle: cycleNormalization,
+              baseRevenue: input.baseRevenue.value,
+              baseEbitAdjusted: input.normalization.base.ebitAdjusted,
+            }),
+        }),
   });
 
-  if (input.method !== VALUATION_METHOD) {
+  if (input.method !== VALUATION_METHOD && !cycle) {
     mismatches.push("method");
   }
 

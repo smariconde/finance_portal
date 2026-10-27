@@ -62,6 +62,17 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
   if (result === null) return null;
 
   const chain = valueChain(result);
+  // Una cíclica (`F6-18`) cuenta su margen contra el ciclo medido.
+  const cycle = result.cycleComparison;
+  const cycleMargins = (cycle?.annualMargins ?? []).map(Number);
+  const cycleLow =
+    cycle === undefined
+      ? null
+      : cycle.annualMargins[cycleMargins.indexOf(Math.min(...cycleMargins))]!;
+  const cycleHigh =
+    cycle === undefined
+      ? null
+      : cycle.annualMargins[cycleMargins.indexOf(Math.max(...cycleMargins))]!;
   const currency = run.currency;
   const periods = run.input.periods;
   const first = periods[0]!;
@@ -98,16 +109,26 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
       <CardContent className="flex flex-col gap-6">
         <ol className="flex flex-col gap-5">
           <Step index={1} title="Proyecta las ventas">
-            <p>
-              Parte de las ventas del último ejercicio y las hace crecer{" "}
-              <strong className={STRONG}>{pct(first.revenueGrowth)}</strong> por
-              año
-              {holdYears > 0 ? ` durante ${holdYears} años` : ""}, la tendencia
-              de su historia. Después el crecimiento se apaga hasta{" "}
-              <strong className={STRONG}>{pct(last.revenueGrowth)}</strong> en
-              el año {chain.explicitYears}, porque ninguna empresa crece más
-              rápido que la economía para siempre.
-            </p>
+            {cycle === undefined ? (
+              <p>
+                Parte de las ventas del último ejercicio y las hace crecer{" "}
+                <strong className={STRONG}>{pct(first.revenueGrowth)}</strong>{" "}
+                por año
+                {holdYears > 0 ? ` durante ${holdYears} años` : ""}, la
+                tendencia de su historia. Después el crecimiento se apaga hasta{" "}
+                <strong className={STRONG}>{pct(last.revenueGrowth)}</strong> en
+                el año {chain.explicitYears}, porque ninguna empresa crece más
+                rápido que la economía para siempre.
+              </p>
+            ) : (
+              <p>
+                Parte de las ventas del último ejercicio y las hace crecer{" "}
+                <strong className={STRONG}>{pct(first.revenueGrowth)}</strong>{" "}
+                por año desde el primero, al ritmo de la economía. En una
+                empresa cíclica, unos pocos años de ventas miden el ciclo —un
+                piso o un pico— y no un crecimiento que vaya a seguir.
+              </p>
+            )}
             <p>
               Ventas del año 1: {compact(chain.firstYear.revenue)}. Del año{" "}
               {chain.explicitYears}: {compact(chain.lastYear.revenue)}.
@@ -115,15 +136,41 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
           </Step>
 
           <Step index={2} title="Calcula cuánto gana con esas ventas">
-            <p>
-              Aplica un margen operativo de{" "}
-              <strong className={STRONG}>{pct(first.ebitMargin)}</strong>, el
-              del último ejercicio ajustado, y lo mantiene{" "}
-              {first.ebitMargin === last.ebitMargin
-                ? "todos los años"
-                : `hasta ${pct(last.ebitMargin)}`}
-              . Ganancia operativa del año 1: {compact(chain.firstYear.ebit)}.
-            </p>
+            {cycle === undefined ? (
+              <p>
+                Aplica un margen operativo de{" "}
+                <strong className={STRONG}>{pct(first.ebitMargin)}</strong>, el
+                del último ejercicio ajustado, y lo mantiene{" "}
+                {first.ebitMargin === last.ebitMargin
+                  ? "todos los años"
+                  : `hasta ${pct(last.ebitMargin)}`}
+                . Ganancia operativa del año 1: {compact(chain.firstYear.ebit)}.
+              </p>
+            ) : (
+              <>
+                <p>
+                  Hoy la empresa gana{" "}
+                  <strong className={STRONG}>{pct(cycle.currentMargin)}</strong>{" "}
+                  de cada venta. En los {cycle.annualMargins.length} ejercicios
+                  medidos ganó entre {pct(cycleLow!)} y {pct(cycleHigh!)}, con
+                  un promedio de{" "}
+                  <strong className={STRONG}>
+                    {pct(cycle.historicalMargin)}
+                  </strong>
+                  . El modelo supone que el ciclo vuelve a ese promedio en{" "}
+                  {run.input.cycleNormalization?.convergenceYears ?? "—"} años:
+                  no extrapola ni un pico ni un valle.
+                </p>
+                <p>
+                  Si el margen de hoy se mantuviera para siempre, el valor sería{" "}
+                  <strong className={STRONG}>
+                    {formatAmount(cycle.currentMarginValuePerShare)} {currency}
+                  </strong>{" "}
+                  por acción. Ganancia operativa del año 1:{" "}
+                  {compact(chain.firstYear.ebit)}.
+                </p>
+              </>
+            )}
           </Step>
 
           <Step index={3} title="Resta impuestos y lo que reinvierte">

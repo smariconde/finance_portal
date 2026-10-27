@@ -507,8 +507,8 @@ export async function readValuationResult(
     throw new Error("The recorded valuation run is missing.");
   }
 
-  // El job por ticker sólo registra `fcff_base`, pero el almacén acepta los
-  // otros motores: uno de ellos no se lee con los componentes FCFF.
+  // El job por ticker registra `fcff_base` y, desde `F6-18`, `normalized_fcff`,
+  // que comparten el resultado FCFF; un motor que no lo comparte no se lee acá.
   const parsed = valuationRunSchema.safeParse(stored);
 
   if (!parsed.success) {

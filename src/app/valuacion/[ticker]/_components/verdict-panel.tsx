@@ -235,13 +235,26 @@ export function VerdictPanel({
             <span className="font-medium text-foreground">
               Cómo leer esta comparación.
             </span>{" "}
-            El modelo proyecta la historia de la empresa sin sorpresas: el
-            crecimiento de su tendencia, que se apaga hasta la tasa libre de
-            riesgo, y el margen del último año. No sabe de productos nuevos ni
-            de mejoras que todavía no se ven en los números. Por eso, en
-            empresas que el mercado considera de calidad, el valor suele quedar
-            debajo del precio. La brecha importa menos que lo que el precio
-            exige, que está en la sección siguiente.
+            {run.method === "normalized_fcff" ? (
+              <>
+                Es una empresa cíclica: el modelo lleva su margen al promedio de
+                los ejercicios medidos y hace crecer las ventas al ritmo de la
+                economía, en vez de extrapolar el momento del ciclo en que está
+                hoy. El rango pesimista–optimista usa el peor y el mejor margen
+                de ese ciclo, así que es ancho a propósito. El modelo es
+                experimental y la corrida queda para revisar.
+              </>
+            ) : (
+              <>
+                El modelo proyecta la historia de la empresa sin sorpresas: el
+                crecimiento de su tendencia, que se apaga hasta la tasa libre de
+                riesgo, y el margen del último año. No sabe de productos nuevos
+                ni de mejoras que todavía no se ven en los números. Por eso, en
+                empresas que el mercado considera de calidad, el valor suele
+                quedar debajo del precio. La brecha importa menos que lo que el
+                precio exige, que está en la sección siguiente.
+              </>
+            )}
           </p>
         )}
 
