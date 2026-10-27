@@ -3,13 +3,6 @@ import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { EvidenceKindMark } from "@/app/valuacion/_components/run/data-marks";
 import { CodeValue } from "@/app/valuacion/_components/run/field";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
   Table,
   TableBody,
   TableCell,
@@ -37,7 +30,7 @@ import type {
 } from "@/modules/valuation/domain/market-implied";
 import type { ValuationRun } from "@/modules/valuation/domain/valuation-run";
 
-const COMPARISON_GAP_COPY: Record<
+export const COMPARISON_GAP_COPY: Record<
   MarketPriceComparisonUnavailableReason,
   string
 > = {
@@ -54,7 +47,7 @@ const COMPARISON_GAP_COPY: Record<
     "Hubo un split entre el conteo de acciones de la corrida y el cierre: precio y valor hablan de acciones distintas. Volver a valuar toma el conteo nuevo.",
 };
 
-const DRIVER_COPY: Record<
+export const DRIVER_COPY: Record<
   MarketImpliedDriver,
   { label: string; scope: string }
 > = {
@@ -76,7 +69,7 @@ const DRIVER_COPY: Record<
   },
 };
 
-const OUTLOOK_COPY: Record<string, string> = {
+export const OUTLOOK_COPY: Record<string, string> = {
   decline: "en caída (menos de 0 %)",
   low: "bajo (0 % a 5 %)",
   moderate: "moderado (5 % a 10 %)",
@@ -91,7 +84,7 @@ const OUTLOOK_COPY: Record<string, string> = {
   not_addressed: "el 10-K no lo trata",
 };
 
-const VERDICT_COPY: Record<PlausibilityVerdict, string> = {
+export const VERDICT_COPY: Record<PlausibilityVerdict, string> = {
   within: "Dentro de lo que sostiene",
   above: "Un escalón por encima",
   far_above: "Dos o más escalones por encima",
@@ -100,13 +93,15 @@ const VERDICT_COPY: Record<PlausibilityVerdict, string> = {
   no_requirement: "Sin exigencia resuelta",
 };
 
-const READING_DRIVER: Partial<Record<MarketImpliedDriver, ReadingDriver>> = {
+export const READING_DRIVER: Partial<
+  Record<MarketImpliedDriver, ReadingDriver>
+> = {
   revenue_growth: "revenue_growth",
   ebit_margin: "operating_margin",
   terminal_return_on_capital: "competitive_advantage",
 };
 
-const READING_COPY: Record<ReadingDriver, string> = {
+export const READING_COPY: Record<ReadingDriver, string> = {
   revenue_growth: "Crecimiento de ventas",
   operating_margin: "Margen operativo",
   competitive_advantage: "Ventaja competitiva",
@@ -146,12 +141,12 @@ function ReadingCell({
   );
 }
 
-function percent(value: string): string {
+export function percent(value: string): string {
   return formatPercent(value, { scale: 2 });
 }
 
 /** Contra qué leer lo exigido: lo que la propia empresa ya mostró. */
-function referenceFor(
+export function referenceFor(
   driver: MarketImpliedDriver,
   context: MarketImpliedContext,
 ): string {
@@ -178,7 +173,7 @@ function referenceFor(
   }
 }
 
-function runValueOf(
+export function runValueOf(
   reading: MarketImpliedReading,
   context: MarketImpliedContext,
 ): string {
@@ -192,7 +187,7 @@ function runValueOf(
     : percent(reading.runValue);
 }
 
-function ImpliedCell({
+export function ImpliedCell({
   reading,
   currency,
 }: {
@@ -232,185 +227,80 @@ function ImpliedCell({
 }
 
 /**
- * Precio de mercado y lo que exige (`F6-09`, ADR 0048).
- *
- * El cierre crudo al `as_of` de la corrida contra su valor, y un DCF inverso
- * que mueve un driver por vez hasta que el motor devuelve el precio. Ninguna
- * de las dos lecturas cambia la corrida, y ninguna es una recomendación: dicen
- * cuánto optimismo hay en el precio respecto de los supuestos y de la historia.
+ * La tabla técnica de lo que exige el precio (`F6-09`, ADR 0048): un DCF
+ * inverso que mueve un driver por vez hasta que el motor devuelve el precio.
+ * Desde `F6-17` la lectura en palabras va antes y esta tabla queda a demanda.
  */
-export function MarketExpectations({
+export function ImpliedTable({
   run,
   market,
-  attribution,
 }: {
   run: ValuationRun;
   market: ValuationResultMarket;
-  attribution: string | null;
 }) {
-  const { comparison, implied, context, latestClose } = market;
+  const { implied, context } = market;
   const aiReading = market.reading;
 
+  if (implied.status !== "computed") return null;
+
   return (
-    <Card>
-      <CardHeader className="border-b">
-        <CardTitle as="h2">Precio de mercado y lo que exige</CardTitle>
-        <CardDescription>
-          El cierre del día de la valuación contra el valor de la corrida, y qué
-          tendría que pasar para que el precio sea razonable. Es una lectura
-          educativa, no una recomendación.
-        </CardDescription>
-      </CardHeader>
-
-      <CardContent className="flex flex-col gap-4">
-        {comparison.status === "compared" ? (
-          <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-3">
-            <div className="min-w-0">
-              <dt className="flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
-                Precio al{" "}
-                <time dateTime={comparison.price.marketDate}>
-                  {formatCalendarDate(comparison.price.marketDate)}
-                </time>
-                <EvidenceKindMark kind="reference_data" />
-              </dt>
-              <dd className="numeric mt-1 text-2xl font-semibold tracking-tight">
-                {formatAmount(comparison.price.close)}{" "}
-                <span className="text-base font-medium text-muted-foreground">
-                  {comparison.price.currency}
+    <div className="flex flex-col gap-2">
+      <Table containerLabel="Lo que exige el precio, tabla desplazable">
+        <TableHeader>
+          <TableRow>
+            <TableHead scope="col">Supuesto</TableHead>
+            <TableHead scope="col" className="text-right">
+              En la corrida
+            </TableHead>
+            <TableHead scope="col" className="text-right">
+              Exigido por el precio
+            </TableHead>
+            <TableHead scope="col">Lo que mostró la empresa</TableHead>
+            {aiReading === null ? null : (
+              <TableHead scope="col">Lo que sostiene el 10-K</TableHead>
+            )}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {implied.readings.map((reading) => (
+            <TableRow key={reading.driver}>
+              <TableHead scope="row" className="align-top font-medium">
+                {DRIVER_COPY[reading.driver].label}
+                <span className="block text-xs font-normal whitespace-normal text-muted-foreground">
+                  {DRIVER_COPY[reading.driver].scope}
                 </span>
-              </dd>
-              <dd className="text-xs text-muted-foreground">
-                Cierre crudo, sin ajustar
-              </dd>
-            </div>
-            <div className="min-w-0">
-              <dt className="text-xs font-medium text-muted-foreground">
-                Valor por acción de la corrida
-              </dt>
-              <dd className="numeric mt-1 text-2xl font-semibold tracking-tight">
-                {formatAmount(comparison.valuePerShare)}{" "}
-                <span className="text-base font-medium text-muted-foreground">
-                  {run.currency}
-                </span>
-              </dd>
-            </div>
-            <div className="min-w-0">
-              <dt className="flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
-                Precio sobre valor
-                <EvidenceKindMark kind="derived_by_rule" />
-              </dt>
-              <dd className="numeric mt-1 text-2xl font-semibold tracking-tight">
-                {formatAmount(comparison.priceToValue, { scale: 2 })}×
-              </dd>
-              <dd className="numeric text-xs text-muted-foreground">
-                {comparison.valueToPrice.startsWith("-")
-                  ? `El valor está ${formatPercent(comparison.valueToPrice.slice(1), { scale: 1 })} por debajo del precio`
-                  : `El valor está ${formatPercent(comparison.valueToPrice, { scale: 1 })} por encima del precio`}
-              </dd>
-            </div>
-          </dl>
-        ) : (
-          <p className="text-sm" role="status">
-            Sin comparación con el precio.{" "}
-            {COMPARISON_GAP_COPY[comparison.reason]}
-          </p>
-        )}
-
-        {latestClose === null ? null : (
-          <p className="text-sm text-muted-foreground">
-            Hay un cierre guardado posterior: {formatAmount(latestClose.close)}{" "}
-            {latestClose.currency} al{" "}
-            <time dateTime={latestClose.marketDate}>
-              {formatCalendarDate(latestClose.marketDate)}
-            </time>
-            . La corrida no lo vio, así que no se compara con su valor; volver a
-            valuar mueve el corte.
-          </p>
-        )}
-
-        <p className="text-xs text-muted-foreground">
-          {attribution === null ? "Serie de precios guardada" : attribution}.
-          Descarga aceptada por el owner para uso personal, sin licencia de la
-          fuente. <CodeValue>{comparison.version}</CodeValue>
-        </p>
-      </CardContent>
-
-      {implied.status !== "computed" ? null : (
-        <CardContent className="flex flex-col gap-3 border-t px-0 pt-(--card-spacing)">
-          <div className="flex flex-col gap-1 px-(--card-spacing)">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-sm font-medium">Lo que exige el precio</h3>
-              <EvidenceKindMark kind="derived_by_rule" />
-            </div>
-            <p className="max-w-prose text-sm text-muted-foreground">
-              Cada fila mueve un solo supuesto, con todo lo demás igual a la
-              corrida, hasta que el mismo motor devuelve el precio. Cuanto más
-              lejos queda lo exigido de lo que la empresa ya mostró, más
-              optimismo hay en el precio. Estas lecturas no pasan por los
-              controles de la corrida ni se registran.
-            </p>
-          </div>
-          <Table containerLabel="Lo que exige el precio, tabla desplazable">
-            <TableHeader>
-              <TableRow>
-                <TableHead scope="col">Supuesto</TableHead>
-                <TableHead scope="col" className="text-right">
-                  En la corrida
-                </TableHead>
-                <TableHead scope="col" className="text-right">
-                  Exigido por el precio
-                </TableHead>
-                <TableHead scope="col">Lo que mostró la empresa</TableHead>
-                {aiReading === null ? null : (
-                  <TableHead scope="col">Lo que sostiene el 10-K</TableHead>
-                )}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {implied.readings.map((reading) => (
-                <TableRow key={reading.driver}>
-                  <TableHead scope="row" className="align-top font-medium">
-                    {DRIVER_COPY[reading.driver].label}
-                    <span className="block text-xs font-normal whitespace-normal text-muted-foreground">
-                      {DRIVER_COPY[reading.driver].scope}
-                    </span>
-                  </TableHead>
-                  <TableCell className="numeric text-right align-top">
-                    {runValueOf(reading, context)}
-                  </TableCell>
-                  <TableCell className="numeric max-w-64 text-right align-top whitespace-normal">
-                    <ImpliedCell reading={reading} currency={run.currency} />
-                  </TableCell>
-                  <TableCell className="numeric align-top whitespace-normal text-muted-foreground">
-                    {referenceFor(reading.driver, context)}
-                  </TableCell>
-                  {aiReading === null ? null : (
-                    <TableCell className="min-w-48 align-top whitespace-normal">
-                      <ReadingCell
-                        plausibility={aiReading.plausibility.find(
-                          (entry) =>
-                            entry.driver === READING_DRIVER[reading.driver],
-                        )}
-                      />
-                    </TableCell>
-                  )}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <p className="px-(--card-spacing) text-xs text-muted-foreground">
-            Bisección de {implied.readings.length} drivers sobre el motor de la
-            corrida, con intervalos declarados; fuera de ellos se dice de qué
-            lado queda el precio, nunca se extrapola.{" "}
-            <CodeValue>{implied.version}</CodeValue>
-          </p>
-        </CardContent>
-      )}
-
-      {implied.status !== "computed" ? null : (
-        <AiReadingSection reading={aiReading} run={run} />
-      )}
-    </Card>
+              </TableHead>
+              <TableCell className="numeric text-right align-top">
+                {runValueOf(reading, context)}
+              </TableCell>
+              <TableCell className="numeric max-w-64 text-right align-top whitespace-normal">
+                <ImpliedCell reading={reading} currency={run.currency} />
+              </TableCell>
+              <TableCell className="numeric align-top whitespace-normal text-muted-foreground">
+                {referenceFor(reading.driver, context)}
+              </TableCell>
+              {aiReading === null ? null : (
+                <TableCell className="min-w-48 align-top whitespace-normal">
+                  <ReadingCell
+                    plausibility={aiReading.plausibility.find(
+                      (entry) =>
+                        entry.driver === READING_DRIVER[reading.driver],
+                    )}
+                  />
+                </TableCell>
+              )}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      <p className="text-xs text-muted-foreground">
+        Bisección de {implied.readings.length} drivers sobre el motor de la
+        corrida, con intervalos declarados; fuera de ellos se dice de qué lado
+        queda el precio, nunca se extrapola. Estas lecturas no pasan por los
+        controles de la corrida ni se registran.{" "}
+        <CodeValue>{implied.version}</CodeValue>
+      </p>
+    </div>
   );
 }
 
@@ -419,7 +309,7 @@ export function MarketExpectations({
  * el precio ni lo exigido: leyó el negocio, el MD&A y los riesgos, y cada
  * señal es una cita literal que la policy encontró en su bloque.
  */
-function AiReadingSection({
+export function AiReading({
   reading,
   run,
 }: {
@@ -428,14 +318,14 @@ function AiReadingSection({
 }) {
   if (reading === null) {
     return (
-      <CardContent className="border-t pt-(--card-spacing) text-sm text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         Sin lectura de la IA del 10-K del ejercicio cerrado el{" "}
         <time dateTime={run.input.baseRevenue.asOf}>
           {formatCalendarDate(run.input.baseRevenue.asOf)}
         </time>
         : la columna de lo que sostiene el 10-K aparece cuando se pide con{" "}
         <CodeValue>pnpm valuation:market-expectations --apply</CodeValue>.
-      </CardContent>
+      </p>
     );
   }
 
@@ -452,7 +342,7 @@ function AiReadingSection({
   };
 
   return (
-    <CardContent className="flex flex-col gap-4 border-t pt-(--card-spacing)">
+    <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-medium">Lo que sostiene el 10-K</h3>
@@ -555,6 +445,6 @@ function AiReadingSection({
         <CodeValue>{record.extractVersion}</CodeValue>{" "}
         <CodeValue>{EXPECTATIONS_PLAUSIBILITY_VERSION}</CodeValue>
       </p>
-    </CardContent>
+    </div>
   );
 }

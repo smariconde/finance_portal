@@ -280,6 +280,27 @@ Implementadas en `src/app/valuacion/_components/run/data-marks.tsx`.
 - **Color:** verde, ámbar, rosa, azul y neutral sólo acompañan al icono y al texto; nunca son el único canal.
 - **Secondary text on a tinted badge:** la distancia en días se distingue por **peso**, nunca por opacidad. Un `opacity-80` sobre las superficies ámbar y esmeralda bajaba ese texto por debajo de 4.5:1 y lo detectó el gate de `F1-07`. Sobre una superficie teñida, atenuar no es un canal disponible.
 
+### Range bar
+
+Implementada en `src/app/valuacion/[ticker]/_components/verdict-panel.tsx` (`F6-17`).
+
+- **Purpose:** ubicar el precio respecto del rango del modelo. Es un dibujo `aria-hidden`: la misma información está escrita en la frase de arriba y en la leyenda de abajo.
+- **Marks:** pista `muted`; rango pesimista–optimista en `--chart-1` al 35 %; valor central como trazo vertical `--chart-1`; precio como círculo `foreground` con anillo. La forma distingue cada marca, y la leyenda repite la forma al lado de su cifra.
+- **Labels:** sólo el precio se rotula sobre la barra y, cerca de un borde, se alinea hacia adentro. El resto vive en la leyenda, para que dos marcas cercanas no se pisen a 390 px.
+
+### History small multiples
+
+Implementados en `src/app/valuacion/[ticker]/_components/history-charts.tsx` (`F6-17`).
+
+- **Structure:** una `figure` por métrica con título, unidad y una frase de lectura que también es el nombre accesible (`role="img"`). Grilla de una, dos o tres columnas.
+- **Encoding:** barras desde cero con `ReferenceLine` en cero, así que un negativo cae debajo de la línea. La cifra va escrita sobre cada barra en `text-xs` tabular, sin la unidad, que está en el subtítulo. El último ejercicio va a opacidad plena y los anteriores al 55 %. No hay tooltip.
+- **Missing:** un año sin dato no tiene barra y su frase lo nombra. Una tabla única repite las cifras con «Sin dato» y su motivo.
+
+### Concept and audit group
+
+- **Concept** (`concept.tsx`): «¿Qué es …?» como `<details>` nativo en texto `primary`, con la explicación en `muted-foreground` de ancho de prosa. Se abre con teclado o click, sin JavaScript.
+- **Audit group** (`audit-group.tsx`): `<details>` con chevron que rota, título y resumen de una línea, separados por divisores. No es una card: adentro van las cards de la auditoría. Un ancla a su `id` lo abre.
+
 ### Sensitivity matrix
 
 Implementada en `src/app/valuacion/_components/run/sensitivity-matrix.tsx`.

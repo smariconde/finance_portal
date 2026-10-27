@@ -161,6 +161,7 @@ export async function readValuationResultForRequest(
       cedears: getCedearRegistryRepository(),
       prices: getPriceRepository(),
       expectations: getMarketExpectationsRepository(),
+      fundamentals: createFundamentalReaders,
     },
   );
 }

@@ -86,6 +86,13 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    58 | `F6-16`    | `done`     | Opciones de empleados robustas: nota bien elegida, etiqueta de ejercicio de los minoristas, XBRL como respaldo y valuación sin restar opciones cuando no hay nada.                                                        | `F6-14`          |
 |    59 | `F6-06`    | `done`     | Despliegue remoto: Postgres hosteada, protección de la plataforma verificada y walkthrough del owner sobre una valuación real.                                                                                            | `F6-08`          |
 |    60 | `F8-01`    | `done`     | Pipeline fiscal-aligned point-in-time de precio, market cap, net income, EPS y acciones para los filers del sector elegido, sin cargar el universo.                                                                       | Fase 6           |
+|    61 | `F6-17`    | `done`     | Resultado de la valuación legible: veredicto precio contra valor, lo que exige el precio en palabras, historia reportada de la empresa, cadena del valor y auditoría plegada.                                             | `F6-12`          |
+|    62 | `F6-18`    | `ready`    | Cíclicas y commodities valuadas desde la app: el job deriva el snapshot de margen de ciclo y la página lee corridas `normalized_fcff`.                                                                                    | `F6-17`          |
+|    63 | `F6-19`    | `queued`   | Contexto de la brecha: precio sobre valor de la empresa frente a su sector y a todo lo valuado, y múltiplos contra el sector.                                                                                             | `F6-18`, `F8-01` |
+|    64 | `F6-20`    | `queued`   | Bancos y aseguradoras valuados desde la app: el job deriva el snapshot de exceso de retorno sobre el patrimonio.                                                                                                          | `F6-18`          |
+|    65 | `F6-21`    | `queued`   | Empresas en pérdidas o de alto crecimiento valuadas desde la app: el job deriva el snapshot de ventas a margen con supervivencia.                                                                                         | `F6-20`          |
+|    66 | `F6-22`    | `queued`   | REIT de propiedades valuados desde la app: AFFO transcripto del 10-K por la IA y conciliado, y NAV.                                                                                                                       | `F6-21`          |
+|    67 | `F8-02`    | `queued`   | Vista principal market cap vs EPS con sesgo de recompras visible y vistas alternativas con puente de dilución.                                                                                                            | `F8-01`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -3615,24 +3622,30 @@ repararon contra `source_documents`.
 
 ### Fase 6 — corrida por ticker y acceso CEDEAR
 
-| Issue   | Resultado y aceptación mínima                                                                                                                                                                                                         | Depende de | Controles                                   |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------------------------- |
-| `F6-01` | Corrida por ticker como job encolado con estado; primera Route Handler o Server Action con sus controles cerrados.                                                                                                                    | Fase 5     | `TM-03`, `TM-07`, `TM-10`, `TM-12`          |
-| `F6-07` | Supuestos derivados de lo guardado: una regla versionada arma períodos, terminal y sensibilidad `fcff_base`, el motor la recalcula, y el job registra la corrida o nombra el faltante.                                                | `F6-01`    | `TM-05`, `TM-06`, `TM-16`                   |
-| `F6-02` | Historial de corridas: volver a ver, refrescar lo que cambió y comparar contra la anterior sin sobrescribirla.                                                                                                                        | `F6-07`    | `TM-06`, `TM-16`                            |
-| `F6-03` | Superficie de resultado sobre empresa real con nivel de rigor, provenance y supuestos distinguidos de los hechos.                                                                                                                     | `F6-02`    | `TM-12`, `TM-15`, `UI-02`, `UI-03`          |
-| `F6-04` | Anotación de acceso CEDEAR sobre el registro de `F7-03`: si existe programa, su ratio vigente y su precio, sin fusionar los dos instrumentos.                                                                                         | `F6-02`    | `TM-05`, `TM-06`                            |
-| `F6-05` | Ingesta bajo demanda: si el ticker pedido no tiene la ventana de fundamentals, la corrida la baja con presupuesto y reanudación, y audita el contrato point-in-time del sujeto antes de valuar. No hay valuación por lote (ADR 0016). | `F6-01`    | `TM-06`, `TM-10`, `TM-11`, `TM-16`          |
-| `F6-06` | Despliegue remoto: Postgres hosteada, protección del deployment verificada y walkthrough del owner sobre datos reales.                                                                                                                | `F6-08`    | `TM-14`, `UI-02`                            |
-| `F6-08` | Precio del CEDEAR en BYMA (símbolo corroborado de ambos emisores, ADR 0056) y valor por CEDEAR en pesos con el CCL implícito, sin feed MEP/CCL.                                                                                       | `F6-04`    | `TM-05`, `TM-06`, `TM-08`, `TM-10`          |
-| `F6-09` | Precio al `as_of` de la corrida contra su valor y DCF inverso por driver con el mismo motor, al lado de lo que la empresa mostró; sin recomendación ni color de compra o venta.                                                       | `F6-03`    | `TM-05`, `TM-06`, `TM-15`, `UI-03`          |
-| `F6-10` | `derived-assumptions-2.0.0`: ROIC terminal por regla (dataset de ROIC por industria de Damodaran, acotado entre el WACC y el ROIC propio), crecimiento por tendencia log-lineal y escenarios bear/bull derivados con su rationale.    | `F6-09`    | `TM-05`, `TM-06`, `TM-16`                   |
-| `F6-11` | Lectura cualitativa de la IA sobre las expectativas implícitas: plausibilidad por driver con citas verbatim del 10-K que una policy verifica; se guarda con su evidencia y nunca entra al valor.                                      | `F6-09`    | `TM-09`, `TM-10`, `TM-12`, `TM-15`, `TM-16` |
-| `F6-12` | Flujo de valuación por ticker en una sola superficie: pedir, estado inline y resultado sin saltos; jerarquía de decisión primero y evidencia a demanda.                                                                               | `F6-09`    | `TM-03`, `UI-02`, `UI-03`                   |
-| `F6-13` | La corrida pregunta a la IA lo cualitativo que la evaluación dice que falta y continúa con un corte nuevo cuando algo quedó aceptado; un freno de la escalera no cuenta como respuesta.                                               | `F6-05`    | `TM-03`, `TM-09`, `TM-10`, `TM-16`          |
-| `F6-14` | Conceptos equivalentes en la selección de la SEC y la serie anual, `interest-expense-1.0.0` con bases nombradas y re-descarga de una ventana bajada con una selección vieja.                                                          | `F6-13`    | `TM-05`, `TM-06`, `TM-10`, `TM-16`          |
-| `F6-15` | Deuda cero sólo con evidencia de cinco ejercicios y EBIT `pretax + intereses` en el puente de capitalización, con la derivación congelada y recalculada.                                                                              | `F6-14`    | `TM-05`, `TM-06`, `TM-16`                   |
-| `F6-16` | Opciones de empleados: anclas fuera del estado de patrimonio, ejercicio de 52/53 semanas en la policy, reclamo desde el XBRL del mismo 10-K y, sin nada, corrida sin restar opciones con rigor más bajo y nombrado.                   | `F6-14`    | `TM-05`, `TM-09`, `TM-16`                   |
+| Issue   | Resultado y aceptación mínima                                                                                                                                                                                                         | Depende de       | Controles                                   |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------------------------------- |
+| `F6-01` | Corrida por ticker como job encolado con estado; primera Route Handler o Server Action con sus controles cerrados.                                                                                                                    | Fase 5           | `TM-03`, `TM-07`, `TM-10`, `TM-12`          |
+| `F6-07` | Supuestos derivados de lo guardado: una regla versionada arma períodos, terminal y sensibilidad `fcff_base`, el motor la recalcula, y el job registra la corrida o nombra el faltante.                                                | `F6-01`          | `TM-05`, `TM-06`, `TM-16`                   |
+| `F6-02` | Historial de corridas: volver a ver, refrescar lo que cambió y comparar contra la anterior sin sobrescribirla.                                                                                                                        | `F6-07`          | `TM-06`, `TM-16`                            |
+| `F6-03` | Superficie de resultado sobre empresa real con nivel de rigor, provenance y supuestos distinguidos de los hechos.                                                                                                                     | `F6-02`          | `TM-12`, `TM-15`, `UI-02`, `UI-03`          |
+| `F6-04` | Anotación de acceso CEDEAR sobre el registro de `F7-03`: si existe programa, su ratio vigente y su precio, sin fusionar los dos instrumentos.                                                                                         | `F6-02`          | `TM-05`, `TM-06`                            |
+| `F6-05` | Ingesta bajo demanda: si el ticker pedido no tiene la ventana de fundamentals, la corrida la baja con presupuesto y reanudación, y audita el contrato point-in-time del sujeto antes de valuar. No hay valuación por lote (ADR 0016). | `F6-01`          | `TM-06`, `TM-10`, `TM-11`, `TM-16`          |
+| `F6-06` | Despliegue remoto: Postgres hosteada, protección del deployment verificada y walkthrough del owner sobre datos reales.                                                                                                                | `F6-08`          | `TM-14`, `UI-02`                            |
+| `F6-08` | Precio del CEDEAR en BYMA (símbolo corroborado de ambos emisores, ADR 0056) y valor por CEDEAR en pesos con el CCL implícito, sin feed MEP/CCL.                                                                                       | `F6-04`          | `TM-05`, `TM-06`, `TM-08`, `TM-10`          |
+| `F6-09` | Precio al `as_of` de la corrida contra su valor y DCF inverso por driver con el mismo motor, al lado de lo que la empresa mostró; sin recomendación ni color de compra o venta.                                                       | `F6-03`          | `TM-05`, `TM-06`, `TM-15`, `UI-03`          |
+| `F6-10` | `derived-assumptions-2.0.0`: ROIC terminal por regla (dataset de ROIC por industria de Damodaran, acotado entre el WACC y el ROIC propio), crecimiento por tendencia log-lineal y escenarios bear/bull derivados con su rationale.    | `F6-09`          | `TM-05`, `TM-06`, `TM-16`                   |
+| `F6-11` | Lectura cualitativa de la IA sobre las expectativas implícitas: plausibilidad por driver con citas verbatim del 10-K que una policy verifica; se guarda con su evidencia y nunca entra al valor.                                      | `F6-09`          | `TM-09`, `TM-10`, `TM-12`, `TM-15`, `TM-16` |
+| `F6-12` | Flujo de valuación por ticker en una sola superficie: pedir, estado inline y resultado sin saltos; jerarquía de decisión primero y evidencia a demanda.                                                                               | `F6-09`          | `TM-03`, `UI-02`, `UI-03`                   |
+| `F6-13` | La corrida pregunta a la IA lo cualitativo que la evaluación dice que falta y continúa con un corte nuevo cuando algo quedó aceptado; un freno de la escalera no cuenta como respuesta.                                               | `F6-05`          | `TM-03`, `TM-09`, `TM-10`, `TM-16`          |
+| `F6-14` | Conceptos equivalentes en la selección de la SEC y la serie anual, `interest-expense-1.0.0` con bases nombradas y re-descarga de una ventana bajada con una selección vieja.                                                          | `F6-13`          | `TM-05`, `TM-06`, `TM-10`, `TM-16`          |
+| `F6-15` | Deuda cero sólo con evidencia de cinco ejercicios y EBIT `pretax + intereses` en el puente de capitalización, con la derivación congelada y recalculada.                                                                              | `F6-14`          | `TM-05`, `TM-06`, `TM-16`                   |
+| `F6-16` | Opciones de empleados: anclas fuera del estado de patrimonio, ejercicio de 52/53 semanas en la policy, reclamo desde el XBRL del mismo 10-K y, sin nada, corrida sin restar opciones con rigor más bajo y nombrado.                   | `F6-14`          | `TM-05`, `TM-09`, `TM-16`                   |
+| `F6-17` | Resultado legible: veredicto como ubicación del precio en el rango, exigencias del precio en palabras, historia reportada al corte, cadena del valor y auditoría plegada; sin cambiar snapshot ni hashes.                             | `F6-12`          | `TM-05`, `TM-06`, `UI-02`, `UI-03`          |
+| `F6-18` | El job deriva el snapshot `normalized_fcff` de cíclicas y commodities desde la serie anual guardada y la página lo lee; sin datos de ciclo suficientes, nombra el faltante.                                                           | `F6-17`          | `TM-05`, `TM-06`, `TM-16`                   |
+| `F6-19` | Precio sobre valor frente a la mediana del sector y de todas las corridas al mismo corte, y P/E y EV/EBIT contra el sector; valuación por sector como lote acotado.                                                                   | `F6-18`, `F8-01` | `TM-05`, `TM-06`, `TM-10`                   |
+| `F6-20` | El job deriva el snapshot `excess_return` de bancos y aseguradoras desde el patrimonio y el ROE reportados.                                                                                                                           | `F6-18`          | `TM-05`, `TM-06`, `TM-16`                   |
+| `F6-21` | El job deriva el snapshot `revenue_margin_survival` con margen objetivo de la industria y probabilidad de supervivencia fechada.                                                                                                      | `F6-20`          | `TM-05`, `TM-06`, `TM-16`                   |
+| `F6-22` | El job valúa REIT de propiedades con AFFO transcripto y conciliado por policy, y NAV independiente.                                                                                                                                   | `F6-21`          | `TM-05`, `TM-09`, `TM-16`                   |
 
 **Criterio agregado a `F6-05` el 2026-10-20.** Toda ingesta que dispare la
 app —la que baja la ventana que falta y cualquier reingesta o refresh de un
@@ -3774,6 +3787,95 @@ explícitamente cerrar con la limitación documentada: no hay medida de tiempo
 hasta encontrar y leer la respuesta, y una revisión de esa experiencia requerirá
 repetir las tareas con cronómetro. Con esa excepción, `F6-06` y el gate de Fase 6
 quedan `done`. La siguiente slice autorizada es `F8-01`.
+
+#### `F6-17` — el resultado se lee de la decisión a la auditoría (cerrado el 2026-10-26)
+
+Estado del slice: `done`. `F6-18` queda `ready`.
+
+Pedido del owner del 2026-10-26: valuó AAPL y AMZN y no pudo leer el
+resultado. Eligió auditoría plegada al final, explicaciones breves siempre
+visibles y gráficos chicos con su tabla
+([ADR 0058](../architecture/adr/0058-didactic-valuation-result.md)).
+
+- Orden nuevo de `/valuacion/[ticker]`: precio contra valor; qué tendría que
+  pasar para pagar el precio; cómo viene la empresa; por qué el modelo da ese
+  valor; escenarios; CEDEAR; auditoría en nueve bloques plegados; historial.
+  Nada de lo anterior se quitó.
+- `valuation-verdict-1.0.0`: el precio se ubica en el rango (debajo del
+  pesimista, entre escenarios, encima del optimista), en una frase, una barra
+  y su significado, sin palabras de compra o venta.
+- `company-trajectory-1.0.0`: ventas, margen operativo, EPS, flujo libre, caja
+  neta y acciones por ejercicio, reportados y al corte de la corrida, con
+  nulos y motivo; seis gráficos chicos y una tabla equivalente.
+- `value-chain-1.0.0`: la corrida contada en seis pasos con montos en palabras
+  (`formatCompactAmount`, escala larga).
+- Lo que exige el precio en palabras, con lo que mostró la empresa y lo que
+  sostiene el 10-K; la tabla técnica y las citas, a demanda.
+- Tesis, motivos y reglas de los controles traducidos al mostrarlos; el
+  snapshot no cambia. Conceptos explicados donde aparecen (avanza `EDU-01`, que
+  sigue abierto para el glosario y su página).
+- Controles: `TM-05` (ningún faltante de la historia es cero), `TM-06` (la
+  historia se lee al corte de la corrida; un test lo fija), `UI-02` y `UI-03`
+  (axe, teclado por `<details>` nativos, sin tooltips de hover).
+
+Evidencia:
+
+- Unit nuevos: trayectoria (10), veredicto y cadena (11), formato compacto y
+  magnitud, traducción de textos guardados, y la lectura del resultado a su
+  corte con el CIK del sujeto.
+- Revisión renderizada con datos reales en Brave (AAPL, AMZN), escritorio claro
+  y móvil oscuro: de 13.370 a 7.412 px y de 5.352 a 3.141 palabras visibles en
+  escritorio; sin desborde a 390 px; axe sin hallazgos nuevos (el `region` de
+  la sidebar ya estaba y aparece igual en `/sectores`); un ancla abre su bloque.
+- Detector `impeccable` sin hallazgos.
+- 3.179 unit y 221 integration; formato, lint, tipos y build; 204 E2E con axe
+  (2 omitidos).
+
+#### `F6-18` — cíclicas y commodities desde la app
+
+- Estado: `ready`. CAT terminó `unsupported_method` con perfil cíclico porque
+  `normalized_fcff` (ADR 0042) sólo corre con un snapshot privado.
+- Alcance: una regla versionada arma desde la serie anual guardada la historia
+  de ciclo (cinco a diez ejercicios con ventas y EBIT), los años hasta
+  normalizar y el corrimiento de margen; el job registra la corrida y
+  `/valuacion/[ticker]` la lee con la misma estructura que `fcff_base`, más la
+  comparación con el margen actual. Fuera de alcance: precios normalizados de
+  commodities, reservas y futuros.
+- Antes de codificar: medir sobre una muestra (CAT, MU, DE, FCX, XOM, NUE) qué
+  muestran cinco ejercicios del ciclo y presentar la tabla al owner; una ADR
+  fija la regla.
+- Aceptación: CAT y MU llegan a una corrida o nombran el faltante; replay de
+  las corridas nuevas; rigor a lo sumo `screening` mientras la ventana no
+  cubra un ciclo.
+
+#### `F6-19` — la brecha frente al sector y al mercado
+
+- Estado: `queued`.
+- Alcance: precio sobre valor de la empresa contra la mediana de su sector y
+  de todas las corridas registradas, al mismo corte y con la misma regla; y
+  P/E y EV/EBIT contra el sector con el pipeline de `F8-01`. Valuar el sector
+  es un lote acotado (ADR 0016), con presupuesto y sin cargar el universo.
+- Aceptación: la página separa sesgo del modelo, sector y empresa con `n` y
+  nulos con motivo; nunca presenta la brecha como señal de compra.
+
+#### `F6-20` — bancos y aseguradoras desde la app
+
+- Estado: `queued`. `excess_return` (ADR 0041) corre sólo por CLI.
+- Alcance: el snapshot sale del patrimonio, el ROE y el costo del equity
+  guardados; la página lee la corrida.
+
+#### `F6-21` — pérdidas y alto crecimiento desde la app
+
+- Estado: `queued`. `revenue_margin_survival` (ADR 0043) corre sólo por CLI.
+- Alcance: margen objetivo de la industria (dataset de Damodaran nuevo),
+  trayectoria de ventas por regla, supervivencia fechada.
+
+#### `F6-22` — REIT de propiedades desde la app
+
+- Estado: `queued`. `affo_nav` (ADR 0044) corre sólo por CLI y el AFFO no
+  está en el XBRL.
+- Alcance: la IA transcribe FFO/AFFO del 10-K con citas y una policy los
+  concilia; NAV independiente.
 
 #### `F6-01` — corrida por ticker encolada (cerrado el 2026-10-21)
 
@@ -5328,7 +5430,9 @@ probar el control; fases posteriores pueden volver a verificarlo.
 
 ### `EDU-01` — conceptos de valuación explicados donde aparecen
 
-- Estado: `queued` (pedido del owner el 2026-10-20, durante `F4-05`).
+- Estado: `queued` (pedido del owner el 2026-10-20, durante `F4-05`). `F6-17`
+  adelantó los conceptos en el lugar en `/valuacion/[ticker]` con `<details>`
+  nativos; faltan el glosario versionado, su página y el test de cobertura.
 - Fase y dependencia: transversal; empieza cuando una superficie de valuación
   lea corridas reales, y se extiende con cada concepto nuevo del motor.
 - Alcance incluido: un glosario versionado de los conceptos de Damodaran que

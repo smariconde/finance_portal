@@ -73,7 +73,76 @@ const CHECK_LABELS: Record<string, string> = {
   equity_value_positive: "Equity value positivo",
   scenario_drivers_declared: "Drivers de escenario declarados sobre la base",
   scenario_value_order: "Bear, base y bull ordenados",
+  qualitative_decisions_drive_cost_of_capital:
+    "Decisiones cualitativas que mueven el costo de capital",
+  employee_equity_recomputed: "Opciones de empleados recalculadas",
+  failure_risk_recomputed: "Probabilidad de quiebra recalculada",
+  assumptions_derived_recomputed: "Supuestos derivados recalculados",
+  zero_debt_evidence_consistent: "Evidencia de deuda cero consistente",
+  share_count_positive: "Cantidad de acciones positiva",
+  method_versions_match: "Versiones del método coherentes",
 };
+
+/** Qué exige cada control, en castellano; el motor lo guarda en inglés. */
+const CHECK_RULES: Record<string, string> = {
+  method_selection_admits_run:
+    "La corrida valúa el perfil y el método que eligió el selector.",
+  rigor_derived_from_completeness:
+    "El nivel de rigor se deriva de la completitud de los datos; nunca se elige.",
+  rigor_admits_valuation: "Un rigor no admitido no valúa: nombra lo que falta.",
+  wacc_built_from_components:
+    "El costo de capital de cada período y el terminal son los que derivan sus componentes fechados.",
+  qualitative_decisions_drive_cost_of_capital:
+    "La industria y el peso por país son los que derivan las decisiones cualitativas registradas.",
+  capitalization_recomputed:
+    "Arrendamientos e I+D capitalizados son los que derivan sus hechos fechados.",
+  normalization_recomputed:
+    "La base ajustada, la deuda y la caja son las que derivan sus hechos fechados.",
+  scenario_drivers_declared:
+    "Cada supuesto de escenario cubre todos los años y cambia algo respecto de la base.",
+  employee_equity_recomputed:
+    "Opciones y acciones son las que derivan la transcripción, el conteo y el mercado congelados.",
+  failure_risk_recomputed:
+    "La probabilidad de quiebra sigue la calificación fechada o una decisión explícita del owner.",
+  assumptions_derived_recomputed:
+    "Los supuestos derivados son los que reconstruyen la historia de ventas, la normalización y el costo de capital congelados.",
+  zero_debt_evidence_consistent:
+    "La evidencia de deuda cero se mide contra la mejor banda de calificación de la propia corrida.",
+  method_versions_match:
+    "El método usa sus propias versiones de motor y metodología.",
+  currency_and_unit_consistency:
+    "Todos los montos están en la moneda de la valuación; no hay conversiones.",
+  required_inputs_present:
+    "Un dato faltante no es cero: se registra el monto o se declara su ausencia con motivo.",
+  share_count_positive:
+    "La cantidad de acciones es estrictamente positiva y está fechada.",
+  diluted_shares_positive:
+    "La cantidad de acciones es estrictamente positiva y está fechada.",
+  discount_factor_defined:
+    "Cada período tiene una tasa que define un factor de descuento.",
+  sales_to_capital_positive: "Las ventas sobre capital son positivas.",
+  reinvestment_convention_bridge:
+    "Mezclar convenciones de reinversión exige un puente registrado.",
+  terminal_growth_versus_risk_free:
+    "El crecimiento a perpetuidad no supera la tasa libre de riesgo de la moneda.",
+  terminal_growth_versus_wacc:
+    "La tasa terminal supera al crecimiento a perpetuidad por al menos medio punto.",
+  terminal_reinvestment_coherence:
+    "La reinversión terminal está entre cero y uno y sostiene el crecimiento terminal.",
+  tax_rate_range: "Una tasa impositiva fuera de 0–50 % necesita un motivo.",
+  terminal_margin_range:
+    "Un margen terminal fuera de 0–60 % necesita evidencia del sector.",
+  terminal_value_share:
+    "Si el valor terminal pasa del 85 % del total, carga casi toda la respuesta.",
+  equity_value_positive:
+    "Un patrimonio no positivo es un resultado posible, pero no se lee como precio.",
+  scenario_value_order:
+    "Pesimista, base y optimista quedan ordenados; lo contrario contradice sus nombres.",
+};
+
+export function checkRule(id: string, message: string): string {
+  return CHECK_RULES[id] ?? message;
+}
 
 /** Drivers que un escenario puede mover (`scenario-set-1.0.0`). */
 export const SCENARIO_DRIVER_LABELS: Record<ScenarioDriverKey, string> = {

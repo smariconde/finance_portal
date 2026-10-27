@@ -166,3 +166,102 @@ export function shortenHash(hash: string, head = 8, tail = 4): string {
     ? hash
     : `${hash.slice(0, head)}…${hash.slice(-tail)}`;
 }
+
+/** Escalones de la lectura compacta: escala larga del castellano. */
+const COMPACT_STEPS: readonly {
+  readonly exponent: number;
+  readonly word: string;
+}[] = [
+  { exponent: 12, word: "billones" },
+  { exponent: 9, word: "mil millones" },
+  { exponent: 6, word: "millones" },
+];
+
+/**
+ * Monto grande en palabras para leerlo de un vistazo: `2644451815199.54` es
+ * `2,64 billones`. Usa la escala larga —un billón es un millón de millones—,
+ * que es la del castellano. Debajo del millón cae a `formatAmount`.
+ *
+ * Es una reducción: la cifra exacta queda en la tabla o el detalle.
+ */
+export function formatCompactAmount(
+  value: string,
+  options: { scale?: number; path?: string } = {},
+): string {
+  const path = options.path ?? "display";
+  const amount = parseDecimal(value, path);
+  const step = COMPACT_STEPS.find(({ exponent }) =>
+    amount.abs().greaterThanOrEqualTo(`1e${exponent}`),
+  );
+
+  if (step === undefined) {
+    return render(amount, options.scale ?? MONETARY_DISPLAY_SCALE, path);
+  }
+
+  const scaled = render(
+    amount.dividedBy(`1e${step.exponent}`),
+    options.scale ?? MONETARY_DISPLAY_SCALE,
+    path,
+  );
+  // `1,00 billones` se lee mal: el singular sólo para exactamente uno.
+  const word =
+    scaled ===
+      `1${DECIMAL_SEPARATOR}${"0".repeat(options.scale ?? MONETARY_DISPLAY_SCALE)}` &&
+    step.word === "billones"
+      ? "billón"
+      : step.word;
+
+  return `${scaled} ${word}`;
+}
+
+export type DisplayMagnitude = {
+  /** Potencia de diez por la que se dividen los montos. */
+  readonly exponent: 0 | 6 | 9 | 12;
+  /** La unidad en palabras, para el título: «miles de millones». */
+  readonly unit: string | null;
+};
+
+const MAGNITUDE_UNITS: Readonly<Record<6 | 9 | 12, string>> = {
+  12: "billones",
+  9: "miles de millones",
+  6: "millones",
+};
+
+/**
+ * Una sola magnitud para una serie, elegida por su mayor valor absoluto: las
+ * cifras de un mismo gráfico se comparan en la misma unidad.
+ */
+export function displayMagnitude(values: readonly string[]): DisplayMagnitude {
+  const largest = values.reduce(
+    (max, value) => {
+      const amount = parseDecimal(value, "magnitude").abs();
+      return amount.greaterThan(max) ? amount : max;
+    },
+    parseDecimal("0", "magnitude"),
+  );
+  const step = COMPACT_STEPS.find(({ exponent }) =>
+    largest.greaterThanOrEqualTo(`1e${exponent}`),
+  );
+
+  return step === undefined
+    ? { exponent: 0, unit: null }
+    : {
+        exponent: step.exponent as 6 | 9 | 12,
+        unit: MAGNITUDE_UNITS[step.exponent as 6 | 9 | 12],
+      };
+}
+
+/** Un monto en la magnitud de su serie: `416161000000` en `9` es `416,2`. */
+export function formatInMagnitude(
+  value: string,
+  magnitude: DisplayMagnitude,
+  options: { scale?: number; path?: string } = {},
+): string {
+  const path = options.path ?? "display";
+
+  return render(
+    parseDecimal(value, path).dividedBy(`1e${magnitude.exponent}`),
+    options.scale ?? 1,
+    path,
+  );
+}

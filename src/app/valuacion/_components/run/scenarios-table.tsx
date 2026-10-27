@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   formatAmount,
+  formatCompactAmount,
   formatPercent,
   formatSignedAmount,
 } from "@/modules/valuation/domain/display-format";
@@ -28,6 +29,7 @@ import type {
 } from "@/modules/valuation/domain/valuation-report";
 
 import { checkLabel, SCENARIO_DRIVER_LABELS } from "./labels";
+import { storedTextEs } from "./stored-text";
 
 const SCENARIO_LABELS: Record<ScenarioReadingRow["key"], string> = {
   bear: "Bear",
@@ -184,7 +186,7 @@ export function ScenariosTable({
                       : formatSignedAmount(row.deltaVsBase)}
                   </TableCell>
                   <TableCell className="numeric text-right">
-                    {formatAmount(row.enterpriseValue)}
+                    {formatCompactAmount(row.enterpriseValue)}
                   </TableCell>
                   <TableCell className="numeric text-right">
                     {row.terminalValueShare === null
@@ -240,7 +242,7 @@ export function ScenariosTable({
                   Qué cambia en el {SCENARIO_LABELS[key].toLowerCase()}
                 </h3>
                 <p className="max-w-3xl text-sm text-muted-foreground">
-                  {scenario.thesis}
+                  {storedTextEs(scenario.thesis)}
                 </p>
               </div>
 
@@ -276,7 +278,7 @@ export function ScenariosTable({
                         />
                       </TableCell>
                       <TableCell className="whitespace-normal text-muted-foreground">
-                        {change.rationale}
+                        {storedTextEs(change.rationale)}
                       </TableCell>
                     </TableRow>
                   ))}

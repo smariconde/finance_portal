@@ -19,6 +19,7 @@ import {
   formatUtcTimestamp,
 } from "@/modules/valuation/domain/display-format";
 import { valuationTickerSchema } from "@/modules/valuation/domain/valuation-job";
+import { valuationVerdict } from "@/modules/valuation/domain/valuation-verdict";
 import {
   collectDeclaredAbsences,
   collectReportedFacts,
@@ -56,7 +57,11 @@ import { ValuationRunner } from "../_components/valuation-runner";
 import { CedearAccess } from "./_components/cedear-access";
 import { CostOfCapitalTable } from "./_components/cost-of-capital-table";
 import { DerivationSummary } from "./_components/derivation-summary";
-import { MarketExpectations } from "./_components/market-expectations";
+import { AuditGroup } from "./_components/audit-group";
+import { CompanyHistory } from "./_components/company-history";
+import { PriceRequirements } from "./_components/price-requirements";
+import { ValueWalkthrough } from "./_components/value-walkthrough";
+import { VerdictPanel } from "./_components/verdict-panel";
 import { QualitativeDecisions } from "./_components/qualitative-decisions";
 import { RigorPanel } from "./_components/rigor-panel";
 
@@ -185,13 +190,20 @@ function PageFrame({
 
 /** Las secciones de la página, en el orden en que se leen. */
 const SECTIONS = [
-  { id: "resumen", label: "Resultado" },
-  { id: "precio", label: "Precio y lo que exige" },
+  { id: "veredicto", label: "Precio contra valor" },
+  { id: "exigencias", label: "Qué tendría que pasar" },
+  { id: "historia", label: "Cómo viene la empresa" },
+  { id: "valor", label: "Por qué vale eso" },
   { id: "escenarios", label: "Escenarios" },
-  { id: "supuestos", label: "Cómo se llegó" },
-  { id: "evidencia", label: "Evidencia y controles" },
+  { id: "cedear", label: "CEDEAR" },
+  { id: "auditoria", label: "Auditoría" },
   { id: "historial", label: "Historial" },
 ] as const;
+
+/** El método en palabras; el código queda en la auditoría. */
+const METHOD_COPY: Record<string, string> = {
+  fcff_base: "Flujo de caja descontado",
+};
 
 function SectionNav() {
   return (
@@ -339,6 +351,11 @@ export default async function ValuationResultPage({ params }: PageProps) {
       ?.attribution ?? null;
   const damodaran = attributionOf(DAMODARAN_SOURCE_ID);
 
+  const verdict = valuationVerdict({
+    comparison: reading.market.comparison,
+    scenarios: run.result?.scenarios ?? null,
+  });
+
   return (
     <PageFrame
       ticker={reading.ticker}
@@ -355,31 +372,15 @@ export default async function ValuationResultPage({ params }: PageProps) {
           </dd>
         </div>
         <div className="flex gap-1.5">
+          <dt className="text-muted-foreground">Método</dt>
+          <dd>{METHOD_COPY[run.method] ?? run.method}</dd>
+        </div>
+        <div className="flex gap-1.5">
           <dt className="text-muted-foreground">Rigor</dt>
           <dd>
-            <a className="underline underline-offset-4" href="#rigor-title">
+            <a className="underline underline-offset-4" href="#auditoria-rigor">
               {RIGOR_COPY[run.input.assessment.rigor.level]}
             </a>
-          </dd>
-        </div>
-        {subject?.mic == null ? null : (
-          <div className="flex gap-1.5">
-            <dt className="text-muted-foreground">Listing</dt>
-            <dd className="font-mono">{subject.mic}</dd>
-          </div>
-        )}
-        {subject?.cik == null ? null : (
-          <div className="flex gap-1.5">
-            <dt className="text-muted-foreground">CIK</dt>
-            <dd className="numeric">{subject.cik}</dd>
-          </div>
-        )}
-        <div className="flex gap-1.5">
-          <dt className="text-muted-foreground">Corrida registrada</dt>
-          <dd>
-            <time className="numeric" dateTime={run.recordedAt}>
-              {formatUtcTimestamp(run.recordedAt)}
-            </time>
           </dd>
         </div>
       </dl>
@@ -397,24 +398,38 @@ export default async function ValuationResultPage({ params }: PageProps) {
             {reviewChecks.length === 1 ? "" : "es"} en modo revisión no pasó (
             {reviewChecks.map((check) => checkLabel(check.id)).join(", ")}). El
             valor se calculó igual, pero no debe leerse como cerrado hasta
-            resolverlos; el detalle está en los controles.
+            resolverlos; el detalle está en la auditoría.
           </AlertDescription>
         </Alert>
       )}
 
       <SectionNav />
 
-      <Anchor id="resumen">
-        <RunHeadline run={run} />
-      </Anchor>
-
-      <Anchor id="precio">
-        <MarketExpectations
+      <Anchor id="veredicto">
+        <VerdictPanel
           run={run}
+          verdict={verdict}
           market={reading.market}
           attribution={attributionOf(PRICES_SOURCE_ID)}
         />
-        <CedearAccess cedear={reading.cedear} />
+      </Anchor>
+
+      <Anchor id="exigencias">
+        <PriceRequirements run={run} market={reading.market} />
+      </Anchor>
+
+      <Anchor id="historia">
+        <CompanyHistory
+          trajectory={reading.trajectory}
+          knownAt={
+            run.provenance.knowledge.knownAt ??
+            run.provenance.knowledge.effectiveAt
+          }
+        />
+      </Anchor>
+
+      <Anchor id="valor">
+        <ValueWalkthrough run={run} />
       </Anchor>
 
       <Anchor id="escenarios">
@@ -427,57 +442,157 @@ export default async function ValuationResultPage({ params }: PageProps) {
         )}
       </Anchor>
 
-      <Anchor id="supuestos">
-        <DerivationSummary run={run} />
-
-        <AssumptionsTables
-          run={run}
-          assumptionsKind={
-            run.input.derivedAssumptions === undefined
-              ? "assumption"
-              : "derived_by_rule"
-          }
-        />
-
-        <CostOfCapitalTable run={run} attribution={damodaran} />
-
-        <QualitativeDecisions run={run} />
-
-        <EquityBridgeTable run={run} />
+      <Anchor id="cedear">
+        <CedearAccess cedear={reading.cedear} />
       </Anchor>
 
-      <Anchor id="evidencia">
-        <section
-          aria-labelledby="data-kinds-title"
-          className="flex flex-col gap-3 rounded-xl border bg-muted/30 p-4"
-        >
-          <h2 id="data-kinds-title" className="text-base font-medium">
-            Cómo leer el origen de cada dato
+      <section
+        id="auditoria"
+        aria-labelledby="audit-title"
+        className="flex scroll-mt-20 flex-col gap-2"
+      >
+        <div className="flex flex-col gap-1">
+          <h2 id="audit-title" className="text-lg font-semibold">
+            Auditoría de la corrida
           </h2>
-          <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
-            {DATA_KINDS.map((entry) => (
-              <div key={entry.kind} className="flex flex-col items-start gap-1">
-                <dt>
-                  <EvidenceKindMark kind={entry.kind} />
-                </dt>
-                <dd className="text-sm text-muted-foreground">
-                  {entry.meaning}
+          <p className="max-w-prose text-sm text-muted-foreground">
+            Todo lo que hace defendible el número: cada supuesto, cada hecho con
+            su documento, los controles del motor y el contrato que impide mirar
+            el futuro. Abrí lo que quieras verificar.
+          </p>
+        </div>
+
+        <div className="border-t">
+          <AuditGroup
+            id="auditoria-corrida"
+            title="Resultado y contrato de la corrida"
+            summary="Valor exacto, corte de conocimiento, hashes para reproducirla e identidad del listing."
+            defaultOpen={run.result === null}
+          >
+            <RunHeadline run={run} />
+            <dl className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+              {subject?.mic == null ? null : (
+                <div className="flex gap-1.5">
+                  <dt className="text-muted-foreground">Listing</dt>
+                  <dd className="font-mono">{subject.mic}</dd>
+                </div>
+              )}
+              {subject?.cik == null ? null : (
+                <div className="flex gap-1.5">
+                  <dt className="text-muted-foreground">CIK</dt>
+                  <dd className="numeric">{subject.cik}</dd>
+                </div>
+              )}
+              <div className="flex gap-1.5">
+                <dt className="text-muted-foreground">Corrida registrada</dt>
+                <dd>
+                  <time className="numeric" dateTime={run.recordedAt}>
+                    {formatUtcTimestamp(run.recordedAt)}
+                  </time>
                 </dd>
               </div>
-            ))}
-          </dl>
-        </section>
+            </dl>
+          </AuditGroup>
 
-        <RigorPanel run={run} />
+          <AuditGroup
+            id="auditoria-supuestos"
+            title="De dónde salen los supuestos"
+            summary="La regla que los derivó, las ventas que congeló y el libro de ajustes del último ejercicio."
+          >
+            <DerivationSummary run={run} />
+          </AuditGroup>
 
-        <EvidenceTable
-          facts={collectReportedFacts(run)}
-          absences={collectDeclaredAbsences(run)}
-          policyVersion={FRESHNESS_POLICY_VERSION}
-        />
+          <AuditGroup
+            id="auditoria-proyeccion"
+            title="Supuestos y proyección año por año"
+            summary="Crecimiento, margen, impuestos y tasa de cada año, y el flujo descontado completo."
+          >
+            <AssumptionsTables
+              run={run}
+              assumptionsKind={
+                run.input.derivedAssumptions === undefined
+                  ? "assumption"
+                  : "derived_by_rule"
+              }
+            />
+          </AuditGroup>
 
-        <RunChecks run={run} />
-      </Anchor>
+          <AuditGroup
+            id="auditoria-costo-capital"
+            title="Costo de capital"
+            summary="Cada parámetro de Damodaran con su release y fecha, y cómo se armó la tasa."
+          >
+            <CostOfCapitalTable run={run} attribution={damodaran} />
+          </AuditGroup>
+
+          <AuditGroup
+            id="auditoria-cualitativas"
+            title="Decisiones cualitativas"
+            summary="Industria, mix geográfico y opciones de empleados: quién decidió y con qué evidencia."
+          >
+            <QualitativeDecisions run={run} />
+          </AuditGroup>
+
+          <AuditGroup
+            id="auditoria-puente"
+            title="Puente de valor"
+            summary="De lo que valen las operaciones al patrimonio, con el estado de cada reclamo."
+          >
+            <EquityBridgeTable run={run} />
+          </AuditGroup>
+
+          <AuditGroup
+            id="auditoria-rigor"
+            title="Rigor y método"
+            summary="Por qué se eligió este método y qué impidió un nivel de rigor más alto."
+          >
+            <RigorPanel run={run} />
+          </AuditGroup>
+
+          <AuditGroup
+            id="auditoria-evidencia"
+            title="Evidencia y origen de cada dato"
+            summary="Cada hecho con su documento, fecha de disponibilidad y antigüedad, y lo que se declaró ausente."
+          >
+            <section
+              aria-labelledby="data-kinds-title"
+              className="flex flex-col gap-3 rounded-xl border bg-muted/30 p-4"
+            >
+              <h3 id="data-kinds-title" className="text-base font-medium">
+                Cómo leer el origen de cada dato
+              </h3>
+              <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+                {DATA_KINDS.map((entry) => (
+                  <div
+                    key={entry.kind}
+                    className="flex flex-col items-start gap-1"
+                  >
+                    <dt>
+                      <EvidenceKindMark kind={entry.kind} />
+                    </dt>
+                    <dd className="text-sm text-muted-foreground">
+                      {entry.meaning}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+            <EvidenceTable
+              facts={collectReportedFacts(run)}
+              absences={collectDeclaredAbsences(run)}
+              policyVersion={FRESHNESS_POLICY_VERSION}
+            />
+          </AuditGroup>
+
+          <AuditGroup
+            id="auditoria-controles"
+            title="Fórmulas y controles"
+            summary="Las fórmulas en orden de cálculo y cada control que el motor ejecutó."
+          >
+            <RunChecks run={run} />
+          </AuditGroup>
+        </div>
+      </section>
 
       <Anchor id="historial">
         <ValuationHistory view={history} />

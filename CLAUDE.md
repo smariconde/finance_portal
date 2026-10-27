@@ -514,6 +514,19 @@ inline and re-reads the page in place with `router.refresh()` when the run is re
 The page reads decision first (value with its bear–bull range, price and what it
 requires, scenarios), then how it was reached, then evidence and controls.
 
+Since `F6-17` ([ADR 0058](docs/architecture/adr/0058-didactic-valuation-result.md))
+the result reads from the decision to the audit: price against value
+(`valuation-verdict-1.0.0` places the close in the bear–base–bull range, never
+«cheap» or «expensive»), what the price requires in words, how the company has
+been doing (`company-trajectory-1.0.0`: six **reported** metrics read at the run's
+own cutoff through `readAnnualFundamentals`, nulls with a reason), why the model
+gives that value (`value-chain-1.0.0`, six steps, amounts in words through
+`formatCompactAmount`), scenarios, CEDEAR, and nine folded `<details>` holding
+everything the page showed before. English texts stored in the snapshot are
+translated at render time (`storedTextEs`); the snapshot and its hashes do not
+move. Cyclicals, financials, growth and REITs have engines since Phase 4 but run
+only from the CLI; `F6-18`–`F6-22` bring them to the job, one archetype per slice.
+
 The run history (`F6-02`,
 [ADR 0047](docs/architecture/adr/0047-valuation-run-history.md)) lists a
 ticker's last 20 completed jobs at render time (its `loadValuationHistory` action was
