@@ -27,6 +27,7 @@ import {
 } from "../domain/valuation-job";
 import {
   cedearAccessAt,
+  cedearBasisOfRun,
   readValuationResult,
   subjectAt,
 } from "./read-valuation-result";
@@ -137,6 +138,17 @@ describe("readValuationResult", () => {
     if (reading.state !== "financial_run") return;
     expect(reading.run.result?.base.valuePerShare).toBeTruthy();
     expect(reading.market.reason).toBe("missing_close");
+    // Desde que la vista financiera muestra el CEDEAR: sin el cierre de la
+    // acción no hay CCL implícito, y lo nombra en vez de inventarlo.
+    expect(reading.cedear.status).toBe("program");
+    if (reading.cedear.status !== "program") return;
+    const [program] = reading.cedear.programs;
+    expect(program?.equivalent.status).toBe("computed");
+    expect(program?.pesos).toEqual({
+      status: "unavailable",
+      version: "cedear-peso-value-1.0.0",
+      reason: "underlying_not_comparable",
+    });
   });
 
   it("names a ticker that never finished a job", async () => {
@@ -546,7 +558,11 @@ function atCutoff(instant: string): ValuationRun {
 describe("cedearAccessAt", () => {
   it("converts the value with the ratio effective at the run's cutoff", () => {
     const run = buildDemoValuationRun();
-    const access = cedearAccessAt(DEMO_IDENTITY_GRAPH, REGISTRY, run);
+    const access = cedearAccessAt(
+      DEMO_IDENTITY_GRAPH,
+      REGISTRY,
+      cedearBasisOfRun(run),
+    );
 
     expect(access.status).toBe("program");
     if (access.status !== "program") return;
@@ -569,7 +585,11 @@ describe("cedearAccessAt", () => {
 
   it("uses the earlier ratio for a run whose cutoff precedes the change", () => {
     const run = atCutoff("2024-08-01T00:00:00.000Z");
-    const access = cedearAccessAt(DEMO_IDENTITY_GRAPH, REGISTRY, run);
+    const access = cedearAccessAt(
+      DEMO_IDENTITY_GRAPH,
+      REGISTRY,
+      cedearBasisOfRun(run),
+    );
 
     expect(
       access.status === "program" && access.programs[0]?.ratio?.depositaryUnits,
@@ -579,7 +599,9 @@ describe("cedearAccessAt", () => {
   it("does not see a program before it was first observed", () => {
     const run = atCutoff("2020-01-01T00:00:00.000Z");
 
-    expect(cedearAccessAt(DEMO_IDENTITY_GRAPH, REGISTRY, run)).toEqual({
+    expect(
+      cedearAccessAt(DEMO_IDENTITY_GRAPH, REGISTRY, cedearBasisOfRun(run)),
+    ).toEqual({
       rule: "cedear-access-1.0.0",
       status: "none_known",
       reason: "not_effective_at_cutoff",
@@ -590,14 +612,22 @@ describe("cedearAccessAt", () => {
     const run = buildDemoValuationRun();
 
     expect(
-      cedearAccessAt(DEMO_IDENTITY_GRAPH, { programs: [], ratios: [] }, run),
+      cedearAccessAt(
+        DEMO_IDENTITY_GRAPH,
+        { programs: [], ratios: [] },
+        cedearBasisOfRun(run),
+      ),
     ).toMatchObject({ status: "none_known", reason: "no_program_recorded" });
   });
 
   it("has no value per CEDEAR for a rejected run", () => {
     const base = buildDemoValuationRun();
     const run = { ...base, result: null };
-    const access = cedearAccessAt(DEMO_IDENTITY_GRAPH, REGISTRY, run);
+    const access = cedearAccessAt(
+      DEMO_IDENTITY_GRAPH,
+      REGISTRY,
+      cedearBasisOfRun(run),
+    );
 
     expect(
       access.status === "program" && access.programs[0]?.equivalent,
@@ -615,7 +645,7 @@ describe("local identity cutoff", () => {
         availableAt: "2099-01-01T00:00:00.000Z",
       })),
     };
-    const access = cedearAccessAt(graph, REGISTRY, run);
+    const access = cedearAccessAt(graph, REGISTRY, cedearBasisOfRun(run));
     expect(
       access.status === "program" && access.programs[0]?.bymaSymbol,
     ).toBeNull();

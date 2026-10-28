@@ -35,6 +35,7 @@ import {
 } from "../domain/market-expectations";
 import {
   compareWithMarketPrice,
+  MARKET_PRICE_COMPARISON_VERSION,
   marketImpliedContext,
   marketImpliedExpectations,
   type MarketClose,
@@ -191,6 +192,8 @@ export type ValuationResultReading =
       readonly job: ValuationResultJob;
       readonly newerGap: ValuationResultNewerGap | null;
       readonly subject: ValuationResultSubject | null;
+      /** El acceso por CEDEAR al corte, con su valor en USD y en pesos. */
+      readonly cedear: ValuationResultCedear;
       readonly market: {
         readonly close: {
           readonly marketDate: string;
@@ -381,16 +384,38 @@ export function subjectAt(
 }
 
 /**
+ * Lo que la lectura CEDEAR necesita de una corrida, sea FCFF o de exceso de
+ * retorno (`F6-20`): el corte, la acción, la moneda y el valor por acción.
+ */
+export type CedearRunBasis = {
+  readonly asOf: string;
+  readonly currency: string;
+  readonly securityId: string;
+  readonly knowledge: PointInTimeQuery;
+  readonly valuePerShare: string | null;
+};
+
+export function cedearBasisOfRun(run: ValuationRun): CedearRunBasis {
+  return {
+    asOf: run.asOf,
+    currency: run.currency,
+    securityId: run.subject.securityId,
+    knowledge: run.provenance.knowledge,
+    valuePerShare: run.result?.valuePerShare ?? null,
+  };
+}
+
+/**
  * El acceso por CEDEAR al corte de la corrida: un ratio visto después del
  * corte no convierte el valor de una corrida anterior (`TM-06`).
  */
 export function cedearAccessAt(
   graph: IdentityGraph,
   registry: StoredCedearRegistry,
-  run: ValuationRun,
+  run: CedearRunBasis,
 ): ValuationResultCedear {
-  const query = run.provenance.knowledge;
-  const access = resolveCedearAccess(registry, run.subject.securityId, query);
+  const query = run.knowledge;
+  const access = resolveCedearAccess(registry, run.securityId, query);
 
   if (access.status === "none_known") {
     return {
@@ -441,7 +466,7 @@ export function cedearAccessAt(
               availableAt: ratio.availableAt,
             },
       equivalent: cedearEquivalent({
-        valuePerShare: run.result?.valuePerShare ?? null,
+        valuePerShare: run.valuePerShare,
         currency: run.currency,
         ratio,
       }),
@@ -474,16 +499,12 @@ function localSymbolAt(
 export async function cedearMarketAt(
   graph: IdentityGraph,
   registry: StoredCedearRegistry,
-  run: ValuationRun,
-  market: ValuationResultMarket,
+  run: CedearRunBasis,
+  comparison: MarketPriceComparison,
   prices: ValuationResultDependencies["prices"],
 ): Promise<ValuationResultCedear> {
   const cedear = cedearAccessAt(graph, registry, run);
-  const access = resolveCedearAccess(
-    registry,
-    run.subject.securityId,
-    run.provenance.knowledge,
-  );
+  const access = resolveCedearAccess(registry, run.securityId, run.knowledge);
   const securityIds =
     access.status === "program"
       ? access.programs.map(({ program }) => program.depositarySecurityId)
@@ -503,7 +524,7 @@ export async function cedearMarketAt(
             program.bymaSymbol === null
               ? []
               : await prices.loadEvents({ securityId: securityIds[index]! }),
-          comparison: market.comparison,
+          comparison,
           closes:
             program.bymaSymbol === null
               ? []
@@ -551,12 +572,13 @@ export async function readValuationResult(
   const financial = excessReturnRunSchema.safeParse(stored);
   if (financial.success) {
     const run = financial.data;
-    const [state, closes, events] = await Promise.all([
+    const [state, registry, closes, events] = await Promise.all([
       dependencies.universe.loadState({
         indexId: SP500_INDEX_ID,
         versions: "all",
         limit: 50_000,
       }),
+      dependencies.cedears.loadRegistry({}),
       dependencies.prices.loadSeries({
         securityId: run.subject.securityId,
         from: run.asOf,
@@ -595,6 +617,44 @@ export async function readValuationResult(
               : !parseDecimal(close.close, "financial.close").gt(ZERO)
                 ? ("non_positive_close" as const)
                 : null;
+    const priceToValue =
+      reason === null && close !== null && value !== null
+        ? divide(
+            parseDecimal(close.close, "financial.close"),
+            parseDecimal(value, "financial.valuePerShare"),
+            "financial.priceToValue",
+          )
+        : null;
+    // La misma comparación que lee el CEDEAR de una corrida FCFF, con las
+    // reglas de esta rama: el cierre exacto del `as_of` y la misma base de
+    // acciones. Sin ella no hay CCL implícito ni valor en pesos.
+    const comparison: MarketPriceComparison =
+      priceToValue !== null && close !== null && value !== null
+        ? {
+            status: "compared",
+            version: MARKET_PRICE_COMPARISON_VERSION,
+            price: close,
+            valuePerShare: value,
+            valueToPrice: divide(
+              parseDecimal(value, "financial.valuePerShare"),
+              parseDecimal(close.close, "financial.close"),
+              "financial.valueToPrice",
+            )
+              .minus(1)
+              .toString(),
+            priceToValue: priceToValue.toString(),
+          }
+        : {
+            status: "unavailable",
+            version: MARKET_PRICE_COMPARISON_VERSION,
+            reason:
+              value === null
+                ? "no_value_per_share"
+                : reason === "missing_close" || reason === null
+                  ? "no_close_at_as_of"
+                  : reason,
+            price: close,
+          };
     return {
       state: "financial_run",
       ticker,
@@ -602,18 +662,24 @@ export async function readValuationResult(
       job: jobReading(recordedJob),
       newerGap: recordedIndex === 0 ? null : gapReading(latest),
       subject: subjectAt(state.graph, run),
+      cedear: await cedearMarketAt(
+        state.graph,
+        registry,
+        {
+          asOf: run.asOf,
+          currency: run.currency,
+          securityId: run.subject.securityId,
+          knowledge: run.provenance.knowledge,
+          valuePerShare: value,
+        },
+        comparison,
+        dependencies.prices,
+      ),
       market: {
         close,
         comparable: reason === null,
         reason,
-        priceToValue:
-          reason === null && close !== null && value !== null
-            ? divide(
-                parseDecimal(close.close, "financial.close"),
-                parseDecimal(value, "financial.valuePerShare"),
-                "financial.priceToValue",
-              ).toString()
-            : null,
+        priceToValue: priceToValue?.toString() ?? null,
       },
     };
   }
@@ -658,8 +724,8 @@ export async function readValuationResult(
     cedear: await cedearMarketAt(
       state.graph,
       registry,
-      run,
-      market,
+      cedearBasisOfRun(run),
+      market.comparison,
       dependencies.prices,
     ),
     market,
