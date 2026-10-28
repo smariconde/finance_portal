@@ -4111,6 +4111,10 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
   pérdidas entre Malasia y jurisdicciones con vencimientos; el total no sirve
   como pool único. El owner eligió frenar cuando la nota no permita conciliar
   jurisdicciones.
+- El owner aprobó `derived-growth-trajectory-1.0.0`: diez años explícitos,
+  CAGR de ventas de tres años limitado al 30 %, tres años de alto crecimiento,
+  caída lineal hasta terminal y margen de industria en cinco años. La regla
+  pura y sus casos de rechazo pasan 11 pruebas; aún no está conectada al job.
 - Alcance restante: derivar y congelar trayectoria de ventas, margen de la
   release visible, saldo fiscal conciliado y financiación; conectar selector,
   job, replay y lectura propia de ambos métodos en la página; probarlo con

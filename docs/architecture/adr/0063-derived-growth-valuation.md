@@ -1,7 +1,7 @@
 # ADR 0063: crecimiento y pérdidas desde la corrida por ticker
 
-- Estado: aceptado para la fuente y la política de negativa; regla de
-  crecimiento y conexión del job aún en implementación
+- Estado: aceptado para la fuente, la trayectoria y la política de negativa;
+  conexión del job aún en implementación
 - Fecha: 2026-10-28
 - Alcance: `F6-21`, sobre el motor experimental de la
   [ADR 0043](0043-revenue-margin-survival.md)
@@ -47,10 +47,13 @@ guardó.
   `revenue_margin_survival`. El método y el perfil se vuelven a seleccionar
   desde evidencia fechada, y toda corrida calculada conserva
   `requires_review`.
-- La tasa inicial sale de ventas anuales positivas y consecutivas al corte,
-  con una cota explícita que impida perpetuar un ejercicio extraordinario. El
-  horizonte, la duración de alto crecimiento y la convergencia del margen
-  necesitan una regla versionada antes de armar el snapshot.
+- `derived-growth-trajectory-1.0.0`, aprobado por el owner: cuatro cierres
+  anuales positivos y consecutivos dan el CAGR de ventas de los últimos tres
+  años; la tasa inicial es el menor entre ese CAGR y 30 %. Se proyectan diez
+  años explícitos, tres a la tasa inicial y una caída lineal hasta la tasa
+  terminal durante los siete restantes. El margen converge linealmente al de
+  la industria en cinco años. Si el CAGR queda por debajo de la tasa terminal,
+  la corrida nombra el faltante y no cambia la regla en silencio.
 - El margen objetivo sale de la industria mapeada y de la release visible al
   corte; su clave, campo, valor, disponibilidad y release quedan congelados
   para replay. Sin industria unívoca o margen válido, la corrida nombra el

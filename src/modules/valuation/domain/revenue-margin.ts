@@ -16,6 +16,11 @@ import {
 import { monetaryFactSchema } from "./valuation-facts";
 import { ValuationPolicyError } from "./valuation-error";
 import type { ValuationInput } from "./valuation-input";
+import {
+  deriveGrowthTrajectory,
+  derivedGrowthTrajectorySchema,
+} from "./derived-growth-trajectory";
+import { growthMarginReferenceSchema } from "./derived-growth-margin";
 
 export const GROWTH_FCFF_ENGINE_VERSION = "growth-fcff-1.0.0";
 export const GROWTH_METHODOLOGY_VERSION = "growth-fcff-1.0.0";
@@ -36,6 +41,13 @@ export const revenueMarginSchema = z.object({
   lossOffsetLimit: engineDecimalSchema,
   lossPolicyRationale: rationale,
   employeeEquityAvailableAt: utcTimestampSchema,
+  /** Present for app-derived F6-21 runs; older declared snapshots omit it. */
+  derivedFrom: z
+    .object({
+      trajectory: derivedGrowthTrajectorySchema,
+      margin: growthMarginReferenceSchema,
+    })
+    .optional(),
 });
 export type RevenueMargin = z.infer<typeof revenueMarginSchema>;
 
@@ -171,6 +183,34 @@ export function revenueMarginMismatches(input: ValuationInput): string[] {
     paths.push("revenueMargin.lossCarryforward");
   const offset = parseDecimal(plan.lossOffsetLimit, "lossOffsetLimit");
   if (offset.lt(0) || offset.gt(1)) paths.push("revenueMargin.lossOffsetLimit");
+  if (plan.derivedFrom !== undefined) {
+    const { trajectory, margin } = plan.derivedFrom;
+    const recalculated = deriveGrowthTrajectory(
+      trajectory.revenueHistory,
+      input.terminal.growth,
+    );
+    if (
+      recalculated.status !== "ready" ||
+      computeContentHash(recalculated.trajectory) !==
+        computeContentHash(trajectory) ||
+      !parseDecimal(plan.initialRevenueGrowth, "initialRevenueGrowth").eq(
+        parseDecimal(trajectory.initialRevenueGrowth, "initialRevenueGrowth"),
+      ) ||
+      plan.highGrowthYears !== trajectory.highGrowthYears ||
+      plan.marginConvergenceYears !== trajectory.marginConvergenceYears ||
+      input.periods.length !== trajectory.explicitYears
+    )
+      paths.push("revenueMargin.derivedFrom.trajectory");
+    if (
+      !parseDecimal(plan.targetMargin, "targetMargin").eq(
+        parseDecimal(margin.value, "industryMargin"),
+      ) ||
+      Date.parse(margin.availableAt) > cutoff ||
+      (input.knowledge.knowledgeBasis === "system_recorded" &&
+        Date.parse(margin.recordedAt) > cutoff)
+    )
+      paths.push("revenueMargin.derivedFrom.margin");
+  }
   if (
     plan.profileEvidence.some(
       (item) => item.legalEntityId !== input.subject.legalEntityId,
