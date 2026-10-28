@@ -60,16 +60,17 @@ export const CONFIDENCE_LABELS: Record<string, string> = {
   low: "Baja",
 };
 
+/** Parámetros de Damodaran por su nombre en inglés, como los publica él. */
 const PARAMETER_LABELS: Record<string, string> = {
-  treasury_bond_rate: "Bono del Tesoro",
-  sovereign_default_spread: "Spread de default soberano",
-  implied_erp: "Prima de riesgo implícita",
-  country_risk_premium: "Prima de riesgo país",
-  country_default_spread: "Spread de default del país",
-  marginal_tax_rate: "Tasa impositiva marginal",
-  unlevered_beta: "Beta desapalancada de la industria",
-  target_debt_to_equity: "Deuda sobre equity de la industria",
-  company_default_spread: "Spread del rating sintético",
+  treasury_bond_rate: "Treasury bond rate",
+  sovereign_default_spread: "Sovereign default spread",
+  implied_erp: "Implied ERP",
+  country_risk_premium: "Country risk premium (CRP)",
+  country_default_spread: "Country default spread",
+  marginal_tax_rate: "Marginal tax rate",
+  unlevered_beta: "Unlevered industry beta",
+  target_debt_to_equity: "Industry D/E",
+  company_default_spread: "Synthetic-rating default spread",
 };
 
 export function parameterLabel(code: string): string {

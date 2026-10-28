@@ -1,4 +1,4 @@
-import { BRIDGE_LABELS } from "@/app/valuacion/_components/run/labels";
+import { termName, termSpanish } from "@/app/_components/financial-terms";
 import { cn } from "@/lib/utils";
 import { formatCompactAmount } from "@/modules/valuation/domain/display-format";
 import type { ValueChain } from "@/modules/valuation/domain/valuation-verdict";
@@ -6,6 +6,8 @@ import type { ValueChain } from "@/modules/valuation/domain/valuation-verdict";
 type Step = {
   readonly key: string;
   readonly label: string;
+  /** La aclaración en castellano, debajo del nombre. */
+  readonly hint: string;
   readonly kind: "add" | "subtract" | "total";
   /** Sólo geometría: el tramo que ocupa la barra. La cifra va en `amount`. */
   readonly from: number;
@@ -30,7 +32,8 @@ function stepsOf(chain: ValueChain): Step[] {
   const steps: Step[] = [
     {
       key: "explicit",
-      label: `Los ${chain.explicitYears} años proyectados`,
+      label: `PV of years 1–${chain.explicitYears}`,
+      hint: `los ${chain.explicitYears} años proyectados, valuados hoy`,
       kind: "add",
       from: 0,
       to: explicit,
@@ -38,7 +41,8 @@ function stepsOf(chain: ValueChain): Step[] {
     },
     {
       key: "terminal",
-      label: "Valor terminal",
+      label: termName("terminalValue"),
+      hint: "lo que viene después, valuado hoy",
       kind: "add",
       from: explicit,
       to: goingConcern,
@@ -52,7 +56,8 @@ function stepsOf(chain: ValueChain): Step[] {
   if (chain.failureProbability !== "0") {
     steps.push({
       key: "going-concern",
-      label: "Si sigue operando",
+      label: termName("goingConcernValue"),
+      hint: termSpanish("goingConcernValue"),
       kind: "total",
       from: 0,
       to: Number(chain.goingConcernValue),
@@ -62,7 +67,8 @@ function stepsOf(chain: ValueChain): Step[] {
 
   steps.push({
     key: "enterprise",
-    label: "Valor de las operaciones",
+    label: termName("enterpriseValue"),
+    hint: termSpanish("enterpriseValue"),
     kind: "total",
     from: 0,
     to: Number(chain.enterpriseValue),
@@ -79,7 +85,8 @@ function stepsOf(chain: ValueChain): Step[] {
         : running - Number(item.value);
     steps.push({
       key: item.key,
-      label: BRIDGE_LABELS[item.key],
+      label: termName(item.key),
+      hint: termSpanish(item.key),
       kind: item.sign === "add" ? "add" : "subtract",
       from: running,
       to: next,
@@ -90,7 +97,8 @@ function stepsOf(chain: ValueChain): Step[] {
 
   steps.push({
     key: "equity",
-    label: "Para los accionistas",
+    label: termName("equityValue"),
+    hint: termSpanish("equityValue"),
     kind: "total",
     from: 0,
     to: Number(chain.equityValue),
@@ -142,14 +150,19 @@ export function ValueComposition({
             >
               {sign.glyph}
             </span>
-            <span
-              className={cn(
-                "truncate text-sm",
-                step.kind === "total" ? "font-medium" : "text-muted-foreground",
-              )}
-            >
-              <span className="sr-only">{sign.spoken} </span>
-              {step.label}
+            <span className="flex min-w-0 flex-col">
+              <span
+                className={cn(
+                  "truncate text-sm",
+                  step.kind === "total" && "font-medium",
+                )}
+              >
+                <span className="sr-only">{sign.spoken} </span>
+                {step.label}
+              </span>
+              <span className="truncate text-xs text-muted-foreground">
+                {step.hint}
+              </span>
             </span>
             <span
               aria-hidden="true"

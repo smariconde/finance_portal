@@ -326,7 +326,7 @@ function FinancialRunView({
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader>
-            <CardTitle>Valor por acción</CardTitle>
+            <CardTitle>Value per share</CardTitle>
             <CardDescription>
               Equity común dividido por acciones y unidades
             </CardDescription>
@@ -353,7 +353,7 @@ function FinancialRunView({
         <Card>
           <CardHeader>
             <CardTitle>
-              {market.priceToValue === null ? "Estado" : "Precio sobre valor"}
+              {market.priceToValue === null ? "Estado" : "Price / value"}
             </CardTitle>
             <CardDescription>
               {market.priceToValue === null
@@ -407,7 +407,7 @@ function FinancialRunView({
         <CardContent>
           <dl className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
             <div>
-              <dt className="text-muted-foreground">Patrimonio común</dt>
+              <dt className="text-muted-foreground">Common book equity</dt>
               <dd className="numeric font-medium">
                 {run.input.commonBookEquity === null
                   ? "Falta"
@@ -415,7 +415,7 @@ function FinancialRunView({
               </dd>
             </div>
             <div>
-              <dt className="text-muted-foreground">ROE derivado</dt>
+              <dt className="text-muted-foreground">Derived ROE</dt>
               <dd className="numeric font-medium">
                 {run.input.derivedFinancial === undefined
                   ? "Falta"
@@ -423,7 +423,7 @@ function FinancialRunView({
               </dd>
             </div>
             <div>
-              <dt className="text-muted-foreground">Costo de equity, año 1</dt>
+              <dt className="text-muted-foreground">Cost of equity, year 1</dt>
               <dd className="numeric font-medium">
                 {first === undefined
                   ? "Sin cálculo"
@@ -466,13 +466,13 @@ function FinancialRunView({
                     ROE
                   </TableHead>
                   <TableHead scope="col" className="text-right">
-                    Costo de equity
+                    Cost of equity
                   </TableHead>
                   <TableHead scope="col" className="text-right">
-                    Patrimonio final
+                    Ending book equity
                   </TableHead>
                   <TableHead scope="col" className="text-right">
-                    Retorno excedente
+                    Excess return
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -502,6 +502,7 @@ function FinancialRunView({
           </CardContent>
         </Card>
       )}
+      <CedearAccess cedear={reading.cedear} />
       <Card>
         <CardHeader>
           <CardTitle>Auditoría</CardTitle>

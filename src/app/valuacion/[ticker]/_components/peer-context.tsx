@@ -50,9 +50,9 @@ const NULL_COPY: Record<PeerMetricNullReason, string> = {
 };
 
 const METRICS: readonly { key: PeerMetricKey; label: string }[] = [
-  { key: "priceToValue", label: "Precio sobre valor" },
+  { key: "priceToValue", label: "Price / value" },
   { key: "priceToEarnings", label: "P/E" },
-  { key: "enterpriseValueToEbit", label: "EV/EBIT ajustado" },
+  { key: "enterpriseValueToEbit", label: "Adjusted EV/EBIT" },
 ];
 
 const METHOD_COPY: Record<PeerEntry["method"], string> = {

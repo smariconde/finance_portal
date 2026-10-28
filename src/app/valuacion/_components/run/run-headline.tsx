@@ -59,7 +59,7 @@ export function RunHeadline({ run }: { run: ValuationRun }) {
           ) : (
             <div className="space-y-1">
               <p className="text-xs font-medium text-muted-foreground">
-                Valor por acción
+                Value per share
               </p>
               <p className="numeric flex flex-wrap items-baseline gap-2">
                 <span className="text-4xl font-semibold tracking-tight tabular-nums md:text-5xl">

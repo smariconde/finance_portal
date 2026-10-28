@@ -23,6 +23,12 @@ import {
 } from "@/modules/valuation/domain/display-format";
 import type { ValuationRun } from "@/modules/valuation/domain/valuation-run";
 
+import {
+  termName,
+  termSpanish,
+  type FinancialTermKey,
+} from "@/app/_components/financial-terms";
+
 import { costDeclarationLabel, datasetLabel, parameterLabel } from "./labels";
 
 /** Los parámetros que son una tasa se leen en porcentaje; el resto, como número. */
@@ -52,51 +58,52 @@ export function CostOfCapitalTable({
   const derived = capital.derived;
 
   const derivedRows: readonly {
-    label: string;
+    term: FinancialTermKey;
     value: string;
     hint?: string;
   }[] = [
     {
-      label: "Libre de riesgo",
+      term: "riskFree",
       value: formatPercent(derived.riskFree, { scale: 2 }),
       hint: "Tesoro menos el spread de default soberano",
     },
     {
-      label: "Beta reapalancada",
+      term: "leveredBeta",
       value: formatAmount(derived.leveredBeta, { scale: 2 }),
       hint: "Hamada sobre la deuda/equity de la industria",
     },
     {
-      label: "Costo del equity",
+      term: "costOfEquity",
       value: formatPercent(derived.costOfEquity, { scale: 2 }),
     },
     {
-      label: "Rating sintético",
+      term: "syntheticRating",
       value: derived.syntheticRating,
       hint: `Cobertura de intereses ${formatAmount(capital.coverage.value, { scale: 1 })}× al ${formatCalendarDate(capital.coverage.fiscalYearEnd)}`,
     },
     {
-      label: "Costo de la deuda antes de impuestos",
+      term: "preTaxCostOfDebt",
       value: formatPercent(derived.preTaxCostOfDebt, { scale: 2 }),
     },
     {
-      label: "Costo de la deuda después de impuestos",
+      term: "afterTaxCostOfDebt",
       value: formatPercent(derived.afterTaxCostOfDebt, { scale: 2 }),
     },
     {
-      label: "Peso del equity",
+      term: "equityWeight",
       value: formatPercent(derived.equityWeight, { scale: 1 }),
     },
     {
-      label: "Peso de la deuda",
+      term: "debtWeight",
       value: formatPercent(derived.debtWeight, { scale: 1 }),
     },
     {
-      label: "WACC de los períodos explícitos",
+      term: "wacc",
+      hint: "Años explícitos",
       value: formatPercent(derived.wacc, { scale: 2 }),
     },
     {
-      label: "WACC terminal",
+      term: "terminalWacc",
       value: formatPercent(derived.terminalWacc, { scale: 2 }),
       hint: `Beta terminal ${formatAmount(derived.terminalBeta, { scale: 2 })}`,
     },
@@ -166,16 +173,17 @@ export function CostOfCapitalTable({
           </div>
           <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
             {derivedRows.map((row) => (
-              <div key={row.label} className="min-w-0">
+              <div key={row.term} className="min-w-0">
                 <dt className="text-xs font-medium text-muted-foreground">
-                  {row.label}
+                  {termName(row.term)}
                 </dt>
                 <dd className="numeric mt-0.5 text-sm font-medium">
                   {row.value}
                 </dd>
-                {row.hint === undefined ? null : (
-                  <dd className="text-xs text-muted-foreground">{row.hint}</dd>
-                )}
+                <dd className="text-xs text-muted-foreground">
+                  {termSpanish(row.term)}
+                  {row.hint === undefined ? null : ` · ${row.hint}`}
+                </dd>
               </div>
             ))}
           </dl>

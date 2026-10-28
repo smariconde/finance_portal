@@ -80,7 +80,7 @@ function requirementOf(
         headline:
           reading.status === "solved" ? (
             <>
-              Que las ventas crezcan{" "}
+              Que el revenue growth (crecimiento de ventas) sea de{" "}
               <strong className={STRONG}>{percent(reading.implied)}</strong> por
               año durante cinco años.
             </>
@@ -94,7 +94,7 @@ function requirementOf(
         headline:
           reading.status === "solved" ? (
             <>
-              O que el margen operativo pase a{" "}
+              O que el EBIT margin (margen operativo) pase a{" "}
               <strong className={STRONG}>{percent(reading.implied)}</strong> y
               se quede ahí.
             </>
@@ -112,14 +112,15 @@ function requirementOf(
         headline:
           reading.status === "solved" ? (
             <>
-              O que, a largo plazo, cada dólar reinvertido rinda{" "}
+              O que, a largo plazo, el ROIC (lo que rinde cada dólar
+              reinvertido) sea de{" "}
               <strong className={STRONG}>{percent(reading.implied)}</strong> por
               año.
             </>
           ) : (
             <>
               A largo plazo, el retorno de lo que reinvierte no alcanza a
-              explicarlo. {unreachable("un retorno sobre el capital")}
+              explicarlo. {unreachable("un ROIC")}
             </>
           ),
         detail:
@@ -220,14 +221,14 @@ export function PriceRequirements({
         </ol>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <Concept term="la tasa de descuento">
+          <Concept term="el discount rate (tasa de descuento)">
             Lo que un inversor pide ganar por año por poner su plata en esta
             empresa y no en algo sin riesgo. Cuanto más arriesgada, más alta, y
             más bajo el valor de hoy de sus flujos futuros. El modelo la arma
             con la tasa del Tesoro, la prima de riesgo del mercado y la
             sensibilidad de la acción al mercado (beta).
           </Concept>
-          <Concept term="el retorno sobre el capital (ROIC)">
+          <Concept term="el ROIC (retorno sobre el capital invertido)">
             Cuánta ganancia operativa, después de impuestos, genera cada dólar
             invertido en el negocio. Si es mayor que la tasa de descuento,
             crecer crea valor; si es igual, crecer no agrega nada.
