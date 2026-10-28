@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   CartesianGrid,
   ReferenceLine,
@@ -14,15 +14,29 @@ import {
 } from "recharts";
 
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
+import {
+  companyHue,
+  companyInitials,
+} from "@/modules/configuration/domain/company-logo";
 import { formatAmount } from "@/modules/valuation/domain/display-format";
 
 import {
+  DOT_MARK_RADIUS,
   groupLabels,
+  LOGO_MARK_RADIUS,
+  placeLogoMarks,
+  referenceCaptionBox,
   type LabelGroup,
-  type LabelSide,
   type MatrixLayout,
   type PlotPoint,
 } from "./matrix-layout";
+
+/** Lo que una marca necesita para su logo: la URL de logo.dev y el monograma. */
+export type MatrixLogo = {
+  readonly url: string | null;
+  readonly name: string | null;
+  readonly ticker: string;
+};
 
 const chartConfig = {
   security: { label: "Security", color: "var(--muted-foreground)" },
@@ -69,22 +83,164 @@ function measureLabel(text: string): number | undefined {
  * Chevron que apunta hacia donde está el valor real de un punto recortado: el
  * punto se dibuja en el borde, y la flecha dice que sigue más allá.
  */
-function clipChevron(cx: number, cy: number, clipX: number, clipY: number) {
+function clipChevron(
+  cx: number,
+  cy: number,
+  clipX: number,
+  clipY: number,
+  radius: number,
+) {
   // En pantalla, Y crece hacia abajo.
   const length = Math.hypot(clipX, clipY);
   const dx = clipX / length;
   const dy = -clipY / length;
-  const tipX = cx + dx * 12;
-  const tipY = cy + dy * 12;
+  const reach = Math.max(12, radius + 6);
+  const tipX = cx + dx * reach;
+  const tipY = cy + dy * reach;
   const backX = tipX - dx * 4;
   const backY = tipY - dy * 4;
 
   return `M ${backX - dy * 4} ${backY + dx * 4} L ${tipX} ${tipY} L ${backX + dy * 4} ${backY - dx * 4}`;
 }
 
+/**
+ * La marca con logo (`F6-27`): un círculo de 24 px que el logo llena entero
+ * —recortado, sin margen—, sobre una placa blanca porque muchos logos son
+ * oscuros sobre transparente. Sin URL o si la imagen no carga, el monograma
+ * de `CompanyMark`. Con CEDEAR, anillo grueso y la insignia cuadrada de la
+ * leyenda; sin CEDEAR, un borde fino. El anillo y la insignia distinguen
+ * CEDEAR en escala de grises: el color sólo los refuerza.
+ */
+function LogoMark({
+  cx,
+  cy,
+  clipId,
+  logo,
+  cedear,
+  failed,
+  onFail,
+}: {
+  readonly cx: number;
+  readonly cy: number;
+  readonly clipId: string;
+  readonly logo: MatrixLogo | undefined;
+  readonly cedear: boolean;
+  readonly failed: boolean;
+  readonly onFail: () => void;
+}) {
+  const r = LOGO_MARK_RADIUS;
+  const ticker = logo?.ticker ?? "";
+  const url = failed ? null : (logo?.url ?? null);
+
+  return (
+    <g>
+      <clipPath id={clipId}>
+        <circle cx={cx} cy={cy} r={r} />
+      </clipPath>
+      {url === null ? (
+        <>
+          <circle
+            cx={cx}
+            cy={cy}
+            r={r}
+            style={{ fill: `oklch(0.48 0.11 ${companyHue(ticker)})` }}
+          />
+          <text
+            x={cx}
+            y={cy}
+            dy="0.35em"
+            textAnchor="middle"
+            className="fill-white text-xs font-semibold tracking-tight select-none"
+          >
+            {companyInitials(logo?.name ?? null, ticker)}
+          </text>
+        </>
+      ) : (
+        <>
+          <circle cx={cx} cy={cy} r={r} className="fill-white" />
+          {/*
+           * Un `<image>` SVG lo carga el navegador directo de logo.dev, con la
+           * misma URL que `CompanyMark`: comparte su caché de 24 h (ADR 0062).
+           */}
+          <image
+            href={url}
+            x={cx - r}
+            y={cy - r}
+            width={r * 2}
+            height={r * 2}
+            preserveAspectRatio="xMidYMid slice"
+            clipPath={`url(#${clipId})`}
+            onError={onFail}
+          />
+        </>
+      )}
+      {cedear ? (
+        <>
+          <circle
+            cx={cx}
+            cy={cy}
+            r={r}
+            className="fill-none stroke-[var(--color-cedear)]"
+            strokeWidth={2.5}
+          />
+          <rect
+            x={cx + r * 0.45}
+            y={cy + r * 0.45}
+            width={8}
+            height={8}
+            rx={1.5}
+            className="fill-[var(--color-cedear)] stroke-background"
+            strokeWidth={1.5}
+          />
+        </>
+      ) : (
+        <circle
+          cx={cx}
+          cy={cy}
+          r={r}
+          className="fill-none stroke-foreground/25"
+          strokeWidth={1}
+        />
+      )}
+    </g>
+  );
+}
+
+/** La marca sin logo, la de siempre: cuadrado relleno con CEDEAR, círculo hueco sin él. */
+function DotMark({
+  cx,
+  cy,
+  cedear,
+}: {
+  readonly cx: number;
+  readonly cy: number;
+  readonly cedear: boolean;
+}) {
+  return cedear ? (
+    <rect
+      x={cx - 4.5}
+      y={cy - 4.5}
+      width={9}
+      height={9}
+      rx={1.5}
+      className="fill-[var(--color-cedear)] stroke-background"
+      strokeWidth={1}
+    />
+  ) : (
+    <circle
+      cx={cx}
+      cy={cy}
+      r={4.5}
+      className="fill-background stroke-[var(--color-security)]"
+      strokeWidth={1.75}
+    />
+  );
+}
+
 type PointsLayerProps = {
   readonly layout: MatrixLayout;
   readonly descriptions: ReadonlyMap<string, string>;
+  readonly logos: ReadonlyMap<string, MatrixLogo>;
   readonly selectedId: string | null;
   readonly onSelect: (id: string) => void;
 };
@@ -94,33 +250,55 @@ type PointsLayerProps = {
  * grilla y líneas; los puntos van acá porque cada uno es un control: se enfoca
  * con Tab, se selecciona con Enter o click y lleva un nombre accesible con todo
  * lo que un tooltip diría. Un tooltip de hover no alcanza (`UI-02`).
+ *
+ * Son dos capas. La visual ordena lo que se tapa: puntos abajo, logos encima
+ * y la selección arriba de todo. La interactiva va después, en el orden de
+ * siempre, para que Tab no cambie de recorrido al cambiar quién tiene logo.
  */
 function PointsLayer({
   layout,
   descriptions,
+  logos,
   selectedId,
   onSelect,
 }: PointsLayerProps) {
   const xScale = useXAxisScale();
   const yScale = useYAxisScale();
   const plot = usePlotArea();
+  const clipPrefix = useId();
+  const [failed, setFailed] = useState<ReadonlySet<string>>(new Set());
 
-  const groups = useMemo<readonly LabelGroup[]>(
+  const area = useMemo(
     () =>
       plot === undefined
+        ? undefined
+        : {
+            width: plot.width,
+            height: plot.height,
+            domainX: layout.domainX,
+            domainY: layout.domainY,
+          },
+    [layout, plot],
+  );
+  const withLogo = useMemo<ReadonlySet<string>>(
+    () =>
+      area === undefined
+        ? new Set()
+        : placeLogoMarks(layout.points, area, layout.reference, measureLabel),
+    [area, layout],
+  );
+  const groups = useMemo<readonly LabelGroup[]>(
+    () =>
+      area === undefined
         ? []
         : groupLabels(
             layout.points,
-            {
-              width: plot.width,
-              height: plot.height,
-              domainX: layout.domainX,
-              domainY: layout.domainY,
-            },
+            area,
             { ...LABEL_METRICS, measure: measureLabel },
             layout.reference,
+            (id) => (withLogo.has(id) ? LOGO_MARK_RADIUS : DOT_MARK_RADIUS),
           ),
-    [layout, plot],
+    [area, layout, withLogo],
   );
 
   if (xScale === undefined || yScale === undefined || plot === undefined) {
@@ -131,7 +309,21 @@ function PointsLayer({
     cx: xScale(point.x) ?? 0,
     cy: yScale(point.y) ?? 0,
   });
-  const byId = new Map(layout.points.map((point) => [point.id, point]));
+  // `groupLabels` mide desde la esquina del área; la capa, desde el SVG.
+  const offsetX = plot.x;
+  const offsetY = plot.y;
+  // La seleccionada muestra su logo aunque no le haya tocado lugar.
+  const radiusOf = (id: string) =>
+    withLogo.has(id) || id === selectedId ? LOGO_MARK_RADIUS : DOT_MARK_RADIUS;
+  const drawOrder = [
+    ...layout.points.filter(
+      (point) => !withLogo.has(point.id) && point.id !== selectedId,
+    ),
+    ...layout.points.filter(
+      (point) => withLogo.has(point.id) && point.id !== selectedId,
+    ),
+    ...layout.points.filter((point) => point.id === selectedId),
+  ];
 
   return (
     <g className="matrix-points">
@@ -147,22 +339,94 @@ function PointsLayer({
         </text>
       )}
 
-      {layout.reference === null
+      <g aria-hidden="true" className="pointer-events-none">
+        {drawOrder.map((point) => {
+          const { cx, cy } = at(point);
+          const radius = radiusOf(point.id);
+          const logo = logos.get(point.id);
+
+          return (
+            <g
+              key={point.id}
+              data-mark-for={point.id}
+              data-mark={radius === LOGO_MARK_RADIUS ? "logo" : "dot"}
+            >
+              {radius === LOGO_MARK_RADIUS ? (
+                <LogoMark
+                  cx={cx}
+                  cy={cy}
+                  clipId={`${clipPrefix}-${point.id}`}
+                  logo={logo}
+                  cedear={point.cedear}
+                  failed={logo?.url != null && failed.has(logo.url)}
+                  onFail={() => {
+                    const url = logo?.url;
+
+                    if (url != null) {
+                      setFailed((current) => new Set(current).add(url));
+                    }
+                  }}
+                />
+              ) : (
+                <DotMark cx={cx} cy={cy} cedear={point.cedear} />
+              )}
+              {point.id === selectedId ? (
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={radius + 3.5}
+                  className="fill-none stroke-primary"
+                  strokeWidth={2}
+                />
+              ) : null}
+              {point.clipX !== 0 || point.clipY !== 0 ? (
+                <path
+                  d={clipChevron(cx, cy, point.clipX, point.clipY, radius)}
+                  className="fill-none stroke-foreground"
+                  strokeWidth={1.5}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              ) : null}
+            </g>
+          );
+        })}
+      </g>
+
+      {layout.reference === null || area === undefined
         ? null
         : (() => {
             const { cx, cy } = at(layout.reference);
+            const box = referenceCaptionBox(
+              layout.reference,
+              area,
+              measureLabel,
+            );
 
             return (
-              <g aria-hidden="true">
+              <g
+                aria-hidden="true"
+                data-reference-mark="true"
+                className="pointer-events-none"
+              >
                 <path
-                  d={`M ${cx} ${cy - 8} L ${cx + 8} ${cy} L ${cx} ${cy + 8} L ${cx - 8} ${cy} Z`}
-                  className="fill-background stroke-foreground"
-                  strokeWidth={2}
+                  d={`M ${cx} ${cy - 13} L ${cx + 13} ${cy} L ${cx} ${cy + 13} L ${cx - 13} ${cy} Z`}
+                  className="fill-foreground stroke-background"
+                  strokeWidth={2.5}
+                />
+                <circle cx={cx} cy={cy} r={2.5} className="fill-background" />
+                <rect
+                  x={plot.x + box.x0}
+                  y={plot.y + box.y0}
+                  width={box.x1 - box.x0}
+                  height={box.y1 - box.y0}
+                  rx={3}
+                  className="fill-foreground"
                 />
                 <text
-                  x={cx + 12}
-                  y={cy - 10}
-                  className="fill-foreground text-xs font-medium"
+                  x={plot.x + box.x0 + 8}
+                  y={plot.y + box.y0 + 15}
+                  className="fill-background text-xs font-semibold"
                 >
                   S&amp;P 500 TR
                 </text>
@@ -172,6 +436,7 @@ function PointsLayer({
 
       {layout.points.map((point) => {
         const { cx, cy } = at(point);
+        const radius = radiusOf(point.id);
         const selected = point.id === selectedId;
         const select = () => onSelect(point.id);
 
@@ -193,90 +458,45 @@ function PointsLayer({
               }
             }}
           >
-            {/* Área de toque más grande que la marca. */}
-            <circle cx={cx} cy={cy} r={12} className="fill-transparent" />
+            {/* Área de toque de al menos 24 px (`UI-02`). */}
             <circle
               cx={cx}
               cy={cy}
-              r={10}
+              r={Math.max(12, radius + 2)}
+              className="fill-transparent"
+            />
+            <circle
+              cx={cx}
+              cy={cy}
+              r={radius + 6}
               className="focus-ring fill-none stroke-ring opacity-0"
               strokeWidth={2}
             />
-            {selected ? (
-              <circle
-                cx={cx}
-                cy={cy}
-                r={9}
-                className="fill-none stroke-primary"
-                strokeWidth={2}
-              />
-            ) : null}
-            {point.cedear ? (
-              <rect
-                x={cx - 4.5}
-                y={cy - 4.5}
-                width={9}
-                height={9}
-                rx={1.5}
-                className="fill-[var(--color-cedear)] stroke-background"
-                strokeWidth={1}
-              />
-            ) : (
-              <circle
-                cx={cx}
-                cy={cy}
-                r={4.5}
-                className="fill-background stroke-[var(--color-security)]"
-                strokeWidth={1.75}
-              />
-            )}
-            {point.clipX !== 0 || point.clipY !== 0 ? (
-              <path
-                d={clipChevron(cx, cy, point.clipX, point.clipY)}
-                className="fill-none stroke-foreground"
-                strokeWidth={1.5}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              />
-            ) : null}
           </g>
         );
       })}
 
       {groups.map((group) => {
-        const anchor = byId.get(group.anchorId);
-
-        if (anchor === undefined) {
-          return null;
-        }
-
-        const { cx, cy } = at(anchor);
-        // Mismas cajas que `groupLabels`: el texto se escribe donde el
-        // algoritmo verificó que no choca.
-        const offsets: Record<
-          LabelSide,
-          readonly [number, number, "start" | "end" | "middle"]
-        > = {
-          right: [8, 4, "start"],
-          left: [-8, 4, "end"],
-          above: [0, -10, "middle"],
-          below: [0, 19, "middle"],
-          "above-right": [4, -7, "start"],
-          "below-right": [4, 15, "start"],
-          "above-left": [-4, -7, "end"],
-          "below-left": [-4, 15, "end"],
-        };
-        const [dx, dy, textAnchor] = offsets[group.side];
-        const position = { x: cx + dx, y: cy + dy, textAnchor };
+        const textAnchor = group.side.endsWith("left")
+          ? "end"
+          : group.side === "above" || group.side === "below"
+            ? "middle"
+            : "start";
+        // El texto se escribe en la caja que `groupLabels` verificó libre.
+        const x =
+          textAnchor === "start"
+            ? group.box.x0
+            : textAnchor === "end"
+              ? group.box.x1
+              : (group.box.x0 + group.box.x1) / 2;
         const active = group.memberIds.includes(selectedId ?? "");
 
         return (
           <text
             key={group.anchorId}
-            x={position.x}
-            y={position.y}
-            textAnchor={position.textAnchor as "start" | "end" | "middle"}
+            x={offsetX + x}
+            y={offsetY + group.box.y1 - 4}
+            textAnchor={textAnchor}
             aria-hidden="true"
             className={
               active
@@ -295,6 +515,7 @@ function PointsLayer({
 export type MatrixChartProps = {
   readonly layout: MatrixLayout;
   readonly descriptions: ReadonlyMap<string, string>;
+  readonly logos: ReadonlyMap<string, MatrixLogo>;
   readonly selectedId: string | null;
   readonly onSelect: (id: string) => void;
   readonly titleId: string;
@@ -305,6 +526,7 @@ export type MatrixChartProps = {
 export function MatrixChart({
   layout,
   descriptions,
+  logos,
   selectedId,
   onSelect,
   titleId,
@@ -335,7 +557,7 @@ export function MatrixChart({
     <div ref={container}>
       <ChartContainer
         config={chartConfig}
-        className="aspect-auto h-[26rem] w-full md:h-[32rem]"
+        className="aspect-auto h-[26rem] w-full md:h-[36rem] lg:h-[44rem]"
         role="group"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
@@ -413,6 +635,7 @@ export function MatrixChart({
           <PointsLayer
             layout={layout}
             descriptions={descriptions}
+            logos={logos}
             selectedId={selectedId}
             onSelect={onSelect}
           />

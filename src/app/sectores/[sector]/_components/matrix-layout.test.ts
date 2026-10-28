@@ -7,12 +7,16 @@ import type {
 import type { SortinoResult } from "@/modules/metrics/domain/sortino";
 
 import {
+  circleOverlap,
   clipLine,
   describeCedear,
   describePoint,
   groupLabels,
   layoutMatrix,
+  LOGO_MARK_RADIUS,
   niceAxis,
+  placeLogoMarks,
+  referenceCaptionBox,
   robustDomain,
   type PlotPoint,
 } from "./matrix-layout";
@@ -221,13 +225,72 @@ describe("groupLabels", () => {
     );
 
     expect(groups).toEqual([
-      {
+      expect.objectContaining({
         anchorId: "GOOG",
         memberIds: ["GOOG", "GOOGL"],
         text: "GOOG · GOOGL",
         side: "right",
-      },
+      }),
     ]);
+  });
+
+  it("returns the box it checked, so the text is written there", () => {
+    const [group] = groupLabels([plotted("AAPL", 1.5, 1)], plot, {
+      charWidth: 8,
+      lineHeight: 16,
+      gap: 8,
+      overlap: 10,
+    });
+
+    // 1,5 de 3 → x = 300; 1 de 2 → y = 200. A la derecha, 8 px de hueco.
+    expect(group!.box).toEqual({ x0: 308, y0: 192, x1: 340, y1: 208 });
+  });
+
+  it("clears the logo of a group member, not only the anchor's mark", () => {
+    // GOOG ancla el rótulo como punto; GOOGL, a 2 px, lleva el logo.
+    const [group] = groupLabels(
+      [plotted("GOOG", 1.5, 1), plotted("GOOGL", 1.51, 1)],
+      plot,
+      undefined,
+      null,
+      (id) => (id === "GOOGL" ? LOGO_MARK_RADIUS : 5),
+    );
+
+    expect(group!.anchorId).toBe("GOOG");
+    expect(group!.box.x0).toBeGreaterThanOrEqual(302 + LOGO_MARK_RADIUS);
+  });
+
+  it("pushes a label past a logo and never writes over one", () => {
+    const radius = (id: string) => (id === "LOGO" ? LOGO_MARK_RADIUS : 5);
+    const [own] = groupLabels(
+      [plotted("LOGO", 1.5, 1)],
+      plot,
+      undefined,
+      null,
+      radius,
+    );
+
+    // El logo mide 12 de radio y la insignia CEDEAR sobresale: el rótulo
+    // arranca 10 px más lejos que el de un punto.
+    expect(own!.box.x0).toBe(300 + 18);
+
+    // DOT queda a 20 px a la izquierda del logo: a su derecha lo pisaría.
+    const groups = groupLabels(
+      [plotted("DOT", 1.4, 1), plotted("LOGO", 1.5, 1)],
+      plot,
+      undefined,
+      null,
+      radius,
+    );
+    const dot = groups.find((group) => group.anchorId === "DOT")!;
+
+    expect(dot.side).not.toBe("right");
+    expect(
+      dot.box.x1 <= 300 - 12 ||
+        dot.box.x0 >= 300 + 12 ||
+        dot.box.y1 <= 200 - 12 ||
+        dot.box.y0 >= 200 + 12,
+    ).toBe(true);
   });
 
   it("does not tie a label to a neighbour it merely sits next to", () => {
@@ -288,6 +351,127 @@ describe("groupLabels", () => {
     expect(groups.map((group) => group.text).sort()).toEqual([
       "CHTR",
       "FOX +2",
+    ]);
+  });
+});
+
+describe("placeLogoMarks", () => {
+  const plotted = (
+    id: string,
+    x: number,
+    y: number,
+    cedear = false,
+  ): PlotPoint => ({
+    id,
+    kind: "security",
+    label: id,
+    x,
+    y,
+    rawX: String(x),
+    rawY: String(y),
+    clipX: 0,
+    clipY: 0,
+    cedear,
+    quadrant: null,
+  });
+  // Un píxel por cada centésima: las distancias se leen directo.
+  const plot = {
+    width: 300,
+    height: 300,
+    domainX: [0, 3],
+    domainY: [0, 3],
+  } as const;
+
+  it("measures how much of a circle another one covers", () => {
+    expect(circleOverlap(12, 0)).toBe(1);
+    expect(circleOverlap(12, 24)).toBe(0);
+    expect(circleOverlap(12, 30)).toBe(0);
+    // Media distancia del diámetro: un poco menos de 40 %.
+    expect(circleOverlap(12, 12)).toBeCloseTo(0.391, 3);
+  });
+
+  it("gives a logo to every mark that has room", () => {
+    const marks = placeLogoMarks(
+      [plotted("A", 0.5, 0.5), plotted("B", 1.5, 1.5), plotted("C", 2.5, 2.5)],
+      plot,
+    );
+
+    expect([...marks].sort()).toEqual(["A", "B", "C"]);
+  });
+
+  it("keeps the second of two stacked marks as a dot, CEDEAR first", () => {
+    // 10 px: se taparían más de la mitad.
+    const marks = placeLogoMarks(
+      [plotted("AAA", 1, 1), plotted("ZZZ", 1.1, 1, true)],
+      plot,
+    );
+
+    expect([...marks]).toEqual(["ZZZ"]);
+  });
+
+  it("allows a small overlap and refuses a large one", () => {
+    // 18 px: tapa ~23 %; 14 px: ~41 %.
+    expect(
+      placeLogoMarks([plotted("A", 1, 1), plotted("B", 1.18, 1)], plot).size,
+    ).toBe(2);
+    expect(
+      placeLogoMarks([plotted("A", 1, 1), plotted("B", 1.14, 1)], plot).size,
+    ).toBe(1);
+  });
+
+  it("never covers the reference diamond", () => {
+    const reference = { ...plotted("ref", 1, 1), kind: "reference" as const };
+
+    expect(placeLogoMarks([plotted("A", 1.05, 1)], plot, reference).size).toBe(
+      0,
+    );
+  });
+
+  it("never covers the reference caption", () => {
+    // El rótulo «S&P 500 TR» va de 12 a ~96 px a la derecha del rombo y de
+    // 22 a 8 px por encima: un logo 40 px a la derecha y 15 arriba lo pisaría.
+    const reference = { ...plotted("ref", 1, 1), kind: "reference" as const };
+
+    expect(
+      placeLogoMarks([plotted("A", 1.4, 1.15)], plot, reference).size,
+    ).toBe(0);
+    expect(placeLogoMarks([plotted("A", 1.4, 0.8)], plot, reference).size).toBe(
+      1,
+    );
+  });
+
+  it("moves the reference badge inside the plot near its right or top edge", () => {
+    const right = { ...plotted("ref", 2.8, 1.5), kind: "reference" as const };
+    const top = { ...plotted("ref", 1, 2.9), kind: "reference" as const };
+    const rightBox = referenceCaptionBox(right, plot, () => 72);
+    const topBox = referenceCaptionBox(top, plot, () => 72);
+
+    expect(rightBox.x1).toBeLessThan(280);
+    expect(rightBox.x0).toBeGreaterThanOrEqual(0);
+    expect(topBox.y0).toBeGreaterThan(10);
+    expect(topBox.y1).toBeLessThanOrEqual(plot.height);
+  });
+
+  it("leaves room around the larger reference diamond", () => {
+    const reference = { ...plotted("ref", 1, 1), kind: "reference" as const };
+
+    expect(placeLogoMarks([plotted("A", 1.2, 1)], plot, reference).size).toBe(
+      0,
+    );
+    expect(placeLogoMarks([plotted("A", 1.3, 0.7)], plot, reference).size).toBe(
+      1,
+    );
+  });
+
+  it("does not depend on the order the points arrive in", () => {
+    const points = [
+      plotted("B", 1, 1),
+      plotted("A", 1.1, 1),
+      plotted("C", 1.05, 1.1, true),
+    ];
+
+    expect([...placeLogoMarks(points, plot)]).toEqual([
+      ...placeLogoMarks([...points].reverse(), plot),
     ]);
   });
 });

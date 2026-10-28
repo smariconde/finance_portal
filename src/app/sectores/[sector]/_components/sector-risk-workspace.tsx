@@ -32,7 +32,7 @@ import {
   formatSignedAmount,
 } from "@/modules/valuation/domain/display-format";
 
-import { MatrixChart } from "./matrix-chart";
+import { MatrixChart, type MatrixLogo } from "./matrix-chart";
 import {
   describeCedear,
   describePoint,
@@ -226,6 +226,20 @@ export function SectorRiskWorkspace({
       ),
     [matrix],
   );
+  const logos = useMemo(
+    () =>
+      new Map<string, MatrixLogo>(
+        matrix.points.map((point) => [
+          point.securityId,
+          {
+            url: logoUrls[point.securityId] ?? null,
+            name: point.issuerName,
+            ticker: point.ticker ?? point.securityId,
+          },
+        ]),
+      ),
+    [matrix, logoUrls],
+  );
   const rows = useMemo(
     () => sortPoints(matrix.points, sort.key, sort.direction),
     [matrix, sort],
@@ -266,6 +280,7 @@ export function SectorRiskWorkspace({
             <MatrixChart
               layout={layout}
               descriptions={descriptions}
+              logos={logos}
               selectedId={selectedId}
               onSelect={setSelectedId}
               titleId={titleId}
@@ -277,39 +292,72 @@ export function SectorRiskWorkspace({
               className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground"
             >
               <li className="flex items-center gap-1.5">
-                <svg aria-hidden="true" viewBox="0 0 12 12" className="size-3">
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 34 16"
+                  className="h-4 w-[2.125rem]"
+                >
                   <circle
-                    cx="6"
-                    cy="6"
+                    cx="8"
+                    cy="8"
+                    r="7"
+                    className="fill-muted stroke-foreground/25"
+                    strokeWidth="1"
+                  />
+                  <circle
+                    cx="27"
+                    cy="8"
                     r="4.5"
                     className="fill-background stroke-muted-foreground"
                     strokeWidth="1.75"
                   />
                 </svg>
-                Sin CEDEAR
+                Sin CEDEAR: borde fino o punto hueco
               </li>
               <li className="flex items-center gap-1.5">
-                <svg aria-hidden="true" viewBox="0 0 12 12" className="size-3">
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 34 16"
+                  className="h-4 w-[2.125rem]"
+                >
+                  <circle
+                    cx="8"
+                    cy="8"
+                    r="6.5"
+                    className="fill-muted stroke-[var(--chart-1)]"
+                    strokeWidth="2.5"
+                  />
                   <rect
-                    x="1.5"
-                    y="1.5"
+                    x="10"
+                    y="10"
+                    width="5.5"
+                    height="5.5"
+                    rx="1"
+                    className="fill-[var(--chart-1)] stroke-background"
+                    strokeWidth="1"
+                  />
+                  <rect
+                    x="22.5"
+                    y="3.5"
                     width="9"
                     height="9"
                     rx="1.5"
                     className="fill-[var(--chart-1)]"
                   />
                 </svg>
-                Con CEDEAR vigente ({cedearCount})
+                Con CEDEAR vigente ({cedearCount}): anillo grueso con insignia,
+                o cuadrado
               </li>
               <li className="flex items-center gap-1.5">
-                <svg aria-hidden="true" viewBox="0 0 12 12" className="size-3">
+                <svg aria-hidden="true" viewBox="0 0 28 20" className="h-5 w-7">
                   <path
-                    d="M6 1 L11 6 L6 11 L1 6 Z"
-                    className="fill-background stroke-foreground"
-                    strokeWidth="1.5"
+                    d="M10 1 L19 10 L10 19 L1 10 Z"
+                    className="fill-foreground stroke-background"
+                    strokeWidth="2"
                   />
+                  <circle cx="10" cy="10" r="2" className="fill-background" />
                 </svg>
-                {matrix.reference.label}, misma base y ventanas
+                {matrix.reference.label}: rombo y placa, misma base y ventanas
               </li>
               <li className="flex items-center gap-1.5">
                 <svg aria-hidden="true" viewBox="0 0 16 12" className="h-3 w-4">
@@ -325,6 +373,10 @@ export function SectorRiskWorkspace({
                 {matrix.fit.status === "computed"
                   ? `Ajuste lineal del sector (n = ${matrix.fit.n}), no un valor justo`
                   : `Sin recta de ajuste: ${matrix.fit.reason === "too_few_points" ? `hacen falta 3 puntos y hay ${matrix.fit.n}` : "los puntos no varían en 2 años"}`}
+              </li>
+              <li>
+                Donde los logos se tapan, la marca queda como punto y muestra su
+                logo al elegirla.
               </li>
               {layout.points.some(
                 (point) => point.clipX !== 0 || point.clipY !== 0,

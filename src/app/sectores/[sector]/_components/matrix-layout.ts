@@ -269,6 +269,131 @@ export function layoutMatrix(matrix: SectorRiskMatrix): MatrixLayout {
   };
 }
 
+/** Radio de la marca con logo: 24 px de diámetro, el área de toque de `UI-02`. */
+export const LOGO_MARK_RADIUS = 12;
+/** Radio de la marca sin logo, el punto de siempre, con su borde. */
+export const DOT_MARK_RADIUS = 5;
+/** Cuánto puede tapar un logo a otro, como fracción del área del círculo. */
+export const LOGO_MAX_OVERLAP = 0.3;
+
+type PlotArea = {
+  readonly width: number;
+  readonly height: number;
+  readonly domainX: readonly [number, number];
+  readonly domainY: readonly [number, number];
+};
+
+function toPixel(
+  point: { readonly x: number; readonly y: number },
+  plot: PlotArea,
+) {
+  return {
+    px:
+      ((point.x - plot.domainX[0]) / (plot.domainX[1] - plot.domainX[0])) *
+      plot.width,
+    py:
+      ((plot.domainY[1] - point.y) / (plot.domainY[1] - plot.domainY[0])) *
+      plot.height,
+  };
+}
+
+/** Fracción del área de un círculo de radio `radius` que tapa otro igual. */
+export function circleOverlap(radius: number, distance: number): number {
+  if (distance >= 2 * radius) {
+    return 0;
+  }
+
+  const lens =
+    2 * radius * radius * Math.acos(distance / (2 * radius)) -
+    (distance / 2) * Math.sqrt(4 * radius * radius - distance * distance);
+
+  return lens / (Math.PI * radius * radius);
+}
+
+/**
+ * Qué marcas llevan logo (`F6-27`). Un logo de 24 px tapa a sus vecinos en
+ * los sectores densos, y agrandar el gráfico casi no ayuda: medido sobre
+ * Information Technology, 21 de 71 marcas se pisaban aun con 704 px de alto,
+ * porque los grupos densos están casi encima.
+ *
+ * Se reparten de a una: primero las que tienen CEDEAR, después el resto por
+ * ticker, y una marca lleva logo sólo si no tapa más de `LOGO_MAX_OVERLAP` de
+ * un logo ya puesto ni del rombo de la referencia, y si no toca el rótulo
+ * «S&P 500 TR». Las demás quedan como punto y muestran su logo al
+ * seleccionarlas.
+ */
+const REFERENCE_CAPTION = "S&P 500 TR";
+
+/** La placa de la referencia cambia de lado si el cruce está cerca del borde. */
+export function referenceCaptionBox(
+  reference: PlotPoint,
+  plot: PlotArea,
+  measure: (text: string) => number | undefined,
+): Box {
+  const { px, py } = toPixel(reference, plot);
+  const width = measure(REFERENCE_CAPTION) ?? REFERENCE_CAPTION.length * 8;
+
+  const badgeWidth = width + 16;
+  const x0 =
+    px + 18 + badgeWidth <= plot.width ? px + 18 : px - 18 - badgeWidth;
+  const y0 = py >= 30 ? py - 30 : py + 12;
+
+  return { x0, y0, x1: x0 + badgeWidth, y1: y0 + 22 };
+}
+
+function circleTouchesBox(
+  center: { readonly px: number; readonly py: number },
+  radius: number,
+  box: Box,
+): boolean {
+  const nearestX = Math.min(Math.max(center.px, box.x0), box.x1);
+  const nearestY = Math.min(Math.max(center.py, box.y0), box.y1);
+
+  return Math.hypot(center.px - nearestX, center.py - nearestY) < radius;
+}
+
+export function placeLogoMarks(
+  points: readonly PlotPoint[],
+  plot: PlotArea,
+  reference: PlotPoint | null = null,
+  /** Ancho real del texto, medido en el navegador; sin él, se estima. */
+  measure: (text: string) => number | undefined = () => undefined,
+): ReadonlySet<string> {
+  const ordered = [...points].sort(
+    (left, right) =>
+      Number(right.cedear) - Number(left.cedear) ||
+      left.label.localeCompare(right.label) ||
+      left.id.localeCompare(right.id),
+  );
+  const taken = reference === null ? [] : [toPixel(reference, plot)];
+  const caption =
+    reference === null ? null : referenceCaptionBox(reference, plot, measure);
+  const withLogo = new Set<string>();
+
+  for (const point of ordered) {
+    const at = toPixel(point, plot);
+    const free =
+      (caption === null || !circleTouchesBox(at, LOGO_MARK_RADIUS, caption)) &&
+      (reference === null ||
+        Math.hypot(at.px - taken[0]!.px, at.py - taken[0]!.py) >=
+          LOGO_MARK_RADIUS + 14) &&
+      taken.every(
+        (other) =>
+          circleOverlap(
+            LOGO_MARK_RADIUS,
+            Math.hypot(other.px - at.px, other.py - at.py),
+          ) <= LOGO_MAX_OVERLAP,
+      );
+
+    if (free) {
+      taken.push(at);
+      withLogo.add(point.id);
+    }
+  }
+
+  return withLogo;
+}
+
 export type LabelSide =
   | "right"
   | "left"
@@ -297,9 +422,16 @@ export type LabelGroup = {
   readonly text: string;
   /** Lado del punto donde va la etiqueta, elegido para no chocar. */
   readonly side: LabelSide;
+  /** Caja verificada sin choques: el texto se escribe adentro. */
+  readonly box: Box;
 };
 
-type Box = { x0: number; y0: number; x1: number; y1: number };
+export type Box = {
+  readonly x0: number;
+  readonly y0: number;
+  readonly x1: number;
+  readonly y1: number;
+};
 
 const overlaps = (a: Box, b: Box) =>
   a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
@@ -309,9 +441,12 @@ const overlaps = (a: Box, b: Box) =>
  *
  * 1. Los puntos que se tapan entre sí —GOOG y GOOGL, FOX y FOXA— forman un
  *    solo grupo con una sola etiqueta, que el panel abre al enfocar.
- * 2. Cada grupo prueba derecha, izquierda, arriba y abajo, y toma el primer
- *    lado libre dentro del área. Sólo si ninguno lo está se suma a la
- *    etiqueta con la que choca, que pasa a decir `+n`.
+ * 2. Cada grupo prueba ocho lados y toma el primero libre dentro del área.
+ *    Si ninguno sirve, se suma al rótulo cercano sólo cuando el texto nuevo
+ *    también entra sin choque. Si no, queda identificable en tabla y foco.
+ *
+ * Cada marca ocupa su radio (`markRadius`): una con logo empuja su rótulo
+ * más lejos y ningún rótulo se escribe encima de un logo.
  */
 export function groupLabels(
   points: readonly PlotPoint[],
@@ -331,19 +466,11 @@ export function groupLabels(
   } = { charWidth: 8, lineHeight: 16, gap: 8, overlap: 10 },
   /** La referencia y su rótulo: ocupan lugar aunque no lleven etiqueta propia. */
   reference: PlotPoint | null = null,
+  /** Radio de la marca de cada punto; sin él, todas son el punto de siempre. */
+  markRadius: (id: string) => number = () => DOT_MARK_RADIUS,
 ): readonly LabelGroup[] {
   const pixel = new Map(
-    points.map((point) => [
-      point.id,
-      {
-        px:
-          ((point.x - plot.domainX[0]) / (plot.domainX[1] - plot.domainX[0])) *
-          plot.width,
-        py:
-          ((plot.domainY[1] - point.y) / (plot.domainY[1] - plot.domainY[0])) *
-          plot.height,
-      },
-    ]),
+    points.map((point) => [point.id, toPixel(point, plot)]),
   );
   const textWidth = (text: string) =>
     metrics.measure?.(text) ?? text.length * metrics.charWidth;
@@ -369,6 +496,14 @@ export function groupLabels(
     }
   }
 
+  // El grupo de cada ancla, para que su rótulo esquive la marca de todos.
+  const groupOf = new Map<string, readonly string[]>(
+    clusters.map((members) => [
+      members[0]!.id,
+      members.map((member) => member.id),
+    ]),
+  );
+
   const textOf = (labels: readonly string[]) =>
     labels.length === 1
       ? labels[0]!
@@ -376,71 +511,81 @@ export function groupLabels(
         ? `${labels[0]} · ${labels[1]}`
         : `${labels[0]} +${labels.length - 1}`;
 
-  const boxFor = (
-    px: number,
-    py: number,
-    text: string,
-    side: LabelSide,
-  ): Box => {
+  const boxFor = (id: string, text: string, side: LabelSide): Box => {
+    const { px, py } = pixel.get(id)!;
     const width = textWidth(text);
     const half = metrics.lineHeight / 2;
+    // Lo que la marca crece sobre el punto de siempre corre el rótulo igual.
+    // En un grupo cuenta la marca más grande, a su distancia del ancla: GOOG
+    // ancla el rótulo como punto y GOOGL, a 2 px, lleva el logo.
+    const reach = Math.max(
+      ...(groupOf.get(id) ?? [id]).map((member) => {
+        const at = pixel.get(member)!;
+
+        return markRadius(member) + Math.hypot(at.px - px, at.py - py);
+      }),
+    );
+    const grow = Math.max(0, reach - DOT_MARK_RADIUS);
+    // La insignia CEDEAR sobresale del círculo: 3 px más de aire.
+    const gap = metrics.gap + grow + (grow > 0 ? 3 : 0);
+    const diagonal = 4 + Math.round(grow * 0.75);
 
     switch (side) {
       case "right":
         return {
-          x0: px + metrics.gap,
+          x0: px + gap,
           y0: py - half,
-          x1: px + metrics.gap + width,
+          x1: px + gap + width,
           y1: py + half,
         };
       case "left":
         return {
-          x0: px - metrics.gap - width,
+          x0: px - gap - width,
           y0: py - half,
-          x1: px - metrics.gap,
+          x1: px - gap,
           y1: py + half,
         };
       case "above":
         return {
           x0: px - width / 2,
-          y0: py - metrics.gap - metrics.lineHeight,
+          y0: py - gap - metrics.lineHeight,
           x1: px + width / 2,
-          y1: py - metrics.gap,
+          y1: py - gap,
         };
       case "below":
         return {
           x0: px - width / 2,
-          y0: py + metrics.gap,
+          y0: py + gap,
           x1: px + width / 2,
-          y1: py + metrics.gap + metrics.lineHeight,
+          y1: py + gap + metrics.lineHeight,
         };
       case "above-right":
         return {
-          x0: px + 4,
-          y0: py - 4 - metrics.lineHeight,
-          x1: px + 4 + width,
-          y1: py - 4,
+          x0: px + diagonal,
+          y0: py - diagonal - metrics.lineHeight,
+          x1: px + diagonal + width,
+          y1: py - diagonal,
         };
       case "below-right":
         return {
-          x0: px + 4,
-          y0: py + 4,
-          x1: px + 4 + width,
-          y1: py + 4 + metrics.lineHeight,
+          x0: px + diagonal,
+          y0: py + diagonal,
+          x1: px + diagonal + width,
+          y1: py + diagonal + metrics.lineHeight,
         };
       case "above-left":
         return {
-          x0: px - 4 - width,
-          y0: py - 4 - metrics.lineHeight,
-          x1: px - 4,
-          y1: py - 4,
+          x0: px - diagonal - width,
+          y0: py - diagonal - metrics.lineHeight,
+          x1: px - diagonal,
+          y1: py - diagonal,
         };
       case "below-left":
         return {
-          x0: px - 4 - width,
-          y0: py + 4,
-          x1: px - 4,
-          y1: py + 4 + metrics.lineHeight,
+          x0: px - diagonal - width,
+          y0: py + diagonal,
+          x1: px - diagonal,
+          y1: py + diagonal + metrics.lineHeight,
         };
     }
   };
@@ -450,27 +595,23 @@ export function groupLabels(
   // Cada punto ocupa su lugar: una etiqueta no se escribe encima de otro punto.
   const pointBoxes: Box[] = points.map((point) => {
     const { px, py } = pixel.get(point.id)!;
+    const radius = markRadius(point.id);
 
-    return { x0: px - 5, y0: py - 5, x1: px + 5, y1: py + 5 };
+    return {
+      x0: px - radius,
+      y0: py - radius,
+      x1: px + radius,
+      y1: py + radius,
+    };
   });
   const reserved: Box[] = [];
 
   if (reference !== null) {
-    const px =
-      ((reference.x - plot.domainX[0]) / (plot.domainX[1] - plot.domainX[0])) *
-      plot.width;
-    const py =
-      ((plot.domainY[1] - reference.y) / (plot.domainY[1] - plot.domainY[0])) *
-      plot.height;
+    const { px, py } = toPixel(reference, plot);
 
-    // El rombo y el rótulo «S&P 500 TR», arriba a la derecha del rombo.
-    reserved.push({ x0: px - 9, y0: py - 9, x1: px + 9, y1: py + 9 });
-    reserved.push({
-      x0: px + 12,
-      y0: py - 22,
-      x1: px + 12 + textWidth("S&P 500 TR") + 4,
-      y1: py - 8,
-    });
+    // El rombo y su rótulo.
+    reserved.push({ x0: px - 14, y0: py - 14, x1: px + 14, y1: py + 14 });
+    reserved.push(referenceCaptionBox(reference, plot, textWidth));
   }
 
   // 2. Una etiqueta por grupo, en el primer lado libre.
@@ -482,13 +623,13 @@ export function groupLabels(
   }[] = [];
 
   for (const cluster of clusters) {
-    const anchor = pixel.get(cluster[0]!.id)!;
+    const anchorId = cluster[0]!.id;
     const labels = cluster.map((point) => point.label);
     const text = textOf(labels);
     const own = new Set(cluster.map((point) => point.id));
     const others = pointBoxes.filter((_, index) => !own.has(points[index]!.id));
     const side = SIDES.find((candidate) => {
-      const box = boxFor(anchor.px, anchor.py, text, candidate);
+      const box = boxFor(anchorId, text, candidate);
 
       return (
         inside(box) &&
@@ -503,13 +644,14 @@ export function groupLabels(
         ids: cluster.map((point) => point.id),
         labels,
         side,
-        box: boxFor(anchor.px, anchor.py, text, side),
+        box: boxFor(anchorId, text, side),
       });
       continue;
     }
 
     // Sin lugar libre: se suma al grupo **más cercano**, nunca a uno lejano,
     // para que «+n» hable de puntos que están al lado.
+    const anchor = pixel.get(anchorId)!;
     const blocking = placed.reduce<(typeof placed)[number] | undefined>(
       (nearest, group) => {
         const at = pixel.get(group.ids[0]!)!;
@@ -528,40 +670,34 @@ export function groupLabels(
       undefined,
     );
 
-    if (blocking === undefined) {
-      placed.push({
-        ids: cluster.map((point) => point.id),
-        labels,
-        side: "right",
-        box: boxFor(anchor.px, anchor.py, text, "right"),
-      });
-    } else {
-      blocking.ids.push(...cluster.map((point) => point.id));
-      blocking.labels.push(...labels);
-
+    if (blocking !== undefined) {
       // El rótulo fusionado es más largo: su caja vieja ya no lo contiene.
       // Vuelve a buscar lado con el texto nuevo, sin contarse a sí mismo.
-      const merged = textOf(blocking.labels);
-      const at = pixel.get(blocking.ids[0]!)!;
-      const members = new Set(blocking.ids);
+      const mergedIds = [...blocking.ids, ...cluster.map((point) => point.id)];
+      const mergedLabels = [...blocking.labels, ...labels];
+      const merged = textOf(mergedLabels);
+      const members = new Set(mergedIds);
       const rest = placed.filter((group) => group !== blocking);
       const strangers = pointBoxes.filter(
         (_, index) => !members.has(points[index]!.id),
       );
-      const reSide =
-        SIDES.find((candidate) => {
-          const box = boxFor(at.px, at.py, merged, candidate);
+      const reSide = SIDES.find((candidate) => {
+        const box = boxFor(blocking.ids[0]!, merged, candidate);
 
-          return (
-            inside(box) &&
-            !rest.some((group) => overlaps(group.box, box)) &&
-            !reserved.some((other) => overlaps(other, box)) &&
-            !strangers.some((other) => overlaps(other, box))
-          );
-        }) ?? blocking.side;
+        return (
+          inside(box) &&
+          !rest.some((group) => overlaps(group.box, box)) &&
+          !reserved.some((other) => overlaps(other, box)) &&
+          !strangers.some((other) => overlaps(other, box))
+        );
+      });
 
-      blocking.side = reSide;
-      blocking.box = boxFor(at.px, at.py, merged, reSide);
+      if (reSide !== undefined) {
+        blocking.ids = mergedIds;
+        blocking.labels = mergedLabels;
+        blocking.side = reSide;
+        blocking.box = boxFor(blocking.ids[0]!, merged, reSide);
+      }
     }
   }
 
@@ -570,6 +706,7 @@ export function groupLabels(
     memberIds: group.ids,
     text: textOf(group.labels),
     side: group.side,
+    box: group.box,
   }));
 }
 
