@@ -41,6 +41,25 @@ function profile(
 }
 
 describe(RIGOR_LEVEL_VERSION, () => {
+  it("marks selected financial equity as experimental screening without FCFF structural checks", () => {
+    expect(
+      deriveRigorLevel(
+        {
+          ...SELECTED,
+          assetProfile: "insurer",
+          recommendedMethod: "excess_return",
+        },
+        profile({
+          structural_inputs: "missing",
+          geographic_revenue_mix: "missing",
+        }),
+      ),
+    ).toMatchObject({
+      level: "screening",
+      degradedBy: ["financial_equity_experimental"],
+      declarations: ["country_risk_by_domicile"],
+    });
+  });
   it("is full only when every check is met, geographic mix included", () => {
     expect(deriveRigorLevel(SELECTED, profile())).toEqual({
       version: RIGOR_LEVEL_VERSION,

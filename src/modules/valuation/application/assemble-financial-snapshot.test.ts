@@ -5,7 +5,7 @@ import { selectValuationMethod } from "../domain/method-selection";
 import { runExcessReturn } from "./run-excess-return";
 import { assembleFinancialSnapshot } from "./assemble-financial-snapshot";
 import type { ValuationSnapshotRequest } from "./assemble-valuation-snapshot";
-import type { StoredFinancialDeclaration } from "../domain/financial-declaration";
+import type { FinancialFilingEvidence } from "../domain/financial-filing-evidence";
 import type { CompanyAssessment } from "./assess-company";
 import {
   OPTIONS_OUTSTANDING_CONCEPT,
@@ -58,22 +58,22 @@ const assessment = {
     equityBeta: { ...base.risk.riskFree!, value: "1.4" },
   },
 } as unknown as CompanyAssessment;
-const declaration: StoredFinancialDeclaration = {
-  version: "financial-declaration-1.0.0",
-  declarationId: "70000000-0000-4000-8000-000000000003",
-  legalEntityId: base.subject.legalEntityId,
+const filing: FinancialFilingEvidence = {
+  version: "financial-filing-evidence-1.1.0",
   fiscalYearEnd: "2024-12-31",
+  commonBook: book("100", "2024-12-31"),
+  priorBook: book("100", "2023-12-31"),
+  commonIncome: book("11", "2024-12-31"),
+  commonDividends: book("5.5", "2024-12-31"),
+  netRepurchases: book("0", "2024-12-31"),
   payout: "0.5",
-  rationale: "Owner expects half of common earnings to be distributable.",
   sourceDocumentId: "synthetic-review-2025",
   regulatoryCapital:
     "Owner reviewed regulatory capital and found no immediate breach.",
   assetQuality:
     "Owner reviewed loan quality and did not assert reserve sufficiency.",
   cleanSurplus: "Owner reviewed the change in common book and identified OCI.",
-  commonBook: null,
   availableAt: "2025-07-20T00:00:00.000Z",
-  recordedAt: "2025-07-20T00:00:00.000Z",
 };
 
 function request(overrides: Record<string, unknown> = {}) {
@@ -86,7 +86,7 @@ function request(overrides: Record<string, unknown> = {}) {
     query,
     assessment,
     fundamentalsSourceId: "sec-edgar",
-    declaration,
+    filing,
     employeeEquity: null,
     shareCounts: [
       {
@@ -116,12 +116,12 @@ function request(overrides: Record<string, unknown> = {}) {
     industryReturns: null,
     ...overrides,
   } as ValuationSnapshotRequest & {
-    declaration: StoredFinancialDeclaration | null;
+    filing: FinancialFilingEvidence | null;
   };
 }
 
 describe("financial-snapshot-1.0.0", () => {
-  it("derives a reproducible excess-return run from reported equity and a private review", () => {
+  it("derives a reproducible excess-return run from reported equity and filing diagnostics", () => {
     const snapshot = assembleFinancialSnapshot(request());
     expect(snapshot.status).toBe("assembled");
     if (snapshot.status !== "assembled") return;
@@ -135,12 +135,10 @@ describe("financial-snapshot-1.0.0", () => {
     expect(run.result?.base.valuePerShare).not.toBeNull();
   });
 
-  it("does not invent an owner payout or review", () => {
-    expect(
-      assembleFinancialSnapshot(request({ declaration: null })),
-    ).toMatchObject({
+  it("does not invent distributions or filing diagnostics", () => {
+    expect(assembleFinancialSnapshot(request({ filing: null }))).toMatchObject({
       status: "not_assembled",
-      gap: "financial_declaration_missing",
+      gap: "financial_filing_evidence_missing",
     });
   });
 

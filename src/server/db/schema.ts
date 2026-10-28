@@ -82,52 +82,6 @@ export const datasetSnapshots = pgTable(
   ],
 );
 
-/** Private, append-only owner reviews for derived bank and insurer runs. */
-export const financialDeclarations = pgTable(
-  "financial_declarations",
-  {
-    declarationId: uuid("declaration_id").primaryKey(),
-    legalEntityId: uuid("legal_entity_id").notNull(),
-    fiscalYearEnd: date("fiscal_year_end", { mode: "string" }).notNull(),
-    version: varchar("version", { length: 64 }).notNull(),
-    payout: numeric("payout").notNull(),
-    rationale: text("rationale").notNull(),
-    sourceDocumentId: varchar("source_document_id", { length: 256 }).notNull(),
-    regulatoryCapital: text("regulatory_capital").notNull(),
-    assetQuality: text("asset_quality").notNull(),
-    cleanSurplus: text("clean_surplus").notNull(),
-    commonBook: jsonb("common_book").$type<{
-      currentValue: string;
-      priorValue: string;
-      priorFiscalYearEnd: string;
-      currency: string;
-    } | null>(),
-    availableAt: timestamp("available_at", {
-      withTimezone: true,
-      mode: "date",
-    }).notNull(),
-    recordedAt: timestamp("recorded_at", {
-      withTimezone: true,
-      mode: "date",
-    }).notNull(),
-  },
-  (table) => [
-    index("financial_declarations_subject_cutoff_idx").on(
-      table.legalEntityId,
-      table.fiscalYearEnd,
-      table.availableAt,
-    ),
-    check(
-      "financial_declarations_payout_check",
-      sql`${table.payout} >= 0 and ${table.payout} <= 1`,
-    ),
-    check(
-      "financial_declarations_timeline_check",
-      sql`${table.availableAt} <= ${table.recordedAt}`,
-    ),
-  ],
-);
-
 /**
  * `owner_accepted` (ADR 0026) dice que ninguna fuente concede el uso y que el
  * owner decidió proceder igual. Existe para que `allowed` siga significando «una
@@ -1920,7 +1874,7 @@ export const valuationJobs = pgTable(
         and (${table.valuationRunId} is not null) = (${table.gap} is not null and ${table.gap}::text = 'run_recorded')
         and (${table.valuationRunId} is null or (${table.methodStatus} = 'selected' and ${table.method} in ('fcff_base', 'normalized_fcff', 'excess_return')))
         and (${table.snapshotGap} is null or ${table.gap}::text = 'snapshot_not_assembled')
-        and (${table.snapshotGap} is null or ${table.snapshotGap} in ('method_not_derived', 'security_missing', 'cost_of_capital_unavailable', 'normalization_unavailable', 'revenue_history_insufficient', 'revenue_history_non_positive', 'base_margin_unavailable', 'sales_to_capital_unavailable', 'tax_rate_unavailable', 'employee_equity_not_proposed', 'shares_outstanding_unavailable', 'market_unavailable', 'financial_base_unavailable', 'financial_base_stale', 'financial_declaration_missing'))
+        and (${table.snapshotGap} is null or ${table.snapshotGap} in ('method_not_derived', 'security_missing', 'cost_of_capital_unavailable', 'normalization_unavailable', 'revenue_history_insufficient', 'revenue_history_non_positive', 'base_margin_unavailable', 'sales_to_capital_unavailable', 'tax_rate_unavailable', 'employee_equity_not_proposed', 'shares_outstanding_unavailable', 'market_unavailable', 'financial_base_unavailable', 'financial_base_stale', 'financial_declaration_missing', 'financial_filing_evidence_missing'))
         and (${table.ruleVersion} = 'valuation-job-1.0.0' or ${table.gap} is null or ${table.gap}::text <> 'snapshot_not_assembled' or ${table.snapshotGap} is not null)
         and (${table.ruleVersion} <> 'valuation-job-1.0.0' or (${table.snapshotGap} is null and ${table.valuationRunId} is null))`,
     ),

@@ -1,5 +1,5 @@
 import type { ValuationSnapshotRequest } from "./assemble-valuation-snapshot";
-import type { StoredFinancialDeclaration } from "../domain/financial-declaration";
+import type { FinancialFilingEvidence } from "../domain/financial-filing-evidence";
 import type { ValuationSnapshotGap } from "../domain/valuation-job";
 import {
   sharesOutstandingAt,
@@ -33,7 +33,7 @@ export type FinancialSnapshotResult =
 
 export function assembleFinancialSnapshot(
   request: ValuationSnapshotRequest & {
-    readonly declaration: StoredFinancialDeclaration | null;
+    readonly filing: FinancialFilingEvidence | null;
   },
 ): FinancialSnapshotResult {
   const { assessment } = request;
@@ -50,12 +50,12 @@ export function assembleFinancialSnapshot(
     return { status: "not_assembled", gap: "financial_base_unavailable" };
   if (risk?.status !== "ready")
     return { status: "not_assembled", gap: "cost_of_capital_unavailable" };
-  const declaration = request.declaration;
-  if (
-    declaration === null ||
-    declaration.fiscalYearEnd !== equity.fiscalYearEnd
-  )
-    return { status: "not_assembled", gap: "financial_declaration_missing" };
+  const filing = request.filing;
+  if (filing === null || filing.fiscalYearEnd !== equity.fiscalYearEnd)
+    return {
+      status: "not_assembled",
+      gap: "financial_filing_evidence_missing",
+    };
 
   const knownAt = request.query.knownAt ?? request.query.effectiveAt;
   const asOf = request.prices.closes
@@ -162,7 +162,7 @@ export function assembleFinancialSnapshot(
     );
     return {
       roe: roe.plus(ke.minus(roe).times(fraction)).toString(),
-      payout: declaration.payout,
+      payout: filing.payout,
       equityBeta: beta.plus(ONE.minus(beta).times(fraction)).toString(),
     };
   });
@@ -195,22 +195,25 @@ export function assembleFinancialSnapshot(
       version: DERIVED_FINANCIAL_EQUITY_VERSION,
       commonIncome: equity.commonIncome,
       priorBook: equity.priorBook,
+      commonDividends: filing.commonDividends,
+      netRepurchases: filing.netRepurchases,
+      payout: filing.payout,
       roe: equity.roe,
       equityBeta: risk.equityBeta,
-      declarationId: declaration.declarationId,
-      declarationAvailableAt: declaration.availableAt,
+      filingSourceDocumentId: filing.sourceDocumentId,
+      filingAvailableAt: filing.availableAt,
     },
     risk: risk.risk,
     employeeEquity,
     employeeEquityAvailableAt:
       accepted?.proposal.proposedAt ?? xbrl!.optionsOutstanding.availableAt,
     financialReview: {
-      regulatoryCapital: `${declaration.regulatoryCapital} [${declaration.sourceDocumentId}]`,
-      assetQuality: `${declaration.assetQuality} [${declaration.sourceDocumentId}]`,
-      cleanSurplus: `${declaration.cleanSurplus} [${declaration.sourceDocumentId}]`,
+      regulatoryCapital: filing.regulatoryCapital,
+      assetQuality: filing.assetQuality,
+      cleanSurplus: filing.cleanSurplus,
     },
     assumptions: {
-      rationale: `Ten-year convergence of reported common ROE to equity cost; owner payout ${declaration.payout}. ${declaration.rationale}`,
+      rationale: `Ten-year convergence of reported common ROE to equity cost; filing distributions imply payout ${filing.payout}.`,
       periods,
       terminal: { roe: ke.toString(), growth: terminalGrowth, equityBeta: "1" },
     },

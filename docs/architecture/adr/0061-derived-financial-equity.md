@@ -1,6 +1,6 @@
 # ADR 0061: snapshot financiero derivado para el job por ticker
 
-- Estado: aceptado para `F6-20`; valuación real pendiente de declaración del owner
+- Estado: aceptado para `F6-20`; corregido el 2026-10-28 para entrada automática
 - Fecha: 2026-10-27
 - Relacionadas: [ADR 0041](0041-financial-equity-excess-return.md),
   [ADR 0045](0045-ticker-valuation-job.md),
@@ -19,18 +19,24 @@ conceptos `CommonStockholdersEquity`, `PreferredStockValue` ni
 cierre 2025 incluye derechos que no son necesariamente comunes. No se toma
 como patrimonio común ni se presume que las preferentes son cero.
 
-El owner decidió que la distribución y las revisiones de capital regulatorio,
-calidad de activos y clean surplus sean explícitas, y que entren por archivo
-privado registrado con CLI. El archivo también admite los dos saldos de
-patrimonio común transcritos cuando `companyfacts` no los publica.
+El owner aclaró el 2026-10-28 que la app debe calcular sin archivos ni carga
+manual. Las distribuciones y las revisiones de capital regulatorio, calidad
+de activos y clean surplus deben quedar explícitas en la corrida, derivadas
+del filing y con su fuente.
 
 ## Decisión
 
-`derived-financial-equity-1.0.0` prefiere patrimonio común directo de dos
-ejercicios y utilidad común anual de la SEC. Cuando falta uno de los saldos,
-usa sólo un par declarado por el owner para esos ejercicios, con documento,
-fecha de registro, moneda y marca de transcripción. El ROE es utilidad común
-del último ejercicio dividida por el promedio de ambos saldos; moneda ausente
+`derived-financial-equity-1.1.0` prefiere patrimonio común directo de dos
+ejercicios y utilidad común anual de la SEC. Cuando faltan los saldos en
+`companyfacts`, `financial-filing-evidence-1.1.0` lee las tablas visibles
+del 10-K, concilia patrimonio total menos preferentes para ambos ejercicios
+y utilidad neta menos dividendos preferentes y asignación a valores
+participantes para la utilidad disponible a acciones comunes de JPM.
+Para PRU, el 10-K declara que no hay preferentes emitidas; el lector concilia
+el patrimonio de la controlante con los intereses no controlantes y la utilidad
+de la controlante con los premios en acciones participantes de la tabla EPS.
+El ROE es utilidad común del último ejercicio dividida por el promedio de
+ambos saldos; moneda ausente
 o distinta, saldo no positivo y utilidad negativa impiden el snapshot. La
 utilidad común nunca se sustituye por utilidad neta total.
 
@@ -41,14 +47,18 @@ snapshot; se exige listing estadounidense. No aplica Hamada a los depósitos ni
 usa la tabla de ratings sintéticos de no financieras. Sin release, fila, campo
 o industria mapeada no hay costo de equity.
 
-La declaración privada `financial-declaration-1.0.0` se registra append-only
-en PostgreSQL con corte `available_at`; el job lee la última para la entidad y
-el ejercicio que existía al `known_at` del pedido. El CLI valida forma,
-tamaño, payout entre 0 y 1, textos de revisión y fuente antes de escribir. Un
-archivo no se commitea ni el render lo lee. Si los hechos bastan para
-seleccionar el método pero falta la declaración, el snapshot nombra
-`financial_declaration_missing`. Si también faltan hechos financieros, el
-selector devuelve `missing_required_input`. En ambos casos no calcula valor.
+El job pide `submissions` y el 10-K a través del egress medido, con derechos
+de SEC y corte `known_at`. Del mismo filing obtiene dividendos comunes,
+recompras netas y payout; exige que la distribución sea no negativa y no
+supere la utilidad común. Registra en el snapshot el contraste de CET1 con
+su requisito, la razón de reservas crediticias y el residuo de la variación
+del patrimonio común. Si faltan tablas o alguna conciliación falla, no calcula
+valor; el selector puede quedar en `missing_required_input` y, si ya tenía
+base financiera directa, el armado nombra `financial_filing_evidence_missing`.
+No conserva el HTML
+en la base. `financial_declaration_missing` se mantiene sólo para leer jobs
+anteriores. La tabla y el CLI de declaraciones se retiran en `0039`; la
+migración se niega si encuentra una declaración existente.
 
 El job arma `excess-return-1.1.0` / `financial-equity-1.1.0` con diez años.
 El primer ROE y la primera beta son los medidos; ambos convergen linealmente
@@ -78,15 +88,16 @@ rechazada y un faltante muestran motivo; no hay recomendación.
 
 ## Límites y verificación
 
-JPM sigue sin una valuación real: el owner no entregó los saldos comunes ni la
-declaración de distribución y revisión. Eso es un faltante de entrada, no una
-señal de que el banco tenga patrimonio común cero. El contrato sintético cubre
-la derivación, el rechazo de alteraciones y la lectura; PostgreSQL prueba que
-una declaración futura no entra en un corte anterior. El gate completo y el
-walkthrough real deben constar en el backlog antes de cerrar `F6-20`.
+JPM y PRU produjeron corridas reales `requires_review` desde sus 10-K 2025,
+sin datos del owner. Los extractos reducidos de ambos filings quedaron
+congelados como fixtures SEC con URL, fecha, bytes y hashes. PRU usa el RBC
+medido de PICA a 2024, último presentado en su 10-K, frente al umbral de
+acción de 100%; la revisión dice expresamente que el RBC 2025 aún no estaba
+presentado y que PICA es una subsidiaria. El rigor del job es `screening`,
+sin exigir los controles estructurales de FCFF a un método de patrimonio.
+El lector es deliberadamente estricto: otros estados no conciliables quedan
+sin valor hasta ampliar el parser con evidencia propia.
 
-No se agrega proveedor, egress, modelo, Route Handler, Server Action ni
-secreto. Migraciones `0037` y `0038` tienen rollback que se niega si perdería
-declaraciones o corridas referenciadas. La fuente de referencia mantiene sus
-derechos de uso y no se guarda su archivo; la transcripción del owner vive
-solo en la base privada.
+No se agrega proveedor, modelo, Route Handler, Server Action ni secreto. El
+egress SEC existente y sus derechos controlan las dos peticiones. Los
+filings completos se usan en memoria y no se guardan como payload crudo.

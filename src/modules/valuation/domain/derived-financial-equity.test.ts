@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { AnnualFundamentals, LineItemValue } from "./annual-fundamentals";
 import { deriveFinancialEquity } from "./derived-financial-equity";
-import type { StoredFinancialDeclaration } from "./financial-declaration";
+import type { FinancialFilingEvidence } from "./financial-filing-evidence";
 
 const fact = (
   item: "common_equity" | "common_net_income",
@@ -84,7 +84,7 @@ describe("derived-financial-equity-1.0.0", () => {
     ).toMatchObject({ status: "unavailable", reason: "common_equity_missing" });
   });
 
-  it("uses a dated owner transcription only when the direct common book is absent", () => {
+  it("uses reconciled filing tables when companyfacts omits common book", () => {
     const input = series();
     const [current, prior] = input.fiscalYears;
     const missing = {
@@ -97,29 +97,38 @@ describe("derived-financial-equity-1.0.0", () => {
         { ...prior!, items: {} },
       ],
     } as AnnualFundamentals;
-    const declaration = {
+    const filing: FinancialFilingEvidence = {
+      version: "financial-filing-evidence-1.1.0",
       fiscalYearEnd: "2025-12-31",
-      commonBook: {
-        currentValue: "120",
-        priorValue: "100",
-        priorFiscalYearEnd: "2024-12-31",
-        currency: "USD",
-      },
-      sourceDocumentId: "synthetic-review",
-      availableAt: "2026-03-01T00:00:00.000Z",
-    } as StoredFinancialDeclaration;
-    expect(deriveFinancialEquity(missing, toFact, declaration)).toMatchObject({
+      commonBook: toFact(fact("common_equity", "120", "2025-12-31")),
+      priorBook: toFact(fact("common_equity", "100", "2024-12-31")),
+      commonIncome: toFact(fact("common_net_income", "11", "2025-12-31")),
+      commonDividends: toFact(fact("common_net_income", "5", "2025-12-31")),
+      netRepurchases: toFact(fact("common_net_income", "0", "2025-12-31")),
+      payout: "0.45454545454545454545",
+      regulatoryCapital: "Synthetic capital check.",
+      assetQuality: "Synthetic loan quality check.",
+      cleanSurplus: "Synthetic equity rollforward check.",
+      sourceDocumentId: "synthetic-10k",
+      availableAt: "2026-02-01T00:00:00.000Z",
+    };
+    expect(deriveFinancialEquity(missing, toFact, filing)).toMatchObject({
       status: "ready",
       roe: "0.1",
       commonBookEquity: {
-        sourceId: "owner-financial-declaration",
-        observationId: null,
+        sourceId: "sec-edgar",
       },
     });
     expect(deriveFinancialEquity(missing, toFact, null)).toMatchObject({
       status: "unavailable",
       reason: "common_equity_missing",
     });
+    expect(
+      deriveFinancialEquity(missing, toFact, {
+        ...filing,
+        commonIncome: { ...filing.commonIncome, value: "12" },
+      }),
+    ).toMatchObject({ status: "unavailable", reason: "common_income_missing" });
   });
 
   it.each([

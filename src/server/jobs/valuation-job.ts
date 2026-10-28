@@ -74,7 +74,6 @@ import {
 import { getCedearRegistryRepository } from "@/server/persistence/get-cedear-registry-repository";
 import { getCorporateActionRepository } from "@/server/persistence/get-corporate-action-repository";
 import { getEmployeeEquityRepository } from "@/server/persistence/get-employee-equity-repository";
-import { getFinancialDeclarationRepository } from "@/server/persistence/get-financial-declaration-repository";
 import { getIngestionRunRepository } from "@/server/persistence/get-ingestion-run-repository";
 import { getMarketExpectationsRepository } from "@/server/persistence/get-market-expectations-repository";
 import { getObservationRepository } from "@/server/persistence/get-observation-repository";
@@ -113,6 +112,7 @@ import { createFundamentalReaders } from "@/server/valuation/fundamental-readers
 
 import { createValuationDataDependencies } from "./valuation-data";
 import { runQualitativeStep } from "./valuation-qualitative";
+import { readFinancialFiling } from "./financial-filing";
 
 /**
  * Raíz de composición de la corrida por ticker (`F6-01`,
@@ -383,49 +383,8 @@ export async function prepareValuationRun(
   const financialProfile =
     assessment.selection.assetProfile === "bank" ||
     assessment.selection.assetProfile === "insurer";
-  const financialYear =
-    assessment.fundamentals.series?.fiscalYears[0]?.fiscalYearEnd;
-  const financialDeclaration =
-    financialProfile && financialYear !== undefined
-      ? await getFinancialDeclarationRepository().latestAsKnown(
-          legalEntityId,
-          financialYear,
-          job.knownAt,
-        )
-      : null;
-  if (
-    financialProfile &&
-    financialDeclaration !== null &&
-    assessment.financialEquity?.status !== "ready"
-  ) {
-    const financialEquity = deriveFinancialEquity(
-      assessment.fundamentals.series,
-      (item) => seriesFact(item, SEC_SOURCE_ID),
-      financialDeclaration,
-    );
-    const selection = selectValuationMethod({
-      legalEntityId,
-      knowledge: query,
-      evidence: [...assessment.evidence],
-      fcffInputsComplete: false,
-      excessReturnMissingInputs: [
-        ...(financialEquity.status === "ready"
-          ? []
-          : ["common_book_equity", "roe"]),
-        ...(assessment.financialRisk?.status === "ready"
-          ? []
-          : ["cost_of_equity"]),
-      ],
-    });
-    assessment = {
-      ...assessment,
-      financialEquity,
-      selection,
-      rigor: deriveRigorLevel(selection, assessment.completeness),
-    };
-  }
-  const selected = assessment.selection.status === "selected";
-  const reading: ValuationAssessmentReading = {
+  let selected = assessment.selection.status === "selected";
+  let reading: ValuationAssessmentReading = {
     legalEntityId,
     securityId: resolution.securityId,
     listingId: resolution.listingId,
@@ -512,6 +471,58 @@ export async function prepareValuationRun(
     }
   }
 
+  const financialYears = assessment.fundamentals.series?.fiscalYears;
+  const financialFiling =
+    financialProfile &&
+    financialYears?.[0] !== undefined &&
+    financialYears[1] !== undefined
+      ? await readFinancialFiling({
+          cik,
+          knownAt: job.knownAt,
+          fiscalYearEnd: financialYears[0].fiscalYearEnd,
+          priorFiscalYearEnd: financialYears[1].fiscalYearEnd,
+        })
+      : null;
+  if (financialProfile && financialFiling !== null) {
+    const financialEquity = deriveFinancialEquity(
+      assessment.fundamentals.series,
+      (item) => seriesFact(item, SEC_SOURCE_ID),
+      financialFiling,
+    );
+    const selection = selectValuationMethod({
+      legalEntityId,
+      knowledge: query,
+      evidence: [...assessment.evidence],
+      fcffInputsComplete: false,
+      excessReturnMissingInputs: [
+        ...(financialEquity.status === "ready"
+          ? []
+          : ["common_book_equity", "roe"]),
+        ...(assessment.financialRisk?.status === "ready"
+          ? []
+          : ["cost_of_equity"]),
+      ],
+    });
+    assessment = {
+      ...assessment,
+      financialEquity,
+      selection,
+      rigor: deriveRigorLevel(selection, assessment.completeness),
+    };
+    selected = selection.status === "selected";
+    reading = {
+      ...reading,
+      methodStatus: selection.status,
+      method: selected
+        ? valuationJobMethodSchema.parse(selection.recommendedMethod)
+        : null,
+      rigor: selected ? assessment.rigor.level : null,
+      unsupportedReason: selected
+        ? null
+        : (selection.unsupportedReasons[0] ?? null),
+    };
+  }
+
   const awaitsCycle = awaitsCycleHistory(assessment.selection);
 
   if ((!selected && !awaitsCycle) || !reading.hasAnnualFundamentals) {
@@ -528,9 +539,12 @@ export async function prepareValuationRun(
   if (
     options.askAi === true &&
     dataStep !== null &&
-    (assessment.selection.status === "selected" || awaitsCycle) &&
+    (assessment.selection.status === "selected" ||
+      awaitsCycle ||
+      financialProfile) &&
     (assessment.selection.recommendedMethod === "fcff_base" ||
-      assessment.selection.recommendedMethod === "normalized_fcff")
+      assessment.selection.recommendedMethod === "normalized_fcff" ||
+      assessment.selection.recommendedMethod === "excess_return")
   ) {
     const needs = {
       industry: assessment.industry.status === "ambiguous",
@@ -539,7 +553,9 @@ export async function prepareValuationRun(
           legalEntityId,
           job.knownAt,
         )) === null,
-      operationsMix: assessment.qualitativeDecisions.operationsMix === null,
+      operationsMix:
+        !financialProfile &&
+        assessment.qualitativeDecisions.operationsMix === null,
     };
 
     if (needs.industry || needs.employeeEquity || needs.operationsMix) {
@@ -612,7 +628,7 @@ export async function prepareValuationRun(
       assessment.selection.recommendedMethod === "excess_return"
         ? assembleFinancialSnapshot({
             ...snapshotRequest,
-            declaration: financialDeclaration,
+            filing: financialFiling,
           })
         : assembleValuationSnapshot(snapshotRequest),
   };

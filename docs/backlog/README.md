@@ -3991,31 +3991,33 @@ Evidencia:
 - Estado: `in_progress` desde el 2026-10-27. `excess_return` (ADR 0041)
   ya tiene un camino en el job por ticker y una lectura propia en la página
   ([ADR 0061](../architecture/adr/0061-derived-financial-equity.md)).
-- Alcance implementado: selección SEC `9.0.0` y serie anual `1.5.0` para
-  patrimonio y utilidad comunes; ROE desde utilidad común y promedio de dos
-  patrimonios comunes; beta de equity, libre de riesgo, ERP y CRP fechados;
-  declaración privada append-only de payout y revisión, con transcripción
-  de saldos cuando SEC no publica patrimonio común directo. El job congela
-  esos hechos y diez años de convergencia; la página lee el método sin
-  mezclarlo con FCFF.
-- Decisiones del owner: exigir distribución y revisión explícitas, y
-  registrarlas por archivo privado + CLI. La [guía](../runbooks/financial-declaration.md)
-  explica la entrada. Sin ella, no hay valor; el job nombra
-  `financial_declaration_missing` cuando el método ya está seleccionado.
+- Alcance implementado: selección SEC `9.0.0` y serie anual `1.5.0`; lector
+  medido del 10-K que concilia patrimonio común, utilidad común, dividendos
+  y recompras y hace explícitos capital regulatorio, calidad de activos y
+  clean surplus. El ROE usa los dos patrimonios comunes; el riesgo usa beta
+  de equity, libre de riesgo, ERP y CRP fechados. El job congela esos hechos
+  y diez años de convergencia; la página lee el método sin mezclarlo con FCFF.
+- Corrección del owner del 2026-10-28: la app debe calcular sin carga manual.
+  Se retiraron CLI, repositorio y tabla de declaraciones; `0039` rechaza el
+  borrado si existiera una declaración. Un filing no conciliable detiene la
+  valuación y no inventa cifras; el armado nombra
+  `financial_filing_evidence_missing` cuando ya había base directa suficiente.
 - Evidencia hasta ahora: JPM se reingirió con la nueva selección (25 requests
-  medidos, 121 observaciones nuevas, sin errores). Publica utilidad común y
-  patrimonio total, pero no patrimonio común ni preferentes con los conceptos
-  seleccionados. Pasan 3.229 unit, 223 integration y 204 E2E (dos omitidos),
-  más lint, typecheck, formato y detector Impeccable. El build webpack pasa;
-  Turbopack no puede abrir su puerto interno en este entorno. El CLI validó
-  un archivo sintético en dry run sin registrarlo. Las migraciones `0037` y
-  `0038` están aplicadas a la base personal local. No hay declaración privada
-  real ni corrida de JPM: queda pendiente la revisión renderizada de la
-  superficie financiera y CI. `F6-20` no se cierra con el patrimonio total
-  como sustituto.
-- Próximo: el owner verifica y aporta saldos comunes, payout y revisiones
-  para una corrida real; entonces revisar desktop/mobile y cerrar CI. Después
-  retomar `F8-02` según lo pedido.
+  medidos, 121 observaciones nuevas) y el job registró una corrida real
+  `excess_return`/`requires_review` desde el 10-K 2025, sin archivo privado.
+  Patrimonio común USD 342.393 millones, utilidad disponible a comunes USD
+  55.681 millones tras USD 268 millones asignados a valores participantes,
+  payout 0,83750; valor USD 171,10 por acción frente al último cierre
+  guardado USD 335,79. PRU produjo otra corrida real desde su 10-K 2025:
+  patrimonio común USD 32.438 millones, utilidad disponible a comunes USD
+  3.535 millones tras asignación a premios en acciones participantes, payout
+  0,83140 y valor USD 109,29 por acción. Los dos extractos SEC tienen URL y
+  hashes; el lector rechaza puentes contables, distribución o capital inválidos.
+  La migración `0039` pasó en base personal y test. Pasan 3.244 unit, 222
+  integration, 204 E2E (dos omitidos), lint, typecheck, formato y build webpack.
+  La revisión visual de JPM y PRU en 1280/390 px no mostró desborde; ambos
+  pasaron axe sin hallazgos bloqueantes. Falta CI.
+- Próximo: revisar CI, cerrar el slice y retomar `F8-02` según lo pedido.
 
 #### `F6-21` — pérdidas y alto crecimiento desde la app
 

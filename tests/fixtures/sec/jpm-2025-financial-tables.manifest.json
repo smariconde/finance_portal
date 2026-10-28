@@ -1,0 +1,10 @@
+{
+  "sourceUrl": "https://www.sec.gov/Archives/edgar/data/19617/000162828026008131/jpm-20251231.htm",
+  "fetchedAt": "2026-10-27T14:30:40.396263Z",
+  "rawBytes": 12927446,
+  "rawSha256": "003131ab9664295ef64e72553b583840ab08f6d5d17d741c0b15517d90320888",
+  "extractMethod": "HTML table fragments 65, 178, 181, 182, 599 by document order; raw markup retained",
+  "extractBytes": 183801,
+  "extractSha256": "18f2170374fad697ae96fa3ca4e316a491e1641dfaf0f748d340bfcbf2840ec9",
+  "rights": "sec-edgar: rawStorage, publicDisplay and export allowed"
+}

@@ -204,7 +204,9 @@ export const SNAPSHOT_GAP_COPY: Record<ValuationSnapshotGap, string> = {
     "faltan patrimonio y utilidad comunes comparables, o el ROE no es admisible",
   financial_base_stale: "el patrimonio común reportado tiene más de 540 días",
   financial_declaration_missing:
-    "falta la declaración privada de distribución y revisión financiera para ese ejercicio",
+    "esta corrida anterior no tiene distribución; volvé a valuar para obtenerla automáticamente del 10-K",
+  financial_filing_evidence_missing:
+    "el 10-K no ofrece tablas conciliables de distribución y diagnóstico financiero",
 };
 
 export const PROFILE_COPY: Record<AssetProfile, string> = {

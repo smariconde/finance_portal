@@ -1,0 +1,10 @@
+{
+  "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1137774/000113777426000048/pru-20251231.htm",
+  "fetchedAt": "2026-10-28T17:45:12.457Z",
+  "rawBytes": 14935052,
+  "rawSha256": "26dc9c5728123de039b2790fc7677094e312073ff91887e3b5b659b0e5c02640",
+  "extractMethod": "Raw HTML tables 98, 99, 101, 278 and three raw narrative divs by document order",
+  "extractBytes": 316657,
+  "extractSha256": "6528ee73cff7ff8b741133567defb49e00ea9cbfa8b05f4c480a0936ee74b714",
+  "rights": "sec-edgar: rawStorage, publicDisplay and export allowed"
+}

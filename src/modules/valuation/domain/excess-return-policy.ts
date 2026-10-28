@@ -135,12 +135,14 @@ export function checkExcessReturnInput(
         derivation.priorBook.currency !== input.currency ||
         derivation.equityBeta.currency !== input.currency ||
         derivation.equityBeta.asOf > input.asOf ||
-        Date.parse(derivation.declarationAvailableAt) > Date.parse(knownAt)
+        Date.parse(derivation.filingAvailableAt) > Date.parse(knownAt)
       )
         dates.push("derivedFinancial");
       for (const fact of [
         derivation.commonIncome,
         derivation.priorBook,
+        derivation.commonDividends,
+        derivation.netRepurchases,
         derivation.equityBeta,
       ]) {
         if (Date.parse(fact.availableAt) > Date.parse(knownAt))
@@ -165,6 +167,17 @@ export function checkExcessReturnInput(
       "roe",
     ).eq(parseDecimal(derivation.roe, "derivedFinancial.roe")) ||
       input.assumptions.periods[0]?.roe !== derivation.roe ||
+      input.assumptions.periods.some(
+        (period) => period.payout !== derivation.payout,
+      ) ||
+      !divide(
+        sum([
+          parseDecimal(derivation.commonDividends.value, "commonDividends"),
+          parseDecimal(derivation.netRepurchases.value, "netRepurchases"),
+        ]),
+        parseDecimal(derivation.commonIncome.value, "commonIncome"),
+        "payout",
+      ).eq(parseDecimal(derivation.payout, "derivedFinancial.payout")) ||
       input.assumptions.periods[0]?.equityBeta !== derivation.equityBeta.value);
   if (
     input.employeeEquityAvailableAt !== null &&
@@ -251,7 +264,7 @@ export function checkExcessReturnInput(
               .map((key) => `financialReview.${key}`)
           : []),
       ],
-      "A derived financial run requires the owner's payout and dated financial review.",
+      "A derived financial run requires reconciled distributions and dated filing diagnostics.",
     ),
     check(
       "financial_positive_book",

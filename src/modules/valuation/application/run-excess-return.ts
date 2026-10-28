@@ -38,6 +38,8 @@ export function runExcessReturn(
     input.employeeEquity?.sharesOutstanding ?? null,
     input.derivedFinancial?.commonIncome ?? null,
     input.derivedFinancial?.priorBook ?? null,
+    input.derivedFinancial?.commonDividends ?? null,
+    input.derivedFinancial?.netRepurchases ?? null,
     input.derivedFinancial?.equityBeta ?? null,
   ].filter((fact) => fact !== null);
   const identity = {
@@ -55,9 +57,6 @@ export function runExcessReturn(
         ...new Set([
           ...facts.map((fact) => fact.sourceId),
           ...input.profileEvidence.map((evidence) => evidence.sourceId),
-          ...(input.derivedFinancial === undefined
-            ? []
-            : ["owner-financial-declaration"]),
         ]),
       ].sort(),
       observationIds: [

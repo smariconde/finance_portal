@@ -34,7 +34,7 @@
 
 - Revisado el 2026-10-20: `F4-06 / 4.4` agrega `valuation:reit`, CLI privado de hasta 512 kB, sin egress ni IA. Conciliación AFFO y claims NAV explícitos con documentos, moneda, clasificación y disponibilidad; mortgage/hybrid REITs, faltantes y `system_recorded` sin registro por hecho se rechazan (`TM-05`, `TM-06`, `TM-15`). El guard personal protege `--apply` antes de construir storage; resultado o rechazo y hashes son append-only (`TM-01`, `TM-16`). Sin nueva frontera web.
 
-- Revisado el 2026-10-27: `F6-20` agrega `valuation:financial-declare`, archivo JSON privado de hasta 32 KiB y CLI sin red ni IA. `--apply` exige runtime personal, valida esquema y ticker, y registra declaración append-only con corte de disponibilidad y registro (`TM-01`, `TM-05`, `TM-06`, `TM-16`). El worker consume esa declaración sólo si existía al corte del pedido; la página lee la corrida persistida. La Server Action mantiene su contrato de ticker y sus guardas (`TM-03`).
+- Revisado el 2026-10-28: `F6-20` lee `submissions` y el 10-K desde el worker personal por el egress SEC medido, con derechos y `known_at` (`TM-01`, `TM-05`, `TM-06`, `TM-16`). El HTML se analiza en memoria; la base guarda sólo hechos reconciliados y referencia del filing. El parser se niega ante tablas ambiguas o conciliaciones fallidas. La página lee la corrida persistida. La Server Action mantiene su contrato de ticker y sus guardas (`TM-03`). La entrada privada por CLI fue retirada por decisión del owner.
 
 ## Objetivo y método
 

@@ -1,11 +1,11 @@
 import type { AnnualFundamentals, LineItemValue } from "./annual-fundamentals";
 import { divide, parseDecimal, sum, ZERO } from "./decimal-policy";
 import type { MonetaryFact } from "./valuation-facts";
-import type { StoredFinancialDeclaration } from "./financial-declaration";
+import type { FinancialFilingEvidence } from "./financial-filing-evidence";
 
 /** Financial equity is never inferred from equity that may include preferred stock. */
 export const DERIVED_FINANCIAL_EQUITY_VERSION =
-  "derived-financial-equity-1.0.0";
+  "derived-financial-equity-1.1.0";
 
 export type DerivedFinancialEquity =
   | {
@@ -31,7 +31,7 @@ export type DerivedFinancialEquity =
 export function deriveFinancialEquity(
   series: AnnualFundamentals | null,
   toFact: (item: LineItemValue) => MonetaryFact,
-  declaration: StoredFinancialDeclaration | null = null,
+  filing: FinancialFilingEvidence | null = null,
 ): DerivedFinancialEquity {
   const current = series?.fiscalYears[0];
   const prior = series?.fiscalYears[1];
@@ -48,53 +48,65 @@ export function deriveFinancialEquity(
   if (fiscalGapDays === null || fiscalGapDays < 330 || fiscalGapDays > 370)
     return { status: "unavailable", reason: "prior_equity_missing" };
 
-  if (currentItem === undefined && declaration?.commonBook == null)
+  if (currentItem === undefined && filing === null)
     return { status: "unavailable", reason: "common_equity_missing" };
-  if (priorItem === undefined && declaration?.commonBook == null)
+  if (priorItem === undefined && filing === null)
     return { status: "unavailable", reason: "prior_equity_missing" };
-  if (incomeItem === undefined)
+  if (incomeItem === undefined && filing === null)
     return { status: "unavailable", reason: "common_income_missing" };
   if (
-    declaration?.commonBook != null &&
-    (declaration.fiscalYearEnd !== current?.fiscalYearEnd ||
-      declaration.commonBook.priorFiscalYearEnd !== prior?.fiscalYearEnd)
+    filing !== null &&
+    (filing.fiscalYearEnd !== current?.fiscalYearEnd ||
+      filing.priorBook.asOf !== prior?.fiscalYearEnd)
   )
     return { status: "unavailable", reason: "prior_equity_missing" };
   if (
     (currentItem !== undefined && currentItem.currency === null) ||
     (priorItem !== undefined && priorItem.currency === null) ||
-    incomeItem.currency === null ||
+    (incomeItem !== undefined && incomeItem.currency === null) ||
     (currentItem !== undefined &&
       priorItem !== undefined &&
       currentItem.currency !== priorItem.currency) ||
     (currentItem !== undefined &&
-      currentItem.currency !== incomeItem.currency) ||
-    (declaration?.commonBook != null &&
-      declaration.commonBook.currency !== incomeItem.currency)
+      incomeItem !== undefined &&
+      currentItem.currency !== incomeItem.currency)
   )
     return { status: "unavailable", reason: "currency_mismatch" };
 
-  const declared = declaration?.commonBook ?? null;
-  const ownerFact = (value: string, asOf: string): MonetaryFact => ({
-    value,
-    asOf,
-    currency: declared!.currency,
-    unit: "monetary",
-    availableAt: declaration!.availableAt,
-    sourceId: "owner-financial-declaration",
-    sourceDocumentId: declaration!.sourceDocumentId,
-    observationId: null,
-    qualityFlags: ["owner_transcribed"],
-  });
   const currentBook =
-    currentItem === undefined
-      ? ownerFact(declared!.currentValue, current!.fiscalYearEnd)
-      : toFact(currentItem);
+    filing?.commonBook ??
+    (currentItem === undefined ? null : toFact(currentItem));
   const priorBook =
-    priorItem === undefined
-      ? ownerFact(declared!.priorValue, declared!.priorFiscalYearEnd)
-      : toFact(priorItem);
-  const commonIncome = toFact(incomeItem);
+    filing?.priorBook ?? (priorItem === undefined ? null : toFact(priorItem));
+  const commonIncome =
+    filing?.commonIncome ??
+    (incomeItem === undefined ? null : toFact(incomeItem));
+  if (currentBook === null || priorBook === null || commonIncome === null)
+    return { status: "unavailable", reason: "common_equity_missing" };
+  if (
+    filing !== null &&
+    currentItem !== undefined &&
+    !parseDecimal(currentItem.value, "reportedCommonBook").eq(
+      parseDecimal(filing.commonBook.value, "filingCommonBook"),
+    )
+  )
+    return { status: "unavailable", reason: "common_equity_missing" };
+  if (
+    filing !== null &&
+    priorItem !== undefined &&
+    !parseDecimal(priorItem.value, "reportedPriorBook").eq(
+      parseDecimal(filing.priorBook.value, "filingPriorBook"),
+    )
+  )
+    return { status: "unavailable", reason: "prior_equity_missing" };
+  if (
+    filing !== null &&
+    incomeItem !== undefined &&
+    !parseDecimal(incomeItem.value, "reportedCommonIncome").eq(
+      parseDecimal(filing.commonIncome.value, "filingCommonIncome"),
+    )
+  )
+    return { status: "unavailable", reason: "common_income_missing" };
   if (
     currentBook.currency !== priorBook.currency ||
     currentBook.currency !== commonIncome.currency

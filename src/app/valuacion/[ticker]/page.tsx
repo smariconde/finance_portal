@@ -431,7 +431,7 @@ function FinancialRunView({
               </dd>
             </div>
             <div>
-              <dt className="text-muted-foreground">Distribución declarada</dt>
+              <dt className="text-muted-foreground">Distribución reportada</dt>
               <dd className="numeric font-medium">
                 {formatPercent(run.input.assumptions.periods[0]!.payout)}
               </dd>
@@ -512,19 +512,16 @@ function FinancialRunView({
         <CardContent className="space-y-4 text-sm">
           <p>
             Patrimonio común (
-            {run.input.commonBookEquity?.sourceId ===
-            "owner-financial-declaration"
-              ? "declaración del owner"
-              : run.input.commonBookEquity?.sourceId === "sec-edgar"
-                ? "SEC"
-                : "sin fuente"}
+            {run.input.commonBookEquity?.sourceId === "sec-edgar"
+              ? "SEC"
+              : "sin fuente"}
             ):{" "}
             <time dateTime={run.input.commonBookEquity?.asOf}>
               {run.input.commonBookEquity?.asOf ?? "sin fecha"}
             </time>
-            ; utilidad común y patrimonio anterior conservan su observación en
-            el snapshot. La distribución y las revisiones provienen de una
-            declaración privada. Las releases de Damodaran se leen al corte{" "}
+            ; utilidad común, patrimonio anterior y distribución provienen de
+            tablas conciliadas del mismo 10-K. Los diagnósticos anteriores son
+            automáticos; las releases de Damodaran se leen al corte{" "}
             <time
               dateTime={
                 run.provenance.knowledge.knownAt ??
@@ -555,19 +552,19 @@ function FinancialRunView({
           </p>
           <dl className="space-y-3">
             <div>
-              <dt className="font-medium">Capital regulatorio · owner</dt>
+              <dt className="font-medium">Capital regulatorio · 10-K</dt>
               <dd>
                 {run.input.financialReview.regulatoryCapital ?? "Sin revisión"}
               </dd>
             </div>
             <div>
-              <dt className="font-medium">Calidad de activos · owner</dt>
+              <dt className="font-medium">Calidad de activos · 10-K</dt>
               <dd>
                 {run.input.financialReview.assetQuality ?? "Sin revisión"}
               </dd>
             </div>
             <div>
-              <dt className="font-medium">Cambios del patrimonio · owner</dt>
+              <dt className="font-medium">Cambios del patrimonio · 10-K</dt>
               <dd>
                 {run.input.financialReview.cleanSurplus ?? "Sin revisión"}
               </dd>
@@ -577,9 +574,15 @@ function FinancialRunView({
             <ul className="list-disc space-y-1 pl-5">
               {run.result?.checks
                 .filter((check) => check.status === "failed")
-                .map((check) => <li key={check.id}>{check.message}</li>) ?? (
-                <li>{run.failure?.message}</li>
-              )}
+                .map((check) => (
+                  <li key={check.id}>
+                    {check.id === "financial_country_risk_basis"
+                      ? "El riesgo país por domicilio es una aproximación explícita."
+                      : check.id === "financial_model_experimental"
+                        ? "Este método de patrimonio financiero es experimental y requiere revisión."
+                        : check.message}
+                  </li>
+                )) ?? <li>{run.failure?.message}</li>}
             </ul>
           ) : null}
         </CardContent>

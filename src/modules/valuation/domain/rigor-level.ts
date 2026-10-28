@@ -146,6 +146,19 @@ function assessedRigorLevel(
     };
   }
 
+  if (selection.recommendedMethod === "excess_return") {
+    return {
+      version: RIGOR_LEVEL_VERSION,
+      level: "screening",
+      degradedBy: ["financial_equity_experimental"],
+      declarations:
+        completenessCheck(completeness, "geographic_revenue_mix").status ===
+        "met"
+          ? []
+          : ["country_risk_by_domicile"],
+    };
+  }
+
   const structural = completenessCheck(completeness, "structural_inputs");
   if (structural.status !== "met") {
     return {

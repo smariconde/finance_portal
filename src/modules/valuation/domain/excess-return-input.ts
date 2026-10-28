@@ -71,13 +71,16 @@ export const excessReturnInputSchema = z.strictObject({
   /** F6-20: the reported common-income and prior-book facts behind the ROE. */
   derivedFinancial: z
     .strictObject({
-      version: z.literal("derived-financial-equity-1.0.0"),
+      version: z.literal("derived-financial-equity-1.1.0"),
       commonIncome: monetaryFactSchema,
       priorBook: monetaryFactSchema,
+      commonDividends: monetaryFactSchema,
+      netRepurchases: monetaryFactSchema,
+      payout: engineDecimalSchema,
       roe: engineDecimalSchema,
       equityBeta: financialRateFactSchema,
-      declarationId: z.uuid(),
-      declarationAvailableAt: utcTimestampSchema,
+      filingSourceDocumentId: z.string().trim().min(1).max(256),
+      filingAvailableAt: utcTimestampSchema,
     })
     .optional(),
   risk: z.strictObject({
