@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { AppSidebar } from "@/app/_components/app-sidebar";
 import { StatusMark } from "@/app/_components/status-mark";
+import { ThemeToggle } from "@/app/_components/theme-toggle";
 import {
   SidebarInset,
   SidebarProvider,
@@ -50,20 +51,23 @@ export function PortalShell({ children, health }: PortalShellProps) {
                 </p>
               </div>
             </div>
-            <StatusMark
-              status={
-                health.mode === "personal"
-                  ? needsAttention
-                    ? "degraded"
-                    : "ready"
-                  : "disabled"
-              }
-              label={
-                health.mode === "personal"
-                  ? `Personal${needsAttention ? " · atención" : " · estable"}`
-                  : "Trabado"
-              }
-            />
+            <div className="flex shrink-0 items-center gap-2">
+              <StatusMark
+                status={
+                  health.mode === "personal"
+                    ? needsAttention
+                      ? "degraded"
+                      : "ready"
+                    : "disabled"
+                }
+                label={
+                  health.mode === "personal"
+                    ? `Personal${needsAttention ? " · atención" : " · estable"}`
+                    : "Trabado"
+                }
+              />
+              <ThemeToggle />
+            </div>
           </header>
 
           {children}

@@ -51,6 +51,16 @@ const stateGuide: Array<{
   },
 ];
 
+/** Lo que el sistema garantiza hoy, en cualquier modo. */
+const systemLimits = [
+  "Sólo el modo personal abre PostgreSQL, con una conexión pooled.",
+  "Un runtime trabado no sirve datos ni ofrece un reemplazo.",
+  "Toda salida a la red pasa por una sola puerta con allowlist, derechos por fuente y presupuesto diario.",
+  "Las descargas las pide una acción y corren como job durable: renderizar una página nunca descarga ni escribe.",
+  "La IA sólo propone con evidencia citada, bajo una policy y un tope de gasto en dólares.",
+  "Ninguna ruta simula una capacidad que todavía no existe.",
+] as const;
+
 /** Ver [ADR 0005](../../../docs/architecture/adr/0005-request-time-runtime-boundary.md). */
 export const instant = false;
 
@@ -175,7 +185,7 @@ export default async function ConfigurationPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle as="h2">Límite actual del sistema</CardTitle>
+            <CardTitle as="h2">Límites del sistema</CardTitle>
             <CardDescription>
               El runtime sirve datos únicamente en modo personal. Un entorno que
               no puede probar que es privado queda trabado y no abre PostgreSQL.
@@ -183,21 +193,14 @@ export default async function ConfigurationPage() {
           </CardHeader>
           <CardContent>
             <ul className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
-              <li className="rounded-md border bg-muted/30 px-3 py-2">
-                Postgres requiere modo personal y una conexión pooled.
-              </li>
-              <li className="rounded-md border bg-muted/30 px-3 py-2">
-                Un runtime trabado no sirve datos ni ofrece un reemplazo.
-              </li>
-              <li className="rounded-md border bg-muted/30 px-3 py-2">
-                Sin proveedores ni tráfico externo.
-              </li>
-              <li className="rounded-md border bg-muted/30 px-3 py-2">
-                Sin ingestas, mutaciones persistentes o datos financieros.
-              </li>
-              <li className="rounded-md border bg-muted/30 px-3 py-2">
-                Sin rutas que simulen capacidades futuras.
-              </li>
+              {systemLimits.map((limit) => (
+                <li
+                  className="rounded-md border bg-muted/30 px-3 py-2"
+                  key={limit}
+                >
+                  {limit}
+                </li>
+              ))}
             </ul>
           </CardContent>
         </Card>

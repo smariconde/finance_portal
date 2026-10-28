@@ -5,6 +5,7 @@ import {
   Calculator,
   ChartScatter,
   Database,
+  GitCompareArrows,
   Home,
   Landmark,
   Settings2,
@@ -52,8 +53,14 @@ const activeItems = [
   },
 ] as const;
 
+/**
+ * Lo que el backlog tiene por delante: la ficha de la empresa (`F6-25`),
+ * divergencias fundamentales (Fase 8), y Argentina y soja (Fase 9). No hay
+ * screener: el filtrado amplio se hace afuera (ADR 0016).
+ */
 const plannedItems = [
   { label: "Empresas", icon: Building2 },
+  { label: "Divergencias", icon: GitCompareArrows },
   { label: "Argentina", icon: Landmark },
   { label: "Agro", icon: Wheat },
 ] as const;
@@ -71,11 +78,16 @@ export function AppSidebar({ mode }: AppSidebarProps) {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="border-b border-sidebar-border">
+      {/*
+       * `h-14` y sin padding vertical: el mismo alto que el header de la
+       * columna, así que los dos bordes inferiores forman una sola línea.
+       */}
+      <SidebarHeader className="h-14 justify-center border-b border-sidebar-border py-0">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
+              className="h-11"
               tooltip="Portal Financiero"
               render={<Link href="/" aria-label="Portal Financiero, inicio" />}
             >
@@ -161,7 +173,9 @@ export function AppSidebar({ mode }: AppSidebarProps) {
                     <item.icon />
                     <span>{item.label}</span>
                   </SidebarMenuButton>
-                  <SidebarMenuBadge>Plan</SidebarMenuBadge>
+                  <SidebarMenuBadge className="top-1/2! -translate-y-1/2 border border-sidebar-border font-normal text-muted-foreground">
+                    Plan
+                  </SidebarMenuBadge>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>

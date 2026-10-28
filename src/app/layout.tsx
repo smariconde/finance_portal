@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 import { PortalShell } from "@/app/_components/portal-shell";
+import { THEME_BOOTSTRAP_SCRIPT } from "@/app/_components/theme-script";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
 
 import "./globals.css";
@@ -27,7 +28,12 @@ export default async function RootLayout({
   const health = await getRequestConfigHealth();
 
   return (
-    <html lang="es-AR">
+    // `suppressHydrationWarning`: el script de tema escribe `data-theme` en
+    // `<html>` antes de hidratar, y esa diferencia es intencional.
+    <html lang="es-AR" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
+      </head>
       <body>
         <template
           data-design-contract="shadcn-finance-20260821"

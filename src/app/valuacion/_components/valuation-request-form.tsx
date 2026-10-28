@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition, type FormEvent } from "react";
+import { useId, useState, useTransition, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,10 @@ import { enqueueValuation } from "../actions";
  */
 export function ValuationRequestForm() {
   const router = useRouter();
+  // El formulario vive en el inicio y en `/valuacion`. Con Cache Components la
+  // ruta anterior queda montada y oculta, así que un `id` fijo se repetía y el
+  // `<label>` nombraba al campo escondido.
+  const inputId = useId();
   const [ticker, setTicker] = useState("");
   const [failed, setFailed] = useState(false);
   const [pending, setPending] = useState(false);
@@ -54,11 +58,11 @@ export function ValuationRequestForm() {
         onSubmit={onSubmit}
       >
         <div className="flex w-full max-w-xs flex-col gap-2">
-          <label className="text-sm font-medium" htmlFor="valuation-ticker">
+          <label className="text-sm font-medium" htmlFor={inputId}>
             Ticker
           </label>
           <Input
-            id="valuation-ticker"
+            id={inputId}
             name="ticker"
             value={ticker}
             autoCapitalize="characters"

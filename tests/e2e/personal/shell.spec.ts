@@ -121,7 +121,7 @@ test.describe("shell del portal", () => {
     await page.goto(ROUTES.home);
     await openNavigation(page);
 
-    for (const label of ["Empresas", "Argentina", "Agro"]) {
+    for (const label of ["Empresas", "Divergencias", "Argentina", "Agro"]) {
       const item = page.getByRole("button", { name: new RegExp(label) });
       // El estado se anuncia con `aria-disabled` para conservar el tooltip que
       // etiqueta el control cuando la sidebar está colapsada.
@@ -130,14 +130,65 @@ test.describe("shell del portal", () => {
     }
   });
 
-  test("el buscador global existe como forma, no como capacidad", async ({
+  test("el inicio ofrece la valuación por ticker, no un buscador muerto", async ({
     page,
   }) => {
     await page.goto(ROUTES.home);
 
     // Sin abrir el drawer: mientras está abierto es modal y deja el resto de la
     // página fuera del árbol de accesibilidad, que es lo correcto.
-    await expect(page.getByRole("searchbox")).toBeDisabled();
+    await expect(
+      page.getByRole("textbox", { name: "Ticker", exact: true }),
+    ).toBeEnabled();
+    await expect(page.getByRole("searchbox")).toHaveCount(0);
+  });
+
+  test("el tema se puede fijar y sobrevive a la navegación", async ({
+    page,
+  }) => {
+    await page.goto(ROUTES.home);
+
+    const toggle = page.getByRole("button", { name: /^Tema: / });
+    await expect(toggle).toHaveAccessibleName(
+      "Tema: el del sistema. Cambiar a claro",
+    );
+
+    await toggle.click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    await toggle.click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+
+    // El script inline lo aplica antes de pintar la página siguiente.
+    await page.goto(ROUTES.configuration);
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    await expect(
+      page.getByRole("button", { name: /^Tema: oscuro/ }),
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: /^Tema: oscuro/ }).click();
+    await expect(page.locator("html")).not.toHaveAttribute("data-theme", /.+/);
+  });
+
+  test("el header de la sidebar y el de la página comparten su borde", async ({
+    page,
+  }) => {
+    await page.goto(ROUTES.home);
+
+    const sidebar = page.locator("[data-slot='sidebar-header']").first();
+    test.skip(
+      !(await sidebar.isVisible()),
+      "En este viewport la navegación es un drawer cerrado.",
+    );
+
+    const sidebarBottom = await sidebar.evaluate(
+      (node) => node.getBoundingClientRect().bottom,
+    );
+    const headerBottom = await page
+      .locator("header")
+      .first()
+      .evaluate((node) => node.getBoundingClientRect().bottom);
+
+    expect(Math.abs(sidebarBottom - headerBottom)).toBeLessThanOrEqual(0.5);
   });
 
   test("cada superficie tiene un único h1 y no saltea niveles de encabezado", async ({

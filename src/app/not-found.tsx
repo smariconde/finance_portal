@@ -28,8 +28,8 @@ export const metadata: Metadata = {
  * así que la ruta también se sirve entera cuando llega.
  *
  * Deliberadamente no adivina qué buscaba el visitante ni ofrece una búsqueda: el
- * universo canónico y sus identificadores llegan en Fase 2, y sugerir un destino
- * sin poder resolverlo sería inventar una capacidad.
+ * portal no tiene un buscador global, y sugerir un destino sin poder resolverlo
+ * sería inventar una capacidad.
  */
 export const instant = false;
 

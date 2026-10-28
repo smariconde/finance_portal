@@ -260,6 +260,10 @@ export function CompanyHistory({
               formatValue(reading.value, spec, magnitude).replace(" %", ""),
       };
     });
+    const lastWithValue = [...years]
+      .reverse()
+      .find((year) => year[spec.key].status === "value");
+    const lastReading = lastWithValue?.[spec.key];
     const missing = years
       .filter((year) => year[spec.key].status !== "value")
       .map((year) => yearOf(year.fiscalYearEnd));
@@ -270,6 +274,13 @@ export function CompanyHistory({
       unit,
       reading: readingOf(spec, trajectory, missing),
       bars,
+      latest:
+        lastWithValue === undefined || lastReading?.status !== "value"
+          ? null
+          : {
+              year: yearOf(lastWithValue.fiscalYearEnd),
+              label: formatValue(lastReading.value, spec, magnitude),
+            },
     };
   });
 
