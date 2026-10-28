@@ -97,7 +97,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    69 | `F6-24`    | `queued`   | Año base TTM: el último 10-Q entra al año base (flujos TTM, balance al último cierre) y la corrida deja de quedar hasta un año atrás.                                                                                     | `F6-22`          |
 |    70 | `F6-25`    | `queued`   | Ficha de la empresa: múltiplos elegidos por arquetipo y su historia reportada en barras, calculados con datos propios.                                                                                                    | `F6-19`          |
 |    71 | `F6-26`    | `done`     | Logo guardado medido y descartado (Wikidata + Hunter: 48 % útil contra 100 % de logo.dev); queda logo.dev en el navegador con su caché de 24 h y una URL por ticker, y monograma.                                         | `F6-25`          |
-|    72 | `F6-27`    | `ready`    | Matriz de riesgo con logos: marcas más grandes y legibles, anillo propio para las que tienen CEDEAR y densidad medida en los sectores grandes.                                                                            | `F6-26`          |
+|    72 | `F6-27`    | `done`     | Matriz de riesgo con logos: marcas de 24 px, anillo e insignia CEDEAR, referencia S&P 500 destacada y densidad medida en Information Technology.                                                                          | `F6-26`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -3980,7 +3980,8 @@ Evidencia:
 
 #### `F6-26` — logo de la empresa (cerrado el 2026-10-28)
 
-Estado del slice: `done`, medido y descartado. `F6-27` queda `ready`.
+Estado del slice: `done`, medido y descartado. `F6-27` se cerró después con la
+solución de logos del navegador.
 
 - Lo que ya estaba hecho en el PR #78 ([ADR 0062](../architecture/adr/0062-company-logos-browser-loaded.md))
   queda como solución definitiva: `CompanyMark` con monograma, logo.dev
@@ -4008,7 +4009,7 @@ Estado del slice: `done`, medido y descartado. `F6-27` queda `ready`.
 
 #### `F6-27` — logos en la matriz de riesgo
 
-- Estado: `ready` desde el cierre de `F6-26` (pedido del owner del 2026-10-28).
+- Estado: `done` el 2026-10-28 (pedido del owner del mismo día).
 - Hoy (`matrix-chart.tsx`): la matriz mide `h-[26rem]`, o `32rem` desde
   `md`. Cada security es un punto de 4,5 px de radio: un cuadrado azul si
   tiene CEDEAR y un círculo hueco si no. El área de toque es de 12 px.
@@ -4039,6 +4040,24 @@ Estado del slice: `done`, medido y descartado. `F6-27` queda `ready`.
   CEDEAR se distingue en escala de grises; axe sin violaciones en claro y
   oscuro, desktop y 390 px; `reduced-motion` respetado; el E2E de sectores
   sigue pasando. Revisar con `financial-visualization-review` e `impeccable`.
+- Entregado: `MatrixChart` reusa la URL de `CompanyMark` y muestra su mismo
+  monograma cuando falta o falla el logo. Las marcas con CEDEAR llevan anillo
+  grueso e insignia cuadrada; las demás, borde fino. `placeLogoMarks` prioriza
+  CEDEAR y deja punto en los grupos densos; al seleccionarlo aparece su logo.
+  El S&P 500 se dibuja encima con rombo de 26 px, centro calado y placa sólida
+  que cambia de lado cerca del borde. La referencia reserva espacio a logos y
+  rótulos. Un rótulo sin posición libre queda disponible por foco y tabla, sin
+  forzar un choque. La matriz crece a 36/44 rem en escritorio.
+- Evidencia renderizada: Information Technology, 71 puntos de la medición real,
+  a 1440 claro/oscuro, 1024 claro y 390 claro/oscuro: 0 pares de logos sobre el
+  30 % de solape, 0 rótulos cruzados o sobre logos, 0 overflow horizontal,
+  71 puntos enfocables, toque mínimo de 24 px y 0 violaciones axe graves.
+  A 1440 se ven 62 logos; a 390, 29. En ambas resoluciones, enfocar un punto
+  denso muestra su marca con logo. La revisión aisló geometría con monogramas
+  locales; la caché de logo.dev y sus imágenes ya quedaron medidas en `F6-26`.
+- Gate: 3.266 unit, lint, typecheck, formato y build webpack; Playwright sobre
+  ese artefacto: 209 pasaron y 3 quedaron omitidas según su configuración.
+  Turbopack no pudo abrir su puerto interno en este entorno.
 
 #### `F6-20` — bancos y aseguradoras desde la app
 
