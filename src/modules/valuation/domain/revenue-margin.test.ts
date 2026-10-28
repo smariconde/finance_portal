@@ -2,8 +2,13 @@ import { describe, expect, it } from "vitest";
 import { runValuation } from "../application/run-valuation";
 import { replayValuationRun } from "../application/replay-valuation-run";
 import { fixtureGrowthValuation } from "../infrastructure/fixture-growth-valuation";
-import { deriveRevenueMargin, computeLossTax } from "./revenue-margin";
+import {
+  deriveRevenueMargin,
+  computeLossTax,
+  revenueMarginMismatches,
+} from "./revenue-margin";
 import { parseDecimal } from "./decimal-policy";
+import { deriveGrowthTrajectory } from "./derived-growth-trajectory";
 import { selectValuationMethod } from "./method-selection";
 import { SCENARIO_SET_VERSION } from "./scenarios";
 import { valuationInputSchema, type ValuationInput } from "./valuation-input";
@@ -29,6 +34,45 @@ function rebuild(input: ValuationInput) {
 }
 
 describe("revenue-to-margin and survival", () => {
+  it("checks the frozen industry margin and base year of an app-derived plan", () => {
+    const input = fixtureGrowthValuation("high_growth");
+    const baseYear = input.baseRevenue.asOf;
+    const years = [0, 1, 2, 3].map((offset) => ({
+      fiscalYearEnd: `${Number(baseYear.slice(0, 4)) - offset}${baseYear.slice(4)}`,
+      value:
+        offset === 0
+          ? input.baseRevenue.value
+          : String(100000000 / 1.2 ** offset),
+    }));
+    const trajectory = deriveGrowthTrajectory(years, input.terminal.growth);
+    expect(trajectory.status).toBe("ready");
+    if (trajectory.status !== "ready") return;
+    input.revenueMargin!.derivedFrom = {
+      trajectory: trajectory.trajectory,
+      margin: {
+        datasetId: "damodaran.margins-us",
+        releaseId: "d5ee9466-6666-4329-9732-b9809ca4f169",
+        rowKey: "software",
+        field: "pretax_lease_rd_adjusted_margin",
+        value: "0.2",
+        publishedLabel: "January 2025",
+        availableAt: "2025-01-01T00:00:00.000Z",
+        recordedAt: "2025-01-01T00:00:00.000Z",
+      },
+    };
+    expect(revenueMarginMismatches(input)).not.toContain(
+      "revenueMargin.derivedFrom.margin",
+    );
+    input.revenueMargin!.derivedFrom.margin.value = "0.25";
+    expect(revenueMarginMismatches(input)).toContain(
+      "revenueMargin.derivedFrom.margin",
+    );
+    input.revenueMargin!.derivedFrom.trajectory.revenueHistory[0]!.value = "1";
+    expect(revenueMarginMismatches(input)).toContain(
+      "revenueMargin.derivedFrom.trajectory",
+    );
+  });
+
   it.each(["high_growth", "loss_making"] as const)(
     "admits %s only with its own snapshot, experimental screening and replay",
     (profile) => {

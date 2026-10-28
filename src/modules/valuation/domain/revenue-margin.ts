@@ -198,7 +198,11 @@ export function revenueMarginMismatches(input: ValuationInput): string[] {
       ) ||
       plan.highGrowthYears !== trajectory.highGrowthYears ||
       plan.marginConvergenceYears !== trajectory.marginConvergenceYears ||
-      input.periods.length !== trajectory.explicitYears
+      input.periods.length !== trajectory.explicitYears ||
+      trajectory.revenueHistory[0]?.fiscalYearEnd !== input.baseRevenue.asOf ||
+      !parseDecimal(trajectory.revenueHistory[0]!.value, "revenueHistory.0").eq(
+        parseDecimal(input.baseRevenue.value, "baseRevenue"),
+      )
     )
       paths.push("revenueMargin.derivedFrom.trajectory");
     if (
