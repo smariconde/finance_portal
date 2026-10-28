@@ -3,6 +3,8 @@
 import { ArrowDown, ArrowUp, ArrowUpDown, CircleSlash } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 
+import { CompanyMark } from "@/app/_components/company-mark";
+
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -201,9 +203,12 @@ function SelectedPoint({
 export function SectorRiskWorkspace({
   matrix,
   asOfLabel,
+  logoUrls,
 }: {
   readonly matrix: SectorRiskMatrix;
   readonly asOfLabel: string;
+  /** El logo de cada security por su ID (ADR 0062); `null` muestra el monograma. */
+  readonly logoUrls: Readonly<Record<string, string | null>>;
 }) {
   const titleId = useId();
   const descriptionId = useId();
@@ -478,17 +483,25 @@ export function SectorRiskWorkspace({
                     data-state={active ? "selected" : undefined}
                   >
                     <TableCell>
-                      <button
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => setSelectedId(point.securityId)}
-                        className={cn(
-                          "rounded-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring",
-                          active && "text-primary",
-                        )}
-                      >
-                        {pointLabel(point)}
-                      </button>
+                      <span className="flex items-center gap-2">
+                        <CompanyMark
+                          ticker={point.ticker ?? point.securityId}
+                          name={point.issuerName}
+                          logoUrl={logoUrls[point.securityId] ?? null}
+                          size="sm"
+                        />
+                        <button
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => setSelectedId(point.securityId)}
+                          className={cn(
+                            "rounded-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring",
+                            active && "text-primary",
+                          )}
+                        >
+                          {pointLabel(point)}
+                        </button>
+                      </span>
                     </TableCell>
                     <TableCell className="text-right">
                       <SortinoCell result={point.sortino2y} />

@@ -28,4 +28,28 @@ describe("createSecurityHeaders", () => {
     expect(productionCsp).not.toContain("'unsafe-eval'");
     expect(developmentCsp).toContain("'unsafe-eval'");
   });
+
+  it("opens the logo host for images only (ADR 0062)", () => {
+    const directives = Object.fromEntries(
+      (
+        createSecurityHeaders().find(
+          ({ key }) => key === "Content-Security-Policy",
+        )?.value ?? ""
+      )
+        .split("; ")
+        .map((directive) => {
+          const [name, ...sources] = directive.split(" ");
+          return [name, sources];
+        }),
+    );
+
+    expect(directives["img-src"]).toEqual([
+      "'self'",
+      "data:",
+      "https://img.logo.dev",
+    ]);
+    for (const name of ["default-src", "script-src", "connect-src"]) {
+      expect(directives[name]?.join(" ")).not.toContain("logo.dev");
+    }
+  });
 });
