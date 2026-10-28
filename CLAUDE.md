@@ -515,6 +515,11 @@ free plan forbids storing them, so the CSP opens `img-src` to
 per request (`requestCompanyLogoUrl`), and `CompanyMark` falls back to a local
 monogram without a key or on a 404. Never route them through `next/image`: its
 optimizer would fetch and store them server-side, outside the egress door.
+Storing logos (Wikidata domain + Hunter) was measured in `F6-26` and dropped:
+48 % useful against logo.dev's 100 %. The browser cache is the only cache:
+logo.dev sends `max-age=86400` on the logo and on the 404, so every surface
+uses the **one URL per ticker** `companyLogoUrl` builds — another size or
+format is another cache entry and doubles the requests.
 Metric names lead with their English term from `src/app/_components/financial-terms.ts`.
 
 Since `F6-12` `/valuacion` is only the entry: it enqueues and navigates to
