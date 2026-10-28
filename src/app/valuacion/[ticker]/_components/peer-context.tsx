@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { CompanyMark } from "@/app/_components/company-mark";
 import { EvidenceKindMark } from "@/app/valuacion/_components/run/data-marks";
 import {
   Card,
@@ -31,6 +32,7 @@ import type {
   PeerRelative,
   PeerSummary,
 } from "@/modules/valuation/domain/peer-context";
+import { requestCompanyLogoUrl } from "@/server/config/company-logo";
 
 import { Concept } from "./concept";
 
@@ -324,19 +326,33 @@ export function PeerContext({ context }: { context: PeerContextReading }) {
                       {sector.peers.map((peer) => (
                         <TableRow key={peer.legalEntityId}>
                           <TableHead scope="row" className="font-normal">
-                            {peer.symbol === null ? (
-                              (peer.legalName ?? "Sin nombre al corte")
-                            ) : (
-                              <Link
-                                className="underline underline-offset-4"
-                                href={`/valuacion/${encodeURIComponent(peer.symbol)}`}
-                              >
-                                <span className="font-mono">{peer.symbol}</span>
-                                {peer.legalName === null
-                                  ? null
-                                  : ` · ${peer.legalName}`}
-                              </Link>
-                            )}
+                            <span className="flex items-center gap-2">
+                              <CompanyMark
+                                ticker={peer.symbol ?? peer.legalName ?? "?"}
+                                name={peer.legalName}
+                                logoUrl={
+                                  peer.symbol === null
+                                    ? null
+                                    : requestCompanyLogoUrl(peer.symbol)
+                                }
+                                size="sm"
+                              />
+                              {peer.symbol === null ? (
+                                (peer.legalName ?? "Sin nombre al corte")
+                              ) : (
+                                <Link
+                                  className="underline underline-offset-4"
+                                  href={`/valuacion/${encodeURIComponent(peer.symbol)}`}
+                                >
+                                  <span className="font-mono">
+                                    {peer.symbol}
+                                  </span>
+                                  {peer.legalName === null
+                                    ? null
+                                    : ` · ${peer.legalName}`}
+                                </Link>
+                              )}
+                            </span>
                           </TableHead>
                           <TableCell>{METHOD_COPY[peer.method]}</TableCell>
                           <TableCell>{STATUS_COPY[peer.status]}</TableCell>

@@ -5,6 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { DataUnavailableNotice } from "@/app/_components/data-unavailable-notice";
+import { CompanyMark } from "@/app/_components/company-mark";
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -45,6 +46,7 @@ import {
   readScenarios,
 } from "@/modules/valuation/domain/valuation-report";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
+import { requestCompanyLogoUrl } from "@/server/config/company-logo";
 import {
   readValuationHistoryForRequest,
   readValuationResultForRequest,
@@ -186,17 +188,27 @@ function PageFrame({
             >
               Valuación por ticker
             </Link>
-            <h1
-              id="result-title"
-              className="max-w-4xl text-2xl font-semibold tracking-tight text-balance md:text-3xl"
-            >
-              {title}
-            </h1>
-            {title === ticker ? null : (
-              <p className="font-mono text-sm text-muted-foreground">
-                {ticker}
-              </p>
-            )}
+            <div className="flex min-w-0 items-center gap-4">
+              <CompanyMark
+                ticker={ticker}
+                name={title === ticker ? null : title}
+                logoUrl={requestCompanyLogoUrl(ticker)}
+                size="lg"
+              />
+              <div className="flex min-w-0 flex-col gap-1">
+                <h1
+                  id="result-title"
+                  className="max-w-4xl text-2xl font-semibold tracking-tight text-balance md:text-3xl"
+                >
+                  {title}
+                </h1>
+                {title === ticker ? null : (
+                  <p className="font-mono text-sm text-muted-foreground">
+                    {ticker}
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
           <ValuationRunner ticker={ticker} hasRun={hasRun} />
         </section>

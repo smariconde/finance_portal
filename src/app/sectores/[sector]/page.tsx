@@ -25,6 +25,7 @@ import { getClassificationRepository } from "@/server/persistence/get-classifica
 import { getIngestionJobStore } from "@/server/persistence/get-ingestion-job-store";
 import { getPriceRepository } from "@/server/persistence/get-price-repository";
 import { getUniverseRepository } from "@/server/persistence/get-universe-repository";
+import { requestCompanyLogoUrl } from "@/server/config/company-logo";
 
 import { SectorPriceRefresh } from "./_components/sector-price-refresh";
 import { SectorRiskExport } from "./_components/sector-risk-export";
@@ -278,7 +279,18 @@ function MatrixBody({
           </AlertDescription>
         </Alert>
       ) : (
-        <SectorRiskWorkspace matrix={matrix} asOfLabel={asOfLabel} />
+        <SectorRiskWorkspace
+          matrix={matrix}
+          asOfLabel={asOfLabel}
+          logoUrls={Object.fromEntries(
+            matrix.points.map((point) => [
+              point.securityId,
+              point.ticker === null
+                ? null
+                : requestCompanyLogoUrl(point.ticker),
+            ]),
+          )}
+        />
       )}
     </>
   );

@@ -14,7 +14,9 @@ export function createSecurityHeaders({
     "default-src 'self'",
     `script-src ${scriptSources}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data:",
+    // Logos de empresas cargados por el navegador (ADR 0062): sólo ese host,
+    // sólo imágenes.
+    "img-src 'self' data: https://img.logo.dev",
     "font-src 'self'",
     "connect-src 'self'",
     "object-src 'none'",

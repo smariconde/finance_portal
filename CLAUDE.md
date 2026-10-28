@@ -508,6 +508,15 @@ recomputes from the frozen basis. The job no longer ends in
 Cencora, ALGN, DECK, EXPD and MRK reach a run with the basis named; 44 stored
 runs replay. The next slice is `F6-08`.
 
+Company logos are loaded by the **browser** from logo.dev
+([ADR 0062](docs/architecture/adr/0062-company-logos-browser-loaded.md)): the
+free plan forbids storing them, so the CSP opens `img-src` to
+`https://img.logo.dev` only, the publishable `LOGO_DEV_PUBLISHABLE_KEY` is read
+per request (`requestCompanyLogoUrl`), and `CompanyMark` falls back to a local
+monogram without a key or on a 404. Never route them through `next/image`: its
+optimizer would fetch and store them server-side, outside the egress door.
+Metric names lead with their English term from `src/app/_components/financial-terms.ts`.
+
 Since `F6-12` `/valuacion` is only the entry: it enqueues and navigates to
 `/valuacion/[ticker]`, whose `ValuationRunner` follows an open job, announces its state
 inline and re-reads the page in place with `router.refresh()` when the run is recorded.
