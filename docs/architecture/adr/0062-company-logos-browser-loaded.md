@@ -70,6 +70,12 @@ aunque la corrida sea de otra fecha).
   viaja en el `Referer`.
 - Sin clave configurada, la app funciona igual: todas las empresas tienen
   monograma y el navegador no habla con terceros.
+- Esta ADR contradijo el criterio original de `F6-26` («la CSP no gana
+  `img-src` externo»). El 2026-10-28 el owner decidió conservar logo.dev
+  **como última opción**: `F6-26` traerá el logo guardado (dominio de
+  Wikidata, imagen de Hunter, que alienta el cacheo local), servido desde una
+  ruta propia, y logo.dev quedará sólo para las empresas sin logo guardado.
+  Esa enmienda tendrá su propia ADR.
 - Reabrir si el owner contrata self-hosting —entonces el logo pasa a la puerta
   de egress y la CSP vuelve a `'self'`—, si cambian los términos de logo.dev o
   si aparece una superficie pública.

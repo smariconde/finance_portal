@@ -198,7 +198,8 @@ La espina del producto, ya con todas sus piezas construidas.
 - [x] Contexto de la brecha (`F6-19`, [ADR 0060](../architecture/adr/0060-valuation-peer-context.md)): precio sobre valor frente al sector y a todo lo valuado en una ventana de siete dias, y P/E y EV/EBIT contra el sector entre empresas valuadas; sin lote.
 - [ ] Año base TTM desde el ultimo 10-Q (`F6-24`): la corrida deja de quedar hasta un año atras del `as_of`.
 - [ ] Ficha de la empresa con multiplos por arquetipo y su historia reportada en barras, con datos propios (`F6-25`).
-- [ ] Logo de la empresa desde una fuente gratuita con derechos declarados, servido desde una ruta propia (`F6-26`).
+- [ ] Logo de la empresa guardado (dominio de Wikidata, logo de Hunter) y servido desde una ruta propia; logo.dev en el navegador como última opción (ADR 0062) y monograma (`F6-26`).
+- [ ] Matriz de riesgo con logos, marcas más grandes y anillo propio para CEDEAR (`F6-27`).
 
 `F6-01` cerró el 2026-10-21. `F6-07` cerró el mismo día: el job ya escribe `valuation_runs` con supuestos derivados y la corrida se reproduce. `F6-03` cerró el mismo día: `/valuacion/[ticker]` muestra el valor con su rigor y el origen de cada dato. `F6-05` cerró el 2026-10-21 con descarga y auditoría bajo demanda; `F6-08` cerró el 2026-10-24 con precio local y pesos. El deployment y el job remoto de `F6-06` se verificaron el 2026-10-26. Quality y E2E pasaron en CI. El owner aceptó cerrar el gate con la falta de tiempos del walkthrough documentada; una futura medición de usabilidad requiere repetir las tareas con cronómetro.
 
