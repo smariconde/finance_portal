@@ -96,7 +96,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    68 | `F6-23`    | `queued`   | Deuda de las empresas con brazo financiero cautivo (CAT, DE): medir sus conceptos y decidir cómo se trata la financiera antes de valuarlas.                                                                               | `F6-18`          |
 |    69 | `F6-24`    | `queued`   | Año base TTM: el último 10-Q entra al año base (flujos TTM, balance al último cierre) y la corrida deja de quedar hasta un año atrás.                                                                                     | `F6-22`          |
 |    70 | `F6-25`    | `queued`   | Ficha de la empresa: múltiplos elegidos por arquetipo y su historia reportada en barras, calculados con datos propios.                                                                                                    | `F6-19`          |
-|    71 | `F6-26`    | `queued`   | Logo de la empresa desde una fuente gratuita con derechos declarados, bajado por un job y servido desde una ruta propia.                                                                                                  | `F6-25`          |
+|    71 | `F6-26`    | `queued`   | Logo guardado: dominio por CIK desde Wikidata, logo de Hunter bajado por un job, validado y servido desde una ruta propia; logo.dev en el navegador como última opción y monograma.                                       | `F6-25`          |
+|    72 | `F6-27`    | `queued`   | Matriz de riesgo con logos: marcas más grandes y legibles, anillo propio para las que tienen CEDEAR y densidad medida en los sectores grandes.                                                                            | `F6-26`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -3653,7 +3654,8 @@ repararon contra `source_documents`.
 | `F6-23` | Deuda de empresas con brazo financiero cautivo: conceptos medidos y regla para la financiera, sin sumar ni excluir en silencio.                                                                                                       | `F6-18`          | `TM-05`, `TM-06`, `TM-16`                   |
 | `F6-24` | Año base TTM desde el último 10-Q: flujos como FY + acumulado actual − acumulado previo, balance del último cierre, ventana y recómputos ajustados; las corridas anteriores replayan.                                                 | `F6-22`          | `TM-05`, `TM-06`, `TM-16`                   |
 | `F6-25` | Ficha de la empresa con múltiplos por arquetipo y barras de su historia reportada, todo calculado de SEC y precios guardados; nulos con motivo.                                                                                       | `F6-19`          | `TM-05`, `TM-06`, `UI-02`, `UI-03`          |
-| `F6-26` | Logo por empresa desde una fuente gratuita registrada con sus derechos, bajado por job y servido desde una ruta propia, sin `img-src` externo.                                                                                        | `F6-25`          | `TM-05`, `TM-08`, `TM-10`                   |
+| `F6-26` | Logo por empresa: dominio de Wikidata por CIK, logo de Hunter bajado por job, validado y guardado, servido desde una ruta propia; logo.dev en el navegador sólo como última opción (ADR 0062) y monograma.                            | `F6-25`          | `TM-03`, `TM-05`, `TM-08`, `TM-10`, `TM-12` |
+| `F6-27` | La matriz de riesgo dibuja cada security con su logo, a un tamaño legible, con un anillo propio para CEDEAR que no depende sólo del color, sin choques en los sectores más grandes.                                                   | `F6-26`          | `UI-02`, `UI-03`                            |
 
 **Criterio agregado a `F6-05` el 2026-10-20.** Toda ingesta que dispare la
 app —la que baja la ventana que falta y cualquier reingesta o refresh de un
@@ -3978,13 +3980,101 @@ Evidencia:
 
 #### `F6-26` — logo de la empresa
 
-- Estado: `queued` (pedido del owner del 2026-10-27).
-- Alcance: una ADR elige la fuente (candidatas: logo.dev con token, Wikimedia
-  Commons con licencia por archivo) y la registra con sus derechos. Un job
-  baja el logo por el egress, lo guarda en la base y una ruta propia lo
-  sirve, así el navegador nunca llama a un tercero. Los logos no se commitean.
-- Aceptación: sin logo, la superficie muestra un monograma, nunca una imagen
-  rota; la CSP no gana `img-src` externo.
+- Estado: `queued`. Pedido del owner del 2026-10-27, replanteado el 2026-10-28.
+- Ya hecho en el PR #78 ([ADR 0062](../architecture/adr/0062-company-logos-browser-loaded.md)):
+  `CompanyMark` con monograma, logo.dev cargado por el navegador con la clave
+  publicable y `img-src` abierto sólo a `https://img.logo.dev`. Aparece en el
+  encabezado de la valuación, en la tabla de pares y en la tabla de la matriz.
+  Esto contradijo el criterio original («la CSP no gana `img-src`
+  externo»). **El owner decidió el 2026-10-28 conservar logo.dev como última
+  opción**, así que ese criterio se reemplaza por los de abajo.
+- Medición previa (2026-10-28, 10 empresas, payloads sólo en el scratchpad):
+  - `submissions` de la SEC trae `website` vacío en las 10: no sirve.
+  - Wikidata (CC0) tiene el sitio oficial (P856) de las 10, buscando por CIK
+    (P5531). Hay que normalizarlo: Apple trae decenas de URLs por país, y
+    ExxonMobil y Visa vienen como `corporate.…`.
+  - Hunter (`logos.hunter.io/{dominio}`) es gratis, sin cuenta ni clave, y
+    «Caching logos locally is encouraged». El backlink que pide lo exigen sus
+    términos arriba de 50.000 requests/día. Sin logo responde `404`. Pesa
+    1–3 KB (AVIF o PNG), `max-age` de 30 días. La calidad varía: apple.com
+    302×302, exxonmobil.com 144×144, visa.com 208×68, microsoft.com
+    128×128, pero google.com y abc.xyz 16×16 (un favicon).
+- Plan:
+  1. **Medir primero** sobre un sector completo (Communication Services, 24
+     securities): cobertura de Wikidata, regla de dominio y cuántos logos de
+     Hunter pasan el piso de calidad. Si la cobertura útil baja del 70 %,
+     volver al owner con la tabla antes de codificar.
+  2. **ADR 0063** (enmienda a la 0062): registra `wikidata` (CC0, `allowed`) y
+     `hunter-logos` (`owner_accepted`, cacheo alentado por el proveedor) en el
+     registro de fuentes, con allowlist de host y ruta exactos
+     (`query.wikidata.org/sparql`, `logos.hunter.io/`) y topes diarios en
+     `SOURCE_DAILY_REQUEST_BUDGETS` (Wikidata 20, Hunter 300). Decide la
+     cadena: logo propio → logo.dev en el navegador → monograma.
+  3. **Dominio** `company-domain-1.0.0`: una consulta SPARQL por lote de CIK;
+     se elige el host más frecuente entre los P856 con rango preferido o
+     normal, sin `www.`, y se guarda como asignación de identificador
+     (`website_domain`) de la entidad legal, con `available_at` en la
+     observación y la fuente. Sin sitio, `null` con motivo.
+  4. **Logo** `company-logo-1.0.0`: el job lo baja por `getSourceEgressFetch` y
+     lo valida antes de guardar: tipo por magic bytes (PNG, WebP, AVIF o JPEG;
+     nunca SVG), hasta 64 KB, al menos 64 px del lado menor leído del header,
+     `sha256`. Se guarda también el resultado negativo (`not_found`,
+     `too_small`, `invalid`) para no volver a pedirlo; se reintenta a los 90
+     días. Tabla nueva `company_logos` (entidad legal, fuente, dominio, tipo,
+     bytes, ancho, alto, hash, estado, `fetched_at`), con migración y rollback
+     pareados. Medido: ~1 MB todo el índice.
+  5. **Cuándo se baja**: nunca al renderizar. Lo piden los jobs que ya existen:
+     el de valuación (`valuation-data`, sin bloquear la corrida) y el de precios
+     del sector (`yahoo_prices_refresh`, como fase propia), sólo para lo que
+     falta.
+  6. **Ruta** `GET /logos/[legalEntityId]`: Route Handler sólo en modo
+     personal. Valida el UUID, sirve los bytes con el tipo guardado,
+     `Cache-Control: private, max-age=604800, immutable` y `ETag` por hash, y
+     responde `404` sin cuerpo útil cuando no hay logo.
+  7. **`CompanyMark`** recibe una lista ordenada de fuentes (propia, después
+     logo.dev) y pasa a la siguiente ante un error. La URL de logo.dev se arma
+     sólo si no hay logo propio guardado.
+- Aceptación: una empresa con logo de Hunter válido no genera ninguna request
+  del navegador a terceros (medido en la revisión renderizada); una sin él cae
+  a logo.dev y después al monograma, nunca a una imagen rota; un favicon de
+  16 px nunca se guarda; ninguna página descarga al renderizar; replays y
+  hashes de corridas no cambian, porque el logo no entra al snapshot.
+- Tests: validación de imagen con fixtures sintéticos (PNG/AVIF/WebP mínimos,
+  SVG, archivo truncado, demasiado grande, 16×16), normalización de dominios
+  (multi-país, `corporate.`, `www.`), la ruta en modo trabado (`403`) y
+  personal, y la cadena de fuentes de `CompanyMark`.
+
+#### `F6-27` — logos en la matriz de riesgo
+
+- Estado: `queued`, después de `F6-26` (pedido del owner del 2026-10-28).
+- Hoy (`matrix-chart.tsx`): la matriz mide `h-[26rem]`, o `32rem` desde
+  `md`. Cada security es un punto de 4,5 px de radio: un cuadrado azul si
+  tiene CEDEAR y un círculo hueco si no. El área de toque es de 12 px.
+  Rótulos de ticker agrupados por `matrix-layout.ts`.
+- Plan:
+  1. **Medir la densidad** sobre los sectores reales más grandes (Industrials
+     83, IT 73, Financials 76) y el más chico: cuántas marcas de 24 px se
+     solapan más del 30 % con cada alto candidato. Decidir con la tabla.
+  2. **Marca con logo**: `<image>` SVG recortada en un círculo de 11–12 px de
+     radio sobre placa blanca, con la misma cadena de fuentes que
+     `CompanyMark` (propia → logo.dev → monograma en SVG).
+  3. **CEDEAR sin depender del color**: las que tienen CEDEAR llevan un anillo
+     grueso (2,5 px, `--chart-1`) y además una insignia chica en la esquina;
+     las demás, un borde fino neutro. La leyenda dibuja las dos marcas.
+  4. **Tamaño**: más alto y casi cuadrado en escritorio (por ejemplo
+     `h-[36rem]` a `lg:h-[44rem]`), sin desbordar en 390 px. En mobile y en
+     clusters densos, la marca vuelve al punto actual y el logo aparece al
+     seleccionarla; la regla sale de la medición del paso 1.
+  5. **Rótulos**: con logo, el ticker se muestra para la selección, los
+     extremos y los que el layout ubica sin choque; el resto queda en la
+     tabla.
+  6. **Foco y selección**: el anillo de foco y el de selección se agrandan con
+     la marca; el área de toque llega al menos a 24 px (`UI-02`).
+- Aceptación: en el sector más grande no hay dos marcas solapadas más que el
+  umbral medido, ni rótulos que choquen (medido en el DOM, como en `F7-05`);
+  CEDEAR se distingue en escala de grises; axe sin violaciones en claro y
+  oscuro, desktop y 390 px; `reduced-motion` respetado; el E2E de sectores
+  sigue pasando. Revisar con `financial-visualization-review` e `impeccable`.
 
 #### `F6-20` — bancos y aseguradoras desde la app
 
