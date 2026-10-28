@@ -61,7 +61,7 @@ test.describe("corrida de referencia", () => {
     const headline = cardWithHeading(page, "Resultado de la corrida");
 
     await expect(
-      headline.getByText("Valor por acción", { exact: true }),
+      headline.getByText("Value per share", { exact: true }),
     ).toBeVisible();
     await expect(headline.getByText("13,39", { exact: true })).toBeVisible();
     // El valor redondeado es para leer; el exacto es para auditar. Los dos están.
@@ -209,7 +209,7 @@ test.describe("corrida de referencia", () => {
     });
     const terminalRoic = bearDrivers.getByRole("row").filter({
       has: page.getByRole("rowheader", {
-        name: "Retorno sobre el capital terminal",
+        name: "Terminal ROIC",
       }),
     });
 

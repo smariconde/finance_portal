@@ -278,10 +278,10 @@ export default async function ValuationReferencePage() {
                   <TableHead scope="col">Corte</TableHead>
                   <TableHead scope="col">Conocido hasta</TableHead>
                   <TableHead scope="col" className="text-right">
-                    Ingresos del año base
+                    Base-year revenue
                   </TableHead>
                   <TableHead scope="col" className="text-right">
-                    Valor por acción
+                    Value per share
                   </TableHead>
                   <TableHead scope="col">Hash del resultado</TableHead>
                 </TableRow>

@@ -52,19 +52,19 @@ export const DRIVER_COPY: Record<
   { label: string; scope: string }
 > = {
   revenue_growth: {
-    label: "Crecimiento de ventas",
+    label: "Revenue growth",
     scope: "Años 1–5; del 6 al 10 converge al crecimiento terminal",
   },
   ebit_margin: {
-    label: "Margen EBIT",
+    label: "EBIT margin",
     scope: "Todos los años y el terminal",
   },
   terminal_return_on_capital: {
-    label: "ROIC terminal",
+    label: "Terminal ROIC",
     scope: "Cuánto se reinvierte para crecer a perpetuidad",
   },
   discount_rate: {
-    label: "Tasa de descuento",
+    label: "Discount rate",
     scope: "Una sola tasa para todos los años: la TIR que paga el precio",
   },
 };
@@ -102,9 +102,9 @@ export const READING_DRIVER: Partial<
 };
 
 export const READING_COPY: Record<ReadingDriver, string> = {
-  revenue_growth: "Crecimiento de ventas",
-  operating_margin: "Margen operativo",
-  competitive_advantage: "Ventaja competitiva",
+  revenue_growth: "Revenue growth",
+  operating_margin: "Operating margin",
+  competitive_advantage: "Competitive advantage (moat)",
 };
 
 const SECTION_COPY: Record<string, string> = {

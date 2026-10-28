@@ -1,3 +1,4 @@
+import { termName } from "@/app/_components/financial-terms";
 import type { ScenarioDriverKey } from "@/modules/valuation/domain/scenarios";
 import type { BridgeItemKey } from "@/modules/valuation/domain/valuation-input";
 import type {
@@ -6,7 +7,8 @@ import type {
 } from "@/modules/valuation/domain/valuation-report";
 
 /**
- * Lectura en español de los identificadores del motor.
+ * Lectura de los identificadores del motor. Las métricas usan su nombre
+ * estándar en inglés del glosario (`financial-terms.ts`); el resto, castellano.
  *
  * Vive en la superficie y no en el dominio a propósito: el identificador es el
  * contrato estable y auditable; la etiqueta es copia de interfaz y puede
@@ -14,18 +16,18 @@ import type {
  * muestra el código, nunca una descripción inventada.
  */
 export const BRIDGE_LABELS: Record<BridgeItemKey, string> = {
-  excessCash: "Caja excedente",
-  nonOperatingAssets: "Activos no operativos",
-  debt: "Deuda financiera",
-  leaseDebt: "Deuda por arrendamientos",
-  minorityInterest: "Participaciones no controlantes",
-  otherClaims: "Otras claims sobre el equity",
-  employeeOptions: "Opciones de empleados",
+  excessCash: termName("excessCash"),
+  nonOperatingAssets: termName("nonOperatingAssets"),
+  debt: termName("debt"),
+  leaseDebt: termName("leaseDebt"),
+  minorityInterest: termName("minorityInterest"),
+  otherClaims: termName("otherClaims"),
+  employeeOptions: termName("employeeOptions"),
 };
 
 export const FACT_LABELS: Record<ReportedFactId, string> = {
-  baseRevenue: "Ingresos del año base",
-  sharesOutstanding: "Acciones en circulación",
+  baseRevenue: "Base-year revenue",
+  sharesOutstanding: termName("sharesOutstanding"),
   "bridge.excessCash": BRIDGE_LABELS.excessCash,
   "bridge.nonOperatingAssets": BRIDGE_LABELS.nonOperatingAssets,
   "bridge.debt": BRIDGE_LABELS.debt,
@@ -36,18 +38,18 @@ export const FACT_LABELS: Record<ReportedFactId, string> = {
 };
 
 export const TRANSFORMATION_LABELS: Record<TransformationId, string> = {
-  revenue_projection: "Proyección de ingresos",
-  ebit: "Resultado operativo",
-  nopat: "NOPAT después de impuestos",
-  reinvestment_sales_to_capital: "Reinversión por sales-to-capital",
-  reinvestment_return_on_capital: "Reinversión por crecimiento sobre ROIC",
-  fcff: "Flujo libre a la firma",
-  discount_factor: "Factor de descuento acumulado",
-  present_value: "Valor presente del período",
-  terminal_value: "Valor terminal",
-  enterprise_value: "Enterprise value",
-  equity_bridge: "Puente enterprise value a equity",
-  value_per_share: "Valor por acción",
+  revenue_projection: "Revenue projection",
+  ebit: termName("ebit"),
+  nopat: termName("nopat"),
+  reinvestment_sales_to_capital: "Reinvestment (sales-to-capital)",
+  reinvestment_return_on_capital: "Reinvestment (growth ÷ ROIC)",
+  fcff: termName("fcff"),
+  discount_factor: termName("discountFactor"),
+  present_value: termName("presentValue"),
+  terminal_value: termName("terminalValue"),
+  enterprise_value: termName("enterpriseValue"),
+  equity_bridge: "EV-to-equity bridge",
+  value_per_share: termName("valuePerShare"),
 };
 
 const CHECK_LABELS: Record<string, string> = {
@@ -158,13 +160,13 @@ export function checkRule(id: string, message: string): string {
 
 /** Drivers que un escenario puede mover (`scenario-set-1.0.0`). */
 export const SCENARIO_DRIVER_LABELS: Record<ScenarioDriverKey, string> = {
-  revenueGrowth: "Crecimiento de ventas",
-  ebitMargin: "Margen EBIT",
-  salesToCapital: "Ventas sobre capital",
-  returnOnCapital: "Retorno sobre el capital",
-  terminalGrowth: "Crecimiento terminal",
-  terminalEbitMargin: "Margen EBIT terminal",
-  terminalReturnOnCapital: "Retorno sobre el capital terminal",
+  revenueGrowth: termName("revenueGrowth"),
+  ebitMargin: termName("ebitMargin"),
+  salesToCapital: termName("salesToCapital"),
+  returnOnCapital: termName("returnOnCapital"),
+  terminalGrowth: termName("terminalGrowth"),
+  terminalEbitMargin: termName("terminalEbitMargin"),
+  terminalReturnOnCapital: termName("terminalReturnOnCapital"),
 };
 
 export function checkLabel(id: string): string {

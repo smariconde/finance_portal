@@ -148,9 +148,7 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
 
           <figure className="flex min-w-0 flex-col gap-3">
             <figcaption className="flex flex-col gap-0.5">
-              <h3 className="text-sm font-medium">
-                La caja de cada año y lo que vale hoy
-              </h3>
+              <h3 className="text-sm font-medium">FCFF de cada año y su PV</h3>
               <span className="text-xs text-muted-foreground">
                 {projectionUnit}. La diferencia entre las dos barras es el
                 descuento, que crece con los años.
@@ -172,14 +170,14 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
                   aria-hidden="true"
                   className="size-2.5 rounded-xs bg-chart-1/45"
                 />
-                Flujo de caja libre del año
+                FCFF del año
               </span>
               <span className="flex items-center gap-1.5">
                 <span
                   aria-hidden="true"
                   className="size-2.5 rounded-xs bg-chart-2"
                 />
-                Ese flujo, valuado hoy
+                PV: ese flujo, valuado hoy
               </span>
             </div>
             <details className="group text-sm">
@@ -191,13 +189,13 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
                   <TableRow>
                     <TableHead scope="col">Año</TableHead>
                     <TableHead scope="col" className="text-right">
-                      Ventas
+                      Revenue
                     </TableHead>
                     <TableHead scope="col" className="text-right">
-                      Flujo libre
+                      FCFF
                     </TableHead>
                     <TableHead scope="col" className="text-right">
-                      Valor hoy
+                      PV
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -250,7 +248,7 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
               </p>
             )}
             <p>
-              Ventas del año 1: {compact(chain.firstYear.revenue)}. Del año{" "}
+              Revenue del año 1: {compact(chain.firstYear.revenue)}. Del año{" "}
               {chain.explicitYears}: {compact(chain.lastYear.revenue)}.
             </p>
           </Step>
@@ -258,13 +256,13 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
           <Step index={2} title="Calcula cuánto gana con esas ventas">
             {cycle === undefined ? (
               <p>
-                Aplica un margen operativo de{" "}
+                Aplica un EBIT margin (margen operativo) de{" "}
                 <strong className={STRONG}>{pct(first.ebitMargin)}</strong>, el
                 del último ejercicio ajustado, y lo mantiene{" "}
                 {first.ebitMargin === last.ebitMargin
                   ? "todos los años"
                   : `hasta ${pct(last.ebitMargin)}`}
-                . Ganancia operativa del año 1: {compact(chain.firstYear.ebit)}.
+                . EBIT del año 1: {compact(chain.firstYear.ebit)}.
               </p>
             ) : (
               <>
@@ -286,8 +284,7 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
                   <strong className={STRONG}>
                     {formatAmount(cycle.currentMarginValuePerShare)} {currency}
                   </strong>{" "}
-                  por acción. Ganancia operativa del año 1:{" "}
-                  {compact(chain.firstYear.ebit)}.
+                  por acción. EBIT del año 1: {compact(chain.firstYear.ebit)}.
                 </p>
               </>
             )}
@@ -297,16 +294,16 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
             <p>
               Para crecer, la empresa tiene que invertir: el modelo resta esa
               reinversión y los impuestos (de {pct(first.taxRate)} a{" "}
-              {pct(terminal.taxRate)}). Lo que queda es el flujo de caja libre:{" "}
-              {compact(chain.firstYear.fcff)} en el año 1 y{" "}
-              {compact(chain.lastYear.fcff)} en el año {chain.explicitYears}.
+              {pct(terminal.taxRate)}). Lo que queda es el FCFF (flujo de caja
+              libre de la empresa): {compact(chain.firstYear.fcff)} en el año 1
+              y {compact(chain.lastYear.fcff)} en el año {chain.explicitYears}.
             </p>
           </Step>
 
           <Step index={4} title="Trae esos flujos a valor de hoy">
             <p>
               Un dólar dentro de diez años vale menos que uno hoy. El modelo
-              descuenta cada año con una tasa de{" "}
+              descuenta cada año con un WACC de{" "}
               <strong className={STRONG}>{pct(first.wacc, 2)}</strong> que baja
               a <strong className={STRONG}>{pct(terminal.wacc, 2)}</strong> a
               largo plazo. Los {chain.explicitYears} años valen hoy{" "}
@@ -319,7 +316,7 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
               Después del año {chain.explicitYears} supone que la empresa sigue
               creciendo{" "}
               <strong className={STRONG}>{pct(terminal.growth)}</strong> por año
-              para siempre. Ese «valor terminal» vale hoy{" "}
+              para siempre. Ese terminal value (valor terminal) vale hoy{" "}
               {compact(chain.terminalPresentValue)}
               {result.terminalValueShare === null ? (
                 "."
@@ -341,7 +338,7 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
               </p>
             )}
             <p>
-              Valor de las operaciones:{" "}
+              Enterprise value (EV, el valor de las operaciones):{" "}
               <strong className={STRONG}>
                 {compact(chain.enterpriseValue)}
               </strong>
@@ -370,7 +367,7 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
               ))}
             </ul>
             <p>
-              Queda para los accionistas{" "}
+              Queda un equity value (para los accionistas) de{" "}
               <strong className={STRONG}>{compact(chain.equityValue)}</strong>,
               que repartido entre {formatCompactAmount(chain.shareCount)}{" "}
               acciones da{" "}
@@ -383,12 +380,12 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
         </ol>
 
         <div className="grid gap-3 sm:grid-cols-2 xl:col-span-2">
-          <Concept term="el flujo de caja descontado">
+          <Concept term="el DCF (flujo de caja descontado)">
             El método que usa la página. Proyecta cuánta caja va a generar el
             negocio, la trae a valor de hoy con una tasa que refleja su riesgo y
             le resta las deudas. Es el método de Aswath Damodaran.
           </Concept>
-          <Concept term="el valor terminal">
+          <Concept term="el terminal value (valor terminal)">
             El valor de todos los años después del horizonte explícito,
             resumidos en una fórmula de crecimiento perpetuo. Suele ser la mayor
             parte del valor, y por eso es donde más pesa un supuesto equivocado.

@@ -70,13 +70,13 @@ export function AssumptionsTables({
               <TableHead scope="col">Período</TableHead>
               <TableHead scope="col">Cierre</TableHead>
               <TableHead scope="col" className="text-right">
-                Crecimiento
+                Revenue growth
               </TableHead>
               <TableHead scope="col" className="text-right">
-                Margen EBIT
+                EBIT margin
               </TableHead>
               <TableHead scope="col" className="text-right">
-                Tasa impositiva
+                Tax rate
               </TableHead>
               <TableHead scope="col" className="text-right">
                 WACC
@@ -178,7 +178,7 @@ export function AssumptionsTables({
               <TableRow>
                 <TableHead scope="col">Período</TableHead>
                 <TableHead scope="col" className="text-right">
-                  Ingresos
+                  Revenue
                 </TableHead>
                 <TableHead scope="col" className="text-right">
                   EBIT
@@ -187,16 +187,16 @@ export function AssumptionsTables({
                   NOPAT
                 </TableHead>
                 <TableHead scope="col" className="text-right">
-                  Reinversión
+                  Reinvestment
                 </TableHead>
                 <TableHead scope="col" className="text-right">
                   FCFF
                 </TableHead>
                 <TableHead scope="col" className="text-right">
-                  Factor de descuento
+                  Discount factor
                 </TableHead>
                 <TableHead scope="col" className="text-right">
-                  Valor presente
+                  PV
                 </TableHead>
               </TableRow>
             </TableHeader>

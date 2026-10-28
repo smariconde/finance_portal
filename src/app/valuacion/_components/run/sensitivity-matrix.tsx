@@ -129,7 +129,7 @@ export function SensitivityMatrix({
           <TableHeader>
             <TableRow>
               <TableHead scope="col" className="text-left">
-                WACC \ Crecimiento terminal
+                WACC \ Terminal growth
               </TableHead>
               {sensitivity.terminalGrowthValues.map((growth) => (
                 <TableHead

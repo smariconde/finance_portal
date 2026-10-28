@@ -31,6 +31,8 @@ import {
   type DisplayMagnitude,
 } from "@/modules/valuation/domain/display-format";
 
+import { termName, termSpanish } from "@/app/_components/financial-terms";
+
 import { Concept } from "./concept";
 import {
   HistoryCharts,
@@ -57,14 +59,17 @@ type MetricSpec = {
   readonly kind: "money" | "percent" | "per_share" | "count";
 };
 
-const METRICS: readonly MetricSpec[] = [
-  { key: "revenue", title: "Ventas", kind: "money" },
-  { key: "operatingMargin", title: "Margen operativo", kind: "percent" },
-  { key: "dilutedEps", title: "Ganancia por acción", kind: "per_share" },
-  { key: "freeCashFlow", title: "Flujo de caja libre", kind: "money" },
-  { key: "netCash", title: "Caja neta (o deuda neta)", kind: "money" },
-  { key: "dilutedShares", title: "Acciones diluidas", kind: "count" },
-];
+/** Cada métrica por su nombre estándar en inglés (`financial-terms.ts`). */
+const METRICS: readonly MetricSpec[] = (
+  [
+    { key: "revenue", kind: "money" },
+    { key: "operatingMargin", kind: "percent" },
+    { key: "dilutedEps", kind: "per_share" },
+    { key: "freeCashFlow", kind: "money" },
+    { key: "netCash", kind: "money" },
+    { key: "dilutedShares", kind: "count" },
+  ] as const
+).map((spec) => ({ ...spec, title: termName(spec.key) }));
 
 const yearOf = (fiscalYearEnd: string) => fiscalYearEnd.slice(0, 4);
 
@@ -84,7 +89,16 @@ function magnitudeFor(
     : { exponent: 0, unit: null };
 }
 
+/** La aclaración en castellano y la unidad: «flujo de caja libre · USD». */
 function unitOf(
+  spec: MetricSpec,
+  magnitude: DisplayMagnitude,
+  currency: string,
+): string {
+  return `${termSpanish(spec.key)} · ${unitOnly(spec, magnitude, currency)}`;
+}
+
+function unitOnly(
   spec: MetricSpec,
   magnitude: DisplayMagnitude,
   currency: string,
@@ -159,7 +173,7 @@ function readingOf(
       text =
         measured === 0
           ? "Sin años con flujo libre medible."
-          : `Generó caja libre en ${positive} de ${measured} años.`;
+          : `Tuvo FCF positivo en ${positive} de ${measured} años.`;
       break;
     }
     case "dilutedShares": {
@@ -306,21 +320,21 @@ export function CompanyHistory({
         <HistoryCharts metrics={metrics} />
 
         <div className="grid gap-3 text-sm sm:grid-cols-2">
-          <Concept term="el margen operativo">
+          <Concept term="el operating margin (margen operativo)">
             Lo que queda de cada dólar vendido después de pagar costos y gastos
             del negocio, antes de intereses e impuestos. Un margen que sube
             suele indicar poder de precios o escala.
           </Concept>
-          <Concept term="el flujo de caja libre">
+          <Concept term="el FCF (flujo de caja libre)">
             La caja que deja la operación después de invertir en equipos y
             plantas. Es la plata que puede ir a dividendos, recompras o reducir
             deuda; la valuación descuenta flujos de este tipo.
           </Concept>
-          <Concept term="la ganancia por acción">
+          <Concept term="el EPS (ganancia por acción)">
             La ganancia neta repartida entre las acciones diluidas. Puede crecer
             más que la ganancia total si la empresa recompra acciones.
           </Concept>
-          <Concept term="una recompra">
+          <Concept term="un buyback (recompra)">
             Cuando la empresa compra sus propias acciones, quedan menos en
             circulación y cada una representa una parte mayor del negocio.
           </Concept>

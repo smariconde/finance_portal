@@ -146,7 +146,7 @@ export function ScenariosTable({
               <TableRow>
                 <TableHead scope="col">Escenario</TableHead>
                 <TableHead scope="col" className="text-right">
-                  Valor por acción
+                  Value per share
                 </TableHead>
                 <TableHead scope="col" className="text-right">
                   Contra la base
@@ -155,7 +155,7 @@ export function ScenariosTable({
                   Enterprise value
                 </TableHead>
                 <TableHead scope="col" className="text-right">
-                  Peso del terminal
+                  TV share
                 </TableHead>
                 <TableHead scope="col">Controles en revisión</TableHead>
               </TableRow>
