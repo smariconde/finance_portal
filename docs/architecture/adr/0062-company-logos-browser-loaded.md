@@ -71,14 +71,51 @@ aunque la corrida sea de otra fecha).
 - Sin clave configurada, la app funciona igual: todas las empresas tienen
   monograma y el navegador no habla con terceros.
 - Esta ADR contradijo el criterio original de `F6-26` («la CSP no gana
-  `img-src` externo»). El 2026-10-28 el owner decidió conservar logo.dev
-  **como última opción**: `F6-26` traerá el logo guardado (dominio de
-  Wikidata, imagen de Hunter, que alienta el cacheo local), servido desde una
-  ruta propia, y logo.dev quedará sólo para las empresas sin logo guardado.
-  Esa enmienda tendrá su propia ADR.
-- Reabrir si el owner contrata self-hosting —entonces el logo pasa a la puerta
-  de egress y la CSP vuelve a `'self'`—, si cambian los términos de logo.dev o
-  si aparece una superficie pública.
+  `img-src` externo»). El 2026-10-28 se midió la alternativa de guardar el
+  logo (abajo) y el owner decidió **quedarse con logo.dev como única fuente**.
+- **Caché.** logo.dev responde
+  `Cache-Control: max-age=86400, stale-while-revalidate=600` tanto al logo
+  como al 404, que es el máximo que sus términos permiten en el navegador. La
+  app arma **una sola URL por ticker** (`companyLogoUrl`, `size=64` con
+  `retina`, 128 px), así que cada logo se pide a lo sumo una vez por día y por
+  navegador, y la valuación, los pares, la tabla del sector y la matriz
+  comparten esa entrada. Una superficie que pida otro tamaño u otro formato
+  crea otra entrada y duplica los pedidos: no se hace.
+
+## Medición del logo guardado (2026-10-28)
+
+`F6-26` proponía guardar el logo: el sitio oficial de Wikidata (P856,
+buscado por CIK en P5531), el logo de Hunter (`logos.hunter.io`, que alienta
+el cacheo local) validado por bytes, y logo.dev sólo como respaldo. El plan
+fijaba volver al owner si la cobertura útil bajaba del 70 %. Se midió sobre dos
+sectores completos de la base personal, con los payloads sólo en el
+scratchpad:
+
+| Sector                 | Empresas | Wikidata + Hunter (≥ 64 px, proporción ≤ 1,6) | logo.dev por ticker |
+| ---------------------- | -------: | --------------------------------------------: | ------------------: |
+| Communication Services |       21 |                                     12 (57 %) |          21 (100 %) |
+| Information Technology |       73 |                                     33 (45 %) |          73 (100 %) |
+
+- 13 de 94 no tienen CIK en Wikidata (Autodesk, Fair Isaac, GoDaddy,
+  AppLovin, TKO…). Buscar por ticker (P414/P249) es ambiguo: «TKO» devuelve
+  WWE y TKO Group, las dos en NYSE.
+- El sitio de Wikidata no siempre es la marca: Netflix figura como
+  `ir.netflix.net` y Warner Bros. Discovery como `discovery.com`.
+- Hunter devuelve favicons de 16 px (Alphabet, Qualcomm, Texas Instruments,
+  Palantir, Intel) y, en vez del logo, la imagen para redes sociales del
+  sitio (tarjetas de 1024×535, la foto de un edificio, la de una persona).
+  Gen Digital (1024×906, una foto) pasa todos los filtros por bytes, así que
+  guardar sin revisar a mano termina guardando imágenes que no son logos.
+- La API de consultas de Wikidata limitaba a una consulta por minuto durante
+  la medición.
+- logo.dev devolvió las 94 como PNG cuadrado de 128×128, todas correctas a la
+  vista. Con la restricción por dominio, la clave exige `Referer`.
+
+## Reabrir
+
+Reabrir si el owner contrata self-hosting —entonces el logo pasa a la puerta
+de egress y la CSP vuelve a `'self'`—, si cambian los términos de logo.dev o
+si aparece una superficie pública.
 
 ## Fuentes
 
