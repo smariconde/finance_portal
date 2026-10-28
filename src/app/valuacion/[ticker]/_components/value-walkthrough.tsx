@@ -11,8 +11,18 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  displayMagnitude,
   formatAmount,
   formatCompactAmount,
+  formatInMagnitude,
   formatPercent,
   formatShares,
 } from "@/modules/valuation/domain/display-format";
@@ -20,6 +30,8 @@ import type { ValuationRun } from "@/modules/valuation/domain/valuation-run";
 import { valueChain } from "@/modules/valuation/domain/valuation-verdict";
 
 import { Concept } from "./concept";
+import { ProjectionChart } from "./projection-chart";
+import { ValueComposition } from "./value-composition";
 
 const STRONG = "numeric font-semibold";
 
@@ -85,6 +97,16 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
     `${formatCompactAmount(value)} ${currency}`;
   const failure = chain.failureProbability;
   const bridge = chain.bridge.filter((item) => item.value !== "0");
+  const projection = result.periods;
+  const projectionMagnitude = displayMagnitude(
+    projection.flatMap((period) => [period.fcff, period.presentValue]),
+  );
+  const projectionUnit =
+    projectionMagnitude.unit === null
+      ? currency
+      : `${projectionMagnitude.unit} de ${currency}`;
+  const inProjection = (value: string) =>
+    formatInMagnitude(value, projectionMagnitude, { scale: 1 });
 
   return (
     <Card>
@@ -106,8 +128,106 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="flex flex-col gap-6">
-        <ol className="flex flex-col gap-5">
+      <CardContent className="grid gap-x-10 gap-y-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        {/*
+         * Los dibujos van a la derecha de los pasos y los acompañan al
+         * desplazar: la columna de texto es angosta a propósito (65–75
+         * caracteres) y sin esto la mitad de la card quedaba vacía.
+         */}
+        <div className="flex min-w-0 flex-col gap-8 xl:sticky xl:top-20 xl:col-start-2 xl:row-start-1 xl:self-start">
+          <figure className="flex min-w-0 flex-col gap-3">
+            <figcaption className="flex flex-col gap-0.5">
+              <h3 className="text-sm font-medium">De dónde sale el valor</h3>
+              <span className="text-xs text-muted-foreground">
+                {currency}, valor de hoy. Cada fila suma o resta sobre la
+                anterior.
+              </span>
+            </figcaption>
+            <ValueComposition chain={chain} currency={currency} />
+          </figure>
+
+          <figure className="flex min-w-0 flex-col gap-3">
+            <figcaption className="flex flex-col gap-0.5">
+              <h3 className="text-sm font-medium">
+                La caja de cada año y lo que vale hoy
+              </h3>
+              <span className="text-xs text-muted-foreground">
+                {projectionUnit}. La diferencia entre las dos barras es el
+                descuento, que crece con los años.
+              </span>
+            </figcaption>
+            <ProjectionChart
+              label={`Flujo de caja libre proyectado: ${compact(chain.firstYear.fcff)} en el año 1 y ${compact(chain.lastYear.fcff)} en el año ${chain.explicitYears}. Traídos a hoy, los ${chain.explicitYears} años suman ${compact(chain.explicitPresentValue)}.`}
+              years={projection.map((period) => ({
+                year: `Año ${period.periodIndex}`,
+                fcff: Number(period.fcff) / 10 ** projectionMagnitude.exponent,
+                presentValue:
+                  Number(period.presentValue) /
+                  10 ** projectionMagnitude.exponent,
+              }))}
+            />
+            <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <span
+                  aria-hidden="true"
+                  className="size-2.5 rounded-xs bg-chart-1/45"
+                />
+                Flujo de caja libre del año
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span
+                  aria-hidden="true"
+                  className="size-2.5 rounded-xs bg-chart-2"
+                />
+                Ese flujo, valuado hoy
+              </span>
+            </div>
+            <details className="group text-sm">
+              <summary className="w-fit text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+                Las cifras por año
+              </summary>
+              <Table containerLabel="Proyección por año, tabla desplazable">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead scope="col">Año</TableHead>
+                    <TableHead scope="col" className="text-right">
+                      Ventas
+                    </TableHead>
+                    <TableHead scope="col" className="text-right">
+                      Flujo libre
+                    </TableHead>
+                    <TableHead scope="col" className="text-right">
+                      Valor hoy
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {projection.map((period) => (
+                    <TableRow key={period.periodIndex}>
+                      <TableHead scope="row" className="font-normal">
+                        {period.periodIndex}
+                      </TableHead>
+                      <TableCell className="numeric text-right">
+                        {inProjection(period.revenue)}
+                      </TableCell>
+                      <TableCell className="numeric text-right">
+                        {inProjection(period.fcff)}
+                      </TableCell>
+                      <TableCell className="numeric text-right">
+                        {inProjection(period.presentValue)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <p className="mt-1 text-xs text-muted-foreground">
+                En {projectionUnit}.
+              </p>
+            </details>
+          </figure>
+        </div>
+
+        <ol className="flex flex-col gap-5 xl:col-start-1 xl:row-start-1">
           <Step index={1} title="Proyecta las ventas">
             {cycle === undefined ? (
               <p>
@@ -262,7 +382,7 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
           </Step>
         </ol>
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 xl:col-span-2">
           <Concept term="el flujo de caja descontado">
             El método que usa la página. Proyecta cuánta caja va a generar el
             negocio, la trae a valor de hoy con una tasa que refleja su riesgo y
@@ -275,7 +395,7 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
           </Concept>
         </div>
 
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground xl:col-span-2">
           {formatShares(chain.shareCount)} acciones, contando las unidades de
           empleados todavía no consolidadas. Las tablas exactas de cada paso
           están en la auditoría. <CodeValue>{chain.version}</CodeValue>

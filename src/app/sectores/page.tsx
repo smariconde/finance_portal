@@ -140,7 +140,31 @@ export default async function SectorsPage() {
                         </span>
                       </span>
                       <span className="flex items-center gap-3">
-                        <span className="numeric text-sm">
+                        {/*
+                         * La barra repite el conteo escrito al lado: es para
+                         * comparar los once sectores de un vistazo.
+                         */}
+                        <span
+                          aria-hidden="true"
+                          className="hidden h-1.5 w-24 overflow-hidden rounded-full bg-muted sm:block"
+                        >
+                          <span
+                            className={
+                              complete
+                                ? "block h-full rounded-full bg-chart-1"
+                                : "block h-full rounded-full bg-chart-1/50"
+                            }
+                            style={{
+                              width: `${
+                                sector.members === 0
+                                  ? 0
+                                  : (sector.withRecentCloses / sector.members) *
+                                    100
+                              }%`,
+                            }}
+                          />
+                        </span>
+                        <span className="numeric w-16 text-right text-sm">
                           {sector.withRecentCloses} de {sector.members}
                         </span>
                         <ChevronRight

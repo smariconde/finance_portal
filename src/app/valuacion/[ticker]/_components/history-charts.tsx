@@ -19,6 +19,8 @@ export type HistoryMetric = {
   /** La lectura en una frase: es también el nombre accesible del gráfico. */
   readonly reading: string;
   readonly bars: readonly HistoryBar[];
+  /** La cifra del último ejercicio con dato y su año, o `null` si no hay. */
+  readonly latest: { readonly year: string; readonly label: string } | null;
 };
 
 const chartConfig = {
@@ -47,11 +49,23 @@ export function HistoryCharts({
 
         return (
           <figure key={metric.id} className="flex min-w-0 flex-col gap-2">
-            <figcaption className="flex flex-col gap-0.5">
-              <span className="text-sm font-medium">{metric.title}</span>
-              <span className="text-xs text-muted-foreground">
-                {metric.unit}
+            <figcaption className="flex items-start justify-between gap-3">
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className="text-sm font-medium">{metric.title}</span>
+                <span className="text-xs text-muted-foreground">
+                  {metric.unit}
+                </span>
               </span>
+              {metric.latest === null ? null : (
+                <span className="flex shrink-0 flex-col items-end gap-0.5">
+                  <span className="numeric text-lg leading-none font-semibold">
+                    {metric.latest.label}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {metric.latest.year}
+                  </span>
+                </span>
+              )}
             </figcaption>
             <div role="img" aria-label={`${metric.title}: ${metric.reading}`}>
               <ChartContainer
