@@ -344,9 +344,9 @@ export default async function ValuationReferencePage() {
           </h2>
           <ul className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
             <li>
-              No hay proveedores reales, red ni ingesta: la corrida se calcula
-              en el proceso desde un snapshot fijo. Las fuentes reales entran en
-              Fase 2.
+              No usa proveedores, red ni datos guardados: la corrida se calcula
+              en el proceso desde un snapshot fijo. Las empresas reales se
+              valúan en su propia página, desde Valuación.
             </li>
             <li>
               Renderizar esta página no abre PostgreSQL ni persiste una corrida,
@@ -357,8 +357,8 @@ export default async function ValuationReferencePage() {
               de mercado ni señal de compra o venta.
             </li>
             <li>
-              Los supuestos no son editables todavía: el workbench con locks y
-              audit trace pertenece a Fase 4.
+              Los supuestos no son editables: son los del snapshot fijo, y lo
+              que el hash verifica es justamente que no cambien.
             </li>
           </ul>
         </section>

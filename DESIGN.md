@@ -136,7 +136,7 @@ components:
 
 Portal Financiero es un workspace operativo, sobrio y reconocible. La interfaz usa convenciones estándar de software financiero —sidebar, header compacto, cards, tablas, campos y estados explícitos— para que el owner pueda orientarse sin aprender una gramática propia. La personalidad aparece en el contenido financiero en español, la densidad numérica y la provenance visible, no en una composición experimental.
 
-El sistema trabaja con neutrales fríos, blanco para superficies contenidas y azul para interacción. La jerarquía es corta, los controles son compactos y los radios moderados. El modo claro y el oscuro conservan los mismos roles semánticos; la información importante nunca depende sólo del color.
+El sistema trabaja con neutrales fríos, blanco para superficies contenidas y azul para interacción. La jerarquía es corta, los controles son compactos y los radios moderados. El modo claro y el oscuro conservan los mismos roles semánticos; el tema sigue al sistema y el owner puede fijarlo desde el header (`data-theme` en `<html>`, aplicado antes de pintar); la información importante nunca depende sólo del color.
 
 **Key Characteristics:**
 

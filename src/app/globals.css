@@ -38,8 +38,18 @@
   --app-font-sans: "Archivo Variable", "Segoe UI", sans-serif;
 }
 
+/*
+ * Tema: claro por defecto, oscuro si el sistema lo pide, y el owner puede
+ * fijar uno u otro desde el header (`data-theme` en `<html>`, que un script
+ * inline aplica antes de pintar). Los dos bloques oscuros son el mismo: CSS
+ * no deja combinar un selector con y sin media query en una sola regla.
+ */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     color-scheme: dark;
     --background: oklch(0.16 0.012 258.34);
     --foreground: oklch(0.94 0.006 247.86);
@@ -67,6 +77,52 @@
     --sidebar-accent-foreground: oklch(0.94 0.006 247.86);
     --sidebar-border: oklch(1 0 0 / 12%);
     --sidebar-ring: oklch(0.67 0.15 252.9);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: oklch(0.16 0.012 258.34);
+  --foreground: oklch(0.94 0.006 247.86);
+  --card: oklch(0.205 0.014 258.34);
+  --card-foreground: oklch(0.94 0.006 247.86);
+  --popover: oklch(0.205 0.014 258.34);
+  --popover-foreground: oklch(0.94 0.006 247.86);
+  --primary: oklch(0.67 0.15 252.9);
+  --primary-foreground: oklch(0.16 0.012 258.34);
+  --secondary: oklch(0.26 0.016 258.34);
+  --secondary-foreground: oklch(0.94 0.006 247.86);
+  --muted: oklch(0.26 0.016 258.34);
+  --muted-foreground: oklch(0.72 0.018 252.89);
+  --accent: oklch(0.29 0.04 255.66);
+  --accent-foreground: oklch(0.92 0.03 252.57);
+  --destructive: oklch(0.7 0.19 22.22);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.67 0.15 252.9);
+  --sidebar: oklch(0.18 0.014 258.34);
+  --sidebar-foreground: oklch(0.9 0.008 252.89);
+  --sidebar-primary: oklch(0.67 0.15 252.9);
+  --sidebar-primary-foreground: oklch(0.16 0.012 258.34);
+  --sidebar-accent: oklch(0.27 0.035 255.66);
+  --sidebar-accent-foreground: oklch(0.94 0.006 247.86);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: oklch(0.67 0.15 252.9);
+}
+
+/* `dark:` sigue al tema efectivo, no sólo a la preferencia del sistema. */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    &:where(
+      :root:not([data-theme="light"]),
+      :root:not([data-theme="light"]) *
+    ) {
+      @slot;
+    }
   }
 }
 
@@ -166,6 +222,26 @@
 @layer utilities {
   .numeric {
     font-variant-numeric: tabular-nums lining-nums;
+  }
+
+  /*
+   * Una tabla de borde a borde dentro de una card (`CardContent` con `px-0`)
+   * alinea su primera y su última columna con el título y el texto de la
+   * card, en vez de quedar 8 px más afuera. El fondo de la fila sigue
+   * llegando al borde.
+   */
+  [data-slot="card-content"]:is(.px-0, .p-0)
+    [data-slot="table"]
+    tr
+    > :first-child {
+    padding-inline-start: var(--card-spacing);
+  }
+
+  [data-slot="card-content"]:is(.px-0, .p-0)
+    [data-slot="table"]
+    tr
+    > :last-child {
+    padding-inline-end: var(--card-spacing);
   }
 
   .skip-link {
