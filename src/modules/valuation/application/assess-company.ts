@@ -33,6 +33,14 @@ import {
 } from "../domain/zero-debt-evidence";
 import { deriveCycleHistory, type DerivedCycle } from "../domain/derived-cycle";
 import {
+  deriveFinancialEquity,
+  type DerivedFinancialEquity,
+} from "../domain/derived-financial-equity";
+import {
+  deriveFinancialRisk,
+  type DerivedFinancialRisk,
+} from "../domain/derived-financial-risk";
+import {
   buildAnnualFundamentals,
   chooseFiscalYearAnchor,
   type AnnualFundamentals,
@@ -222,6 +230,9 @@ export type CompanyAssessment = {
    * armada a mano.
    */
   readonly cycle?: DerivedCycle | null;
+  /** Common book, common earnings and equity risk for a bank or insurer. */
+  readonly financialEquity?: DerivedFinancialEquity | null;
+  readonly financialRisk?: DerivedFinancialRisk | null;
 };
 
 function isVisible(
@@ -381,6 +392,22 @@ export async function assessCompany(
   });
 
   const readings = await dependencies.costOfCapitalReadings(query);
+  const financialProfile =
+    selection.assetProfile === "bank" || selection.assetProfile === "insurer";
+  const financialEquity = financialProfile
+    ? deriveFinancialEquity(series, (item) =>
+        seriesFact(item, request.fundamentalsSourceId),
+      )
+    : null;
+  const financialRisk = financialProfile
+    ? deriveFinancialRisk({
+        industryKey: industry.status === "mapped" ? industry.industryKey : null,
+        listingCountry: request.listingCountry,
+        betas: readings.betas,
+        countryRisk: readings.countryRisk,
+        impliedErp: readings.impliedErp,
+      })
+    : null;
   const zeroDebt =
     series === null
       ? null
@@ -457,8 +484,20 @@ export async function assessCompany(
         });
   // Con la historia lista, el ciclo deja de faltar: la misma evidencia
   // vuelve al selector con `cycle_margins` resuelto.
-  const finalSelection =
-    cycle?.status === "ready"
+  const finalSelection = financialProfile
+    ? selectValuationMethod({
+        legalEntityId,
+        knowledge: query,
+        evidence,
+        fcffInputsComplete: false,
+        excessReturnMissingInputs: [
+          ...(financialEquity?.status === "ready"
+            ? []
+            : ["common_book_equity", "roe"]),
+          ...(financialRisk?.status === "ready" ? [] : ["cost_of_equity"]),
+        ],
+      })
+    : cycle?.status === "ready"
       ? selectValuationMethod({
           legalEntityId,
           knowledge: query,
@@ -488,6 +527,8 @@ export async function assessCompany(
     evidence,
     completeness,
     selection: finalSelection,
+    financialEquity,
+    financialRisk,
     rigor: deriveRigorLevel(finalSelection, completeness),
     qualitativeDecisions,
     costOfCapital,

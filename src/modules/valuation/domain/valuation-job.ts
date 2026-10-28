@@ -133,6 +133,10 @@ export const valuationSnapshotGapSchema = z.enum([
   "employee_equity_not_proposed",
   "shares_outstanding_unavailable",
   "market_unavailable",
+  "financial_base_unavailable",
+  "financial_base_stale",
+  "financial_declaration_missing",
+  "financial_filing_evidence_missing",
 ]);
 
 export type ValuationSnapshotGap = z.infer<typeof valuationSnapshotGapSchema>;
@@ -146,6 +150,7 @@ export const valuationJobMethodStatusSchema = z.enum([
 const DERIVED_JOB_METHODS: ReadonlySet<string> = new Set([
   "fcff_base",
   "normalized_fcff",
+  "excess_return",
 ]);
 
 export const valuationJobMethodSchema = z.enum([

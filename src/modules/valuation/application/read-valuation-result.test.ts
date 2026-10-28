@@ -16,6 +16,8 @@ import {
 import { createInMemoryMarketExpectationsRepository } from "../infrastructure/in-memory-market-expectations-repository";
 import { createInMemoryValuationJobStore } from "../infrastructure/in-memory-valuation-job-store";
 import { createInMemoryValuationRunRepository } from "../infrastructure/in-memory-valuation-run-repository";
+import { fixtureFinancialValuation } from "../infrastructure/fixture-financial-valuation";
+import { runExcessReturn } from "./run-excess-return";
 import {
   addMilliseconds,
   outcomeForAssessment,
@@ -94,6 +96,49 @@ async function finished(
 }
 
 describe("readValuationResult", () => {
+  it("reads a recorded excess-return run through its own result contract", async () => {
+    const jobs = createInMemoryValuationJobStore();
+    const runs = createInMemoryValuationRunRepository();
+    const run = await runs.record(
+      runExcessReturn(fixtureFinancialValuation(), {
+        now: () => T0,
+        newValuationRunId: () => "70000000-0000-4000-8000-000000000001",
+      }),
+    );
+    await finished(
+      jobs,
+      outcomeForAssessment(
+        {
+          ...READING,
+          method: "excess_return",
+          assetProfile: "bank",
+          rigor: "screening",
+        },
+        {
+          valuationRunId: run.valuationRunId,
+          runStatus: run.status,
+        },
+      ),
+    );
+    const reading = await readValuationResult(
+      { ticker: "AAPL" },
+      {
+        jobs,
+        runs,
+        universe,
+        classifications,
+        cedears,
+        prices,
+        expectations,
+        fundamentals,
+      },
+    );
+    expect(reading.state).toBe("financial_run");
+    if (reading.state !== "financial_run") return;
+    expect(reading.run.result?.base.valuePerShare).toBeTruthy();
+    expect(reading.market.reason).toBe("missing_close");
+  });
+
   it("names a ticker that never finished a job", async () => {
     const reading = await readValuationResult(
       { ticker: "aapl" },

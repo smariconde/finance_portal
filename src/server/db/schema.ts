@@ -1872,9 +1872,9 @@ export const valuationJobs = pgTable(
       sql`(${table.valuationRunId} is null) = (${table.runStatus} is null)
         and (${table.runStatus} is null or ${table.runStatus} in ('computed', 'requires_review', 'rejected'))
         and (${table.valuationRunId} is not null) = (${table.gap} is not null and ${table.gap}::text = 'run_recorded')
-        and (${table.valuationRunId} is null or (${table.methodStatus} = 'selected' and ${table.method} in ('fcff_base', 'normalized_fcff')))
+        and (${table.valuationRunId} is null or (${table.methodStatus} = 'selected' and ${table.method} in ('fcff_base', 'normalized_fcff', 'excess_return')))
         and (${table.snapshotGap} is null or ${table.gap}::text = 'snapshot_not_assembled')
-        and (${table.snapshotGap} is null or ${table.snapshotGap} in ('method_not_derived', 'security_missing', 'cost_of_capital_unavailable', 'normalization_unavailable', 'revenue_history_insufficient', 'revenue_history_non_positive', 'base_margin_unavailable', 'sales_to_capital_unavailable', 'tax_rate_unavailable', 'employee_equity_not_proposed', 'shares_outstanding_unavailable', 'market_unavailable'))
+        and (${table.snapshotGap} is null or ${table.snapshotGap} in ('method_not_derived', 'security_missing', 'cost_of_capital_unavailable', 'normalization_unavailable', 'revenue_history_insufficient', 'revenue_history_non_positive', 'base_margin_unavailable', 'sales_to_capital_unavailable', 'tax_rate_unavailable', 'employee_equity_not_proposed', 'shares_outstanding_unavailable', 'market_unavailable', 'financial_base_unavailable', 'financial_base_stale', 'financial_declaration_missing', 'financial_filing_evidence_missing'))
         and (${table.ruleVersion} = 'valuation-job-1.0.0' or ${table.gap} is null or ${table.gap}::text <> 'snapshot_not_assembled' or ${table.snapshotGap} is not null)
         and (${table.ruleVersion} <> 'valuation-job-1.0.0' or (${table.snapshotGap} is null and ${table.valuationRunId} is null))`,
     ),

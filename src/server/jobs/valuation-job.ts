@@ -17,6 +17,7 @@ import {
 import { SP500_INDEX_ID } from "@/modules/universe/application/live-universe-source";
 import {
   assessCompany,
+  seriesFact,
   type CompanyAssessment,
 } from "@/modules/valuation/application/assess-company";
 import { DECLARED_INDUSTRY_ASSIGNMENTS } from "@/modules/valuation/application/declared-industry-assignments";
@@ -34,6 +35,11 @@ import {
   type ValuationSnapshotResult,
 } from "@/modules/valuation/application/assemble-valuation-snapshot";
 import { runValuation } from "@/modules/valuation/application/run-valuation";
+import { runExcessReturn } from "@/modules/valuation/application/run-excess-return";
+import {
+  assembleFinancialSnapshot,
+  type FinancialSnapshotResult,
+} from "@/modules/valuation/application/assemble-financial-snapshot";
 import {
   readValuationHistory,
   type ValuationHistoryView,
@@ -43,6 +49,9 @@ import {
   type ValuationResultReading,
 } from "@/modules/valuation/application/read-valuation-result";
 import { INDUSTRY_RETURNS_DATASET } from "@/modules/valuation/domain/derived-assumptions";
+import { deriveFinancialEquity } from "@/modules/valuation/domain/derived-financial-equity";
+import { selectValuationMethod } from "@/modules/valuation/domain/method-selection";
+import { deriveRigorLevel } from "@/modules/valuation/domain/rigor-level";
 import {
   OPTIONS_OUTSTANDING_CONCEPT,
   OPTIONS_WEIGHTED_STRIKE_CONCEPT,
@@ -103,6 +112,7 @@ import { createFundamentalReaders } from "@/server/valuation/fundamental-readers
 
 import { createValuationDataDependencies } from "./valuation-data";
 import { runQualitativeStep } from "./valuation-qualitative";
+import { readFinancialFiling } from "./financial-filing";
 
 /**
  * Raíz de composición de la corrida por ticker (`F6-01`,
@@ -243,10 +253,16 @@ async function assessValuationJob(
     );
   }
 
-  const run = runValuation(prepared.snapshot.input, {
-    now,
-    newValuationRunId: newId,
-  });
+  const run =
+    prepared.snapshot.input.method === "excess_return"
+      ? runExcessReturn(prepared.snapshot.input, {
+          now,
+          newValuationRunId: newId,
+        })
+      : runValuation(prepared.snapshot.input, {
+          now,
+          newValuationRunId: newId,
+        });
   // Idempotente por clave de replay: el mismo snapshot devuelve la corrida
   // que ya estaba, sin duplicarla.
   const recorded = await getValuationRunRepository().record(run);
@@ -267,7 +283,7 @@ export type PreparedValuationRun =
   | {
       readonly kind: "snapshot";
       readonly reading: ValuationAssessmentReading;
-      readonly snapshot: ValuationSnapshotResult;
+      readonly snapshot: ValuationSnapshotResult | FinancialSnapshotResult;
       /** `null` si no se pidió el paso de datos. */
       readonly dataStep: ValuationDataStep | null;
       /** `null` si no se le preguntó nada a la IA (`F6-13`). */
@@ -353,7 +369,7 @@ export async function prepareValuationRun(
   }
 
   const cik = facts.cik;
-  const assessment = await assessCompany(
+  let assessment = await assessCompany(
     {
       legalEntityId,
       query,
@@ -364,8 +380,11 @@ export async function prepareValuationRun(
     },
     await assessmentReaders(cik, query, state.graph),
   );
-  const selected = assessment.selection.status === "selected";
-  const reading: ValuationAssessmentReading = {
+  const financialProfile =
+    assessment.selection.assetProfile === "bank" ||
+    assessment.selection.assetProfile === "insurer";
+  let selected = assessment.selection.status === "selected";
+  let reading: ValuationAssessmentReading = {
     legalEntityId,
     securityId: resolution.securityId,
     listingId: resolution.listingId,
@@ -452,6 +471,58 @@ export async function prepareValuationRun(
     }
   }
 
+  const financialYears = assessment.fundamentals.series?.fiscalYears;
+  const financialFiling =
+    financialProfile &&
+    financialYears?.[0] !== undefined &&
+    financialYears[1] !== undefined
+      ? await readFinancialFiling({
+          cik,
+          knownAt: job.knownAt,
+          fiscalYearEnd: financialYears[0].fiscalYearEnd,
+          priorFiscalYearEnd: financialYears[1].fiscalYearEnd,
+        })
+      : null;
+  if (financialProfile && financialFiling !== null) {
+    const financialEquity = deriveFinancialEquity(
+      assessment.fundamentals.series,
+      (item) => seriesFact(item, SEC_SOURCE_ID),
+      financialFiling,
+    );
+    const selection = selectValuationMethod({
+      legalEntityId,
+      knowledge: query,
+      evidence: [...assessment.evidence],
+      fcffInputsComplete: false,
+      excessReturnMissingInputs: [
+        ...(financialEquity.status === "ready"
+          ? []
+          : ["common_book_equity", "roe"]),
+        ...(assessment.financialRisk?.status === "ready"
+          ? []
+          : ["cost_of_equity"]),
+      ],
+    });
+    assessment = {
+      ...assessment,
+      financialEquity,
+      selection,
+      rigor: deriveRigorLevel(selection, assessment.completeness),
+    };
+    selected = selection.status === "selected";
+    reading = {
+      ...reading,
+      methodStatus: selection.status,
+      method: selected
+        ? valuationJobMethodSchema.parse(selection.recommendedMethod)
+        : null,
+      rigor: selected ? assessment.rigor.level : null,
+      unsupportedReason: selected
+        ? null
+        : (selection.unsupportedReasons[0] ?? null),
+    };
+  }
+
   const awaitsCycle = awaitsCycleHistory(assessment.selection);
 
   if ((!selected && !awaitsCycle) || !reading.hasAnnualFundamentals) {
@@ -468,9 +539,12 @@ export async function prepareValuationRun(
   if (
     options.askAi === true &&
     dataStep !== null &&
-    (assessment.selection.status === "selected" || awaitsCycle) &&
+    (assessment.selection.status === "selected" ||
+      awaitsCycle ||
+      financialProfile) &&
     (assessment.selection.recommendedMethod === "fcff_base" ||
-      assessment.selection.recommendedMethod === "normalized_fcff")
+      assessment.selection.recommendedMethod === "normalized_fcff" ||
+      assessment.selection.recommendedMethod === "excess_return")
   ) {
     const needs = {
       industry: assessment.industry.status === "ambiguous",
@@ -479,7 +553,9 @@ export async function prepareValuationRun(
           legalEntityId,
           job.knownAt,
         )) === null,
-      operationsMix: assessment.qualitativeDecisions.operationsMix === null,
+      operationsMix:
+        !financialProfile &&
+        assessment.qualitativeDecisions.operationsMix === null,
     };
 
     if (needs.industry || needs.employeeEquity || needs.operationsMix) {
@@ -527,30 +603,34 @@ export async function prepareValuationRun(
       ),
     ]);
 
+  const snapshotRequest = {
+    subject: { legalEntityId, securityId, listingId: resolution.listingId },
+    query,
+    assessment,
+    fundamentalsSourceId: SEC_SOURCE_ID,
+    employeeEquity,
+    shareCounts: shareCounts.filter(
+      (fact) => fact.concept === SHARES_OUTSTANDING_CONCEPT,
+    ),
+    employeeOptionFacts: shareCounts.filter(
+      (fact) => fact.concept !== SHARES_OUTSTANDING_CONCEPT,
+    ),
+    prices: { sourceId: PRICES_SOURCE_ID, ...prices },
+    industryReturns,
+  };
+
   return {
     kind: "snapshot",
     reading,
     dataStep,
     qualitativeStep,
-    snapshot: assembleValuationSnapshot({
-      subject: {
-        legalEntityId,
-        securityId,
-        listingId: resolution.listingId,
-      },
-      query,
-      assessment,
-      fundamentalsSourceId: SEC_SOURCE_ID,
-      employeeEquity,
-      shareCounts: shareCounts.filter(
-        (fact) => fact.concept === SHARES_OUTSTANDING_CONCEPT,
-      ),
-      employeeOptionFacts: shareCounts.filter(
-        (fact) => fact.concept !== SHARES_OUTSTANDING_CONCEPT,
-      ),
-      prices: { sourceId: PRICES_SOURCE_ID, ...prices },
-      industryReturns,
-    }),
+    snapshot:
+      assessment.selection.recommendedMethod === "excess_return"
+        ? assembleFinancialSnapshot({
+            ...snapshotRequest,
+            filing: financialFiling,
+          })
+        : assembleValuationSnapshot(snapshotRequest),
   };
 }
 

@@ -24,6 +24,8 @@ import type { StoredValuationRun } from "../domain/stored-valuation-run";
 import {
   EXCESS_RETURN_ENGINE_VERSION,
   EXCESS_RETURN_METHODOLOGY_VERSION,
+  DERIVED_EXCESS_RETURN_ENGINE_VERSION,
+  DERIVED_EXCESS_RETURN_METHODOLOGY_VERSION,
 } from "../domain/excess-return-input";
 
 /**
@@ -36,6 +38,7 @@ export const valuationReplayKeySchema = z.object({
   engineVersion: z.enum([
     ENGINE_VERSION,
     EXCESS_RETURN_ENGINE_VERSION,
+    DERIVED_EXCESS_RETURN_ENGINE_VERSION,
     NORMALIZED_FCFF_ENGINE_VERSION,
     GROWTH_FCFF_ENGINE_VERSION,
     REIT_ENGINE_VERSION,
@@ -43,6 +46,7 @@ export const valuationReplayKeySchema = z.object({
   methodologyVersion: z.enum([
     METHODOLOGY_VERSION,
     EXCESS_RETURN_METHODOLOGY_VERSION,
+    DERIVED_EXCESS_RETURN_METHODOLOGY_VERSION,
     CYCLE_METHODOLOGY_VERSION,
     GROWTH_METHODOLOGY_VERSION,
     REIT_METHODOLOGY_VERSION,

@@ -36,6 +36,11 @@ export function runExcessReturn(
     input.risk.matureErp,
     input.risk.countryRiskPremium,
     input.employeeEquity?.sharesOutstanding ?? null,
+    input.derivedFinancial?.commonIncome ?? null,
+    input.derivedFinancial?.priorBook ?? null,
+    input.derivedFinancial?.commonDividends ?? null,
+    input.derivedFinancial?.netRepurchases ?? null,
+    input.derivedFinancial?.equityBeta ?? null,
   ].filter((fact) => fact !== null);
   const identity = {
     valuationRunId: dependencies.newValuationRunId(),
