@@ -196,6 +196,69 @@ export function fixtureEvaPage(
   );
 }
 
+export const FIXTURE_MARGIN_HEADERS = [
+  "Industry Name",
+  "Number of firms",
+  "Gross Margin",
+  "Net Margin",
+  "Pre-tax, Pre-stock compensation Operating Margin",
+  "Pre-tax Unadjusted Operating Margin",
+  "After-tax Unadjusted Operating Margin",
+  "Pre-tax Lease adjusted Margin",
+  "After-tax Lease Adjusted Margin",
+  "Pre-tax Lease & R&D adj Margin",
+  "After-tax Lease & R&D adj Margin",
+  "EBITDA/Sales",
+  "EBITDASG&A/Sales",
+  "EBITDAR&D/Sales",
+  "COGS/Sales",
+  "R&D/Sales",
+  "SG&A/ Sales",
+  "Stock-Based Compensation/Sales",
+  "Lease Expense/Sales",
+];
+
+/** Estructura sintética de la tabla de márgenes; no contiene cifras de NYU. */
+export function fixtureMarginPage(
+  options: { headers?: readonly string[]; targetMargin?: string } = {},
+): string {
+  const row = (label: string, margin: string) => [
+    label,
+    "12",
+    "40.00%",
+    "2.00%",
+    "11.00%",
+    "8.00%",
+    "7.00%",
+    "9.00%",
+    "8.00%",
+    margin,
+    "8.50%",
+    "15.00%",
+    "21.00%",
+    "16.00%",
+    "60.00%",
+    "4.00%",
+    "18.00%",
+    "3.00%",
+    "2.00%",
+  ];
+  return page(
+    "<p>Date of Analysis: Data used is as of January 2026</p>",
+    table([
+      options.headers ?? FIXTURE_MARGIN_HEADERS,
+      ...Array.from({ length: 51 }, (_, index) =>
+        row(`Industry ${String(index + 1).padStart(2, "0")}`, "12.50%"),
+      ),
+      row(
+        "Total Market (without financials)",
+        options.targetMargin ?? "14.00%",
+      ),
+      Array(FIXTURE_MARGIN_HEADERS.length).fill(""),
+    ]),
+  );
+}
+
 export const FIXTURE_BREAKDOWN_HEADERS = [
   "Country",
   "GDP (in millions) in 2024",

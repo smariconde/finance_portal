@@ -224,7 +224,10 @@ Desde `F4-05` ([ADR 0040](../architecture/adr/0040-failure-probability-employee-
 la misma fuente suma únicamente `pc/fcffsimpleginzu.xlsx` para su tabla por
 rating (`damodaran.failure-rates`). Se verifica y descarta el libro, se guardan
 siete filas normalizadas con diez horizontes y la observación fecha la release.
-El presupuesto de proceso es de cinco archivos y el diario sigue en 20.
+Desde `F6-21` ([ADR 0063](../architecture/adr/0063-derived-growth-valuation.md))
+se suma `margin.html` para el margen operativo ajustado por arrendamientos e
+I+D, con una release de 96 industrias observada el 2026-10-28. El presupuesto
+de proceso es de siete archivos y el diario sigue en 20.
 
 Los [datasets actuales de Damodaran](https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datacurrent.html)
 publican fecha de actualización y datasets de ERP, riesgo país, betas y costos de

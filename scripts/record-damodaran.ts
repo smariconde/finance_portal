@@ -22,7 +22,7 @@ import { getSourceRegistryRepository } from "@/server/persistence/get-source-reg
  * Registra los datasets de Damodaran que usa el costo de capital
  * ([ADR 0032](../docs/architecture/adr/0032-damodaran-reference-datasets.md)).
  *
- *   pnpm damodaran:record                                     # los cinco archivos, en seco
+ *   pnpm damodaran:record                                     # los siete archivos, en seco
  *   pnpm damodaran:record --dataset damodaran.betas-us --apply
  *   pnpm damodaran:record --apply
  *

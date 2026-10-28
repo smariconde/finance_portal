@@ -198,6 +198,76 @@ export const DAMODARAN_DATASETS: readonly DamodaranDataset[] = Object.freeze([
     ],
   },
   {
+    // `F6-21`: margen operativo antes de impuestos en la misma base de
+    // arrendamientos e I+D que el EBIT ajustado de la corrida.
+    datasetId: "damodaran.margins-us",
+    url: `${BASE}margin.html`,
+    shape: "table",
+    keyHeader: "industry name",
+    requiredKey: "total-market-without-financials",
+    minimumRows: 50,
+    fields: [
+      { field: "firms", header: "number of firms", kind: "integer" },
+      { field: "gross_margin", header: "gross margin", kind: "verified" },
+      { field: "net_margin", header: "net margin", kind: "verified" },
+      {
+        field: "pretax_prestock_operating_margin",
+        header: "pre-tax, pre-stock compensation operating margin",
+        kind: "verified",
+      },
+      {
+        field: "pretax_unadjusted_operating_margin",
+        header: "pre-tax unadjusted operating margin",
+        kind: "verified",
+      },
+      {
+        field: "aftertax_unadjusted_operating_margin",
+        header: "after-tax unadjusted operating margin",
+        kind: "verified",
+      },
+      {
+        field: "pretax_lease_adjusted_margin",
+        header: "pre-tax lease adjusted margin",
+        kind: "verified",
+      },
+      {
+        field: "aftertax_lease_adjusted_margin",
+        header: "after-tax lease adjusted margin",
+        kind: "verified",
+      },
+      {
+        field: "pretax_lease_rd_adjusted_margin",
+        header: "pre-tax lease & r&d adj margin",
+        kind: "percent",
+      },
+      {
+        field: "aftertax_lease_rd_adjusted_margin",
+        header: "after-tax lease & r&d adj margin",
+        kind: "verified",
+      },
+      { field: "ebitda_sales", header: "ebitda/sales", kind: "verified" },
+      {
+        field: "ebitda_sga_sales",
+        header: "ebitdasg&a/sales",
+        kind: "verified",
+      },
+      { field: "ebitda_rd_sales", header: "ebitdar&d/sales", kind: "verified" },
+      { field: "cogs_sales", header: "cogs/sales", kind: "verified" },
+      { field: "rd_sales", header: "r&d/sales", kind: "verified" },
+      { field: "sga_sales", header: "sg&a/ sales", kind: "verified" },
+      {
+        field: "stock_comp_sales",
+        header: "stock-based compensation/sales",
+        kind: "verified",
+      },
+      {
+        field: "lease_expense_sales",
+        header: "lease expense/sales",
+        kind: "verified",
+      },
+    ],
+  },
+  {
     datasetId: "damodaran.country-risk",
     url: DAMODARAN_COUNTRY_RISK_WORKBOOK.url,
     shape: "workbook",
