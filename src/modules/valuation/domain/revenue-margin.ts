@@ -163,7 +163,7 @@ export function revenueMarginMismatches(input: ValuationInput): string[] {
   if (input.cycleNormalization !== undefined) paths.push("cycleNormalization");
   if (input.knowledge.knowledgeBasis !== "public_availability")
     paths.push("knowledge.knowledgeBasis");
-  if (input.knowledge.effectiveAt.slice(0, 10) !== input.asOf)
+  if (input.asOf > input.knowledge.effectiveAt.slice(0, 10))
     paths.push("knowledge.effectiveAt");
   const cutoff = Math.min(
     Date.parse(input.knowledge.knownAt ?? `${input.asOf}T23:59:59.999Z`),

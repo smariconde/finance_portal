@@ -207,6 +207,16 @@ export const SNAPSHOT_GAP_COPY: Record<ValuationSnapshotGap, string> = {
     "esta corrida anterior no tiene distribución; volvé a valuar para obtenerla automáticamente del 10-K",
   financial_filing_evidence_missing:
     "el 10-K no ofrece tablas conciliables de distribución y diagnóstico financiero",
+  growth_revenue_history_unavailable:
+    "faltan cuatro cierres anuales positivos y consecutivos, o el crecimiento medido queda por debajo del terminal",
+  growth_margin_unavailable:
+    "falta un margen operativo ajustado válido de la industria al corte",
+  growth_tax_note_missing:
+    "falta una nota fiscal del 10-K conciliable al cierre base",
+  growth_tax_jurisdictions_not_reconciled:
+    "la nota fiscal separa pérdidas entre jurisdicciones y no permite un único saldo utilizable",
+  growth_tax_pool_not_reconciled:
+    "la nota fiscal no concilia monto, vencimiento y límite anual de compensación",
 };
 
 export const PROFILE_COPY: Record<AssetProfile, string> = {
