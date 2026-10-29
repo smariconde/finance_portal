@@ -90,7 +90,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    62 | `F6-18`    | `done`        | Cíclicas y commodities valuadas desde la app: el job deriva el snapshot de margen de ciclo y la página lee corridas `normalized_fcff`.                                                                                    | `F6-17`          |
 |    63 | `F6-19`    | `done`        | Contexto de la brecha: precio sobre valor de la empresa frente a su sector y a todo lo valuado, y múltiplos contra el sector.                                                                                             | `F6-18`, `F8-01` |
 |    64 | `F6-20`    | `done`        | Bancos y aseguradoras valuados desde la app: el job deriva el snapshot de exceso de retorno sobre el patrimonio.                                                                                                          | `F6-18`          |
-|    65 | `F6-21`    | `in_progress` | Empresas en pérdidas o de alto crecimiento valuadas desde la app: el job deriva el snapshot de ventas a margen con supervivencia.                                                                                         | `F6-20`          |
+|    65 | `F6-21`    | `done`        | Empresas en pérdidas o de alto crecimiento valuadas desde la app: el job deriva el snapshot de ventas a margen con supervivencia.                                                                                         | `F6-20`          |
 |    66 | `F6-22`    | `queued`      | REIT de propiedades valuados desde la app: AFFO transcripto del 10-K por la IA y conciliado, y NAV.                                                                                                                       | `F6-21`          |
 |    67 | `F8-02`    | `queued`      | Vista principal market cap vs EPS con sesgo de recompras visible y vistas alternativas con puente de dilución.                                                                                                            | `F8-01`          |
 |    68 | `F6-23`    | `queued`      | Deuda de las empresas con brazo financiero cautivo (CAT, DE): medir sus conceptos y decidir cómo se trata la financiera antes de valuarlas.                                                                               | `F6-18`          |
@@ -4097,7 +4097,7 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
 
 #### `F6-21` — pérdidas y alto crecimiento desde la app
 
-- Estado: `in_progress`. `growth-fcff-1.0.0` (ADR 0043) ya está conectado al
+- Estado: `done` el 2026-10-29. `growth-fcff-1.0.0` (ADR 0043) ya está conectado al
   job por ticker. MU cae acá: el selector la clasifica `high_growth`, no cíclica.
 - Primer incremento en la rama `feat/f6-21-derived-growth-valuation`:
   [ADR 0063](../architecture/adr/0063-derived-growth-valuation.md) propuesta;
@@ -4129,11 +4129,24 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
   personal y la de integración. La vista sintética en 1280/390 px no desborda
   y axe no reportó hallazgos. La negativa de MU es reproducible con el extracto
   SEC congelado; los dos métodos reproducen corridas sintéticas sin red.
-- Alcance restante: una corrida real o negativa auditable para un emisor
-  elegible `loss_making`/`revenue_margin_survival`. MRNA y TTWO presentan
-  pérdidas, pero el selector prioriza distress; no sirven para afirmar
-  cobertura del método. El [PR #82](https://github.com/smariconde/finance_portal/pull/82)
-  está en draft, con `quality` y E2E/accesibilidad verdes. `F6-21` sigue abierto.
+- Segundo caso real: RDDT, CIK `0001713445`, pasa `loss_making` con dos EBIT
+  negativos de tres cierres (2023: USD -140,161 M; 2024: USD -560,568 M;
+  2025: USD 441,984 M). Las observaciones vienen de los filings SEC
+  `0001713445-25-000018` y `0001713445-26-000022`. En 2025, USD 953,569 M de
+  caja cubren USD 310,135 M de pasivos: `distressed` queda ausente. El SIC
+  observado 7374 excluye los arquetipos anteriores, y el selector prioriza
+  `revenue_margin_survival` frente a `fcff_three_stage`, ambos activados.
+  El job `852e7c32-cc0b-4354-89c5-675893919423` completó la negativa
+  `missing_required_input` sin valor: el SIC admite tres industrias, y faltan
+  `industry_mapping`, `interest_coverage` y `synthetic_rating` para el costo de
+  capital. Su paso de datos verificó 530 cadenas sin fallas. Se reproduce sin
+  red con `pnpm valuation:assess --ticker RDDT --offline`; la selección conserva
+  los faltantes exactos. MRNA y TTWO continúan priorizados como distress.
+- Gate: los dos caminos tienen evidencia real o una negativa trazable; los
+  snapshots sintéticos de ambos métodos se reproducen sin red, y los gates de
+  calidad, PostgreSQL, build, E2E, axe y revisión responsive pasaron. El
+  [PR #82](https://github.com/smariconde/finance_portal/pull/82) está listo para
+  integrar antes de la migración `0041` de `F7-09`.
 
 #### `F6-22` — REIT de propiedades desde la app
 
@@ -5550,7 +5563,7 @@ versionada y su límite de una sola fuente aparece junto al resultado.
 - Estado: `in_progress` por pedido del owner el 2026-10-29; prioridad anterior a retomar `F6-21`.
 - Decisión: extracto **literal en inglés** del Item 1 del último 10-K, sin síntesis IA. El owner elige la cita y el comando comprueba que aparece exactamente en la sección SEC; un candidato automático sirve sólo para revisar, nunca se publica solo.
 - Implementación: `company_business_excerpts` append-only por entidad, accession y versión; aceptación y URL del filing. `companies:describe --ticker <T>` previsualiza con dos solicitudes SEC medidas; `--apply --quote '<texto>'` publica una cita comprobada. `--sector <code>` lista la población sin red. La matriz lee sólo la versión aprobada y sólo filings aceptados al corte; si falta extracto, conserva Finviz como salida manual.
-- Evidencia: `0041` aplicada en PostgreSQL local, de tests y Neon personal; AAPL publicado en local y Neon con la frase de productos y servicios. La primera regla automática confundió descripciones generales con productos o estrategias parciales; sus filas de versiones anteriores quedan fuera de la consulta. Pasan 3.309 unit, 1 integration focalizado, lint, tipos, formato y build webpack. AAPL seleccionado se revisó en 1440 y 390 px sin desborde ni violaciones axe WCAG. [PR #83](https://github.com/smariconde/finance_portal/pull/83) en draft sobre `F6-21`, por la dependencia de `0041` en `0040`; CI `quality` y E2E/accesibilidad verdes. Falta cobertura de los demás emisores.
+- Evidencia: `0041` aplicada en PostgreSQL local, de tests y Neon personal; AAPL publicado en local y Neon con la frase de productos y servicios. La primera regla automática confundió descripciones generales con productos o estrategias parciales; sus filas de versiones anteriores quedan fuera de la consulta. Pasan 3.309 unit, 1 integration focalizado, lint, tipos, formato y build webpack. AAPL seleccionado se revisó en 1440 y 390 px sin desborde ni violaciones axe WCAG. [PR #83](https://github.com/smariconde/finance_portal/pull/83) como primer incremento hacia `main`, después del merge de `F6-21`; CI `quality` y E2E/accesibilidad verdes en la rama original. Falta cobertura de los demás emisores.
 - Criterio de cierre: frases revisadas para la población elegida, sin atribuciones parciales engañosas; fecha y fuente legibles, ausencia explícita, corte temporal y gates de UI y PostgreSQL aprobados.
 
 ### Fase 8 — divergencias fundamentales

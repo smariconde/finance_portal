@@ -1,6 +1,6 @@
 # ADR 0063: crecimiento y pérdidas desde la corrida por ticker
 
-- Estado: aceptado; implementación de `F6-21` en validación
+- Estado: aceptado; `F6-21` cerrado el 2026-10-29
 - Fecha: 2026-10-28
 - Alcance: `F6-21`, sobre el motor experimental de la
   [ADR 0043](0043-revenue-margin-survival.md)
@@ -85,6 +85,17 @@ necesidad de fondos, probabilidad de fracaso, impuestos y procedencia en la
 jerarquía actual de la valuación. Snapshots y hashes anteriores se conservan.
 La preparación real de MU se negó por `growth_tax_jurisdictions_not_reconciled`
 y el job quedó completado con ese motivo, sin corrida ni número inventado.
+RDDT cubre el otro perfil con evidencia real: el selector ve EBIT negativo en
+2023 y 2024 entre los tres últimos ejercicios, y descarta distress porque la
+caja de 2025 supera los pasivos. El SIC 7374 observado permite descartar perfiles
+anteriores y prioriza `loss_making`/`revenue_margin_survival` sobre `high_growth`.
+El job personal `852e7c32-cc0b-4354-89c5-675893919423` terminó con
+`missing_required_input`, sin publicar un valor: la industria sigue ambigua y
+faltan cobertura de intereses y rating sintético para el costo de capital.
+Auditó 530 cadenas de fundamentales sin fallas. La evaluación se reproduce sin
+red con `pnpm valuation:assess --ticker RDDT --offline` sobre la base personal;
+las observaciones citan los 10-K `0001713445-25-000018` y
+`0001713445-26-000022`. Una negativa de método no constituye una valuación.
 
 ## Gate de este slice
 
