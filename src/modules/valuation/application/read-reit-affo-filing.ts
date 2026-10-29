@@ -1,5 +1,8 @@
 import { buildSubmissionsUrl } from "@/modules/fundamentals/application/live-company-facts-source";
-import { locateLatestAnnualReport } from "@/modules/fundamentals/domain/sec-annual-report";
+import {
+  locateLatestAnnualReport,
+  type SecAnnualReport,
+} from "@/modules/fundamentals/domain/sec-annual-report";
 import {
   extractTenKReitAffo,
   type ReitAffoExtract,
@@ -28,6 +31,25 @@ export type ReitAffoFilingReading =
         | "annual_reconciliation_missing";
     };
 
+/** The same deterministic reader serves the metered probe and AI proposal. */
+export function readReitAffoFromReport(
+  report: SecAnnualReport,
+  fiscalYearEnd: string,
+  html: string,
+): ReitAffoFilingReading {
+  if (report.reportDate !== fiscalYearEnd)
+    return { status: "unavailable", reason: "filing_year_mismatch" };
+  const extract = extractTenKReitAffo(html, fiscalYearEnd);
+  if (extract === null)
+    return { status: "unavailable", reason: "annual_reconciliation_missing" };
+  return {
+    status: "ready",
+    sourceDocumentId: report.accessionNumber,
+    availableAt: report.acceptedAt,
+    extract,
+  };
+}
+
 /** Two metered SEC reads at most. The filing stays in memory. */
 export async function readReitAffoFilingEvidence(
   input: ReitAffoFilingRequest,
@@ -53,13 +75,5 @@ export async function readReitAffoFilingEvidence(
   const html = await readText(located.report.url, "text/html");
   if (html === null)
     return { status: "unavailable", reason: "filing_unavailable" };
-  const extract = extractTenKReitAffo(html, input.fiscalYearEnd);
-  if (extract === null)
-    return { status: "unavailable", reason: "annual_reconciliation_missing" };
-  return {
-    status: "ready",
-    sourceDocumentId: located.report.accessionNumber,
-    availableAt: located.report.acceptedAt,
-    extract,
-  };
+  return readReitAffoFromReport(located.report, input.fiscalYearEnd, html);
 }

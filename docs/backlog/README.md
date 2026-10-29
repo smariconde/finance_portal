@@ -4150,8 +4150,9 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
 
 #### `F6-22` — REIT de propiedades desde la app
 
-- Estado: `in_progress` desde el 2026-10-29 por pedido del owner. `affo_nav`
-  (ADR 0044) corre sólo por CLI y el AFFO no está en el XBRL.
+- Estado: `in_progress` desde el 2026-10-29 por pedido del owner. El motor
+  `affo_nav` (ADR 0044) sólo calcula desde CLI; el job ya clasifica y niega
+  insumos faltantes. AFFO no está en el XBRL.
 - Alcance: la IA transcribe FFO/AFFO del 10-K con citas y una policy los
   concilia; NAV independiente.
 - Primer incremento: `reit-affo-1.0.0` exige siete componentes con citas
@@ -4179,8 +4180,30 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
   faltantes —AFFO común conciliado, NOI forward, cap rate comparable y claims—
   y aclara que no hay valor; todavía no presenta la evidencia específica del
   filing ni ejecuta el motor desde el job.
-- Pendiente: guardar la propuesta con citas y corte, derivar AFFO y NAV, conectar el
-  lector al job y la lectura, validar replay, datos reales, responsive y gates.
+- Tercer incremento: la migración `0042` crea propuesta y evidencia AFFO en
+  tablas privadas. La transcripción aceptada conserva el ancla de ingreso común
+  del mismo accession, versiones, cita completa acotada, SHA-256 y fecha de
+  registro. El repositorio filtra por corte y vuelve a pasar la policy al leer;
+  no referencia por FK la observación XBRL porque una poda legítima podría
+  eliminarla. `proposeReitAffo` salta antes de bajar el 10-K y gastar IA cuando
+  el mismo accession, tarea y policy ya tienen respuesta; una interrupción de
+  presupuesto sigue siendo transitoria. Si el 10-K no ofrece conciliación AFFO,
+  devuelve una negativa sin llamar al modelo. Seis pruebas unitarias nuevas y
+  una integración PostgreSQL contra la base desechable pasan. El servicio
+  se invoca desde el job de la app. Las migraciones `0043` y `0044` agregan
+  negativas REIT específicas al job, separando 10-K ausente de conciliación
+  ausente. PLD en runtime personal terminó con método
+  `affo_nav`, `snapshot_not_assembled` y
+  `reit_affo_reconciliation_missing`, sin registrar un valor; el lector y la
+  declaración de base inmobiliaria se verificaron contra el 10-K al corte.
+  Las tres migraciones están aplicadas en PostgreSQL local personal y de tests.
+  Pasan 3.330 unit, 224 integration y 209 E2E (3 omitidas), lint, tipos,
+  formato y build webpack; el build Turbopack de E2E pasó antes del ajuste de
+  copy. La negativa real se revisó en 1280 y 390 px sin desborde ni valor
+  ficticio. El copy explica que revalorar el mismo 10-K repetirá la negativa.
+- Pendiente: derivar el snapshot positivo AFFO/NAV desde propuestas aceptadas y
+  fuentes NAV fechadas, registrar en el job el accession de la negativa,
+  validar replay, responsive y gates.
   El NOI forward y cap rate requieren fuente o declaración fechada; no se
   infieren del texto de la IA.
 - Investigación de fuentes para PLD (2026-10-29): el [suplemento Q3 2026

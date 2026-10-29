@@ -142,6 +142,12 @@ export const valuationSnapshotGapSchema = z.enum([
   "growth_tax_note_missing",
   "growth_tax_jurisdictions_not_reconciled",
   "growth_tax_pool_not_reconciled",
+  "reit_property_basis_unavailable",
+  "reit_affo_anchor_unavailable",
+  "reit_affo_filing_unavailable",
+  "reit_affo_reconciliation_missing",
+  "reit_affo_unaccepted",
+  "reit_nav_inputs_unavailable",
 ]);
 
 export type ValuationSnapshotGap = z.infer<typeof valuationSnapshotGapSchema>;

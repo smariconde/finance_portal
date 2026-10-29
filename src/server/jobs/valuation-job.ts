@@ -22,6 +22,7 @@ import {
 } from "@/modules/valuation/application/assess-company";
 import { DECLARED_INDUSTRY_ASSIGNMENTS } from "@/modules/valuation/application/declared-industry-assignments";
 import { DECLARED_OPERATIONS_MIXES } from "@/modules/valuation/application/declared-operations-mixes";
+import { declaredReitPropertyBasis } from "@/modules/valuation/application/declared-reit-property-basis";
 import { issuerFactsAt } from "@/modules/valuation/application/issuer-facts";
 import {
   requestValuationJob,
@@ -95,6 +96,7 @@ import {
   type ValuationAssessmentReading,
   type ValuationJob,
   type ValuationJobOutcome,
+  type ValuationSnapshotGap,
 } from "@/modules/valuation/domain/valuation-job";
 import {
   BETAS_DATASET,
@@ -113,6 +115,7 @@ import { getClassificationRepository } from "@/server/persistence/get-classifica
 import { getIndustryResolutionRepository } from "@/server/persistence/get-industry-resolution-repository";
 import { getOperationsMixRepository } from "@/server/persistence/get-operations-mix-repository";
 import { getReferenceDatasetRepository } from "@/server/persistence/get-reference-dataset-repository";
+import { getReitAffoRepository } from "@/server/persistence/get-reit-affo-repository";
 import { getUniverseRepository } from "@/server/persistence/get-universe-repository";
 import { getValuationJobStore } from "@/server/persistence/get-valuation-job-store";
 import { createFundamentalReaders } from "@/server/valuation/fundamental-readers";
@@ -121,6 +124,7 @@ import { createValuationDataDependencies } from "./valuation-data";
 import { runQualitativeStep } from "./valuation-qualitative";
 import { readFinancialFiling } from "./financial-filing";
 import { readGrowthTaxFiling } from "./growth-tax-filing";
+import { runReitAffoStep } from "./reit-affo-step";
 
 /**
  * Raíz de composición de la corrida por ticker (`F6-01`,
@@ -476,6 +480,98 @@ export async function prepareValuationRun(
       return {
         kind: "outcome",
         outcome: outcomeForDataStep(subject, "data_ingested", dataStep),
+      };
+    }
+  }
+
+  if (
+    assessment.selection.assetProfile === "reit" &&
+    reading.hasAnnualFundamentals
+  ) {
+    const selection = selectValuationMethod({
+      legalEntityId,
+      knowledge: query,
+      evidence: [...assessment.evidence],
+      fcffInputsComplete: false,
+      reitMissingInputs: [],
+    });
+    if (selection.status === "selected") {
+      assessment = {
+        ...assessment,
+        selection,
+        rigor: deriveRigorLevel(selection, assessment.completeness),
+      };
+      reading = {
+        ...reading,
+        methodStatus: "selected",
+        method: "affo_nav",
+        rigor: assessment.rigor.level,
+        unsupportedReason: null,
+      };
+      const base = assessment.fundamentals.series?.fiscalYears[0];
+      const declaration =
+        base === undefined
+          ? null
+          : declaredReitPropertyBasis(cik, base.fiscalYearEnd);
+      let gap: ValuationSnapshotGap;
+      if (declaration === null || base === undefined) {
+        gap = "reit_property_basis_unavailable";
+      } else if (base.items.common_net_income === undefined) {
+        gap = "reit_affo_anchor_unavailable";
+      } else if (options.askAi !== true) {
+        const accepted = await getReitAffoRepository().acceptedAsKnown(
+          legalEntityId,
+          job.knownAt,
+        );
+        gap =
+          accepted === null ||
+          accepted.proposal.fiscalYearEnd !== base.fiscalYearEnd ||
+          accepted.proposal.accessionNumber !== declaration.accessionNumber
+            ? "reit_affo_unaccepted"
+            : "reit_nav_inputs_unavailable";
+      } else {
+        const result = await runReitAffoStep({
+          legalEntityId,
+          cik,
+          companyName: declaration.cik,
+          fiscalYearEnd: base.fiscalYearEnd,
+          propertyBasis: declaration.propertyBasis,
+          propertyBasisSourceDocumentId: declaration.accessionNumber,
+          propertyBasisQuote: declaration.quote,
+          commonIncome: seriesFact(base.items.common_net_income, SEC_SOURCE_ID),
+          query,
+          apply: true,
+          again: false,
+        });
+        if (result.status === "asked") {
+          gap =
+            result.stored.proposal.outcome === "accepted"
+              ? "reit_nav_inputs_unavailable"
+              : "reit_affo_unaccepted";
+        } else if (result.reason === "xbrl_anchor_missing") {
+          gap = "reit_affo_anchor_unavailable";
+        } else if (result.reason === "property_basis_unsupported") {
+          gap = "reit_property_basis_unavailable";
+        } else if (result.reason === "already_asked") {
+          gap =
+            result.previous?.proposal.outcome === "accepted"
+              ? "reit_nav_inputs_unavailable"
+              : "reit_affo_unaccepted";
+        } else if (
+          result.reason === "annual_report_missing" ||
+          result.reason === "filing_year_mismatch"
+        ) {
+          gap = "reit_affo_filing_unavailable";
+        } else {
+          gap = "reit_affo_reconciliation_missing";
+        }
+      }
+      return {
+        kind: "snapshot",
+        reading,
+        snapshot: { status: "not_assembled", gap },
+        dataStep,
+        qualitativeStep: null,
       };
     }
   }
