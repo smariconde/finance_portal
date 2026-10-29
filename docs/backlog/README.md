@@ -4131,7 +4131,8 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
 - Alcance restante: una corrida real o negativa auditable para un emisor
   elegible `loss_making`/`revenue_margin_survival`, y CI del PR. MRNA presenta
   señal `loss_making`, pero el selector prioriza `distressed`/`apv_scenarios`;
-  no sirve para afirmar cobertura del método. `F6-21` sigue abierto.
+  no sirve para afirmar cobertura del método. El [PR #82](https://github.com/smariconde/finance_portal/pull/82)
+  está en draft. `F6-21` sigue abierto.
 
 #### `F6-22` — REIT de propiedades desde la app
 
