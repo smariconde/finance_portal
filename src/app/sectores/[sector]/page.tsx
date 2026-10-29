@@ -26,6 +26,7 @@ import { getIngestionJobStore } from "@/server/persistence/get-ingestion-job-sto
 import { getPriceRepository } from "@/server/persistence/get-price-repository";
 import { getUniverseRepository } from "@/server/persistence/get-universe-repository";
 import { requestCompanyLogoUrl } from "@/server/config/company-logo";
+import { getBusinessExcerptRepository } from "@/server/persistence/get-business-excerpt-repository";
 
 import { SectorPriceRefresh } from "./_components/sector-price-refresh";
 import { SectorRiskExport } from "./_components/sector-risk-export";
@@ -199,7 +200,7 @@ export default async function SectorRiskMatrixPage({ params }: PageProps) {
   );
 }
 
-function MatrixBody({
+async function MatrixBody({
   reading,
   asOfLabel,
   refreshing,
@@ -210,6 +211,11 @@ function MatrixBody({
   readonly refreshing: boolean;
 }) {
   const { matrix } = reading;
+  const businessExcerpts =
+    await getBusinessExcerptRepository().latestForEntities(
+      [...new Set(matrix.points.map((point) => point.issuerLegalEntityId))],
+      `${matrix.asOf}T23:59:59.999Z`,
+    );
 
   return (
     <>
@@ -282,6 +288,7 @@ function MatrixBody({
         <SectorRiskWorkspace
           matrix={matrix}
           asOfLabel={asOfLabel}
+          businessExcerpts={Object.fromEntries(businessExcerpts)}
           logoUrls={Object.fromEntries(
             matrix.points.map((point) => [
               point.securityId,

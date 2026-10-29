@@ -1617,6 +1617,45 @@ export const sourceDocuments = pgTable(
   ],
 );
 
+/** Selected, verbatim Item 1 sentences. A new filing adds a row; history stays intact. */
+export const companyBusinessExcerpts = pgTable(
+  "company_business_excerpts",
+  {
+    legalEntityId: uuid("legal_entity_id").notNull(),
+    cik: char("cik", { length: 10 }).notNull(),
+    accessionNumber: varchar("accession_number", { length: 20 }).notNull(),
+    acceptedAt: timestamp("accepted_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+    documentUrl: text("document_url").notNull(),
+    excerpt: varchar("excerpt", { length: 500 }).notNull(),
+    extractVersion: varchar("extract_version", { length: 64 }).notNull(),
+    recordedAt: timestamp("recorded_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+  },
+  (table) => [
+    primaryKey({
+      name: "company_business_excerpts_pkey",
+      columns: [
+        table.legalEntityId,
+        table.accessionNumber,
+        table.extractVersion,
+      ],
+    }),
+    index("company_business_excerpts_subject_idx").on(
+      table.legalEntityId,
+      table.acceptedAt,
+    ),
+    check(
+      "company_business_excerpts_length_check",
+      sql`char_length(${table.excerpt}) between 80 and 500`,
+    ),
+  ],
+);
+
 export const valuationRunStatus = pgEnum("valuation_run_status", [
   "computed",
   "requires_review",

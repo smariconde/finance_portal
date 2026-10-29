@@ -9,9 +9,9 @@ import {
 } from "@/modules/configuration/domain/company-logo";
 
 const SIZES = {
-  sm: "size-6 rounded-md text-[0.625rem]",
-  md: "size-8 rounded-lg text-xs",
-  lg: "size-12 rounded-xl text-base",
+  sm: "size-6 rounded-full text-[0.625rem]",
+  md: "size-8 rounded-full text-xs",
+  lg: "size-12 rounded-full text-base",
 } as const;
 
 /**
@@ -68,7 +68,7 @@ export function CompanyMark({
           alt=""
           loading="lazy"
           decoding="async"
-          className="size-full object-contain p-[12%]"
+          className="size-full object-cover"
           onError={() => setFailed(true)}
         />
       </span>
