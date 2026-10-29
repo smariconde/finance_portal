@@ -91,14 +91,14 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    63 | `F6-19`    | `done`        | Contexto de la brecha: precio sobre valor de la empresa frente a su sector y a todo lo valuado, y múltiplos contra el sector.                                                                                             | `F6-18`, `F8-01` |
 |    64 | `F6-20`    | `done`        | Bancos y aseguradoras valuados desde la app: el job deriva el snapshot de exceso de retorno sobre el patrimonio.                                                                                                          | `F6-18`          |
 |    65 | `F6-21`    | `done`        | Empresas en pérdidas o de alto crecimiento valuadas desde la app: el job deriva el snapshot de ventas a margen con supervivencia.                                                                                         | `F6-20`          |
-|    66 | `F6-22`    | `queued`      | REIT de propiedades valuados desde la app: AFFO transcripto del 10-K por la IA y conciliado, y NAV.                                                                                                                       | `F6-21`          |
+|    66 | `F6-22`    | `in_progress` | REIT de propiedades valuados desde la app: AFFO transcripto del 10-K por la IA y conciliado, y NAV.                                                                                                                       | `F6-21`          |
 |    67 | `F8-02`    | `queued`      | Vista principal market cap vs EPS con sesgo de recompras visible y vistas alternativas con puente de dilución.                                                                                                            | `F8-01`          |
 |    68 | `F6-23`    | `queued`      | Deuda de las empresas con brazo financiero cautivo (CAT, DE): medir sus conceptos y decidir cómo se trata la financiera antes de valuarlas.                                                                               | `F6-18`          |
 |    69 | `F6-24`    | `queued`      | Año base TTM: el último 10-Q entra al año base (flujos TTM, balance al último cierre) y la corrida deja de quedar hasta un año atrás.                                                                                     | `F6-22`          |
 |    70 | `F6-25`    | `queued`      | Ficha de la empresa: múltiplos elegidos por arquetipo y su historia reportada en barras, calculados con datos propios.                                                                                                    | `F6-19`          |
 |    71 | `F6-26`    | `done`        | Logo guardado medido y descartado (Wikidata + Hunter: 48 % útil contra 100 % de logo.dev); queda logo.dev en el navegador con su caché de 24 h y una URL por ticker, y monograma.                                         | `F6-25`          |
 |    72 | `F6-27`    | `done`        | Matriz de riesgo con logos, CEDEAR diferenciado y referencia S&P 500 destacada; CI quality y E2E del PR #81 aprobados.                                                                                                    | `F6-26`          |
-|    73 | `F7-09`    | `in_progress` | Extracto literal del Item 1 del 10-K en el punto seleccionado, con filing y fecha; publicación por cita elegida y comprobada contra el documento SEC.                                                                     | `F7-05`          |
+|    73 | `F7-09`    | `blocked`     | Extracto literal del Item 1 del 10-K en el punto seleccionado, con filing y fecha; publicación por cita elegida y comprobada contra el documento SEC.                                                                     | `F7-05`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -4150,10 +4150,38 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
 
 #### `F6-22` — REIT de propiedades desde la app
 
-- Estado: `queued`. `affo_nav` (ADR 0044) corre sólo por CLI y el AFFO no
-  está en el XBRL.
+- Estado: `in_progress` desde el 2026-10-29 por pedido del owner. `affo_nav`
+  (ADR 0044) corre sólo por CLI y el AFFO no está en el XBRL.
 - Alcance: la IA transcribe FFO/AFFO del 10-K con citas y una policy los
   concilia; NAV independiente.
+- Primer incremento: `reit-affo-1.0.0` exige siete componentes con citas
+  literales y unidad, concilia el resultado común con XBRL y las sumas de FFO
+  y AFFO. Una partida ausente no equivale a cero. PLD se midió offline: SIC
+  6798 y perfil `reit`, con negativa actual `affo, nav`; el último cierre
+  fiscal guardado es 2025-12-31. Seis pruebas focalizadas, el oráculo REIT,
+  tipos y lint pasan.
+- Pendiente: delimitar el extracto anual del 10-K, guardar la propuesta con
+  citas y corte, derivar AFFO y NAV, conectar el job y la lectura, validar
+  replay, datos reales, responsive y gates. El NOI forward y cap rate requieren
+  fuente o declaración fechada; no se infieren del texto de la IA.
+- Investigación de fuentes para PLD (2026-10-29): el [suplemento Q3 2026
+  presentado como EX-99.1 del 8-K](https://ir.prologis.com/financials/sec-filings/content/0001193125-26-422375/pld-ex99_1.htm)
+  contiene NOI anualizado por cartera y los componentes del NAV; el
+  [EX-99.2](https://ir.prologis.com/financials/sec-filings/content/0001193125-26-422375/pld-ex99_2.htm)
+  trae guidance de same-store NOI. El mismo suplemento informa cap rates de
+  adquisiciones (4,2 %) y disposiciones (5,1 %) de subconjuntos. No son una
+  tasación de la cartera completa. La [encuesta CBRE H1 2026](https://www.cbre.com/insights/reports/us-cap-rate-survey-h1-2026)
+  tiene rangos por tipo de activo y mercado, pero su tabla completa exige otro
+  acceso y sus derechos no están registrados. Camino preferido: extraer del
+  SEC el NOI y los claims con base de propiedad consistente; usar cap rates
+  de operaciones sólo como contexto y sensibilidad. Sin tasa comparable y
+  fechada para la cartera, el NAV se niega.
+- El mismo [EX-99.1, reconciliación FFO/AFFO](https://ir.prologis.com/financials/sec-filings/content/0001193125-26-422375/pld-ex99_1.htm)
+  muestra que PLD agrega partidas fuera de `affo-reconciliation-1.0.0`, entre
+  ellas resultado de propiedades de desarrollo, amortización de deuda y
+  compensación en acciones. PLD debe terminar con negativa por definición
+  incompatible, aunque el suplemento publique un AFFO. No se descartan esos
+  ajustes para forzar la receta ni se etiqueta Core FFO como AFFO.
 
 #### `F6-01` — corrida por ticker encolada (cerrado el 2026-10-21)
 
@@ -5560,7 +5588,9 @@ versionada y su límite de una sola fuente aparece junto al resultado.
 
 #### `F7-09` — descripción del negocio en el punto seleccionado
 
-- Estado: `in_progress` por pedido del owner el 2026-10-29; prioridad anterior a retomar `F6-21`.
+- Estado: `blocked` desde el 2026-10-29 al priorizar el owner `F6-22`. Sale del
+  bloqueo cuando el owner elija las citas del Item 1 de la población restante;
+  sólo él puede publicar una cita revisada.
 - Decisión: extracto **literal en inglés** del Item 1 del último 10-K, sin síntesis IA. El owner elige la cita y el comando comprueba que aparece exactamente en la sección SEC; un candidato automático sirve sólo para revisar, nunca se publica solo.
 - Implementación: `company_business_excerpts` append-only por entidad, accession y versión; aceptación y URL del filing. `companies:describe --ticker <T>` previsualiza con dos solicitudes SEC medidas; `--apply --quote '<texto>'` publica una cita comprobada. `--sector <code>` lista la población sin red. La matriz lee sólo la versión aprobada y sólo filings aceptados al corte; si falta extracto, conserva Finviz como salida manual.
 - Evidencia: `0041` aplicada en PostgreSQL local, de tests y Neon personal; AAPL publicado en local y Neon con la frase de productos y servicios. La primera regla automática confundió descripciones generales con productos o estrategias parciales; sus filas de versiones anteriores quedan fuera de la consulta. Pasan 3.309 unit, 1 integration focalizado, lint, tipos, formato y build webpack. AAPL seleccionado se revisó en 1440 y 390 px sin desborde ni violaciones axe WCAG. [PR #84](https://github.com/smariconde/finance_portal/pull/84) como primer incremento hacia `main`, después del merge de `F6-21`; CI `quality` y E2E/accesibilidad verdes en la rama original. Falta cobertura de los demás emisores.

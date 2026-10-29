@@ -5,6 +5,12 @@ import { computeContentHash } from "@/modules/ingestion/domain/content-hash";
 import { engineDecimalSchema } from "./decimal-policy";
 import { excessReturnInputSchema } from "./excess-return-input";
 import { monetaryFactSchema } from "./valuation-facts";
+import {
+  reitAffoOutputSchema,
+  REIT_AFFO_POLICY_VERSION,
+  REIT_AFFO_PROMPT_VERSION,
+  REIT_AFFO_TASK_VERSION,
+} from "./reit-affo-task";
 
 export const REIT_ENGINE_VERSION = "affo-nav-1.0.0";
 export const REIT_METHODOLOGY_VERSION = "reit-equity-1.0.0";
@@ -72,6 +78,18 @@ export const reitInputSchema = z.strictObject({
   propertyBasis: z.enum(["equity_property", "mortgage", "hybrid"]),
   scopeRationale: rationale,
   affo: affoReconciliationSchema,
+  /** Accepted 10-K transcription and its quotes are frozen for offline replay. */
+  derivedAffo: z
+    .strictObject({
+      taskVersion: z.literal(REIT_AFFO_TASK_VERSION),
+      promptVersion: z.literal(REIT_AFFO_PROMPT_VERSION),
+      policyVersion: z.literal(REIT_AFFO_POLICY_VERSION),
+      sourceDocumentId: z.string().trim().min(1).max(256),
+      acceptedAt: z.iso.datetime({ offset: true }),
+      evidenceSha256: z.string().regex(/^[a-f0-9]{64}$/u),
+      proposal: reitAffoOutputSchema,
+    })
+    .optional(),
   /** Consolidated NOI and claims: no proportionate/consolidated mixing. */
   nav: z.strictObject({
     asOf: z.iso.date(),
