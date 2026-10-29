@@ -301,11 +301,11 @@ function WithoutRun({
         <p className="text-sm text-muted-foreground">
           {reitAffoRefusal ? (
             <>
-              Sin corrida no hay valor por acción. Volver a valuar el mismo 10-K
-              repetirá esta negativa: hace falta una conciliación AFFO
-              compatible con la receta del modelo o una regla nueva con
-              evidencia. El NAV también requiere NOI forward y una tasa de
-              capitalización comparable.
+              Sin corrida no hay valor por acción. Con la evidencia examinada,
+              volver a valuar el mismo 10-K repetirá esta negativa: hace falta
+              una conciliación AFFO compatible con la receta del modelo o una
+              regla nueva con evidencia. El NAV también requiere NOI forward y
+              una tasa de capitalización comparable.
             </>
           ) : (
             <>

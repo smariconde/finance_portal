@@ -232,7 +232,7 @@ export const SNAPSHOT_GAP_COPY: Record<ValuationSnapshotGap, string> = {
   reit_affo_filing_unavailable:
     "falta el 10-K anual del ejercicio base conocido al corte",
   reit_affo_reconciliation_missing:
-    "el 10-K anual no ofrece una conciliación AFFO compatible con la receta del modelo",
+    "la evidencia examinada del 10-K anual no permite conciliar AFFO con la receta del modelo",
   reit_affo_unaccepted:
     "no hay una transcripción AFFO aceptada por la policy de citas y sumas",
   reit_nav_inputs_unavailable:

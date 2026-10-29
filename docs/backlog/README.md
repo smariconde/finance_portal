@@ -4224,6 +4224,18 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
   compensación en acciones. PLD debe terminar con negativa por definición
   incompatible, aunque el suplemento publique un AFFO. No se descartan esos
   ajustes para forzar la receta ni se etiqueta Core FFO como AFFO.
+- Investigación adicional del 2026-10-29: [JLL Q3 2026](https://www.jll.com/en-us/insights/market-dynamics/industrial-market-statistics-trends)
+  publica un cap rate industrial estadounidense de 5,42 %. El [10-K 2025 de
+  PLD](https://www.sec.gov/Archives/edgar/data/1045609/000119312526051453/pld-20251231.htm)
+  describe una cartera en 20 países y cuatro continentes. El [suplemento
+  4Q25](https://www.sec.gov/Archives/edgar/data/1045610/000119312526017256/pld-ex99_2.htm)
+  publica 5,2 % para adquisiciones y 5,0 % para disposiciones y contribuciones,
+  no para toda la cartera. Ninguna de esas tres tasas representa por sí sola el
+  NOI consolidado de PLD; sirve como contexto, no como input NAV. La salida
+  correcta para PLD sigue siendo una negativa trazable, también porque la
+  definición AFFO del suplemento no coincide con `affo-reconciliation-1.0.0`.
+  Para un caso positivo falta una conciliación admitida y una tasa comparable,
+  fechada y con derechos de uso registrados para la misma base de propiedades.
 
 #### `F6-01` — corrida por ticker encolada (cerrado el 2026-10-21)
 
