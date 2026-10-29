@@ -65,6 +65,8 @@ export type ProposeReitAffoResult =
         | "already_asked"
         | "annual_reconciliation_missing";
       readonly previous: StoredReitAffo | null;
+      /** Original 10-K actually located at this cutoff, if one was found. */
+      readonly accessionNumber: string | null;
     }
   | {
       readonly status: "asked";
@@ -81,7 +83,13 @@ export async function proposeReitAffo(
   const skip = (
     reason: Extract<ProposeReitAffoResult, { status: "skipped" }>["reason"],
     previous: StoredReitAffo | null = null,
-  ): ProposeReitAffoResult => ({ status: "skipped", reason, previous });
+    accessionNumber: string | null = null,
+  ): ProposeReitAffoResult => ({
+    status: "skipped",
+    reason,
+    previous,
+    accessionNumber,
+  });
   if (request.propertyBasis !== "equity_property")
     return skip("property_basis_unsupported");
   const knownAt = request.query.knownAt ?? request.query.effectiveAt;
@@ -123,17 +131,21 @@ export async function proposeReitAffo(
     previous.proposal.expectedCommonIncome === anchor.value &&
     !isTransientAiAnswer(previous.proposal)
   )
-    return skip("already_asked", previous);
+    return skip("already_asked", previous, report.accessionNumber);
 
   const html = await dependencies.loadAnnualReport(report);
   if (
     request.propertyBasisQuote === null ||
     !tenKVisibleText(html).includes(request.propertyBasisQuote)
   )
-    return skip("property_basis_unsupported", previous);
+    return skip("property_basis_unsupported", previous, report.accessionNumber);
   const filing = readReitAffoFromReport(report, request.fiscalYearEnd, html);
   if (filing.status !== "ready")
-    return skip("annual_reconciliation_missing", previous);
+    return skip(
+      "annual_reconciliation_missing",
+      previous,
+      report.accessionNumber,
+    );
   const { extract } = filing;
   assertAiTransferable(["sec-edgar"], dependencies.registry);
   const ladder = await dependencies.runLadder(REIT_AFFO_TASK, {

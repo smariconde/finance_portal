@@ -212,7 +212,10 @@ describe("valuation job", () => {
         method: "affo_nav",
         rigor: "screening",
       },
-      { gap: "reit_affo_reconciliation_missing" },
+      {
+        gap: "reit_affo_reconciliation_missing",
+        reitAffoAccessionNumber: "0001193125-26-051453",
+      },
     );
     expect(outcome).toMatchObject({
       gap: "snapshot_not_assembled",
@@ -220,8 +223,15 @@ describe("valuation job", () => {
       assetProfile: "reit",
       method: "affo_nav",
       snapshotGap: "reit_affo_reconciliation_missing",
+      reitAffoAccessionNumber: "0001193125-26-051453",
       valuationRunId: null,
     });
+    expect(
+      valuationJobOutcomeSchema.safeParse({
+        ...outcome,
+        snapshotGap: "reit_affo_filing_unavailable",
+      }).success,
+    ).toBe(false);
   });
 
   it("valuation-job-1.1.0: registra la corrida con su estado", () => {

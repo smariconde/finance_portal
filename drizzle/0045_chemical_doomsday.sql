@@ -1,0 +1,2 @@
+ALTER TABLE "valuation_jobs" ADD COLUMN "reit_affo_accession_number" varchar(20);--> statement-breakpoint
+ALTER TABLE "valuation_jobs" ADD CONSTRAINT "valuation_jobs_reit_affo_accession_check" CHECK ("valuation_jobs"."reit_affo_accession_number" is null or ("valuation_jobs"."reit_affo_accession_number" ~ '^[0-9]{10}-[0-9]{2}-[0-9]{6}$' and "valuation_jobs"."method" = 'affo_nav' and "valuation_jobs"."gap"::text = 'snapshot_not_assembled' and "valuation_jobs"."snapshot_gap" in ('reit_affo_reconciliation_missing', 'reit_affo_unaccepted', 'reit_nav_inputs_unavailable')));

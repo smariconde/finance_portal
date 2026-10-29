@@ -4150,7 +4150,11 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
 
 #### `F6-22` — REIT de propiedades desde la app
 
-- Estado: `in_progress` desde el 2026-10-29 por pedido del owner. El motor
+- Estado: `in_progress` desde el 2026-10-29. El incremento de negativa
+  trazable está cerrado; el camino positivo aún requiere una conciliación AFFO
+  que cumpla la receta y una tasa de capitalización fechada de la misma base de
+  propiedades, o un contrato nuevo versionado y probado para las partidas que
+  la receta actual no representa. El motor
   `affo_nav` (ADR 0044) sólo calcula desde CLI; el job ya clasifica y niega
   insumos faltantes. AFFO no está en el XBRL.
 - Alcance: la IA transcribe FFO/AFFO del 10-K con citas y una policy los
@@ -4202,8 +4206,12 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
   copy. La negativa real se revisó en 1280 y 390 px sin desborde ni valor
   ficticio. El copy explica que revalorar el mismo 10-K repetirá la negativa.
 - Pendiente: derivar el snapshot positivo AFFO/NAV desde propuestas aceptadas y
-  fuentes NAV fechadas, registrar en el job el accession de la negativa,
-  validar replay, responsive y gates.
+  fuentes NAV fechadas, validar replay, responsive y gates. La migración `0045`
+  guarda el accession del 10-K original efectivamente localizado cuando el job
+  registra una negativa REIT. El lector lo expone sin consultar de nuevo la SEC;
+  la prueba de repositorio usa PostgreSQL desechable. Una segunda corrida
+  personal de PLD terminó con `reit_affo_reconciliation_missing`, accession
+  `0001193125-26-051453` y ningún `valuation_run_id`.
   El NOI forward y cap rate requieren fuente o declaración fechada; no se
   infieren del texto de la IA.
 - Investigación de fuentes para PLD (2026-10-29): el [suplemento Q3 2026

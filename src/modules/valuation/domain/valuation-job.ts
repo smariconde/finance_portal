@@ -191,6 +191,12 @@ const methodFieldsSchema = z.object({
 
 const runFieldsSchema = z.object({
   snapshotGap: valuationSnapshotGapSchema.nullable(),
+  /** Verified original 10-K behind an AFFO refusal; older jobs omit it. */
+  reitAffoAccessionNumber: z
+    .string()
+    .regex(/^[0-9]{10}-[0-9]{2}-[0-9]{6}$/u)
+    .nullable()
+    .optional(),
   valuationRunId: uuidSchema.nullable(),
   runStatus: valuationRunStatusSchema.nullable(),
   dataStep: valuationDataStepSchema.nullable(),
@@ -323,6 +329,11 @@ export const valuationJobSchema = z
     }
 
     if (job.status === "queued") {
+      requireAbsent(
+        job.reitAffoAccessionNumber ?? null,
+        "reitAffoAccessionNumber",
+        context,
+      );
       requireAbsent(job.startedAt, "startedAt", context);
       requireAbsent(job.heartbeatAt, "heartbeatAt", context);
       requireAbsent(job.finishedAt, "finishedAt", context);
@@ -344,6 +355,11 @@ export const valuationJobSchema = z
     }
 
     if (job.status === "running") {
+      requireAbsent(
+        job.reitAffoAccessionNumber ?? null,
+        "reitAffoAccessionNumber",
+        context,
+      );
       requireAbsent(job.finishedAt, "finishedAt", context);
       requireAbsent(job.gap, "gap", context);
       requireAbsent(job.dataStep, "dataStep", context);
@@ -488,6 +504,7 @@ function refineOutcome(
     rigor: ValuationJobOutcome["rigor"];
     unsupportedReason: ValuationJobOutcome["unsupportedReason"];
     snapshotGap: ValuationSnapshotGap | null;
+    reitAffoAccessionNumber?: string | null;
     valuationRunId: string | null;
     runStatus: ValuationJobOutcome["runStatus"];
     dataStep: ValuationDataStep | null;
@@ -553,6 +570,22 @@ function refineOutcome(
       code: "custom",
       path: ["snapshotGap"],
       message: "Only snapshot_not_assembled names a snapshot gap.",
+    });
+  }
+  if (
+    outcome.reitAffoAccessionNumber != null &&
+    (outcome.method !== "affo_nav" ||
+      gap !== "snapshot_not_assembled" ||
+      ![
+        "reit_affo_reconciliation_missing",
+        "reit_affo_unaccepted",
+        "reit_nav_inputs_unavailable",
+      ].includes(outcome.snapshotGap ?? ""))
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["reitAffoAccessionNumber"],
+      message: "Only a REIT filing refusal keeps its verified 10-K accession.",
     });
   }
 
@@ -688,6 +721,7 @@ const EMPTY_METHOD = {
 
 const EMPTY_RUN = {
   snapshotGap: null,
+  reitAffoAccessionNumber: null,
   valuationRunId: null,
   runStatus: null,
   dataStep: null,
@@ -904,7 +938,10 @@ export type ValuationAssessmentReading = {
 export function outcomeForAssessment(
   reading: ValuationAssessmentReading,
   snapshot:
-    | { readonly gap: ValuationSnapshotGap }
+    | {
+        readonly gap: ValuationSnapshotGap;
+        readonly reitAffoAccessionNumber?: string | null;
+      }
     | {
         readonly valuationRunId: string;
         readonly runStatus: NonNullable<ValuationJobOutcome["runStatus"]>;
@@ -967,6 +1004,7 @@ export function outcomeForAssessment(
     ...methodOf(reading),
     ...EMPTY_RUN,
     snapshotGap: snapshot.gap,
+    reitAffoAccessionNumber: snapshot.reitAffoAccessionNumber ?? null,
     dataStep,
     qualitativeStep,
   });

@@ -109,6 +109,7 @@ describe("propose REIT AFFO", () => {
     expect(second).toMatchObject({
       status: "skipped",
       reason: "already_asked",
+      accessionNumber: accession,
     });
     expect(deps.loadSubmissions).toHaveBeenCalledTimes(2);
     expect(deps.loadAnnualReport).toHaveBeenCalledTimes(1);
@@ -144,6 +145,7 @@ describe("propose REIT AFFO", () => {
     expect(result).toMatchObject({
       status: "skipped",
       reason: "annual_reconciliation_missing",
+      accessionNumber: accession,
     });
     expect(deps.runLadder).not.toHaveBeenCalled();
   });

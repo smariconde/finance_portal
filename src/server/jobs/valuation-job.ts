@@ -259,7 +259,13 @@ async function assessValuationJob(
   if (prepared.snapshot.status === "not_assembled") {
     return outcomeForAssessment(
       prepared.reading,
-      { gap: prepared.snapshot.gap },
+      {
+        gap: prepared.snapshot.gap,
+        reitAffoAccessionNumber:
+          "reitAffoAccessionNumber" in prepared.snapshot
+            ? prepared.snapshot.reitAffoAccessionNumber
+            : null,
+      },
       prepared.dataStep,
       prepared.qualitativeStep,
     );
@@ -295,7 +301,14 @@ export type PreparedValuationRun =
   | {
       readonly kind: "snapshot";
       readonly reading: ValuationAssessmentReading;
-      readonly snapshot: ValuationSnapshotResult | FinancialSnapshotResult;
+      readonly snapshot:
+        | ValuationSnapshotResult
+        | FinancialSnapshotResult
+        | {
+            readonly status: "not_assembled";
+            readonly gap: ValuationSnapshotGap;
+            readonly reitAffoAccessionNumber: string | null;
+          };
       /** `null` si no se pidió el paso de datos. */
       readonly dataStep: ValuationDataStep | null;
       /** `null` si no se le preguntó nada a la IA (`F6-13`). */
@@ -514,6 +527,7 @@ export async function prepareValuationRun(
           ? null
           : declaredReitPropertyBasis(cik, base.fiscalYearEnd);
       let gap: ValuationSnapshotGap;
+      let reitAffoAccessionNumber: string | null = null;
       if (declaration === null || base === undefined) {
         gap = "reit_property_basis_unavailable";
       } else if (base.items.common_net_income === undefined) {
@@ -523,6 +537,11 @@ export async function prepareValuationRun(
           legalEntityId,
           job.knownAt,
         );
+        if (
+          accepted?.proposal.fiscalYearEnd === base.fiscalYearEnd &&
+          accepted.proposal.accessionNumber === declaration.accessionNumber
+        )
+          reitAffoAccessionNumber = accepted.proposal.accessionNumber;
         gap =
           accepted === null ||
           accepted.proposal.fiscalYearEnd !== base.fiscalYearEnd ||
@@ -544,6 +563,7 @@ export async function prepareValuationRun(
           again: false,
         });
         if (result.status === "asked") {
+          reitAffoAccessionNumber = result.stored.proposal.accessionNumber;
           gap =
             result.stored.proposal.outcome === "accepted"
               ? "reit_nav_inputs_unavailable"
@@ -553,6 +573,7 @@ export async function prepareValuationRun(
         } else if (result.reason === "property_basis_unsupported") {
           gap = "reit_property_basis_unavailable";
         } else if (result.reason === "already_asked") {
+          reitAffoAccessionNumber = result.accessionNumber;
           gap =
             result.previous?.proposal.outcome === "accepted"
               ? "reit_nav_inputs_unavailable"
@@ -563,13 +584,18 @@ export async function prepareValuationRun(
         ) {
           gap = "reit_affo_filing_unavailable";
         } else {
+          reitAffoAccessionNumber = result.accessionNumber;
           gap = "reit_affo_reconciliation_missing";
         }
       }
       return {
         kind: "snapshot",
         reading,
-        snapshot: { status: "not_assembled", gap },
+        snapshot: {
+          status: "not_assembled",
+          gap,
+          reitAffoAccessionNumber,
+        },
         dataStep,
         qualitativeStep: null,
       };

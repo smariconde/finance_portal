@@ -1901,6 +1901,9 @@ export const valuationJobs = pgTable(
     unsupportedReason: varchar("unsupported_reason", { length: 64 }),
     /** Por qué no se armó el snapshot (`F6-07`, ADR 0046). */
     snapshotGap: varchar("snapshot_gap", { length: 64 }),
+    reitAffoAccessionNumber: varchar("reit_affo_accession_number", {
+      length: 20,
+    }),
     /** La corrida que registró el job: `valuation_runs` es append-only. */
     valuationRunId: uuid("valuation_run_id"),
     runStatus: varchar("run_status", { length: 16 }),
@@ -1991,6 +1994,10 @@ export const valuationJobs = pgTable(
         and (${table.snapshotGap} is null or ${table.snapshotGap} in ('method_not_derived', 'security_missing', 'cost_of_capital_unavailable', 'normalization_unavailable', 'revenue_history_insufficient', 'revenue_history_non_positive', 'base_margin_unavailable', 'sales_to_capital_unavailable', 'tax_rate_unavailable', 'employee_equity_not_proposed', 'shares_outstanding_unavailable', 'market_unavailable', 'financial_base_unavailable', 'financial_base_stale', 'financial_declaration_missing', 'financial_filing_evidence_missing', 'growth_revenue_history_unavailable', 'growth_margin_unavailable', 'growth_tax_note_missing', 'growth_tax_jurisdictions_not_reconciled', 'growth_tax_pool_not_reconciled', 'reit_property_basis_unavailable', 'reit_affo_anchor_unavailable', 'reit_affo_filing_unavailable', 'reit_affo_reconciliation_missing', 'reit_affo_unaccepted', 'reit_nav_inputs_unavailable'))
         and (${table.ruleVersion} = 'valuation-job-1.0.0' or ${table.gap} is null or ${table.gap}::text <> 'snapshot_not_assembled' or ${table.snapshotGap} is not null)
         and (${table.ruleVersion} <> 'valuation-job-1.0.0' or (${table.snapshotGap} is null and ${table.valuationRunId} is null))`,
+    ),
+    check(
+      "valuation_jobs_reit_affo_accession_check",
+      sql`${table.reitAffoAccessionNumber} is null or (${table.reitAffoAccessionNumber} ~ '^[0-9]{10}-[0-9]{2}-[0-9]{6}$' and ${table.method} = 'affo_nav' and ${table.gap}::text = 'snapshot_not_assembled' and ${table.snapshotGap} in ('reit_affo_reconciliation_missing', 'reit_affo_unaccepted', 'reit_nav_inputs_unavailable'))`,
     ),
     // Los gaps nuevos se comparan como texto, por la misma razón que
     // `run_recorded`.

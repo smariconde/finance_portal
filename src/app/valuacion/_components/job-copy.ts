@@ -32,7 +32,7 @@ export const GAP_COPY: Record<ValuationJobGap, string> = {
     "No hay una serie anual de fundamentals guardada para valuar.",
   unsupported_method: "El método que le corresponde no está admitido.",
   snapshot_not_assembled:
-    "La evaluación está hecha, pero el snapshot de supuestos no se pudo armar. No hay corrida.",
+    "No se pudo armar el snapshot de supuestos, así que no se registró una valuación.",
   assessment_failed: "La evaluación no terminó. Se puede volver a encolar.",
   run_recorded:
     "Se registró una corrida con supuestos derivados de lo guardado.",
