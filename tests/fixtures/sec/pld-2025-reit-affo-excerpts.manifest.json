@@ -1,0 +1,12 @@
+{
+  "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1045609/000119312526051453/pld-20251231.htm",
+  "fetchedAt": "2026-10-29T20:38:57.439Z",
+  "rawBytes": 11507390,
+  "rawSha256": "1ba161d38bcfd7b031930117bc4caf8fe1223afe93ff4cb80026d0dcb6b74e07",
+  "extractMethod": "Visible text; 500 characters before and 900 after each of the last five FFO/AFFO mentions; excerpt breaks are editorial",
+  "extractBytes": 7075,
+  "extractSha256": "54ec5ccea77ac373823c82f94b8adb25a70179636e3032cb5c4d41caa85e284a",
+  "totalMentions": 40,
+  "affoMentions": 0,
+  "rights": "sec-edgar: rawStorage, publicDisplay and export allowed"
+}

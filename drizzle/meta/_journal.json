@@ -295,6 +295,34 @@
       "when": 1793287492057,
       "tag": "0041_yellow_ironclad",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1793306764441,
+      "tag": "0042_jittery_vampiro",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1793307281084,
+      "tag": "0043_clammy_sabretooth",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1793307754757,
+      "tag": "0044_friendly_magneto",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1793309209496,
+      "tag": "0045_chemical_doomsday",
+      "breakpoints": true
     }
   ]
 }

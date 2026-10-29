@@ -32,7 +32,7 @@ export const GAP_COPY: Record<ValuationJobGap, string> = {
     "No hay una serie anual de fundamentals guardada para valuar.",
   unsupported_method: "El método que le corresponde no está admitido.",
   snapshot_not_assembled:
-    "La evaluación está hecha, pero el snapshot de supuestos no se pudo armar. No hay corrida.",
+    "No se pudo armar el snapshot de supuestos, así que no se registró una valuación.",
   assessment_failed: "La evaluación no terminó. Se puede volver a encolar.",
   run_recorded:
     "Se registró una corrida con supuestos derivados de lo guardado.",
@@ -54,6 +54,14 @@ export function describeJobGap(
   assetProfile: AssetProfile | null,
   unsupportedReason: MethodSelectionReason | null,
 ): string {
+  if (
+    gap === "unsupported_method" &&
+    assetProfile === "reit" &&
+    unsupportedReason === "missing_required_input"
+  ) {
+    return "La empresa se clasificó como REIT. Para calcular un valor faltan AFFO común conciliado con el 10-K y NAV con NOI de los próximos doce meses, tasa de capitalización comparable y claims fechados. El método sólo admite REIT de propiedades; no hay valor calculado.";
+  }
+
   if (
     gap === "unsupported_method" &&
     (assetProfile === "cyclical" || assetProfile === "commodity") &&
@@ -217,6 +225,18 @@ export const SNAPSHOT_GAP_COPY: Record<ValuationSnapshotGap, string> = {
     "la nota fiscal separa pérdidas entre jurisdicciones y no permite un único saldo utilizable",
   growth_tax_pool_not_reconciled:
     "la nota fiscal no concilia monto, vencimiento y límite anual de compensación",
+  reit_property_basis_unavailable:
+    "falta evidencia fechada de que sea un REIT de propiedades",
+  reit_affo_anchor_unavailable:
+    "falta el ingreso común XBRL del mismo 10-K que se usa para AFFO",
+  reit_affo_filing_unavailable:
+    "falta el 10-K anual del ejercicio base conocido al corte",
+  reit_affo_reconciliation_missing:
+    "la evidencia examinada del 10-K anual no permite conciliar AFFO con la receta del modelo",
+  reit_affo_unaccepted:
+    "no hay una transcripción AFFO aceptada por la policy de citas y sumas",
+  reit_nav_inputs_unavailable:
+    "faltan NOI forward, tasa de capitalización comparable y claims del NAV fechados",
 };
 
 export const PROFILE_COPY: Record<AssetProfile, string> = {

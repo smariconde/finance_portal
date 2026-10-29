@@ -164,6 +164,7 @@ export type ValuationResultNewerGap = ValuationResultJob & {
   readonly assetProfile: ValuationJob["assetProfile"];
   readonly unsupportedReason: ValuationJob["unsupportedReason"];
   readonly snapshotGap: ValuationJob["snapshotGap"];
+  readonly reitAffoAccessionNumber: string | null;
   /** Qué bajó y auditó (`F6-05`): estados y códigos, sin IDs. */
   readonly dataStep: ValuationJob["dataStep"];
   /** Qué le preguntó a la IA (`F6-13`): estados y códigos, sin IDs. */
@@ -323,6 +324,7 @@ function gapReading(job: ValuationJob): ValuationResultNewerGap {
     assetProfile: job.assetProfile,
     unsupportedReason: job.unsupportedReason,
     snapshotGap: job.snapshotGap,
+    reitAffoAccessionNumber: job.reitAffoAccessionNumber ?? null,
     dataStep: job.dataStep,
     qualitativeStep: job.qualitativeStep,
   };

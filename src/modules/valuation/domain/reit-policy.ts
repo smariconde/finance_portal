@@ -11,6 +11,7 @@ import {
 } from "./policy-checks";
 import { reconcileAffo } from "./reit";
 import type { ReitAssumptions, ReitInput } from "./reit-input";
+import { parsePrintedAmount } from "./operations-mix-task";
 
 export function reitFacts(input: ReitInput) {
   return [
@@ -148,7 +149,48 @@ export function checkReitInput(input: ReitInput): PolicyCheck[] {
   const affoPresent = reitFacts(input)
     .filter(({ path }) => path.startsWith("affo."))
     .every(({ fact }) => fact !== null);
+  const transcriptionProblems: string[] = [];
+  if (input.derivedAffo !== undefined) {
+    const { proposal, sourceDocumentId, acceptedAt } = input.derivedAffo;
+    const factors = {
+      units: "1",
+      thousands: "1000",
+      millions: "1000000",
+      billions: "1000000000",
+    };
+    const factor = proposal.unit === null ? undefined : factors[proposal.unit];
+    if (proposal.decision !== "proposed" || factor === undefined)
+      transcriptionProblems.push("derivedAffo.proposal");
+    for (const name of [
+      "commonNetIncome",
+      "realEstateDepreciation",
+      "propertySaleGains",
+      "realEstateImpairments",
+      "jointVentureAdjustment",
+      "recurringCapex",
+      "straightLineRent",
+    ] as const) {
+      const printed = proposal.components[name];
+      const amount =
+        printed === null ? null : parsePrintedAmount(printed.amount);
+      const fact = input.affo[name];
+      if (
+        amount === null ||
+        factor === undefined ||
+        fact === null ||
+        !amount.times(factor).eq(parseDecimal(fact.value, `affo.${name}`)) ||
+        fact.sourceDocumentId !== sourceDocumentId ||
+        fact.availableAt !== acceptedAt
+      )
+        transcriptionProblems.push(`affo.${name}`);
+    }
+  }
   return [
+    check(
+      "reit_affo_transcription",
+      transcriptionProblems,
+      "A frozen AI transcription must match every AFFO fact and its 10-K acceptance.",
+    ),
     check(
       "reit_structural_inputs",
       missing,

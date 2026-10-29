@@ -272,6 +272,9 @@ function WithoutRun({
   reading: Exclude<ValuationResultReading, { state: "run" | "financial_run" }>;
 }) {
   let message: string;
+  const reitAffoRefusal =
+    reading.state === "no_run" &&
+    reading.latest.snapshotGap === "reit_affo_reconciliation_missing";
 
   if (reading.state === "not_requested") {
     message = `Todavía no hay corridas terminadas de ${reading.ticker}.`;
@@ -296,10 +299,30 @@ function WithoutRun({
       <section className="flex max-w-prose flex-col gap-3">
         <p className="text-sm">{message}</p>
         <p className="text-sm text-muted-foreground">
-          Sin corrida no hay valor por acción, y esta página no lo estima.
-          Valuar baja lo que falte de la SEC y el cierre del día, audita la
-          empresa, pide a la IA lo cualitativo que falte y evalúa al corte de
-          hoy: si alcanza, la página se completa sola; si no, dice qué falta.
+          {reitAffoRefusal ? (
+            <>
+              {
+                "Volver a valuar el mismo 10-K repetirá esta negativa mientras no haya una conciliación AFFO compatible con la receta del modelo."
+              }{" "}
+              El NAV también requiere NOI forward y una tasa de capitalización
+              comparable.
+              {reading.state === "no_run" &&
+              reading.latest.reitAffoAccessionNumber !== null ? (
+                <>
+                  {" "}
+                  Presentación SEC: {reading.latest.reitAffoAccessionNumber}.
+                </>
+              ) : null}
+            </>
+          ) : (
+            <>
+              Sin corrida no hay valor por acción, y esta página no lo estima.
+              Valuar baja lo que falte de la SEC y el cierre del día, audita la
+              empresa, pide a la IA lo cualitativo que falte y evalúa al corte
+              de hoy: si alcanza, la página se completa sola; si no, dice qué
+              falta.
+            </>
+          )}
         </p>
       </section>
     </PageFrame>

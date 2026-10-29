@@ -1151,6 +1151,81 @@ export const employeeEquityEvidence = pgTable(
   ],
 );
 
+/** One AFFO answer per model task, including refusals and its GAAP anchor. */
+export const reitAffoProposals = pgTable(
+  "reit_affo_proposals",
+  {
+    proposalId: uuid("proposal_id").primaryKey(),
+    legalEntityId: uuid("legal_entity_id").notNull(),
+    cik: char("cik", { length: 10 }).notNull(),
+    accessionNumber: varchar("accession_number", { length: 20 }).notNull(),
+    fiscalYearEnd: date("fiscal_year_end", { mode: "string" }).notNull(),
+    taskVersion: varchar("task_version", { length: 64 }).notNull(),
+    promptVersion: varchar("prompt_version", { length: 64 }).notNull(),
+    policyVersion: varchar("policy_version", { length: 64 }).notNull(),
+    extractVersion: varchar("extract_version", { length: 64 }).notNull(),
+    expectedCommonIncome: numeric("expected_common_income", {
+      mode: "string",
+    }).notNull(),
+    // No FK: an older SEC observation may be pruned after this proposal.
+    commonIncomeObservationId: uuid("common_income_observation_id").notNull(),
+    commonIncomeSourceDocumentId: varchar("common_income_source_document_id", {
+      length: 20,
+    }).notNull(),
+    outcome: varchar("outcome", { length: 16 }).notNull(),
+    transcription: jsonb("transcription").$type<Record<string, unknown>>(),
+    reason: varchar("reason", { length: 96 }),
+    acceptedRung: integer("accepted_rung"),
+    respondedModel: varchar("responded_model", { length: 128 }),
+    proposedAt: instant("proposed_at").notNull(),
+    recordedAt: instant("recorded_at").notNull(),
+  },
+  (table) => [
+    index("reit_affo_proposals_subject_idx").on(
+      table.legalEntityId,
+      table.recordedAt,
+    ),
+    check(
+      "reit_affo_proposals_outcome_check",
+      sql`${table.outcome} in ('accepted', 'abstained', 'stopped') and (${table.outcome} = 'accepted') = (${table.transcription} is not null and ${table.reason} is null and ${table.acceptedRung} is not null and ${table.respondedModel} is not null) and (${table.outcome} = 'accepted' or (${table.transcription} is null and ${table.reason} is not null and ${table.acceptedRung} is null and ${table.respondedModel} is null))`,
+    ),
+    check(
+      "reit_affo_proposals_accession_check",
+      sql`${table.accessionNumber} ~ '^[0-9]{10}-[0-9]{2}-[0-9]{6}$' and ${table.commonIncomeSourceDocumentId} = ${table.accessionNumber}`,
+    ),
+    check(
+      "reit_affo_proposals_timeline_check",
+      sql`${table.recordedAt} >= ${table.proposedAt}`,
+    ),
+  ],
+);
+
+export const reitAffoEvidence = pgTable(
+  "reit_affo_evidence",
+  {
+    proposalId: uuid("proposal_id").primaryKey(),
+    sourceId: varchar("source_id", { length: 64 }).notNull(),
+    documentUrl: text("document_url").notNull(),
+    accessionNumber: varchar("accession_number", { length: 20 }).notNull(),
+    documentAcceptedAt: instant("document_accepted_at").notNull(),
+    sha256: char("sha256", { length: 64 }).notNull(),
+    byteLength: integer("byte_length").notNull(),
+    truncated: boolean("truncated").notNull(),
+    excerpt: text("excerpt").notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: "reit_affo_evidence_proposal_fk",
+      columns: [table.proposalId],
+      foreignColumns: [reitAffoProposals.proposalId],
+    }),
+    check(
+      "reit_affo_evidence_bytes_check",
+      sql`${table.byteLength} between 1 and 14000`,
+    ),
+  ],
+);
+
 export const marketExpectationsOutcome = pgEnum("market_expectations_outcome", [
   "accepted",
   "abstained",
@@ -1826,6 +1901,9 @@ export const valuationJobs = pgTable(
     unsupportedReason: varchar("unsupported_reason", { length: 64 }),
     /** Por qué no se armó el snapshot (`F6-07`, ADR 0046). */
     snapshotGap: varchar("snapshot_gap", { length: 64 }),
+    reitAffoAccessionNumber: varchar("reit_affo_accession_number", {
+      length: 20,
+    }),
     /** La corrida que registró el job: `valuation_runs` es append-only. */
     valuationRunId: uuid("valuation_run_id"),
     runStatus: varchar("run_status", { length: 16 }),
@@ -1913,9 +1991,13 @@ export const valuationJobs = pgTable(
         and (${table.valuationRunId} is not null) = (${table.gap} is not null and ${table.gap}::text = 'run_recorded')
         and (${table.valuationRunId} is null or (${table.methodStatus} = 'selected' and ${table.method} in ('fcff_base', 'normalized_fcff', 'excess_return', 'fcff_three_stage', 'revenue_margin_survival')))
         and (${table.snapshotGap} is null or ${table.gap}::text = 'snapshot_not_assembled')
-        and (${table.snapshotGap} is null or ${table.snapshotGap} in ('method_not_derived', 'security_missing', 'cost_of_capital_unavailable', 'normalization_unavailable', 'revenue_history_insufficient', 'revenue_history_non_positive', 'base_margin_unavailable', 'sales_to_capital_unavailable', 'tax_rate_unavailable', 'employee_equity_not_proposed', 'shares_outstanding_unavailable', 'market_unavailable', 'financial_base_unavailable', 'financial_base_stale', 'financial_declaration_missing', 'financial_filing_evidence_missing', 'growth_revenue_history_unavailable', 'growth_margin_unavailable', 'growth_tax_note_missing', 'growth_tax_jurisdictions_not_reconciled', 'growth_tax_pool_not_reconciled'))
+        and (${table.snapshotGap} is null or ${table.snapshotGap} in ('method_not_derived', 'security_missing', 'cost_of_capital_unavailable', 'normalization_unavailable', 'revenue_history_insufficient', 'revenue_history_non_positive', 'base_margin_unavailable', 'sales_to_capital_unavailable', 'tax_rate_unavailable', 'employee_equity_not_proposed', 'shares_outstanding_unavailable', 'market_unavailable', 'financial_base_unavailable', 'financial_base_stale', 'financial_declaration_missing', 'financial_filing_evidence_missing', 'growth_revenue_history_unavailable', 'growth_margin_unavailable', 'growth_tax_note_missing', 'growth_tax_jurisdictions_not_reconciled', 'growth_tax_pool_not_reconciled', 'reit_property_basis_unavailable', 'reit_affo_anchor_unavailable', 'reit_affo_filing_unavailable', 'reit_affo_reconciliation_missing', 'reit_affo_unaccepted', 'reit_nav_inputs_unavailable'))
         and (${table.ruleVersion} = 'valuation-job-1.0.0' or ${table.gap} is null or ${table.gap}::text <> 'snapshot_not_assembled' or ${table.snapshotGap} is not null)
         and (${table.ruleVersion} <> 'valuation-job-1.0.0' or (${table.snapshotGap} is null and ${table.valuationRunId} is null))`,
+    ),
+    check(
+      "valuation_jobs_reit_affo_accession_check",
+      sql`${table.reitAffoAccessionNumber} is null or (${table.reitAffoAccessionNumber} ~ '^[0-9]{10}-[0-9]{2}-[0-9]{6}$' and ${table.method} = 'affo_nav' and ${table.gap}::text = 'snapshot_not_assembled' and ${table.snapshotGap} in ('reit_affo_reconciliation_missing', 'reit_affo_unaccepted', 'reit_nav_inputs_unavailable'))`,
     ),
     // Los gaps nuevos se comparan como texto, por la misma razón que
     // `run_recorded`.

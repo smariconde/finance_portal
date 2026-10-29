@@ -204,6 +204,36 @@ describe("valuation job", () => {
     expect(outcome.valuationRunId).toBeNull();
   });
 
+  it("records a selected REIT's missing annual AFFO as a snapshot refusal", () => {
+    const outcome = outcomeForAssessment(
+      {
+        ...SELECTED,
+        assetProfile: "reit",
+        method: "affo_nav",
+        rigor: "screening",
+      },
+      {
+        gap: "reit_affo_reconciliation_missing",
+        reitAffoAccessionNumber: "0001193125-26-051453",
+      },
+    );
+    expect(outcome).toMatchObject({
+      gap: "snapshot_not_assembled",
+      methodStatus: "selected",
+      assetProfile: "reit",
+      method: "affo_nav",
+      snapshotGap: "reit_affo_reconciliation_missing",
+      reitAffoAccessionNumber: "0001193125-26-051453",
+      valuationRunId: null,
+    });
+    expect(
+      valuationJobOutcomeSchema.safeParse({
+        ...outcome,
+        snapshotGap: "reit_affo_filing_unavailable",
+      }).success,
+    ).toBe(false);
+  });
+
   it("valuation-job-1.1.0: registra la corrida con su estado", () => {
     const outcome = outcomeForAssessment(SELECTED, {
       valuationRunId: RUN,

@@ -125,6 +125,18 @@ export function describeValuationJobStoreContract(
           },
           { gap: "growth_tax_jurisdictions_not_reconciled" },
         ),
+        outcomeForAssessment(
+          {
+            ...reading,
+            assetProfile: "reit",
+            method: "affo_nav",
+            rigor: "screening",
+          },
+          {
+            gap: "reit_affo_reconciliation_missing",
+            reitAffoAccessionNumber: "0001193125-26-051453",
+          },
+        ),
       ]) {
         const symbol = ticker();
         const job = queueValuationJob({
@@ -156,6 +168,9 @@ export function describeValuationJobStoreContract(
         expect(done?.ruleVersion).toBe("valuation-job-1.3.0");
         expect(done?.gap).toBe(outcome.gap);
         expect(done?.snapshotGap).toBe(outcome.snapshotGap);
+        expect(done?.reitAffoAccessionNumber ?? null).toBe(
+          outcome.reitAffoAccessionNumber ?? null,
+        );
         expect(done?.valuationRunId).toBe(outcome.valuationRunId);
         expect(done?.runStatus).toBe(outcome.runStatus);
       }
