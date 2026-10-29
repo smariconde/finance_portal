@@ -4129,10 +4129,10 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
   y axe no reportó hallazgos. La negativa de MU es reproducible con el extracto
   SEC congelado; los dos métodos reproducen corridas sintéticas sin red.
 - Alcance restante: una corrida real o negativa auditable para un emisor
-  elegible `loss_making`/`revenue_margin_survival`, y CI del PR. MRNA presenta
-  señal `loss_making`, pero el selector prioriza `distressed`/`apv_scenarios`;
-  no sirve para afirmar cobertura del método. El [PR #82](https://github.com/smariconde/finance_portal/pull/82)
-  está en draft. `F6-21` sigue abierto.
+  elegible `loss_making`/`revenue_margin_survival`. MRNA y TTWO presentan
+  pérdidas, pero el selector prioriza distress; no sirven para afirmar
+  cobertura del método. El [PR #82](https://github.com/smariconde/finance_portal/pull/82)
+  está en draft, con `quality` y E2E/accesibilidad verdes. `F6-21` sigue abierto.
 
 #### `F6-22` — REIT de propiedades desde la app
 
