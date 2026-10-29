@@ -4160,10 +4160,20 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
   6798 y perfil `reit`, con negativa actual `affo, nav`; el último cierre
   fiscal guardado es 2025-12-31. Seis pruebas focalizadas, el oráculo REIT,
   tipos y lint pasan.
-- Pendiente: delimitar el extracto anual del 10-K, guardar la propuesta con
-  citas y corte, derivar AFFO y NAV, conectar el job y la lectura, validar
-  replay, datos reales, responsive y gates. El NOI forward y cap rate requieren
-  fuente o declaración fechada; no se infieren del texto de la IA.
+- Segundo incremento: `sec-10k-reit-affo-1.0.0` delimita un extracto anual de
+  hasta 14 KB del HTML visible. Un lector de `submissions` localiza sólo el
+  10-K original conocido al corte, exige que su `reportDate` coincida con el
+  ejercicio XBRL y devuelve accession y aceptación junto al extracto. La
+  frontera usa derechos registrados y egress SEC medido; no persiste el HTML.
+  Seis pruebas sin red cubren extracto, corte, documento y negativas. En una
+  lectura SEC medida del 10-K 2025 de PLD (11.507.390 bytes), el extractor no
+  halló una conciliación anual compatible. Es una medición operativa, todavía
+  sin fixture reducida ni propuesta de IA; no prueba ausencia absoluta.
+- Pendiente: registrar una fixture SEC reducida del contrato de lectura,
+  guardar la propuesta con citas y corte, derivar AFFO y NAV, conectar el
+  lector al job y la lectura, validar replay, datos reales, responsive y gates.
+  El NOI forward y cap rate requieren fuente o declaración fechada; no se
+  infieren del texto de la IA.
 - Investigación de fuentes para PLD (2026-10-29): el [suplemento Q3 2026
   presentado como EX-99.1 del 8-K](https://ir.prologis.com/financials/sec-filings/content/0001193125-26-422375/pld-ex99_1.htm)
   contiene NOI anualizado por cartera y los componentes del NAV; el
