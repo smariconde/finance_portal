@@ -247,6 +247,13 @@ modelo lo decide el `aiTransfer` de cada fuente de origen, comprobado por
 `allowed` (copiar con cita), y Damodaran, Yahoo, Comafi y Caja siguen sin
 poder viajar.
 
+`F6-21` lee además la nota fiscal del 10-K conocido al corte mediante dos
+solicitudes SEC medidas como máximo. Conserva sólo el hecho monetario, la fecha,
+el identificador documental y la regla de uso cuando puede conciliar un único
+saldo; no almacena el HTML. El extracto reducido de MU 2026 queda como fixture
+SEC bajo la excepción de corpus de la ADR 0023 y reproduce una negativa por
+jurisdicciones no conciliadas.
+
 ## Contrato de observación
 
 Toda observación persistida incluye:

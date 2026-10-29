@@ -4096,8 +4096,8 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
 
 #### `F6-21` — pérdidas y alto crecimiento desde la app
 
-- Estado: `in_progress`. `growth-fcff-1.0.0` (ADR 0043) corre sólo por CLI.
-  MU cae acá: el selector la clasifica `high_growth`, no cíclica.
+- Estado: `in_progress`. `growth-fcff-1.0.0` (ADR 0043) ya está conectado al
+  job por ticker. MU cae acá: el selector la clasifica `high_growth`, no cíclica.
 - Primer incremento en la rama `feat/f6-21-derived-growth-valuation`:
   [ADR 0063](../architecture/adr/0063-derived-growth-valuation.md) propuesta;
   parser con fixture y prueba de encabezado de la tabla de márgenes de
@@ -4106,19 +4106,32 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
 - Medición real: SEC publicó 1.120 observaciones de MU con tres solicitudes;
   su SIC 3674 observado con una solicitud la mapea a `semiconductor`. El
   selector elige `fcff_three_stage` con confianza alta, y costo de capital y
-  fracaso están disponibles. Faltan crecimiento, margen objetivo, saldo de
-  pérdidas fiscales y motivo de financiación. Su 10-K 2026 distribuye las
+  fracaso están disponibles. La trayectoria, el margen objetivo y el supuesto
+  de financiación se derivan; la nota fiscal impide armar el snapshot. Su 10-K 2026 distribuye las
   pérdidas entre Malasia y jurisdicciones con vencimientos; el total no sirve
   como pool único. El owner eligió frenar cuando la nota no permita conciliar
   jurisdicciones.
 - El owner aprobó `derived-growth-trajectory-1.0.0`: diez años explícitos,
   CAGR de ventas de tres años limitado al 30 %, tres años de alto crecimiento,
   caída lineal hasta terminal y margen de industria en cinco años. La regla
-  pura y sus casos de rechazo pasan 11 pruebas; aún no está conectada al job.
-- Alcance restante: derivar y congelar trayectoria de ventas, margen de la
-  release visible, saldo fiscal conciliado y financiación; conectar selector,
-  job, replay y lectura propia de ambos métodos en la página; probarlo con
-  datos reales y los gates. Ninguna corrida de crecimiento se marcó `done`.
+  pura y sus casos de rechazo pasan 11 pruebas. El job ya la conecta con el
+  margen de la release visible y la lectura fiscal medida del 10-K.
+- La migración `0040` amplía los motivos del job. El job real de MU quedó
+  completado: método `fcff_three_stage`, motivo
+  `growth_tax_jurisdictions_not_reconciled`, sin `valuation_run` ni número. Un
+  extracto SEC reducido del 10-K 2026, con hashes y manifiesto, reproduce la
+  negativa. El ensamblador sintético de diez años produce una corrida
+  `requires_review` reproducible sin red; la UI nombra trayectoria, margen,
+  pérdidas, financiación y fracaso.
+- Gates locales: 3.305 unit, 222 pruebas de integración PostgreSQL, 209 E2E
+  (3 omitidas), lint, typecheck y build pasaron. `0040` se aplicó en la base
+  personal y la de integración. La vista sintética en 1280/390 px no desborda
+  y axe no reportó hallazgos. La negativa de MU es reproducible con el extracto
+  SEC congelado; los dos métodos reproducen corridas sintéticas sin red.
+- Alcance restante: una corrida real o negativa auditable para un emisor
+  elegible `loss_making`/`revenue_margin_survival`, y CI del PR. MRNA presenta
+  señal `loss_making`, pero el selector prioriza `distressed`/`apv_scenarios`;
+  no sirve para afirmar cobertura del método. `F6-21` sigue abierto.
 
 #### `F6-22` — REIT de propiedades desde la app
 

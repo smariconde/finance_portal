@@ -1,7 +1,6 @@
 # ADR 0063: crecimiento y pérdidas desde la corrida por ticker
 
-- Estado: aceptado para la fuente, la trayectoria y la política de negativa;
-  conexión del job aún en implementación
+- Estado: aceptado; implementación de `F6-21` en validación
 - Fecha: 2026-10-28
 - Alcance: `F6-21`, sobre el motor experimental de la
   [ADR 0043](0043-revenue-margin-survival.md)
@@ -66,14 +65,26 @@ guardó.
   misma base fiscal que los impuestos del modelo. Sin esa evidencia, la
   corrida se niega con un motivo; no inventa saldo cero ni aplica el total
   de otras jurisdicciones.
+- `growth-tax-evidence-1.0.0` es deliberadamente estrecha: acepta un único
+  saldo federal estadounidense no vencido, con monto, unidad y límite anual
+  explícitos en el 10-K conocido al corte. Rechaza partidas entre países o
+  estados, vencimientos, múltiples menciones o un límite no publicado. Congela
+  sólo el hecho monetario, el documento SEC, su disponibilidad y la regla de
+  uso; no persiste el HTML. El extracto reducido del 10-K 2026 de MU está
+  fijado por bytes y SHA-256 en `tests/fixtures/sec/`; reproduce la negativa
+  por sus USD 1.460 millones en Malasia y el resto con vencimientos.
 - El acceso futuro a financiación es una hipótesis de screening expresamente
   nombrada, no una afirmación sobre una línea de crédito. El motor muestra
   la máxima necesidad de fondos y deja la corrida `requires_review`.
 
-La página leerá `fcff_three_stage` y `revenue_margin_survival` con sus
-trayectorias, necesidad de fondos, supervivencia, impuestos y provenance en
-la jerarquía actual de la valuación. No se cambiarán snapshots ni hashes
-anteriores.
+El job selecciona `fcff_three_stage` o `revenue_margin_survival`, toma el
+margen de la release visible y lee hasta dos recursos SEC por el egress medido
+para la nota fiscal. Cada ausencia queda como `snapshotGap`; la restricción de
+PostgreSQL se amplía con la migración `0040`. La página muestra la trayectoria,
+necesidad de fondos, probabilidad de fracaso, impuestos y procedencia en la
+jerarquía actual de la valuación. Snapshots y hashes anteriores se conservan.
+La preparación real de MU se negó por `growth_tax_jurisdictions_not_reconciled`
+y el job quedó completado con ese motivo, sin corrida ni número inventado.
 
 ## Gate de este slice
 
