@@ -4172,6 +4172,9 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
   HTML y del extracto. El documento completo tiene 40 menciones FFO y ninguna
   mención AFFO; el test confirma la negativa sobre el extracto sin red. No se
   guarda el HTML ni se afirma que el extracto pruebe ausencia de otros ajustes.
+- `reit-affo-policy-1.1.0` exige que la unidad elegida aparezca en la cita de
+  escala y que esa cita no mezcle miles, millones o billones. La negativa
+  ocurre antes de comparar el ingreso común escalado contra XBRL.
 - Pendiente: guardar la propuesta con citas y corte, derivar AFFO y NAV, conectar el
   lector al job y la lectura, validar replay, datos reales, responsive y gates.
   El NOI forward y cap rate requieren fuente o declaración fechada; no se

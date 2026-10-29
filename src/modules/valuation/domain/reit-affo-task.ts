@@ -12,7 +12,7 @@ import {
 /** The model transcribes a filing; the arithmetic and admission are code. */
 export const REIT_AFFO_TASK_VERSION = "reit-affo-1.0.0";
 export const REIT_AFFO_PROMPT_VERSION = "reit-affo-prompt-1.0.0";
-export const REIT_AFFO_POLICY_VERSION = "reit-affo-policy-1.0.0";
+export const REIT_AFFO_POLICY_VERSION = "reit-affo-policy-1.1.0";
 
 const componentNames = [
   "commonNetIncome",
@@ -87,6 +87,24 @@ const factors = {
   billions: "1000000000",
 } as const;
 
+const unitWords = {
+  units: /\b(?:units|dollars|USD)\b/iu,
+  thousands: /\bthousands?\b/iu,
+  millions: /\bmillions?\b/iu,
+  billions: /\bbillions?\b/iu,
+} as const;
+
+function unitQuoteMatches(
+  unit: NonNullable<ReitAffoOutput["unit"]>,
+  quote: string,
+) {
+  if (!unitWords[unit].test(quote)) return false;
+  return Object.entries(unitWords).every(
+    ([other, pattern]) =>
+      other === unit || other === "units" || !pattern.test(quote),
+  );
+}
+
 function citedAmount(
   value: z.infer<typeof quotedAmountSchema> | null,
   evidence: string,
@@ -119,6 +137,8 @@ export function judgeReitAffo(
   const evidence = normalizeWhitespace(input.evidence.text);
   if (!evidence.includes(normalizeWhitespace(output.unitQuote)))
     return { verdict: "reject", code: "unit_not_quoted" };
+  if (!unitQuoteMatches(output.unit, output.unitQuote))
+    return { verdict: "reject", code: "unit_quote_mismatch" };
   const factor = parseDecimal(factors[output.unit], "unit");
   const amounts = {} as Record<
     ReitAffoComponent,

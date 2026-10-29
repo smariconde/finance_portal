@@ -81,12 +81,26 @@ describe("REIT AFFO transcription policy", () => {
     wrongScale.unit = "thousands";
     expect(judgeReitAffo(wrongScale, input)).toEqual({
       verdict: "reject",
-      code: "common_income_mismatch",
+      code: "unit_quote_mismatch",
     });
     expect(
       judgeReitAffo(proposed(), { ...input, expectedCommonIncome: "-8000000" })
         .verdict,
     ).toBe("reject");
+  });
+
+  it("requires the quoted scale to be unambiguous", () => {
+    const mixed = proposed();
+    mixed.unitQuote = "(In millions and thousands)";
+    expect(
+      judgeReitAffo(mixed, {
+        ...input,
+        evidence: {
+          ...input.evidence,
+          text: `${evidence}\n${mixed.unitQuote}`,
+        },
+      }),
+    ).toEqual({ verdict: "reject", code: "unit_quote_mismatch" });
   });
 
   it("refuses nonreconciling FFO and AFFO", () => {

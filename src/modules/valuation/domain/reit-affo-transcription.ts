@@ -1,6 +1,7 @@
 import { affoReconciliationSchema } from "./reit-input";
 import {
   judgeReitAffo,
+  REIT_AFFO_POLICY_VERSION,
   type ReitAffoInput,
   type ReitAffoOutput,
 } from "./reit-affo-task";
@@ -48,7 +49,7 @@ export function reitAffoFromTranscription(input: {
     version: "affo-reconciliation-1.0.0",
     periodStart: input.periodStart,
     periodEnd: input.periodEnd,
-    rationale: `AI transcription checked by reit-affo-policy-1.0.0 against 10-K ${input.accessionNumber} and same-filing common income; ${input.proposal.rationale.slice(0, 700)}`,
+    rationale: `AI transcription checked by ${REIT_AFFO_POLICY_VERSION} against 10-K ${input.accessionNumber} and same-filing common income; ${input.proposal.rationale.slice(0, 700)}`,
     commonNetIncome: fact("commonNetIncome"),
     realEstateDepreciation: fact("realEstateDepreciation"),
     propertySaleGains: fact("propertySaleGains"),
