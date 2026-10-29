@@ -257,10 +257,26 @@ describe("valuation job", () => {
     expect(
       valuationJobOutcomeSchema.safeParse({
         ...recorded,
-        method: "fcff_three_stage",
+        method: "affo_nav",
       }).success,
     ).toBe(false);
   });
+
+  it.each(["fcff_three_stage", "revenue_margin_survival"] as const)(
+    "registra el método de crecimiento %s derivado por el job (F6-21)",
+    (method) => {
+      const recorded = outcomeForAssessment(
+        {
+          ...SELECTED,
+          assetProfile:
+            method === "fcff_three_stage" ? "high_growth" : "loss_making",
+          method,
+        },
+        { valuationRunId: RUN, runStatus: "requires_review" },
+      );
+      expect(valuationJobOutcomeSchema.safeParse(recorded).success).toBe(true);
+    },
+  );
 
   it("registra una corrida de margen de ciclo, que el job sabe derivar (F6-18)", () => {
     const recorded = outcomeForAssessment(

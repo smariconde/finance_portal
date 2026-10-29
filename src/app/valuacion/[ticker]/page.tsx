@@ -76,6 +76,7 @@ import { ValuationRunner } from "../_components/valuation-runner";
 import { CedearAccess } from "./_components/cedear-access";
 import { CostOfCapitalTable } from "./_components/cost-of-capital-table";
 import { DerivationSummary } from "./_components/derivation-summary";
+import { GrowthDerivation } from "./_components/growth-derivation";
 import { AuditGroup } from "./_components/audit-group";
 import { CompanyHistory } from "./_components/company-history";
 import { PeerContext } from "./_components/peer-context";
@@ -842,7 +843,11 @@ export default async function ValuationResultPage({ params }: PageProps) {
             title="De dónde salen los supuestos"
             summary="La regla que los derivó, las ventas que congeló y el libro de ajustes del último ejercicio."
           >
-            <DerivationSummary run={run} />
+            {run.input.revenueMargin?.derivedFrom === undefined ? (
+              <DerivationSummary run={run} />
+            ) : (
+              <GrowthDerivation run={run} />
+            )}
           </AuditGroup>
 
           <AuditGroup
@@ -853,7 +858,8 @@ export default async function ValuationResultPage({ params }: PageProps) {
             <AssumptionsTables
               run={run}
               assumptionsKind={
-                run.input.derivedAssumptions === undefined
+                run.input.derivedAssumptions === undefined &&
+                run.input.revenueMargin?.derivedFrom === undefined
                   ? "assumption"
                   : "derived_by_rule"
               }

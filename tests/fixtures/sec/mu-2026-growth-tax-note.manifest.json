@@ -1,0 +1,10 @@
+{
+  "sourceUrl": "https://www.sec.gov/Archives/edgar/data/723125/000072312526000023/mu-20260903.htm",
+  "fetchedAt": "2026-10-28T22:49:08.158Z",
+  "rawBytes": 2062349,
+  "rawSha256": "f57b66fc9b663acb6606580c68dbdca1a6485b140eadc613ee44680f3b498602",
+  "extractMethod": "Visible text; 600 characters before and 900 after each net operating loss carryforward mention",
+  "extractBytes": 1510,
+  "extractSha256": "8ce7354c9521ff5a31231ac2f1fa596ab5186dbb7b0d801b7934608f9872a975",
+  "rights": "sec-edgar: rawStorage, publicDisplay and export allowed"
+}

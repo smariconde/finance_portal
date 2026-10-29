@@ -6,6 +6,8 @@ import {
   fixtureBetasPage,
   FIXTURE_EVA_HEADERS,
   fixtureEvaPage,
+  FIXTURE_MARGIN_HEADERS,
+  fixtureMarginPage,
   FIXTURE_BREAKDOWN_HEADERS,
   fixtureCountryRiskWorkbook,
   fixtureImpliedErpPage,
@@ -39,6 +41,45 @@ describe("percentToFraction", () => {
     ["0.005", "0.00005"],
   ])("moves the point of %s%% exactly to %s", (digits, fraction) => {
     expect(percentToFraction(digits)).toBe(fraction);
+  });
+});
+
+describe("damodaran-html-1.1.0: industry operating margins", () => {
+  it("keeps only the pretax lease and R&D adjusted margin and its row count", () => {
+    const result = parse("damodaran.margins-us", fixtureMarginPage());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.rows).toHaveLength(52);
+    expect(
+      result.rows.find((row) => row.key === "total-market-without-financials")
+        ?.values,
+    ).toEqual({
+      firms: "12",
+      pretax_lease_rd_adjusted_margin: "0.14",
+    });
+  });
+
+  it("rejects a shifted header before publishing a plausible wrong margin", () => {
+    const headers = [...FIXTURE_MARGIN_HEADERS];
+    [headers[8], headers[9]] = [headers[9]!, headers[8]!];
+    expect(
+      parse("damodaran.margins-us", fixtureMarginPage({ headers })),
+    ).toEqual({
+      ok: false,
+      code: "header_mismatch",
+    });
+  });
+
+  it("keeps a missing target as null, never zero", () => {
+    const result = parse(
+      "damodaran.margins-us",
+      fixtureMarginPage({ targetMargin: "NA" }),
+    );
+    if (!result.ok) throw new Error(result.code);
+    expect(
+      result.rows.find((row) => row.key === "total-market-without-financials")
+        ?.values.pretax_lease_rd_adjusted_margin,
+    ).toBeNull();
   });
 });
 

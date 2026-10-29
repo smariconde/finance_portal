@@ -116,6 +116,15 @@ export function describeValuationJobStoreContract(
           runStatus: "computed",
         }),
         outcomeForAssessment(reading, { gap: "market_unavailable" }),
+        outcomeForAssessment(
+          {
+            ...reading,
+            assetProfile: "high_growth",
+            method: "fcff_three_stage",
+            rigor: "screening",
+          },
+          { gap: "growth_tax_jurisdictions_not_reconciled" },
+        ),
       ]) {
         const symbol = ticker();
         const job = queueValuationJob({

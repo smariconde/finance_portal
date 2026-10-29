@@ -104,6 +104,8 @@ export type ValuationSnapshotRequest = {
    * Sin ella el ROIC terminal cae al WACC terminal y lo nombra.
    */
   readonly industryReturns: ReferenceDatasetReading | null;
+  /** Builds common FCFF inputs for the separate growth assembler. */
+  readonly growthFoundation?: boolean;
 };
 
 export type ValuationSnapshotResult =
@@ -186,9 +188,14 @@ export function assembleValuationSnapshot(
   // (`F6-18`, ADR 0059); los demás métodos todavía no tienen regla.
   const cycle = assessment.cycle?.status === "ready" ? assessment.cycle : null;
 
+  const growthFoundation =
+    request.growthFoundation === true &&
+    (selection.recommendedMethod === "fcff_three_stage" ||
+      selection.recommendedMethod === "revenue_margin_survival");
   if (
-    selection.status !== "selected" ||
-    (selection.recommendedMethod !== VALUATION_METHOD &&
+    (!growthFoundation && selection.status !== "selected") ||
+    (!growthFoundation &&
+      selection.recommendedMethod !== VALUATION_METHOD &&
       !(selection.recommendedMethod === "normalized_fcff" && cycle !== null))
   ) {
     return notAssembled("method_not_derived");

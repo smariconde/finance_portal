@@ -281,6 +281,13 @@
       "when": 1793208801879,
       "tag": "0039_large_sabra",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1793227583036,
+      "tag": "0040_common_mattie_franklin",
+      "breakpoints": true
     }
   ]
 }

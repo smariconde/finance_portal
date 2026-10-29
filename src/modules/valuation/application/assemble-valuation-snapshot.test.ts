@@ -672,6 +672,14 @@ describe("valuation-snapshot-1.0.0", () => {
       status: "not_assembled",
       gap: "method_not_derived",
     });
+    const foundation = assembleValuationSnapshot(
+      request({ assessment: growth, growthFoundation: true }),
+    );
+    expect(foundation.status).toBe("assembled");
+    if (foundation.status === "assembled") {
+      expect(foundation.input.periods).toHaveLength(10);
+      expect(foundation.input.derivedAssumptions).toBeDefined();
+    }
   });
 
   it("ignores share counts known after the cutoff", () => {

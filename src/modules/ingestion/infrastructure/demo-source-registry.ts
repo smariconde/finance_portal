@@ -441,6 +441,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         "damodaran.synthetic-ratings",
         "damodaran.failure-rates",
         "damodaran.eva-us",
+        "damodaran.margins-us",
       ],
       endpoints: [
         "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/Betas.html",
@@ -449,6 +450,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/histimpl.html",
         "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/ratings.html",
         "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/EVA.html",
+        "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/margin.html",
       ],
       authentication: "none",
       applicablePlan: null,

@@ -90,7 +90,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    62 | `F6-18`    | `done`     | Cíclicas y commodities valuadas desde la app: el job deriva el snapshot de margen de ciclo y la página lee corridas `normalized_fcff`.                                                                                    | `F6-17`          |
 |    63 | `F6-19`    | `done`     | Contexto de la brecha: precio sobre valor de la empresa frente a su sector y a todo lo valuado, y múltiplos contra el sector.                                                                                             | `F6-18`, `F8-01` |
 |    64 | `F6-20`    | `done`     | Bancos y aseguradoras valuados desde la app: el job deriva el snapshot de exceso de retorno sobre el patrimonio.                                                                                                          | `F6-18`          |
-|    65 | `F6-21`    | `queued`   | Empresas en pérdidas o de alto crecimiento valuadas desde la app: el job deriva el snapshot de ventas a margen con supervivencia.                                                                                         | `F6-20`          |
+|    65 | `F6-21`    | `done`     | Empresas en pérdidas o de alto crecimiento valuadas desde la app: el job deriva el snapshot de ventas a margen con supervivencia.                                                                                         | `F6-20`          |
 |    66 | `F6-22`    | `queued`   | REIT de propiedades valuados desde la app: AFFO transcripto del 10-K por la IA y conciliado, y NAV.                                                                                                                       | `F6-21`          |
 |    67 | `F8-02`    | `queued`   | Vista principal market cap vs EPS con sesgo de recompras visible y vistas alternativas con puente de dilución.                                                                                                            | `F8-01`          |
 |    68 | `F6-23`    | `queued`   | Deuda de las empresas con brazo financiero cautivo (CAT, DE): medir sus conceptos y decidir cómo se trata la financiera antes de valuarlas.                                                                               | `F6-18`          |
@@ -4096,10 +4096,56 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
 
 #### `F6-21` — pérdidas y alto crecimiento desde la app
 
-- Estado: `queued`. `revenue_margin_survival` (ADR 0043) corre sólo por CLI.
-  MU cae acá: el selector la clasifica `high_growth`, no cíclica.
-- Alcance: margen objetivo de la industria (dataset de Damodaran nuevo),
-  trayectoria de ventas por regla, supervivencia fechada.
+- Estado: `done` el 2026-10-29. `growth-fcff-1.0.0` (ADR 0043) ya está conectado al
+  job por ticker. MU cae acá: el selector la clasifica `high_growth`, no cíclica.
+- Primer incremento en la rama `feat/f6-21-derived-growth-valuation`:
+  [ADR 0063](../architecture/adr/0063-derived-growth-valuation.md) propuesta;
+  parser con fixture y prueba de encabezado de la tabla de márgenes de
+  Damodaran, allowlist y registro exactos. El owner autorizó el séptimo
+  archivo: una solicitud publicó 96 filas, sin rechazos y sin guardar HTML.
+- Medición real: SEC publicó 1.120 observaciones de MU con tres solicitudes;
+  su SIC 3674 observado con una solicitud la mapea a `semiconductor`. El
+  selector elige `fcff_three_stage` con confianza alta, y costo de capital y
+  fracaso están disponibles. La trayectoria, el margen objetivo y el supuesto
+  de financiación se derivan; la nota fiscal impide armar el snapshot. Su 10-K 2026 distribuye las
+  pérdidas entre Malasia y jurisdicciones con vencimientos; el total no sirve
+  como pool único. El owner eligió frenar cuando la nota no permita conciliar
+  jurisdicciones.
+- El owner aprobó `derived-growth-trajectory-1.0.0`: diez años explícitos,
+  CAGR de ventas de tres años limitado al 30 %, tres años de alto crecimiento,
+  caída lineal hasta terminal y margen de industria en cinco años. La regla
+  pura y sus casos de rechazo pasan 11 pruebas. El job ya la conecta con el
+  margen de la release visible y la lectura fiscal medida del 10-K.
+- La migración `0040` amplía los motivos del job. El job real de MU quedó
+  completado: método `fcff_three_stage`, motivo
+  `growth_tax_jurisdictions_not_reconciled`, sin `valuation_run` ni número. Un
+  extracto SEC reducido del 10-K 2026, con hashes y manifiesto, reproduce la
+  negativa. El ensamblador sintético de diez años produce una corrida
+  `requires_review` reproducible sin red; la UI nombra trayectoria, margen,
+  pérdidas, financiación y fracaso.
+- Gates locales: 3.305 unit, 222 pruebas de integración PostgreSQL, 209 E2E
+  (3 omitidas), lint, typecheck y build pasaron. `0040` se aplicó en la base
+  personal y la de integración. La vista sintética en 1280/390 px no desborda
+  y axe no reportó hallazgos. La negativa de MU es reproducible con el extracto
+  SEC congelado; los dos métodos reproducen corridas sintéticas sin red.
+- Segundo caso real: RDDT, CIK `0001713445`, pasa `loss_making` con dos EBIT
+  negativos de tres cierres (2023: USD -140,161 M; 2024: USD -560,568 M;
+  2025: USD 441,984 M). Las observaciones vienen de los filings SEC
+  `0001713445-25-000018` y `0001713445-26-000022`. En 2025, USD 953,569 M de
+  caja cubren USD 310,135 M de pasivos: `distressed` queda ausente. El SIC
+  observado 7374 excluye los arquetipos anteriores, y el selector prioriza
+  `revenue_margin_survival` frente a `fcff_three_stage`, ambos activados.
+  El job `852e7c32-cc0b-4354-89c5-675893919423` completó la negativa
+  `missing_required_input` sin valor: el SIC admite tres industrias, y faltan
+  `industry_mapping`, `interest_coverage` y `synthetic_rating` para el costo de
+  capital. Su paso de datos verificó 530 cadenas sin fallas. Se reproduce sin
+  red con `pnpm valuation:assess --ticker RDDT --offline`; la selección conserva
+  los faltantes exactos. MRNA y TTWO continúan priorizados como distress.
+- Gate: los dos caminos tienen evidencia real o una negativa trazable; los
+  snapshots sintéticos de ambos métodos se reproducen sin red, y los gates de
+  calidad, PostgreSQL, build, E2E, axe y revisión responsive pasaron. El
+  [PR #82](https://github.com/smariconde/finance_portal/pull/82) está listo para
+  integrar antes de la migración `0041` de `F7-09`.
 
 #### `F6-22` — REIT de propiedades desde la app
 

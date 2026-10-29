@@ -49,6 +49,13 @@ import {
   type ValuationResultReading,
 } from "@/modules/valuation/application/read-valuation-result";
 import { INDUSTRY_RETURNS_DATASET } from "@/modules/valuation/domain/derived-assumptions";
+import { consecutiveRevenueHistory } from "@/modules/valuation/domain/derived-assumptions";
+import { deriveGrowthTrajectory } from "@/modules/valuation/domain/derived-growth-trajectory";
+import {
+  GROWTH_MARGIN_DATASET,
+  growthMarginAt,
+} from "@/modules/valuation/domain/derived-growth-margin";
+import { assembleGrowthSnapshot } from "@/modules/valuation/application/assemble-growth-snapshot";
 import { deriveFinancialEquity } from "@/modules/valuation/domain/derived-financial-equity";
 import { selectValuationMethod } from "@/modules/valuation/domain/method-selection";
 import { deriveRigorLevel } from "@/modules/valuation/domain/rigor-level";
@@ -113,6 +120,7 @@ import { createFundamentalReaders } from "@/server/valuation/fundamental-readers
 import { createValuationDataDependencies } from "./valuation-data";
 import { runQualitativeStep } from "./valuation-qualitative";
 import { readFinancialFiling } from "./financial-filing";
+import { readGrowthTaxFiling } from "./growth-tax-filing";
 
 /**
  * Raíz de composición de la corrida por ticker (`F6-01`,
@@ -296,8 +304,9 @@ export type PreparedValuationRun =
  * `valuation_runs`.
  *
  * Con `downloadData` (`F6-05`) baja lo que falta y audita el sujeto antes de
- * armar el snapshot; eso sí escribe, en las tablas de ingesta. Sin la opción,
- * sólo lee.
+ * armar el snapshot; eso sí escribe, en las tablas de ingesta. Sin la opción
+ * no publica fundamentals; las notas fiscal y financiera todavía pueden
+ * requerir una lectura SEC por el egress medido.
  *
  * Con `askAi` (`F6-13`) y un método FCFF —`fcff_base` o, desde `F6-18`,
  * `normalized_fcff`—, pregunta a la IA lo
@@ -524,8 +533,14 @@ export async function prepareValuationRun(
   }
 
   const awaitsCycle = awaitsCycleHistory(assessment.selection);
+  const awaitsGrowth =
+    assessment.selection.recommendedMethod === "fcff_three_stage" ||
+    assessment.selection.recommendedMethod === "revenue_margin_survival";
 
-  if ((!selected && !awaitsCycle) || !reading.hasAnnualFundamentals) {
+  if (
+    (!selected && !awaitsCycle && !awaitsGrowth) ||
+    !reading.hasAnnualFundamentals
+  ) {
     return {
       kind: "outcome",
       outcome: outcomeForAssessment(reading, undefined, dataStep),
@@ -580,6 +595,36 @@ export async function prepareValuationRun(
     }
   }
 
+  if (
+    awaitsGrowth &&
+    assessment.capitalization !== null &&
+    assessment.normalization !== null &&
+    assessment.costOfCapital.status === "computed"
+  ) {
+    const selection = selectValuationMethod({
+      legalEntityId,
+      knowledge: query,
+      evidence: [...assessment.evidence],
+      fcffInputsComplete: true,
+      growthFcffMissingInputs: [],
+    });
+    if (selection.status === "selected") {
+      assessment = {
+        ...assessment,
+        selection,
+        rigor: deriveRigorLevel(selection, assessment.completeness),
+      };
+      selected = true;
+      reading = {
+        ...reading,
+        methodStatus: "selected",
+        method: valuationJobMethodSchema.parse(selection.recommendedMethod),
+        rigor: assessment.rigor.level,
+        unsupportedReason: null,
+      };
+    }
+  }
+
   // Una cíclica que esperaba lo cualitativo y no obtuvo nada nuevo sigue sin
   // método: termina con el motivo del selector, como antes de `F6-18`.
   if (!selected) {
@@ -618,6 +663,126 @@ export async function prepareValuationRun(
     prices: { sourceId: PRICES_SOURCE_ID, ...prices },
     industryReturns,
   };
+
+  if (awaitsGrowth) {
+    const series = assessment.fundamentals.series;
+    const base = series?.fiscalYears[0];
+    if (
+      base?.items.revenue === undefined ||
+      assessment.costOfCapital.status !== "computed"
+    )
+      return {
+        kind: "snapshot",
+        reading,
+        dataStep,
+        qualitativeStep,
+        snapshot: {
+          status: "not_assembled",
+          gap: "growth_revenue_history_unavailable",
+        },
+      };
+    const history = consecutiveRevenueHistory(
+      series!.fiscalYears.flatMap((year) =>
+        year.items.revenue === undefined
+          ? []
+          : [
+              {
+                fiscalYearEnd: year.fiscalYearEnd,
+                value: year.items.revenue.value,
+              },
+            ],
+      ),
+      base.fiscalYearEnd,
+    );
+    const trajectory = deriveGrowthTrajectory(
+      history,
+      assessment.costOfCapital.costOfCapital.derived.riskFree,
+    );
+    if (trajectory.status !== "ready")
+      return {
+        kind: "snapshot",
+        reading,
+        dataStep,
+        qualitativeStep,
+        snapshot: {
+          status: "not_assembled",
+          gap: "growth_revenue_history_unavailable",
+        },
+      };
+    const marginReading = await readReferenceDataset(
+      GROWTH_MARGIN_DATASET,
+      query,
+      getReferenceDatasetRepository(),
+    );
+    const margin = growthMarginAt(
+      marginReading,
+      assessment.costOfCapital.costOfCapital.industryKey,
+      query,
+    );
+    if (margin.status !== "ready")
+      return {
+        kind: "snapshot",
+        reading,
+        dataStep,
+        qualitativeStep,
+        snapshot: { status: "not_assembled", gap: "growth_margin_unavailable" },
+      };
+    const tax = await readGrowthTaxFiling({
+      cik,
+      knownAt: job.knownAt,
+      fiscalYearEnd: base.fiscalYearEnd,
+    });
+    if (tax.status !== "ready") {
+      const gap =
+        tax.reason === "jurisdictions_not_reconciled"
+          ? "growth_tax_jurisdictions_not_reconciled"
+          : tax.reason === "tax_pool_not_reconciled"
+            ? "growth_tax_pool_not_reconciled"
+            : "growth_tax_note_missing";
+      return {
+        kind: "snapshot",
+        reading,
+        dataStep,
+        qualitativeStep,
+        snapshot: { status: "not_assembled", gap },
+      };
+    }
+    const foundation = assembleValuationSnapshot({
+      ...snapshotRequest,
+      growthFoundation: true,
+    });
+    if (foundation.status !== "assembled")
+      return {
+        kind: "snapshot",
+        reading,
+        dataStep,
+        qualitativeStep,
+        snapshot: foundation,
+      };
+    const growth = assembleGrowthSnapshot({
+      foundation: foundation.input,
+      evidence: assessment.evidence,
+      trajectory: trajectory.trajectory,
+      margin: margin.reference,
+      lossCarryforward: tax.evidence.lossCarryforward,
+      lossOffsetLimit: tax.evidence.lossOffsetLimit,
+      lossPolicyRationale: tax.evidence.lossPolicyRationale,
+      financingRationale:
+        "El screening supone financiación suficiente para cubrir el FCFF negativo máximo; las condiciones de emisión y la dilución son desconocidas y requieren revisión.",
+      employeeEquityAvailableAt:
+        foundation.input.employeeEquity.sharesOutstanding.availableAt,
+    });
+    return {
+      kind: "snapshot",
+      reading,
+      dataStep,
+      qualitativeStep,
+      snapshot:
+        growth === null
+          ? { status: "not_assembled", gap: "method_not_derived" }
+          : { status: "assembled", input: growth },
+    };
+  }
 
   return {
     kind: "snapshot",
