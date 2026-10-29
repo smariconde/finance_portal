@@ -4167,10 +4167,12 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
   frontera usa derechos registrados y egress SEC medido; no persiste el HTML.
   Seis pruebas sin red cubren extracto, corte, documento y negativas. En una
   lectura SEC medida del 10-K 2025 de PLD (11.507.390 bytes), el extractor no
-  halló una conciliación anual compatible. Es una medición operativa, todavía
-  sin fixture reducida ni propuesta de IA; no prueba ausencia absoluta.
-- Pendiente: registrar una fixture SEC reducida del contrato de lectura,
-  guardar la propuesta con citas y corte, derivar AFFO y NAV, conectar el
+  halló una conciliación anual compatible. La fixture reducida de 7.075 bytes
+  congela los últimos cinco tramos FFO, la URL, fecha, bytes y SHA-256 del
+  HTML y del extracto. El documento completo tiene 40 menciones FFO y ninguna
+  mención AFFO; el test confirma la negativa sobre el extracto sin red. No se
+  guarda el HTML ni se afirma que el extracto pruebe ausencia de otros ajustes.
+- Pendiente: guardar la propuesta con citas y corte, derivar AFFO y NAV, conectar el
   lector al job y la lectura, validar replay, datos reales, responsive y gates.
   El NOI forward y cap rate requieren fuente o declaración fechada; no se
   infieren del texto de la IA.

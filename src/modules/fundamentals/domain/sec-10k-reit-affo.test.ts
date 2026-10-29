@@ -1,3 +1,7 @@
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -38,5 +42,23 @@ describe("10-K REIT AFFO extract", () => {
       ),
     ).toBeNull();
     expect(extractTenKReitAffo(filing, "2024-12-31")).toBeNull();
+  });
+
+  it("refuses PLD's frozen 2025 FFO excerpt without an annual AFFO reconciliation", () => {
+    const base = resolve("tests/fixtures/sec/pld-2025-reit-affo-excerpts");
+    const excerpt = readFileSync(`${base}.txt`, "utf8").trimEnd();
+    const manifest = JSON.parse(
+      readFileSync(`${base}.manifest.json`, "utf8"),
+    ) as {
+      extractBytes: number;
+      extractSha256: string;
+      affoMentions: number;
+    };
+    expect(Buffer.byteLength(excerpt)).toBe(manifest.extractBytes);
+    expect(createHash("sha256").update(excerpt).digest("hex")).toBe(
+      manifest.extractSha256,
+    );
+    expect(manifest.affoMentions).toBe(0);
+    expect(extractTenKReitAffo(excerpt, "2025-12-31")).toBeNull();
   });
 });
