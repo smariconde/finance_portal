@@ -56,6 +56,14 @@ export function describeJobGap(
 ): string {
   if (
     gap === "unsupported_method" &&
+    assetProfile === "reit" &&
+    unsupportedReason === "missing_required_input"
+  ) {
+    return "La empresa se clasificó como REIT. Para calcular un valor faltan AFFO común conciliado con el 10-K y NAV con NOI de los próximos doce meses, tasa de capitalización comparable y claims fechados. El método sólo admite REIT de propiedades; no hay valor calculado.";
+  }
+
+  if (
+    gap === "unsupported_method" &&
     (assetProfile === "cyclical" || assetProfile === "commodity") &&
     unsupportedReason === "missing_required_input"
   ) {

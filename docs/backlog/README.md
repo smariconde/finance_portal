@@ -4175,6 +4175,10 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
 - `reit-affo-policy-1.1.0` exige que la unidad elegida aparezca en la cita de
   escala y que esa cita no mezcle miles, millones o billones. La negativa
   ocurre antes de comparar el ingreso común escalado contra XBRL.
+- La app ya describe la negativa genérica del selector REIT con los insumos
+  faltantes —AFFO común conciliado, NOI forward, cap rate comparable y claims—
+  y aclara que no hay valor; todavía no presenta la evidencia específica del
+  filing ni ejecuta el motor desde el job.
 - Pendiente: guardar la propuesta con citas y corte, derivar AFFO y NAV, conectar el
   lector al job y la lectura, validar replay, datos reales, responsive y gates.
   El NOI forward y cap rate requieren fuente o declaración fechada; no se
