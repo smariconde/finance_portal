@@ -98,6 +98,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    70 | `F6-25`    | `queued`      | Ficha de la empresa: múltiplos elegidos por arquetipo y su historia reportada en barras, calculados con datos propios.                                                                                                    | `F6-19`          |
 |    71 | `F6-26`    | `done`        | Logo guardado medido y descartado (Wikidata + Hunter: 48 % útil contra 100 % de logo.dev); queda logo.dev en el navegador con su caché de 24 h y una URL por ticker, y monograma.                                         | `F6-25`          |
 |    72 | `F6-27`    | `done`        | Matriz de riesgo con logos, CEDEAR diferenciado y referencia S&P 500 destacada; CI quality y E2E del PR #81 aprobados.                                                                                                    | `F6-26`          |
+|    73 | `F7-09`    | `in_progress` | Extracto literal del Item 1 del 10-K en el punto seleccionado, con filing y fecha; publicación por cita elegida y comprobada contra el documento SEC.                                                                     | `F7-05`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -5543,6 +5544,14 @@ personal declara la procedencia de cada columna. La calidad operativa queda
 versionada y su límite de una sola fuente aparece junto al resultado.
 
 `F3-01` está en curso: selector determinista de arquetipo.
+
+#### `F7-09` — descripción del negocio en el punto seleccionado
+
+- Estado: `in_progress` por pedido del owner el 2026-10-29; prioridad anterior a retomar `F6-21`.
+- Decisión: extracto **literal en inglés** del Item 1 del último 10-K, sin síntesis IA. El owner elige la cita y el comando comprueba que aparece exactamente en la sección SEC; un candidato automático sirve sólo para revisar, nunca se publica solo.
+- Implementación: `company_business_excerpts` append-only por entidad, accession y versión; aceptación y URL del filing. `companies:describe --ticker <T>` previsualiza con dos solicitudes SEC medidas; `--apply --quote '<texto>'` publica una cita comprobada. `--sector <code>` lista la población sin red. La matriz lee sólo la versión aprobada y sólo filings aceptados al corte; si falta extracto, conserva Finviz como salida manual.
+- Evidencia: `0041` aplicada en PostgreSQL local, de tests y Neon personal; AAPL publicado en local y Neon con la frase de productos y servicios. La primera regla automática confundió descripciones generales con productos o estrategias parciales; sus filas de versiones anteriores quedan fuera de la consulta. Pasan 3.309 unit, 1 integration focalizado, lint, tipos, formato y build webpack. AAPL seleccionado se revisó en 1440 y 390 px sin desborde ni violaciones axe WCAG; falta cobertura de los demás emisores y el gate E2E completo.
+- Criterio de cierre: frases revisadas para la población elegida, sin atribuciones parciales engañosas; fecha y fuente legibles, ausencia explícita, corte temporal y gates de UI y PostgreSQL aprobados.
 
 ### Fase 8 — divergencias fundamentales
 

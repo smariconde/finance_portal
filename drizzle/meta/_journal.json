@@ -288,6 +288,13 @@
       "when": 1793227583036,
       "tag": "0040_common_mattie_franklin",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1793287492057,
+      "tag": "0041_yellow_ironclad",
+      "breakpoints": true
     }
   ]
 }

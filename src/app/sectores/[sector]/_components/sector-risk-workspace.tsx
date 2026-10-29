@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, CircleSlash } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 
 import { CompanyMark } from "@/app/_components/company-mark";
+import type { BusinessExcerpt } from "@/modules/companies/domain/sec-business-excerpt";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -29,6 +30,7 @@ import type {
 import type { SortinoResult } from "@/modules/metrics/domain/sortino";
 import {
   formatAmount,
+  formatCalendarDate,
   formatSignedAmount,
 } from "@/modules/valuation/domain/display-format";
 
@@ -141,9 +143,11 @@ function CedearBadge({ point }: { readonly point: SectorRiskPoint }) {
 function SelectedPoint({
   point,
   matrix,
+  businessExcerpt,
 }: {
   readonly point: SectorRiskPoint | null;
   readonly matrix: SectorRiskMatrix;
+  readonly businessExcerpt: BusinessExcerpt | null;
 }) {
   if (point === null) {
     return (
@@ -183,6 +187,44 @@ function SelectedPoint({
           {point.issuerName ?? "Emisor sin nombre registrado"}
         </p>
       </div>
+      {businessExcerpt === null ? (
+        <p className="text-sm text-muted-foreground">
+          Todavía no hay un extracto del 10-K para esta empresa.
+          {point.ticker === null ? null : (
+            <>
+              {" "}
+              <a
+                href={`https://finviz.com/stock?t=${encodeURIComponent(point.ticker)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              >
+                Ver perfil en Finviz
+                <span className="sr-only"> (se abre en otra pestaña)</span>
+              </a>
+            </>
+          )}
+        </p>
+      ) : (
+        <figure className="space-y-1 text-sm">
+          <blockquote lang="en" className="text-foreground">
+            “{businessExcerpt.excerpt}”
+          </blockquote>
+          <figcaption className="text-xs text-muted-foreground">
+            Extracto literal de Item 1, 10-K ·{" "}
+            {formatCalendarDate(businessExcerpt.acceptedAt.slice(0, 10))} ·{" "}
+            <a
+              href={businessExcerpt.documentUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              SEC
+              <span className="sr-only"> (se abre en otra pestaña)</span>
+            </a>
+          </figcaption>
+        </figure>
+      )}
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
         {rows.map(([term, value]) => (
           <div key={term} className="contents">
@@ -204,11 +246,13 @@ export function SectorRiskWorkspace({
   matrix,
   asOfLabel,
   logoUrls,
+  businessExcerpts,
 }: {
   readonly matrix: SectorRiskMatrix;
   readonly asOfLabel: string;
   /** El logo de cada security por su ID (ADR 0062); `null` muestra el monograma. */
   readonly logoUrls: Readonly<Record<string, string | null>>;
+  readonly businessExcerpts: Readonly<Record<string, BusinessExcerpt>>;
 }) {
   const titleId = useId();
   const descriptionId = useId();
@@ -395,7 +439,15 @@ export function SectorRiskWorkspace({
             <CardTitle as="h2">Punto seleccionado</CardTitle>
           </CardHeader>
           <CardContent aria-live="polite">
-            <SelectedPoint point={selected} matrix={matrix} />
+            <SelectedPoint
+              point={selected}
+              matrix={matrix}
+              businessExcerpt={
+                selected === null
+                  ? null
+                  : (businessExcerpts[selected.issuerLegalEntityId] ?? null)
+              }
+            />
           </CardContent>
         </Card>
       </div>
