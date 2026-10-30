@@ -238,7 +238,11 @@ close (fixed US$ floors, in millions, since «B» reads as a long-scale billón)
 and a reconciled EPS bridge at both ends —an active filter drops a row lacking
 the deciding datum—; chart, panels and table read the same set, and the table
 leads with the view's raw axis CAGRs, marking a clipped point the way the chart
-does. `divergence-views-1.1.0` publishes the market cap level.
+does. `divergence-views-1.1.0` publishes the market cap level. `F8-04` pins the chain with a golden dataset whose expected numbers were
+computed outside the code (Python `Decimal`) and seeded property tests, over a
+synthetic filer in `divergences/infrastructure/`; formulas, limits and the
+golden sheet are in [docs/data/divergence-golden.md](docs/data/divergence-golden.md),
+`pending_owner` until the owner reviews it, which closes Phase 8's gate.
 
 ```bash
 pnpm cedears:record                                # dry run: both issuers, one request each, writes nothing
