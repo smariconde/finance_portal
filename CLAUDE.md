@@ -541,7 +541,10 @@ gives that value (`value-chain-1.0.0`, six steps, amounts in words through
 everything the page showed before. English texts stored in the snapshot are
 translated at render time (`storedTextEs`); the snapshot and its hashes do not
 move. Cyclicals, financials, growth and REITs have engines since Phase 4 but run
-only from the CLI; `F6-18`–`F6-22` bring them to the job, one archetype per slice.
+only from the CLI; `F6-18`–`F6-21` brought them to the job, one archetype per slice.
+REITs (`F6-22`) reach the job only as a traceable refusal: none of 27 index 10-Ks
+has an AFFO reconciliation `affo-reconciliation-1.0.0` admits, and the owner
+closed the slice there.
 
 Since `F6-18` ([ADR 0059](docs/architecture/adr/0059-derived-cycle-normalization.md),
 migration `0036`) the job values cyclicals and commodities with `normalized_fcff`:
