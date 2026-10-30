@@ -36,6 +36,8 @@ function stubSource(): PriceSourceProvider {
         parsed: parsedFixture(),
         byteLength: 1024,
         fetchedAt: "2026-09-22T12:00:00.000Z",
+        historyYears: 5,
+        requestedFrom: "2021-09-08",
       };
     },
   };
@@ -101,6 +103,48 @@ describe("buildRows", () => {
 });
 
 describe("ingestPrices", () => {
+  it("una descarga de siete años registra hasta dónde pidió; la de cinco no", async () => {
+    const seven: PriceSourceProvider = {
+      sourceId: "yahoo-finance",
+      async load(symbol) {
+        return {
+          ...(await stubSource().load(symbol)),
+          historyYears: 7,
+          requestedFrom: "2019-09-08",
+        };
+      },
+    };
+    const sevenDeps = deps(new InMemoryPriceRepository(), seven);
+    const five = deps(new InMemoryPriceRepository());
+
+    await ingestPrices(
+      { securityId: SECURITY, symbol: FIXTURE_CHART_SYMBOL },
+      sevenDeps,
+    );
+    await ingestPrices(
+      { securityId: SECURITY, symbol: FIXTURE_CHART_SYMBOL },
+      five,
+    );
+
+    expect(
+      await sevenDeps.ingestionRuns.findLatestAnchored(
+        "yahoo-finance",
+        "yahoo.daily-close",
+        FIXTURE_CHART_SYMBOL,
+      ),
+    ).toMatchObject({
+      selectionVersion: "fiscal-price-history-1.0.0",
+      selectionAnchorOn: "2019-09-08",
+    });
+    expect(
+      await five.ingestionRuns.findLatestAnchored(
+        "yahoo-finance",
+        "yahoo.daily-close",
+        FIXTURE_CHART_SYMBOL,
+      ),
+    ).toBeNull();
+  });
+
   it("publishes the series and reports what it wrote", async () => {
     const repository = new InMemoryPriceRepository();
 
@@ -164,6 +208,8 @@ describe("ingestPrices", () => {
           },
           byteLength: 1024,
           fetchedAt: "2026-09-23T12:00:00.000Z",
+          historyYears: 5,
+          requestedFrom: "2021-09-08",
         };
       },
     };
@@ -228,6 +274,8 @@ describe("ingestPrices", () => {
           },
           byteLength: 1024,
           fetchedAt: "2024-06-11T17:00:05.000Z",
+          historyYears: 5,
+          requestedFrom: "2021-09-08",
         };
       },
     };
@@ -298,6 +346,8 @@ describe("CEDEAR price storage", () => {
         parsed,
         byteLength: 100,
         fetchedAt: "2026-10-24T12:00:00.000Z",
+        historyYears: 5,
+        requestedFrom: "2021-09-08",
       }),
     };
     const dependencies = deps(repository, source);

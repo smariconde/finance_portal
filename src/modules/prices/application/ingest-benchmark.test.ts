@@ -31,6 +31,8 @@ function sourceOf(payload: unknown, currency?: string): PriceSourceProvider {
         parsed: currency === undefined ? parsed : { ...parsed, currency },
         byteLength: 512,
         fetchedAt: "2026-09-22T12:00:00.000Z",
+        historyYears: 5,
+        requestedFrom: "2021-09-08",
       };
     },
   };

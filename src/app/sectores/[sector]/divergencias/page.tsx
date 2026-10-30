@@ -1,4 +1,3 @@
-import { Info } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -6,7 +5,6 @@ import { notFound } from "next/navigation";
 import { DataUnavailableNotice } from "@/app/_components/data-unavailable-notice";
 import { InfoTip } from "@/app/_components/info-tip";
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { listSectors } from "@/modules/classification/domain/sector-taxonomy";
 import { servesRealData } from "@/modules/configuration/domain/config-health";
 import { DILUTION_BRIDGE_VERSION } from "@/modules/divergences/domain/dilution-bridge";
@@ -22,9 +20,14 @@ import {
   loadStoredSectorDivergenceMatrix,
   readSecQuotaToday,
 } from "@/server/divergences/load-sector-fiscal-endpoints";
+import { readSectorDivergenceDownloadForPage } from "@/server/jobs/sector-divergence-download";
 
 import { SectorMatrixNav } from "../_components/sector-matrix-nav";
 
+import {
+  DivergenceDownload,
+  type DivergenceDownloadInitial,
+} from "./_components/divergence-download";
 import { DivergenceWorkspace } from "./_components/divergence-workspace";
 
 /** Ver [ADR 0005](../../../../../docs/architecture/adr/0005-request-time-runtime-boundary.md). */
@@ -47,13 +50,12 @@ export async function generateMetadata({
   };
 }
 
-const integer = new Intl.NumberFormat("es-AR");
-
 /**
  * Matriz de divergencias de un sector (`F8-02`, ADR 0016 §5). Siempre a hoy:
  * lee los cierres fiscales y precios guardados al instante del pedido. El
  * render no sale a la red ni escribe; si el sector no tiene fundamentales, lo
- * dice con lo que costaría bajarlos y la cuota SEC que queda.
+ * dice con lo que costaría bajarlos y la cuota SEC que queda, y el owner lo
+ * pide con un botón (`downloadSectorDivergenceData`).
  */
 export default async function SectorDivergencePage({ params }: PageProps) {
   const health = await getRequestConfigHealth();
@@ -75,11 +77,18 @@ export default async function SectorDivergencePage({ params }: PageProps) {
   }
 
   let matrix: SectorDivergenceMatrix;
+  let download: DivergenceDownloadInitial;
   let quota: Awaited<ReturnType<typeof readSecQuotaToday>> | null = null;
 
   try {
-    matrix = await loadStoredSectorDivergenceMatrix(sector.code);
-    if (matrix.coverage.issuersWithFiscalYear < matrix.coverage.issuers) {
+    const stored = await loadStoredSectorDivergenceMatrix(sector.code);
+    matrix = stored.matrix;
+    // Sólo lee: qué bajaría un clic o qué descarga sigue en curso.
+    download = await readSectorDivergenceDownloadForPage({
+      sectorCode: sector.code,
+      reading: stored.reading,
+    });
+    if (download.state === "pending" && download.filers > 0) {
       quota = await readSecQuotaToday();
     }
   } catch (error) {
@@ -94,8 +103,6 @@ export default async function SectorDivergencePage({ params }: PageProps) {
     );
   }
 
-  const missingIssuers =
-    matrix.coverage.issuers - matrix.coverage.issuersWithFiscalYear;
   const asOf = matrix.knownAt.slice(0, 10);
 
   return (
@@ -180,14 +187,15 @@ export default async function SectorDivergencePage({ params }: PageProps) {
           </div>
         </dl>
 
-        {quota === null ? null : (
-          <SecCoverageNotice
-            issuers={matrix.coverage.issuers}
-            missingIssuers={missingIssuers}
-            quota={quota}
-            sectorCode={sector.code}
-          />
-        )}
+        <DivergenceDownload
+          sectorCode={sector.code}
+          initial={download}
+          quota={quota}
+          issuers={{
+            total: matrix.coverage.issuers,
+            covered: matrix.coverage.issuersWithFiscalYear,
+          }}
+        />
 
         {matrix.coverage.issuersWithFiscalYear === 0 ? null : (
           <DivergenceWorkspace
@@ -202,58 +210,5 @@ export default async function SectorDivergencePage({ params }: PageProps) {
         )}
       </div>
     </div>
-  );
-}
-
-/**
- * Lo que costaría bajar lo que falta, contra la cuota que queda hoy, para no
- * pedirlo cuando no alcanza. No hay botón todavía: la descarga sigue siendo el
- * comando a mano.
- */
-function SecCoverageNotice({
-  issuers,
-  missingIssuers,
-  quota,
-  sectorCode,
-}: {
-  readonly issuers: number;
-  readonly missingIssuers: number;
-  readonly quota: Awaited<ReturnType<typeof readSecQuotaToday>>;
-  readonly sectorCode: string;
-}) {
-  const ceiling = missingIssuers * quota.perIssuerCeiling;
-  const left =
-    quota.limit === null ? null : Math.max(0, quota.limit - quota.used);
-  const fits = !quota.disabled && left !== null && left >= ceiling;
-
-  return (
-    <Alert>
-      <Info aria-hidden="true" />
-      <AlertTitle>
-        {missingIssuers === issuers
-          ? `Todavía no hay fundamentales SEC de este sector: 0 de ${integer.format(issuers)} emisores`
-          : `${integer.format(missingIssuers)} de ${integer.format(issuers)} emisores sin fundamentales SEC`}
-      </AlertTitle>
-      <AlertDescription className="flex flex-col gap-1">
-        <span>
-          Bajarlos cuesta hasta {integer.format(ceiling)} pedidos SEC (
-          {quota.perIssuerCeiling} por emisor como máximo; suele ser mucho
-          menos).{" "}
-          {quota.disabled
-            ? "La fuente está frenada por el owner."
-            : left === null
-              ? "La SEC no tiene presupuesto declarado."
-              : `Hoy quedan ${integer.format(left)} de ${integer.format(quota.limit!)}${fits ? "." : ": no alcanza para el máximo."}`}
-        </span>
-        <span>
-          Se planifican a mano, sin red, con{" "}
-          <code className="rounded bg-muted px-1 py-0.5 text-xs">
-            pnpm fundamentals:backfill --sector {sectorCode}
-          </code>
-          , y se bajan agregando{" "}
-          <code className="rounded bg-muted px-1 py-0.5 text-xs">--apply</code>.
-        </span>
-      </AlertDescription>
-    </Alert>
   );
 }

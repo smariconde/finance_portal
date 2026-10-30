@@ -5899,6 +5899,27 @@ detector de Impeccable sin hallazgos. 3.360 unit y 222 E2E (3 omitidas) con la
 ruta nueva sin base y trabada; lint, tipos, formato y build pasan. Falta el botón
 de descarga con control de cuota; `F8-03` sigue con filtros y detalle.
 
+**`F8-02`, cuarto incremento, 2026-10-30: el botón de descarga.** Antes de
+escribirlo se midió la base personal: en Energy sólo DVN tenía fundamentales y su
+vista a 5 años no tenía precio, porque la matriz de riesgo guarda cinco años y el
+cierre de hace cinco ejercicios queda antes. Decisiones del owner: el botón baja
+SEC **y** siete años de precios, y está habilitado mientras la cuota cubra el
+peor caso de un filer (66 pedidos), que se reserva antes de empezar cada uno.
+`sector-divergence-download-1.0.0` ([ADR 0064](../architecture/adr/0064-sector-divergence-download.md))
+es un paso idempotente en dos fases: companyfacts de los filers sin corrida
+anclada (job `sec_companyfacts_backfill`) y, sin nada pendiente en la SEC, siete
+años de precios para las securities con un cierre fiscal anterior sin precio
+(`yahoo_prices_refresh` con selección `fiscal-price-history-1.0.0`). La corrida
+de siete años registra el inicio pedido en `selectionAnchorOn`, así que una
+security que cotiza desde después de su cierre no se vuelve a pedir; un filer
+revisado por un job terminado sin ancla se nombra y sólo se reintenta con
+«Reintentar». `downloadSectorDivergenceData` tiene las guardas de
+`refreshSectorPrices` (`TM-03`) y no devuelve el ID del job. El render sólo lee
+lo que un clic bajaría. 16 pruebas nuevas; 3.383 unit, 222 E2E (3 omitidas),
+lint, tipos, formato, build y detector de Impeccable pasan. Sin migración. Falta
+la medición con datos reales en Production (Neon), por decisión del owner, para
+cerrar `F8-02`.
+
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
 | `F8-01` | Pipeline fiscal-aligned point-in-time de precio, market cap, net income, EPS y acciones para los filers del sector elegido, sin cargar el universo.                                   | Fase 6     | `TM-05`, `TM-06`, `TM-16` |
