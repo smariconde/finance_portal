@@ -1,6 +1,7 @@
 import { parseArgs } from "node:util";
 
 import { listSectors } from "@/modules/classification/domain/sector-taxonomy";
+import { computeDilutionBridge } from "@/modules/divergences/domain/dilution-bridge";
 import {
   computeDivergenceViews,
   type DivergenceViews,
@@ -52,6 +53,10 @@ for (const member of reading.members) {
     value === null ? "—" : Number(value).toFixed(2);
   const describe = (views: DivergenceViews) =>
     `${views.horizonYears}Y principal ${views.fundamental.category} brecha ${pp(views.fundamental.gapPp)} sesgo ${pp(views.fundamental.shareCountBiasPp)} pp${views.fundamental.biasMarked ? " ◆" : ""} (${views.marketCapBasis ?? "sin market cap"}); agregada ${views.aggregate.category}; por acción ${views.perShare.category}`;
+  const bridge = computeDilutionBridge(two, computeDivergenceViews(two)).latest;
+  console.log(
+    `  puente ${member.ticker ?? "(sin ticker)"} ${bridge?.fiscalYearEnd ?? "—"}: ${bridge?.numeratorBasis ?? "—"} residuo ${pp(bridge?.residualPct ?? null)} % (cota ${pp(bridge?.roundingBoundPct ?? null)}) ${bridge?.reconciled === null || bridge === null ? (bridge?.reason ?? "") : bridge.reconciled ? "concilia" : "NO concilia"}; dilutivos ${pp(bridge?.dilutivePct ?? null)} %`,
+  );
   console.log(
     `${member.ticker ?? "(sin ticker)"}: ${describe(computeDivergenceViews(two))} | ${describe(computeDivergenceViews(five))}`,
   );

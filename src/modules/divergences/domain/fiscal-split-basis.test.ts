@@ -80,6 +80,7 @@ function input(ratio = "4") {
       "120",
     ),
     sharesOutstanding: row("CommonStockSharesOutstanding", "100"),
+    basicShares: row("WeightedAverageNumberOfSharesOutstandingBasic", "110"),
   };
 }
 
@@ -87,13 +88,14 @@ describe("reconcileFiscalSplitBasis", () => {
   it("carries raw price and pre-split SEC facts into the verified new basis", () => {
     const result = reconcileFiscalSplitBasis(input());
     expect(result).toMatchObject({
-      version: "fiscal-split-basis-1.1.0",
+      version: "fiscal-split-basis-1.2.0",
       reason: null,
       priceFactor: "4",
       adjustedPrice: "5",
       adjustedEps: "2",
       adjustedDilutedShares: "480",
       adjustedSharesOutstanding: "400",
+      adjustedBasicShares: "440",
       actionIds: ["33333333-3333-4333-8333-333333333333"],
     });
   });

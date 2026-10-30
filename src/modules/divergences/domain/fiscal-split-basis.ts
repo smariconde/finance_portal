@@ -12,7 +12,7 @@ import type { PointInTimeQuery } from "@/modules/temporal/domain/point-in-time-q
 import type { FundamentalRow } from "@/modules/valuation/domain/annual-fundamentals";
 
 /** SEC publication dates and market split dates describe different events. */
-export const FISCAL_SPLIT_BASIS_VERSION = "fiscal-split-basis-1.1.0";
+export const FISCAL_SPLIT_BASIS_VERSION = "fiscal-split-basis-1.2.0";
 
 const decimal = createDecimalOperations((code, message) => {
   const error = new Error(message);
@@ -28,6 +28,8 @@ export type FiscalSplitBasis = {
   readonly adjustedEps: string | null;
   readonly adjustedDilutedShares: string | null;
   readonly adjustedSharesOutstanding: string | null;
+  /** Weighted basic shares, on the same basis; the dilution bridge's denominator. */
+  readonly adjustedBasicShares: string | null;
   readonly reason:
     "split_evidence_missing_or_ambiguous" | "split_subject_unreconciled" | null;
 };
@@ -52,6 +54,7 @@ export function reconcileFiscalSplitBasis(input: {
   readonly eps: ShareFact;
   readonly dilutedShares: ShareFact;
   readonly sharesOutstanding: ShareFact;
+  readonly basicShares?: ShareFact;
 }): FiscalSplitBasis {
   const { price, fiscalYearEnd, query } = input;
   const empty: Omit<FiscalSplitBasis, "reason"> = {
@@ -62,6 +65,7 @@ export function reconcileFiscalSplitBasis(input: {
     adjustedEps: input.eps?.value ?? null,
     adjustedDilutedShares: input.dilutedShares?.value ?? null,
     adjustedSharesOutstanding: input.sharesOutstanding?.value ?? null,
+    adjustedBasicShares: input.basicShares?.value ?? null,
   };
   const cutoff =
     query.revisionPolicy === "as_known"
@@ -89,6 +93,7 @@ export function reconcileFiscalSplitBasis(input: {
     input.eps,
     input.dilutedShares,
     input.sharesOutstanding,
+    input.basicShares ?? null,
   ].filter((row): row is FundamentalRow => row !== null);
   const subjects = [...new Set(facts.map((row) => row.subjectId))];
   const relevantActions = input.actions.filter(
@@ -183,6 +188,7 @@ export function reconcileFiscalSplitBasis(input: {
       adjustedEps: adjust(input.eps, "per_share"),
       adjustedDilutedShares: adjust(input.dilutedShares, "shares"),
       adjustedSharesOutstanding: adjust(input.sharesOutstanding, "shares"),
+      adjustedBasicShares: adjust(input.basicShares ?? null, "shares"),
       reason: null,
     };
   } catch (error) {

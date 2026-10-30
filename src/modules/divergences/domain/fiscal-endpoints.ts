@@ -20,13 +20,19 @@ import {
 export const FISCAL_PRICE_MAX_LAG_DAYS = 7;
 /** A 52/53-week fiscal year can move; reject a mismatched comparison year. */
 export const FISCAL_HORIZON_TOLERANCE_DAYS = 45;
-export const FISCAL_ENDPOINTS_VERSION = "fiscal-endpoints-1.3.0";
+export const FISCAL_ENDPOINTS_VERSION = "fiscal-endpoints-1.4.0";
 
 const DAY_MS = 86_400_000;
 const DAYS_PER_YEAR = 365.2425;
 const EPS_CONCEPTS = [
   "us-gaap:IncomeLossFromContinuingOperationsPerDilutedShare",
   "us-gaap:EarningsPerShareDiluted",
+] as const;
+const BASIC_SHARES_CONCEPTS = [
+  "us-gaap:WeightedAverageNumberOfSharesOutstandingBasic",
+] as const;
+const DILUTED_NUMERATOR_CONCEPTS = [
+  "us-gaap:NetIncomeLossAvailableToCommonStockholdersDiluted",
 ] as const;
 
 export type FiscalEndpoint = {
@@ -38,6 +44,10 @@ export type FiscalEndpoint = {
   readonly dilutedShares: LineItemValue | null;
   /** Instant shares at fiscal close, never weighted-average diluted shares. */
   readonly sharesOutstanding: LineItemValue | null;
+  /** Weighted basic shares of the same fiscal year, for the dilution bridge. */
+  readonly basicShares: FundamentalRow | null;
+  /** Net income available to common, diluted: EPS's own numerator when tagged. */
+  readonly dilutedNumerator: FundamentalRow | null;
   /** Comparable values on the last verified split basis at the query cutoff. */
   readonly splitBasis: FiscalSplitBasis;
   readonly marketCap: string | null;
@@ -79,12 +89,14 @@ function known(
   );
 }
 
-function fiscalEps(
+function annualRow(
   rows: readonly FundamentalRow[],
+  concepts: readonly string[],
+  unit: "monetary_per_share" | "shares" | "monetary",
   end: string,
   query: PointInTimeQuery,
 ): FundamentalRow | null {
-  for (const concept of EPS_CONCEPTS) {
+  for (const concept of concepts) {
     const candidates = rows
       .filter((row) => {
         if (
@@ -93,8 +105,10 @@ function fiscalEps(
           row.asOf !== end ||
           row.periodStart === null ||
           row.value === null ||
-          row.unit !== "monetary_per_share" ||
-          row.currency !== "USD" ||
+          row.unit !== unit ||
+          (unit === "shares"
+            ? row.currency !== null
+            : row.currency !== "USD") ||
           !known(row.availableAt, row.recordedAt, query)
         )
           return false;
@@ -135,7 +149,27 @@ function endpoint(
   const netIncome = year.items.net_income ?? null;
   const dilutedShares = year.items.diluted_shares ?? null;
   const sharesOutstanding = year.items.shares_outstanding ?? null;
-  const dilutedEps = fiscalEps(epsRows, end, query);
+  const dilutedEps = annualRow(
+    epsRows,
+    EPS_CONCEPTS,
+    "monetary_per_share",
+    end,
+    query,
+  );
+  const basicShares = annualRow(
+    epsRows,
+    BASIC_SHARES_CONCEPTS,
+    "shares",
+    end,
+    query,
+  );
+  const dilutedNumerator = annualRow(
+    epsRows,
+    DILUTED_NUMERATOR_CONCEPTS,
+    "monetary",
+    end,
+    query,
+  );
   const selectedRow = (item: LineItemValue | null) =>
     item === null
       ? null
@@ -152,6 +186,7 @@ function endpoint(
     eps: dilutedEps,
     dilutedShares: dilutedSharesRow,
     sharesOutstanding: sharesOutstandingRow,
+    basicShares,
   });
   if (
     splitBasis.actionIds.length > 0 &&
@@ -204,6 +239,8 @@ function endpoint(
     dilutedEps,
     dilutedShares,
     sharesOutstanding,
+    basicShares,
+    dilutedNumerator,
     splitBasis,
     marketCap,
     missing,
