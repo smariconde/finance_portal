@@ -160,6 +160,33 @@ No asumir staging sin alias por esa bandera: confirmar aliases después del depl
 se revocó tras la prueba y el proyecto terminó con cero bypasses activos. No
 volver a usar `vercel curl` en este walkthrough sin planear su revocación.
 
+## Migrar Neon antes del merge
+
+Un merge a `main` despliega Production, y Production lee Neon. Si el PR trae
+una migración, el código nuevo espera un esquema que Neon todavía no tiene:
+el 2026-10-30 Neon tenía 42 de 46 migraciones y cada pedido de valuación
+terminaba en `valuation enqueue failed`, porque `0043`–`0045` cambian
+`valuation_jobs`. Por eso, con CI verde y justo antes del merge:
+
+```bash
+/usr/bin/node --env-file=.env.neon.local --import tsx scripts/backup-neon.ts
+pnpm db:migrate:neon
+pnpm db:status:neon   # sólo lee; sale con 1 y nombra lo pendiente
+```
+
+Migrar antes del merge deja un rato el código anterior contra el esquema
+nuevo, así que una migración se escribe aditiva: columnas nuevas con default
+o nulas, nada que el código de `main` deje de cumplir. Si no puede serlo, el
+PR lo dice y el merge se hace en el mismo momento. El rol de runtime recibe los
+permisos de las tablas nuevas por los permisos por defecto del owner.
+
+## Región de las Functions
+
+`vercel.json` fija `regions: ["iad1"]`, la región de Neon (AWS N. Virginia).
+El 2026-10-30 las Functions corrían en `gru1` (São Paulo): sin la región en el
+repositorio, un cambio en el panel del proyecto la movía y cada consulta
+cruzaba el continente. La región versionada gana sobre el panel.
+
 ## 1. Integrar y desplegar trabado
 
 1. Integrar el slice anterior por PR con Quality y E2E aprobados. Crear la rama

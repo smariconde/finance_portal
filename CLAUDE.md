@@ -62,6 +62,8 @@ pnpm db:generate     # emit versioned SQL from src/server/db/schema.ts; never dr
 pnpm db:up           # the project's PostgreSQL 17 on 127.0.0.1:55432 (needs .env.docker.local)
 pnpm db:down
 pnpm db:migrate      # controlled job; reads DATABASE_DIRECT_URL only
+pnpm db:status:neon  # read-only: migrations pending on Production's Neon; exits 1 if any
+pnpm db:migrate:neon # applies them; run right before merging a PR that adds one
 ```
 
 One container, two databases on it. `finance_portal_personal` holds the owner's data;

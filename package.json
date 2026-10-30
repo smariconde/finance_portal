@@ -26,6 +26,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file=.env.local scripts/migrate.ts",
     "db:migrate:neon": "node --network-family-autoselection-attempt-timeout=2000 --env-file=.env.neon.local --import tsx scripts/migrate.ts",
+    "db:status:neon": "node --network-family-autoselection-attempt-timeout=2000 --env-file=.env.neon.local --import tsx scripts/migration-status.ts",
     "universe:constitute": "tsx --conditions=react-server --env-file=.env.local scripts/constitute-universe.ts",
     "fundamentals:ingest": "tsx --conditions=react-server --env-file=.env.local scripts/ingest-company-facts.ts",
     "corporate-actions:record": "tsx --conditions=react-server --env-file=.env.local scripts/record-successions.ts",

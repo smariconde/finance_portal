@@ -106,4 +106,5 @@ History follows Conventional Commits with a short imperative subject and an opti
 - Branch from an up-to-date `main` and name it `<type>/<issue>-<short-kebab-summary>`, where the type follows Conventional Commits, for example `feat/f2-05-history-window` or `docs/analysis-scope`.
 - Commit in small Conventional Commits on the branch. Never commit directly to `main` or rewrite history that `main` already has.
 - Merge only after the CI quality and E2E jobs pass and the backlog and roadmap session log are updated. Use a merge commit, not squash or rebase, so the section stays grouped in history.
+- A pull request that adds a migration under `drizzle/` changes Production's schema too: merging `main` deploys Production on Vercel, which reads Neon. Right before merging, back up Neon, run `pnpm db:migrate:neon`, and check `pnpm db:status:neon` reports none pending; write the migration so the code already on `main` keeps working against the new schema. See `docs/runbooks/protected-deployment.md` → «Migrar Neon antes del merge».
 - After merging, delete the branch on the remote and locally, update `main`, and start the next section from it.
