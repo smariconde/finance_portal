@@ -1,5 +1,6 @@
 import { CheckCircle2, TriangleAlert } from "lucide-react";
 
+import { InfoTip } from "@/app/_components/info-tip";
 import {
   Card,
   CardContent,
@@ -130,12 +131,19 @@ export function ScenariosTable({
         <CardTitle as="h2" id="scenarios-title">
           Escenarios bear, base y bull
         </CardTitle>
-        <CardDescription className="max-w-4xl">
-          Tres conjuntos de supuestos, cada uno valuado entero por el motor y
-          sometido a los mismos controles que la base: no es la base
-          multiplicada por un factor. El costo de capital, la tasa impositiva,
-          los hechos y el puente son los mismos en los tres. No son
-          probabilidades: el rango no se pondera. Valores en {currency}.
+        <CardDescription className="flex items-center gap-0.5">
+          Pesimista, base y optimista, en {currency}. No son probabilidades.
+          <InfoTip title="Cómo se arman los escenarios">
+            <p>
+              Tres conjuntos de supuestos, cada uno valuado entero por el motor
+              y sometido a los mismos controles que la base: no es la base
+              multiplicada por un factor.
+            </p>
+            <p>
+              El costo de capital, la tasa impositiva, los hechos y el puente
+              son los mismos en los tres. El rango no se pondera.
+            </p>
+          </InfoTip>
         </CardDescription>
       </CardHeader>
 
@@ -254,16 +262,21 @@ export function ScenariosTable({
                     <TableHead scope="col">Driver</TableHead>
                     <TableHead scope="col">Base</TableHead>
                     <TableHead scope="col">{SCENARIO_LABELS[key]}</TableHead>
-                    <TableHead scope="col" className="w-[38%] min-w-64">
-                      Motivo registrado
-                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {scenario.changes.map((change) => (
                     <TableRow key={change.driver}>
                       <TableHead scope="row" className="font-medium">
-                        {SCENARIO_DRIVER_LABELS[change.driver]}
+                        <span className="flex items-center gap-0.5">
+                          {SCENARIO_DRIVER_LABELS[change.driver]}
+                          {/* El motivo registrado, a demanda (`F6-28`). */}
+                          <InfoTip
+                            title={`Motivo: ${SCENARIO_DRIVER_LABELS[change.driver]}`}
+                          >
+                            <p>{storedTextEs(change.rationale)}</p>
+                          </InfoTip>
+                        </span>
                       </TableHead>
                       <TableCell className="numeric text-muted-foreground">
                         <DriverValues
@@ -276,9 +289,6 @@ export function ScenariosTable({
                           driver={change.driver}
                           values={change.scenarioValues}
                         />
-                      </TableCell>
-                      <TableCell className="whitespace-normal text-muted-foreground">
-                        {storedTextEs(change.rationale)}
                       </TableCell>
                     </TableRow>
                   ))}

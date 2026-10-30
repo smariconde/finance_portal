@@ -215,7 +215,11 @@ test.describe("corrida de referencia", () => {
 
     await expect(terminalRoic).toContainText("12,0 %");
     await expect(terminalRoic).toContainText("9,0 %");
-    await expect(terminalRoic).toContainText(
+    // El motivo registrado vive detrás de su ⓘ (`F6-28`): se abre con click.
+    await terminalRoic
+      .getByRole("button", { name: "Qué significa: Motivo: Terminal ROIC" })
+      .click();
+    await expect(page.getByRole("dialog")).toContainText(
       "el retorno sobre el capital converge al costo de capital",
     );
   });

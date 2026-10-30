@@ -16,9 +16,13 @@ const SIZES = {
 
 /**
  * La marca de una empresa (ADR 0062): su logo de logo.dev sobre una placa
- * clara —muchos logos son oscuros sobre transparente y se perderían en el
- * tema oscuro— o, sin clave o si la imagen no carga, un monograma con sus
- * iniciales sobre un color estable por ticker.
+ * blanca en los dos temas —muchos logos son oscuros sobre transparente y se
+ * perderían en el oscuro— o, sin clave o si la imagen no carga, un monograma
+ * con sus iniciales sobre un color estable por ticker.
+ *
+ * El logo entra entero, sin recortar: cada empresa publica otra proporción y
+ * otro margen, así que se ajusta (`contain`) dentro del cuadrado inscripto en
+ * el círculo, con aire alrededor, y todos quedan del mismo tamaño aparente.
  *
  * Es decorativa: el nombre y el ticker siempre están al lado, así que la
  * imagen lleva `alt=""` y el monograma `aria-hidden`.
@@ -68,7 +72,7 @@ export function CompanyMark({
           alt=""
           loading="lazy"
           decoding="async"
-          className="size-full object-cover"
+          className="size-[72%] object-contain"
           onError={() => setFailed(true)}
         />
       </span>

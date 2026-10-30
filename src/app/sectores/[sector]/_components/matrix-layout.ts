@@ -324,7 +324,11 @@ export function circleOverlap(radius: number, distance: number): number {
  */
 const REFERENCE_CAPTION = "S&P 500 TR";
 
-/** La placa de la referencia cambia de lado si el cruce está cerca del borde. */
+/**
+ * El rótulo de la referencia es texto sin placa (`F6-28`): la placa sólida de
+ * `F6-27` tapaba puntos del sector. Cambia de lado si el cruce está cerca del
+ * borde.
+ */
 export function referenceCaptionBox(
   reference: PlotPoint,
   plot: PlotArea,
@@ -333,12 +337,10 @@ export function referenceCaptionBox(
   const { px, py } = toPixel(reference, plot);
   const width = measure(REFERENCE_CAPTION) ?? REFERENCE_CAPTION.length * 8;
 
-  const badgeWidth = width + 16;
-  const x0 =
-    px + 18 + badgeWidth <= plot.width ? px + 18 : px - 18 - badgeWidth;
-  const y0 = py >= 30 ? py - 30 : py + 12;
+  const x0 = px + 15 + width <= plot.width ? px + 15 : px - 15 - width;
+  const y0 = py >= 22 ? py - 22 : py + 8;
 
-  return { x0, y0, x1: x0 + badgeWidth, y1: y0 + 22 };
+  return { x0, y0, x1: x0 + width, y1: y0 + 14 };
 }
 
 function circleTouchesBox(
@@ -376,7 +378,7 @@ export function placeLogoMarks(
       (caption === null || !circleTouchesBox(at, LOGO_MARK_RADIUS, caption)) &&
       (reference === null ||
         Math.hypot(at.px - taken[0]!.px, at.py - taken[0]!.py) >=
-          LOGO_MARK_RADIUS + 14) &&
+          LOGO_MARK_RADIUS + 12) &&
       taken.every(
         (other) =>
           circleOverlap(
@@ -610,7 +612,7 @@ export function groupLabels(
     const { px, py } = toPixel(reference, plot);
 
     // El rombo y su rótulo.
-    reserved.push({ x0: px - 14, y0: py - 14, x1: px + 14, y1: py + 14 });
+    reserved.push({ x0: px - 12, y0: py - 12, x1: px + 12, y1: py + 12 });
     reserved.push(referenceCaptionBox(reference, plot, textWidth));
   }
 

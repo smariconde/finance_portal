@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 
 import { DataUnavailableNotice } from "@/app/_components/data-unavailable-notice";
 import { CompanyMark } from "@/app/_components/company-mark";
+import { InfoTip } from "@/app/_components/info-tip";
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -738,14 +739,6 @@ export default async function ValuationResultPage({ params }: PageProps) {
           <dt className="text-muted-foreground">Método</dt>
           <dd>{METHOD_COPY[run.method] ?? run.method}</dd>
         </div>
-        <div className="flex gap-1.5">
-          <dt className="text-muted-foreground">Rigor</dt>
-          <dd>
-            <a className="underline underline-offset-4" href="#auditoria-rigor">
-              {RIGOR_COPY[run.input.assessment.rigor.level]}
-            </a>
-          </dd>
-        </div>
       </dl>
 
       {reading.newerGap === null ? null : (
@@ -774,6 +767,8 @@ export default async function ValuationResultPage({ params }: PageProps) {
           verdict={verdict}
           market={reading.market}
           attribution={attributionOf(PRICES_SOURCE_ID)}
+          multiples={reading.peers.company}
+          rigorLabel={RIGOR_COPY[run.input.assessment.rigor.level]}
         />
       </Anchor>
 
@@ -823,9 +818,8 @@ export default async function ValuationResultPage({ params }: PageProps) {
             Auditoría de la corrida
           </h2>
           <p className="max-w-prose text-sm text-muted-foreground">
-            Todo lo que hace defendible el número: cada supuesto, cada hecho con
-            su documento, los controles del motor y el contrato que impide mirar
-            el futuro. Abrí lo que quieras verificar.
+            Supuestos, hechos con su documento, controles del motor y contrato
+            point-in-time.
           </p>
         </div>
 
@@ -970,36 +964,31 @@ export default async function ValuationResultPage({ params }: PageProps) {
         <ValuationHistory view={history} />
       </Anchor>
 
-      <section
-        className="rounded-xl border bg-muted/30 p-4"
-        aria-labelledby="limits-title"
-      >
-        <h2 id="limits-title" className="text-base font-medium">
-          Límites de esta superficie
-        </h2>
-        <ul className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
-          <li>
-            Es una lectura educativa de un modelo, no una recomendación ni un
-            precio objetivo. El precio se lee de la serie guardada, al día de la
-            valuación.
-          </li>
-          <li>
-            Abrir esta página no recalcula la corrida, no baja datos y no llama
-            a la IA. «Volver a valuar» baja el cierre del día si falta, audita
-            la empresa, pide a la IA lo cualitativo que falte, lee lo guardado
-            al corte de hoy y registra otra corrida si algo cambió.
-          </li>
-          <li>
+      <p className="flex items-center gap-0.5 text-sm text-muted-foreground">
+        Lectura educativa de un modelo, no una recomendación ni un precio
+        objetivo.
+        <InfoTip title="Límites de esta superficie">
+          <p>
+            El precio se lee de la serie guardada, al día de la valuación. Abrir
+            esta página no recalcula la corrida, no baja datos y no llama a la
+            IA.
+          </p>
+          <p>
+            «Volver a valuar» baja el cierre del día si falta, audita la
+            empresa, pide a la IA lo cualitativo que falte, lee lo guardado al
+            corte de hoy y registra otra corrida si algo cambió.
+          </p>
+          <p>
             Los supuestos no son editables: salen de una regla versionada, y
             cambiarla produce otra corrida.
-          </li>
-          <li>
+          </p>
+          <p>
             El CCL implícito combina cierres diarios del CEDEAR y la acción, que
-            pueden no ser simultáneos. Sin ambos cierres comparables del día de
-            la corrida, el valor en pesos queda sin calcular.
-          </li>
-        </ul>
-      </section>
+            pueden no ser simultáneos; sin ambos del día de la corrida, el valor
+            en pesos queda sin calcular.
+          </p>
+        </InfoTip>
+      </p>
     </PageFrame>
   );
 }

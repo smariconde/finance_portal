@@ -314,10 +314,9 @@ export function SectorRiskWorkspace({
               Sortino a 2 años contra Sortino a 5 años
             </CardTitle>
             <CardDescription id={descriptionId}>
-              {layout.points.length} de {matrix.points.length} securities
-              dibujadas; las demás están en «Sin valor» con su motivo. Las
-              líneas punteadas cruzan en la referencia: arriba a la derecha
-              queda quien la superó en las dos ventanas.
+              {layout.points.length} de {matrix.points.length} dibujadas; el
+              resto, en «Sin valor». Arriba a la derecha de las punteadas:
+              superó a la referencia en las dos ventanas.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
@@ -395,13 +394,19 @@ export function SectorRiskWorkspace({
               <li className="flex items-center gap-1.5">
                 <svg aria-hidden="true" viewBox="0 0 28 20" className="h-5 w-7">
                   <path
-                    d="M10 1 L19 10 L10 19 L1 10 Z"
-                    className="fill-foreground stroke-background"
+                    d="M10 2 L18 10 L10 18 L2 10 Z"
+                    className="fill-none stroke-foreground"
                     strokeWidth="2"
+                    strokeLinejoin="round"
                   />
-                  <circle cx="10" cy="10" r="2" className="fill-background" />
+                  <circle
+                    cx="10"
+                    cy="10"
+                    r="1.75"
+                    className="fill-foreground"
+                  />
                 </svg>
-                {matrix.reference.label}: rombo y placa, misma base y ventanas
+                {matrix.reference.label}: rombo hueco, misma base y ventanas
               </li>
               <li className="flex items-center gap-1.5">
                 <svg aria-hidden="true" viewBox="0 0 16 12" className="h-3 w-4">

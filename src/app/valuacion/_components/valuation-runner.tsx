@@ -1,10 +1,11 @@
 "use client";
 
-import { LoaderCircle, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import type { ValuationJobView } from "@/modules/valuation/domain/valuation-job";
 import type { ValuationRunStatus } from "@/modules/valuation/domain/valuation-run";
 
@@ -152,14 +153,7 @@ export function ValuationRunner({
         onClick={() => void follow("enqueue")}
         type="button"
       >
-        {working ? (
-          <LoaderCircle
-            aria-hidden="true"
-            className="motion-safe:animate-spin"
-          />
-        ) : (
-          <RefreshCw aria-hidden="true" />
-        )}
+        {working ? <Spinner /> : <RefreshCw aria-hidden="true" />}
         {working
           ? phase.kind === "working" && phase.state === "queued"
             ? "En cola"
@@ -176,14 +170,12 @@ export function ValuationRunner({
         {phase.kind === "working"
           ? phase.state === "queued"
             ? "En cola: el pedido espera su turno."
-            : "Procesando en segundo plano: descarga de SEC y precios, auditoría, consulta cualitativa si hace falta y evaluación. La página se actualiza al terminar."
+            : "Procesando: datos, auditoría, IA y valuación. La página se actualiza sola."
           : phase.kind === "done"
             ? phase.message
             : phase.kind === "failed"
               ? "No se pudo pedir la valuación: este runtime no pudo leer la base."
-              : hasRun
-                ? "Baja el cierre del día si falta, audita la empresa, pide a la IA lo cualitativo que falte y vuelve a valuar al corte de hoy."
-                : null}
+              : null}
       </p>
       {phase.kind === "working" ? (
         <progress

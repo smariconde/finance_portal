@@ -1,5 +1,6 @@
 import { CircleAlert, CircleCheck } from "lucide-react";
 
+import { InfoTip } from "@/app/_components/info-tip";
 import type { SectorRiskQuality as Quality } from "@/modules/metrics/domain/sector-risk-quality";
 
 function percent(value: number | null): string {
@@ -85,12 +86,19 @@ export function SectorRiskQuality({ quality }: { readonly quality: Quality }) {
           </dd>
         </div>
       </dl>
-      <p className="mt-4 text-xs text-muted-foreground">
-        Nota operativa {quality.ruleVersion}: 40 % completitud, 20 % frescura,
-        20 % comparabilidad y 20 % validación. Frescura: 100 hasta 4 días, 50 de
-        5 a 7, 0 después, sin calendario de feriados. La reconciliación
-        comprueba el cálculo interno; no verifica independientemente los precios
-        publicados por Yahoo Finance.
+      <p className="mt-2 flex items-center gap-0.5 text-xs text-muted-foreground">
+        Regla {quality.ruleVersion}
+        <InfoTip title="Cómo se calcula la nota">
+          <p>
+            40 % completitud, 20 % frescura, 20 % comparabilidad y 20 %
+            validación. Frescura: 100 hasta 4 días, 50 de 5 a 7, 0 después, sin
+            calendario de feriados.
+          </p>
+          <p>
+            La reconciliación comprueba el cálculo interno; no verifica
+            independientemente los precios publicados por Yahoo Finance.
+          </p>
+        </InfoTip>
       </p>
     </section>
   );

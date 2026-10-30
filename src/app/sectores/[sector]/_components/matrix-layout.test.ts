@@ -428,7 +428,7 @@ describe("placeLogoMarks", () => {
   });
 
   it("never covers the reference caption", () => {
-    // El rótulo «S&P 500 TR» va de 12 a ~96 px a la derecha del rombo y de
+    // El rótulo «S&P 500 TR» va de 15 a ~95 px a la derecha del rombo y de
     // 22 a 8 px por encima: un logo 40 px a la derecha y 15 arriba lo pisaría.
     const reference = { ...plotted("ref", 1, 1), kind: "reference" as const };
 
@@ -440,7 +440,7 @@ describe("placeLogoMarks", () => {
     );
   });
 
-  it("moves the reference badge inside the plot near its right or top edge", () => {
+  it("moves the reference caption inside the plot near its right or top edge", () => {
     const right = { ...plotted("ref", 2.8, 1.5), kind: "reference" as const };
     const top = { ...plotted("ref", 1, 2.9), kind: "reference" as const };
     const rightBox = referenceCaptionBox(right, plot, () => 72);
@@ -452,7 +452,7 @@ describe("placeLogoMarks", () => {
     expect(topBox.y1).toBeLessThanOrEqual(plot.height);
   });
 
-  it("leaves room around the larger reference diamond", () => {
+  it("leaves room around the reference diamond", () => {
     const reference = { ...plotted("ref", 1, 1), kind: "reference" as const };
 
     expect(placeLogoMarks([plotted("A", 1.2, 1)], plot, reference).size).toBe(

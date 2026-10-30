@@ -34,9 +34,9 @@ import type {
 } from "@/modules/valuation/domain/peer-context";
 import { requestCompanyLogoUrl } from "@/server/config/company-logo";
 
-import { Concept } from "./concept";
+import { InfoTip } from "@/app/_components/info-tip";
 
-const NULL_COPY: Record<PeerMetricNullReason, string> = {
+export const PEER_NULL_COPY: Record<PeerMetricNullReason, string> = {
   no_value_per_share: "sin valor por acción",
   no_close_at_as_of: "sin cierre ese día",
   currency_mismatch: "otra moneda",
@@ -51,10 +51,29 @@ const NULL_COPY: Record<PeerMetricNullReason, string> = {
   non_positive_enterprise_value: "EV cero o negativo",
 };
 
-const METRICS: readonly { key: PeerMetricKey; label: string }[] = [
-  { key: "priceToValue", label: "Price / value" },
-  { key: "priceToEarnings", label: "P/E" },
-  { key: "enterpriseValueToEbit", label: "Adjusted EV/EBIT" },
+const METRICS: readonly {
+  key: PeerMetricKey;
+  label: string;
+  definition: string;
+}[] = [
+  {
+    key: "priceToValue",
+    label: "Price / value",
+    definition:
+      "El cierre del día de la corrida sobre el valor por acción del modelo. 1× es «paga lo que el modelo calcula»; 1,5× es «paga la mitad más».",
+  },
+  {
+    key: "priceToEarnings",
+    label: "P/E",
+    definition:
+      "Capitalización sobre la ganancia neta reportada del año base de cada corrida.",
+  },
+  {
+    key: "enterpriseValueToEbit",
+    label: "Adjusted EV/EBIT",
+    definition:
+      "Capitalización más deuda, arrendamientos y minoritarios, menos caja, sobre el EBIT ajustado de cada corrida. No cambia con cuánto se financia con deuda.",
+  },
 ];
 
 const METHOD_COPY: Record<PeerEntry["method"], string> = {
@@ -82,7 +101,9 @@ function MetricCell({ metric }: { metric: PeerMetric }) {
   return metric.status === "value" ? (
     <span className="numeric">{multiple(metric.value)}</span>
   ) : (
-    <span className="text-muted-foreground">{NULL_COPY[metric.reason]}</span>
+    <span className="text-muted-foreground">
+      {PEER_NULL_COPY[metric.reason]}
+    </span>
   );
 }
 
@@ -134,17 +155,17 @@ function exclusions(summary: PeerSummary): string | null {
   return entries.length === 0
     ? null
     : entries
-        .map(([reason, count]) => `${count} ${NULL_COPY[reason]}`)
+        .map(([reason, count]) => `${count} ${PEER_NULL_COPY[reason]}`)
         .join(", ");
 }
 
 /** La lectura del modelo: si el mercado paga más o menos que el modelo. */
 function modelSentence(summary: PeerSummary): string {
   if (summary.status === "insufficient") {
-    return `En la ventana hay ${summary.n} ${summary.n === 1 ? "otra empresa valuada" : "otras empresas valuadas"} con precio sobre valor; hacen falta ${summary.minimum} para leer una mediana. La comparación crece a medida que se valúan más tickers.`;
+    return `Pares insuficientes: ${summary.n} de ${summary.minimum} empresas valuadas en la ventana.`;
   }
 
-  return `En todo lo valuado (n = ${summary.n}), la mediana de precio sobre valor es ${multiple(summary.value)}. Si es mayor que 1, el modelo tiende a dar valores por debajo de lo que paga el mercado; esa diferencia es del modelo, no de una empresa.`;
+  return `Todo lo valuado (n = ${summary.n}): mediana de precio sobre valor ${multiple(summary.value)}.`;
 }
 
 function companySentence(
@@ -179,19 +200,37 @@ export function PeerContext({ context }: { context: PeerContextReading }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle as="h2">Frente a lo demás que se valuó</CardTitle>
-        <CardDescription className="max-w-prose">
-          Empresas valuadas entre el{" "}
+        <div className="flex items-center gap-0.5">
+          <CardTitle as="h2">Frente a lo demás que se valuó</CardTitle>
+          <EvidenceKindMark kind="derived_by_rule" className="ml-1.5" />
+          <InfoTip title="Cómo se lee">
+            <p>
+              Separa lo que es del modelo, lo que es del sector y lo que es de
+              la empresa; no es una señal de compra o venta.
+            </p>
+            <p>
+              Si la mediana de todo lo valuado supera 1×, el modelo tiende a dar
+              valores debajo de lo que paga el mercado: esa diferencia es del
+              modelo, no de una empresa. La comparación crece a medida que se
+              valúan más tickers.
+            </p>
+            <p>
+              Mediana exacta con {context.minimum} pares como mínimo; cada una
+              con el cierre del día de su propia corrida. Regla{" "}
+              <code className="font-mono">{context.version}</code>.
+            </p>
+          </InfoTip>
+        </div>
+        <CardDescription>
+          Valuadas del{" "}
           <time dateTime={context.windowFrom}>
             {formatCalendarDate(context.windowFrom)}
           </time>{" "}
-          y el{" "}
+          al{" "}
           <time dateTime={context.asOf}>
             {formatCalendarDate(context.asOf)}
           </time>
-          , cada una con el cierre del día de su propia corrida. Separa lo que
-          es del modelo, lo que es del sector y lo que es de la empresa; no es
-          una señal de compra o venta.
+          .
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -241,14 +280,19 @@ export function PeerContext({ context }: { context: PeerContextReading }) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {METRICS.map(({ key, label: metricLabel }) => {
+                  {METRICS.map(({ key, label: metricLabel, definition }) => {
                     const excluded = exclusions(sector.summaries[key]);
 
                     return (
                       <TableRow key={key}>
                         <TableHead scope="row" className="font-normal">
                           <span className="flex flex-col">
-                            <span>{metricLabel}</span>
+                            <span className="flex items-center gap-0.5">
+                              {metricLabel}
+                              <InfoTip title={metricLabel}>
+                                <p>{definition}</p>
+                              </InfoTip>
+                            </span>
                             {excluded === null ? null : (
                               <span className="text-xs text-muted-foreground">
                                 Sin dato en el sector: {excluded}
@@ -281,17 +325,6 @@ export function PeerContext({ context }: { context: PeerContextReading }) {
                   })}
                 </TableBody>
               </Table>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <EvidenceKindMark kind="derived_by_rule" />
-              <span>
-                Mediana exacta con {context.minimum} pares como mínimo; P/E con
-                la ganancia neta reportada del año base y EV/EBIT con la deuda,
-                los arrendamientos, los minoritarios, la caja y el EBIT ajustado
-                de cada corrida. Regla{" "}
-                <code className="font-mono">{context.version}</code>.
-              </span>
             </div>
 
             {sector.peers.length === 0 ? null : (
@@ -375,21 +408,6 @@ export function PeerContext({ context }: { context: PeerContextReading }) {
             )}
           </>
         )}
-
-        <div className="flex flex-col gap-1">
-          <Concept term="el precio sobre valor">
-            El cierre del día de la corrida dividido por el valor por acción del
-            modelo. 1 es «el mercado paga lo que el modelo calcula»; 1,5 es
-            «paga la mitad más». Comparado entre empresas valuadas con la misma
-            regla, muestra si la brecha es de la empresa o del modelo.
-          </Concept>
-          <Concept term="el EV/EBIT ajustado">
-            El valor de la empresa —capitalización más deuda, arrendamientos y
-            minoritarios, menos caja— sobre el resultado operativo del año base
-            con los ajustes del modelo. A diferencia del P/E, no cambia con
-            cuánto se financia la empresa con deuda.
-          </Concept>
-        </div>
       </CardContent>
     </Card>
   );
