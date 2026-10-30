@@ -70,16 +70,23 @@ export class PriceSourceError extends Error {
 export const PRICE_HISTORY_YEARS = 5;
 export const PRICE_HISTORY_MARGIN_DAYS = 14;
 
+/** Primer día que pide una descarga hecha en `now`. */
+export function chartWindowStart(
+  now: Date,
+  historyYears: 5 | 7 = PRICE_HISTORY_YEARS,
+): string {
+  return subtractDays(
+    subtractCalendarYears(now.toISOString().slice(0, 10), historyYears),
+    PRICE_HISTORY_MARGIN_DAYS,
+  );
+}
+
 export function buildChartUrl(
   symbol: string,
   now: Date,
   historyYears: 5 | 7 = PRICE_HISTORY_YEARS,
 ): string {
-  const today = now.toISOString().slice(0, 10);
-  const from = subtractDays(
-    subtractCalendarYears(today, historyYears),
-    PRICE_HISTORY_MARGIN_DAYS,
-  );
+  const from = chartWindowStart(now, historyYears);
   const period1 = Date.parse(`${from}T00:00:00.000Z`) / 1000;
   const period2 = Math.floor(now.getTime() / 1000);
 
@@ -106,6 +113,9 @@ export type FetchedSeries = {
   readonly parsed: Extract<ChartParseResult, { ok: true }>;
   readonly byteLength: number;
   readonly fetchedAt: string;
+  readonly historyYears: 5 | 7;
+  /** Primer día pedido: la corrida de siete años lo registra como ancla. */
+  readonly requestedFrom: string;
 };
 
 export type PriceSourceProvider = {
@@ -140,15 +150,13 @@ export function createLivePriceSource(
       }
 
       let response: Awaited<ReturnType<EgressFetch>>;
+      const requestedAt = dependencies.now();
+      const historyYears = dependencies.historyYears ?? PRICE_HISTORY_YEARS;
 
       try {
         response = await dependencies.fetch({
           sourceId: PRICES_SOURCE_ID,
-          url: buildChartUrl(
-            symbol,
-            dependencies.now(),
-            dependencies.historyYears,
-          ),
+          url: buildChartUrl(symbol, requestedAt, historyYears),
           accept: "application/json",
         });
       } catch (cause) {
@@ -187,6 +195,8 @@ export function createLivePriceSource(
         parsed,
         byteLength: response.byteLength,
         fetchedAt: response.fetchedAt,
+        historyYears,
+        requestedFrom: chartWindowStart(requestedAt, historyYears),
       };
     },
   };

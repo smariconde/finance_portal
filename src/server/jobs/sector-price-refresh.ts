@@ -21,15 +21,20 @@ import { syncDeclaredSourceRegistry } from "@/modules/ingestion/application/sync
 import { DEMO_SOURCE_REGISTRY } from "@/modules/ingestion/infrastructure/demo-source-registry";
 import { ingestBenchmark } from "@/modules/prices/application/ingest-benchmark";
 import { ingestPrices } from "@/modules/prices/application/ingest-prices";
-import { createLivePriceSource } from "@/modules/prices/application/live-price-source";
+import {
+  createLivePriceSource,
+  PRICE_HISTORY_YEARS,
+} from "@/modules/prices/application/live-price-source";
 import {
   assertPriceRefreshJob,
   createPriceRefreshAdmission,
   createPriceRefreshJobExecutor,
   ensureSectorPrices,
+  isFiscalPriceHistoryJob,
   PriceSubjectUnresolvedError,
   type EnsureSectorPricesResult,
 } from "@/modules/prices/application/sector-price-refresh";
+import { FISCAL_PRICE_HISTORY_YEARS } from "@/modules/prices/domain/fiscal-price-history";
 import { pointInTimeQuerySchema } from "@/modules/temporal/domain/point-in-time-query";
 import { SP500_INDEX_ID } from "@/modules/universe/application/live-universe-source";
 import { getMeteredEgressFetch } from "@/server/egress/get-source-egress-fetch";
@@ -70,6 +75,11 @@ export async function ensureSectorPricesForRequest(input: {
     now,
     workerActive: () => activeWorker !== null,
   });
+}
+
+/** Si este proceso ya corre un worker de precios. */
+export function priceRefreshWorkerActive(): boolean {
+  return activeWorker !== null;
 }
 
 /** Arranca el worker del job si este proceso no tiene uno. No espera su fin. */
@@ -133,6 +143,9 @@ export async function runPriceRefreshJob(
     sourceRegistry: registry,
     fetch: jobFetch,
     now: () => new Date(),
+    historyYears: isFiscalPriceHistoryJob(job)
+      ? FISCAL_PRICE_HISTORY_YEARS
+      : PRICE_HISTORY_YEARS,
   });
   const prices = getPriceRepository();
   const ingestionRuns = getIngestionRunRepository();

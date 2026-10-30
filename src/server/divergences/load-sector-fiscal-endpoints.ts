@@ -123,13 +123,16 @@ export async function loadStoredSectorFiscalEndpoints(
   );
 }
 
-/** The divergence surface's one read: fiscal pairs, views, bridge and CEDEAR. */
+/**
+ * The divergence surface's one read: fiscal pairs, views, bridge and CEDEAR,
+ * plus the reading itself, which says what a download would still bring.
+ */
 export async function loadStoredSectorDivergenceMatrix(sectorCode: string) {
   const [reading, registry] = await Promise.all([
     loadStoredSectorFiscalEndpoints(sectorCode),
     getCedearRegistryRepository().loadRegistry({}),
   ]);
-  return buildSectorDivergenceMatrix(reading, registry);
+  return { reading, matrix: buildSectorDivergenceMatrix(reading, registry) };
 }
 
 /**

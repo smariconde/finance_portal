@@ -32,6 +32,7 @@ import {
   findDeclaredBenchmark,
   SP500_TOTAL_RETURN_BENCHMARK_ID,
 } from "../domain/declared-benchmarks";
+import { FISCAL_PRICE_HISTORY_VERSION } from "../domain/fiscal-price-history";
 import { CHART_PARSER_VERSION } from "../domain/parse-chart-payload";
 import {
   assessReferenceFreshness,
@@ -87,6 +88,24 @@ export function buildPriceRefreshJobPlan(
     selectionVersion: PRICE_FRESHNESS_RULE_VERSION,
     subjects: [...subjects],
   };
+}
+
+/**
+ * Siete años de las securities a las que les falta el cierre fiscal de la vista
+ * a cinco años (`F8-02`). Mismo tipo de job y mismo lease: para la fuente es
+ * una request más por security, y su última rueda también vale de frescura.
+ */
+export function buildFiscalPriceHistoryJobPlan(
+  securityIds: readonly string[],
+): IngestionJobPlanInput {
+  return {
+    ...buildPriceRefreshJobPlan("securities", securityIds),
+    selectionVersion: FISCAL_PRICE_HISTORY_VERSION,
+  };
+}
+
+export function isFiscalPriceHistoryJob(job: IngestionJob): boolean {
+  return job.selectionVersion === FISCAL_PRICE_HISTORY_VERSION;
 }
 
 function phaseOf(job: IngestionJob): PriceRefreshPhase {
@@ -538,7 +557,9 @@ export function assertPriceRefreshJob(job: IngestionJob): void {
     kind: PRICE_REFRESH_KIND,
     sourceId: PRICES_SOURCE_ID,
     parserVersion: CHART_PARSER_VERSION,
-    selectionVersion: PRICE_FRESHNESS_RULE_VERSION,
+    selectionVersion: isFiscalPriceHistoryJob(job)
+      ? FISCAL_PRICE_HISTORY_VERSION
+      : PRICE_FRESHNESS_RULE_VERSION,
   };
 
   for (const [field, value] of Object.entries(expected)) {

@@ -18,6 +18,10 @@ import {
   PRICE_UNADJUST_RULE_VERSION,
 } from "../domain/unadjust-series";
 import {
+  FISCAL_PRICE_HISTORY_VERSION,
+  FISCAL_PRICE_HISTORY_YEARS,
+} from "../domain/fiscal-price-history";
+import {
   settleSession,
   settleCedearSession,
   CEDEAR_SETTLED_SESSION_VERSION,
@@ -224,6 +228,8 @@ export async function ingestPrices(
     }),
   );
 
+  const fiscalHistory =
+    !local && fetched.historyYears === FISCAL_PRICE_HISTORY_YEARS;
   const previous = await ingestionRuns.findByIdempotencyKey(contentHash);
   const replayOf =
     previous !== null && isPublishableStatus(previous.status) ? previous : null;
@@ -243,8 +249,14 @@ export async function ingestPrices(
       cursor: null,
       nextCursor: null,
       subjectKey: parsedCommand.symbol,
-      selectionVersion: local ? CEDEAR_SETTLED_SESSION_VERSION : null,
-      selectionAnchorOn: null,
+      selectionVersion: local
+        ? CEDEAR_SETTLED_SESSION_VERSION
+        : fiscalHistory
+          ? FISCAL_PRICE_HISTORY_VERSION
+          : null,
+      // Hasta dónde se fue a buscar: lo que impide pedir otra vez una serie
+      // que en la fuente empieza después del cierre fiscal.
+      selectionAnchorOn: fiscalHistory ? fetched.requestedFrom : null,
       status: replayOf === null ? "succeeded" : "duplicate",
       startedAt,
       finishedAt,

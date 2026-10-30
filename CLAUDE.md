@@ -219,7 +219,18 @@ ends or, failing either, average diluted shares at both, never mixed, and names
 the basis; a `|share_count_bias_pp|` above 2 pp is marked (both owner decisions).
 `dilution-bridge-1.0.0` checks EPS against its numerator within printed rounding.
 The page reads stored data only; a sector without SEC fundamentals states the
-worst-case request cost against today's SEC quota instead of downloading.
+worst-case request cost against today's SEC quota. The owner downloads with a
+button ([ADR 0064](docs/architecture/adr/0064-sector-divergence-download.md),
+`sector-divergence-download-1.0.0`): `downloadSectorDivergenceData`, the second
+Server Action, takes the same closed schema as `refreshSectorPrices` and runs
+one idempotent step — companyfacts of the sector's filers without an anchored
+run first, then seven years of prices (`fiscal-price-history-1.0.0`) for the
+securities whose earlier fiscal close has no price. A seven-year price run
+records `selectionAnchorOn` = the first day requested, so a security asked that
+far is never asked again; five-year runs keep no anchor. Each filer is admitted
+with its 66-request worst case, so a short quota stops the job without spending
+attempts and the page offers «Seguir descargando»; a failure is named and
+retried only on «Reintentar».
 
 ```bash
 pnpm cedears:record                                # dry run: both issuers, one request each, writes nothing
