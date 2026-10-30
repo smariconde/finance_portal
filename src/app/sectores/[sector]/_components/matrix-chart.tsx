@@ -250,6 +250,8 @@ type PointsLayerProps = {
   readonly logos: ReadonlyMap<string, MatrixLogo>;
   readonly selectedId: string | null;
   readonly onSelect: (id: string) => void;
+  /** Puntos con el glifo ◆ de la leyenda, como el sesgo de acciones. */
+  readonly markedIds: ReadonlySet<string>;
 };
 
 /**
@@ -268,6 +270,7 @@ function PointsLayer({
   logos,
   selectedId,
   onSelect,
+  markedIds,
 }: PointsLayerProps) {
   const xScale = useXAxisScale();
   const yScale = useYAxisScale();
@@ -384,6 +387,15 @@ function PointsLayer({
                   r={radius + 3.5}
                   className="fill-none stroke-primary"
                   strokeWidth={2}
+                />
+              ) : null}
+              {markedIds.has(point.id) ? (
+                <path
+                  data-marked="true"
+                  d={`M ${cx + radius * 0.75} ${cy - radius * 0.75 - 5} l 5 5 l -5 5 l -5 -5 Z`}
+                  className="fill-foreground stroke-background"
+                  strokeWidth={1.5}
+                  strokeLinejoin="round"
                 />
               ) : null}
               {point.clipX !== 0 || point.clipY !== 0 ? (
@@ -526,7 +538,20 @@ export type MatrixChartProps = {
   readonly titleId: string;
   readonly descriptionId: string;
   readonly asOfLabel: string;
+  /** Rótulos de los ejes; por defecto, las dos ventanas de Sortino. */
+  readonly xLabel?: string;
+  readonly yLabel?: string;
+  /** Tramo de una recta de lectura, como `y = x` en divergencias. */
+  readonly diagonal?: readonly [
+    { readonly x: number; readonly y: number },
+    { readonly x: number; readonly y: number },
+  ];
+  readonly markedIds?: ReadonlySet<string>;
+  /** Alto del gráfico; divergencias lo quiere cuadrado. */
+  readonly className?: string;
 };
+
+const NO_MARKS: ReadonlySet<string> = new Set();
 
 export function MatrixChart({
   layout,
@@ -537,6 +562,11 @@ export function MatrixChart({
   titleId,
   descriptionId,
   asOfLabel,
+  xLabel,
+  yLabel,
+  diagonal,
+  markedIds = NO_MARKS,
+  className = "aspect-auto h-[26rem] w-full md:h-[36rem] lg:h-[44rem]",
 }: MatrixChartProps) {
   const reference = layout.reference;
   const container = useRef<HTMLDivElement>(null);
@@ -562,7 +592,7 @@ export function MatrixChart({
     <div ref={container}>
       <ChartContainer
         config={chartConfig}
-        className="aspect-auto h-[26rem] w-full md:h-[36rem] lg:h-[44rem]"
+        className={className}
         role="group"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
@@ -582,7 +612,7 @@ export function MatrixChart({
             tickLine={false}
             className="numeric text-xs"
             label={{
-              value: `Sortino 2 años al ${asOfLabel}`,
+              value: xLabel ?? `Sortino 2 años al ${asOfLabel}`,
               position: "insideBottom",
               offset: -18,
               className: "fill-muted-foreground text-xs",
@@ -596,13 +626,15 @@ export function MatrixChart({
             allowDataOverflow
             tickFormatter={tick}
             tickLine={false}
-            width={compact ? 40 : 56}
+            width={
+              yLabel === undefined ? (compact ? 40 : 56) : compact ? 56 : 64
+            }
             className="numeric text-xs"
             label={{
-              value: "Sortino 5 años",
+              value: yLabel ?? "Sortino 5 años",
               angle: -90,
               position: "insideLeft",
-              offset: 12,
+              offset: yLabel === undefined ? 12 : 0,
               className: "fill-muted-foreground text-xs",
             }}
           />
@@ -621,6 +653,15 @@ export function MatrixChart({
                 ifOverflow="hidden"
               />
             </>
+          )}
+          {diagonal === undefined ? null : (
+            <ReferenceLine
+              segment={[diagonal[0], diagonal[1]]}
+              strokeDasharray="6 4"
+              className="stroke-foreground/60"
+              strokeWidth={1.25}
+              ifOverflow="hidden"
+            />
           )}
           {layout.fitSegment === null ? null : (
             <ReferenceLine
@@ -643,6 +684,7 @@ export function MatrixChart({
             logos={logos}
             selectedId={selectedId}
             onSelect={onSelect}
+            markedIds={markedIds}
           />
         </ScatterChart>
       </ChartContainer>

@@ -90,6 +90,7 @@ export const ROUTES = {
   valuationResult: "/valuacion/AAPL",
   sectors: "/sectores",
   sectorMatrix: "/sectores/communication-services",
+  sectorDivergences: "/sectores/communication-services/divergencias",
   missing: "/ruta-que-no-existe",
 } as const;
 

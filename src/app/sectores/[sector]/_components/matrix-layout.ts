@@ -723,7 +723,7 @@ export function niceAxis(domain: readonly [number, number]): {
 } {
   const span = domain[1] - domain[0];
   const step =
-    [0.1, 0.2, 0.25, 0.5, 1, 2, 5, 10].find(
+    [0.1, 0.2, 0.25, 0.5, 1, 2, 5, 10, 20, 25, 50, 100].find(
       (candidate) => span / candidate <= 8,
     ) ?? Math.ceil(span / 8);
   const low = Math.floor(domain[0] / step) * step;

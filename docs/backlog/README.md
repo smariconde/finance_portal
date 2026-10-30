@@ -5884,6 +5884,21 @@ cuyas diluidas incluyen las unidades convertibles de su controlante. 8 pruebas
 nuevas; 3.354 unit, lint, tipos, formato y build pasan. Sin red, migración ni
 UI. Sigue la lectura para la superficie y la interfaz.
 
+**`F8-02`, tercer incremento, 2026-10-30: la superficie.** Bocetos aprobados por
+el owner: ruta hermana `/sectores/[sector]/divergencias` con selector «Riesgo ·
+Divergencias», logos como en la matriz de riesgo y, para un sector sin
+fundamentales, una negativa explícita con el máximo de pedidos SEC que costaría
+bajarlos y la cuota que queda hoy, para no pedirlo cuando no alcanza. La lectura
+`sector-divergence-matrix-1.0.0` arma vistas y puente por security y horizonte,
+el CEDEAR al corte y la cobertura SEC por emisor; el render no sale a la red ni
+escribe. `MatrixChart` admite rótulos de ejes, diagonal y marcas, sin cambiar la
+matriz de riesgo. La sidebar deja de anunciar «Divergencias» como planificada.
+Communication Services: 8 puntos a 2 años, 3 marcas; Energy, 2 puntos y el aviso
+de cobertura. axe 0 serious/critical y sin overflow a 1440 claro y 390 oscuro;
+detector de Impeccable sin hallazgos. 3.360 unit y 222 E2E (3 omitidas) con la
+ruta nueva sin base y trabada; lint, tipos, formato y build pasan. Falta el botón
+de descarga con control de cuota; `F8-03` sigue con filtros y detalle.
+
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
 | `F8-01` | Pipeline fiscal-aligned point-in-time de precio, market cap, net income, EPS y acciones para los filers del sector elegido, sin cargar el universo.                                   | Fase 6     | `TM-05`, `TM-06`, `TM-16` |
