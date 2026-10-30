@@ -230,7 +230,10 @@ records `selectionAnchorOn` = the first day requested, so a security asked that
 far is never asked again; five-year runs keep no anchor. Each filer is admitted
 with its 66-request worst case, so a short quota stops the job without spending
 attempts and the page offers «Seguir descargando»; a failure is named and
-retried only on «Reintentar».
+retried only on «Reintentar». Measured in Production on Neon: Consumer
+Staples went from no fundamentals to 33 securities with fiscal years (23
+comparable at 2 years, 22 at 5) for 74 SEC requests over 31 filers and 32
+Yahoo requests, in about 100 s.
 
 ```bash
 pnpm cedears:record                                # dry run: both issuers, one request each, writes nothing
