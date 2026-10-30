@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowUp } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   CartesianGrid,
@@ -588,8 +589,21 @@ export function MatrixChart({
     return () => observer.disconnect();
   }, []);
 
+  // Un rótulo largo girado no entra en el alto de un gráfico angosto: se
+  // recorta. En pantallas chicas va horizontal arriba del gráfico.
+  const yLabelAbove = compact && yLabel !== undefined;
+
   return (
     <div ref={container}>
+      {yLabelAbove ? (
+        <p
+          aria-hidden="true"
+          className="mb-1 flex items-center gap-1 text-xs text-muted-foreground"
+        >
+          <ArrowUp className="size-3" />
+          {yLabel}
+        </p>
+      ) : null}
       <ChartContainer
         config={chartConfig}
         className={className}
@@ -627,16 +641,20 @@ export function MatrixChart({
             tickFormatter={tick}
             tickLine={false}
             width={
-              yLabel === undefined ? (compact ? 40 : 56) : compact ? 56 : 64
+              yLabel === undefined ? (compact ? 40 : 56) : compact ? 40 : 64
             }
             className="numeric text-xs"
-            label={{
-              value: yLabel ?? "Sortino 5 años",
-              angle: -90,
-              position: "insideLeft",
-              offset: yLabel === undefined ? 12 : 0,
-              className: "fill-muted-foreground text-xs",
-            }}
+            label={
+              yLabelAbove
+                ? undefined
+                : {
+                    value: yLabel ?? "Sortino 5 años",
+                    angle: -90,
+                    position: "insideLeft",
+                    offset: yLabel === undefined ? 12 : 0,
+                    className: "fill-muted-foreground text-xs",
+                  }
+            }
           />
           {reference === null ? null : (
             <>
