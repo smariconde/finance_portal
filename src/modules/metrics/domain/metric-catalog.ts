@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { DIVERGENCE_VIEWS_VERSION } from "@/modules/divergences/domain/divergence-views";
+
 import { SORTINO_FORMULA_VERSION, SORTINO_PARAMETERS } from "./sortino";
 
 /**
@@ -8,15 +10,14 @@ import { SORTINO_FORMULA_VERSION, SORTINO_PARAMETERS } from "./sortino";
  * no hay screener, así que no hay una métrica que exista "por si acaso".
  *
  * Una entrada dice qué pregunta responde la métrica, con qué fórmula versionada
- * y qué hace con los casos que no dan número. Las de divergencias están
- * `planned`: su definición la fija la ADR 0016 §5 y su fórmula se escribe en
- * `F8-01`, así que el catálogo las nombra para que la matriz de riesgo y la de
- * divergencias no inventen dos vocabularios, pero no finge que se calculan.
+ * y qué hace con los casos que no dan número. Las de divergencias las define
+ * la ADR 0016 §5 y las calcula `divergence-views` desde `F8-02`, sobre los
+ * cierres fiscales alineados de `F8-01`.
  *
  * La valuación versiona sus fórmulas en su propio módulo (`fcff-*`) y entra acá
  * cuando la Fase 3 la exponga a comparaciones.
  */
-export const METRIC_CATALOG_VERSION = "metric-catalog-1.0.0";
+export const METRIC_CATALOG_VERSION = "metric-catalog-1.1.0";
 
 export const metricCatalogEntrySchema = z
   .object({
@@ -73,7 +74,20 @@ const sortinoEntry = (years: 2 | 5): MetricCatalogEntry => ({
   nullReasons: SORTINO_NULL_REASONS,
 });
 
-const plannedDivergence = (
+const GROWTH_NULL_REASONS = [
+  "no_comparable_year",
+  "missing_input",
+  "split_basis_unreconciled",
+  "non_positive_endpoint",
+];
+const GAP_NULL_REASONS = [
+  ...GROWTH_NULL_REASONS,
+  "earnings_turned_positive",
+  "earnings_turned_non_positive",
+  "earnings_non_positive",
+];
+
+const divergence = (
   metricId: string,
   label: string,
   unit: MetricCatalogEntry["unit"],
@@ -83,14 +97,14 @@ const plannedDivergence = (
   metricId,
   label,
   matrix: "divergence",
-  status: "planned",
-  formulaVersion: null,
-  slice: "F8-01",
+  status: "implemented",
+  formulaVersion: DIVERGENCE_VIEWS_VERSION,
+  slice: "F8-02",
   unit,
   periodicity: "anualizado entre dos cierres fiscales, a 2 y a 5 años",
   definition,
   negatives,
-  nullReasons: [],
+  nullReasons: unit === "percent" ? GROWTH_NULL_REASONS : GAP_NULL_REASONS,
 });
 
 const NEGATIVE_BASE =
@@ -100,47 +114,68 @@ export const METRIC_CATALOG: readonly MetricCatalogEntry[] = Object.freeze(
   [
     sortinoEntry(2),
     sortinoEntry(5),
-    plannedDivergence(
+    divergence(
       "market_cap_cagr_pct",
       "Crecimiento anualizado del market cap",
       "percent",
-      "CAGR de close × acciones en la misma fecha y base de splits.",
+      "CAGR de close × acciones en la misma base de splits: acciones al cierre en las dos puntas o, si falta alguna, acciones diluidas promedio en las dos, nunca mezcladas.",
       NEGATIVE_BASE,
     ),
-    plannedDivergence(
+    divergence(
       "diluted_eps_cagr_pct",
       "Crecimiento anualizado del EPS diluido",
       "percent",
       "CAGR del EPS diluido reexpresado a la base de splits del último cierre.",
       NEGATIVE_BASE,
     ),
-    plannedDivergence(
+    divergence(
       "net_income_cagr_pct",
       "Crecimiento anualizado del net income",
       "percent",
       "CAGR del resultado neto entre los dos cierres fiscales.",
       NEGATIVE_BASE,
     ),
-    plannedDivergence(
+    divergence(
       "price_cagr_pct",
       "Crecimiento anualizado del precio",
       "percent",
       "CAGR del precio ajustado por splits entre las dos fechas.",
       NEGATIVE_BASE,
     ),
-    plannedDivergence(
+    divergence(
       "fundamental_gap_pp",
       "Brecha fundamental",
       "percentage_points",
       "diluted_eps_cagr_pct − market_cap_cagr_pct: distancia a la diagonal de la vista principal.",
       "Negativo es un valor que creció más que las ganancias; se muestra con su signo.",
     ),
-    plannedDivergence(
+    divergence(
       "share_count_bias_pp",
       "Sesgo por cambio de acciones",
       "percentage_points",
       "price_cagr_pct − market_cap_cagr_pct: la parte exacta de la brecha que viene de recompras o dilución.",
       "Positivo es recompra y negativo dilución; ninguno se descarta.",
+    ),
+    divergence(
+      "diluted_shares_cagr_pct",
+      "Crecimiento anualizado de las acciones diluidas",
+      "percent",
+      "CAGR de las acciones diluidas promedio del ejercicio, en la base de splits del último cierre.",
+      "Negativo es recompra neta; se muestra con su signo.",
+    ),
+    divergence(
+      "aggregate_gap_pp",
+      "Brecha agregada",
+      "percentage_points",
+      "net_income_cagr_pct − market_cap_cagr_pct: beneficio total contra valor de mercado.",
+      "Negativo es un valor de mercado que creció más que el beneficio total.",
+    ),
+    divergence(
+      "per_share_gap_pp",
+      "Brecha por acción",
+      "percentage_points",
+      "diluted_eps_cagr_pct − price_cagr_pct; igual a fundamental_gap_pp − share_count_bias_pp.",
+      "Negativo es un precio que creció más que el EPS.",
     ),
   ].map((entry) => metricCatalogEntrySchema.parse(entry)),
 );

@@ -182,7 +182,7 @@ Para horizonte `h`:
 
 1. Seleccionar el ultimo cierre fiscal disponible y el cierre fiscal comparable mas cercano a `h` anos atras.
 2. Exigir que la distancia real este dentro de una tolerancia documentada; usar `years = days / 365.2425`.
-3. Market cap debe corresponder a la fecha fiscal o al ultimo dia de mercado cercano, con ventana maxima.
+3. Market cap debe corresponder a la fecha fiscal o al ultimo dia de mercado cercano, con ventana maxima. Las acciones son las del cierre fiscal en las dos puntas; si falta alguna, las diluidas promedio del ejercicio en las dos, nunca mezcladas, y el punto nombra la base (`divergence-views-1.0.0`, decision del owner del 2026-10-30).
 4. EPS es diluted EPS de operaciones continuas cuando pueda normalizarse; mostrar GAAP reportado como control. El precio es ajustado por splits de forma consistente con EPS/shares, pero no total-return ajustado por dividendos.
 5. Calcular cada vista solo cuando sus dos extremos de beneficios y valor de mercado sean estrictamente positivos; una vista puede ser valida aunque la otra no:
    - `market_cap_cagr_pct = ((mc1 / mc0)^(1/years)-1)*100`
@@ -193,7 +193,7 @@ Para horizonte `h`:
    - `per_share_gap_pp = eps_cagr_pct - price_cagr_pct`
    - `fundamental_gap_pp = eps_cagr_pct - market_cap_cagr_pct`: vista principal elegida por el owner ([ADR 0016](../architecture/adr/0016-analysis-scope-sector-matrices.md)). Mezcla un total con un valor por accion, asi que nunca se muestra sin su sesgo:
    - `share_count_bias_pp = price_cagr_pct - market_cap_cagr_pct`, la parte del gap que viene del cambio de acciones: positiva con recompras, negativa con dilucion. Se cumple exactamente `fundamental_gap_pp - share_count_bias_pp = per_share_gap_pp`.
-   - Un punto cuyo `share_count_bias_pp` supere en valor absoluto la tolerancia documentada lleva una marca de sesgo.
+   - Un punto cuyo `share_count_bias_pp` supere en valor absoluto 2 pp, la tolerancia que fijo el owner el 2026-10-30, lleva una marca de sesgo.
 6. EPS o net income no positivo produce categoria especial por vista, no CAGR artificial.
 7. Calcular `diluted_shares_cagr_pct`, reconciliar basic/diluted shares con corporate actions y explicar la diferencia entre las vistas.
 

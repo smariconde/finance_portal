@@ -1,6 +1,10 @@
 import { parseArgs } from "node:util";
 
 import { listSectors } from "@/modules/classification/domain/sector-taxonomy";
+import {
+  computeDivergenceViews,
+  type DivergenceViews,
+} from "@/modules/divergences/domain/divergence-views";
 import { loadStoredSectorFiscalEndpoints } from "@/server/divergences/load-sector-fiscal-endpoints";
 
 /** Stored-only coverage audit for F8-01. It opens no provider socket. */
@@ -44,8 +48,15 @@ for (const member of reading.members) {
       ...(five.earlier?.missing ?? []),
     ]),
   ];
+  const pp = (value: string | null) =>
+    value === null ? "—" : Number(value).toFixed(2);
+  const describe = (views: DivergenceViews) =>
+    `${views.horizonYears}Y principal ${views.fundamental.category} brecha ${pp(views.fundamental.gapPp)} sesgo ${pp(views.fundamental.shareCountBiasPp)} pp${views.fundamental.biasMarked ? " ◆" : ""} (${views.marketCapBasis ?? "sin market cap"}); agregada ${views.aggregate.category}; por acción ${views.perShare.category}`;
   console.log(
-    `${member.ticker ?? "(sin ticker)"}: 2Y ${two.reason ?? "aligned"}, 5Y ${five.reason ?? "aligned"}; faltan ${missing.join(", ") || "—"}`,
+    `${member.ticker ?? "(sin ticker)"}: ${describe(computeDivergenceViews(two))} | ${describe(computeDivergenceViews(five))}`,
+  );
+  console.log(
+    `  ${member.ticker ?? "(sin ticker)"}: 2Y ${two.reason ?? "aligned"}, 5Y ${five.reason ?? "aligned"}; faltan ${missing.join(", ") || "—"}`,
   );
 }
 
