@@ -12,6 +12,9 @@ import { FISCAL_SPLIT_BASIS_VERSION } from "@/modules/divergences/domain/fiscal-
 
 import {
   describeDivergencePoint,
+  filterDivergenceRows,
+  filtersActive,
+  NO_FILTERS,
   formatPp,
   layoutDivergence,
   unavailableReason,
@@ -158,5 +161,107 @@ describe("divergence layout", () => {
     expect(formatPp("10.15")).toBe("+10,2");
     expect(formatPp("-3.26")).toBe("-3,3");
     expect(formatPp(null)).toBe("—");
+  });
+});
+
+/** Una fila con el tamaño y el puente que un filtro decide, en las dos puntas. */
+function sized(
+  base: SectorDivergenceRow,
+  latest: string | null,
+  reconciled: readonly [boolean | null, boolean | null],
+): SectorDivergenceRow {
+  const data = base.twoYears;
+  const endpoint = (value: boolean | null) =>
+    data.bridge.latest === null
+      ? null
+      : { ...data.bridge.latest, reconciled: value };
+  const horizon = {
+    ...data,
+    views: { ...data.views, marketCap: { earlier: latest, latest } },
+    bridge: {
+      ...data.bridge,
+      earlier: endpoint(reconciled[0]),
+      latest: endpoint(reconciled[1]),
+    },
+  };
+  return { ...base, twoYears: horizon, fiveYears: horizon };
+}
+
+describe("divergence filters", () => {
+  const sample = [
+    sized(rows[0]!, "250000000000", [true, true]),
+    sized(rows[1]!, "12000000000", [true, false]),
+    sized(rows[2]!, null, [true, true]),
+  ];
+  const ids = (filtered: readonly SectorDivergenceRow[]) =>
+    filtered.map((row) => row.securityId);
+
+  it("sin filtros deja todo", () => {
+    expect(filtersActive(NO_FILTERS)).toBe(false);
+    expect(ids(filterDivergenceRows(sample, "twoYears", NO_FILTERS))).toEqual([
+      "AAA",
+      "BBB",
+      "CCC",
+    ]);
+  });
+
+  it("CEDEAR deja sólo las securities con programa vigente", () => {
+    expect(
+      ids(
+        filterDivergenceRows(sample, "twoYears", {
+          ...NO_FILTERS,
+          cedearOnly: true,
+        }),
+      ),
+    ).toEqual(["AAA"]);
+  });
+
+  it("un umbral de tamaño deja afuera a quien no tiene market cap", () => {
+    const at = (floor: "10b" | "50b" | "200b") =>
+      ids(
+        filterDivergenceRows(sample, "twoYears", {
+          ...NO_FILTERS,
+          marketCapFloor: floor,
+        }),
+      );
+    expect(at("10b")).toEqual(["AAA", "BBB"]);
+    expect(at("50b")).toEqual(["AAA"]);
+    expect(at("200b")).toEqual(["AAA"]);
+  });
+
+  it("el umbral es inclusivo en el borde", () => {
+    const edge = [sized(rows[0]!, "50000000000", [true, true])];
+    expect(
+      ids(
+        filterDivergenceRows(edge, "twoYears", {
+          ...NO_FILTERS,
+          marketCapFloor: "50b",
+        }),
+      ),
+    ).toEqual(["AAA"]);
+  });
+
+  it("conciliado exige las dos puntas; un puente sin evaluar no concilia", () => {
+    const pending = [...sample, sized(rows[0]!, "1", [null, true])];
+    expect(
+      ids(
+        filterDivergenceRows(pending, "twoYears", {
+          ...NO_FILTERS,
+          reconciledOnly: true,
+        }),
+      ),
+    ).toEqual(["AAA", "CCC"]);
+  });
+
+  it("los filtros se combinan con «y»", () => {
+    expect(
+      ids(
+        filterDivergenceRows(sample, "twoYears", {
+          cedearOnly: true,
+          marketCapFloor: "10b",
+          reconciledOnly: true,
+        }),
+      ),
+    ).toEqual(["AAA"]);
   });
 });
