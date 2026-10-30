@@ -233,7 +233,12 @@ attempts and the page offers «Seguir descargando»; a failure is named and
 retried only on «Reintentar». Measured in Production on Neon: Consumer
 Staples went from no fundamentals to 33 securities with fiscal years (23
 comparable at 2 years, 22 at 5) for 74 SEC requests over 31 filers and 32
-Yahoo requests, in about 100 s.
+Yahoo requests, in about 100 s. Since `F8-03` the surface filters by CEDEAR, market cap at the latest fiscal
+close (fixed US$ floors, in millions, since «B» reads as a long-scale billón)
+and a reconciled EPS bridge at both ends —an active filter drops a row lacking
+the deciding datum—; chart, panels and table read the same set, and the table
+leads with the view's raw axis CAGRs, marking a clipped point the way the chart
+does. `divergence-views-1.1.0` publishes the market cap level.
 
 ```bash
 pnpm cedears:record                                # dry run: both issuers, one request each, writes nothing

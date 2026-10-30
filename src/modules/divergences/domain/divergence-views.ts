@@ -13,7 +13,7 @@ import type { FiscalEndpoint, FiscalEndpointPair } from "./fiscal-endpoints";
  * fiscal pair. Every growth rate is a CAGR between two strictly positive
  * endpoints; anything else is a named category or reason, never a percentage.
  */
-export const DIVERGENCE_VIEWS_VERSION = "divergence-views-1.0.0";
+export const DIVERGENCE_VIEWS_VERSION = "divergence-views-1.1.0";
 
 /**
  * A point whose share-count bias exceeds this, in absolute value, is marked:
@@ -85,6 +85,14 @@ export type DivergenceViews = {
   /** `days / 365.2425` between the two fiscal closes. */
   readonly years: string | null;
   readonly marketCapBasis: MarketCapBasis | null;
+  /**
+   * The level at each fiscal close, USD, on `marketCapBasis`; both `null` when
+   * no basis closes. Since `1.1.0`: it is what the size filter reads.
+   */
+  readonly marketCap: {
+    readonly earlier: string | null;
+    readonly latest: string | null;
+  };
   readonly growth: {
     readonly marketCap: Growth;
     readonly netIncome: Growth;
@@ -185,6 +193,16 @@ const sides = {
     perShare(point, (p) => p.splitBasis.adjustedDilutedShares, "dilutedShares"),
 } as const;
 
+function level(
+  basis: MarketCapBasis | null,
+  side: Side,
+  path: string,
+): string | null {
+  return basis === null || side.value === null
+    ? null
+    : decimal.formatDecimal(side.value, path);
+}
+
 function cagr(earlier: Side, latest: Side, years: Dec): Growth {
   const reason = earlier.reason ?? latest.reason;
   if (reason !== null) return { value: null, reason };
@@ -252,6 +270,7 @@ export function computeDivergenceViews(
       horizonYears: pair.horizonYears,
       years: null,
       marketCapBasis: null,
+      marketCap: { earlier: null, latest: null },
       growth: {
         marketCap: NO_YEAR,
         netIncome: NO_YEAR,
@@ -302,6 +321,10 @@ export function computeDivergenceViews(
     horizonYears: pair.horizonYears,
     years: decimal.formatDecimal(years, "years"),
     marketCapBasis: basis,
+    marketCap: {
+      earlier: level(basis, marketCap[0], "marketCap.earlier"),
+      latest: level(basis, marketCap[1], "marketCap.latest"),
+    },
     growth,
     fundamental: {
       ...fundamental,

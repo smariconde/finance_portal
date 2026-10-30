@@ -145,6 +145,11 @@ describe("divergence views", () => {
     );
 
     expect(views.marketCapBasis).toBe("weighted_diluted_shares");
+    // The level is the one the CAGR used: same basis at both closes.
+    const { earlier, latest } = views.marketCap;
+    expect(
+      ((near(latest) / near(earlier)) ** (1 / near(views.years)) - 1) * 100,
+    ).toBeCloseTo(near(views.growth.marketCap.value), 8);
     expect(views.fundamental.category).toBe("comparable");
     expect(near(views.fundamental.shareCountBiasPp)).toBeCloseTo(
       near(views.growth.price.value) - near(views.growth.marketCap.value),
@@ -158,6 +163,8 @@ describe("divergence views", () => {
     );
 
     expect(views.marketCapBasis).toBeNull();
+    // Without a basis there is no level either: a half pair is not a size.
+    expect(views.marketCap).toEqual({ earlier: null, latest: null });
     expect(views.growth.marketCap.reason).toBe("missing_input");
   });
 

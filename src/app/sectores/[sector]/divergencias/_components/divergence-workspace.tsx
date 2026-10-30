@@ -4,6 +4,7 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  ChevronsRight,
   CircleCheck,
   CircleSlash,
   CircleX,
@@ -34,20 +35,29 @@ import type {
 } from "@/modules/divergences/application/sector-divergence-matrix";
 import type { EndpointBridge } from "@/modules/divergences/domain/dilution-bridge";
 import { SHARE_COUNT_BIAS_TOLERANCE_PP } from "@/modules/divergences/domain/divergence-views";
-import { formatCalendarDate } from "@/modules/valuation/domain/display-format";
+import {
+  formatCalendarDate,
+  formatCompactAmount,
+} from "@/modules/valuation/domain/display-format";
 
 import { MatrixChart, type MatrixLogo } from "../../_components/matrix-chart";
 
 import {
   CATEGORY_LABELS,
   describeDivergencePoint,
+  filterDivergenceRows,
+  filtersActive,
   formatPct,
   formatPp,
   layoutDivergence,
+  MARKET_CAP_FLOOR_LABELS,
+  NO_FILTERS,
   rowLabel,
   unavailableReason,
   VIEWS,
+  type DivergenceFilters,
   type HorizonKey,
+  type MarketCapFloor,
   type ViewKey,
 } from "./divergence-layout";
 
@@ -62,10 +72,19 @@ const BASIS_LABELS = {
 } as const;
 
 type SortKey =
-  "ticker" | "fundamental" | "bias" | "perShare" | "aggregate" | "shares";
+  | "ticker"
+  | "y"
+  | "x"
+  | "marketCap"
+  | "fundamental"
+  | "bias"
+  | "perShare"
+  | "aggregate"
+  | "shares";
 
-const SORT_LABELS: Record<SortKey, string> = {
+const SORT_LABELS: Record<Exclude<SortKey, "x" | "y">, string> = {
   ticker: "Ticker",
+  marketCap: "Market cap (US$)",
   fundamental: "Brecha",
   bias: "Sesgo",
   perShare: "Por acción",
@@ -73,9 +92,19 @@ const SORT_LABELS: Record<SortKey, string> = {
   shares: "Acciones",
 };
 
-function sortValue(horizon: DivergenceHorizon, key: SortKey): string | null {
+function sortValue(
+  horizon: DivergenceHorizon,
+  key: SortKey,
+  view: ViewKey,
+): string | null {
   const { views } = horizon;
   switch (key) {
+    case "y":
+      return views[view].y.value;
+    case "x":
+      return views[view].x.value;
+    case "marketCap":
+      return views.marketCap.latest;
     case "fundamental":
       return views.fundamental.gapPp;
     case "bias":
@@ -181,6 +210,7 @@ function SelectedRow({
   const values = data.views[view];
   const fundamental = data.views.fundamental;
   const bridge = data.bridge.latest;
+  const earlierBridge = data.bridge.earlier;
   const names = VIEWS[view];
   const entries: [string, React.ReactNode][] = [
     [`${names.y}`, `${formatPct(values.y.value)} por año`],
@@ -201,6 +231,12 @@ function SelectedRow({
   }
   entries.push(
     [
+      "Market cap",
+      data.views.marketCap.latest === null
+        ? "—"
+        : `US$ ${formatCompactAmount(data.views.marketCap.latest)}`,
+    ],
+    [
       "Base del market cap",
       data.views.marketCapBasis === null
         ? "Sin market cap"
@@ -211,6 +247,10 @@ function SelectedRow({
       `${formatPct(data.views.growth.dilutedShares.value)} por año`,
     ],
     ["Puente del EPS", <BridgeCell key="bridge" bridge={bridge} />],
+    [
+      "Puente, punta anterior",
+      <BridgeCell key="earlier-bridge" bridge={earlierBridge} />,
+    ],
     [
       "Dilutivos sobre básicas",
       bridge?.dilutivePct == null ? "—" : formatPct(bridge.dilutivePct),
@@ -254,7 +294,7 @@ function SelectedRow({
           contra el precio.
         </p>
       ) : null}
-      {bridge !== null && bridge.reconciled === false ? (
+      {bridge?.reconciled === false || earlierBridge?.reconciled === false ? (
         <p className="text-sm text-muted-foreground">
           El EPS diluido no cierra contra su numerador y las acciones diluidas
           más allá del redondeo: puede ser EPS de operaciones continuas, dos
@@ -286,14 +326,31 @@ export function DivergenceWorkspace({
   const [horizon, setHorizon] = useState<HorizonKey>("twoYears");
   const [view, setView] = useState<ViewKey>("fundamental");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [filters, setFilters] = useState<DivergenceFilters>(NO_FILTERS);
   const [sort, setSort] = useState<{
     key: SortKey;
     direction: "ascending" | "descending";
   }>({ key: "fundamental", direction: "descending" });
 
+  // Gráfico, paneles y tabla leen el mismo conjunto: la tabla es el
+  // equivalente accesible del gráfico, no una lista aparte.
+  const filtered = useMemo(
+    () => filterDivergenceRows(rows, horizon, filters),
+    [rows, horizon, filters],
+  );
   const layout = useMemo(
-    () => layoutDivergence(rows, horizon, view),
-    [rows, horizon, view],
+    () => layoutDivergence(filtered, horizon, view),
+    [filtered, horizon, view],
+  );
+  const clips = useMemo(
+    () =>
+      new Map(
+        layout.points.map((point) => [
+          point.id,
+          { x: point.clipX, y: point.clipY },
+        ]),
+      ),
+    [layout],
   );
   const descriptions = useMemo(
     () =>
@@ -323,41 +380,48 @@ export function DivergenceWorkspace({
     () =>
       view === "fundamental"
         ? new Set(
-            rows
+            filtered
               .filter((row) => row[horizon].views.fundamental.biasMarked)
               .map((row) => row.securityId),
           )
         : new Set(),
-    [rows, horizon, view],
+    [filtered, horizon, view],
   );
   const categorized = useMemo(
     () =>
       (Object.keys(CATEGORY_LABELS) as (keyof typeof CATEGORY_LABELS)[]).map(
         (category) => ({
           category,
-          rows: rows.filter(
+          rows: filtered.filter(
             (row) => row[horizon].views[view].category === category,
           ),
         }),
       ),
-    [rows, horizon, view],
+    [filtered, horizon, view],
   );
-  const unavailable = rows.filter(
+  const unavailable = filtered.filter(
     (row) => row[horizon].views[view].category === "unavailable",
   );
   const sorted = useMemo(() => {
     const sign = sort.direction === "ascending" ? 1 : -1;
-    return [...rows].sort((left, right) => {
+    return [...filtered].sort((left, right) => {
       if (sort.key === "ticker")
         return sign * rowLabel(left).localeCompare(rowLabel(right));
-      const a = sortValue(left[horizon], sort.key);
-      const b = sortValue(right[horizon], sort.key);
+      const a = sortValue(left[horizon], sort.key, view);
+      const b = sortValue(right[horizon], sort.key, view);
       // Un `null` va siempre al final: no es el menor ni el mayor.
       if (a === null || b === null) return a === b ? 0 : a === null ? 1 : -1;
       return sign * (Number(a) - Number(b));
     });
-  }, [rows, horizon, sort]);
-  const selected = rows.find((row) => row.securityId === selectedId) ?? null;
+  }, [filtered, horizon, sort, view]);
+  // Un punto que un filtro saca deja de estar seleccionado.
+  const selected =
+    filtered.find((row) => row.securityId === selectedId) ?? null;
+  const active = filtersActive(filters);
+  const setFilter = <K extends keyof DivergenceFilters>(
+    key: K,
+    value: DivergenceFilters[K],
+  ) => setFilters((current) => ({ ...current, [key]: value }));
   const names = VIEWS[view];
   const clipped = layout.points.some(
     (point) => point.clipX !== 0 || point.clipY !== 0,
@@ -395,6 +459,55 @@ export function DivergenceWorkspace({
         />
       </div>
 
+      <div
+        role="group"
+        aria-label="Filtros"
+        className="flex flex-wrap items-end gap-x-5 gap-y-3"
+      >
+        <FilterGroup label="Acceso local">
+          <Segmented
+            label="Acceso local"
+            options={{ all: "Todas", cedear: "Con CEDEAR" }}
+            value={filters.cedearOnly ? "cedear" : "all"}
+            onChange={(value) => setFilter("cedearOnly", value === "cedear")}
+          />
+        </FilterGroup>
+        <FilterGroup label="Market cap al último cierre fiscal, US$">
+          <Segmented<MarketCapFloor>
+            label="Market cap al último cierre fiscal, US$"
+            options={MARKET_CAP_FLOOR_LABELS}
+            value={filters.marketCapFloor}
+            onChange={(value) => setFilter("marketCapFloor", value)}
+          />
+        </FilterGroup>
+        <FilterGroup label="Calidad del dato">
+          <Segmented
+            label="Calidad del dato"
+            options={{ all: "Todas", reconciled: "Puente conciliado" }}
+            value={filters.reconciledOnly ? "reconciled" : "all"}
+            onChange={(value) =>
+              setFilter("reconciledOnly", value === "reconciled")
+            }
+          />
+        </FilterGroup>
+        <div className="flex min-h-8 items-center gap-3 text-sm text-muted-foreground">
+          <p role="status">
+            {active
+              ? `${filtered.length} de ${rows.length} securities pasan los filtros`
+              : `${rows.length} securities del sector`}
+          </p>
+          {active ? (
+            <button
+              type="button"
+              onClick={() => setFilters(NO_FILTERS)}
+              className="rounded-sm font-medium text-foreground underline underline-offset-4 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Quitar filtros
+            </button>
+          ) : null}
+        </div>
+      </div>
+
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <Card>
           <CardHeader>
@@ -402,17 +515,21 @@ export function DivergenceWorkspace({
               {names.y} contra {names.x}, {HORIZONS[horizon]}
             </CardTitle>
             <CardDescription id={descriptionId}>
-              {layout.points.length} de {rows.length} comparables. Arriba de la
-              diagonal, {view === "perShare" ? "el EPS" : "las ganancias"}{" "}
-              crecieron más que{" "}
-              {view === "perShare" ? "el precio" : "el valor de mercado"}; no
-              indica que esté barata.
+              {layout.points.length} de {filtered.length} comparables
+              {active ? " con estos filtros" : ""}. Arriba de la diagonal,{" "}
+              {view === "perShare" ? "el EPS" : "las ganancias"} crecieron más
+              que {view === "perShare" ? "el precio" : "el valor de mercado"};
+              no indica que esté barata.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             {layout.points.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Ninguna security tiene esta vista comparable en este horizonte.
+                {active && filtered.length === 0
+                  ? "Ninguna security pasa estos filtros."
+                  : active
+                    ? "Ninguna security que pasa estos filtros tiene esta vista comparable en este horizonte."
+                    : "Ninguna security tiene esta vista comparable en este horizonte."}
               </p>
             ) : (
               <MatrixChart
@@ -462,9 +579,10 @@ export function DivergenceWorkspace({
                 </li>
               ) : null}
               {clipped ? (
-                <li>
+                <li className="flex items-center gap-1.5">
+                  <ChevronsRight className="size-3.5" aria-hidden="true" />
                   Un punto con flecha está fuera de escala: su valor exacto está
-                  en la tabla.
+                  en la tabla, con la misma marca.
                 </li>
               ) : null}
             </ul>
@@ -549,22 +667,26 @@ export function DivergenceWorkspace({
         <CardHeader>
           <CardTitle as="h2">Tabla de la matriz</CardTitle>
           <CardDescription>
-            Las tres brechas y el puente de acciones a {HORIZONS[horizon]}, en
-            puntos porcentuales por año y sin recorte de escala. Brecha = por
+            Los dos ejes de la vista, el market cap, las tres brechas y el
+            puente de acciones a {HORIZONS[horizon]}, sin recorte de escala.
+            Tasas en % por año y brechas en puntos porcentuales; brecha = por
             acción + sesgo.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <caption className="sr-only">
-              Brechas de divergencia, sesgo por acciones y puente del EPS por
-              security a {HORIZONS[horizon]}
+              {names.y} y {names.x}, market cap, brechas de divergencia, sesgo
+              por acciones y puente del EPS por security a {HORIZONS[horizon]}
             </caption>
             <TableHeader>
               <TableRow>
                 {(
                   [
                     "ticker",
+                    "y",
+                    "x",
+                    "marketCap",
                     "fundamental",
                     "bias",
                     "perShare",
@@ -572,8 +694,8 @@ export function DivergenceWorkspace({
                     "shares",
                   ] as const
                 ).map((key) => {
-                  const active = sort.key === key;
-                  const Icon = !active
+                  const sorted = sort.key === key;
+                  const Icon = !sorted
                     ? ArrowUpDown
                     : sort.direction === "ascending"
                       ? ArrowUp
@@ -581,33 +703,40 @@ export function DivergenceWorkspace({
                   return (
                     <TableHead
                       key={key}
-                      aria-sort={active ? sort.direction : "none"}
-                      className={key === "ticker" ? undefined : "text-right"}
+                      aria-sort={sorted ? sort.direction : "none"}
+                      className={
+                        key === "ticker"
+                          ? undefined
+                          : "h-auto py-2 text-right align-bottom whitespace-normal"
+                      }
                     >
                       <button
                         type="button"
                         onClick={() => toggleSort(key)}
-                        className="inline-flex items-center gap-1 rounded-sm font-medium outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                        className="inline-flex items-center gap-1 rounded-sm text-right leading-tight font-medium outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                       >
-                        {SORT_LABELS[key]}
+                        {key === "y"
+                          ? names.y
+                          : key === "x"
+                            ? names.x
+                            : SORT_LABELS[key]}
                         <Icon className="size-3.5" aria-hidden="true" />
                       </button>
                     </TableHead>
                   );
                 })}
-                <TableHead>Base MC</TableHead>
                 <TableHead>Puente EPS</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {sorted.map((row) => {
                 const data = row[horizon];
-                const active = row.securityId === selectedId;
+                const isSelected = row.securityId === selectedId;
                 const fundamental = data.views.fundamental;
                 return (
                   <TableRow
                     key={row.securityId}
-                    data-state={active ? "selected" : undefined}
+                    data-state={isSelected ? "selected" : undefined}
                   >
                     <TableCell>
                       <span className="flex items-center gap-2">
@@ -619,16 +748,42 @@ export function DivergenceWorkspace({
                         />
                         <button
                           type="button"
-                          aria-pressed={active}
+                          aria-pressed={isSelected}
                           onClick={() => setSelectedId(row.securityId)}
                           className={cn(
                             "rounded-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring",
-                            active && "text-primary",
+                            isSelected && "text-primary",
                           )}
                         >
                           {rowLabel(row)}
                         </button>
                       </span>
+                    </TableCell>
+                    <RateCell
+                      value={data.views[view].y.value}
+                      clip={clips.get(row.securityId)?.y ?? 0}
+                    />
+                    <RateCell
+                      value={data.views[view].x.value}
+                      clip={clips.get(row.securityId)?.x ?? 0}
+                    />
+                    <TableCell className="text-right whitespace-nowrap">
+                      {data.views.marketCap.latest === null ||
+                      data.views.marketCapBasis === null ? (
+                        "—"
+                      ) : (
+                        <>
+                          <span className="numeric block">
+                            {formatCompactAmount(data.views.marketCap.latest, {
+                              scale: 0,
+                            })}
+                          </span>
+                          {/* La base va con el número: es de qué acciones sale. */}
+                          <span className="block text-xs text-muted-foreground">
+                            {BASIS_LABELS[data.views.marketCapBasis]}
+                          </span>
+                        </>
+                      )}
                     </TableCell>
                     <GapCell
                       value={fundamental.gapPp}
@@ -653,11 +808,6 @@ export function DivergenceWorkspace({
                     />
                     <TableCell className="numeric text-right">
                       {formatPct(data.views.growth.dilutedShares.value)}
-                    </TableCell>
-                    <TableCell>
-                      {data.views.marketCapBasis === null
-                        ? "—"
-                        : BASIS_LABELS[data.views.marketCapBasis]}
                     </TableCell>
                     <TableCell>
                       <BridgeCell bridge={data.bridge.latest} />
@@ -691,12 +841,65 @@ function GapCell({
   }
   const category = horizon.views[view].category;
   return (
-    <TableCell className="text-right text-muted-foreground">
-      <span className="inline-flex items-center gap-1">
+    <TableCell className="text-right whitespace-normal text-muted-foreground">
+      <span className="inline-flex items-center justify-end gap-1 leading-tight">
         <CircleSlash className="size-3.5" aria-hidden="true" />
         {category === "comparable" || category === "unavailable"
           ? "Sin valor"
           : CATEGORY_LABELS[category]}
+      </span>
+    </TableCell>
+  );
+}
+
+function FilterGroup({
+  label,
+  children,
+}: {
+  readonly label: string;
+  readonly children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span aria-hidden="true" className="text-xs text-muted-foreground">
+        {label}
+      </span>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Una tasa de un eje con su valor exacto. Si el gráfico la recortó, lleva la
+ * misma flecha que el punto y lo dice en palabras.
+ */
+function RateCell({
+  value,
+  clip,
+}: {
+  readonly value: string | null;
+  readonly clip: -1 | 0 | 1;
+}) {
+  return (
+    <TableCell
+      className="numeric text-right whitespace-nowrap"
+      title={value ?? undefined}
+    >
+      <span className="inline-flex items-center gap-1">
+        {clip === 0 ? null : (
+          <>
+            <ChevronsRight
+              aria-hidden="true"
+              className={cn("size-3.5", clip < 0 && "rotate-180")}
+            />
+            <span className="sr-only">
+              {clip > 0
+                ? "Fuera de escala, por encima: "
+                : "Fuera de escala, por debajo: "}
+            </span>
+          </>
+        )}
+        {formatPct(value)}
       </span>
     </TableCell>
   );

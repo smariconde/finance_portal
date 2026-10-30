@@ -101,7 +101,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    73 | `F7-09`    | `blocked`  | Extracto literal del Item 1 del 10-K en el punto seleccionado, con filing y fecha; publicación por cita elegida y comprobada contra el documento SEC.                                                                     | `F7-05`          |
 |    74 | `F6-28`    | `done`     | Lectura rápida: carga visible en cada acción lenta, cabecera de indicadores, una línea por sección con ⓘ, exigencias del precio dibujadas y referencia S&P 500 liviana.                                                   | `F6-27`          |
 |    75 | `F6-29`    | `queued`   | Estimaciones de consenso fechadas para P/E forward y PEG, con fuente y derechos en su ADR, y umbral de múltiplo declarado por el owner.                                                                                   | `F6-25`          |
-|    76 | `F8-03`    | `ready`    | Matriz de divergencias con filtros y detalle que conservan el valor crudo de los outliers, con su equivalente accesible.                                                                                                  | `F8-02`          |
+|    76 | `F8-03`    | `done`     | Matriz de divergencias con filtros y detalle que conservan el valor crudo de los outliers, con su equivalente accesible.                                                                                                  | `F8-02`          |
+|    77 | `F8-04`    | `ready`    | Golden y property tests de las divergencias: splits, restatements, negativos, outliers, tolerancias y look-ahead.                                                                                                         | `F8-03`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -5928,6 +5929,24 @@ quedaron ancladas en 2019-10-16. Leída de Neon, la matriz tiene las 33 securiti
 con ejercicio fiscal, 23 comparables a 2 años y 22 a 5, 10 marcas de sesgo y
 ninguna sin precio de cierre fiscal. Sin fallas ni reintentos. `F8-02` queda
 `done`; sigue `F8-03`.
+
+**`F8-03`, 2026-10-30: filtros, valor crudo de los outliers y tabla.** La
+leyenda decía que un punto fuera de escala tenía «su valor exacto en la tabla»,
+pero la tabla mostraba brechas y no los CAGR de los ejes. Ahora la tabla abre
+con los dos ejes de la vista —valor crudo y la misma flecha que el punto
+recortado, dicha en palabras para el lector de pantalla— y el market cap con su
+base. Filtros, con decisiones del owner: acceso local (con CEDEAR), market cap
+al último cierre fiscal con umbrales fijos en US$ (≥ 10.000, 50.000 y 200.000
+millones; «B» se leería como billón) y calidad igual a puente del EPS conciliado
+en las dos puntas; los puntos no cambian de tamaño. Un filtro activo deja afuera
+a quien no tiene el dato que lo decide. Gráfico, paneles y tabla leen el mismo
+conjunto, y el panel del punto suma market cap y el puente de la punta anterior.
+`divergence-views-1.1.0` publica el nivel de market cap en la base de la vista.
+Revisión renderizada con la base local en Communication Services: los filtros
+llevan de 24 a 7, 6 y 4 securities; APP queda recortado con +309,8 % en la
+tabla; axe 0 serious/critical y sin overflow a 1440 claro y 390 oscuro; la tabla
+vuelve a entrar en 1440 (1.088/1.088 px). 3.389 unit, E2E, lint, tipos, formato,
+build y detector de Impeccable pasan. Sin red ni migración. Sigue `F8-04`.
 
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |

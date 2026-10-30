@@ -225,9 +225,9 @@ Sin screener general ([ADR 0016](../architecture/adr/0016-analysis-scope-sector-
 ## Fase 8 - Divergencias fundamentales
 
 - [x] Pipeline fiscal-aligned de precio, market cap, EPS, net income y shares para los filers del sector elegido, sin cargar el universo; los extremos sin evidencia quedan nulos con motivo (`F8-01`).
-- [ ] Vista principal `market cap vs EPS` con su sesgo de recompras visible (`share_count_bias_pp`), y vistas alternativas `net income vs market cap` y `EPS vs price` con puente de dilucion.
-- [ ] Categorias de EPS no comparable y ventanas con tolerancia.
-- [ ] Scatter, tabla, filtros y detail drawer accesibles.
+- [x] Vista principal `market cap vs EPS` con su sesgo de recompras visible (`share_count_bias_pp`), y vistas alternativas `net income vs market cap` y `EPS vs price` con puente de dilucion.
+- [x] Categorias de EPS no comparable y ventanas con tolerancia.
+- [x] Scatter, tabla, filtros y detail drawer accesibles.
 - [ ] Tests de splits, restatements, negativos, outliers y look-ahead.
 
 **Gate:** golden dataset revisado manualmente; formulas y limitaciones publicadas; ninguna UI presenta un gap aislado como senal de compra.
@@ -423,3 +423,4 @@ Agregar una fila al cerrar cada sesion. No borrar historia; corregir con una fil
 | 2026-10-30 | Fase 8 / `F8-02`, superficie de divergencias | `/sectores/[sector]/divergencias`: vista principal y dos alternativas a 2 y 5 años, diagonal con dominio común, rombo de sesgo, panel con la descomposición y el puente, categorías sin tasa, «Sin valor» y tabla; aviso de cobertura SEC con costo máximo y cuota de hoy | in_progress | Bocetos aprobados por el owner. Communication Services con 8 puntos a 2 años; axe 0 serious/critical y sin overflow a 1440 y 390; 3.360 unit, 222 E2E, lint, tipos, formato, build y detector Impeccable pasan | Botón de descarga SEC con control de cuota para cerrar `F8-02` |
 | 2026-10-30 | Fase 8 / `F8-02`, botón de descarga | `downloadSectorDivergenceData` y `sector-divergence-download-1.0.0` (ADR 0064): fundamentales SEC de los filers sin corrida anclada y después siete años de precios donde falta un cierre fiscal, con la reserva del peor caso por filer y fallas nombradas sin replanear solas. El owner eligió SEC + precios y admisión filer por filer | in_progress | Medido antes: Energy con 1 de ~22 emisores con fundamentales y la vista a 5 años sin precio. 16 pruebas nuevas; 3.383 unit, 222 E2E, lint, tipos, formato, build y detector Impeccable pasan. Sin migración | Medición en Production sobre Neon para cerrar `F8-02` |
 | 2026-10-30 | Fase 8 / `F8-02`, medición y cierre | El owner bajó Consumer Staples desde Production: SEC primero y siete años de precios después, encadenados sin otro clic | done | Neon: job SEC 31/31 en 66 s con 74 pedidos (≈2,4 por filer); job de precios 32/32 en 32 s con 32 pedidos, anclados en 2019-10-16. La matriz pasa de 0 a 33 securities con ejercicio fiscal: 23 comparables a 2 años y 22 a 5, 10 marcas, ninguna sin precio. Sin fallas | `F8-03` |
+| 2026-10-30 | Fase 8 / `F8-03`, filtros y outliers | Filtros CEDEAR, market cap al último cierre fiscal (umbrales fijos en US$) y puente conciliado, decididos por el owner; la tabla muestra los CAGR crudos de los ejes con la marca de fuera de escala y el market cap con su base; `divergence-views-1.1.0` | done | Base local, Communication Services: 24 → 7 → 6 → 4 con los filtros, APP recortado con +309,8 % en la tabla; axe 0 serious/critical y sin overflow a 1440 y 390; 3.389 unit, E2E, lint, tipos, formato, build y detector pasan | `F8-04` |

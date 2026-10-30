@@ -204,3 +204,76 @@ export function describeDivergencePoint(
   parts.push(row.cedear ? "con CEDEAR" : "sin CEDEAR");
   return parts.join("; ");
 }
+
+/**
+ * Umbrales del filtro de tamaño, en USD al último cierre fiscal y en la base de
+ * la vista (decisión del owner: fijos, para que se lean igual en cualquier
+ * sector). `null` es «todas».
+ */
+export const MARKET_CAP_FLOORS = {
+  all: null,
+  "10b": 10e9,
+  "50b": 50e9,
+  "200b": 200e9,
+} as const satisfies Record<string, number | null>;
+
+export type MarketCapFloor = keyof typeof MARKET_CAP_FLOORS;
+
+export const MARKET_CAP_FLOOR_LABELS: Record<MarketCapFloor, string> = {
+  all: "Todas",
+  // En millones: «B» se leería como billón, que en castellano es 10¹².
+  "10b": "≥ 10.000 M",
+  "50b": "≥ 50.000 M",
+  "200b": "≥ 200.000 M",
+};
+
+export type DivergenceFilters = {
+  readonly cedearOnly: boolean;
+  readonly marketCapFloor: MarketCapFloor;
+  /** Sólo puntos cuyo EPS concilia con su numerador en las dos puntas. */
+  readonly reconciledOnly: boolean;
+};
+
+export const NO_FILTERS: DivergenceFilters = {
+  cedearOnly: false,
+  marketCapFloor: "all",
+  reconciledOnly: false,
+};
+
+export function filtersActive(filters: DivergenceFilters): boolean {
+  return (
+    filters.cedearOnly ||
+    filters.marketCapFloor !== "all" ||
+    filters.reconciledOnly
+  );
+}
+
+/**
+ * Las securities que pasan los filtros en un horizonte. Un filtro activo deja
+ * afuera a quien no tiene el dato que lo decide —sin market cap, sin puente—:
+ * no saber el tamaño no es ser grande, y un puente sin evaluar no concilia.
+ */
+export function filterDivergenceRows(
+  rows: readonly SectorDivergenceRow[],
+  horizon: HorizonKey,
+  filters: DivergenceFilters,
+): readonly SectorDivergenceRow[] {
+  const floor = MARKET_CAP_FLOORS[filters.marketCapFloor];
+
+  return rows.filter((row) => {
+    const data = row[horizon];
+
+    if (filters.cedearOnly && !row.cedear) return false;
+
+    if (floor !== null) {
+      const latest = data.views.marketCap.latest;
+      if (latest === null || Number(latest) < floor) return false;
+    }
+
+    return (
+      !filters.reconciledOnly ||
+      (data.bridge.latest?.reconciled === true &&
+        data.bridge.earlier?.reconciled === true)
+    );
+  });
+}
