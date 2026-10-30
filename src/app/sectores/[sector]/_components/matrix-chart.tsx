@@ -104,9 +104,16 @@ function clipChevron(
 }
 
 /**
- * La marca con logo (`F6-27`): un círculo de 24 px que el logo llena entero
- * —recortado, sin margen—, sobre una placa blanca porque muchos logos son
- * oscuros sobre transparente. Sin URL o si la imagen no carga, el monograma
+ * Lado del cuadrado donde entra el logo, como fracción del diámetro: casi el
+ * inscripto en el círculo (0,71), para que un logo cuadrado y uno apaisado
+ * entren enteros y con aire, sin que el borde los corte.
+ */
+const LOGO_INSET = 0.72;
+
+/**
+ * La marca con logo (`F6-27`): un círculo de 24 px con el logo entero
+ * —ajustado al cuadrado inscripto, nunca recortado—, sobre una placa blanca
+ * en los dos temas porque muchos logos son oscuros sobre transparente. Sin URL o si la imagen no carga, el monograma
  * de `CompanyMark`. Con CEDEAR, anillo grueso y la insignia cuadrada de la
  * leyenda; sin CEDEAR, un borde fino. El anillo y la insignia distinguen
  * CEDEAR en escala de grises: el color sólo los refuerza.
@@ -164,11 +171,11 @@ function LogoMark({
            */}
           <image
             href={url}
-            x={cx - r}
-            y={cy - r}
-            width={r * 2}
-            height={r * 2}
-            preserveAspectRatio="xMidYMid slice"
+            x={cx - r * LOGO_INSET}
+            y={cy - r * LOGO_INSET}
+            width={r * 2 * LOGO_INSET}
+            height={r * 2 * LOGO_INSET}
+            preserveAspectRatio="xMidYMid meet"
             clipPath={`url(#${clipId})`}
             onError={onFail}
           />
@@ -409,24 +416,22 @@ function PointsLayer({
                 data-reference-mark="true"
                 className="pointer-events-none"
               >
+                {/* Rombo hueco y rótulo sin placa (`F6-28`): los puntos de
+                    abajo siguen visibles. */}
                 <path
-                  d={`M ${cx} ${cy - 13} L ${cx + 13} ${cy} L ${cx} ${cy + 13} L ${cx - 13} ${cy} Z`}
-                  className="fill-foreground stroke-background"
+                  d={`M ${cx} ${cy - 10} L ${cx + 10} ${cy} L ${cx} ${cy + 10} L ${cx - 10} ${cy} Z`}
+                  className="fill-background stroke-foreground"
                   strokeWidth={2.5}
+                  strokeLinejoin="round"
                 />
-                <circle cx={cx} cy={cy} r={2.5} className="fill-background" />
-                <rect
-                  x={plot.x + box.x0}
-                  y={plot.y + box.y0}
-                  width={box.x1 - box.x0}
-                  height={box.y1 - box.y0}
-                  rx={3}
-                  className="fill-foreground"
-                />
+                <circle cx={cx} cy={cy} r={1.75} className="fill-foreground" />
                 <text
-                  x={plot.x + box.x0 + 8}
-                  y={plot.y + box.y0 + 15}
-                  className="fill-background text-xs font-semibold"
+                  x={plot.x + box.x0}
+                  y={plot.y + box.y0 + 11}
+                  paintOrder="stroke"
+                  strokeWidth={3}
+                  strokeLinejoin="round"
+                  className="fill-muted-foreground stroke-background text-xs font-semibold"
                 >
                   S&amp;P 500 TR
                 </text>

@@ -2,6 +2,7 @@
 
 import { Bar, BarChart, Cell, LabelList, ReferenceLine, XAxis } from "recharts";
 
+import { InfoTip } from "@/app/_components/info-tip";
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
 
 export type HistoryBar = {
@@ -16,6 +17,8 @@ export type HistoryMetric = {
   readonly id: string;
   readonly title: string;
   readonly unit: string;
+  /** Qué es la métrica, detrás de un ⓘ (`F6-28`). */
+  readonly definition?: string;
   /** La lectura en una frase: es también el nombre accesible del gráfico. */
   readonly reading: string;
   readonly bars: readonly HistoryBar[];
@@ -51,7 +54,14 @@ export function HistoryCharts({
           <figure key={metric.id} className="flex min-w-0 flex-col gap-2">
             <figcaption className="flex items-start justify-between gap-3">
               <span className="flex min-w-0 flex-col gap-0.5">
-                <span className="text-sm font-medium">{metric.title}</span>
+                <span className="flex items-center gap-0.5 text-sm font-medium">
+                  {metric.title}
+                  {metric.definition === undefined ? null : (
+                    <InfoTip title={metric.title}>
+                      <p>{metric.definition}</p>
+                    </InfoTip>
+                  )}
+                </span>
                 <span className="text-xs text-muted-foreground">
                   {metric.unit}
                 </span>
@@ -114,7 +124,7 @@ export function HistoryCharts({
                 </BarChart>
               </ChartContainer>
             </div>
-            <p className="text-sm text-muted-foreground">{metric.reading}</p>
+            <p className="text-xs text-muted-foreground">{metric.reading}</p>
           </figure>
         );
       })}

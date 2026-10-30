@@ -32,8 +32,8 @@ import {
 } from "@/modules/valuation/domain/display-format";
 
 import { termName, termSpanish } from "@/app/_components/financial-terms";
+import { InfoTip } from "@/app/_components/info-tip";
 
-import { Concept } from "./concept";
 import {
   HistoryCharts,
   type HistoryBar,
@@ -70,6 +70,20 @@ const METRICS: readonly MetricSpec[] = (
     { key: "dilutedShares", kind: "count" },
   ] as const
 ).map((spec) => ({ ...spec, title: termName(spec.key) }));
+
+/** Lo que antes eran «¿Qué es…?» al pie, ahora junto a cada gráfico. */
+const DEFINITIONS: Partial<Record<MetricKey, string>> = {
+  operatingMargin:
+    "Lo que queda de cada dólar vendido después de costos y gastos del negocio, antes de intereses e impuestos. Si sube, suele indicar poder de precios o escala.",
+  dilutedEps:
+    "La ganancia neta repartida entre las acciones diluidas. Puede crecer más que la ganancia total si la empresa recompra acciones.",
+  freeCashFlow:
+    "La caja que deja la operación después de invertir en equipos y plantas: lo que puede ir a dividendos, recompras o bajar deuda. La valuación descuenta flujos de este tipo.",
+  netCash:
+    "Caja e inversiones líquidas menos deuda financiera, sin arrendamientos operativos. Negativa es deuda neta.",
+  dilutedShares:
+    "Acciones diluidas en la base de splits vigente al corte. Si bajan, la empresa recompró (buyback) más de lo que emitió y cada acción representa una parte mayor del negocio.",
+};
 
 const yearOf = (fiscalYearEnd: string) => fiscalYearEnd.slice(0, 4);
 
@@ -285,6 +299,7 @@ export function CompanyHistory({
     return {
       id: spec.key,
       title: spec.title,
+      definition: DEFINITIONS[spec.key],
       unit,
       reading: readingOf(spec, trajectory, missing),
       bars,
@@ -308,95 +323,85 @@ export function CompanyHistory({
           <CardTitle as="h2">Cómo viene la empresa</CardTitle>
           <EvidenceKindMark kind="reported_fact" />
         </div>
-        <CardDescription className="max-w-prose">
-          Lo que la empresa reportó a la SEC entre los ejercicios cerrados en{" "}
-          {yearOf(first.fiscalYearEnd)} y {yearOf(last.fiscalYearEnd)}. Antes de
-          mirar la valuación conviene saber esto: si vende más, si le queda más
-          de cada venta, si genera caja y qué hace con sus acciones.
+        <CardDescription className="flex items-center gap-0.5">
+          Reportado a la SEC, {yearOf(first.fiscalYearEnd)}–
+          {yearOf(last.fiscalYearEnd)}.
+          <InfoTip title="Por qué mirar esto primero">
+            <p>
+              Antes de la valuación conviene saber si la empresa vende más, si
+              le queda más de cada venta, si genera caja y qué hace con sus
+              acciones.
+            </p>
+            <p>
+              Es la lectura reportada: no capitaliza arrendamientos ni I+D como
+              la valuación, así que su margen puede diferir del ajustado.
+            </p>
+          </InfoTip>
         </CardDescription>
       </CardHeader>
 
       <CardContent className="flex flex-col gap-6">
         <HistoryCharts metrics={metrics} />
-
-        <div className="grid gap-3 text-sm sm:grid-cols-2">
-          <Concept term="el operating margin (margen operativo)">
-            Lo que queda de cada dólar vendido después de pagar costos y gastos
-            del negocio, antes de intereses e impuestos. Un margen que sube
-            suele indicar poder de precios o escala.
-          </Concept>
-          <Concept term="el FCF (flujo de caja libre)">
-            La caja que deja la operación después de invertir en equipos y
-            plantas. Es la plata que puede ir a dividendos, recompras o reducir
-            deuda; la valuación descuenta flujos de este tipo.
-          </Concept>
-          <Concept term="el EPS (ganancia por acción)">
-            La ganancia neta repartida entre las acciones diluidas. Puede crecer
-            más que la ganancia total si la empresa recompra acciones.
-          </Concept>
-          <Concept term="un buyback (recompra)">
-            Cuando la empresa compra sus propias acciones, quedan menos en
-            circulación y cada una representa una parte mayor del negocio.
-          </Concept>
-        </div>
       </CardContent>
 
-      <CardContent className="flex flex-col gap-2 border-t px-0 pt-(--card-spacing)">
-        <h3 className="px-(--card-spacing) text-sm font-medium">
-          Las mismas cifras en tabla
-        </h3>
-        <Table containerLabel="Historia de la empresa, tabla desplazable">
-          <TableHeader>
-            <TableRow>
-              <TableHead scope="col">Métrica</TableHead>
-              {years.map((year) => (
-                <TableHead
-                  key={year.fiscalYearEnd}
-                  scope="col"
-                  className="text-right"
-                >
-                  <time dateTime={year.fiscalYearEnd}>
-                    {formatCalendarDate(year.fiscalYearEnd)}
-                  </time>
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {specs.map(({ spec, magnitude, unit }) => (
-              <TableRow key={spec.key}>
-                <TableHead scope="row" className="font-medium">
-                  {spec.title}
-                  <span className="block text-xs font-normal text-muted-foreground">
-                    {unit}
-                  </span>
-                </TableHead>
+      <details className="group border-t">
+        <summary className="cursor-pointer px-(--card-spacing) py-3 text-sm font-medium">
+          Ver las cifras en tabla
+        </summary>
+        <CardContent className="flex flex-col gap-2 px-0 pb-(--card-spacing)">
+          <Table containerLabel="Historia de la empresa, tabla desplazable">
+            <TableHeader>
+              <TableRow>
+                <TableHead scope="col">Métrica</TableHead>
                 {years.map((year) => (
-                  <TableCell
+                  <TableHead
                     key={year.fiscalYearEnd}
-                    className={
-                      year[spec.key].status === "value"
-                        ? "numeric text-right"
-                        : "text-right text-xs text-muted-foreground"
-                    }
+                    scope="col"
+                    className="text-right"
                   >
-                    {cellText(year[spec.key], spec, magnitude)}
-                  </TableCell>
+                    <time dateTime={year.fiscalYearEnd}>
+                      {formatCalendarDate(year.fiscalYearEnd)}
+                    </time>
+                  </TableHead>
                 ))}
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        <p className="max-w-prose px-(--card-spacing) text-xs text-muted-foreground">
-          Hechos de los 10-K como se conocían el {formatUtcTimestamp(knownAt)},
-          el corte de la corrida. Es la lectura reportada: no capitaliza
-          arrendamientos ni I+D como hace la valuación, así que su margen puede
-          diferir del ajustado. Acciones y ganancia por acción en la base de
-          splits vigente al corte. Caja neta: caja e inversiones líquidas menos
-          deuda financiera, sin arrendamientos operativos.{" "}
-          <CodeValue>{trajectory.version}</CodeValue>
-        </p>
-      </CardContent>
+            </TableHeader>
+            <TableBody>
+              {specs.map(({ spec, magnitude, unit }) => (
+                <TableRow key={spec.key}>
+                  <TableHead scope="row" className="font-medium">
+                    {spec.title}
+                    <span className="block text-xs font-normal text-muted-foreground">
+                      {unit}
+                    </span>
+                  </TableHead>
+                  {years.map((year) => (
+                    <TableCell
+                      key={year.fiscalYearEnd}
+                      className={
+                        year[spec.key].status === "value"
+                          ? "numeric text-right"
+                          : "text-right text-xs text-muted-foreground"
+                      }
+                    >
+                      {cellText(year[spec.key], spec, magnitude)}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <p className="max-w-prose px-(--card-spacing) text-xs text-muted-foreground">
+            Hechos de los 10-K como se conocían el {formatUtcTimestamp(knownAt)}
+            , el corte de la corrida. Es la lectura reportada: no capitaliza
+            arrendamientos ni I+D como hace la valuación, así que su margen
+            puede diferir del ajustado. Acciones y ganancia por acción en la
+            base de splits vigente al corte. Caja neta: caja e inversiones
+            líquidas menos deuda financiera, sin arrendamientos operativos.{" "}
+            <CodeValue>{trajectory.version}</CodeValue>
+          </p>
+        </CardContent>
+      </details>
     </Card>
   );
 }

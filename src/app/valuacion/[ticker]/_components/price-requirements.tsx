@@ -1,13 +1,8 @@
 import type { ReactNode } from "react";
 
+import { InfoTip } from "@/app/_components/info-tip";
 import { EvidenceKindMark } from "@/app/valuacion/_components/run/data-marks";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ValuationResultMarket } from "@/modules/valuation/application/read-valuation-result";
 import { formatAmount } from "@/modules/valuation/domain/display-format";
 import type { DriverPlausibility } from "@/modules/valuation/domain/market-expectations";
@@ -17,15 +12,14 @@ import type {
 } from "@/modules/valuation/domain/market-implied";
 import type { ValuationRun } from "@/modules/valuation/domain/valuation-run";
 
-import { Concept } from "./concept";
 import {
   AiReading,
   ImpliedTable,
   OUTLOOK_COPY,
   percent,
   READING_DRIVER,
-  referenceFor,
 } from "./market-expectations";
+import { requirementScale, type RequirementMarks } from "./requirement-scale";
 
 const STRONG = "numeric font-semibold";
 
@@ -44,7 +38,7 @@ function filingLine(plausibility: DriverPlausibility | undefined): ReactNode {
   }[plausibility.verdict];
 
   return (
-    <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+    <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
       <EvidenceKindMark kind="ai_proposal" />
       <span>
         El 10-K sostiene: {supports}; {verdict}
@@ -53,9 +47,22 @@ function filingLine(plausibility: DriverPlausibility | undefined): ReactNode {
   );
 }
 
+type Requirement = {
+  /** El término estándar en inglés primero (`financial-terms.ts`). */
+  readonly label: string;
+  readonly definition: ReactNode;
+  /** Lo exigido, en pocas palabras, a la derecha del rótulo. */
+  readonly headline: ReactNode;
+  readonly marks: RequirementMarks;
+  /** La barra en texto: es su equivalente accesible. */
+  readonly legend: readonly { glyph: string; text: string }[];
+};
+
 /**
- * Una exigencia en palabras. Cada una mueve un solo supuesto con todo lo
- * demás igual a la corrida, así que se leen como alternativas, no como suma.
+ * Una exigencia (`F6-28`): rótulo, cifra exigida y una barra con lo que mostró
+ * la empresa, lo que usa el modelo y lo que exige el precio. Cada una mueve un
+ * solo supuesto con todo lo demás igual a la corrida, así que se leen como
+ * alternativas, no como suma.
  */
 function requirementOf(
   reading: MarketImpliedReading,
@@ -63,93 +70,216 @@ function requirementOf(
   currency: string,
   /** Una cíclica (`F6-18`): el margen de la corrida es el del ciclo. */
   cyclical: boolean,
-): { headline: ReactNode; detail: string } | null {
+): Requirement | null {
   if (reading.status === "unavailable") return null;
 
-  const reference = referenceFor(reading.driver, context);
-  const unreachable = (subject: string) =>
+  // Fuera del intervalo, la marca queda en el borde que se probó.
+  const required =
     reading.status === "solved"
-      ? ""
+      ? reading.implied
       : reading.status === "price_above_range"
-        ? `Ni con ${subject} de ${percent(reading.bounds.upper)} alcanza: el valor llega a ${formatAmount(reading.closestValuePerShare)} ${currency}.`
-        : `Aun con ${subject} de ${percent(reading.bounds.lower)} el valor queda en ${formatAmount(reading.closestValuePerShare)} ${currency}, encima del precio.`;
+        ? reading.bounds.upper
+        : reading.bounds.lower;
+  const headline =
+    reading.status === "solved" ? (
+      <>
+        exige <strong className={STRONG}>{percent(reading.implied)}</strong>
+      </>
+    ) : reading.status === "price_above_range" ? (
+      <>
+        ni con <strong className={STRONG}>{percent(required)}</strong> alcanza
+      </>
+    ) : (
+      <>
+        aun con <strong className={STRONG}>{percent(required)}</strong> sobra
+      </>
+    );
+  const requiredText =
+    reading.status === "solved"
+      ? `exige el precio ${percent(reading.implied)}`
+      : `con ${percent(required)} el valor llega a ${formatAmount(reading.closestValuePerShare)} ${currency}`;
 
   switch (reading.driver) {
-    case "revenue_growth":
+    case "revenue_growth": {
+      const [longest, ...rest] = context.historicalGrowth;
       return {
-        headline:
-          reading.status === "solved" ? (
-            <>
-              Que el revenue growth (crecimiento de ventas) sea de{" "}
-              <strong className={STRONG}>{percent(reading.implied)}</strong> por
-              año durante cinco años.
-            </>
-          ) : (
-            unreachable("un crecimiento")
-          ),
-        detail: `El modelo usa ${percent(reading.runValue)}. Lo que mostró la empresa: ${reference}.`,
+        label: "Revenue growth",
+        definition: (
+          <p>
+            Crecimiento anual de las ventas. Lo exigido rige durante los años 1
+            a 5, con margen, reinversión y tasa iguales a la corrida.
+          </p>
+        ),
+        headline,
+        marks: {
+          shown: longest?.cagr ?? null,
+          model: reading.runValue,
+          required,
+        },
+        legend: [
+          {
+            glyph: "●",
+            text:
+              longest === undefined
+                ? "sin historia de ventas"
+                : `mostró ${[longest, ...rest].map((entry) => `${percent(entry.cagr)} en ${entry.years} ${entry.years === 1 ? "año" : "años"}`).join(" · ")}`,
+          },
+          { glyph: "◆", text: `modelo ${percent(reading.runValue)}` },
+          { glyph: "▲", text: requiredText },
+        ],
       };
+    }
     case "ebit_margin":
       return {
-        headline:
-          reading.status === "solved" ? (
-            <>
-              O que el EBIT margin (margen operativo) pase a{" "}
-              <strong className={STRONG}>{percent(reading.implied)}</strong> y
-              se quede ahí.
-            </>
-          ) : (
-            unreachable("un margen")
-          ),
-        detail: cyclical
-          ? `El modelo lo lleva a ${percent(reading.runValue)}, el promedio de su ciclo.`
-          : context.baseEbitMargin === null
-            ? `El modelo usa ${percent(reading.runValue)}.`
-            : `El modelo lo mantiene en ${percent(reading.runValue)}, el margen ajustado del último ejercicio.`,
+        label: "EBIT margin",
+        definition: (
+          <p>
+            Ganancia operativa sobre ventas.{" "}
+            {cyclical
+              ? "En una cíclica el modelo usa el promedio de su ciclo."
+              : "El modelo mantiene el margen ajustado del último ejercicio."}{" "}
+            Lo exigido es el margen permanente que, solo, explica el precio.
+          </p>
+        ),
+        headline,
+        marks: {
+          shown: context.baseEbitMargin,
+          model: reading.runValue,
+          required,
+        },
+        legend: [
+          {
+            glyph: "●",
+            text:
+              context.baseEbitMargin === null
+                ? "sin margen ajustado del año base"
+                : `mostró ${percent(context.baseEbitMargin)} ajustado`,
+          },
+          {
+            glyph: "◆",
+            text: `modelo ${percent(reading.runValue)}${cyclical ? ", promedio del ciclo" : ""}`,
+          },
+          { glyph: "▲", text: requiredText },
+        ],
       };
     case "terminal_return_on_capital":
       return {
-        headline:
-          reading.status === "solved" ? (
-            <>
-              O que, a largo plazo, el ROIC (lo que rinde cada dólar
-              reinvertido) sea de{" "}
-              <strong className={STRONG}>{percent(reading.implied)}</strong> por
-              año.
-            </>
-          ) : (
-            <>
-              A largo plazo, el retorno de lo que reinvierte no alcanza a
-              explicarlo. {unreachable("un ROIC")}
-            </>
-          ),
-        detail:
-          context.baseReturnOnCapital === null
-            ? `El modelo usa ${percent(reading.runValue)}.`
-            : `El modelo usa ${percent(reading.runValue)}; en el último ejercicio la empresa rindió ${percent(context.baseReturnOnCapital)} sobre su capital, ajustado.`,
+        label: "Terminal ROIC",
+        definition: (
+          <p>
+            Cuánta ganancia operativa, después de impuestos, genera cada dólar
+            invertido en el negocio, a largo plazo. Si es mayor que la tasa de
+            descuento, crecer crea valor; si es igual, crecer no agrega nada.
+          </p>
+        ),
+        headline,
+        marks: {
+          shown: context.baseReturnOnCapital,
+          model: reading.runValue,
+          required,
+        },
+        legend: [
+          {
+            glyph: "●",
+            text:
+              context.baseReturnOnCapital === null
+                ? "sin ROIC ajustado del año base"
+                : `mostró ${percent(context.baseReturnOnCapital)} ajustado`,
+          },
+          { glyph: "◆", text: `modelo ${percent(reading.runValue)}` },
+          { glyph: "▲", text: requiredText },
+        ],
       };
     case "discount_rate":
       return {
+        label: "Discount rate",
+        definition: (
+          <p>
+            Lo que un inversor pide ganar por año por esta empresa en vez de
+            algo sin riesgo: tasa del Tesoro, prima del mercado y beta. Al
+            revés, lo exigido es lo que <strong>rinde</strong> comprar a este
+            precio si los flujos del modelo se cumplen.
+          </p>
+        ),
         headline:
           reading.status === "solved" ? (
             <>
-              O aceptar ganar{" "}
-              <strong className={STRONG}>{percent(reading.implied)}</strong> por
-              año: es lo que rinde comprar a este precio si los flujos del
-              modelo se cumplen.
+              rinde{" "}
+              <strong className={STRONG}>{percent(reading.implied)}</strong>
             </>
           ) : (
-            unreachable("una tasa")
+            headline
           ),
-        detail: `El modelo exige ${percent(context.wacc)} al principio y ${percent(context.terminalWacc)} a largo plazo, por el riesgo de esta empresa.`,
+        marks: { shown: null, model: context.wacc, required },
+        legend: [
+          {
+            glyph: "◆",
+            text: `el modelo pide ${percent(context.wacc)} → ${percent(context.terminalWacc)}`,
+          },
+          {
+            glyph: "▲",
+            text:
+              reading.status === "solved"
+                ? `rinde a este precio ${percent(reading.implied)}`
+                : requiredText,
+          },
+        ],
       };
   }
 }
 
+/** La barra de una exigencia. Es un dibujo: su texto está en la leyenda. */
+function RequirementBar({ marks }: { marks: RequirementMarks }) {
+  const scale = requirementScale(marks);
+
+  return (
+    <div aria-hidden="true" className="relative h-5">
+      <div className="absolute top-2 right-0 left-0 h-1 rounded-full bg-muted" />
+      {scale.zero > 0 ? (
+        <div
+          className="absolute top-0.5 h-4 w-px bg-border"
+          style={{ left: `${scale.zero}%` }}
+        />
+      ) : null}
+      {scale.model !== null && scale.required !== null ? (
+        <div
+          className="absolute top-2 h-1 rounded-full bg-chart-1/35"
+          style={{
+            left: `${Math.min(scale.model, scale.required)}%`,
+            width: `${Math.abs(scale.required - scale.model)}%`,
+          }}
+        />
+      ) : null}
+      {scale.shown === null ? null : (
+        <span
+          className="absolute top-1 size-3 -translate-x-1/2 rounded-full border-2 border-background bg-muted-foreground"
+          style={{ left: `${scale.shown}%` }}
+        />
+      )}
+      {scale.model === null ? null : (
+        <span
+          className="absolute top-1 size-3 -translate-x-1/2 rotate-45 rounded-[2px] border-2 border-background bg-chart-1"
+          style={{ left: `${scale.model}%` }}
+        />
+      )}
+      {scale.required === null ? null : (
+        <svg
+          viewBox="0 0 14 12"
+          className="absolute top-0.5 h-3.5 w-4 -translate-x-1/2 fill-foreground stroke-background"
+          strokeWidth={1.5}
+          style={{ left: `${scale.required}%` }}
+        >
+          <path d="M7 1 L13 11 L1 11 Z" strokeLinejoin="round" />
+        </svg>
+      )}
+    </div>
+  );
+}
+
 /**
- * ¿Qué tendría que pasar para que el precio tenga sentido? (`F6-17`). La
- * lectura en palabras del DCF inverso (ADR 0048) y de lo que sostiene el
- * 10-K (ADR 0050). La tabla técnica y las citas quedan a demanda.
+ * ¿Qué tendría que pasar para que el precio tenga sentido? (`F6-17`). El DCF
+ * inverso (ADR 0048) dibujado por driver desde `F6-28`, con lo que sostiene
+ * el 10-K (ADR 0050). La tabla técnica y las citas quedan a demanda.
  */
 export function PriceRequirements({
   run,
@@ -183,15 +313,34 @@ export function PriceRequirements({
             ?
           </CardTitle>
           <EvidenceKindMark kind="derived_by_rule" />
+          <InfoTip title="Cómo se lee">
+            <p>
+              El mismo modelo, resuelto al revés: cuánto tendría que valer cada
+              supuesto para que el valor dé exactamente el precio.
+            </p>
+            <p>
+              Cada línea cambia uno solo y deja el resto igual, así que alcanza
+              con una
+              {above
+                ? ", o con una mezcla más moderada de varias. Cuanto más lejos queda ▲ de ●, más optimismo hay en el precio."
+                : ", o con una mezcla de varias. Acá el precio pide menos de lo que supone el modelo."}
+            </p>
+          </InfoTip>
         </div>
-        <CardDescription className="max-w-prose">
-          El mismo modelo, resuelto al revés: cuánto tendría que valer cada
-          supuesto para que el valor dé exactamente el precio. Cada línea cambia
-          uno solo y deja el resto igual, así que alcanza con una
-          {above
-            ? ", o con una mezcla más moderada de varias. Cuanto más lejos queda de lo que la empresa ya mostró, más optimismo hay en el precio."
-            : ", o con una mezcla de varias. Acá el precio pide menos de lo que supone el modelo."}
-        </CardDescription>
+        <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          <span>
+            <span aria-hidden="true">● </span>mostró la empresa
+          </span>
+          <span>
+            <span aria-hidden="true" className="text-chart-1">
+              ◆{" "}
+            </span>
+            usa el modelo
+          </span>
+          <span>
+            <span aria-hidden="true">▲ </span>exige el precio
+          </span>
+        </p>
       </CardHeader>
 
       <CardContent className="flex flex-col gap-5">
@@ -210,30 +359,34 @@ export function PriceRequirements({
                 key={reading.driver}
                 className="flex flex-col gap-1.5 border-b pb-4 last:border-b-0 last:pb-0"
               >
-                <p className="text-base text-pretty">{requirement.headline}</p>
-                <p className="text-sm text-muted-foreground">
-                  {requirement.detail}
+                <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                  <span className="flex items-center gap-0.5 font-medium">
+                    {requirement.label}
+                    <InfoTip title={requirement.label}>
+                      {requirement.definition}
+                    </InfoTip>
+                  </span>
+                  <span className="text-sm">{requirement.headline}</span>
+                </div>
+                <RequirementBar marks={requirement.marks} />
+                <p className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                  {requirement.legend.map((entry) => (
+                    <span key={entry.glyph}>
+                      <span
+                        aria-hidden="true"
+                        className={entry.glyph === "◆" ? "text-chart-1" : ""}
+                      >
+                        {entry.glyph}{" "}
+                      </span>
+                      <span className="numeric">{entry.text}</span>
+                    </span>
+                  ))}
                 </p>
                 {filingLine(plausibilityOf(reading.driver))}
               </li>
             );
           })}
         </ol>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Concept term="el discount rate (tasa de descuento)">
-            Lo que un inversor pide ganar por año por poner su plata en esta
-            empresa y no en algo sin riesgo. Cuanto más arriesgada, más alta, y
-            más bajo el valor de hoy de sus flujos futuros. El modelo la arma
-            con la tasa del Tesoro, la prima de riesgo del mercado y la
-            sensibilidad de la acción al mercado (beta).
-          </Concept>
-          <Concept term="el ROIC (retorno sobre el capital invertido)">
-            Cuánta ganancia operativa, después de impuestos, genera cada dólar
-            invertido en el negocio. Si es mayor que la tasa de descuento,
-            crecer crea valor; si es igual, crecer no agrega nada.
-          </Concept>
-        </div>
 
         <details className="group rounded-lg border">
           <summary className="cursor-pointer px-3 py-2 text-sm font-medium">

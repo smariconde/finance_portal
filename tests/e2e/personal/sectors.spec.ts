@@ -53,9 +53,13 @@ test.describe("matrices por sector sin base", () => {
     await expect(
       page.getByRole("heading", { level: 1, name: "Esa ruta no existe" }),
     ).toBeVisible();
-    await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
-      "content",
-      /noindex/u,
-    );
+    // Con el esqueleto de carga (`F6-28`) Next emite el `noindex` del
+    // `notFound()` en streaming y el de la superficie: puede haber más de uno,
+    // y ninguno puede permitir indexar.
+    const robots = page.locator('meta[name="robots"]');
+    await expect(robots.first()).toHaveAttribute("content", /noindex/u);
+    await expect(
+      page.locator('meta[name="robots"]:not([content*="noindex"])'),
+    ).toHaveCount(0);
   });
 });

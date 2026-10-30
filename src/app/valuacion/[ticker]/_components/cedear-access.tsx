@@ -1,4 +1,5 @@
 import { EvidenceKindMark } from "@/app/valuacion/_components/run/data-marks";
+import { InfoTip } from "@/app/_components/info-tip";
 import {
   CodeValue,
   Field,
@@ -69,10 +70,14 @@ export function CedearAccess({ cedear }: { cedear: ValuationResultCedear }) {
     <Card>
       <CardHeader className="border-b">
         <CardTitle as="h2">Acceso por CEDEAR</CardTitle>
-        <CardDescription>
-          Según el registro de los dos emisores autorizados, leído al corte de
-          la corrida. El CEDEAR y la acción son instrumentos distintos; acá sólo
-          se convierte el valor de la acción por el ratio.
+        <CardDescription className="flex items-center gap-0.5">
+          Registro de Comafi y Caja de Valores al corte de la corrida.
+          <InfoTip title="CEDEAR y acción">
+            <p>
+              El CEDEAR y la acción son instrumentos distintos; acá sólo se
+              convierte el valor de la acción por el ratio del programa vigente.
+            </p>
+          </InfoTip>
         </CardDescription>
       </CardHeader>
 

@@ -1,5 +1,6 @@
 import { Ban } from "lucide-react";
 
+import { InfoTip } from "@/app/_components/info-tip";
 import {
   Card,
   CardContent,
@@ -107,10 +108,15 @@ export function SensitivityMatrix({
           ¿Cuánto cambia el valor si cambian el costo de capital y el
           crecimiento?
         </CardTitle>
-        <CardDescription>
-          Valor por acción en {sensitivity.currency} con todo lo demás fijo. El
-          eje de WACC reemplaza el costo de capital de todos los períodos y del
-          terminal, no de uno solo.
+        <CardDescription className="flex items-center gap-0.5">
+          Valor por acción en {sensitivity.currency}, todo lo demás fijo.
+          <InfoTip title="Cómo se lee la sensibilidad">
+            <p>
+              Cada celda vuelve a valuar con ese WACC y ese crecimiento
+              terminal. El eje de WACC reemplaza el costo de capital de todos
+              los períodos y del terminal, no de uno solo.
+            </p>
+          </InfoTip>
         </CardDescription>
       </CardHeader>
 

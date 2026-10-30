@@ -1,17 +1,16 @@
+import { InfoTip } from "@/app/_components/info-tip";
 import { EvidenceKindMark } from "@/app/valuacion/_components/run/data-marks";
 import { CodeValue } from "@/app/valuacion/_components/run/field";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ValuationResultMarket } from "@/modules/valuation/application/read-valuation-result";
 import {
   formatAmount,
   formatCalendarDate,
 } from "@/modules/valuation/domain/display-format";
+import type {
+  PeerMetric,
+  PeerMetrics,
+} from "@/modules/valuation/domain/peer-context";
 import type { ValuationRun } from "@/modules/valuation/domain/valuation-run";
 import type {
   PriceZone,
@@ -19,6 +18,7 @@ import type {
 } from "@/modules/valuation/domain/valuation-verdict";
 
 import { COMPARISON_GAP_COPY } from "./market-expectations";
+import { PEER_NULL_COPY } from "./peer-context";
 
 /** Qué significa cada ubicación. Describe, no recomienda. */
 const ZONE_COPY: Record<PriceZone, { place: string; meaning: string }> = {
@@ -45,23 +45,21 @@ const ZONE_COPY: Record<PriceZone, { place: string; meaning: string }> = {
 };
 
 const RELATION_COPY = {
-  below: "por debajo",
-  equal: "igual",
-  above: "por encima",
+  below: "por debajo del valor",
+  equal: "igual al valor",
+  above: "por encima del valor",
 } as const;
 
 function RangeBar({
   verdict,
-  currency,
 }: {
   verdict: Extract<ValuationVerdict, { status: "placed" }>;
-  currency: string;
 }) {
   const { scale } = verdict;
 
   return (
-    <div className="flex flex-col gap-3">
-      {/* La barra es un dibujo: lo que dice está escrito arriba y abajo. */}
+    <div className="flex flex-col gap-2">
+      {/* La barra es un dibujo: sus cifras están en los indicadores. */}
       <div aria-hidden="true" className="relative h-14">
         <div className="absolute top-9 right-0 left-0 h-2 rounded-full bg-muted" />
         {scale.bear === null || scale.bull === null ? null : (
@@ -96,191 +94,287 @@ function RangeBar({
         />
       </div>
 
-      <dl className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
-        <div className="flex items-center gap-2">
-          <dt className="flex items-center gap-2 text-muted-foreground">
-            <span
-              aria-hidden="true"
-              className="size-3 rounded-full border-2 border-background bg-foreground ring-1 ring-foreground"
-            />
-            Precio al{" "}
-            <time dateTime={verdict.marketDate}>
-              {formatCalendarDate(verdict.marketDate)}
-            </time>
-          </dt>
-          <dd className="numeric font-medium">
-            {formatAmount(verdict.price)} {currency}
-          </dd>
-        </div>
-        <div className="flex items-center gap-2">
-          <dt className="flex items-center gap-2 text-muted-foreground">
-            <span
-              aria-hidden="true"
-              className="h-4 w-0.5 rounded-full bg-chart-1"
-            />
-            Valor central del modelo
-          </dt>
-          <dd className="numeric font-medium">
-            {formatAmount(verdict.value)} {currency}
-          </dd>
-        </div>
+      <p
+        aria-hidden="true"
+        className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground"
+      >
+        <span className="flex items-center gap-1.5">
+          <span className="size-2.5 rounded-full border-2 border-background bg-foreground ring-1 ring-foreground" />
+          precio
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-3 w-0.5 rounded-full bg-chart-1" />
+          valor central
+        </span>
         {verdict.bear === null || verdict.bull === null ? null : (
-          <div className="flex items-center gap-2">
-            <dt className="flex items-center gap-2 text-muted-foreground">
-              <span
-                aria-hidden="true"
-                className="h-2 w-5 rounded-full bg-chart-1/35"
-              />
-              Rango pesimista–optimista
-            </dt>
-            <dd className="numeric font-medium">
-              {formatAmount(verdict.bear)} – {formatAmount(verdict.bull)}{" "}
-              {currency}
-            </dd>
-          </div>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2 w-5 rounded-full bg-chart-1/35" />
+            rango pesimista–optimista
+          </span>
         )}
-      </dl>
+      </p>
     </div>
   );
 }
 
+/** Un indicador de la cabecera: rótulo, cifra grande y una línea de apoyo. */
+function Figure({
+  label,
+  value,
+  note,
+  info,
+}: {
+  label: string;
+  value: React.ReactNode;
+  note?: React.ReactNode;
+  info?: React.ReactNode;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5 rounded-lg border bg-muted/30 px-3 py-2.5">
+      <dt className="flex items-center gap-0.5 text-xs text-muted-foreground">
+        {label}
+        {info === undefined ? null : <InfoTip title={label}>{info}</InfoTip>}
+      </dt>
+      <dd className="numeric text-xl font-semibold tracking-tight">{value}</dd>
+      {note === undefined ? null : (
+        <dd className="text-xs text-muted-foreground">{note}</dd>
+      )}
+    </div>
+  );
+}
+
+function multipleFigure(metric: PeerMetric | null): {
+  value: string;
+  note?: string;
+} {
+  if (metric === null) return { value: "—", note: "sin dato" };
+  return metric.status === "value"
+    ? { value: `${formatAmount(metric.value, { scale: 1 })}×` }
+    : { value: "—", note: PEER_NULL_COPY[metric.reason] };
+}
+
 /**
  * El veredicto (`F6-17`): dónde queda el precio respecto de lo que vale la
- * empresa según el modelo, en una frase, un dibujo y su significado. Es lo
- * primero que se lee; el resto de la página explica por qué.
+ * empresa según el modelo. Desde `F6-28` se lee en indicadores —precio,
+ * valor, precio sobre valor, P/E, EV/EBIT y rigor—, la barra y una línea; lo
+ * didáctico queda detrás de ⓘ. Describe, no recomienda.
  */
 export function VerdictPanel({
   run,
   verdict,
   market,
   attribution,
+  multiples,
+  rigorLabel,
 }: {
   run: ValuationRun;
   verdict: ValuationVerdict;
   market: ValuationResultMarket;
   attribution: string | null;
+  /** Los múltiplos de la propia corrida (`F6-19`); `null` sin contexto. */
+  multiples: PeerMetrics | null;
+  rigorLabel: string;
 }) {
   const result = run.result;
   const currency = run.currency;
+  const placed = verdict.status === "placed" ? verdict : null;
+  const pe = multipleFigure(multiples?.priceToEarnings ?? null);
+  const evEbit = multipleFigure(multiples?.enterpriseValueToEbit ?? null);
 
   return (
     <Card>
       <CardHeader className="border-b">
-        <CardTitle as="h2">Precio contra valor</CardTitle>
-        <CardDescription>
-          Lo que pagaba el mercado el día de la valuación, al lado de lo que
-          vale la empresa según el modelo. Es una lectura para aprender, no una
-          recomendación ni un precio objetivo.
-        </CardDescription>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-1">
+            <CardTitle as="h2">Precio contra valor</CardTitle>
+            <InfoTip title="Cómo leer esta comparación">
+              <p>
+                Lo que pagaba el mercado el día de la valuación, al lado de lo
+                que vale la empresa según el modelo. Es una lectura para
+                aprender, no una recomendación ni un precio objetivo.
+              </p>
+              {run.input.derivedAssumptions ===
+              undefined ? null : run.method === "normalized_fcff" ? (
+                <p>
+                  Es una empresa cíclica: el modelo lleva su margen al promedio
+                  de su ciclo y hace crecer las ventas al ritmo de la economía.
+                  El rango usa el peor y el mejor margen del ciclo, así que es
+                  ancho a propósito. El modelo es experimental.
+                </p>
+              ) : (
+                <p>
+                  El modelo proyecta la historia sin sorpresas: su tendencia de
+                  crecimiento, que se apaga hasta la tasa libre de riesgo, y el
+                  margen del último año. No ve productos nuevos, así que en
+                  empresas de calidad el valor suele quedar debajo del precio:
+                  importa más lo que el precio exige.
+                </p>
+              )}
+            </InfoTip>
+          </div>
+          <InfoTip title="Fuente" label="Fuente">
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <EvidenceKindMark kind="reference_data" />
+              Precio: cierre crudo de{" "}
+              {attribution === null ? "la serie guardada" : attribution},
+              descarga aceptada por el owner para uso personal.
+            </p>
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <EvidenceKindMark kind="derived_by_rule" />
+              Valor, rango y múltiplos: la corrida registrada.
+            </p>
+            <p className="flex flex-wrap gap-1">
+              <CodeValue>{market.comparison.version}</CodeValue>
+              <CodeValue>{verdict.version}</CodeValue>
+            </p>
+          </InfoTip>
+        </div>
       </CardHeader>
 
       <CardContent className="flex flex-col gap-5">
+        <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+          <Figure
+            label="Precio"
+            value={placed === null ? "—" : formatAmount(placed.price)}
+            note={
+              placed === null ? (
+                "sin cierre comparable"
+              ) : (
+                <>
+                  {currency} al{" "}
+                  <time dateTime={placed.marketDate}>
+                    {formatCalendarDate(placed.marketDate)}
+                  </time>
+                </>
+              )
+            }
+          />
+          <Figure
+            label="Valor del modelo"
+            value={result === null ? "—" : formatAmount(result.valuePerShare)}
+            note={
+              placed !== null && placed.bear !== null && placed.bull !== null
+                ? `${formatAmount(placed.bear)}–${formatAmount(placed.bull)} ${currency}`
+                : result === null
+                  ? "corrida rechazada"
+                  : `${currency} por acción`
+            }
+            info={
+              <p>
+                Valor por acción del caso central. Debajo, el rango entre el
+                escenario pesimista y el optimista, que mueven crecimiento,
+                margen y reinversión juntos.
+              </p>
+            }
+          />
+          <Figure
+            label="Price / value"
+            value={
+              placed === null
+                ? "—"
+                : `${formatAmount(placed.priceToValue, { scale: 2 })}×`
+            }
+            note={
+              placed === null
+                ? undefined
+                : placed.zone === null
+                  ? RELATION_COPY[placed.relation]
+                  : undefined
+            }
+            info={
+              <p>
+                Precio dividido valor. 1× es precio igual al valor; 2× es pagar
+                el doble de lo que el modelo justifica.
+              </p>
+            }
+          />
+          <Figure
+            label="P/E"
+            value={pe.value}
+            note={pe.note}
+            info={
+              <p>
+                Capitalización sobre la ganancia neta reportada del año base de
+                la corrida: cuántos años de ganancia actual paga el precio.
+              </p>
+            }
+          />
+          <Figure
+            label="Adjusted EV/EBIT"
+            value={evEbit.value}
+            note={evEbit.note}
+            info={
+              <p>
+                Valor de la empresa (capitalización + deuda + arrendamientos −
+                caja) sobre el EBIT ajustado del modelo. No depende de cuánta
+                deuda tenga.
+              </p>
+            }
+          />
+          <Figure
+            label="Rigor"
+            value={
+              <a
+                className="text-base underline underline-offset-4"
+                href="#auditoria-rigor"
+              >
+                {rigorLabel}
+              </a>
+            }
+            info={
+              <p>
+                Qué tan completos están los datos de la corrida. Un rigor más
+                bajo pide leer el valor con más cuidado; el detalle está en la
+                auditoría.
+              </p>
+            }
+          />
+        </dl>
+
         {result === null ? (
-          <p className="max-w-prose text-base">
-            La corrida fue rechazada y no tiene valor por acción, así que no hay
-            nada contra qué comparar el precio. El motivo está en la auditoría,
-            al final de la página.
+          <p className="text-sm text-muted-foreground">
+            La corrida fue rechazada y no tiene valor por acción; el motivo está
+            en la auditoría.
           </p>
-        ) : verdict.status === "unplaced" ? (
-          <div className="flex max-w-prose flex-col gap-2">
-            <p className="text-base">
-              El modelo le asigna{" "}
-              <strong className="numeric font-semibold">
-                {formatAmount(result.valuePerShare)} {currency}
-              </strong>{" "}
-              por acción.
-            </p>
-            <p className="text-sm text-muted-foreground" role="status">
-              Sin comparación con el precio.{" "}
-              {COMPARISON_GAP_COPY[verdict.reason]}
-            </p>
-          </div>
+        ) : placed === null ? (
+          <p className="text-sm text-muted-foreground" role="status">
+            Sin comparación con el precio.{" "}
+            {verdict.status === "unplaced"
+              ? COMPARISON_GAP_COPY[verdict.reason]
+              : null}
+          </p>
         ) : (
           <>
-            <p className="max-w-prose text-base text-pretty md:text-lg">
-              El{" "}
-              <time dateTime={verdict.marketDate}>
-                {formatCalendarDate(verdict.marketDate)}
-              </time>{" "}
-              la acción cotizaba a{" "}
-              <strong className="numeric font-semibold">
-                {formatAmount(verdict.price)} {currency}
-              </strong>{" "}
-              y el modelo le asigna{" "}
-              <strong className="numeric font-semibold">
-                {formatAmount(verdict.value)} {currency}
-              </strong>
-              . El precio es{" "}
-              <strong className="numeric font-semibold">
-                {formatAmount(verdict.priceToValue, { scale: 2 })} veces
-              </strong>{" "}
-              el valor
-              {verdict.zone === null
-                ? ` y queda ${RELATION_COPY[verdict.relation]} de él.`
-                : ` y queda ${ZONE_COPY[verdict.zone].place}.`}
+            <RangeBar verdict={placed} />
+            <p className="flex items-center gap-1 text-base font-medium text-pretty">
+              El precio queda{" "}
+              {placed.zone === null
+                ? RELATION_COPY[placed.relation]
+                : ZONE_COPY[placed.zone].place}
+              .
+              {placed.zone === null ? null : (
+                <InfoTip title="Qué significa">
+                  <p>{ZONE_COPY[placed.zone].meaning}</p>
+                </InfoTip>
+              )}
             </p>
-
-            <RangeBar verdict={verdict} currency={currency} />
-
-            {verdict.zone === null ? null : (
-              <p className="max-w-prose text-sm">
-                {ZONE_COPY[verdict.zone].meaning}
-              </p>
-            )}
           </>
         )}
 
-        {run.input.derivedAssumptions === undefined ? null : (
-          <p className="max-w-prose rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">
-              Cómo leer esta comparación.
-            </span>{" "}
-            {run.method === "normalized_fcff" ? (
-              <>
-                Es una empresa cíclica: el modelo lleva su margen al promedio de
-                los ejercicios medidos y hace crecer las ventas al ritmo de la
-                economía, en vez de extrapolar el momento del ciclo en que está
-                hoy. El rango pesimista–optimista usa el peor y el mejor margen
-                de ese ciclo, así que es ancho a propósito. El modelo es
-                experimental y la corrida queda para revisar.
-              </>
-            ) : (
-              <>
-                El modelo proyecta la historia de la empresa sin sorpresas: el
-                crecimiento de su tendencia, que se apaga hasta la tasa libre de
-                riesgo, y el margen del último año. No sabe de productos nuevos
-                ni de mejoras que todavía no se ven en los números. Por eso, en
-                empresas que el mercado considera de calidad, el valor suele
-                quedar debajo del precio. La brecha importa menos que lo que el
-                precio exige, que está en la sección siguiente.
-              </>
-            )}
-          </p>
-        )}
-
         {market.latestClose === null ? null : (
-          <p className="text-sm text-muted-foreground">
-            Hay un cierre posterior guardado:{" "}
-            {formatAmount(market.latestClose.close)}{" "}
-            {market.latestClose.currency} al{" "}
+          <p className="text-xs text-muted-foreground">
+            Cierre posterior guardado:{" "}
+            <span className="numeric">
+              {formatAmount(market.latestClose.close)}{" "}
+              {market.latestClose.currency}
+            </span>{" "}
+            al{" "}
             <time dateTime={market.latestClose.marketDate}>
               {formatCalendarDate(market.latestClose.marketDate)}
             </time>
-            . La corrida no lo vio y no se compara; volver a valuar mueve el
-            corte.
+            ; la corrida no lo vio. Volver a valuar mueve el corte.
           </p>
         )}
-
-        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-          <EvidenceKindMark kind="reference_data" />
-          Precio: cierre crudo de{" "}
-          {attribution === null ? "la serie guardada" : attribution}, descarga
-          aceptada por el owner para uso personal.
-          <EvidenceKindMark kind="derived_by_rule" />
-          Valor y rango: la corrida registrada.
-          <CodeValue>{market.comparison.version}</CodeValue>
-          <CodeValue>{verdict.version}</CodeValue>
-        </p>
       </CardContent>
     </Card>
   );

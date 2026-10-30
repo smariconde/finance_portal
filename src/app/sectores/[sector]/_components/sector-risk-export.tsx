@@ -4,6 +4,7 @@ import { Download } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 
 type ExportState = "idle" | "loading" | "unavailable" | "failed";
 
@@ -76,7 +77,11 @@ export function SectorRiskExport({
         onClick={() => void download()}
         disabled={state === "loading"}
       >
-        <Download aria-hidden="true" className="size-3.5" />
+        {state === "loading" ? (
+          <Spinner className="size-3.5" />
+        ) : (
+          <Download aria-hidden="true" className="size-3.5" />
+        )}
         {state === "loading" ? "Preparando CSV…" : "Descargar CSV"}
       </Button>
     </div>

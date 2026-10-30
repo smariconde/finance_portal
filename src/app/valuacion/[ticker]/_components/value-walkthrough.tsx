@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { InfoTip } from "@/app/_components/info-tip";
 import { EvidenceKindMark } from "@/app/valuacion/_components/run/data-marks";
 import { CodeValue } from "@/app/valuacion/_components/run/field";
 import { BRIDGE_LABELS } from "@/app/valuacion/_components/run/labels";
@@ -29,7 +30,6 @@ import {
 import type { ValuationRun } from "@/modules/valuation/domain/valuation-run";
 import { valueChain } from "@/modules/valuation/domain/valuation-verdict";
 
-import { Concept } from "./concept";
 import { ProjectionChart } from "./projection-chart";
 import { ValueComposition } from "./value-composition";
 
@@ -39,13 +39,19 @@ function pct(value: string, scale = 1): string {
   return formatPercent(value, { scale });
 }
 
+/**
+ * Un paso de la cadena (`F6-28`): el título y sus cifras a la vista; la
+ * explicación en palabras, detrás de ⓘ.
+ */
 function Step({
   index,
   title,
+  figures,
   children,
 }: {
   index: number;
   title: string;
+  figures: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -56,12 +62,29 @@ function Step({
       >
         {index}
       </span>
-      <h3 className="self-center text-sm font-medium">{title}</h3>
-      <div className="col-start-2 flex max-w-prose flex-col gap-1.5 text-sm text-muted-foreground">
-        {children}
+      <h3 className="flex items-center gap-0.5 self-center text-sm font-medium">
+        {title}
+        <InfoTip title={title}>{children}</InfoTip>
+      </h3>
+      <div className="col-start-2 flex flex-col gap-1 text-sm text-muted-foreground">
+        {figures}
       </div>
     </li>
   );
+}
+
+/** Una cifra de un paso: rótulo apagado y valor destacado. */
+function Fig({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <span>
+      {label}{" "}
+      <span className="numeric font-medium text-foreground">{children}</span>
+    </span>
+  );
+}
+
+function Figs({ children }: { children: ReactNode }) {
+  return <p className="flex flex-wrap gap-x-4 gap-y-0.5">{children}</p>;
 }
 
 /**
@@ -120,11 +143,19 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
           </CardTitle>
           <EvidenceKindMark kind="derived_by_rule" />
         </div>
-        <CardDescription className="max-w-prose">
-          Una empresa vale la caja que va a generar de acá en adelante, traída a
-          valor de hoy. El modelo lo calcula en seis pasos. Todos los supuestos
-          salen de una regla aplicada a lo que la empresa ya reportó; ninguno lo
-          escribió una persona.
+        <CardDescription className="flex items-center gap-0.5">
+          Seis pasos, de las ventas al valor por acción.
+          <InfoTip title="El DCF (flujo de caja descontado)">
+            <p>
+              Una empresa vale la caja que va a generar de acá en adelante,
+              traída a valor de hoy con una tasa que refleja su riesgo, menos
+              sus deudas. Es el método de Aswath Damodaran.
+            </p>
+            <p>
+              Todos los supuestos salen de una regla aplicada a lo que la
+              empresa ya reportó; ninguno lo escribió una persona.
+            </p>
+          </InfoTip>
         </CardDescription>
       </CardHeader>
 
@@ -226,7 +257,26 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
         </div>
 
         <ol className="flex flex-col gap-5 xl:col-start-1 xl:row-start-1">
-          <Step index={1} title="Proyecta las ventas">
+          <Step
+            index={1}
+            title="Proyecta las ventas"
+            figures={
+              <Figs>
+                <Fig label="Revenue growth">
+                  {pct(first.revenueGrowth)}
+                  {first.revenueGrowth === last.revenueGrowth
+                    ? ""
+                    : ` → ${pct(last.revenueGrowth)}`}
+                </Fig>
+                <Fig label="Revenue año 1">
+                  {compact(chain.firstYear.revenue)}
+                </Fig>
+                <Fig label={`Año ${chain.explicitYears}`}>
+                  {compact(chain.lastYear.revenue)}
+                </Fig>
+              </Figs>
+            }
+          >
             {cycle === undefined ? (
               <p>
                 Parte de las ventas del último ejercicio y las hace crecer{" "}
@@ -253,7 +303,27 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
             </p>
           </Step>
 
-          <Step index={2} title="Calcula cuánto gana con esas ventas">
+          <Step
+            index={2}
+            title="Calcula cuánto gana con esas ventas"
+            figures={
+              <Figs>
+                {cycle === undefined ? (
+                  <Fig label="EBIT margin">
+                    {pct(first.ebitMargin)}
+                    {first.ebitMargin === last.ebitMargin
+                      ? ""
+                      : ` → ${pct(last.ebitMargin)}`}
+                  </Fig>
+                ) : (
+                  <Fig label="EBIT margin hoy → ciclo">
+                    {pct(cycle.currentMargin)} → {pct(cycle.historicalMargin)}
+                  </Fig>
+                )}
+                <Fig label="EBIT año 1">{compact(chain.firstYear.ebit)}</Fig>
+              </Figs>
+            }
+          >
             {cycle === undefined ? (
               <p>
                 Aplica un EBIT margin (margen operativo) de{" "}
@@ -290,7 +360,21 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
             )}
           </Step>
 
-          <Step index={3} title="Resta impuestos y lo que reinvierte">
+          <Step
+            index={3}
+            title="Resta impuestos y lo que reinvierte"
+            figures={
+              <Figs>
+                <Fig label="Tax rate">
+                  {pct(first.taxRate)} → {pct(terminal.taxRate)}
+                </Fig>
+                <Fig label="FCFF año 1">{compact(chain.firstYear.fcff)}</Fig>
+                <Fig label={`Año ${chain.explicitYears}`}>
+                  {compact(chain.lastYear.fcff)}
+                </Fig>
+              </Figs>
+            }
+          >
             <p>
               Para crecer, la empresa tiene que invertir: el modelo resta esa
               reinversión y los impuestos (de {pct(first.taxRate)} a{" "}
@@ -300,7 +384,20 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
             </p>
           </Step>
 
-          <Step index={4} title="Trae esos flujos a valor de hoy">
+          <Step
+            index={4}
+            title="Trae esos flujos a valor de hoy"
+            figures={
+              <Figs>
+                <Fig label="WACC">
+                  {pct(first.wacc, 2)} → {pct(terminal.wacc, 2)}
+                </Fig>
+                <Fig label={`PV de los ${chain.explicitYears} años`}>
+                  {compact(chain.explicitPresentValue)}
+                </Fig>
+              </Figs>
+            }
+          >
             <p>
               Un dólar dentro de diez años vale menos que uno hoy. El modelo
               descuenta cada año con un WACC de{" "}
@@ -311,7 +408,22 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
             </p>
           </Step>
 
-          <Step index={5} title="Suma lo que viene después">
+          <Step
+            index={5}
+            title="Suma lo que viene después"
+            figures={
+              <Figs>
+                <Fig label="Terminal growth">{pct(terminal.growth)}</Fig>
+                <Fig label="Terminal value">
+                  {compact(chain.terminalPresentValue)}
+                  {result.terminalValueShare === null
+                    ? ""
+                    : ` (${pct(result.terminalValueShare, 0)} del EV)`}
+                </Fig>
+                <Fig label="EV">{compact(chain.enterpriseValue)}</Fig>
+              </Figs>
+            }
+          >
             <p>
               Después del año {chain.explicitYears} supone que la empresa sigue
               creciendo{" "}
@@ -327,7 +439,8 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
                     {pct(result.terminalValueShare, 0)}
                   </strong>{" "}
                   del valor de la empresa. Por eso pequeños cambios en la tasa o
-                  en ese crecimiento mueven mucho el resultado.
+                  en ese crecimiento mueven mucho el resultado: es donde más
+                  pesa un supuesto equivocado.
                 </>
               )}
             </p>
@@ -346,56 +459,53 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
             </p>
           </Step>
 
-          <Step index={6} title="Pasa de la empresa a sus acciones">
+          <Step
+            index={6}
+            title="Pasa de la empresa a sus acciones"
+            figures={
+              <>
+                <ul className="flex flex-col gap-0.5">
+                  {bridge.map((item) => (
+                    <li key={item.key} className="numeric flex gap-2">
+                      <span aria-hidden="true" className="w-3 text-foreground">
+                        {item.sign === "add" ? "+" : "−"}
+                      </span>
+                      <span>
+                        <span className="sr-only">
+                          {item.sign === "add" ? "suma " : "resta "}
+                        </span>
+                        {BRIDGE_LABELS[item.key]}: {compact(item.value)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <Figs>
+                  <Fig label="Equity value">{compact(chain.equityValue)}</Fig>
+                  <Fig label="÷ acciones">
+                    {formatCompactAmount(chain.shareCount)}
+                  </Fig>
+                  <Fig label="=">
+                    {formatAmount(chain.valuePerShare)} {currency}
+                  </Fig>
+                </Figs>
+              </>
+            }
+          >
             <p>
               A lo que valen las operaciones le suma la caja y le resta lo que
-              se debe a otros antes que a los accionistas:
+              se debe a otros antes que a los accionistas. Lo que queda es el
+              equity value, que se reparte entre las acciones.
             </p>
-            <ul className="flex flex-col gap-0.5">
-              {bridge.map((item) => (
-                <li key={item.key} className="numeric flex gap-2">
-                  <span aria-hidden="true" className="w-3 text-foreground">
-                    {item.sign === "add" ? "+" : "−"}
-                  </span>
-                  <span>
-                    <span className="sr-only">
-                      {item.sign === "add" ? "suma " : "resta "}
-                    </span>
-                    {BRIDGE_LABELS[item.key]}: {compact(item.value)}
-                  </span>
-                </li>
-              ))}
-            </ul>
             <p>
-              Queda un equity value (para los accionistas) de{" "}
-              <strong className={STRONG}>{compact(chain.equityValue)}</strong>,
-              que repartido entre {formatCompactAmount(chain.shareCount)}{" "}
-              acciones da{" "}
-              <strong className={STRONG}>
-                {formatAmount(chain.valuePerShare)} {currency}
-              </strong>{" "}
-              por acción.
+              {formatShares(chain.shareCount)} acciones, contando las unidades
+              de empleados todavía no consolidadas.
             </p>
           </Step>
         </ol>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:col-span-2">
-          <Concept term="el DCF (flujo de caja descontado)">
-            El método que usa la página. Proyecta cuánta caja va a generar el
-            negocio, la trae a valor de hoy con una tasa que refleja su riesgo y
-            le resta las deudas. Es el método de Aswath Damodaran.
-          </Concept>
-          <Concept term="el terminal value (valor terminal)">
-            El valor de todos los años después del horizonte explícito,
-            resumidos en una fórmula de crecimiento perpetuo. Suele ser la mayor
-            parte del valor, y por eso es donde más pesa un supuesto equivocado.
-          </Concept>
-        </div>
-
         <p className="text-xs text-muted-foreground xl:col-span-2">
-          {formatShares(chain.shareCount)} acciones, contando las unidades de
-          empleados todavía no consolidadas. Las tablas exactas de cada paso
-          están en la auditoría. <CodeValue>{chain.version}</CodeValue>
+          Las tablas exactas de cada paso están en la auditoría.{" "}
+          <CodeValue>{chain.version}</CodeValue>
         </p>
       </CardContent>
     </Card>

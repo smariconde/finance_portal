@@ -1,4 +1,5 @@
 import { Info } from "lucide-react";
+import { InfoTip } from "@/app/_components/info-tip";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -159,11 +160,19 @@ export default async function SectorRiskMatrixPage({ params }: PageProps) {
             ¿Qué empresas de {sector.label} compensaron mejor su riesgo a la
             baja a 2 y a 5 años?
           </h1>
-          <p className="max-w-3xl text-sm text-muted-foreground md:text-base">
-            Cada punto es una security del S&amp;P 500 en el sector a la fecha,
-            con su ratio de Sortino en las dos ventanas. Compara contra el
-            S&amp;P 500 Total Return en la misma base. Es una herramienta de
-            lectura, no una recomendación.
+          <p className="flex max-w-3xl items-center gap-0.5 text-sm text-muted-foreground md:text-base">
+            Sortino a 2 y 5 años contra el S&amp;P 500 Total Return.
+            <InfoTip title="Cómo se lee la matriz">
+              <p>
+                Cada punto es una security del S&amp;P 500 en el sector a la
+                fecha, con su ratio de Sortino en las dos ventanas: retorno
+                sobre el riesgo a la baja. Más alto es mejor compensado.
+              </p>
+              <p>
+                La referencia usa la misma base. Es una herramienta de lectura,
+                no una recomendación.
+              </p>
+            </InfoTip>
           </p>
         </section>
 

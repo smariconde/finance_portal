@@ -5,6 +5,7 @@ import { useId, useState, useTransition, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 
 import { enqueueValuation } from "../actions";
 
@@ -76,7 +77,8 @@ export function ValuationRequestForm() {
           />
         </div>
         <Button className="max-md:h-11" disabled={busy} type="submit">
-          {busy ? "Abriendo" : "Valuar"}
+          {busy ? <Spinner /> : null}
+          {busy ? "Abriendo…" : "Valuar"}
         </Button>
       </form>
       <p aria-live="polite" className="max-w-prose text-sm" role="status">
