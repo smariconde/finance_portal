@@ -22,7 +22,10 @@ import {
 } from "@/modules/valuation/application/assess-company";
 import { DECLARED_INDUSTRY_ASSIGNMENTS } from "@/modules/valuation/application/declared-industry-assignments";
 import { DECLARED_OPERATIONS_MIXES } from "@/modules/valuation/application/declared-operations-mixes";
-import { declaredReitPropertyBasis } from "@/modules/valuation/application/declared-reit-property-basis";
+import {
+  assembleReitSnapshot,
+  type ReitSnapshotResult,
+} from "@/modules/valuation/application/assemble-reit-snapshot";
 import { issuerFactsAt } from "@/modules/valuation/application/issuer-facts";
 import {
   requestValuationJob,
@@ -37,6 +40,7 @@ import {
 } from "@/modules/valuation/application/assemble-valuation-snapshot";
 import { runValuation } from "@/modules/valuation/application/run-valuation";
 import { runExcessReturn } from "@/modules/valuation/application/run-excess-return";
+import { runReit } from "@/modules/valuation/application/run-reit";
 import {
   assembleFinancialSnapshot,
   type FinancialSnapshotResult,
@@ -115,7 +119,6 @@ import { getClassificationRepository } from "@/server/persistence/get-classifica
 import { getIndustryResolutionRepository } from "@/server/persistence/get-industry-resolution-repository";
 import { getOperationsMixRepository } from "@/server/persistence/get-operations-mix-repository";
 import { getReferenceDatasetRepository } from "@/server/persistence/get-reference-dataset-repository";
-import { getReitAffoRepository } from "@/server/persistence/get-reit-affo-repository";
 import { getUniverseRepository } from "@/server/persistence/get-universe-repository";
 import { getValuationJobStore } from "@/server/persistence/get-valuation-job-store";
 import { createFundamentalReaders } from "@/server/valuation/fundamental-readers";
@@ -124,7 +127,6 @@ import { createValuationDataDependencies } from "./valuation-data";
 import { runQualitativeStep } from "./valuation-qualitative";
 import { readFinancialFiling } from "./financial-filing";
 import { readGrowthTaxFiling } from "./growth-tax-filing";
-import { runReitAffoStep } from "./reit-affo-step";
 
 /**
  * Raíz de composición de la corrida por ticker (`F6-01`,
@@ -277,10 +279,15 @@ async function assessValuationJob(
           now,
           newValuationRunId: newId,
         })
-      : runValuation(prepared.snapshot.input, {
-          now,
-          newValuationRunId: newId,
-        });
+      : prepared.snapshot.input.method === "affo_nav"
+        ? runReit(prepared.snapshot.input, {
+            now,
+            newValuationRunId: newId,
+          })
+        : runValuation(prepared.snapshot.input, {
+            now,
+            newValuationRunId: newId,
+          });
   // Idempotente por clave de replay: el mismo snapshot devuelve la corrida
   // que ya estaba, sin duplicarla.
   const recorded = await getValuationRunRepository().record(run);
@@ -304,6 +311,7 @@ export type PreparedValuationRun =
       readonly snapshot:
         | ValuationSnapshotResult
         | FinancialSnapshotResult
+        | ReitSnapshotResult
         | {
             readonly status: "not_assembled";
             readonly gap: ValuationSnapshotGap;
@@ -521,83 +529,73 @@ export async function prepareValuationRun(
         rigor: assessment.rigor.level,
         unsupportedReason: null,
       };
-      const base = assessment.fundamentals.series?.fiscalYears[0];
-      const declaration =
-        base === undefined
-          ? null
-          : declaredReitPropertyBasis(cik, base.fiscalYearEnd);
-      let gap: ValuationSnapshotGap;
-      let reitAffoAccessionNumber: string | null = null;
-      if (declaration === null || base === undefined) {
-        gap = "reit_property_basis_unavailable";
-      } else if (base.items.common_net_income === undefined) {
-        gap = "reit_affo_anchor_unavailable";
-      } else if (options.askAi !== true) {
-        const accepted = await getReitAffoRepository().acceptedAsKnown(
-          legalEntityId,
-          job.knownAt,
-        );
-        if (
-          accepted?.proposal.fiscalYearEnd === base.fiscalYearEnd &&
-          accepted.proposal.accessionNumber === declaration.accessionNumber
-        )
-          reitAffoAccessionNumber = accepted.proposal.accessionNumber;
-        gap =
-          accepted === null ||
-          accepted.proposal.fiscalYearEnd !== base.fiscalYearEnd ||
-          accepted.proposal.accessionNumber !== declaration.accessionNumber
-            ? "reit_affo_unaccepted"
-            : "reit_nav_inputs_unavailable";
-      } else {
-        const result = await runReitAffoStep({
+      // Un 6798 es ambiguo entre dos industrias de Damodaran: la beta sale
+      // de la que resuelve la IA, igual que en FCFF. Nada más se pregunta:
+      // AFFO y supuestos salen del XBRL (ADR 0064).
+      let reitQualitativeStep: ValuationQualitativeStep | null = null;
+      if (
+        options.askAi === true &&
+        dataStep !== null &&
+        assessment.industry.status === "ambiguous"
+      ) {
+        reitQualitativeStep = await runQualitativeStep({
+          graph: state.graph,
           legalEntityId,
           cik,
-          companyName: declaration.cik,
-          fiscalYearEnd: base.fiscalYearEnd,
-          propertyBasis: declaration.propertyBasis,
-          propertyBasisSourceDocumentId: declaration.accessionNumber,
-          propertyBasisQuote: declaration.quote,
-          commonIncome: seriesFact(base.items.common_net_income, SEC_SOURCE_ID),
+          annualReportCiks: lineageCiks,
           query,
-          apply: true,
-          again: false,
+          needs: {
+            industry: true,
+            employeeEquity: false,
+            operationsMix: false,
+          },
         });
-        if (result.status === "asked") {
-          reitAffoAccessionNumber = result.stored.proposal.accessionNumber;
-          gap =
-            result.stored.proposal.outcome === "accepted"
-              ? "reit_nav_inputs_unavailable"
-              : "reit_affo_unaccepted";
-        } else if (result.reason === "xbrl_anchor_missing") {
-          gap = "reit_affo_anchor_unavailable";
-        } else if (result.reason === "property_basis_unsupported") {
-          gap = "reit_property_basis_unavailable";
-        } else if (result.reason === "already_asked") {
-          reitAffoAccessionNumber = result.accessionNumber;
-          gap =
-            result.previous?.proposal.outcome === "accepted"
-              ? "reit_nav_inputs_unavailable"
-              : "reit_affo_unaccepted";
-        } else if (
-          result.reason === "annual_report_missing" ||
-          result.reason === "filing_year_mismatch"
-        ) {
-          gap = "reit_affo_filing_unavailable";
-        } else {
-          reitAffoAccessionNumber = result.accessionNumber;
-          gap = "reit_affo_reconciliation_missing";
-        }
+        const outcome = qualitativeStepOutcome(
+          {
+            legalEntityId,
+            securityId: resolution.securityId,
+            listingId: resolution.listingId,
+          },
+          dataStep,
+          reitQualitativeStep,
+        );
+        if (outcome !== null) return { kind: "outcome", outcome };
       }
+      const securityId = resolution.securityId;
+      const [employeeEquity, shareCounts, prices] = await Promise.all([
+        getEmployeeEquityRepository().acceptedAsKnown(
+          legalEntityId,
+          job.knownAt,
+        ),
+        readShareCounts(legalEntityId, query),
+        securityId === null
+          ? Promise.resolve({ closes: [], events: [] })
+          : readPrices(securityId, job.knownAt),
+      ]);
       return {
         kind: "snapshot",
         reading,
-        snapshot: {
-          status: "not_assembled",
-          gap,
-          reitAffoAccessionNumber,
-        },
         dataStep,
-        qualitativeStep: null,
+        qualitativeStep: reitQualitativeStep,
+        snapshot: assembleReitSnapshot({
+          subject: {
+            legalEntityId,
+            securityId,
+            listingId: resolution.listingId,
+          },
+          query,
+          assessment,
+          fundamentalsSourceId: SEC_SOURCE_ID,
+          employeeEquity,
+          shareCounts: shareCounts.filter(
+            (fact) => fact.concept === SHARES_OUTSTANDING_CONCEPT,
+          ),
+          employeeOptionFacts: shareCounts.filter(
+            (fact) => fact.concept !== SHARES_OUTSTANDING_CONCEPT,
+          ),
+          prices: { sourceId: PRICES_SOURCE_ID, ...prices },
+          industryReturns: null,
+        }),
       };
     }
   }

@@ -226,9 +226,9 @@ export const SNAPSHOT_GAP_COPY: Record<ValuationSnapshotGap, string> = {
   growth_tax_pool_not_reconciled:
     "la nota fiscal no concilia monto, vencimiento y límite anual de compensación",
   reit_property_basis_unavailable:
-    "falta evidencia fechada de que sea un REIT de propiedades",
+    "los inmuebles netos del XBRL no llegan a la mitad del activo, o no están, así que no se trata como REIT de propiedades",
   reit_affo_anchor_unavailable:
-    "falta el ingreso común XBRL del mismo 10-K que se usa para AFFO",
+    "falta en el XBRL del ejercicio base el resultado común o la depreciación, que son la base del AFFO",
   reit_affo_filing_unavailable:
     "falta el 10-K anual del ejercicio base conocido al corte",
   reit_affo_reconciliation_missing:

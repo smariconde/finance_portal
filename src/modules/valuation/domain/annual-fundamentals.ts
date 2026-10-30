@@ -51,8 +51,11 @@ import { z } from "zod";
  * `1.5.0` (`F6-20`): partidas separadas para patrimonio común, preferente y
  * utilidad disponible a accionistas comunes. El ROE financiero no usa la
  * utilidad neta ni el patrimonio total como sustitutos silenciosos.
+ * `1.6.0` (`F6-22`, ADR 0064): los componentes de FFO/AFFO de un REIT, cada uno
+ * con sus alternativas, y los inmuebles netos que prueban la base de
+ * propiedades. Ninguno reemplaza a una partida existente.
  */
-export const ANNUAL_FUNDAMENTALS_VERSION = "annual-fundamentals-1.5.0";
+export const ANNUAL_FUNDAMENTALS_VERSION = "annual-fundamentals-1.6.0";
 
 export const lineItemIdSchema = z.enum([
   "revenue",
@@ -111,6 +114,12 @@ export const lineItemIdSchema = z.enum([
   "debt_instrument_carrying_amount",
   "debt_combined_total",
   "debt_including_finance_leases_total",
+  "real_estate_depreciation",
+  "property_sale_gains",
+  "real_estate_impairment",
+  "recurring_capex",
+  "straight_line_rent",
+  "real_estate_property_net",
 ]);
 
 export type LineItemId = z.infer<typeof lineItemIdSchema>;
@@ -431,6 +440,53 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
     periodType: "instant" as const,
     concepts: [`us-gaap:${concept}`],
   })),
+  // Desde acá, `1.6.0` (ADR 0064): FFO/AFFO de un REIT. La D&A total primero,
+  // porque FFO suma también la amortización de intangibles de alquileres.
+  {
+    item: "real_estate_depreciation",
+    periodType: "annual",
+    concepts: [
+      "us-gaap:DepreciationAndAmortization",
+      "us-gaap:DepreciationDepletionAndAmortization",
+      "us-gaap:Depreciation",
+    ],
+  },
+  {
+    item: "property_sale_gains",
+    periodType: "annual",
+    concepts: [
+      "us-gaap:GainsLossesOnSalesOfInvestmentRealEstate",
+      "us-gaap:GainLossOnSaleOfProperties",
+    ],
+  },
+  {
+    item: "real_estate_impairment",
+    periodType: "annual",
+    concepts: [
+      "us-gaap:ImpairmentOfRealEstate",
+      "us-gaap:AssetImpairmentCharges",
+    ],
+  },
+  {
+    // Mantenimiento: mejoras de capital primero; los costos de leasing y
+    // mejoras de inquilinos sólo cuando la empresa no publica aquéllas.
+    item: "recurring_capex",
+    periodType: "annual",
+    concepts: [
+      "us-gaap:PaymentsForCapitalImprovements",
+      "us-gaap:PaymentsForLeasingCostsCommissionsAndTenantImprovements",
+    ],
+  },
+  {
+    item: "straight_line_rent",
+    periodType: "annual",
+    concepts: ["us-gaap:StraightLineRent"],
+  },
+  {
+    item: "real_estate_property_net",
+    periodType: "instant",
+    concepts: ["us-gaap:RealEstateInvestmentPropertyNet"],
+  },
 ]);
 
 /**

@@ -24,7 +24,7 @@ import { SEC_HISTORY_WINDOW_VERSION } from "./sec-history-window";
  *   a correr el CIK publica sólo lo nuevo. No sube la versión del parser, porque
  *   filtrar no cambia el contenido de un hecho ya publicado.
  */
-export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-9.0.0";
+export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-10.0.0";
 
 /**
  * Qué decide la versión. La 1.0.0 eran los mismos conceptos con toda la historia
@@ -47,6 +47,9 @@ export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-9.0.0";
  * opciones que el XBRL del mismo 10-K publica.
  * La 9.0.0 suma patrimonio común y patrimonio preferente para el preflight
  * financiero (F6-20). Patrimonio total no se toma como común sin evidencia.
+ * La 10.0.0 suma los componentes de FFO/AFFO que los REIT etiquetan (F6-22,
+ * ADR 0064): depreciación sola, ganancias por venta y deterioro de inmuebles,
+ * mejoras de capital, costos de leasing, renta lineal y los inmuebles netos.
  * Con la versión y el ancla,
  * un período anterior al corte sigue siendo «no se fue a buscar». El test fija
  * los componentes: cambiar uno sin subir la versión lo rompe.
@@ -195,6 +198,16 @@ const US_GAAP = [
   "ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingNumber",
   "ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingWeightedAverageExercisePrice",
   "ShareBasedCompensationArrangementByShareBasedPaymentAwardEquityInstrumentsOtherThanOptionsNonvestedNumber",
+  // FFO/AFFO de REIT desde el XBRL (10.0.0, ADR 0064): medidos sobre ocho REIT
+  // del índice; ninguno etiqueta los siete componentes de la receta.
+  "Depreciation",
+  "GainsLossesOnSalesOfInvestmentRealEstate",
+  "GainLossOnSaleOfProperties",
+  "ImpairmentOfRealEstate",
+  "PaymentsForCapitalImprovements",
+  "PaymentsForLeasingCostsCommissionsAndTenantImprovements",
+  "StraightLineRent",
+  "RealEstateInvestmentPropertyNet",
 ] as const;
 
 const DEI = [

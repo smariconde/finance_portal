@@ -87,14 +87,14 @@ describe("REIT independent financial references", () => {
 
   it("matches the sheet's NOI multiple with its reciprocal capitalization rate", () => {
     const input = fixtureReitValuation();
-    input.assumptions.nav.forwardNoi = "6107405";
-    input.assumptions.nav.capRate = formatDecimal(
+    input.assumptions.nav!.forwardNoi = "6107405";
+    input.assumptions.nav!.capRate = formatDecimal(
       divide(ONE, parseDecimal("13.3396058855002", "multiple"), "cap"),
       "cap",
     );
     const result = runReit(input, dependencies).result!;
     expect(
-      parseDecimal(result.base.nav.propertyValue, "propertyValue")
+      parseDecimal(result.base.nav!.propertyValue, "propertyValue")
         .minus("81470375.6831332")
         .abs()
         .lt("0.000001"),

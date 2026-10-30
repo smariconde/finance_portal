@@ -37,7 +37,7 @@ else {
   );
   if (run.result !== null)
     console.log(
-      `${run.result.base.valuePerShare} ${run.currency}/acción por AFFO · NAV ${run.result.base.nav.valuePerShare} · experimental · screening`,
+      `${run.result.base.valuePerShare} ${run.currency}/acción por AFFO · NAV ${run.result.base.nav?.valuePerShare ?? "declarado ausente"} · experimental · screening`,
     );
   if (run.failure !== null)
     console.log(`${run.failure.code}: ${run.failure.subjects.join(", ")}`);

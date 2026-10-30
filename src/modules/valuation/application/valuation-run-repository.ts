@@ -4,6 +4,8 @@ import {
 } from "../domain/revenue-margin";
 import { z } from "zod";
 import {
+  DERIVED_REIT_ENGINE_VERSION,
+  DERIVED_REIT_METHODOLOGY_VERSION,
   REIT_ENGINE_VERSION,
   REIT_METHODOLOGY_VERSION,
 } from "../domain/reit-input";
@@ -42,6 +44,7 @@ export const valuationReplayKeySchema = z.object({
     NORMALIZED_FCFF_ENGINE_VERSION,
     GROWTH_FCFF_ENGINE_VERSION,
     REIT_ENGINE_VERSION,
+    DERIVED_REIT_ENGINE_VERSION,
   ]),
   methodologyVersion: z.enum([
     METHODOLOGY_VERSION,
@@ -50,6 +53,7 @@ export const valuationReplayKeySchema = z.object({
     CYCLE_METHODOLOGY_VERSION,
     GROWTH_METHODOLOGY_VERSION,
     REIT_METHODOLOGY_VERSION,
+    DERIVED_REIT_METHODOLOGY_VERSION,
   ]),
 });
 

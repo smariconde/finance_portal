@@ -399,15 +399,19 @@ export async function assessCompany(
         seriesFact(item, request.fundamentalsSourceId),
       )
     : null;
-  const financialRisk = financialProfile
-    ? deriveFinancialRisk({
-        industryKey: industry.status === "mapped" ? industry.industryKey : null,
-        listingCountry: request.listingCountry,
-        betas: readings.betas,
-        countryRisk: readings.countryRisk,
-        impliedErp: readings.impliedErp,
-      })
-    : null;
+  // Un REIT de propiedades descuenta su AFFO con el mismo costo de equity
+  // (`F6-22`, ADR 0064): beta publicada de la industria, sin Hamada.
+  const financialRisk =
+    financialProfile || selection.assetProfile === "reit"
+      ? deriveFinancialRisk({
+          industryKey:
+            industry.status === "mapped" ? industry.industryKey : null,
+          listingCountry: request.listingCountry,
+          betas: readings.betas,
+          countryRisk: readings.countryRisk,
+          impliedErp: readings.impliedErp,
+        })
+      : null;
   const zeroDebt =
     series === null
       ? null

@@ -56,6 +56,7 @@ import {
   excessReturnRunSchema,
   type ExcessReturnRun,
 } from "../domain/excess-return-run";
+import { reitRunSchema, type ReitRun } from "../domain/reit-run";
 import { divide, parseDecimal, ZERO } from "../domain/decimal-policy";
 import {
   readAnnualFundamentals,
@@ -190,6 +191,32 @@ export type ValuationResultReading =
       readonly state: "financial_run";
       readonly ticker: string;
       readonly run: ExcessReturnRun;
+      readonly job: ValuationResultJob;
+      readonly newerGap: ValuationResultNewerGap | null;
+      readonly subject: ValuationResultSubject | null;
+      /** El acceso por CEDEAR al corte, con su valor en USD y en pesos. */
+      readonly cedear: ValuationResultCedear;
+      readonly market: {
+        readonly close: {
+          readonly marketDate: string;
+          readonly close: string;
+          readonly currency: string;
+        } | null;
+        readonly comparable: boolean;
+        readonly priceToValue: string | null;
+        readonly reason:
+          | "missing_close"
+          | "currency_mismatch"
+          | "split_after_share_basis"
+          | "non_positive_value"
+          | "non_positive_close"
+          | null;
+      };
+    }
+  | {
+      readonly state: "reit_run";
+      readonly ticker: string;
+      readonly run: ReitRun;
       readonly job: ValuationResultJob;
       readonly newerGap: ValuationResultNewerGap | null;
       readonly subject: ValuationResultSubject | null;
@@ -573,116 +600,23 @@ export async function readValuationResult(
 
   const financial = excessReturnRunSchema.safeParse(stored);
   if (financial.success) {
-    const run = financial.data;
-    const [state, registry, closes, events] = await Promise.all([
-      dependencies.universe.loadState({
-        indexId: SP500_INDEX_ID,
-        versions: "all",
-        limit: 50_000,
-      }),
-      dependencies.cedears.loadRegistry({}),
-      dependencies.prices.loadSeries({
-        securityId: run.subject.securityId,
-        from: run.asOf,
-        to: run.asOf,
-        limit: 1,
-      }),
-      dependencies.prices.loadEvents({ securityId: run.subject.securityId }),
-    ]);
-    const close =
-      closes[0] === undefined
-        ? null
-        : {
-            marketDate: closes[0].marketDate,
-            close: closes[0].close,
-            currency: closes[0].currency,
-          };
-    const shareDate =
-      run.input.employeeEquity?.sharesOutstanding.asOf ?? run.asOf;
-    const split = events.some(
-      (event) =>
-        event.eventType === "split" &&
-        event.effectiveOn > shareDate &&
-        event.effectiveOn <= run.asOf,
-    );
-    const value = run.result?.base.valuePerShare ?? null;
-    const reason =
-      close === null
-        ? ("missing_close" as const)
-        : close.currency !== run.currency
-          ? ("currency_mismatch" as const)
-          : split
-            ? ("split_after_share_basis" as const)
-            : value === null ||
-                !parseDecimal(value, "financial.valuePerShare").gt(ZERO)
-              ? ("non_positive_value" as const)
-              : !parseDecimal(close.close, "financial.close").gt(ZERO)
-                ? ("non_positive_close" as const)
-                : null;
-    const priceToValue =
-      reason === null && close !== null && value !== null
-        ? divide(
-            parseDecimal(close.close, "financial.close"),
-            parseDecimal(value, "financial.valuePerShare"),
-            "financial.priceToValue",
-          )
-        : null;
-    // La misma comparación que lee el CEDEAR de una corrida FCFF, con las
-    // reglas de esta rama: el cierre exacto del `as_of` y la misma base de
-    // acciones. Sin ella no hay CCL implícito ni valor en pesos.
-    const comparison: MarketPriceComparison =
-      priceToValue !== null && close !== null && value !== null
-        ? {
-            status: "compared",
-            version: MARKET_PRICE_COMPARISON_VERSION,
-            price: close,
-            valuePerShare: value,
-            valueToPrice: divide(
-              parseDecimal(value, "financial.valuePerShare"),
-              parseDecimal(close.close, "financial.close"),
-              "financial.valueToPrice",
-            )
-              .minus(1)
-              .toString(),
-            priceToValue: priceToValue.toString(),
-          }
-        : {
-            status: "unavailable",
-            version: MARKET_PRICE_COMPARISON_VERSION,
-            reason:
-              value === null
-                ? "no_value_per_share"
-                : reason === "missing_close" || reason === null
-                  ? "no_close_at_as_of"
-                  : reason,
-            price: close,
-          };
     return {
       state: "financial_run",
-      ticker,
-      run,
+      run: financial.data,
       job: jobReading(recordedJob),
       newerGap: recordedIndex === 0 ? null : gapReading(latest),
-      subject: subjectAt(state.graph, run),
-      cedear: await cedearMarketAt(
-        state.graph,
-        registry,
-        {
-          asOf: run.asOf,
-          currency: run.currency,
-          securityId: run.subject.securityId,
-          knowledge: run.provenance.knowledge,
-          valuePerShare: value,
-        },
-        comparison,
-        dependencies.prices,
-      ),
-      market: {
-        close,
-        comparable: reason === null,
-        reason,
-        priceToValue: priceToValue?.toString() ?? null,
-      },
+      ...(await equityRunMarket(ticker, financial.data, dependencies)),
+    };
+  }
+  // REIT de propiedades (`F6-22`): la misma lectura de mercado al `as_of`.
+  const reit = reitRunSchema.safeParse(stored);
+  if (reit.success) {
+    return {
+      state: "reit_run",
+      run: reit.data,
+      job: jobReading(recordedJob),
+      newerGap: recordedIndex === 0 ? null : gapReading(latest),
+      ...(await equityRunMarket(ticker, reit.data, dependencies)),
     };
   }
 
@@ -742,5 +676,122 @@ export async function readValuationResult(
       },
       dependencies,
     ),
+  };
+}
+
+/**
+ * Precio contra valor de una corrida de equity —exceso de retorno o REIT—:
+ * el cierre exacto del `as_of`, la misma moneda y la misma base de acciones.
+ */
+async function equityRunMarket(
+  ticker: string,
+  run: ExcessReturnRun | ReitRun,
+  dependencies: ValuationResultDependencies,
+) {
+  const [state, registry, closes, events] = await Promise.all([
+    dependencies.universe.loadState({
+      indexId: SP500_INDEX_ID,
+      versions: "all",
+      limit: 50_000,
+    }),
+    dependencies.cedears.loadRegistry({}),
+    dependencies.prices.loadSeries({
+      securityId: run.subject.securityId,
+      from: run.asOf,
+      to: run.asOf,
+      limit: 1,
+    }),
+    dependencies.prices.loadEvents({ securityId: run.subject.securityId }),
+  ]);
+  const close =
+    closes[0] === undefined
+      ? null
+      : {
+          marketDate: closes[0].marketDate,
+          close: closes[0].close,
+          currency: closes[0].currency,
+        };
+  const shareDate =
+    run.input.employeeEquity?.sharesOutstanding.asOf ?? run.asOf;
+  const split = events.some(
+    (event) =>
+      event.eventType === "split" &&
+      event.effectiveOn > shareDate &&
+      event.effectiveOn <= run.asOf,
+  );
+  const value = run.result?.base.valuePerShare ?? null;
+  const reason =
+    close === null
+      ? ("missing_close" as const)
+      : close.currency !== run.currency
+        ? ("currency_mismatch" as const)
+        : split
+          ? ("split_after_share_basis" as const)
+          : value === null ||
+              !parseDecimal(value, "financial.valuePerShare").gt(ZERO)
+            ? ("non_positive_value" as const)
+            : !parseDecimal(close.close, "financial.close").gt(ZERO)
+              ? ("non_positive_close" as const)
+              : null;
+  const priceToValue =
+    reason === null && close !== null && value !== null
+      ? divide(
+          parseDecimal(close.close, "financial.close"),
+          parseDecimal(value, "financial.valuePerShare"),
+          "financial.priceToValue",
+        )
+      : null;
+  // La misma comparación que lee el CEDEAR de una corrida FCFF, con las
+  // reglas de esta rama: el cierre exacto del `as_of` y la misma base de
+  // acciones. Sin ella no hay CCL implícito ni valor en pesos.
+  const comparison: MarketPriceComparison =
+    priceToValue !== null && close !== null && value !== null
+      ? {
+          status: "compared",
+          version: MARKET_PRICE_COMPARISON_VERSION,
+          price: close,
+          valuePerShare: value,
+          valueToPrice: divide(
+            parseDecimal(value, "financial.valuePerShare"),
+            parseDecimal(close.close, "financial.close"),
+            "financial.valueToPrice",
+          )
+            .minus(1)
+            .toString(),
+          priceToValue: priceToValue.toString(),
+        }
+      : {
+          status: "unavailable",
+          version: MARKET_PRICE_COMPARISON_VERSION,
+          reason:
+            value === null
+              ? "no_value_per_share"
+              : reason === "missing_close" || reason === null
+                ? "no_close_at_as_of"
+                : reason,
+          price: close,
+        };
+  return {
+    ticker,
+    subject: subjectAt(state.graph, run),
+    cedear: await cedearMarketAt(
+      state.graph,
+      registry,
+      {
+        asOf: run.asOf,
+        currency: run.currency,
+        securityId: run.subject.securityId,
+        knowledge: run.provenance.knowledge,
+        valuePerShare: value,
+      },
+      comparison,
+      dependencies.prices,
+    ),
+    market: {
+      close,
+      comparable: reason === null,
+      reason,
+      priceToValue: priceToValue?.toString() ?? null,
+    },
   };
 }

@@ -91,7 +91,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    63 | `F6-19`    | `done`     | Contexto de la brecha: precio sobre valor de la empresa frente a su sector y a todo lo valuado, y múltiplos contra el sector.                                                                                             | `F6-18`, `F8-01` |
 |    64 | `F6-20`    | `done`     | Bancos y aseguradoras valuados desde la app: el job deriva el snapshot de exceso de retorno sobre el patrimonio.                                                                                                          | `F6-18`          |
 |    65 | `F6-21`    | `done`     | Empresas en pérdidas o de alto crecimiento valuadas desde la app: el job deriva el snapshot de ventas a margen con supervivencia.                                                                                         | `F6-20`          |
-|    66 | `F6-22`    | `ready`    | REIT de propiedades valuados desde la app: AFFO transcripto del 10-K por la IA y conciliado, y NAV.                                                                                                                       | `F6-21`          |
+|    66 | `F6-22`    | `done`     | REIT de propiedades valuados desde la app: AFFO del XBRL con lo no etiquetado nombrado, base medida y NAV declarado ausente.                                                                                              | `F6-21`          |
 |    67 | `F8-02`    | `queued`   | Vista principal market cap vs EPS con sesgo de recompras visible y vistas alternativas con puente de dilución.                                                                                                            | `F8-01`          |
 |    68 | `F6-23`    | `queued`   | Deuda de las empresas con brazo financiero cautivo (CAT, DE): medir sus conceptos y decidir cómo se trata la financiera antes de valuarlas.                                                                               | `F6-18`          |
 |    69 | `F6-24`    | `queued`   | Año base TTM: el último 10-Q entra al año base (flujos TTM, balance al último cierre) y la corrida deja de quedar hasta un año atrás.                                                                                     | `F6-22`          |
@@ -4221,7 +4221,29 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
 
 #### `F6-22` — REIT de propiedades desde la app
 
-- Estado: `ready`; pausado el 2026-10-29 para hacer `F6-28` y se retoma
+- Estado: `done` el 2026-10-30 ([ADR 0064](../architecture/adr/0064-derived-reit-from-xbrl.md)).
+  El owner pidió lo más automático posible, sin declaraciones propias. Se
+  midieron 8 REIT del índice: ninguno etiqueta en XBRL los siete componentes de
+  la receta, y ninguna fuente fechada da NOI y cap rate de la misma cartera. El
+  alcance pasó entonces a:
+  - AFFO desde el XBRL (`sec-core-concepts-10.0.0`, `annual-fundamentals-1.6.0`),
+    con los componentes no etiquetados nombrados y no aplicados;
+  - base de propiedades medida (inmuebles netos ≥ 50 % del activo);
+  - supuestos `derived-reit-1.0.0` y NAV declarado ausente (`affo-nav-1.1.0`);
+  - la IA sólo resuelve la industria ambigua del SIC 6798;
+  - migración `0046`; la página lee `reit_run`.
+
+  Evidencia sobre una réplica de la base personal:
+  - O 52,39 contra 57,20 (P/V 1,09), PSA 326,06 contra 317,06 (0,97), EXR 112,06
+    contra 149,90 (1,34) y WELL 30,00 contra 233,17 (7,77, porque el capex
+    incluye redesarrollo). Todas `requires_review` y todas replayan.
+  - PLD y SPG se detienen sin acciones de carátula: dos registrantes, `dei` con
+    dimensiones. AVB y EQR no resuelven el ticker.
+  - Render a 1280 y 390 px sin desborde ni violaciones axe graves; detector
+    Impeccable sin hallazgos.
+
+  Lo que sigue es historia del camino anterior:
+  pausado el 2026-10-29 para hacer `F6-28` y se retoma
   después. Estuvo `in_progress` desde el 2026-10-29. El incremento de negativa
   trazable está cerrado; el camino positivo aún requiere una conciliación AFFO
   que cumpla la receta y una tasa de capitalización fechada de la misma base de
@@ -4229,6 +4251,7 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
   la receta actual no representa. El motor
   `affo_nav` (ADR 0044) sólo calcula desde CLI; el job ya clasifica y niega
   insumos faltantes. AFFO no está en el XBRL.
+
 - Alcance: la IA transcribe FFO/AFFO del 10-K con citas y una policy los
   concilia; NAV independiente.
 - Primer incremento: `reit-affo-1.0.0` exige siete componentes con citas

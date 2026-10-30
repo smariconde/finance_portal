@@ -47,7 +47,7 @@ export function runReit(
         ...new Set([
           ...facts.map((fact) => fact.sourceId),
           ...input.profileEvidence.map((evidence) => evidence.sourceId),
-          input.nav.sourceId,
+          ...(input.nav === null ? [] : [input.nav.sourceId]),
         ]),
       ].sort(),
       observationIds: [
@@ -106,7 +106,12 @@ export function runReit(
         message: "Bear, base and bull should be ordered by value per share.",
       });
     }
-    if (scenarios !== null) {
+    if (
+      scenarios !== null &&
+      base.nav !== null &&
+      scenarios.bear.nav !== null &&
+      scenarios.bull.nav !== null
+    ) {
       const ordered =
         parseDecimal(scenarios.bear.nav.valuePerShare, "bear.nav").lte(
           parseDecimal(base.nav.valuePerShare, "base.nav"),
@@ -123,7 +128,10 @@ export function runReit(
           "NAV scenarios should be ordered independently from the equity DCF.",
       });
     }
-    if (!parseDecimal(base.nav.equityValue, "nav.equityValue").gt(0)) {
+    if (
+      base.nav !== null &&
+      !parseDecimal(base.nav.equityValue, "nav.equityValue").gt(0)
+    ) {
       checks.push({
         id: "reit_nav_nonpositive",
         mode: "require_review",
@@ -137,12 +145,12 @@ export function runReit(
       base,
       scenarios,
       navSensitivity:
-        input.sensitivity === null
+        input.sensitivity === null || input.assumptions.nav === null
           ? null
           : input.sensitivity.capRates.map((capRate) => {
               const assumptions = {
                 ...input.assumptions,
-                nav: { ...input.assumptions.nav, capRate },
+                nav: { ...input.assumptions.nav!, capRate },
               };
               const reasons = checkReitAssumptions(input, assumptions)
                 .filter(
@@ -155,7 +163,7 @@ export function runReit(
                 status: reasons.length === 0 ? "computed" : "rejected",
                 valuePerShare:
                   reasons.length === 0
-                    ? computeReit(input, assumptions).nav.valuePerShare
+                    ? computeReit(input, assumptions).nav!.valuePerShare
                     : null,
                 reasons,
               };

@@ -482,7 +482,7 @@ describe("PostgreSQL valuation runs", () => {
       replayValuationRun((await repository.findById(stored.valuationRunId))!)
         .outcome,
     ).toBe("reproduced");
-    input.nav.debt = null;
+    input.nav!.debt = null;
     const refused = await repository.record(runReit(input, dependencies));
     expect(refused).toMatchObject({
       method: "affo_nav",

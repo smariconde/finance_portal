@@ -85,15 +85,15 @@ describe("property REIT AFFO and NAV", () => {
   it("does not subtract financing twice from common cash; NAV alone responds to a debt claim", () => {
     const input = fixtureReitValuation();
     const original = run(input).result!.base;
-    input.nav.debt!.value = "90";
+    input.nav!.debt!.value = "90";
     const changed = run(input).result!.base;
     expect(changed.valuePerShare).toBe(original.valuePerShare);
-    expect(Number(changed.nav.valuePerShare)).toBe(
-      Number(original.nav.valuePerShare) - 2,
+    expect(Number(changed.nav!.valuePerShare)).toBe(
+      Number(original.nav!.valuePerShare) - 2,
     );
-    input.nav.debt!.value = "1000";
+    input.nav!.debt!.value = "1000";
     const underwater = run(input);
-    expect(Number(underwater.result!.base.nav.valuePerShare)).toBeLessThan(0);
+    expect(Number(underwater.result!.base.nav!.valuePerShare)).toBeLessThan(0);
     expect(underwater.result!.checks).toContainEqual(
       expect.objectContaining({ id: "reit_nav_nonpositive", status: "failed" }),
     );
@@ -121,7 +121,7 @@ describe("property REIT AFFO and NAV", () => {
     [
       "missing NAV",
       (i: ReitInput) => {
-        i.nav.debt = null;
+        i.nav!.debt = null;
       },
       "nav.debt",
     ],
@@ -149,7 +149,7 @@ describe("property REIT AFFO and NAV", () => {
     [
       "missing NAV availability",
       (i: ReitInput) => {
-        i.nav.availableAt = null;
+        i.nav!.availableAt = null;
       },
       "nav.availableAt",
     ],
@@ -177,7 +177,7 @@ describe("property REIT AFFO and NAV", () => {
     [
       "negative claim",
       (i: ReitInput) => {
-        i.nav.debt!.value = "-1";
+        i.nav!.debt!.value = "-1";
       },
       "nav.debt",
     ],
@@ -226,7 +226,7 @@ describe("property REIT AFFO and NAV", () => {
     [
       "future NAV evidence",
       (i: ReitInput) => {
-        i.nav.availableAt = "2026-01-01T00:00:00.000Z";
+        i.nav!.availableAt = "2026-01-01T00:00:00.000Z";
       },
       "nav.availableAt",
     ],
@@ -240,7 +240,7 @@ describe("property REIT AFFO and NAV", () => {
     [
       "unaligned NAV",
       (i: ReitInput) => {
-        i.nav.debt!.asOf = "2024-12-31";
+        i.nav!.debt!.asOf = "2024-12-31";
       },
       "nav.debt",
     ],
@@ -340,21 +340,21 @@ describe("property REIT AFFO and NAV", () => {
     [
       "zero cap rate",
       (i: ReitInput) => {
-        i.assumptions.nav.capRate = "0";
+        i.assumptions.nav!.capRate = "0";
       },
       "assumptions.nav",
     ],
     [
       "negative cap rate",
       (i: ReitInput) => {
-        i.assumptions.nav.capRate = "-0.01";
+        i.assumptions.nav!.capRate = "-0.01";
       },
       "assumptions.nav",
     ],
     [
       "nonpositive NOI",
       (i: ReitInput) => {
-        i.assumptions.nav.forwardNoi = "0";
+        i.assumptions.nav!.forwardNoi = "0";
       },
       "assumptions.nav",
     ],
@@ -393,8 +393,8 @@ describe("property REIT AFFO and NAV", () => {
     input.scenarios = null;
     input.sensitivity = null;
     input.affo.recurringCapex!.value = "0";
-    input.nav.debt!.value = "0";
-    input.nav.availableAt = input.knowledge.knownAt;
+    input.nav!.debt!.value = "0";
+    input.nav!.availableAt = input.knowledge.knownAt;
     input.employeeEquityAvailableAt = input.knowledge.knownAt;
     input.assumptions.periods = Array.from({ length: 20 }, () => ({
       ...input.assumptions.periods[0]!,
@@ -460,7 +460,7 @@ describe("property REIT AFFO and NAV", () => {
     });
     const computed = run(input);
     expect(computed.result!.base.shareCount).toBe("12");
-    expect(computed.result!.base.nav.valuePerShare).toBe("15");
+    expect(computed.result!.base.nav!.valuePerShare).toBe("15");
     claim.derived.shareCount = "10";
     expect(reasons(input)).toContain("employeeEquity.derived");
   });
@@ -485,10 +485,10 @@ describe("property REIT AFFO and NAV", () => {
     );
     expect(replayValuationRun(stored).outcome).toBe("reproduced");
     const tampered = structuredClone(computed);
-    tampered.result!.base.nav.valuePerShare = "999";
+    tampered.result!.base.nav!.valuePerShare = "999";
     expect(replayValuationRun(tampered).divergences).toContain("result_hash");
     const modified = structuredClone(computed);
-    modified.input.nav.debt!.value = "90";
+    modified.input.nav!.debt!.value = "90";
     expect(replayValuationRun(modified).divergences).toContain("input_hash");
     expect(
       reitRunSchema.safeParse({ ...computed, currency: "EUR" }).success,
@@ -518,10 +518,10 @@ describe("property REIT AFFO and NAV", () => {
         .toString(),
     ).toBe(original.equityValue);
     expect(
-      parseDecimal(actual.nav.equityValue, "nav")
+      parseDecimal(actual.nav!.equityValue, "nav")
         .plus(actual.employeeOptionValue)
         .toString(),
-    ).toBe(original.nav.equityValue);
+    ).toBe(original.nav!.equityValue);
     input.employeeEquity.market = null;
     expect(reasons(input)).toContain("employeeEquity.derived");
   });
@@ -555,8 +555,8 @@ describe("property REIT AFFO and NAV", () => {
       bear: structuredClone(input.assumptions),
       bull: structuredClone(input.assumptions),
     };
-    input.scenarios.bear.nav.capRate = "0.07";
-    input.scenarios.bull.nav.capRate = "0.05";
+    input.scenarios.bear.nav!.capRate = "0.07";
+    input.scenarios.bull.nav!.capRate = "0.05";
     expect(reasons(input)).toHaveLength(60);
   });
 
@@ -564,9 +564,9 @@ describe("property REIT AFFO and NAV", () => {
     const input = fixtureReitValuation();
     const base = run(input).result!.base;
     for (const cap of ["0.061", "0.07", "0.1", "0.2"]) {
-      input.assumptions.nav.capRate = cap;
-      expect(Number(run(input).result!.base.nav.valuePerShare)).toBeLessThan(
-        Number(base.nav.valuePerShare),
+      input.assumptions.nav!.capRate = cap;
+      expect(Number(run(input).result!.base.nav!.valuePerShare)).toBeLessThan(
+        Number(base.nav!.valuePerShare),
       );
     }
     for (const beta of ["1.5", "2", "3"]) {

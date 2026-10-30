@@ -9,7 +9,12 @@ import {
   isGrowthWithinRiskFree,
   type PolicyCheck,
 } from "./policy-checks";
-import { reconcileAffo } from "./reit";
+import {
+  deriveReitAssumptions,
+  isEquityPropertyShare,
+  reitPropertyShare,
+} from "./derived-reit";
+import { reconcileAffo, reitNotAdjusted } from "./reit";
 import type { ReitAssumptions, ReitInput } from "./reit-input";
 import { parsePrintedAmount } from "./operations-mix-task";
 
@@ -18,7 +23,7 @@ export function reitFacts(input: ReitInput) {
     ...Object.entries(input.affo).flatMap(([key, fact]) =>
       typeof fact === "object" ? [{ path: `affo.${key}`, fact }] : [],
     ),
-    ...Object.entries(input.nav).flatMap(([key, fact]) =>
+    ...Object.entries(input.nav ?? {}).flatMap(([key, fact]) =>
       typeof fact === "object" ? [{ path: `nav.${key}`, fact }] : [],
     ),
     ...(["riskFree", "matureErp", "countryRiskPremium"] as const).map(
@@ -32,16 +37,17 @@ export function reitFacts(input: ReitInput) {
 }
 
 export function reitMissingInputs(input: ReitInput): string[] {
+  const notAdjusted = reitNotAdjusted(input).map((key) => `affo.${key}`);
   return [
     ...reitFacts(input).flatMap(({ path, fact }) =>
-      fact === null ? [path] : [],
+      fact === null && !notAdjusted.includes(path) ? [path] : [],
     ),
     ...(input.employeeEquity === null ? ["employeeEquity"] : []),
     ...(input.employeeEquityAvailableAt === null
       ? ["employeeEquityAvailableAt"]
       : []),
-    ...(input.nav.availableAt === null ? ["nav.availableAt"] : []),
-    ...(input.nav.sourceDocumentId === null ? ["nav.sourceDocumentId"] : []),
+    ...(input.nav?.availableAt === null ? ["nav.availableAt"] : []),
+    ...(input.nav?.sourceDocumentId === null ? ["nav.sourceDocumentId"] : []),
   ];
 }
 
@@ -94,9 +100,12 @@ export function checkReitInput(input: ReitInput): PolicyCheck[] {
       dates.push(path);
     if (path.startsWith("affo.") && fact.asOf !== input.affo.periodEnd)
       dates.push(path);
+    // Un snapshot derivado (`affo-nav-1.1.0`) toma las acciones de la
+    // carátula, fechadas antes del cierre, igual que `excess-return-1.1.0`.
     if (
       (path.startsWith("nav.") ||
-        path === "employeeEquity.sharesOutstanding") &&
+        (path === "employeeEquity.sharesOutstanding" &&
+          input.derivedReit === undefined)) &&
       fact.asOf !== input.asOf
     )
       dates.push(path);
@@ -105,11 +114,16 @@ export function checkReitInput(input: ReitInput): PolicyCheck[] {
   }
   if (input.knowledge.knowledgeBasis !== "public_availability")
     dates.push("knowledge.knowledgeBasis");
-  if (input.knowledge.effectiveAt.slice(0, 10) !== input.asOf)
+  if (
+    input.derivedReit === undefined
+      ? input.knowledge.effectiveAt.slice(0, 10) !== input.asOf
+      : input.knowledge.effectiveAt.slice(0, 10) < input.asOf
+  )
     dates.push("knowledge.effectiveAt");
-  if (input.nav.asOf !== input.asOf) dates.push("nav.asOf");
+  if (input.nav !== null && input.nav.asOf !== input.asOf)
+    dates.push("nav.asOf");
   for (const [path, availability] of [
-    ["nav.availableAt", input.nav.availableAt],
+    ["nav.availableAt", input.nav?.availableAt ?? null],
     ["employeeEquityAvailableAt", input.employeeEquityAvailableAt],
   ] as const) {
     if (
@@ -146,9 +160,46 @@ export function checkReitInput(input: ReitInput): PolicyCheck[] {
     )
       employeeProblems.push("employeeEquity.sharesOutstanding.value");
   }
+  const notAdjusted = reitNotAdjusted(input);
   const affoPresent = reitFacts(input)
     .filter(({ path }) => path.startsWith("affo."))
-    .every(({ fact }) => fact !== null);
+    .every(
+      ({ path, fact }) =>
+        fact !== null ||
+        (notAdjusted as string[]).includes(path.slice("affo.".length)),
+    );
+  const derivation: string[] = [];
+  let propertyScope = input.propertyBasis === "equity_property";
+  if (input.derivedReit !== undefined) {
+    const derived = input.derivedReit;
+    const share = reitPropertyShare(
+      derived.propertyShare.realEstatePropertyNet.value,
+      derived.propertyShare.assets.value,
+    );
+    if (
+      share === null ||
+      !share.eq(parseDecimal(derived.propertyShare.share, "share"))
+    )
+      derivation.push("derivedReit.propertyShare");
+    propertyScope &&= share !== null && isEquityPropertyShare(share);
+    for (const [key, concept] of Object.entries(derived.affoBasis)) {
+      const fact = input.affo[key as keyof typeof derived.affoBasis];
+      if ((concept === null) !== (fact === null))
+        derivation.push(`derivedReit.affoBasis.${key}`);
+    }
+    if (affoPresent && derivation.length === 0) {
+      const rebuilt = deriveReitAssumptions(
+        input,
+        derived,
+        reconcileAffo(input).affo,
+      );
+      if (
+        rebuilt === null ||
+        computeContentHash(rebuilt) !== computeContentHash(input.assumptions)
+      )
+        derivation.push("assumptions");
+    }
+  }
   const transcriptionProblems: string[] = [];
   if (input.derivedAffo !== undefined) {
     const { proposal, sourceDocumentId, acceptedAt } = input.derivedAffo;
@@ -205,9 +256,30 @@ export function checkReitInput(input: ReitInput): PolicyCheck[] {
     ),
     check(
       "reit_property_scope",
-      input.propertyBasis === "equity_property" ? [] : ["propertyBasis"],
+      propertyScope ? [] : ["propertyBasis"],
       "Mortgage and hybrid REITs require another asset model.",
     ),
+    ...(input.derivedReit === undefined
+      ? []
+      : [
+          check(
+            "reit_assumptions_derived_recomputed",
+            derivation,
+            "The XBRL basis, property share and derived assumptions rebuild from the frozen derivation.",
+          ),
+          check(
+            "reit_affo_not_adjusted",
+            notAdjusted.map((key) => `affo.${key}`),
+            "AFFO components the filer did not tag are left unapplied, never read as zero.",
+            "require_review",
+          ),
+          check(
+            "reit_nav_declared_absent",
+            input.nav === null ? ["nav"] : [],
+            "Without a dated forward NOI and cap rate for the same portfolio the NAV is declared absent.",
+            "require_review",
+          ),
+        ]),
     check(
       "reit_currency",
       currency,
@@ -282,7 +354,7 @@ export function checkReitAssumptions(
   const t = assumptions.terminal;
   const g = parseDecimal(t.growth, "terminal.growth");
   const ke = financialCostOfEquity(input, t.equityBeta);
-  const cap = parseDecimal(assumptions.nav.capRate, "capRate");
+  const nav = assumptions.nav;
   return [
     check(
       "reit_growth_funding",
@@ -309,9 +381,10 @@ export function checkReitAssumptions(
     ),
     check(
       "reit_nav_capitalization",
-      cap.gt(ZERO) &&
-        cap.lte(ONE) &&
-        parseDecimal(assumptions.nav.forwardNoi, "forwardNoi").gt(ZERO)
+      nav === null ||
+        (parseDecimal(nav.capRate, "capRate").gt(ZERO) &&
+          parseDecimal(nav.capRate, "capRate").lte(ONE) &&
+          parseDecimal(nav.forwardNoi, "forwardNoi").gt(ZERO))
         ? []
         : [`${prefix}.nav`],
       "Forward NOI is positive; its cap rate is in (0,1].",
@@ -323,8 +396,8 @@ export function checkReitScenarios(input: ReitInput): PolicyCheck[] {
   const economic = (a: ReitAssumptions) => ({
     periods: a.periods,
     terminal: a.terminal,
-    forwardNoi: a.nav.forwardNoi,
-    capRate: a.nav.capRate,
+    forwardNoi: a.nav?.forwardNoi ?? null,
+    capRate: a.nav?.capRate ?? null,
   });
   return [
     check(

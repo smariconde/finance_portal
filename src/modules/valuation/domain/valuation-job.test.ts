@@ -287,12 +287,12 @@ describe("valuation job", () => {
     expect(
       valuationJobOutcomeSchema.safeParse({
         ...recorded,
-        method: "affo_nav",
+        method: "sotp_nav",
       }).success,
     ).toBe(false);
   });
 
-  it.each(["fcff_three_stage", "revenue_margin_survival"] as const)(
+  it.each(["fcff_three_stage", "revenue_margin_survival", "affo_nav"] as const)(
     "registra el método de crecimiento %s derivado por el job (F6-21)",
     (method) => {
       const recorded = outcomeForAssessment(

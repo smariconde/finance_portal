@@ -19,6 +19,7 @@ import {
 import {
   Table,
   TableBody,
+  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
@@ -34,6 +35,7 @@ import type {
 import {
   formatAmount,
   formatCalendarDate,
+  formatCompactAmount,
   formatPercent,
   formatUtcTimestamp,
 } from "@/modules/valuation/domain/display-format";
@@ -270,7 +272,10 @@ function Anchor({ id, children }: { id: string; children: ReactNode }) {
 function WithoutRun({
   reading,
 }: {
-  reading: Exclude<ValuationResultReading, { state: "run" | "financial_run" }>;
+  reading: Exclude<
+    ValuationResultReading,
+    { state: "run" | "financial_run" | "reit_run" }
+  >;
 }) {
   let message: string;
   const reitAffoRefusal =
@@ -630,6 +635,371 @@ function FinancialRunView({
   );
 }
 
+/** Cómo entra cada componente al AFFO: suma o resta, en el orden de la receta. */
+const REIT_AFFO_ROWS = [
+  { key: "commonNetIncome", label: "Common net income", sign: 1 },
+  { key: "realEstateDepreciation", label: "Real estate depreciation", sign: 1 },
+  { key: "propertySaleGains", label: "Gains on property sales", sign: -1 },
+  { key: "realEstateImpairments", label: "Real estate impairments", sign: 1 },
+  {
+    key: "jointVentureAdjustment",
+    label: "Joint-venture FFO adjustment",
+    sign: 1,
+  },
+  { key: "recurringCapex", label: "Recurring capex", sign: -1 },
+  { key: "straightLineRent", label: "Straight-line rent", sign: -1 },
+] as const;
+
+const REIT_CHECK_COPY: Record<string, string> = {
+  reit_affo_not_adjusted:
+    "Hay componentes del AFFO que la empresa no etiqueta en el XBRL: no se aplicaron y el AFFO puede estar corrido en cualquiera de los dos sentidos.",
+  reit_nav_declared_absent:
+    "No hay NOI forward ni cap rate fechados de la misma cartera: el NAV no se calcula.",
+  reit_country_risk_basis:
+    "El riesgo país por domicilio es una aproximación explícita.",
+  reit_model_experimental:
+    "El modelo AFFO de REIT es experimental: definición de AFFO, financiación del crecimiento y apalancamiento requieren revisión.",
+};
+
+function ReitRunView({
+  reading,
+  history,
+}: {
+  reading: Extract<ValuationResultReading, { state: "reit_run" }>;
+  history: ValuationHistoryView;
+}) {
+  const { run, market } = reading;
+  const base = run.result?.base;
+  const derived = run.input.derivedReit;
+  const risk = run.input.risk;
+  const first = base?.periods[0];
+  const reviewChecks =
+    run.result?.checks.filter(
+      (check) => check.mode === "require_review" && check.status === "failed",
+    ) ?? [];
+  const notAdjusted = new Set<string>(base?.reconciliation.notAdjusted ?? []);
+  return (
+    <PageFrame
+      ticker={reading.ticker}
+      title={reading.subject?.legalName ?? reading.ticker}
+      hasRun
+    >
+      <p className="-mt-3 text-sm text-muted-foreground">
+        AFFO distribuible · REIT de propiedades ·{" "}
+        <time dateTime={run.asOf}>{formatCalendarDate(run.asOf)}</time> · Modelo
+        experimental
+      </p>
+      {reading.newerGap === null ? null : (
+        <NewerGapAlert gap={reading.newerGap} />
+      )}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Value per share</CardTitle>
+            <CardDescription>
+              Caja distribuible del AFFO descontada al costo del equity
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="numeric text-3xl font-semibold">
+            {base === undefined
+              ? "Sin valor"
+              : `${run.currency} ${formatAmount(base.valuePerShare)}`}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Precio al corte</CardTitle>
+            <CardDescription>
+              Último cierre guardado de la misma security
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="numeric text-3xl font-semibold">
+            {market.close === null
+              ? "Sin cierre"
+              : `${market.close.currency} ${formatAmount(market.close.close)}`}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {market.priceToValue === null ? "Estado" : "Price / value"}
+            </CardTitle>
+            <CardDescription>
+              {market.priceToValue === null
+                ? "Resultado del motor y controles"
+                : "Cierre ÷ valor por acción; misma fecha, moneda y base"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-lg font-medium">
+            {market.priceToValue === null ? (
+              run.status === "rejected" ? (
+                "Rechazada"
+              ) : (
+                "Requiere revisión"
+              )
+            ) : (
+              <span className="numeric text-3xl font-semibold">
+                {formatAmount(market.priceToValue)}×
+              </span>
+            )}
+            <p className="mt-1 text-sm font-normal text-muted-foreground">
+              {run.status === "rejected"
+                ? run.failure?.code
+                : `${reviewChecks.length} controles piden revisión`}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+      {!market.comparable && market.reason !== null ? (
+        <Alert>
+          <Info aria-hidden="true" />
+          <AlertTitle>Precio y valor no comparables</AlertTitle>
+          <AlertDescription>
+            {market.reason === "missing_close"
+              ? "Falta el cierre de la fecha de valuación."
+              : market.reason === "currency_mismatch"
+                ? "El cierre usa otra moneda."
+                : market.reason === "split_after_share_basis"
+                  ? "Hubo un split entre la fecha de las acciones y el cierre."
+                  : "El precio o el valor no es positivo."}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {base !== undefined && base.nav === null ? (
+        <Alert>
+          <Info aria-hidden="true" />
+          <AlertTitle>Sin NAV</AlertTitle>
+          <AlertDescription>
+            El valor por propiedades necesita un NOI de los próximos doce meses
+            y un cap rate fechado de la misma cartera. Ninguna fuente guardada
+            los da, así que el NAV queda declarado ausente y no se estima.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      <Card>
+        <CardHeader>
+          <CardTitle>Por qué vale eso</CardTitle>
+          <CardDescription>
+            El AFFO del último ejercicio crece con lo que la empresa retiene; el
+            resto se distribuye y se descuenta. A perpetuidad, crecer no crea
+            valor.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <dl className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <dt className="text-muted-foreground">FFO</dt>
+              <dd className="numeric font-medium">
+                {base === undefined
+                  ? "Sin cálculo"
+                  : `${run.currency} ${formatCompactAmount(base.reconciliation.ffo)}`}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">AFFO</dt>
+              <dd className="numeric font-medium">
+                {base === undefined
+                  ? "Sin cálculo"
+                  : `${run.currency} ${formatCompactAmount(base.reconciliation.affo)}`}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">AFFO growth, year 1</dt>
+              <dd className="numeric font-medium">
+                {formatPercent(run.input.assumptions.periods[0]!.affoGrowth)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Cost of equity, year 1</dt>
+              <dd className="numeric font-medium">
+                {first === undefined
+                  ? "Sin cálculo"
+                  : formatPercent(first.costOfEquity)}
+              </dd>
+            </div>
+          </dl>
+          <Table className="mt-6">
+            <TableCaption className="text-left">
+              Del resultado común al AFFO, ejercicio cerrado el{" "}
+              {formatCalendarDate(run.input.affo.periodEnd)}. Cifras en{" "}
+              {run.currency}, del XBRL del 10-K.
+            </TableCaption>
+            <TableHeader>
+              <TableRow>
+                <TableHead scope="col">Componente</TableHead>
+                <TableHead scope="col">Concepto XBRL</TableHead>
+                <TableHead scope="col" className="text-right">
+                  Efecto
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {REIT_AFFO_ROWS.map((row) => {
+                const fact = run.input.affo[row.key];
+                const concept = derived?.affoBasis[row.key] ?? null;
+                return (
+                  <TableRow key={row.key}>
+                    <TableHead scope="row" className="font-normal">
+                      {row.label}
+                    </TableHead>
+                    <TableCell className="text-muted-foreground">
+                      {concept === null
+                        ? derived === undefined
+                          ? "Transcripto del 10-K"
+                          : "Sin concepto etiquetado"
+                        : concept.replace(/^us-gaap:/u, "")}
+                    </TableCell>
+                    <TableCell className="numeric text-right">
+                      {fact === null
+                        ? notAdjusted.has(row.key)
+                          ? "No ajustado"
+                          : "Falta"
+                        : `${row.sign < 0 ? "−" : "+"} ${formatCompactAmount(fact.value)}`}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+      {base === undefined ? null : (
+        <Card>
+          <CardHeader>
+            <CardTitle>Proyección del AFFO</CardTitle>
+            <CardDescription>
+              Diez años explícitos; crecimiento, retorno sobre equity nuevo y
+              beta convergen por regla. Cifras en {run.currency}.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead scope="col">Año</TableHead>
+                  <TableHead scope="col" className="text-right">
+                    AFFO growth
+                  </TableHead>
+                  <TableHead scope="col" className="text-right">
+                    AFFO
+                  </TableHead>
+                  <TableHead scope="col" className="text-right">
+                    Retention
+                  </TableHead>
+                  <TableHead scope="col" className="text-right">
+                    Distributable cash
+                  </TableHead>
+                  <TableHead scope="col" className="text-right">
+                    Cost of equity
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {base.periods.map((period) => (
+                  <TableRow key={period.periodIndex}>
+                    <TableCell>{period.periodIndex}</TableCell>
+                    <TableCell className="numeric text-right">
+                      {formatPercent(
+                        run.input.assumptions.periods[period.periodIndex - 1]!
+                          .affoGrowth,
+                      )}
+                    </TableCell>
+                    <TableCell className="numeric text-right">
+                      {formatCompactAmount(period.affo)}
+                    </TableCell>
+                    <TableCell className="numeric text-right">
+                      {formatPercent(period.retention)}
+                    </TableCell>
+                    <TableCell className="numeric text-right">
+                      {formatCompactAmount(period.distributableCash)}
+                    </TableCell>
+                    <TableCell className="numeric text-right">
+                      {formatPercent(period.costOfEquity)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <p className="mt-4 text-sm text-muted-foreground">
+              Valor presente de lo distribuido {run.currency}{" "}
+              {formatCompactAmount(base.presentValueOfDistributions)} + terminal{" "}
+              {run.currency} {formatCompactAmount(base.terminal.presentValue)} −
+              opciones de empleados {run.currency}{" "}
+              {formatCompactAmount(base.employeeOptionValue)}, sobre{" "}
+              {formatCompactAmount(base.shareCount)} acciones.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+      <CedearAccess cedear={reading.cedear} />
+      <Card>
+        <CardHeader>
+          <CardTitle>Auditoría</CardTitle>
+          <CardDescription>
+            Hechos, fecha y controles de esta corrida.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4 text-sm">
+          {derived === undefined ? null : (
+            <p>
+              Inmuebles netos: {formatPercent(derived.propertyShare.share)} del
+              activo al cierre base, por eso se valúa como REIT de propiedades.
+              Patrimonio común{" "}
+              {derived.commonEquityBasis === "common_equity"
+                ? "etiquetado como común"
+                : derived.commonEquityBasis === "equity_less_preferred"
+                  ? "igual al total menos el preferente"
+                  : "igual al total: la empresa no etiqueta preferente"}
+              : {run.currency} {formatCompactAmount(derived.commonEquity.value)}
+              . Beta de la industria {formatAmount(derived.equityBeta.value)},
+              de Damodaran.
+            </p>
+          )}
+          <p>
+            Libre de riesgo{" "}
+            {risk.riskFree === null
+              ? "faltante"
+              : formatPercent(risk.riskFree.value)}{" "}
+            · ERP{" "}
+            {risk.matureErp === null
+              ? "faltante"
+              : formatPercent(risk.matureErp.value)}{" "}
+            · CRP por domicilio{" "}
+            {risk.countryRiskPremium === null
+              ? "faltante"
+              : formatPercent(risk.countryRiskPremium.value)}
+            . Leídos al corte{" "}
+            <time
+              dateTime={
+                run.provenance.knowledge.knownAt ??
+                run.provenance.knowledge.effectiveAt
+              }
+            >
+              {formatUtcTimestamp(
+                run.provenance.knowledge.knownAt ??
+                  run.provenance.knowledge.effectiveAt,
+              )}
+            </time>
+            .
+          </p>
+          {reviewChecks.length > 0 || run.failure !== null ? (
+            <ul className="list-disc space-y-1 pl-5">
+              {run.result?.checks
+                .filter((check) => check.status === "failed")
+                .map((check) => (
+                  <li key={check.id}>
+                    {REIT_CHECK_COPY[check.id] ?? check.message}
+                  </li>
+                )) ?? <li>{run.failure?.message}</li>}
+            </ul>
+          ) : null}
+        </CardContent>
+      </Card>
+      <ValuationHistory view={history} />
+    </PageFrame>
+  );
+}
+
 /**
  * Resultado de una valuación sobre una empresa real (`F6-03`).
  *
@@ -689,6 +1059,9 @@ export default async function ValuationResultPage({ params }: PageProps) {
 
   if (reading.state === "financial_run") {
     return <FinancialRunView reading={reading} history={history} />;
+  }
+  if (reading.state === "reit_run") {
+    return <ReitRunView reading={reading} history={history} />;
   }
   if (reading.state !== "run") {
     return <WithoutRun reading={reading} />;

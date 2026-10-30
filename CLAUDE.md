@@ -569,6 +569,20 @@ sector batch: the sample grows with what the owner values (owner's decision).
 `listLatestInWindow` reads one run per company with `DISTINCT ON` and fails above 600
 instead of truncating.
 
+Since `F6-22` ([ADR 0064](docs/architecture/adr/0064-derived-reit-from-xbrl.md),
+migration `0046`) the job values equity property REITs with `affo-nav-1.1.0`.
+AFFO comes from the XBRL of the base year (`sec-core-concepts-10.0.0`,
+`annual-fundamentals-1.6.0`): common income and depreciation are required, and
+any other component the filer did not tag is **not adjusted** and named
+(`reconciliation.notAdjusted`, `reit_affo_not_adjusted`), never read as zero.
+The property basis is measured (real estate ≥ 50 % of assets). Assumptions
+follow `derived-reit-1.0.0`: the revenue trend capped at 0.3 × AFFO/common
+equity, return on new equity converging to the terminal Ke, and the industry
+beta. The NAV is declared absent without a dated NOI and cap rate. The AI only
+resolves the ambiguous 6798 industry; the AFFO transcription is no longer
+called. `affo-nav-1.0.0` runs keep their hashes, and the result page reads
+`reit_run`.
+
 The run history (`F6-02`,
 [ADR 0047](docs/architecture/adr/0047-valuation-run-history.md)) lists a
 ticker's last 20 completed jobs at render time (its `loadValuationHistory` action was

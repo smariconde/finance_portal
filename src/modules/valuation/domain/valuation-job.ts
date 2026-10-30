@@ -164,6 +164,8 @@ const DERIVED_JOB_METHODS: ReadonlySet<string> = new Set([
   "excess_return",
   "fcff_three_stage",
   "revenue_margin_survival",
+  // REIT de propiedades desde el XBRL (`F6-22`, ADR 0064).
+  "affo_nav",
 ]);
 
 export const valuationJobMethodSchema = z.enum([

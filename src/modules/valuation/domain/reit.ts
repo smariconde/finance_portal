@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+  type Dec,
   divide,
   engineDecimalSchema,
   formatDecimal,
@@ -10,7 +11,12 @@ import {
 } from "./decimal-policy";
 import { deriveEmployeeEquity } from "./employee-equity-claim";
 import { financialCostOfEquity } from "./excess-return";
-import type { ReitAssumptions, ReitInput } from "./reit-input";
+import {
+  REIT_OPTIONAL_AFFO_COMPONENTS,
+  type ReitAssumptions,
+  type ReitInput,
+  type ReitOptionalAffoComponent,
+} from "./reit-input";
 import { ValuationPolicyError } from "./valuation-error";
 
 const decimal = engineDecimalSchema;
@@ -21,6 +27,14 @@ export const reitComputationSchema = z.object({
     recurringCapex: decimal,
     straightLineRent: decimal,
     affo: decimal,
+    /**
+     * `affo-nav-1.1.0`: components the filer did not tag, left unapplied and
+     * named; never read as zero. Absent under `1.0.0`.
+     */
+    notAdjusted: z
+      .array(z.enum(REIT_OPTIONAL_AFFO_COMPONENTS))
+      .max(REIT_OPTIONAL_AFFO_COMPONENTS.length)
+      .optional(),
   }),
   periods: z
     .array(
@@ -53,29 +67,51 @@ export const reitComputationSchema = z.object({
   equityValue: decimal,
   shareCount: decimal,
   valuePerShare: decimal,
-  nav: z.object({
-    forwardNoi: decimal,
-    capRate: decimal,
-    propertyValue: decimal,
-    excessCash: decimal,
-    nonPropertyAssets: decimal,
-    debt: decimal,
-    preferredEquity: decimal,
-    noncontrollingInterests: decimal,
-    otherLiabilities: decimal,
-    corporateCostValue: decimal,
-    grossCommonEquity: decimal,
-    employeeOptionValue: decimal,
-    equityValue: decimal,
-    valuePerShare: decimal,
-  }),
+  /** `null` when the NAV is declared absent (`affo-nav-1.1.0`). */
+  nav: z
+    .object({
+      forwardNoi: decimal,
+      capRate: decimal,
+      propertyValue: decimal,
+      excessCash: decimal,
+      nonPropertyAssets: decimal,
+      debt: decimal,
+      preferredEquity: decimal,
+      noncontrollingInterests: decimal,
+      otherLiabilities: decimal,
+      corporateCostValue: decimal,
+      grossCommonEquity: decimal,
+      employeeOptionValue: decimal,
+      equityValue: decimal,
+      valuePerShare: decimal,
+    })
+    .nullable(),
   /** DCF minus NAV, in valuation currency/share; neither is an average. */
-  dcfMinusNavPerShare: decimal,
+  dcfMinusNavPerShare: decimal.nullable(),
 });
 
-export function reconcileAffo(input: ReitInput) {
+/**
+ * Components that `affo-nav-1.1.0` leaves unapplied because the filer did not
+ * tag them; the derivation names each one.
+ */
+export function reitNotAdjusted(
+  input: Pick<ReitInput, "affo" | "derivedReit">,
+): ReitOptionalAffoComponent[] {
+  const basis = input.derivedReit?.affoBasis;
+  return basis === undefined
+    ? []
+    : REIT_OPTIONAL_AFFO_COMPONENTS.filter(
+        (key) => basis[key] === null && input.affo[key] === null,
+      );
+}
+
+export function reconcileAffo(input: Pick<ReitInput, "affo" | "derivedReit">) {
   const a = input.affo;
+  const notAdjusted = reitNotAdjusted(input);
   const value = (key: keyof typeof a) => {
+    // Un componente no etiquetado no se aplica: no es un cero, es un ajuste
+    // que esta corrida no hizo, y la corrida lo nombra.
+    if ((notAdjusted as string[]).includes(key)) return ZERO;
     const fact = a[key];
     if (fact === null || typeof fact !== "object")
       throw new ValuationPolicyError(
@@ -99,6 +135,7 @@ export function reconcileAffo(input: ReitInput) {
     recurringCapex,
     straightLineRent,
     affo: ffo.minus(recurringCapex).minus(straightLineRent),
+    notAdjusted: input.derivedReit === undefined ? undefined : notAdjusted,
   };
 }
 
@@ -178,39 +215,21 @@ export function computeReit(
   const equityValue = grossEquityValue.minus(options);
   const valuePerShare = divide(equityValue, shares, "valuePerShare");
 
-  const noi = parseDecimal(assumptions.nav.forwardNoi, "nav.forwardNoi");
-  const capRate = parseDecimal(assumptions.nav.capRate, "nav.capRate");
-  const propertyValue = divide(noi, capRate, "nav.propertyValue");
-  const amounts = Object.fromEntries(
-    (
-      [
-        "excessCash",
-        "nonPropertyAssets",
-        "debt",
-        "preferredEquity",
-        "noncontrollingInterests",
-        "otherLiabilities",
-        "corporateCostValue",
-      ] as const
-    ).map((key) => [key, parseDecimal(input.nav[key]!.value, `nav.${key}`)]),
-  );
-  const grossCommonEquity = propertyValue
-    .plus(amounts.excessCash!)
-    .plus(amounts.nonPropertyAssets!)
-    .minus(amounts.debt!)
-    .minus(amounts.preferredEquity!)
-    .minus(amounts.noncontrollingInterests!)
-    .minus(amounts.otherLiabilities!)
-    .minus(amounts.corporateCostValue!);
-  const navEquity = grossCommonEquity.minus(options);
-  const navPerShare = divide(navEquity, shares, "nav.valuePerShare");
+  const nav =
+    assumptions.nav === null || input.nav === null
+      ? null
+      : computeNav(input.nav, assumptions.nav, options, shares);
   return reitComputationSchema.parse({
-    reconciliation: Object.fromEntries(
-      Object.entries(reconciled).map(([key, value]) => [
-        key,
-        formatDecimal(value, key),
-      ]),
-    ),
+    reconciliation: {
+      commonNetIncome: formatDecimal(reconciled.commonNetIncome, "ni"),
+      ffo: formatDecimal(reconciled.ffo, "ffo"),
+      recurringCapex: formatDecimal(reconciled.recurringCapex, "capex"),
+      straightLineRent: formatDecimal(reconciled.straightLineRent, "slr"),
+      affo: formatDecimal(reconciled.affo, "affo"),
+      ...(reconciled.notAdjusted === undefined
+        ? {}
+        : { notAdjusted: reconciled.notAdjusted }),
+    },
     periods,
     terminal: {
       affo: formatDecimal(nextAffo, "terminal.affo"),
@@ -230,9 +249,54 @@ export function computeReit(
     equityValue: formatDecimal(equityValue, "equityValue"),
     shareCount: employee.shareCount,
     valuePerShare: formatDecimal(valuePerShare, "valuePerShare"),
-    nav: {
-      forwardNoi: assumptions.nav.forwardNoi,
-      capRate: assumptions.nav.capRate,
+    nav: nav?.reading ?? null,
+    dcfMinusNavPerShare:
+      nav === null
+        ? null
+        : formatDecimal(
+            valuePerShare.minus(nav.perShare),
+            "dcfMinusNavPerShare",
+          ),
+  });
+}
+
+function computeNav(
+  claims: NonNullable<ReitInput["nav"]>,
+  navAssumptions: NonNullable<ReitAssumptions["nav"]>,
+  options: Dec,
+  shares: Dec,
+) {
+  const noi = parseDecimal(navAssumptions.forwardNoi, "nav.forwardNoi");
+  const capRate = parseDecimal(navAssumptions.capRate, "nav.capRate");
+  const propertyValue = divide(noi, capRate, "nav.propertyValue");
+  const amounts = Object.fromEntries(
+    (
+      [
+        "excessCash",
+        "nonPropertyAssets",
+        "debt",
+        "preferredEquity",
+        "noncontrollingInterests",
+        "otherLiabilities",
+        "corporateCostValue",
+      ] as const
+    ).map((key) => [key, parseDecimal(claims[key]!.value, `nav.${key}`)]),
+  );
+  const grossCommonEquity = propertyValue
+    .plus(amounts.excessCash!)
+    .plus(amounts.nonPropertyAssets!)
+    .minus(amounts.debt!)
+    .minus(amounts.preferredEquity!)
+    .minus(amounts.noncontrollingInterests!)
+    .minus(amounts.otherLiabilities!)
+    .minus(amounts.corporateCostValue!);
+  const navEquity = grossCommonEquity.minus(options);
+  const perShare = divide(navEquity, shares, "nav.valuePerShare");
+  return {
+    perShare,
+    reading: {
+      forwardNoi: navAssumptions.forwardNoi,
+      capRate: navAssumptions.capRate,
       propertyValue: formatDecimal(propertyValue, "propertyValue"),
       ...Object.fromEntries(
         Object.entries(amounts).map(([key, value]) => [
@@ -243,11 +307,7 @@ export function computeReit(
       grossCommonEquity: formatDecimal(grossCommonEquity, "nav.common"),
       employeeOptionValue: formatDecimal(options, "options"),
       equityValue: formatDecimal(navEquity, "nav.equity"),
-      valuePerShare: formatDecimal(navPerShare, "nav.perShare"),
+      valuePerShare: formatDecimal(perShare, "nav.perShare"),
     },
-    dcfMinusNavPerShare: formatDecimal(
-      valuePerShare.minus(navPerShare),
-      "dcfMinusNavPerShare",
-    ),
-  });
+  };
 }
