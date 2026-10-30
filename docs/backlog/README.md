@@ -102,7 +102,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    74 | `F6-28`    | `done`     | Lectura rápida: carga visible en cada acción lenta, cabecera de indicadores, una línea por sección con ⓘ, exigencias del precio dibujadas y referencia S&P 500 liviana.                                                   | `F6-27`          |
 |    75 | `F6-29`    | `queued`   | Estimaciones de consenso fechadas para P/E forward y PEG, con fuente y derechos en su ADR, y umbral de múltiplo declarado por el owner.                                                                                   | `F6-25`          |
 |    76 | `F8-03`    | `done`     | Matriz de divergencias con filtros y detalle que conservan el valor crudo de los outliers, con su equivalente accesible.                                                                                                  | `F8-02`          |
-|    77 | `F8-04`    | `ready`    | Golden y property tests de las divergencias: splits, restatements, negativos, outliers, tolerancias y look-ahead.                                                                                                         | `F8-03`          |
+|    77 | `F8-04`    | `done`     | Golden y property tests de las divergencias: splits, restatements, negativos, outliers, tolerancias y look-ahead.                                                                                                         | `F8-03`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -5947,6 +5947,24 @@ llevan de 24 a 7, 6 y 4 securities; APP queda recortado con +309,8 % en la
 tabla; axe 0 serious/critical y sin overflow a 1440 claro y 390 oscuro; la tabla
 vuelve a entrar en 1440 (1.088/1.088 px). 3.389 unit, E2E, lint, tipos, formato,
 build y detector de Impeccable pasan. Sin red ni migración. Sigue `F8-04`.
+
+**`F8-04`, 2026-10-30: golden y propiedades.** Un filer sintético recorre la
+cadena completa del dominio —cierres fiscales, base de split, vistas y puente—,
+como la lectura sectorial. El golden tiene nueve casos con los valores esperados
+calculados **fuera del código**, con Python `Decimal` a 50 dígitos, y comparados a
+ocho decimales: recompras, dilución, split 4:1 entre las puntas, outlier de
++606 %, respaldo con diluidas, las cuatro categorías de pérdida, tolerancia de
+precio de siete contra ocho días, restatement antes y después del corte y un
+corte sin el último 10-K. Las siete propiedades usan un generador con semilla fija
+y 150 casos cada una, sin dependencia nueva: identidades exactas, invariancia ante
+un split confirmado (ratios 2 a 20), split sin confirmación SEC sin ajustar,
+escala de beneficios, beneficios no positivos sin tasa, revisión posterior al
+corte sin efecto, y tasas extremas finitas y del signo de su razón. Fórmulas,
+límites y la planilla del golden quedan publicados en
+[`docs/data/divergence-golden.md`](../data/divergence-golden.md), con estado
+`pending_owner`: la revisión manual del owner es lo que cierra el gate de la
+Fase 8. 16 pruebas nuevas; 3.405 unit, lint, tipos, formato y build pasan. Sin
+red, migración ni UI.
 
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
