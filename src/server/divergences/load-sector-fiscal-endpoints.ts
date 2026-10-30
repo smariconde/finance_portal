@@ -1,8 +1,12 @@
 import "server-only";
 
 import { loadSectorFiscalEndpoints as loadSector } from "@/modules/divergences/application/load-sector-fiscal-endpoints";
+import { buildSectorDivergenceMatrix } from "@/modules/divergences/application/sector-divergence-matrix";
 import { readLineageObservations } from "@/modules/corporate-actions/application/read-lineage-observations";
-import { SEC_SOURCE_ID } from "@/modules/fundamentals/application/live-company-facts-source";
+import {
+  MAX_REQUESTS_PER_COMPANY_FACTS_LOAD,
+  SEC_SOURCE_ID,
+} from "@/modules/fundamentals/application/live-company-facts-source";
 import { COMPANY_FACTS_DATASET_ID } from "@/modules/fundamentals/application/ingest-company-facts";
 import type { IdentityGraph } from "@/modules/identity/domain/identity-graph";
 import {
@@ -10,11 +14,13 @@ import {
   DEFAULT_SOURCE_POLICY_VERSION,
   type PointInTimeQueryInput,
 } from "@/modules/temporal/domain/point-in-time-query";
+import { getCedearRegistryRepository } from "@/server/persistence/get-cedear-registry-repository";
 import { getClassificationRepository } from "@/server/persistence/get-classification-repository";
 import { getCorporateActionRepository } from "@/server/persistence/get-corporate-action-repository";
 import { getIngestionRunRepository } from "@/server/persistence/get-ingestion-run-repository";
 import { getObservationRepository } from "@/server/persistence/get-observation-repository";
 import { getPriceRepository } from "@/server/persistence/get-price-repository";
+import { getSourceBudgetStore } from "@/server/persistence/get-source-budget-store";
 import { getUniverseRepository } from "@/server/persistence/get-universe-repository";
 
 /** Only the SEC concepts the divergence views need; no universe backfill. */
@@ -115,4 +121,30 @@ export async function loadStoredSectorFiscalEndpoints(
       }),
     },
   );
+}
+
+/** The divergence surface's one read: fiscal pairs, views, bridge and CEDEAR. */
+export async function loadStoredSectorDivergenceMatrix(sectorCode: string) {
+  const [reading, registry] = await Promise.all([
+    loadStoredSectorFiscalEndpoints(sectorCode),
+    getCedearRegistryRepository().loadRegistry({}),
+  ]);
+  return buildSectorDivergenceMatrix(reading, registry);
+}
+
+/**
+ * Today's SEC quota, to tell the owner what downloading a sector would cost
+ * before anything is asked of the source. Reading it opens no socket.
+ */
+export async function readSecQuotaToday() {
+  const state = await getSourceBudgetStore().readState(
+    SEC_SOURCE_ID,
+    new Date().toISOString(),
+  );
+  return {
+    disabled: state.control?.status === "disabled",
+    used: state.used,
+    limit: state.effectiveLimit,
+    perIssuerCeiling: MAX_REQUESTS_PER_COMPANY_FACTS_LOAD,
+  };
 }

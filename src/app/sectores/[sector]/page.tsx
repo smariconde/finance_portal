@@ -29,6 +29,7 @@ import { getUniverseRepository } from "@/server/persistence/get-universe-reposit
 import { requestCompanyLogoUrl } from "@/server/config/company-logo";
 import { getBusinessExcerptRepository } from "@/server/persistence/get-business-excerpt-repository";
 
+import { SectorMatrixNav } from "./_components/sector-matrix-nav";
 import { SectorPriceRefresh } from "./_components/sector-price-refresh";
 import { SectorRiskExport } from "./_components/sector-risk-export";
 import { SectorRiskQuality } from "./_components/sector-risk-quality";
@@ -147,12 +148,15 @@ export default async function SectorRiskMatrixPage({ params }: PageProps) {
           className="flex flex-col gap-3"
           aria-labelledby="sector-matrix-title"
         >
-          <Link
-            href="/sectores"
-            className="w-fit text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-          >
-            Matrices por sector
-          </Link>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Link
+              href="/sectores"
+              className="w-fit text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            >
+              Matrices por sector
+            </Link>
+            <SectorMatrixNav sectorCode={sector.code} current="risk" />
+          </div>
           <h1
             id="sector-matrix-title"
             className="max-w-4xl text-2xl font-semibold tracking-tight text-balance md:text-3xl"

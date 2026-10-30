@@ -121,7 +121,7 @@ test.describe("shell del portal", () => {
     await page.goto(ROUTES.home);
     await openNavigation(page);
 
-    for (const label of ["Empresas", "Divergencias", "Argentina", "Agro"]) {
+    for (const label of ["Empresas", "Argentina", "Agro"]) {
       const item = page.getByRole("button", { name: new RegExp(label) });
       // El estado se anuncia con `aria-disabled` para conservar el tooltip que
       // etiqueta el control cuando la sidebar está colapsada.
@@ -201,6 +201,7 @@ test.describe("shell del portal", () => {
       ROUTES.reference,
       ROUTES.sectors,
       ROUTES.sectorMatrix,
+      ROUTES.sectorDivergences,
     ]) {
       await page.goto(route);
 

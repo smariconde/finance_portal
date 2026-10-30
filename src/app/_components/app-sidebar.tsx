@@ -5,7 +5,6 @@ import {
   Calculator,
   ChartScatter,
   Database,
-  GitCompareArrows,
   Home,
   Landmark,
   Settings2,
@@ -54,13 +53,13 @@ const activeItems = [
 ] as const;
 
 /**
- * Lo que el backlog tiene por delante: la ficha de la empresa (`F6-25`),
- * divergencias fundamentales (Fase 8), y Argentina y soja (Fase 9). No hay
- * screener: el filtrado amplio se hace afuera (ADR 0016).
+ * Lo que el backlog tiene por delante: la ficha de la empresa (`F6-25`) y
+ * Argentina y soja (Fase 9). Las divergencias (Fase 8) viven en «Matrices»,
+ * junto al riesgo de cada sector. No hay screener: el filtrado amplio se hace
+ * afuera (ADR 0016).
  */
 const plannedItems = [
   { label: "Empresas", icon: Building2 },
-  { label: "Divergencias", icon: GitCompareArrows },
   { label: "Argentina", icon: Landmark },
   { label: "Agro", icon: Wheat },
 ] as const;

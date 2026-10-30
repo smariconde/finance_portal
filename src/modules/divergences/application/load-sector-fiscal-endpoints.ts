@@ -64,6 +64,8 @@ export type SectorFiscalMember = {
   readonly securityId: string;
   readonly issuerLegalEntityId: string;
   readonly ticker: string | null;
+  /** Legal name at the cutoff; `null` if the graph has no visible version. */
+  readonly issuerName: string | null;
   readonly twoYears: FiscalEndpointPair;
   readonly fiveYears: FiscalEndpointPair;
 };
@@ -119,6 +121,14 @@ export async function loadSectorFiscalEndpoints(
   }
 
   const readers = dependencies.createFactReaders(graph, query);
+  const legalNames = new Map(
+    graph.legalEntities
+      .filter(
+        (entity) =>
+          isEffectiveAt(entity, query.effectiveAt) && isKnownAt(entity, query),
+      )
+      .map((entity) => [entity.legalEntityId, entity.legalName]),
+  );
   const commonClassesByIssuer = new Map<string, number>();
   for (const security of graph.securities) {
     if (
@@ -232,6 +242,7 @@ export async function loadSectorFiscalEndpoints(
             securityId: member.securityId,
             issuerLegalEntityId: member.issuerLegalEntityId,
             ticker: ticker?.symbol ?? null,
+            issuerName: legalNames.get(member.issuerLegalEntityId) ?? null,
             twoYears: refuseIssuerWideShares(
               selectFiscalEndpoints({ ...common, horizonYears: 2 }),
             ),

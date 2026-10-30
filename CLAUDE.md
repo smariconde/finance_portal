@@ -210,6 +210,17 @@ carry an `X-Request-Id` but no storage details; the download control reports
 them inline and permits retry. The declared source registry is the rights
 authority; the PostgreSQL copy can lag a code change until the next job.
 
+The divergence matrix (`F8-02`) is `/sectores/[sector]/divergencias`, a sibling
+route with a «Riesgo · Divergencias» selector. `divergence-views-1.0.0` computes
+market cap vs diluted EPS (the owner's main view), market cap vs net income and
+price vs EPS as CAGRs between strictly positive endpoints; a non-positive
+earnings end is a category, never a rate. Market cap uses close shares at both
+ends or, failing either, average diluted shares at both, never mixed, and names
+the basis; a `|share_count_bias_pp|` above 2 pp is marked (both owner decisions).
+`dilution-bridge-1.0.0` checks EPS against its numerator within printed rounding.
+The page reads stored data only; a sector without SEC fundamentals states the
+worst-case request cost against today's SEC quota instead of downloading.
+
 ```bash
 pnpm cedears:record                                # dry run: both issuers, one request each, writes nothing
 pnpm cedears:record --source comafi-cedear --apply # records one issuer's programs and ratios
