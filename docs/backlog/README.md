@@ -91,8 +91,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    63 | `F6-19`    | `done`     | Contexto de la brecha: precio sobre valor de la empresa frente a su sector y a todo lo valuado, y múltiplos contra el sector.                                                                                             | `F6-18`, `F8-01` |
 |    64 | `F6-20`    | `done`     | Bancos y aseguradoras valuados desde la app: el job deriva el snapshot de exceso de retorno sobre el patrimonio.                                                                                                          | `F6-18`          |
 |    65 | `F6-21`    | `done`     | Empresas en pérdidas o de alto crecimiento valuadas desde la app: el job deriva el snapshot de ventas a margen con supervivencia.                                                                                         | `F6-20`          |
-|    66 | `F6-22`    | `ready`    | REIT de propiedades valuados desde la app: AFFO transcripto del 10-K por la IA y conciliado, y NAV.                                                                                                                       | `F6-21`          |
-|    67 | `F8-02`    | `queued`   | Vista principal market cap vs EPS con sesgo de recompras visible y vistas alternativas con puente de dilución.                                                                                                            | `F8-01`          |
+|    66 | `F6-22`    | `done`     | REIT desde la app con negativa trazable: el job selecciona `affo_nav`, verifica base y accession y nombra lo que falta; sin caso positivo (27 REIT medidos).                                                              | `F6-21`          |
+|    67 | `F8-02`    | `ready`    | Vista principal market cap vs EPS con sesgo de recompras visible y vistas alternativas con puente de dilución.                                                                                                            | `F8-01`          |
 |    68 | `F6-23`    | `queued`   | Deuda de las empresas con brazo financiero cautivo (CAT, DE): medir sus conceptos y decidir cómo se trata la financiera antes de valuarlas.                                                                               | `F6-18`          |
 |    69 | `F6-24`    | `queued`   | Año base TTM: el último 10-Q entra al año base (flujos TTM, balance al último cierre) y la corrida deja de quedar hasta un año atrás.                                                                                     | `F6-22`          |
 |    70 | `F6-25`    | `queued`   | Ficha de la empresa: múltiplos elegidos por arquetipo y su historia reportada en barras, calculados con datos propios.                                                                                                    | `F6-19`          |
@@ -4221,14 +4221,11 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
 
 #### `F6-22` — REIT de propiedades desde la app
 
-- Estado: `ready`; pausado el 2026-10-29 para hacer `F6-28` y se retoma
-  después. Estuvo `in_progress` desde el 2026-10-29. El incremento de negativa
-  trazable está cerrado; el camino positivo aún requiere una conciliación AFFO
-  que cumpla la receta y una tasa de capitalización fechada de la misma base de
-  propiedades, o un contrato nuevo versionado y probado para las partidas que
-  la receta actual no representa. El motor
-  `affo_nav` (ADR 0044) sólo calcula desde CLI; el job ya clasifica y niega
-  insumos faltantes. AFFO no está en el XBRL.
+- Estado: `done`, cerrado el 2026-10-30 con la negativa trazable por decisión
+  del owner. Estuvo `in_progress` desde el 2026-10-29, con una pausa para
+  `F6-28`. El motor `affo_nav` (ADR 0044) sigue calculando sólo desde CLI; el
+  job clasifica, verifica base inmobiliaria y accession y niega con nombre. AFFO
+  no está en el XBRL. Ver «Cierre» al final de esta sección.
 - Alcance: la IA transcribe FFO/AFFO del 10-K con citas y una policy los
   concilia; NAV independiente.
 - Primer incremento: `reit-affo-1.0.0` exige siete componentes con citas
@@ -4316,6 +4313,24 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
   definición AFFO del suplemento no coincide con `affo-reconciliation-1.0.0`.
   Para un caso positivo falta una conciliación admitida y una tasa comparable,
   fechada y con derechos de uso registrados para la misma base de propiedades.
+
+- Cierre del 2026-10-30. Medición del último 10-K (ejercicio 2025) de 27 REIT
+  del índice, 54 pedidos SEC por el egress medido; el texto quedó sólo en el
+  scratchpad. Ocho tienen un extracto `sec-10k-reit-affo-1.0.0` (EQIX, UDR,
+  REG, INVH, VICI, CPT, O, DOC) y **ninguno** cumple `affo-reconciliation-1.0.0`:
+  todos suman partidas que la receta no representa —SBC, amortización de costos
+  de deuda, previsión de incobrables, ajustes «Core», resultado de minoritarios
+  por unidades OP— o no imprimen la renta lineal. El más cercano, Camden, parte
+  del FFO Nareit, suma minoritarios y ajustes Core y resta capex recurrente. Los
+  otros 19 sólo publican AFFO, si acaso, en el suplemento del 8-K. Ninguno tiene
+  un cap rate fechado de su cartera.
+- Decisión del owner: cerrar con la negativa trazable y no versionar un
+  contrato AFFO `2.0.0` ni un cap rate declarado. Motivo: el owner no opera
+  REIT y sólo tres REIT del índice tienen CEDEAR (O, PLD y WELL, Comafi), ninguno
+  compatible con la receta. Si vuelve a interesar, el camino medido es
+  transcribir todas las líneas con cita, exigir que cierren contra el FFO y el
+  AFFO impresos, separar por regla las partidas excluidas y declarar NOI forward
+  y cap rate por CIK; Camden sería el primer caso.
 
 #### `F6-01` — corrida por ticker encolada (cerrado el 2026-10-21)
 
