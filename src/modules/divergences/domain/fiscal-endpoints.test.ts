@@ -112,6 +112,59 @@ describe("selectFiscalEndpoints", () => {
     expect(two.actualYears).toBeGreaterThan(1.99);
   });
 
+  it("reads the bridge's basic shares and EPS numerator of the same year", () => {
+    const row = (
+      concept: string,
+      value: string,
+      unit: string,
+      end: string,
+    ) => ({
+      ...eps(end, value),
+      observationId: `${concept}-${end}`,
+      concept: `us-gaap:${concept}`,
+      unit,
+      currency: unit === "shares" ? null : "USD",
+    });
+    const result = selectFiscalEndpoints({
+      series: series(),
+      epsRows: [
+        eps("2025-12-31", "10"),
+        eps("2023-12-31", "8"),
+        row(
+          "WeightedAverageNumberOfSharesOutstandingBasic",
+          "110",
+          "shares",
+          "2025-12-31",
+        ),
+        row(
+          "NetIncomeLossAvailableToCommonStockholdersDiluted",
+          "1190",
+          "monetary",
+          "2025-12-31",
+        ),
+        // Each endpoint reads its own fiscal year.
+        row(
+          "WeightedAverageNumberOfSharesOutstandingBasic",
+          "99",
+          "shares",
+          "2023-12-31",
+        ),
+      ],
+      closes: [close("2025-12-30", "50"), close("2023-12-29", "30")],
+      events: [],
+      actions: [],
+      query,
+      horizonYears: 2,
+    });
+
+    expect(result.version).toBe("fiscal-endpoints-1.4.0");
+    expect(result.latest?.basicShares?.value).toBe("110");
+    expect(result.latest?.splitBasis.adjustedBasicShares).toBe("110");
+    expect(result.latest?.dilutedNumerator?.value).toBe("1190");
+    expect(result.earlier?.basicShares?.value).toBe("99");
+    expect(result.earlier?.dilutedNumerator).toBeNull();
+  });
+
   it("keeps unavailable values named, including a distant close and mismatched currency", () => {
     const result = selectFiscalEndpoints({
       series: series(),

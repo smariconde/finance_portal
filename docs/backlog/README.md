@@ -5863,6 +5863,27 @@ TTWO, ECHO y TKO. `metric-catalog-1.1.0` pasa las métricas de divergencia a
 migración ni UI. Falta la conciliación básicas/diluidas del punto 7, la lectura
 para la superficie y la interfaz (`F8-03` trae scatter y tabla).
 
+**`F8-02`, segundo incremento, 2026-10-30: puente de dilución.** Cierra el punto
+7 de la especificación. `fiscal-endpoints-1.4.0` lee también las acciones
+básicas promedio y `NetIncomeLossAvailableToCommonStockholdersDiluted` del mismo
+ejercicio, y `fiscal-split-basis-1.2.0` lleva las básicas a la misma base de
+splits; los dos conceptos ya estaban en la selección SEC, así que no hay
+reingesta. `dilution-bridge-1.0.0`, por punta: dilución potencial
+(`diluidas / básicas − 1`); acciones implícitas = numerador del EPS (el
+etiquetado o, si falta, net income, nombrado) / EPS diluido, contra las diluidas
+reportadas; y una cota de redondeo impreso —medio centavo sobre el EPS más media
+unidad impresa del numerador y de las acciones, leída de los ceros finales—. Un
+residuo mayor se nombra (`reconciled: false`), no se rechaza: EPS de operaciones
+continuas, dos clases o preferidas caen ahí. Entre vistas,
+`aggregate_gap − per_share_gap` es exactamente el efecto de acciones sobre
+beneficios (`ni − eps`) menos el efecto sobre valor (`mc − precio`). Medido en
+Communication Services: concilian 16 de 20 securities con insumos (14 de 17 emisores); T (0,35 %), VZ
+(2,50 %) y News Corp (29,2 %) quedan nombrados, CMCSA sin base de splits y TTWO
+sin EPS. La dilución potencial va de 0 % a 8,4 % (RDDT) y llega a 140 % en TKO,
+cuyas diluidas incluyen las unidades convertibles de su controlante. 8 pruebas
+nuevas; 3.354 unit, lint, tipos, formato y build pasan. Sin red, migración ni
+UI. Sigue la lectura para la superficie y la interfaz.
+
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
 | `F8-01` | Pipeline fiscal-aligned point-in-time de precio, market cap, net income, EPS y acciones para los filers del sector elegido, sin cargar el universo.                                   | Fase 6     | `TM-05`, `TM-06`, `TM-16` |

@@ -17,7 +17,7 @@ import { getObservationRepository } from "@/server/persistence/get-observation-r
 import { getPriceRepository } from "@/server/persistence/get-price-repository";
 import { getUniverseRepository } from "@/server/persistence/get-universe-repository";
 
-/** Only the SEC concepts that F8-01 needs; no universe fundamentals backfill. */
+/** Only the SEC concepts the divergence views need; no universe backfill. */
 const FISCAL_CONCEPTS = [
   "us-gaap:NetIncomeLoss",
   "us-gaap:ProfitLoss",
@@ -25,6 +25,8 @@ const FISCAL_CONCEPTS = [
   "us-gaap:IncomeLossFromContinuingOperationsPerDilutedShare",
   "us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding",
   "us-gaap:CommonStockSharesOutstanding",
+  "us-gaap:WeightedAverageNumberOfSharesOutstandingBasic",
+  "us-gaap:NetIncomeLossAvailableToCommonStockholdersDiluted",
 ];
 
 /** A predecessor has no current CIK assignment but keeps its last filing key. */

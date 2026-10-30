@@ -48,6 +48,8 @@ function point(values: Values): FiscalEndpoint {
             currency: null,
           } as FiscalEndpoint["dilutedShares"]),
     sharesOutstanding: null,
+    basicShares: null,
+    dilutedNumerator: null,
     splitBasis: {
       version: FISCAL_SPLIT_BASIS_VERSION,
       priceFactor: "1",
@@ -56,6 +58,7 @@ function point(values: Values): FiscalEndpoint {
       adjustedEps: values.eps,
       adjustedDilutedShares: values.dilutedShares ?? values.shares,
       adjustedSharesOutstanding: values.shares,
+      adjustedBasicShares: null,
       reason: splitReason,
     },
     marketCap,
