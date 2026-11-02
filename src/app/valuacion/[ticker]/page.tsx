@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 
 import { DataUnavailableNotice } from "@/app/_components/data-unavailable-notice";
 import { CompanyMark } from "@/app/_components/company-mark";
+import { FinvizProfileLink } from "@/app/_components/finviz-profile-link";
 import { InfoTip } from "@/app/_components/info-tip";
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -209,6 +210,7 @@ function PageFrame({
                     {ticker}
                   </p>
                 )}
+                <FinvizProfileLink ticker={ticker} />
               </div>
             </div>
           </div>

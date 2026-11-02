@@ -103,6 +103,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    75 | `F6-29`    | `queued`   | Estimaciones de consenso fechadas para P/E forward y PEG, con fuente y derechos en su ADR, y umbral de múltiplo declarado por el owner.                                                                                   | `F6-25`          |
 |    76 | `F8-03`    | `done`     | Matriz de divergencias con filtros y detalle que conservan el valor crudo de los outliers, con su equivalente accesible.                                                                                                  | `F8-02`          |
 |    77 | `F8-04`    | `done`     | Golden y property tests de las divergencias: splits, restatements, negativos, outliers, tolerancias y look-ahead.                                                                                                         | `F8-03`          |
+|    78 | `F9-01`    | `ready`    | Catálogo y vintages BCRA v4 con fallo seguro ante cambios de esquema, conservando release, unidad, frecuencia y revisión.                                                                                                 | Fase 8 `done`    |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -5962,9 +5963,18 @@ escala de beneficios, beneficios no positivos sin tasa, revisión posterior al
 corte sin efecto, y tasas extremas finitas y del signo de su razón. Fórmulas,
 límites y la planilla del golden quedan publicados en
 [`docs/data/divergence-golden.md`](../data/divergence-golden.md), con estado
-`pending_owner`: la revisión manual del owner es lo que cierra el gate de la
-Fase 8. 16 pruebas nuevas; 3.405 unit, lint, tipos, formato y build pasan. Sin
-red, migración ni UI.
+`approved_owner` desde el 2026-11-02: el owner confirmó los nueve casos y
+cerró el gate de la Fase 8. 16 pruebas nuevas; 3.405 unit, lint, tipos,
+formato y build pasan. Sin red, migración ni UI.
+
+**Refinamiento del 2026-11-02, pedido del owner:** el detalle seleccionado de
+riesgo y divergencias repite el logo o monograma y enlaza a Finviz siempre que
+haya ticker. La valuación también ofrece Finviz desde el encabezado, incluso
+sin descripción o corrida. El rótulo largo del eje Y de divergencias va arriba
+del gráfico para que no se corte. Tipos, lint, formato, build, 40 pruebas
+focalizadas y E2E (222 aprobadas, 3 omitidas) pasan; la matriz de divergencias
+se revisó con datos locales a 1440 y 390 px, sin overflow. No cambia fuentes,
+fórmulas, ingesta ni esquema. Sigue `F9-01`.
 
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |

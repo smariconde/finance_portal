@@ -589,9 +589,9 @@ export function MatrixChart({
     return () => observer.disconnect();
   }, []);
 
-  // Un rótulo largo girado no entra en el alto de un gráfico angosto: se
-  // recorta. En pantallas chicas va horizontal arriba del gráfico.
-  const yLabelAbove = compact && yLabel !== undefined;
+  // El rótulo largo de divergencias se corta contra el margen al girarlo,
+  // incluso en escritorio. Va horizontal arriba en todos los tamaños.
+  const yLabelAbove = yLabel !== undefined;
 
   return (
     <div ref={container}>
