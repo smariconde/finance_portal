@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useId, useMemo, useState } from "react";
 
 import { CompanyMark } from "@/app/_components/company-mark";
+import { FinvizProfileLink } from "@/app/_components/finviz-profile-link";
 import {
   Card,
   CardContent,
@@ -192,10 +193,12 @@ function SelectedRow({
   row,
   horizon,
   view,
+  logoUrl,
 }: {
   readonly row: SectorDivergenceRow | null;
   readonly horizon: HorizonKey;
   readonly view: ViewKey;
+  readonly logoUrl: string | null;
 }) {
   if (row === null) {
     return (
@@ -260,24 +263,32 @@ function SelectedRow({
 
   return (
     <div className="flex flex-col gap-3">
-      <div>
-        <p className="text-base font-semibold">{rowLabel(row)}</p>
-        <p className="text-sm text-muted-foreground">
-          {row.issuerName ?? "Emisor sin nombre registrado"}
-        </p>
-        {data.earlierFiscalYearEnd === null ||
-        data.latestFiscalYearEnd === null ? null : (
-          <p className="text-xs text-muted-foreground">
-            Ejercicios cerrados el{" "}
-            <time dateTime={data.earlierFiscalYearEnd}>
-              {formatCalendarDate(data.earlierFiscalYearEnd)}
-            </time>{" "}
-            y el{" "}
-            <time dateTime={data.latestFiscalYearEnd}>
-              {formatCalendarDate(data.latestFiscalYearEnd)}
-            </time>
+      <div className="flex items-center gap-3">
+        <CompanyMark
+          ticker={row.ticker ?? row.securityId}
+          name={row.issuerName}
+          logoUrl={logoUrl}
+          size="md"
+        />
+        <div className="min-w-0">
+          <p className="text-base font-semibold">{rowLabel(row)}</p>
+          <p className="text-sm text-muted-foreground">
+            {row.issuerName ?? "Emisor sin nombre registrado"}
           </p>
-        )}
+          {data.earlierFiscalYearEnd === null ||
+          data.latestFiscalYearEnd === null ? null : (
+            <p className="text-xs text-muted-foreground">
+              Ejercicios cerrados el{" "}
+              <time dateTime={data.earlierFiscalYearEnd}>
+                {formatCalendarDate(data.earlierFiscalYearEnd)}
+              </time>{" "}
+              y el{" "}
+              <time dateTime={data.latestFiscalYearEnd}>
+                {formatCalendarDate(data.latestFiscalYearEnd)}
+              </time>
+            </p>
+          )}
+        </div>
       </div>
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
         {entries.map(([term, value]) => (
@@ -302,12 +313,15 @@ function SelectedRow({
         </p>
       ) : null}
       {row.ticker === null ? null : (
-        <Link
-          href={`/valuacion/${encodeURIComponent(row.ticker)}`}
-          className="w-fit text-sm underline underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-        >
-          Ver la valuación de {row.ticker}
-        </Link>
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
+          <Link
+            href={`/valuacion/${encodeURIComponent(row.ticker)}`}
+            className="w-fit text-sm underline underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            Ver la valuación de {row.ticker}
+          </Link>
+          <FinvizProfileLink ticker={row.ticker} />
+        </div>
       )}
     </div>
   );
@@ -594,7 +608,16 @@ export function DivergenceWorkspace({
             <CardTitle as="h2">Punto seleccionado</CardTitle>
           </CardHeader>
           <CardContent aria-live="polite">
-            <SelectedRow row={selected} horizon={horizon} view={view} />
+            <SelectedRow
+              row={selected}
+              horizon={horizon}
+              view={view}
+              logoUrl={
+                selected === null
+                  ? null
+                  : (logoUrls[selected.securityId] ?? null)
+              }
+            />
           </CardContent>
         </Card>
       </div>

@@ -1,8 +1,8 @@
 # Divergencias fundamentales: fórmulas, límites y golden dataset
 
-Estado del golden: `pending_owner`. Lo propuso el agente y falta la revisión del
-owner, caso por caso, contra la columna «Cuenta a mano». Hasta entonces la
-corrección del dataset es provisoria, como la de los evals de la IA (ADR 0035).
+Estado del golden: `approved_owner` (2026-11-02). El owner confirmó los nueve
+casos y sus cuentas propuestas. Los valores esperados siguen fijados por las
+pruebas y cualquier cambio posterior requiere una nueva revisión.
 
 Documento de referencia de la matriz de divergencias (`F8-01` a `F8-04`, ADR 0016
 §5). Las pruebas están en

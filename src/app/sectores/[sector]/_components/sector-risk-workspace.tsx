@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, CircleSlash } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 
 import { CompanyMark } from "@/app/_components/company-mark";
+import { FinvizProfileLink } from "@/app/_components/finviz-profile-link";
 import type { BusinessExcerpt } from "@/modules/companies/domain/sec-business-excerpt";
 
 import { Badge } from "@/components/ui/badge";
@@ -144,10 +145,12 @@ function SelectedPoint({
   point,
   matrix,
   businessExcerpt,
+  logoUrl,
 }: {
   readonly point: SectorRiskPoint | null;
   readonly matrix: SectorRiskMatrix;
   readonly businessExcerpt: BusinessExcerpt | null;
+  readonly logoUrl: string | null;
 }) {
   if (point === null) {
     return (
@@ -174,36 +177,30 @@ function SelectedPoint({
 
   return (
     <div className="flex flex-col gap-3">
-      <div>
-        <p className="text-base font-semibold">
-          {pointLabel(point)}
-          {point.mic === null ? null : (
-            <span className="ml-2 text-xs font-normal text-muted-foreground">
-              {point.mic}
-            </span>
-          )}
-        </p>
-        <p className="text-sm text-muted-foreground">
-          {point.issuerName ?? "Emisor sin nombre registrado"}
-        </p>
+      <div className="flex items-center gap-3">
+        <CompanyMark
+          ticker={point.ticker ?? point.securityId}
+          name={point.issuerName}
+          logoUrl={logoUrl}
+          size="md"
+        />
+        <div className="min-w-0">
+          <p className="text-base font-semibold">
+            {pointLabel(point)}
+            {point.mic === null ? null : (
+              <span className="ml-2 text-xs font-normal text-muted-foreground">
+                {point.mic}
+              </span>
+            )}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {point.issuerName ?? "Emisor sin nombre registrado"}
+          </p>
+        </div>
       </div>
       {businessExcerpt === null ? (
         <p className="text-sm text-muted-foreground">
           Todavía no hay un extracto del 10-K para esta empresa.
-          {point.ticker === null ? null : (
-            <>
-              {" "}
-              <a
-                href={`https://finviz.com/stock?t=${encodeURIComponent(point.ticker)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-              >
-                Ver perfil en Finviz
-                <span className="sr-only"> (se abre en otra pestaña)</span>
-              </a>
-            </>
-          )}
         </p>
       ) : (
         <figure className="space-y-1 text-sm">
@@ -224,6 +221,9 @@ function SelectedPoint({
             </a>
           </figcaption>
         </figure>
+      )}
+      {point.ticker === null ? null : (
+        <FinvizProfileLink ticker={point.ticker} />
       )}
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
         {rows.map(([term, value]) => (
@@ -451,6 +451,11 @@ export function SectorRiskWorkspace({
                 selected === null
                   ? null
                   : (businessExcerpts[selected.issuerLegalEntityId] ?? null)
+              }
+              logoUrl={
+                selected === null
+                  ? null
+                  : (logoUrls[selected.securityId] ?? null)
               }
             />
           </CardContent>
