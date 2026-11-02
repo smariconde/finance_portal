@@ -230,6 +230,16 @@ describe("readValuationResult", () => {
       { status: "value", value: "1000" },
       { status: "value", value: "1100" },
     ]);
+    expect(reading.profile.version).toBe("company-profile-1.0.0");
+    expect(
+      reading.profile.metrics.find((metric) => metric.key === "pe"),
+    ).toMatchObject({
+      status: "null",
+      reason: "no_comparable_close",
+    });
+    expect(reading.peBand?.points.every((point) => point.value === null)).toBe(
+      true,
+    );
   });
 
   it("leaves the history null when the company has no fundamentals", async () => {

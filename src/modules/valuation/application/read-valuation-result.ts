@@ -64,6 +64,16 @@ import {
 import { issuerFactsAt } from "./issuer-facts";
 import type { MarketExpectationsRepository } from "./market-expectations-repository";
 import { readPeerContext } from "./read-peer-context";
+import {
+  profileOfFcffRun,
+  profileOfFinancialRun,
+} from "./build-company-profile";
+import type { CompanyProfile } from "../domain/company-profile";
+import {
+  historicalPeBand,
+  type HistoricalPeBand,
+} from "../domain/historical-pe-band";
+import { subtractDays } from "@/modules/temporal/domain/calendar-date";
 import type { PeerContext } from "../domain/peer-context";
 import type { ClassificationRepository } from "@/modules/classification/application/classification-repository";
 import type { ValuationRunRepository } from "./valuation-run-repository";
@@ -211,6 +221,8 @@ export type ValuationResultReading =
           | "non_positive_close"
           | null;
       };
+      readonly profile: CompanyProfile;
+      readonly trajectory: CompanyTrajectory | null;
     }
   | {
       readonly state: "run";
@@ -228,6 +240,8 @@ export type ValuationResultReading =
       readonly trajectory: CompanyTrajectory | null;
       /** La brecha frente a lo demás que se valuó (`F6-19`). */
       readonly peers: PeerContext;
+      readonly profile: CompanyProfile;
+      readonly peBand: HistoricalPeBand | null;
     };
 
 export type ValuationResultDependencies = {
@@ -657,6 +671,15 @@ export async function readValuationResult(
                   : reason,
             price: close,
           };
+    const { series } = await readAnnualFundamentals(
+      run.subject.legalEntityId,
+      run.provenance.knowledge,
+      dependencies.fundamentals(
+        (subjectId) =>
+          issuerFactsAt(state.graph, subjectId, null, run.provenance.knowledge)
+            .cik,
+      ),
+    );
     return {
       state: "financial_run",
       ticker,
@@ -683,6 +706,8 @@ export async function readValuationResult(
         reason,
         priceToValue: priceToValue?.toString() ?? null,
       },
+      profile: profileOfFinancialRun(run, series, close, reason === null),
+      trajectory: series === null ? null : companyTrajectory(series),
     };
   }
 
@@ -715,6 +740,56 @@ export async function readValuationResult(
       (subjectId) => issuerFactsAt(state.graph, subjectId, null, knowledge).cik,
     ),
   );
+  const peBand =
+    run.assetProfile !== "non_financial_mature" || series === null
+      ? null
+      : await (async () => {
+          const first = series.fiscalYears
+            .filter((year) => year.fiscalYearEnd <= run.asOf)
+            .slice(0, 5)
+            .at(-1);
+          if (first === undefined) return null;
+          const commonShareClasses = new Set(
+            versionsAt(state.graph.securities, knowledge)
+              .filter(
+                (security) =>
+                  security.issuerLegalEntityId === run.subject.legalEntityId &&
+                  security.securityType === "common_equity",
+              )
+              .map((security) => security.securityId),
+          ).size;
+          if (commonShareClasses !== 1) {
+            return historicalPeBand({
+              series,
+              closes: [],
+              events: [],
+              asOf: run.asOf,
+              knownAt: knowledge.knownAt ?? knowledge.effectiveAt,
+              currency: run.currency,
+              commonShareClasses,
+            });
+          }
+          const [closes, events] = await Promise.all([
+            dependencies.prices.loadSeries({
+              securityId: run.subject.securityId,
+              from: subtractDays(first.fiscalYearEnd, 7),
+              to: run.asOf,
+              limit: 2_500,
+            }),
+            dependencies.prices.loadEvents({
+              securityId: run.subject.securityId,
+            }),
+          ]);
+          return historicalPeBand({
+            series,
+            closes,
+            events,
+            asOf: run.asOf,
+            knownAt: knowledge.knownAt ?? knowledge.effectiveAt,
+            currency: run.currency,
+            commonShareClasses,
+          });
+        })();
 
   return {
     state: "run",
@@ -732,6 +807,8 @@ export async function readValuationResult(
     ),
     market,
     trajectory: series === null ? null : companyTrajectory(series),
+    profile: profileOfFcffRun(run, series, market.comparison),
+    peBand,
     peers: await readPeerContext(
       {
         run,

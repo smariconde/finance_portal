@@ -51,8 +51,10 @@ import { z } from "zod";
  * `1.5.0` (`F6-20`): partidas separadas para patrimonio común, preferente y
  * utilidad disponible a accionistas comunes. El ROE financiero no usa la
  * utilidad neta ni el patrimonio total como sustitutos silenciosos.
+ * `1.6.0` (`F6-25`): dividendos pagados, goodwill e intangibles separados para
+ * la ficha de múltiplos. No se infiere un cero cuando el filer omite uno.
  */
-export const ANNUAL_FUNDAMENTALS_VERSION = "annual-fundamentals-1.5.0";
+export const ANNUAL_FUNDAMENTALS_VERSION = "annual-fundamentals-1.6.0";
 
 export const lineItemIdSchema = z.enum([
   "revenue",
@@ -85,6 +87,9 @@ export const lineItemIdSchema = z.enum([
   "restructuring_charges",
   "impairment_charges",
   "share_based_compensation",
+  "dividends_paid",
+  "goodwill",
+  "intangibles",
   "marketable_securities_noncurrent",
   "debt_long_term_total",
   "debt_long_term_noncurrent",
@@ -313,6 +318,21 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
     item: "share_based_compensation",
     periodType: "annual",
     concepts: ["us-gaap:ShareBasedCompensation"],
+  },
+  {
+    item: "dividends_paid",
+    periodType: "annual",
+    concepts: ["us-gaap:PaymentsOfDividends"],
+  },
+  {
+    item: "goodwill",
+    periodType: "instant",
+    concepts: ["us-gaap:Goodwill"],
+  },
+  {
+    item: "intangibles",
+    periodType: "instant",
+    concepts: ["us-gaap:IntangibleAssetsNetExcludingGoodwill"],
   },
   {
     item: "marketable_securities_noncurrent",

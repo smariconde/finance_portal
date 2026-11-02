@@ -29,7 +29,7 @@ const series = (
   prior = "100",
   income = "11",
 ): AnnualFundamentals => ({
-  version: "annual-fundamentals-1.5.0",
+  version: "annual-fundamentals-1.6.0",
   fiscalYears: [
     {
       fiscalYearEnd: "2025-12-31",

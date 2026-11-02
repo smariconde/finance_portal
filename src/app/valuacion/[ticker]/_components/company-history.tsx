@@ -247,9 +247,11 @@ function cellText(
 export function CompanyHistory({
   trajectory,
   knownAt,
+  focus = "all",
 }: {
   trajectory: CompanyTrajectory | null;
   knownAt: string;
+  focus?: "all" | "financial";
 }) {
   if (trajectory === null || trajectory.years.length === 0) {
     return (
@@ -267,7 +269,13 @@ export function CompanyHistory({
 
   const currency = trajectory.currency ?? "USD";
   const { years } = trajectory;
-  const specs = METRICS.map((spec) => {
+  const selected =
+    focus === "financial"
+      ? METRICS.filter((spec) =>
+          ["revenue", "dilutedEps", "dilutedShares"].includes(spec.key),
+        )
+      : METRICS;
+  const specs = selected.map((spec) => {
     const magnitude = magnitudeFor(years, spec);
     return { spec, magnitude, unit: unitOf(spec, magnitude, currency) };
   });
@@ -328,9 +336,9 @@ export function CompanyHistory({
           {yearOf(last.fiscalYearEnd)}.
           <InfoTip title="Por qué mirar esto primero">
             <p>
-              Antes de la valuación conviene saber si la empresa vende más, si
-              le queda más de cada venta, si genera caja y qué hace con sus
-              acciones.
+              {focus === "financial"
+                ? "Ventas, ganancia por acción y cantidad de acciones muestran la trayectoria reportada del banco o la aseguradora."
+                : "Antes de la valuación conviene saber si la empresa vende más, si le queda más de cada venta, si genera caja y qué hace con sus acciones."}
             </p>
             <p>
               Es la lectura reportada: no capitaliza arrendamientos ni I+D como
@@ -393,11 +401,11 @@ export function CompanyHistory({
           </Table>
           <p className="max-w-prose px-(--card-spacing) text-xs text-muted-foreground">
             Hechos de los 10-K como se conocían el {formatUtcTimestamp(knownAt)}
-            , el corte de la corrida. Es la lectura reportada: no capitaliza
-            arrendamientos ni I+D como hace la valuación, así que su margen
-            puede diferir del ajustado. Acciones y ganancia por acción en la
-            base de splits vigente al corte. Caja neta: caja e inversiones
-            líquidas menos deuda financiera, sin arrendamientos operativos.{" "}
+            , el corte de la corrida. Es la lectura reportada. Acciones y
+            ganancia por acción en la base de splits vigente al corte.
+            {focus === "financial"
+              ? ""
+              : " No capitaliza arrendamientos ni I+D como la valuación. Caja neta: caja e inversiones líquidas menos deuda financiera, sin arrendamientos operativos."}{" "}
             <CodeValue>{trajectory.version}</CodeValue>
           </p>
         </CardContent>

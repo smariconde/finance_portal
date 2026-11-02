@@ -54,7 +54,7 @@ const complete: Values = {
 
 /** La serie llega como la entrega la lectura: el más reciente primero. */
 function series(...years: FiscalYear[]): AnnualFundamentals {
-  return { version: "annual-fundamentals-1.5.0", fiscalYears: years };
+  return { version: "annual-fundamentals-1.6.0", fiscalYears: years };
 }
 
 describe(COMPANY_TRAJECTORY_VERSION, () => {
