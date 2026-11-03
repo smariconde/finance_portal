@@ -104,7 +104,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    76 | `F8-03`    | `done`     | Matriz de divergencias con filtros y detalle que conservan el valor crudo de los outliers, con su equivalente accesible.                                                                                                  | `F8-02`          |
 |    77 | `F8-04`    | `done`     | Golden y property tests de las divergencias: splits, restatements, negativos, outliers, tolerancias y look-ahead.                                                                                                         | `F8-03`          |
 |    78 | `F9-01`    | `done`     | Catálogo y vintages BCRA v4 con fallo seguro ante cambios de esquema, conservando release, unidad, frecuencia y revisión.                                                                                                 | Fase 8 `done`    |
-|    79 | `F9-02`    | `ready`    | Nominal y monetario publican transformaciones auditables (real por inflación o CER, en dólares por el mayorista) y fechas propias por serie.                                                                              | `F9-01`          |
+|    79 | `F9-02`    | `done`     | Nominal y monetario publican transformaciones auditables (real por inflación o CER, en dólares por el mayorista) y fechas propias por serie.                                                                              | `F9-01`          |
+|    80 | `F9-03`    | `ready`    | Cambiario usa fuentes oficiales con fecha propia por serie.                                                                                                                                                               | `F9-02`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -6034,6 +6035,46 @@ Evidencia medida contra el cable real, en una réplica vacía:
 Pasan 3.461 tests unitarios, 229 de integración, lint, tipos, formato y build.
 Sin UI: la base personal todavía no tiene descargas, que el owner corre a mano.
 Sigue `F9-02`.
+
+**Carga en producción del 2026-11-03:** el catálogo y las 35 series se
+descargaron en el Neon de Production (98 requests; 1.610 definiciones y
+198.529 puntos, la base pasó de 212 a 239 MB) y las 35 concilian con el
+catálogo. La base local queda sin datos del BCRA: el owner no la usa.
+
+**`F9-02` cerró el 2026-11-03** con la
+[ADR 0066](../architecture/adr/0066-macro-real-and-dollar-transformations.md)
+y el comando `pnpm macro:transform`, sin migración: las transformaciones son
+lecturas. Decisiones del owner, tomadas sobre lo medido:
+
+- el **IPC encadenado** desde la inflación mensual es el deflactor por defecto
+  y el **CER** la alternativa diaria: el CER del mismo día va unos 45 días
+  atrás del IPC, con un error del nivel de hasta ±20 % en 2019–2023;
+- depósitos y préstamos (`MEyML`) sólo pasan a dólares, porque deflactarlos
+  haría pasar una devaluación por crecimiento real;
+- las tasas reales quedan para otro slice.
+
+`macro-transform-1.0.0` transforma sólo montos `En millones de ARS`: el stock
+de fin de mes por el IPC del mes, cada día por el CER o el mayorista **del
+mismo día**. Lo que no se puede transformar es `null` con motivo
+(`before_reference_history`, `reference_not_published`, `reference_gap`). La
+serie y su referencia se leen con el mismo corte, y cada resultado publica las
+fechas propias de cada una. Las referencias tienen su base fijada en código.
+`cpi-chain-reconciliation-1.0.0` concilia la cadena con el interanual
+publicado, y `declared-transformation-caveats-1.0.0` nombra con su fuente el
+INDEC intervenido, los IPC provinciales de 2015–2016, los dos cepos y el
+rezago del CER.
+
+Evidencia medida en producción, sólo lectura:
+
+- conciliación de la cadena: 992 meses con desvío del nivel de mediana 0,07 %
+  y máximo 0,43 %, sin ninguno fuera de la tolerancia de 0,5 %;
+- base monetaria real: 369 meses en pesos de 2026-09, y octubre
+  `reference_not_published`;
+- en dólares: 6.044 días; 5 quedan `reference_gap`, el feriado cambiario de
+  abril de 2002.
+
+La desestacionalización queda para `F9-04`, con series publicadas por la
+fuente. Sigue `F9-03`.
 
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
