@@ -2848,6 +2848,108 @@ export const macroSeriesObservations = pgTable(
   ],
 );
 
+/** F9-04: definitions and vintages of the small declared Argentina API set. */
+export const argentinaIndicatorDefinitions = pgTable(
+  "argentina_indicator_definitions",
+  {
+    indicatorId: varchar("indicator_id", { length: 64 }).notNull(),
+    revision: smallint("revision").notNull(),
+    definition: jsonb("definition").$type<Record<string, unknown>>().notNull(),
+    contentHash: char("content_hash", { length: 64 }).notNull(),
+    availableAt: timestamp("available_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+    supersededAt: timestamp("superseded_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    ingestionRunId: uuid("ingestion_run_id").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      name: "argentina_indicator_definitions_pkey",
+      columns: [table.indicatorId, table.revision],
+    }),
+    foreignKey({
+      name: "argentina_indicator_definitions_run_fk",
+      columns: [table.ingestionRunId],
+      foreignColumns: [ingestionRuns.runId],
+    }),
+    uniqueIndex("argentina_indicator_definitions_open_uidx")
+      .on(table.indicatorId)
+      .where(sql`${table.supersededAt} is null`),
+    check(
+      "argentina_indicator_definitions_revision_check",
+      sql`${table.revision} >= 0`,
+    ),
+    check(
+      "argentina_indicator_definitions_hash_check",
+      sql`${table.contentHash} ~ '^[a-f0-9]{64}$'`,
+    ),
+    check(
+      "argentina_indicator_definitions_time_check",
+      sql`${table.supersededAt} is null or ${table.supersededAt} > ${table.availableAt}`,
+    ),
+  ],
+);
+
+export const argentinaIndicatorObservations = pgTable(
+  "argentina_indicator_observations",
+  {
+    indicatorId: varchar("indicator_id", { length: 64 }).notNull(),
+    periodOn: date("period_on", { mode: "string" }).notNull(),
+    revision: smallint("revision").notNull(),
+    value: numeric("value", { mode: "string" }),
+    missingReason: varchar("missing_reason", { length: 16 }),
+    /** INDEC's conventional sign for the point, as printed (ADR 0069). */
+    sourceNote: varchar("source_note", { length: 8 }),
+    availableAt: timestamp("available_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+    supersededAt: timestamp("superseded_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    ingestionRunId: uuid("ingestion_run_id").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      name: "argentina_indicator_observations_pkey",
+      columns: [table.indicatorId, table.periodOn, table.revision],
+    }),
+    foreignKey({
+      name: "argentina_indicator_observations_run_fk",
+      columns: [table.ingestionRunId],
+      foreignColumns: [ingestionRuns.runId],
+    }),
+    uniqueIndex("argentina_indicator_observations_open_uidx")
+      .on(table.indicatorId, table.periodOn)
+      .where(sql`${table.supersededAt} is null`),
+    index("argentina_indicator_observations_period_idx").on(
+      table.indicatorId,
+      table.periodOn,
+    ),
+    check(
+      "argentina_indicator_observations_revision_check",
+      sql`${table.revision} >= 0`,
+    ),
+    check(
+      "argentina_indicator_observations_missing_check",
+      sql`(${table.value} is null and ${table.missingReason} in ('source_null', 'withdrawn')) or (${table.value} is not null and ${table.missingReason} is null)`,
+    ),
+    check(
+      "argentina_indicator_observations_note_check",
+      sql`${table.sourceNote} is null or ${table.sourceNote} in ('*', '**', 'e', 'i', 'u', '-', '.', '...', '///', 's')`,
+    ),
+    check(
+      "argentina_indicator_observations_time_check",
+      sql`${table.supersededAt} is null or ${table.supersededAt} > ${table.availableAt}`,
+    ),
+  ],
+);
+
 export const depositaryProgramType = pgEnum("depositary_program_type", [
   "cedear",
   "adr",

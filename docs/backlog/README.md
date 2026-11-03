@@ -107,6 +107,12 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    79 | `F9-02`    | `done`     | Nominal y monetario publican transformaciones auditables (real por inflación o CER, en dólares por el mayorista) y fechas propias por serie.                                                                              | `F9-01`          |
 |    80 | `F9-03`    | `done`     | Cambiario usa fuentes oficiales con fecha propia por serie.                                                                                                                                                               | `F9-02`          |
 |    81 | `F9-07`    | `done`     | CCL implícito diario por pares ADR declarados y verificados, con la conversión «dólar CCL» al lado de la oficial y la brecha visible.                                                                                     | `F9-03`          |
+|    82 | `F9-04`    | `done`     | Actividad del INDEC (EMAE y 16 sectores), totales del ICA, IMIG y PIB nominal con revisiones por punto, signos del INDEC y ratios compatibles; conciliados con lo publicado.                                              |
+|    83 | `F9-06`    | `queued`   | Página Argentina: monetario, cambiario con CCL, actividad, fiscal y externo, cada bloque con gráfico, tabla accesible, frescura y metodología por serie.                                                                  |
+|    84 | `F9-08`    | `queued`   | INDEC ampliado: IPC por componente y región, salarios, canastas, IPI, ICC y mayoristas con el mismo contrato y su conciliación.                                                                                           |
+|    85 | `F9-09`    | `queued`   | Composición del comercio exterior del INDEC por rubro, uso y destino, con las celdas suprimidas contadas y nunca rellenadas.                                                                                              |
+|    86 | `F9-10`    | `queued`   | Producción de petróleo y gas por pozo (Capítulo IV) agregada por empresa y cuenca, enlazada a las entidades del grafo.                                                                                                    |
+|    87 | `F9-11`    | `queued`   | Resultado financiero y ejecución presupuestaria con fuente vigente o identidad declarada, nunca una serie vacía leída como cero.                                                                                          | `F9-07`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -6140,6 +6146,54 @@ Evidencia medida contra Yahoo y el BCRA reales, en una réplica vacía:
 
 Sigue `F9-04`.
 
+**`F9-04`, primer incremento del 2026-11-03.**
+`argentina-indicator-1.0.0` define series de actividad, fiscal y externo con
+frecuencia, unidad, moneda, ajuste estacional, base de precios, base de índice,
+ámbito y segmento metodológico, y tres cálculos puros que niegan datos
+incompatibles: variación mensual sólo sobre la serie desestacionalizada
+publicada, resultado fiscal anual sobre PIB nominal del mismo año y saldo
+comercial del mismo mes y base.
+
+**`F9-04` cerró el 2026-11-03** con la
+[ADR 0069](../architecture/adr/0069-argentina-activity-fiscal-external.md)
+aceptada, la migración `0048` con su rollback, el comando
+`pnpm argentina:indicators` y el
+[runbook del token](../runbooks/indec-token.md). El INDEC lanzó su Catálogo
+API-INDEC el 2026-11-02 y el slice lo adoptó como fuente primaria de la
+actividad.
+
+- **Fuentes.** `indec-api` (token JWT de la cuenta del owner que agrega la
+  puerta, sólo hacia los dos servicios del EMAE) para el EMAE original,
+  desestacionalizado, tendencia-ciclo y los 16 sectores;
+  `argentina-series-tiempo` para los totales del ICA, el resultado primario y
+  los intereses del IMIG y el PIB anual a precios corrientes. Cada serie
+  declara su fuente; cambiarla es declarar otra serie.
+- **Contrato.** Las definiciones suman filtros por servicio y escala; los
+  puntos guardan el signo convencional del INDEC (`source_note`) y un cambio de
+  signo es una revisión. El lector del INDEC (`indec-api-1.0.0`) cierra
+  columnas, filtros, período y signos, y nombra `no_rows` y `unauthorized`.
+- **Revisión.** Cada corrida compara la historia entera con lo vigente; lo
+  retirado queda nulo con motivo y un cambio masivo queda `quarantined` hasta
+  que el owner lo acepte.
+
+Evidencia medida contra los cables reales, en una réplica vacía:
+
+- el distribuidor iba un mes atrás del INDEC en EMAE y comercio exterior, y su
+  EMAE de julio era una revisión vieja (151,554 contra 151,512);
+- variación mensual desestacionalizada calculada contra la publicada: 2,5e-14
+  puntos de desvío máximo en 271 meses; agosto de 2026, 0,065985 %;
+- primario sobre PIB: −2,66 % en 2023, 1,78 % en 2024, 1,38 % en 2025; 2026
+  `null` por año incompleto;
+- saldo comercial calculado contra el publicado: 1,4e-12 M USD en 416 meses;
+- 25 series, 6.694 puntos, 25 requests y ~2 MB; la segunda vuelta, 25
+  `duplicate`;
+- fuera del slice, medido y nombrado: el comercio exterior del INDEC no suma al
+  total publicado (959 celdas suprimidas y 814 M «confidencial» en agosto) y el
+  resultado financiero mensual del IMIG viene vacío en el distribuidor.
+
+Sigue `F9-06`: la página Argentina con lo que ya está guardado. `F9-08` a
+`F9-11` quedan en cola con su aceptación.
+
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
 | `F8-01` | Pipeline fiscal-aligned point-in-time de precio, market cap, net income, EPS y acciones para los filers del sector elegido, sin cargar el universo.                                   | Fase 6     | `TM-05`, `TM-06`, `TM-16` |
@@ -6149,15 +6203,19 @@ Sigue `F9-04`.
 
 ### Fase 9 — Argentina, BCRA y soja
 
-| Issue   | Resultado y aceptación mínima                                                                                    | Depende de | Controles                          |
-| ------- | ---------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------- |
-| `F9-01` | Catálogo/vintages BCRA v4 falla seguro ante cambios de schema y conserva release, unidad, frecuencia y revisión. | Fase 8     | `TM-05`, `TM-08`, `TM-10`, `TM-11` |
-| `F9-02` | Nominal y monetario publican transformaciones auditables y fechas propias por serie.                             | `F9-01`    | `TM-05`, `TM-06`                   |
-| `F9-03` | Cambiario usa fuentes oficiales con fecha propia por serie.                                                      | `F9-02`    | `TM-05`                            |
-| `F9-04` | Actividad, fiscal y externo preservan revisiones, quiebres, base, estacionalidad y denominadores compatibles.    | `F9-03`    | `TM-05`, `TM-06`                   |
-| `F9-05` | Rosario/Chicago identifica contrato, roll, FX y conversión antes de calcular basis.                              | `F9-04`    | `TM-05`, `TM-08`                   |
-| `F9-06` | Cada bloque cierra con gráfico, tabla accesible, freshness, metodología y lectura sin causalidad inventada.      | `F9-05`    | `TM-12`, `TM-16`                   |
-| `F9-07` | CCL implícito por ADR con ratio declarado y verificado; dólar oficial y dólar CCL lado a lado con la brecha.     | `F9-03`    | `TM-05`, `TM-08`, `TM-10`          |
+| Issue   | Resultado y aceptación mínima                                                                                                                                                                                                                                                                            | Depende de | Controles                          |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------- |
+| `F9-01` | Catálogo/vintages BCRA v4 falla seguro ante cambios de schema y conserva release, unidad, frecuencia y revisión.                                                                                                                                                                                         | Fase 8     | `TM-05`, `TM-08`, `TM-10`, `TM-11` |
+| `F9-02` | Nominal y monetario publican transformaciones auditables y fechas propias por serie.                                                                                                                                                                                                                     | `F9-01`    | `TM-05`, `TM-06`                   |
+| `F9-03` | Cambiario usa fuentes oficiales con fecha propia por serie.                                                                                                                                                                                                                                              | `F9-02`    | `TM-05`                            |
+| `F9-04` | Actividad, fiscal y externo preservan revisiones, quiebres, base, estacionalidad y denominadores compatibles.                                                                                                                                                                                            | `F9-03`    | `TM-05`, `TM-06`                   |
+| `F9-05` | Rosario/Chicago identifica contrato, roll, FX y conversión antes de calcular basis; el volumen de soja sale de las estimaciones agrícolas del Ministerio de Agricultura (CC BY 4.0).                                                                                                                     | `F9-04`    | `TM-05`, `TM-08`                   |
+| `F9-06` | Cada bloque cierra con gráfico, tabla accesible, freshness, metodología y lectura sin causalidad inventada. El bloque de soja entra cuando `F9-05` cierre.                                                                                                                                               | `F9-04`    | `TM-12`, `TM-16`                   |
+| `F9-07` | CCL implícito por ADR con ratio declarado y verificado; dólar oficial y dólar CCL lado a lado con la brecha.                                                                                                                                                                                             | `F9-03`    | `TM-05`, `TM-08`, `TM-10`          |
+| `F9-08` | Servicios del INDEC declarados uno por uno (IPC por componente y región, índice de salarios, CBA/CBT, IPI manufacturero y minero, ICC, SIPM) con perfil cerrado, filtros y signos; la última variación publicada concilia con la calculada; el IPC del INDEC no reemplaza la cadena del BCRA desde 1943. | `F9-04`    | `TM-05`, `TM-08`, `TM-10`          |
+| `F9-09` | Exportaciones por rubro y destino e importaciones por uso económico y origen desde el INDEC: participaciones sobre las celdas publicadas, celdas `s` y rubro confidencial contados y visibles, el total publicado del ICA al lado y nunca reemplazado por la suma.                                       | `F9-04`    | `TM-05`, `TM-08`                   |
+| `F9-10` | Producción mensual por pozo del Capítulo IV de la Secretaría de Energía (CKAN, CC BY 4.0) agregada por operadora y cuenca, con la operadora resuelta a una entidad del grafo por declaración, nunca por nombre aproximado.                                                                               | `F9-04`    | `TM-05`, `TM-08`, `TM-10`          |
+| `F9-11` | Resultado financiero del SPN: identidad primario − intereses declarada y versionada, o fuente vigente (Presupuesto Abierto con token) con sus derechos; una serie que el distribuidor devuelve vacía nunca se lee como cero.                                                                             | `F9-04`    | `TM-05`, `TM-06`, `TM-08`          |
 
 ### Fase 10 — persistencia, asistente y hardening
 

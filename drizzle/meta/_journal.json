@@ -337,6 +337,13 @@
       "when": 1793712524925,
       "tag": "0047_peaceful_rocket_raccoon",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1793742583492,
+      "tag": "0048_strange_brother_voodoo",
+      "breakpoints": true
     }
   ]
 }

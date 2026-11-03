@@ -56,6 +56,12 @@ export const SOURCE_DAILY_REQUEST_BUDGETS: Readonly<Record<string, number>> =
     // una actualización, 5 (ADR 0067). 100 cubren dos primeras vueltas y varias
     // actualizaciones el mismo día.
     "bcra-cambiarias-v1": 100,
+    // Cinco series declaradas; una primera carga y varias revisiones manuales.
+    "argentina-series-tiempo": 50,
+    // El INDEC no publica su cuota (la FAQ remite a los términos, que no la
+    // dicen). Sesenta cubren la primera carga de los servicios declarados y
+    // varias vueltas; se revisa con el primer 429 (ADR 0069).
+    "indec-api": 60,
     // Cuatro páginas por corrida (ADR 0032). Veinte por día cubren cinco
     // corridas, que es el tope de la matriz de uso, y dejan fuera cualquier bucle.
     "damodaran-current-data": 20,

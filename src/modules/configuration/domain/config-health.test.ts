@@ -208,6 +208,7 @@ describe("getConfigHealth", () => {
       "SEC_USER_AGENT",
       "OPENROUTER_API_KEY",
       "TAVILY_API_KEY",
+      "INDEC_API_TOKEN",
       "SENTRY_DSN",
     ] as const;
 

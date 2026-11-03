@@ -52,13 +52,17 @@ describe("topes declarados", () => {
     expect(declaredDailyBudget("tavily")).toBe(10);
     expect(declaredDailyBudget("bcra-monetarias-v4")).toBe(300);
     expect(declaredDailyBudget("bcra-cambiarias-v1")).toBe(100);
+    expect(declaredDailyBudget("argentina-series-tiempo")).toBe(50);
+    expect(declaredDailyBudget("indec-api")).toBe(60);
     expect(Object.keys(SOURCE_DAILY_REQUEST_BUDGETS).sort()).toEqual([
+      "argentina-series-tiempo",
       "bcra-cambiarias-v1",
       "bcra-monetarias-v4",
       "caja-valores-cedear",
       "comafi-cedear",
       "damodaran-current-data",
       "datahub-sp500-pddl",
+      "indec-api",
       "openrouter",
       "sec-edgar",
       "tavily",

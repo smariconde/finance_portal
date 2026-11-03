@@ -27,9 +27,10 @@ export const EGRESS_PROJECT_USER_AGENT = "portal-financiero/1.0";
 
 /**
  * Forma de una credencial aceptable: texto imprimible ASCII sin espacios. El
- * valor termina en un header, así que un CR o LF partiría el request.
+ * valor termina en un header, así que un CR o LF partiría el request. El techo
+ * cubre un JWT con claims (el token del INDEC, ADR 0069), no sólo una clave.
  */
-const CREDENTIAL_PATTERN = /^[\x21-\x7e]{8,512}$/u;
+const CREDENTIAL_PATTERN = /^[\x21-\x7e]{8,4096}$/u;
 
 /** Códigos de redirect que se siguen. Un `GET` sigue siendo `GET` en los cinco. */
 const REDIRECT_STATUSES: ReadonlySet<number> = new Set([
