@@ -6,12 +6,15 @@ import {
   loadArgentinaDashboard,
   type ArgentinaDashboard,
 } from "@/modules/argentina-dashboard/application/load-argentina-dashboard";
+import type { ArgentinaRefreshReadiness } from "@/modules/argentina-dashboard/application/argentina-refresh";
 import { servesRealData } from "@/modules/configuration/domain/config-health";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
+import { readArgentinaRefreshReadinessForRender } from "@/server/jobs/argentina-refresh";
 import { getAdrPairRepository } from "@/server/persistence/get-adr-pair-repository";
 import { getArgentinaIndicatorRepository } from "@/server/persistence/get-argentina-indicator-repository";
 import { getMacroSeriesRepository } from "@/server/persistence/get-macro-series-repository";
 
+import { ArgentinaRefresh } from "./_components/argentina-refresh";
 import {
   ActivitySection,
   DollarSection,
@@ -46,6 +49,17 @@ export default async function ArgentinaPage() {
   }
 
   let dashboard: ArgentinaDashboard;
+  let readiness: ArgentinaRefreshReadiness | null = null;
+
+  try {
+    // Only reads: the render plans no job and opens no socket (ADR 0070).
+    readiness = await readArgentinaRefreshReadinessForRender();
+  } catch (error) {
+    console.error(
+      "argentina refresh readiness failed",
+      error instanceof Error ? error.name : typeof error,
+    );
+  }
 
   try {
     dashboard = await loadArgentinaDashboard({
@@ -78,12 +92,19 @@ export default async function ArgentinaPage() {
           </h1>
           <p className="max-w-3xl text-sm text-muted-foreground md:text-base">
             Lo último que publicaron el INDEC, el BCRA y la Secretaría de
-            Hacienda, como está guardado en el portal. Cada serie tiene su
-            propia fecha: la actividad sale con dos meses de rezago y el dólar
-            es diario. Describe lo que pasó; no explica por qué ni anticipa lo
-            que viene.
+            Hacienda. Al abrir la página se busca lo que pudo haberse publicado
+            desde la última revisión. Cada serie tiene su propia fecha: la
+            actividad sale con dos meses de rezago y el dólar es diario.
+            Describe lo que pasó; no explica por qué ni anticipa lo que viene.
           </p>
         </section>
+
+        {readiness === null ? null : (
+          <ArgentinaRefresh
+            needsRefresh={readiness.needsRefresh}
+            failedSources={readiness.failedSources}
+          />
+        )}
 
         <SummaryCards dashboard={dashboard} />
 

@@ -386,6 +386,8 @@ export const ingestionJobKind = pgEnum("ingestion_job_kind", [
   "sec_companyfacts_refresh",
   // Precios de un sector al abrir su matriz (ADR 0030): sólo lo atrasado.
   "yahoo_prices_refresh",
+  // Series de `/argentina` al abrir la página (ADR 0070): un job por fuente.
+  "argentina_data_refresh",
 ]);
 
 export const ingestionJobStatus = pgEnum("ingestion_job_status", [
