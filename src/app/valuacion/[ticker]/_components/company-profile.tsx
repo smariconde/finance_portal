@@ -19,6 +19,11 @@ import type {
 } from "@/modules/valuation/domain/company-profile";
 import type { HistoricalPeBand } from "@/modules/valuation/domain/historical-pe-band";
 import {
+  termName,
+  termSpanish,
+  type FinancialTermKey,
+} from "@/app/_components/financial-terms";
+import {
   formatAmount,
   formatCalendarDate,
 } from "@/modules/valuation/domain/display-format";
@@ -46,6 +51,48 @@ const NULL_COPY: Record<ProfileNullReason, string> = {
   cycle_earnings_unavailable: "Sin utilidad normalizada de ciclo",
   affo_nav_unavailable: "Sin AFFO o NAV conciliado",
 };
+
+/** Cada métrica por su nombre estándar en inglés (`financial-terms.ts`). */
+const METRIC_TERMS: Record<string, FinancialTermKey> = {
+  ev_sales: "evToSales",
+  rule_40: "ruleOf40",
+  fcf_margin: "fcfMargin",
+  sbc_sales: "sbcToSales",
+  cash_runway: "cashRunway",
+  cycle_pe: "cyclePe",
+  cycle_ev_ebitda: "cycleEvToEbitda",
+  pb: "priceToBook",
+  ptbv: "priceToTangibleBook",
+  roe: "returnOnEquity",
+  cost_of_equity: "costOfEquity",
+  roe_spread: "roeSpread",
+  p_affo: "priceToAffo",
+  p_nav: "priceToNav",
+  dividend_yield: "dividendYield",
+  pe: "priceToEarnings",
+  ev_ebit: "evToEbit",
+  fcf_yield: "fcfYield",
+  p_fcf: "priceToFcf",
+  payout: "payoutRatio",
+  net_debt_ebitda: "netDebtToEbitda",
+};
+
+function MetricName({
+  metric,
+}: {
+  metric: CompanyProfileReading["metrics"][number];
+}) {
+  const term = METRIC_TERMS[metric.key];
+  if (term === undefined) return <>{metric.label}</>;
+  return (
+    <>
+      <span className="block">{termName(term)}</span>
+      <span className="block text-xs font-normal text-muted-foreground">
+        {termSpanish(term)}
+      </span>
+    </>
+  );
+}
 
 function metricValue(metric: CompanyProfileReading["metrics"][number]): string {
   if (metric.status === "null") return NULL_COPY[metric.reason!];
@@ -101,17 +148,31 @@ export function CompanyProfile({
                 <TableHead scope="col" className="text-right">
                   Valor
                 </TableHead>
-                <TableHead scope="col">Cálculo</TableHead>
+                <TableHead scope="col" className="hidden sm:table-cell">
+                  Cálculo
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {profile.metrics.map((metric) => (
                 <TableRow key={metric.key}>
-                  <TableCell className="font-medium">{metric.label}</TableCell>
-                  <TableCell className="numeric text-right whitespace-nowrap">
+                  <TableCell className="font-medium whitespace-normal">
+                    <MetricName metric={metric} />
+                    {/* En móvil la fórmula va bajo el nombre: el valor no se desplaza fuera de vista. */}
+                    <span className="mt-1 block text-xs font-normal text-muted-foreground sm:hidden">
+                      {metric.formula}
+                    </span>
+                  </TableCell>
+                  <TableCell
+                    className={
+                      metric.status === "value"
+                        ? "numeric text-right"
+                        : "text-right text-xs whitespace-normal text-muted-foreground"
+                    }
+                  >
                     {metricValue(metric)}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
+                  <TableCell className="hidden whitespace-normal text-muted-foreground sm:table-cell">
                     {metric.formula}
                   </TableCell>
                 </TableRow>

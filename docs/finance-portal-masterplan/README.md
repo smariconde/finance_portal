@@ -93,8 +93,8 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 
 ## Estado actual
 
-Las fases 0, 1, 2, 7, 3, 5, 4, 6 y 8 están cerradas. El owner priorizó el
-seguimiento `F6-25` de la ficha de empresa antes de iniciar la Fase 9. El estado
+Las fases 0, 1, 2, 7, 3, 5, 4, 6 y 8 están cerradas, y el seguimiento `F6-25`
+de la ficha de empresa también; lo siguiente es la Fase 9 (`F9-01`). El estado
 operativo y el historial de sesiones viven en `06_PHASED_ROADMAP.md`; el orden
 ejecutable vive en `../backlog/README.md`.
 La existencia de una página o documento no demuestra avance.
