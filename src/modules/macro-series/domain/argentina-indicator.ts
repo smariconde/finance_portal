@@ -1,0 +1,270 @@
+import { z } from "zod";
+
+import { createDecimalOperations } from "@/modules/numeric/domain/decimal-policy";
+
+/** Contract for the declared activity, fiscal and external series (F9-04). */
+export const ARGENTINA_INDICATOR_VERSION = "argentina-indicator-1.0.0";
+
+const finiteDecimalSchema = z.string().regex(/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/u);
+
+export const argentinaIndicatorSchema = z.object({
+  id: z.string().regex(/^[a-z0-9_]+$/u),
+  externalId: z.string().min(1),
+  block: z.enum(["activity", "fiscal", "external"]),
+  frequency: z.enum(["monthly", "quarterly", "annual"]),
+  unit: z.string().min(1),
+  currency: z.enum(["ARS", "USD", "index", "percent"]),
+  seasonalAdjustment: z.enum([
+    "original",
+    "seasonally_adjusted",
+    "trend_cycle",
+  ]),
+  priceBasis: z.enum(["current", "constant", "not_applicable"]),
+  indexBase: z.string().nullable(),
+  reportingScope: z.string().min(1),
+  sourceId: z.string().min(1),
+  sourceUrl: z.url(),
+  /** A new basis or methodology opens another segment. */
+  segment: z.string().min(1),
+  methodology: z.string().min(1),
+});
+
+export type ArgentinaIndicator = z.infer<typeof argentinaIndicatorSchema>;
+
+export const argentinaIndicatorVintageSchema = z.object({
+  indicatorId: z.string().min(1),
+  periodOn: z.iso.date(),
+  value: finiteDecimalSchema.nullable(),
+  /** Publication time if supplied; otherwise the observed fetch time. */
+  availableAt: z.iso.datetime({ offset: true }),
+  recordedAt: z.iso.datetime({ offset: true }),
+  revision: z.number().int().nonnegative(),
+  segment: z.string().min(1),
+  sourceRunId: z.string().min(1),
+});
+
+export type ArgentinaIndicatorVintage = z.infer<
+  typeof argentinaIndicatorVintageSchema
+>;
+
+export type IndicatorQuery = {
+  readonly effectiveOn: string;
+  readonly knownAt: string;
+  readonly knowledgeBasis: "public_availability" | "system_recorded";
+};
+
+/** Select one visible vintage per date without letting a later revision leak back. */
+export function readIndicatorVintages(
+  indicator: ArgentinaIndicator,
+  vintages: readonly ArgentinaIndicatorVintage[],
+  query: IndicatorQuery,
+): readonly ArgentinaIndicatorVintage[] {
+  z.iso.date().parse(query.effectiveOn);
+  z.iso.datetime({ offset: true }).parse(query.knownAt);
+  const knownMs = Date.parse(query.knownAt);
+  const visible = new Map<string, ArgentinaIndicatorVintage>();
+  for (const vintage of vintages) {
+    argentinaIndicatorVintageSchema.parse(vintage);
+    if (vintage.indicatorId !== indicator.id) {
+      throw new Error("indicator_mismatch");
+    }
+    if (
+      vintage.periodOn > query.effectiveOn ||
+      Date.parse(vintage.availableAt) > knownMs ||
+      (query.knowledgeBasis === "system_recorded" &&
+        Date.parse(vintage.recordedAt) > knownMs)
+    ) {
+      continue;
+    }
+    const previous = visible.get(vintage.periodOn);
+    if (
+      previous &&
+      (previous.revision === vintage.revision ||
+        (Date.parse(previous.availableAt) > Date.parse(vintage.availableAt) &&
+          previous.revision < vintage.revision))
+    ) {
+      throw new Error("revision_chain_conflict");
+    }
+    if (!previous || vintage.revision > previous.revision) {
+      visible.set(vintage.periodOn, vintage);
+    }
+  }
+  return [...visible.values()].sort((a, b) =>
+    a.periodOn.localeCompare(b.periodOn),
+  );
+}
+
+export type Comparison =
+  | {
+      readonly status: "computed";
+      readonly value: string;
+      readonly version: string;
+    }
+  | {
+      readonly status: "unavailable";
+      readonly reason:
+        | "missing_value"
+        | "incompatible_period"
+        | "incompatible_basis"
+        | "incompatible_currency"
+        | "zero_denominator"
+        | "non_finite";
+    };
+
+const unavailable = (
+  reason: Extract<Comparison, { status: "unavailable" }>["reason"],
+): Comparison => ({
+  status: "unavailable",
+  reason,
+});
+
+/** Fiscal balance as a share of nominal GDP in the same calendar year. */
+export function fiscalShareOfGdp(input: {
+  readonly fiscal: ArgentinaIndicator;
+  readonly monthlyFiscal: readonly ArgentinaIndicatorVintage[];
+  readonly gdp: ArgentinaIndicator;
+  readonly annualGdp: ArgentinaIndicatorVintage | null;
+  readonly year: number;
+}): Comparison {
+  const { fiscal, monthlyFiscal, gdp, annualGdp, year } = input;
+  if (fiscal.currency !== gdp.currency)
+    return unavailable("incompatible_currency");
+  if (fiscal.currency !== "ARS") return unavailable("incompatible_basis");
+  if (
+    fiscal.frequency !== "monthly" ||
+    gdp.frequency !== "annual" ||
+    fiscal.priceBasis !== "current" ||
+    gdp.priceBasis !== "current" ||
+    fiscal.seasonalAdjustment !== "original" ||
+    gdp.seasonalAdjustment !== "original" ||
+    fiscal.unit !== gdp.unit
+  )
+    return unavailable("incompatible_basis");
+  if (
+    annualGdp === null ||
+    annualGdp.indicatorId !== gdp.id ||
+    annualGdp.segment !== gdp.segment ||
+    annualGdp.periodOn.slice(0, 4) !== String(year) ||
+    monthlyFiscal.length !== 12 ||
+    new Set(monthlyFiscal.map((point) => point.periodOn.slice(0, 7))).size !==
+      12 ||
+    monthlyFiscal.some(
+      (point) =>
+        point.indicatorId !== fiscal.id ||
+        point.periodOn.slice(0, 4) !== String(year) ||
+        point.segment !== fiscal.segment,
+    )
+  )
+    return unavailable("incompatible_period");
+  if (
+    annualGdp.value === null ||
+    monthlyFiscal.some((point) => point.value === null)
+  )
+    return unavailable("missing_value");
+  const d = createDecimalOperations((code) => new Error(code));
+  try {
+    const denominator = d.parseDecimal(annualGdp.value, "annualGdp");
+    if (denominator.isZero()) return unavailable("zero_denominator");
+    const numerator = monthlyFiscal.reduce(
+      (total, point) =>
+        total.plus(d.parseDecimal(point.value!, "monthlyFiscal")),
+      d.parseDecimal("0", "total"),
+    );
+    const value = d.divide(numerator, denominator, "share").mul(100);
+    return {
+      status: "computed",
+      value: d.formatDecimal(value, "share"),
+      version: ARGENTINA_INDICATOR_VERSION,
+    };
+  } catch {
+    return unavailable("non_finite");
+  }
+}
+
+/** Only the source's own adjusted series may support a monthly activity change. */
+export function seasonallyAdjustedMonthlyChange(input: {
+  readonly indicator: ArgentinaIndicator;
+  readonly previous: ArgentinaIndicatorVintage | null;
+  readonly current: ArgentinaIndicatorVintage | null;
+}): Comparison {
+  const { indicator, previous, current } = input;
+  if (
+    indicator.frequency !== "monthly" ||
+    indicator.seasonalAdjustment !== "seasonally_adjusted"
+  )
+    return unavailable("incompatible_basis");
+  if (!previous || !current) return unavailable("incompatible_period");
+  const next = new Date(`${previous.periodOn.slice(0, 7)}-01T00:00:00Z`);
+  next.setUTCMonth(next.getUTCMonth() + 1);
+  if (
+    current.periodOn.slice(0, 7) !== next.toISOString().slice(0, 7) ||
+    previous.segment !== current.segment ||
+    previous.indicatorId !== indicator.id ||
+    current.indicatorId !== indicator.id
+  )
+    return unavailable("incompatible_period");
+  if (previous.value === null || current.value === null)
+    return unavailable("missing_value");
+  const d = createDecimalOperations((code) => new Error(code));
+  try {
+    const base = d.parseDecimal(previous.value, "previous");
+    if (base.isZero()) return unavailable("zero_denominator");
+    const value = d
+      .divide(d.parseDecimal(current.value, "current"), base, "change")
+      .minus(1)
+      .mul(100);
+    return {
+      status: "computed",
+      value: d.formatDecimal(value, "change"),
+      version: ARGENTINA_INDICATOR_VERSION,
+    };
+  } catch {
+    return unavailable("non_finite");
+  }
+}
+
+/** Trade balance from exports and imports reported for the same month. */
+export function tradeBalance(input: {
+  readonly exports: ArgentinaIndicator;
+  readonly imports: ArgentinaIndicator;
+  readonly exportPoint: ArgentinaIndicatorVintage | null;
+  readonly importPoint: ArgentinaIndicatorVintage | null;
+}): Comparison {
+  const { exports, imports, exportPoint, importPoint } = input;
+  if (exports.currency !== imports.currency)
+    return unavailable("incompatible_currency");
+  if (
+    exports.frequency !== "monthly" ||
+    imports.frequency !== "monthly" ||
+    exports.unit !== imports.unit ||
+    exports.priceBasis !== imports.priceBasis ||
+    exports.seasonalAdjustment !== imports.seasonalAdjustment ||
+    exports.segment !== imports.segment
+  )
+    return unavailable("incompatible_basis");
+  if (
+    !exportPoint ||
+    !importPoint ||
+    exportPoint.indicatorId !== exports.id ||
+    importPoint.indicatorId !== imports.id ||
+    exportPoint.periodOn.slice(0, 7) !== importPoint.periodOn.slice(0, 7) ||
+    exportPoint.segment !== exports.segment ||
+    importPoint.segment !== imports.segment
+  )
+    return unavailable("incompatible_period");
+  if (exportPoint.value === null || importPoint.value === null)
+    return unavailable("missing_value");
+  const d = createDecimalOperations((code) => new Error(code));
+  try {
+    const value = d
+      .parseDecimal(exportPoint.value, "exports")
+      .minus(d.parseDecimal(importPoint.value, "imports"));
+    return {
+      status: "computed",
+      value: d.formatDecimal(value, "balance"),
+      version: ARGENTINA_INDICATOR_VERSION,
+    };
+  } catch {
+    return unavailable("non_finite");
+  }
+}
