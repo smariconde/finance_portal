@@ -12,6 +12,13 @@ import {
   type TransformationKind,
 } from "@/modules/macro-series/domain/series-transformation";
 import { pointInTimeQuerySchema } from "@/modules/temporal/domain/point-in-time-query";
+import { readImpliedCcl } from "@/modules/implied-fx/application/read-implied-ccl";
+import {
+  computeFxGap,
+  FX_GAP_VERSION,
+  IMPLIED_CCL_VERSION,
+} from "@/modules/implied-fx/domain/implied-ccl";
+import { getAdrPairRepository } from "@/server/persistence/get-adr-pair-repository";
 import { getMacroSeriesRepository } from "@/server/persistence/get-macro-series-repository";
 
 /**
@@ -78,6 +85,7 @@ for (const kind of kinds) {
     },
     query,
     repository,
+    getAdrPairRepository(),
   );
   readings.push({ kind, reading });
 
@@ -94,7 +102,11 @@ for (const kind of kinds) {
 
   const result = reading.transformation;
   log("serie", reading.definition.description);
-  log("referencia", reading.referenceDefinition.description);
+  log(
+    "referencia",
+    reading.referenceDefinition?.description ??
+      `CCL implícito por pares ADR (${IMPLIED_CCL_VERSION})`,
+  );
 
   if (result.status !== "computed") {
     log(
@@ -129,6 +141,48 @@ for (const kind of kinds) {
     log(
       "empalme",
       `mayorista desde ${result.splice.on}; antes, cotización BCRA (${result.splice.beforeSplice.firstOn} a ${result.splice.beforeSplice.lastOn}) · salto de nivel ${result.splice.levelGap === null ? "sin cotización ese día" : `${(Number(result.splice.levelGap) * 100).toFixed(2)} %`}`,
+    );
+  }
+
+  if (kind === "usd_ccl") {
+    // La brecha contra el mayorista, por año: lo que el oficial no muestra.
+    const [ccl, official] = await Promise.all([
+      readImpliedCcl(query, getAdrPairRepository()),
+      readMacroSeries(
+        bcraSeriesKey(TRANSFORMATION_REFERENCES.usd_wholesale),
+        query,
+        repository,
+      ),
+    ]);
+    const gaps =
+      official.status === "read"
+        ? computeFxGap(
+            ccl.flatMap((point) =>
+              point.value === null
+                ? []
+                : [{ periodOn: point.marketDate, value: point.value }],
+            ),
+            official.points,
+          )
+        : [];
+    const byYear = new Map<string, number[]>();
+
+    for (const gap of gaps) {
+      const year = gap.marketDate.slice(0, 4);
+      byYear.set(year, [...(byYear.get(year) ?? []), Number(gap.gap)]);
+    }
+
+    log(
+      `brecha CCL/mayorista`,
+      `${FX_GAP_VERSION} · ${gaps.length} días · mediana por año:`,
+    );
+    console.log(
+      `   ${[...byYear]
+        .map(([year, values]) => {
+          const sorted = [...values].sort((a, b) => a - b);
+          return `${year} ${(sorted[Math.floor(sorted.length / 2)]! * 100).toFixed(0)} %`;
+        })
+        .join(" · ")}`,
     );
   }
 
