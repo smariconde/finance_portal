@@ -136,6 +136,27 @@ const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
     maxRedirects: 0,
   }),
   egressAllowlistEntrySchema.parse({
+    sourceId: "bcra-monetarias-v4",
+    origins: [
+      {
+        host: "api.bcra.gob.ar",
+        // Sólo Estadísticas Monetarias v4. El host sirve también la Central de
+        // Deudores y los cheques denunciados, que este portal no usa, y las
+        // versiones deprecadas (ADR 0065).
+        pathPrefixes: [
+          "/estadisticas/v4.0/monetarias",
+          "/estadisticas/v4.0/Metodologia",
+        ],
+      },
+    ],
+    // Se identifica como el proyecto: el contacto del owner es de la SEC.
+    identification: "project",
+    // La página más grande, la primera del catálogo, son ~350 KB.
+    maxResponseBytes: 2 * 1024 * 1024,
+    deadlineMs: 30_000,
+    maxRedirects: 0,
+  }),
+  egressAllowlistEntrySchema.parse({
     sourceId: "damodaran-current-data",
     origins: [
       {

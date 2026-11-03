@@ -14,6 +14,7 @@ import {
   pgEnum,
   pgTable,
   primaryKey,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
@@ -2656,6 +2657,157 @@ export const referenceDatasetRows = pgTable(
     check(
       "reference_dataset_rows_values_check",
       sql`jsonb_typeof(${table.values}) = 'object'`,
+    ),
+  ],
+);
+
+/**
+ * Series macro (`F9-01`, ADR 0065): una por variable de una fuente, con un
+ * entero sustituto para que cada observación pese cuatro bytes de clave y no un
+ * texto. La base —frecuencia, unidad, moneda— se fija con la primera descarga:
+ * una definición que la cambia ya no puede escribir en esta cadena.
+ */
+export const macroSeries = pgTable(
+  "macro_series",
+  {
+    seriesId: integer("series_id").primaryKey().generatedAlwaysAsIdentity(),
+    seriesKey: varchar("series_key", { length: 80 }).notNull(),
+    sourceId: varchar("source_id", { length: 64 }).notNull(),
+    externalId: varchar("external_id", { length: 16 }).notNull(),
+    basisFrequency: varchar("basis_frequency", { length: 16 }),
+    basisUnit: varchar("basis_unit", { length: 120 }),
+    basisCurrency: varchar("basis_currency", { length: 8 }),
+  },
+  (table) => [
+    uniqueIndex("macro_series_key_uidx").on(table.seriesKey),
+    uniqueIndex("macro_series_source_external_uidx").on(
+      table.sourceId,
+      table.externalId,
+    ),
+    check(
+      "macro_series_key_check",
+      sql`${table.seriesKey} ~ '^[a-z0-9]+(-[a-z0-9]+)*:[0-9]{1,6}$'`,
+    ),
+    check(
+      "macro_series_basis_check",
+      sql`(${table.basisFrequency} is null and ${table.basisUnit} is null and ${table.basisCurrency} is null) or (${table.basisFrequency} in ('daily', 'monthly', 'quarterly') and ${table.basisUnit} is not null and ${table.basisCurrency} in ('ML', 'ME', 'MEyML', 'ARS', 'USD'))`,
+    ),
+  ],
+);
+
+/**
+ * Definiciones de una serie como versiones temporales: descripción, unidad,
+ * frecuencia, moneda y metodología. El catálogo no fecha lo que publica, así que
+ * `valid_from` y `available_at` son la observación; la última fecha y el último
+ * valor del catálogo no se guardan porque no definen nada.
+ */
+export const macroSeriesDefinitions = pgTable(
+  "macro_series_definitions",
+  {
+    definitionId: uuid("definition_id").primaryKey(),
+    seriesId: integer("series_id").notNull(),
+    description: varchar("description", { length: 300 }).notNull(),
+    category: varchar("category", { length: 120 }).notNull(),
+    seriesType: varchar("series_type", { length: 120 }).notNull(),
+    frequency: varchar("frequency", { length: 16 }).notNull(),
+    unit: varchar("unit", { length: 120 }).notNull(),
+    currencyCode: varchar("currency_code", { length: 8 }).notNull(),
+    firstReportedOn: date("first_reported_on", { mode: "string" }).notNull(),
+    methodology: text("methodology"),
+    parserVersion: varchar("parser_version", { length: 64 }).notNull(),
+    ingestionRunId: uuid("ingestion_run_id").notNull(),
+    ...temporalVersionColumns(),
+  },
+  (table) => [
+    foreignKey({
+      name: "macro_series_definitions_series_fk",
+      columns: [table.seriesId],
+      foreignColumns: [macroSeries.seriesId],
+    }),
+    foreignKey({
+      name: "macro_series_definitions_run_fk",
+      columns: [table.ingestionRunId],
+      foreignColumns: [ingestionRuns.runId],
+    }),
+    uniqueIndex("macro_series_definitions_open_uidx")
+      .on(table.seriesId)
+      .where(openVersion(table)),
+    index("macro_series_definitions_series_idx").on(
+      table.seriesId,
+      table.validFrom,
+    ),
+    ...temporalVersionChecks("macro_series_definitions", table),
+    check(
+      "macro_series_definitions_frequency_check",
+      sql`${table.frequency} in ('daily', 'monthly', 'quarterly')`,
+    ),
+    check(
+      "macro_series_definitions_currency_check",
+      sql`${table.currencyCode} in ('ML', 'ME', 'MEyML', 'ARS', 'USD')`,
+    ),
+    check(
+      "macro_series_definitions_methodology_check",
+      sql`${table.methodology} is null or char_length(${table.methodology}) between 1 and 4000`,
+    ),
+  ],
+);
+
+/**
+ * Revisiones de cada punto de una serie (ADR 0065, decisión 4). Inmutables
+ * salvo `superseded_at`, que se escribe cuando otra revisión las reemplaza. Una
+ * revisión `withdrawn` no tiene valor: la fuente dejó de publicar esa fecha, y
+ * eso no es un faltante. La fuente y el `recorded_at` vienen de la corrida
+ * (ADR 0018).
+ */
+export const macroSeriesObservations = pgTable(
+  "macro_series_observations",
+  {
+    seriesId: integer("series_id").notNull(),
+    periodOn: date("period_on", { mode: "string" }).notNull(),
+    revision: smallint("revision").notNull(),
+    value: numeric("value", { mode: "string" }),
+    withdrawn: boolean("withdrawn").notNull(),
+    availableAt: timestamp("available_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+    supersededAt: timestamp("superseded_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    ingestionRunId: uuid("ingestion_run_id").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      name: "macro_series_observations_pkey",
+      columns: [table.seriesId, table.periodOn, table.revision],
+    }),
+    foreignKey({
+      name: "macro_series_observations_series_fk",
+      columns: [table.seriesId],
+      foreignColumns: [macroSeries.seriesId],
+    }),
+    foreignKey({
+      name: "macro_series_observations_run_fk",
+      columns: [table.ingestionRunId],
+      foreignColumns: [ingestionRuns.runId],
+    }),
+    // A lo sumo una revisión vigente por fecha: dos procesos a la vez no
+    // duplican un punto, el segundo aborta.
+    uniqueIndex("macro_series_observations_open_uidx")
+      .on(table.seriesId, table.periodOn)
+      .where(sql`${table.supersededAt} is null`),
+    check(
+      "macro_series_observations_revision_check",
+      sql`${table.revision} >= 0`,
+    ),
+    check(
+      "macro_series_observations_withdrawn_check",
+      sql`${table.withdrawn} = (${table.value} is null)`,
+    ),
+    check(
+      "macro_series_observations_superseded_check",
+      sql`${table.supersededAt} is null or ${table.supersededAt} > ${table.availableAt}`,
     ),
   ],
 );

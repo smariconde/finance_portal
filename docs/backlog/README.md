@@ -103,7 +103,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    75 | `F6-29`    | `queued`   | Estimaciones de consenso fechadas para P/E forward y PEG, con fuente y derechos en su ADR, y umbral de múltiplo declarado por el owner.                                                                                   | `F6-25`          |
 |    76 | `F8-03`    | `done`     | Matriz de divergencias con filtros y detalle que conservan el valor crudo de los outliers, con su equivalente accesible.                                                                                                  | `F8-02`          |
 |    77 | `F8-04`    | `done`     | Golden y property tests de las divergencias: splits, restatements, negativos, outliers, tolerancias y look-ahead.                                                                                                         | `F8-03`          |
-|    78 | `F9-01`    | `ready`    | Catálogo y vintages BCRA v4 con fallo seguro ante cambios de esquema, conservando release, unidad, frecuencia y revisión.                                                                                                 | Fase 8 `done`    |
+|    78 | `F9-01`    | `done`     | Catálogo y vintages BCRA v4 con fallo seguro ante cambios de esquema, conservando release, unidad, frecuencia y revisión.                                                                                                 | Fase 8 `done`    |
+|    79 | `F9-02`    | `ready`    | Nominal y monetario publican transformaciones auditables (real por inflación o CER, en dólares por el mayorista) y fechas propias por serie.                                                                              | `F9-01`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -6004,6 +6005,35 @@ del gráfico para que no se corte. Tipos, lint, formato, build, 40 pruebas
 focalizadas y E2E (222 aprobadas, 3 omitidas) pasan; la matriz de divergencias
 se revisó con datos locales a 1440 y 390 px, sin overflow. No cambia fuentes,
 fórmulas, ingesta ni esquema. Sigue `F9-01`.
+
+**`F9-01` cerró el 2026-11-02** con la
+[ADR 0065](../architecture/adr/0065-bcra-monetary-catalog-vintages.md), el
+módulo `src/modules/macro-series/`, la migración `0046` con su rollback y los
+comandos `pnpm bcra:catalog` y `pnpm bcra:series`. Decisiones del owner:
+derechos `approved_personal` con acceso automatizado `allowed`; un set
+declarado de 35 «Principales Variables» con historia completa; la primera
+descarga trae la historia y las siguientes, una página por serie, porque la API
+cobra por request y no por punto. Cada variable versiona su definición
+(descripción, unidad, frecuencia, moneda, metodología) en la observación, cada
+punto guarda su cadena de revisiones con retiros explícitos, y la base de una
+serie se fija con su primera descarga, así que un cambio de unidad rechaza la
+descarga con `definition_basis_changed`. El parser rechaza un sobre o una
+clave cambiados, una paginación que no cierra —el `count` del catálogo es lo
+que queda desde el `offset`, el de datos el total— y un orden que no es
+descendente. Las guardas de retiro y de cambio masivo cuarentenan.
+
+Evidencia medida contra el cable real, en una réplica vacía:
+
+- catálogo: 9 requests, 1.610 definiciones sin rechazos;
+- primera descarga: 89 requests en 3 min 18 s, 198.529 puntos, 25 MB;
+- actualización: 35 requests y 35 corridas `duplicate`;
+- conciliación con el último valor del catálogo: 35 de 35; en nueve el dato
+  llega más lejos que el catálogo (CER, UVA, bandas);
+- rollback limpio.
+
+Pasan 3.461 tests unitarios, 229 de integración, lint, tipos, formato y build.
+Sin UI: la base personal todavía no tiene descargas, que el owner corre a mano.
+Sigue `F9-02`.
 
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |

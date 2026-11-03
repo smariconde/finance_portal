@@ -19,11 +19,38 @@ describe("egress allowlist", () => {
         "yahoo-finance",
         "comafi-cedear",
         "caja-valores-cedear",
+        "bcra-monetarias-v4",
         "damodaran-current-data",
         "openrouter",
         "tavily",
       ],
     );
+  });
+
+  it("opens only Estadísticas Monetarias v4 on the BCRA host, as the project", () => {
+    // ADR 0065: el mismo host sirve otras APIs y las versiones deprecadas.
+    const bcra = findEgressAllowlistEntry("bcra-monetarias-v4")!;
+
+    expect(bcra.method).toBe("GET");
+    expect(bcra.identification).toBe("project");
+    expect(bcra.credential).toBeNull();
+    expect(bcra.maxRedirects).toBe(0);
+
+    for (const url of [
+      "https://api.bcra.gob.ar/estadisticas/v4.0/monetarias?offset=0&limit=1000",
+      "https://api.bcra.gob.ar/estadisticas/v4.0/Metodologia?offset=0&limit=250",
+      "https://api.bcra.gob.ar/estadisticas/v4.0/monetarias/30?offset=0&limit=3000",
+    ]) {
+      expect(authorizeEgressUrl(url, bcra).allowed).toBe(true);
+    }
+
+    for (const url of [
+      "https://api.bcra.gob.ar/estadisticas/v3.0/monetarias",
+      "https://api.bcra.gob.ar/CentralDeDeudores/v1.0/Deudas/20123456789",
+      "https://www.bcra.gob.ar/aviso-legal/",
+    ]) {
+      expect(authorizeEgressUrl(url, bcra).allowed).toBe(false);
+    }
   });
 
   it("reaches the model and the search engine only by POST, with a credential the door adds", () => {
