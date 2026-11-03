@@ -123,7 +123,7 @@ export async function recordArgentinaIndicator(
       requestedVintage: null,
       cursor: null,
       nextCursor: null,
-      subjectKey: indicator.externalId,
+      subjectKey: indicator.id,
       selectionVersion: ARGENTINA_INDICATOR_SELECTION_VERSION,
       selectionAnchorOn: null,
       status,

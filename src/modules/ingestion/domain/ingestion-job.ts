@@ -35,6 +35,7 @@ export const ingestionJobKindSchema = z.enum([
   "sec_companyfacts_backfill",
   "sec_companyfacts_refresh",
   "yahoo_prices_refresh",
+  "argentina_data_refresh",
 ]);
 
 export type IngestionJobKind = z.infer<typeof ingestionJobKindSchema>;

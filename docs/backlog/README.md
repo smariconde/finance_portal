@@ -113,6 +113,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    85 | `F9-09`    | `queued`   | Composición del comercio exterior del INDEC por rubro, uso y destino, con las celdas suprimidas contadas y nunca rellenadas.                                                                                              |
 |    86 | `F9-10`    | `queued`   | Producción de petróleo y gas por pozo (Capítulo IV) agregada por empresa y cuenca, enlazada a las entidades del grafo.                                                                                                    |
 |    87 | `F9-11`    | `queued`   | Resultado financiero y ejecución presupuestaria con fuente vigente o identidad declarada, nunca una serie vacía leída como cero.                                                                                          | `F9-07`          |
+|    88 | `F9-12`    | `done`     | `/argentina` se actualiza sola al abrirse: un job durable por fuente con sólo lo atrasado según su cadencia, progreso visible y fallas con «Reintentar».                                                                  |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -6219,6 +6220,28 @@ Evidencia: build servido contra Production en sólo lectura, a 1440 y 390 px,
 claro y oscuro: axe 0 serious/critical, 0 px de desborde y ningún `NaN`,
 `undefined` ni `null` en el texto. Desde el host local la página tarda de 12 a
 17 s por la latencia a Neon; Production corre en `iad1`, junto a la base.
+
+Sigue `F9-05` o `F9-08`, a elección del owner.
+
+**`F9-12` cerró el 2026-11-03** con la
+[ADR 0070](../architecture/adr/0070-argentina-refresh-on-open.md), la
+migración `0049` con su rollback y `refreshArgentinaData`, la tercera Server
+Action que descarga. El owner pidió que la página se actualice sola.
+
+- **Frescura.** `argentina-refresh-freshness-1.0.0`: lo diario (siete series del
+  BCRA y las veinte patas del CCL) se revisa después de las 20:00 de Buenos
+  Aires de cada día hábil; lo mensual (INDEC y Series de Tiempo), una vez por
+  día. «Revisado» es la última corrida —un comando manual también cuenta— o el
+  último job que terminó el sujeto.
+- **Jobs.** `argentina_data_refresh`: un job durable por fuente con sólo lo
+  atrasado, bajo su lease, su cuota y su kill switch, con los mismos recorders
+  que los comandos. Una falla no se replanea sola; «Reintentar» sí.
+- **Página.** Línea de estado con progreso real y recarga al terminar; el render
+  sólo lee.
+
+Evidencia en una réplica vacía con el catálogo del BCRA: primera visita, 52
+items en cuatro jobs, 0 fallados, «Datos al día.» a los 98 s con la página
+recargada; segunda visita, ningún job ni request.
 
 Sigue `F9-05` o `F9-08`, a elección del owner.
 

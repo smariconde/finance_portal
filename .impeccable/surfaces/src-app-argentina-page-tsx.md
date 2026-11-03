@@ -10,6 +10,8 @@ related_targets:
     "src/app/argentina/_components/charts.tsx",
     "src/app/argentina/_components/sector-heatmap.tsx",
     "src/app/argentina/_components/format.ts",
+    "src/app/argentina/_components/argentina-refresh.tsx",
+    "src/app/argentina/actions.ts",
     "src/modules/argentina-dashboard/domain/argentina-dashboard.ts",
   ]
 ---
@@ -27,3 +29,4 @@ related_targets:
 - Constraints: el render lee la base personal a un solo corte y no descarga nada; cada serie conserva su fecha; un punto sin dato corta la línea y en la tabla dice «Sin dato» o su motivo; sin base, «Base personal no disponible»; runtime trabado, `RuntimeLockedNotice`. Las capturas del gate no muestran datos del owner (ADR 0006).
 - Evidence (2026-11-03, build servido contra Production en sólo lectura): 1440 y 390 px, claro y oscuro: axe 0 serious/critical, 0 px de desborde horizontal, ningún `NaN`, `undefined` ni `null` en el texto. Lecturas: EMAE +0,1 % mensual y −1,7 % interanual (agosto), brecha +7,1 % (2 de noviembre), inflación 1,9 % mensual y 33,4 % interanual (septiembre), primario +1,4 % del PIB en 2025, saldo de US$ +2.187 M en agosto.
 - Unresolved: el tiempo de respuesta desde el host local contra Neon es de 12 a 17 s por latencia de red (unas 25 consultas a ~450 ms); en Production la función corre en `iad1` junto a la base.
+- Refresh (2026-11-03, `F9-12`, ADR 0070): al abrir, si algo pasó su cadencia, una línea de estado arriba de las tarjetas dice «Buscando datos nuevos…», «Actualizando BCRA, INDEC…» con barra de progreso que no retrocede, «Datos al día.» o la fuente que falló con «Reintentar»; sólo el título es región viva. Los bloques muestran lo guardado y la página se relee sola al terminar. Medido en réplica vacía: 98 s la primera visita, sin línea la segunda.
