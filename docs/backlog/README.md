@@ -105,7 +105,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    77 | `F8-04`    | `done`     | Golden y property tests de las divergencias: splits, restatements, negativos, outliers, tolerancias y look-ahead.                                                                                                         | `F8-03`          |
 |    78 | `F9-01`    | `done`     | Catálogo y vintages BCRA v4 con fallo seguro ante cambios de esquema, conservando release, unidad, frecuencia y revisión.                                                                                                 | Fase 8 `done`    |
 |    79 | `F9-02`    | `done`     | Nominal y monetario publican transformaciones auditables (real por inflación o CER, en dólares por el mayorista) y fechas propias por serie.                                                                              | `F9-01`          |
-|    80 | `F9-03`    | `ready`    | Cambiario usa fuentes oficiales con fecha propia por serie.                                                                                                                                                               | `F9-02`          |
+|    80 | `F9-03`    | `done`     | Cambiario usa fuentes oficiales con fecha propia por serie.                                                                                                                                                               | `F9-02`          |
+|    81 | `F9-07`    | `ready`    | CCL implícito diario por pares ADR declarados y verificados, con la conversión «dólar CCL» al lado de la oficial y la brecha visible.                                                                                     | `F9-03`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -6076,6 +6077,40 @@ Evidencia medida en producción, sólo lectura:
 La desestacionalización queda para `F9-04`, con series publicadas por la
 fuente. Sigue `F9-03`.
 
+**`F9-03` cerró el 2026-11-03** con la
+[ADR 0067](../architecture/adr/0067-bcra-official-fx-quotes.md) y el comando
+`pnpm bcra:fx`, sin migración. Decisiones del owner, tomadas sobre lo medido:
+
+- se suma Estadísticas Cambiarias v1 del BCRA (`bcra-cambiarias-v1`), con los
+  mismos derechos que la monetaria; el Banco Nación, que no tiene API, queda
+  para `F9-05`;
+- las monedas son USD, EUR, BRL y CNY, desde 1992;
+- `usd_spliced` empalma la cotización del BCRA antes del primer mayorista, con
+  el empalme nombrado;
+- el dólar de mercado del cepo va aparte, en `F9-07`.
+
+Para medir lo del cepo se calculó el CCL implícito de Galicia: queda 41 % y
+75 % arriba del mayorista en la mediana de cada cepo, y menos de 1 % fuera.
+La app mostrará dólar oficial y dólar CCL lado a lado.
+
+El registro de series del BCRA recibe un perfil de fuente, y el monetario no
+cambia. `bcra-cambiarias-v1-1.0.0` pagina por cotización, porque el `count`
+cuenta cotizaciones y no días. Une las copias idénticas de un día, también
+partidas entre páginas, y rechaza por nombre el día con valores distintos. Pide
+hasta el día de Buenos Aires y deja ambiguo un código repetido del maestro
+(`NIO`).
+
+Evidencia medida contra el cable real, en una réplica vacía:
+
+- primera descarga: 31 requests y 62 s para el maestro y las cuatro monedas,
+  27.276 días y ~1,9 MB;
+- actualización: 5 requests y cinco corridas `duplicate`;
+- días rechazados: 5 en cada moneda, con valores distintos el mismo día;
+- base monetaria en dólares empalmados: 7.475 días desde 1996 contra 6.044
+  con el mayorista solo, con un salto de 2,08 % el 2002-03-04.
+
+Sigue `F9-07`.
+
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
 | `F8-01` | Pipeline fiscal-aligned point-in-time de precio, market cap, net income, EPS y acciones para los filers del sector elegido, sin cargar el universo.                                   | Fase 6     | `TM-05`, `TM-06`, `TM-16` |
@@ -6093,6 +6128,7 @@ fuente. Sigue `F9-03`.
 | `F9-04` | Actividad, fiscal y externo preservan revisiones, quiebres, base, estacionalidad y denominadores compatibles.    | `F9-03`    | `TM-05`, `TM-06`                   |
 | `F9-05` | Rosario/Chicago identifica contrato, roll, FX y conversión antes de calcular basis.                              | `F9-04`    | `TM-05`, `TM-08`                   |
 | `F9-06` | Cada bloque cierra con gráfico, tabla accesible, freshness, metodología y lectura sin causalidad inventada.      | `F9-05`    | `TM-12`, `TM-16`                   |
+| `F9-07` | CCL implícito por ADR con ratio declarado y verificado; dólar oficial y dólar CCL lado a lado con la brecha.     | `F9-03`    | `TM-05`, `TM-08`, `TM-10`          |
 
 ### Fase 10 — persistencia, asistente y hardening
 

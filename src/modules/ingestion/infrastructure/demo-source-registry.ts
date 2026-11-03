@@ -565,6 +565,66 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
       recordedAt: "2026-11-02T00:00:00.000Z",
     }),
     sourceRegistryEntrySchema.parse({
+      sourceId: "bcra-cambiarias-v1",
+      displayName: "BCRA — Estadísticas Cambiarias v1",
+      owner: "Banco Central de la República Argentina",
+      canonicalUrl: "https://www.bcra.gob.ar/apis-banco-central/",
+      documentationUrls: [
+        "https://www.bcra.gob.ar/apis-banco-central/",
+        "https://www.bcra.gob.ar/archivos/Catalogo/Content/files/pdf/estadisticascambiarias-v1.pdf",
+        "https://www.bcra.gob.ar/aviso-legal/",
+      ],
+      datasets: ["bcra.fx-currencies", "bcra.fx-quotes"],
+      endpoints: [
+        "https://api.bcra.gob.ar/estadisticascambiarias/v1.0/Maestros/Divisas",
+        "https://api.bcra.gob.ar/estadisticascambiarias/v1.0/Cotizaciones/{moneda}",
+      ],
+      authentication: "none",
+      applicablePlan: null,
+      rateLimit:
+        "control de tráfico por IP sin cifra publicada; el ritmo (30/min) y el tope diario son internos",
+      attribution: "Banco Central de la República Argentina (BCRA)",
+      expectedCadence: "a mano: el maestro y las monedas declaradas",
+      freshnessTarget: "la última publicación al correr",
+      timezone: "America/Argentina/Buenos_Aires",
+      units: [],
+      currencies: ["ARS", "USD", "EUR", "BRL", "CNY"],
+      parserVersion: "bcra-cambiarias-v1-1.0.0",
+      fixturePolicy:
+        "Fixture sintética: ninguna respuesta real entra al repositorio; las cotizaciones de los tests son inventadas.",
+      fallbackSourceIds: [],
+      /**
+       * El mismo aviso legal que Estadísticas Monetarias: la página de APIs lo
+       * enlaza para cada API y su punto 6 nombra los datos provistos por API.
+       * Mismos derechos que `bcra-monetarias-v4`, decisión del owner del
+       * 2026-11-03 (ADR 0067).
+       */
+      rights: {
+        personalUse: "allowed",
+        automatedAccess: "allowed",
+        rawStorage: "restricted",
+        normalizedStorage: "allowed",
+        derivedStorage: "allowed",
+        publicDisplay: "restricted",
+        export: "allowed",
+        aiTransfer: "restricted",
+      },
+      technicalStatus: "integrated",
+      approvalStatus: "approved_personal",
+      reviewedAt: "2026-11-03T00:00:00.000Z",
+      rightsReviewedAt: "2026-11-03T00:00:00.000Z",
+      rightsReviewDueAt: "2027-05-01T00:00:00.000Z",
+      reviewEvidence: [
+        "docs/architecture/adr/0067-bcra-official-fx-quotes.md",
+        "docs/data/provider-use-matrix.md",
+      ],
+      retentionClasses: ["R2", "R3"],
+      quotaPolicyId: null,
+      ownerNotes:
+        "ADR 0067: cotizaciones diarias publicadas por el BCRA de USD, EUR, BRL y CNY desde 1992, historia completa la primera vez y una página por moneda después. Uso comercial requiere autorización del BCRA.",
+      recordedAt: "2026-11-03T00:00:00.000Z",
+    }),
+    sourceRegistryEntrySchema.parse({
       sourceId: "openrouter",
       displayName: "OpenRouter",
       owner: "OpenRouter, Inc.",

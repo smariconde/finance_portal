@@ -59,7 +59,7 @@ export const DECLARED_TRANSFORMATION_CAVEATS: readonly TransformationCaveat[] =
     },
     {
       code: "official_fx_under_controls",
-      kinds: ["usd_wholesale"],
+      kinds: ["usd_wholesale", "usd_spliced"],
       from: "2011-10-31",
       to: "2015-12-16",
       note: "Cepo cambiario: el mayorista oficial quedó por debajo de los tipos de cambio que pagaba el mercado.",
@@ -67,7 +67,7 @@ export const DECLARED_TRANSFORMATION_CAVEATS: readonly TransformationCaveat[] =
     },
     {
       code: "official_fx_under_controls",
-      kinds: ["usd_wholesale"],
+      kinds: ["usd_wholesale", "usd_spliced"],
       from: "2019-09-01",
       to: "2025-04-13",
       note: "Cepo cambiario: el mayorista oficial quedó por debajo de los tipos de cambio que pagaba el mercado.",

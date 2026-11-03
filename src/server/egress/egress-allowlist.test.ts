@@ -20,11 +20,36 @@ describe("egress allowlist", () => {
         "comafi-cedear",
         "caja-valores-cedear",
         "bcra-monetarias-v4",
+        "bcra-cambiarias-v1",
         "damodaran-current-data",
         "openrouter",
         "tavily",
       ],
     );
+  });
+
+  it("opens only the currency master and quotes of Estadísticas Cambiarias", () => {
+    // ADR 0067: un prefijo por recurso; las cotizaciones por fecha quedan fuera.
+    const fx = findEgressAllowlistEntry("bcra-cambiarias-v1")!;
+
+    expect(fx.identification).toBe("project");
+    expect(fx.credential).toBeNull();
+    expect(fx.maxRedirects).toBe(0);
+
+    for (const url of [
+      "https://api.bcra.gob.ar/estadisticascambiarias/v1.0/Maestros/Divisas",
+      "https://api.bcra.gob.ar/estadisticascambiarias/v1.0/Cotizaciones/USD?fechadesde=1992-01-02&fechahasta=2026-11-02&limit=1000&offset=0",
+    ]) {
+      expect(authorizeEgressUrl(url, fx).allowed).toBe(true);
+    }
+
+    for (const url of [
+      "https://api.bcra.gob.ar/estadisticascambiarias/v1.0/Cotizaciones?fecha=2026-10-30",
+      "https://api.bcra.gob.ar/estadisticas/v4.0/monetarias",
+      "https://api.bcra.gob.ar/CentralDeDeudores/v1.0/Deudas/20123456789",
+    ]) {
+      expect(authorizeEgressUrl(url, fx).allowed).toBe(false);
+    }
   });
 
   it("opens only Estadísticas Monetarias v4 on the BCRA host, as the project", () => {

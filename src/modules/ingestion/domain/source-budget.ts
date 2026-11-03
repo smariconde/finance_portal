@@ -52,6 +52,10 @@ export const SOURCE_DAILY_REQUEST_BUDGETS: Readonly<Record<string, number>> =
     // una actualización, 35 (ADR 0065). 300 cubren la primera vuelta, una
     // repetición y varias actualizaciones el mismo día.
     "bcra-monetarias-v4": 300,
+    // La primera descarga de las cuatro monedas son 30 páginas y el maestro 1;
+    // una actualización, 5 (ADR 0067). 100 cubren dos primeras vueltas y varias
+    // actualizaciones el mismo día.
+    "bcra-cambiarias-v1": 100,
     // Cuatro páginas por corrida (ADR 0032). Veinte por día cubren cinco
     // corridas, que es el tope de la matriz de uso, y dejan fuera cualquier bucle.
     "damodaran-current-data": 20,

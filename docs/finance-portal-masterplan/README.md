@@ -96,7 +96,8 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 Las fases 0, 1, 2, 7, 3, 5, 4, 6 y 8 están cerradas, y el seguimiento `F6-25`
 de la ficha de empresa también. La Fase 9 está en curso: `F9-01` cerró el
 catálogo y los vintages del BCRA, `F9-02` sus lecturas en pesos constantes y en
-dólares, y sigue `F9-03`. El estado
+dólares, `F9-03` las cotizaciones oficiales de Estadísticas Cambiarias, y sigue
+`F9-07` con el CCL implícito para el cepo. El estado
 operativo y el historial de sesiones viven en `06_PHASED_ROADMAP.md`; el orden
 ejecutable vive en `../backlog/README.md`.
 La existencia de una página o documento no demuestra avance.

@@ -17,7 +17,10 @@ import {
   type RowRejection,
   type SeriesFrequency,
 } from "./bcra-monetary-parser";
-import { bcraSeriesKey, BCRA_MONETARY_SOURCE_ID } from "./bcra-monetary-source";
+import {
+  BCRA_MONETARY_PROFILE,
+  type BcraSourceProfile,
+} from "./bcra-source-profile";
 
 /**
  * Definición de una serie macro (`F9-01`, ADR 0065, decisión 5): lo que la
@@ -81,9 +84,10 @@ export type DefinitionContent = {
 export function definitionContentOf(
   entry: BcraCatalogEntry,
   methodology: string | null,
+  profile: Pick<BcraSourceProfile, "seriesKeyOf"> = BCRA_MONETARY_PROFILE,
 ): DefinitionContent {
   return {
-    seriesKey: bcraSeriesKey(entry.variableId),
+    seriesKey: profile.seriesKeyOf(entry.variableId),
     description: entry.description,
     category: entry.category,
     seriesType: entry.seriesType,
@@ -156,9 +160,12 @@ export type PlanCatalogInput = {
   readonly ingestionRunId: string;
   readonly acceptWithdrawals: boolean;
   readonly newId: () => string;
+  /** La API cuyo catálogo es: por defecto, Estadísticas Monetarias (ADR 0067). */
+  readonly profile?: BcraSourceProfile;
 };
 
 export function planCatalog(input: PlanCatalogInput): CatalogPlan {
+  const profile = input.profile ?? BCRA_MONETARY_PROFILE;
   const open = input.current.filter(isOpenDefinition);
   const byKey = new Map(
     open.map((definition) => [definition.seriesKey, definition]),
@@ -188,7 +195,7 @@ export function planCatalog(input: PlanCatalogInput): CatalogPlan {
       validTo: null,
       availableAt: input.observedAt,
       supersededAt: null,
-      sourceId: BCRA_MONETARY_SOURCE_ID,
+      sourceId: profile.sourceId,
       sourceDocumentId: input.sourceDocumentId,
       contentHash: definitionContentHash(content),
       recordedAt: input.recordedAt,
@@ -208,7 +215,7 @@ export function planCatalog(input: PlanCatalogInput): CatalogPlan {
       methodologyMissing += 1;
     }
 
-    const content = definitionContentOf(entry, methodology);
+    const content = definitionContentOf(entry, methodology, profile);
     listed.add(content.seriesKey);
     const previous = byKey.get(content.seriesKey);
 
@@ -224,7 +231,7 @@ export function planCatalog(input: PlanCatalogInput): CatalogPlan {
   // Una variable rechazada por un campo sigue en el catálogo: no se retira.
   for (const rejection of input.rejections) {
     if (rejection.variableId !== null) {
-      listed.add(bcraSeriesKey(rejection.variableId));
+      listed.add(profile.seriesKeyOf(rejection.variableId));
     }
   }
 

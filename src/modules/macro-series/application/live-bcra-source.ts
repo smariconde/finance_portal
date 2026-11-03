@@ -121,14 +121,20 @@ type Download = {
   readonly fetchedAt: string;
 };
 
-export function createLiveBcraSource(dependencies: {
+/**
+ * Lo que comparten las APIs del BCRA (ADR 0065, ADR 0067): los derechos se
+ * evalúan **antes** de la red, un `429` o un `503` corta la corrida sin
+ * reintento, y la paginación tiene un techo que un `count` absurdo no pasa.
+ */
+export function createBcraTransport(dependencies: {
   readonly sourceRegistry: SourceRegistryRepository;
   readonly fetch: EgressFetch;
-}): BcraSourceProvider {
+  readonly sourceId: string;
+}) {
+  const { sourceId } = dependencies;
+
   async function authorize(datasetId: string): Promise<void> {
-    const entry = await dependencies.sourceRegistry.findBySourceId(
-      BCRA_MONETARY_SOURCE_ID,
-    );
+    const entry = await dependencies.sourceRegistry.findBySourceId(sourceId);
 
     if (!entry) {
       throw new BcraSourceError("source_not_registered", datasetId);
@@ -155,7 +161,7 @@ export function createLiveBcraSource(dependencies: {
 
     try {
       response = await dependencies.fetch({
-        sourceId: BCRA_MONETARY_SOURCE_ID,
+        sourceId: sourceId,
         url,
         accept: "application/json",
       });
@@ -216,19 +222,29 @@ export function createLiveBcraSource(dependencies: {
       }
 
       pages.push(page);
-      offset += page.rows.length + page.rejections.length;
+      const consumed =
+        page.consumed ?? page.rows.length + page.rejections.length;
+      offset += consumed;
 
-      if (
-        stopAfterFirst ||
-        offset >= page.total ||
-        page.rows.length + page.rejections.length === 0
-      ) {
+      if (stopAfterFirst || offset >= page.total || consumed === 0) {
         break;
       }
     }
 
     return { pages, byteLength, observedAt, requests: pages.length };
   }
+
+  return { authorize, paginate };
+}
+
+export function createLiveBcraSource(dependencies: {
+  readonly sourceRegistry: SourceRegistryRepository;
+  readonly fetch: EgressFetch;
+}): BcraSourceProvider {
+  const { authorize, paginate } = createBcraTransport({
+    ...dependencies,
+    sourceId: BCRA_MONETARY_SOURCE_ID,
+  });
 
   return {
     async loadCatalog() {

@@ -1,10 +1,16 @@
 import type { PointInTimeQuery } from "@/modules/temporal/domain/point-in-time-query";
 
+import { bcraFxSeriesKey } from "../domain/bcra-fx-source";
 import {
   bcraSeriesKey,
   type BcraVariableId,
 } from "../domain/bcra-monetary-source";
-import { basisOf, type SeriesDefinition } from "../domain/series-definition";
+import {
+  basisOf,
+  type SeriesBasis,
+  type SeriesDefinition,
+} from "../domain/series-definition";
+import type { SeriesPoint } from "../domain/series-observation";
 import {
   TRANSFORMATION_REFERENCES,
   transformSeries,
@@ -13,6 +19,9 @@ import {
 } from "../domain/series-transformation";
 
 import type { MacroSeriesRepository } from "./macro-series-repository";
+
+/** El dólar estadounidense en ISO 4217 numérico. */
+const SPLICE_BEFORE_ISO_NUMERIC = 840;
 import { readMacroSeries } from "./read-macro-series";
 
 export type TransformedMacroSeriesReading =
@@ -56,6 +65,21 @@ export async function readTransformedMacroSeries(
     return { status: "no_definition_at_cutoff", seriesKey: referenceKey };
   }
 
+  let beforeSplice:
+    { basis: SeriesBasis; points: readonly SeriesPoint[] } | undefined;
+
+  if (input.kind === "usd_spliced") {
+    // El dólar de Estadísticas Cambiarias, leído con el mismo corte (ADR 0067).
+    const beforeKey = bcraFxSeriesKey(SPLICE_BEFORE_ISO_NUMERIC);
+    const before = await readMacroSeries(beforeKey, query, repository);
+
+    if (before.status !== "read") {
+      return { status: "no_definition_at_cutoff", seriesKey: beforeKey };
+    }
+
+    beforeSplice = { basis: basisOf(before.definition), points: before.points };
+  }
+
   return {
     status: "read",
     definition: nominal.definition,
@@ -67,6 +91,7 @@ export async function readTransformedMacroSeries(
       nominal: nominal.points,
       reference: reference.points,
       ...(input.baseOn === undefined ? {} : { baseOn: input.baseOn }),
+      ...(beforeSplice === undefined ? {} : { beforeSplice }),
     }),
   };
 }
