@@ -102,6 +102,22 @@ export const BCRA_REQUEST_PACING: RequestPacingPolicy = Object.freeze({
   maxRequests: 500,
 });
 
+/** Five declared monthly indicators, with bounded history pagination (F9-04). */
+export const ARGENTINA_SERIES_REQUEST_PACING: RequestPacingPolicy =
+  Object.freeze({
+    minIntervalMs: 2000,
+    maxRequests: 50,
+  });
+
+/**
+ * Catálogo API-INDEC: una página por serie declarada del EMAE, sin cuota
+ * publicada. El ritmo lo elige el proyecto; el tope diario manda (ADR 0069).
+ */
+export const INDEC_REQUEST_PACING: RequestPacingPolicy = Object.freeze({
+  minIntervalMs: 1500,
+  maxRequests: 60,
+});
+
 export class RequestBudgetExhaustedError extends Error {
   readonly sourceId: string;
   readonly maxRequests: number;

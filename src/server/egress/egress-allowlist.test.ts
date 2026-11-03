@@ -21,11 +21,37 @@ describe("egress allowlist", () => {
         "caja-valores-cedear",
         "bcra-monetarias-v4",
         "bcra-cambiarias-v1",
+        "argentina-series-tiempo",
+        "indec-api",
         "damodaran-current-data",
         "openrouter",
         "tavily",
       ],
     );
+  });
+
+  it("limits Argentina Series access to the series endpoint", () => {
+    const series = findEgressAllowlistEntry("argentina-series-tiempo")!;
+    expect(series.method).toBe("GET");
+    expect(series.maxRedirects).toBe(0);
+    expect(
+      authorizeEgressUrl(
+        "https://apis.datos.gob.ar/series/api/series/?ids=74.3_IET_0_M_16&start=0&limit=1000",
+        series,
+      ).allowed,
+    ).toBe(true);
+    expect(
+      authorizeEgressUrl(
+        "https://apis.datos.gob.ar/series/api/search/?q=fiscal",
+        series,
+      ).allowed,
+    ).toBe(false);
+    expect(
+      authorizeEgressUrl(
+        "https://datos.gob.ar/series/api/series/?ids=74.3_IET_0_M_16",
+        series,
+      ).allowed,
+    ).toBe(false);
   });
 
   it("opens only the currency master and quotes of Estadísticas Cambiarias", () => {
@@ -119,15 +145,41 @@ describe("egress allowlist", () => {
     }
   });
 
-  it("keeps every data source on GET with the owner's contact and no credential", () => {
+  it("keeps every data source on GET, with a credential only where the source demands one", () => {
     for (const entry of listEgressAllowlistEntries()) {
       if (entry.sourceId === "openrouter" || entry.sourceId === "tavily") {
         continue;
       }
 
       expect(entry.method).toBe("GET");
-      expect(entry.credential).toBeNull();
       expect(entry.maxRequestBytes).toBe(0);
+      if (entry.sourceId === "indec-api") {
+        expect(entry.credential?.variable).toBe("INDEC_API_TOKEN");
+      } else {
+        expect(entry.credential).toBeNull();
+      }
+    }
+  });
+
+  it("reads the declared INDEC services with the owner's token and nothing else on that host", () => {
+    // ADR 0069: el token del INDEC sale sólo hacia sus servicios de datos; el
+    // portal, su login y el catálogo no se alcanzan.
+    const indec = findEgressAllowlistEntry("indec-api")!;
+    expect(indec.identification).toBe("project");
+    expect(indec.maxRedirects).toBe(0);
+    expect(
+      authorizeEgressUrl(
+        "https://api.indec.gob.ar/v1/estimador-mensual-de-actividad-economica-nivel-general?limit=1000&offset=0",
+        indec,
+      ).allowed,
+    ).toBe(true);
+    for (const url of [
+      "https://api.indec.gob.ar/api/datasets",
+      "https://api.indec.gob.ar/api/auth/me",
+      "https://api.indec.gob.ar/v1/ipc_nacional",
+      "https://www.indec.gob.ar/v1/comercio_exterior_exportacion_bienes",
+    ]) {
+      expect(authorizeEgressUrl(url, indec).allowed).toBe(false);
     }
   });
 

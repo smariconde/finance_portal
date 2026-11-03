@@ -37,6 +37,9 @@ SEC_USER_AGENT=PortalFinanciero/0.1 contact@example.com
 OPENROUTER_API_KEY=
 TAVILY_API_KEY=
 
+# Catalogo API-INDEC: JWT de la cuenta del owner, 12 meses (ADR 0069)
+INDEC_API_TOKEN=
+
 # Opcionales
 SENTRY_DSN=
 ```

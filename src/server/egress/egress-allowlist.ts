@@ -176,6 +176,45 @@ const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
     maxRedirects: 0,
   }),
   egressAllowlistEntrySchema.parse({
+    sourceId: "argentina-series-tiempo",
+    origins: [
+      {
+        host: "apis.datos.gob.ar",
+        pathPrefixes: ["/series/api/series/"],
+      },
+    ],
+    identification: "project",
+    maxResponseBytes: 2 * 1024 * 1024,
+    deadlineMs: 30_000,
+    maxRedirects: 0,
+  }),
+  egressAllowlistEntrySchema.parse({
+    sourceId: "indec-api",
+    origins: [
+      {
+        host: "api.indec.gob.ar",
+        // Sólo los servicios declarados de `F9-04` (ADR 0069). El catálogo, el
+        // login y el OpenAPI del portal quedan fuera: el token sirve para leer
+        // datos. Cada servicio nuevo es una fila más, con su slice.
+        pathPrefixes: [
+          "/v1/estimador-mensual-de-actividad-economica-nivel-general",
+          "/v1/estimador-mensual-de-actividad-economica-sectores",
+        ],
+      },
+    ],
+    identification: "project",
+    // JWT del owner (12 meses de vida); lo agrega la puerta, nunca el adaptador.
+    credential: {
+      variable: "INDEC_API_TOKEN",
+      header: "authorization",
+      scheme: "Bearer",
+    },
+    // Una página son a lo sumo 1.000 filas de unas pocas columnas.
+    maxResponseBytes: 2 * 1024 * 1024,
+    deadlineMs: 30_000,
+    maxRedirects: 0,
+  }),
+  egressAllowlistEntrySchema.parse({
     sourceId: "damodaran-current-data",
     origins: [
       {

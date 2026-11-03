@@ -18,13 +18,15 @@ function indicator(
     externalId: "synthetic-primary",
     block: "fiscal",
     frequency: "monthly",
-    unit: "millions",
+    unit: "Millones de pesos",
+    scale: "million",
     currency: "ARS",
     seasonalAdjustment: "original",
     priceBasis: "current",
     indexBase: null,
     reportingScope: "national",
     sourceId: "synthetic",
+    filters: {},
     sourceUrl: "https://example.org/series",
     segment: "base-1",
     methodology: "Synthetic test series",
@@ -42,6 +44,8 @@ function point(
     indicatorId,
     periodOn,
     value,
+    missingReason: value === null ? "source_null" : null,
+    sourceNote: null,
     availableAt: "2026-02-01T12:00:00Z",
     recordedAt: "2026-02-02T12:00:00Z",
     revision: 0,
@@ -152,6 +156,35 @@ describe("compatible macro calculations", () => {
       status: "unavailable",
       reason: "incompatible_period",
     });
+  });
+
+  it("compares magnitudes, not the wording each source gives its unit", () => {
+    // IMIG prints «Millones de pesos» and the GDP «Millones de pesos
+    // corrientes»: same scale and currency, so the ratio is valid.
+    const fiscal = indicator();
+    const gdp = indicator({
+      id: "gdp",
+      frequency: "annual",
+      unit: "Millones de pesos corrientes",
+    });
+    const input = {
+      fiscal,
+      monthlyFiscal: Array.from({ length: 12 }, (_, index) =>
+        point(fiscal.id, `2025-${String(index + 1).padStart(2, "0")}-01`, "1"),
+      ),
+      gdp,
+      annualGdp: point(gdp.id, "2025-01-01", "1200"),
+      year: 2025,
+    };
+    expect(fiscalShareOfGdp(input)).toMatchObject({
+      status: "computed",
+      value: "1",
+    });
+    for (const scale of ["thousand", null] as const) {
+      expect(
+        fiscalShareOfGdp({ ...input, gdp: indicator({ ...gdp, scale }) }),
+      ).toEqual({ status: "unavailable", reason: "incompatible_basis" });
+    }
   });
 
   it("keeps source-adjusted activity separate across gaps and base breaks", () => {

@@ -7,12 +7,37 @@ export const ARGENTINA_INDICATOR_VERSION = "argentina-indicator-1.0.0";
 
 const finiteDecimalSchema = z.string().regex(/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/u);
 
+/**
+ * INDEC's conventional signs (Catálogo API-INDEC, «Razón de nulo y signos
+ * convencionales»). A sign travels with its point: it says why a value is
+ * missing or how firm a published one is.
+ */
+export const INDEC_CONVENTIONAL_SIGNS = [
+  "*",
+  "**",
+  "e",
+  "i",
+  "u",
+  "-",
+  ".",
+  "...",
+  "///",
+  "s",
+] as const;
+
+export const indecConventionalSignSchema = z.enum(INDEC_CONVENTIONAL_SIGNS);
+
+export type IndecConventionalSign = z.infer<typeof indecConventionalSignSchema>;
+
 export const argentinaIndicatorSchema = z.object({
   id: z.string().regex(/^[a-z0-9_]+$/u),
   externalId: z.string().min(1),
   block: z.enum(["activity", "fiscal", "external"]),
   frequency: z.enum(["monthly", "quarterly", "annual"]),
+  /** The unit as the source prints it; the parser checks it on every page. */
   unit: z.string().min(1),
+  /** Magnitude behind the unit, so two sources' wordings compare. */
+  scale: z.enum(["unit", "thousand", "million"]).nullable(),
   currency: z.enum(["ARS", "USD", "index", "percent"]),
   seasonalAdjustment: z.enum([
     "original",
@@ -23,6 +48,11 @@ export const argentinaIndicatorSchema = z.object({
   indexBase: z.string().nullable(),
   reportingScope: z.string().min(1),
   sourceId: z.string().min(1),
+  /**
+   * Column values that pick this series out of a multi-series service. Each
+   * is sent as a filter and checked on every row; empty for a single series.
+   */
+  filters: z.record(z.string().min(1), z.string().min(1)),
   sourceUrl: z.url(),
   /** A new basis or methodology opens another segment. */
   segment: z.string().min(1),
@@ -31,17 +61,30 @@ export const argentinaIndicatorSchema = z.object({
 
 export type ArgentinaIndicator = z.infer<typeof argentinaIndicatorSchema>;
 
-export const argentinaIndicatorVintageSchema = z.object({
-  indicatorId: z.string().min(1),
-  periodOn: z.iso.date(),
-  value: finiteDecimalSchema.nullable(),
-  /** Publication time if supplied; otherwise the observed fetch time. */
-  availableAt: z.iso.datetime({ offset: true }),
-  recordedAt: z.iso.datetime({ offset: true }),
-  revision: z.number().int().nonnegative(),
-  segment: z.string().min(1),
-  sourceRunId: z.string().min(1),
-});
+export const argentinaIndicatorVintageSchema = z
+  .object({
+    indicatorId: z.string().min(1),
+    periodOn: z.iso.date(),
+    value: finiteDecimalSchema.nullable(),
+    missingReason: z.enum(["source_null", "withdrawn"]).nullable(),
+    /** The source's conventional sign for this point, if it printed one. */
+    sourceNote: indecConventionalSignSchema.nullable().default(null),
+    /** Publication time if supplied; otherwise the observed fetch time. */
+    availableAt: z.iso.datetime({ offset: true }),
+    recordedAt: z.iso.datetime({ offset: true }),
+    revision: z.number().int().nonnegative(),
+    segment: z.string().min(1),
+    sourceRunId: z.string().min(1),
+  })
+  .superRefine((vintage, context) => {
+    if ((vintage.value === null) !== (vintage.missingReason !== null)) {
+      context.addIssue({
+        code: "custom",
+        path: ["missingReason"],
+        message: "missing reason must match a missing value",
+      });
+    }
+  });
 
 export type ArgentinaIndicatorVintage = z.infer<
   typeof argentinaIndicatorVintageSchema
@@ -137,7 +180,8 @@ export function fiscalShareOfGdp(input: {
     gdp.priceBasis !== "current" ||
     fiscal.seasonalAdjustment !== "original" ||
     gdp.seasonalAdjustment !== "original" ||
-    fiscal.unit !== gdp.unit
+    fiscal.scale === null ||
+    fiscal.scale !== gdp.scale
   )
     return unavailable("incompatible_basis");
   if (
