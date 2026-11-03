@@ -2,14 +2,11 @@ import type { IngestionRunRepository } from "@/modules/ingestion/application/ing
 import { computeContentHash } from "@/modules/ingestion/domain/content-hash";
 import { ingestionRunSchema } from "@/modules/ingestion/domain/ingestion-run";
 
+import type { BcraVariableId } from "../domain/bcra-monetary-source";
 import {
-  BCRA_MONETARY_PARSER_VERSION,
-  BCRA_MONETARY_SOURCE_ID,
-  BCRA_OBSERVATIONS_DATASET_ID,
-  BCRA_REVISION_WINDOW_VERSION,
-  bcraSeriesKey,
-  type BcraVariableId,
-} from "../domain/bcra-monetary-source";
+  BCRA_MONETARY_PROFILE,
+  type BcraSourceProfile,
+} from "../domain/bcra-source-profile";
 import {
   basisOf,
   isOpenDefinition,
@@ -45,6 +42,8 @@ export type RecordBcraSeriesDependencies = {
   /** Destraba el guard de cambio masivo. Lo decide el owner, nunca un default. */
   readonly acceptMassChange?: boolean;
   readonly dryRun?: boolean;
+  /** La API del BCRA: por defecto, Estadísticas Monetarias (ADR 0067). */
+  readonly profile?: BcraSourceProfile;
 };
 
 export type RecordBcraSeriesOutcome =
@@ -82,8 +81,9 @@ export async function recordBcraSeries(
     full = false,
     acceptMassChange = false,
     dryRun = false,
+    profile = BCRA_MONETARY_PROFILE,
   } = dependencies;
-  const seriesKey = bcraSeriesKey(variableId);
+  const seriesKey = profile.seriesKeyOf(variableId);
   const definition =
     (await repository.listSeriesDefinitions(seriesKey)).find(
       isOpenDefinition,
@@ -145,12 +145,12 @@ export async function recordBcraSeries(
   const run = await ingestionRuns.append(
     ingestionRunSchema.parse({
       runId,
-      sourceId: BCRA_MONETARY_SOURCE_ID,
-      datasetId: BCRA_OBSERVATIONS_DATASET_ID,
-      parserVersion: BCRA_MONETARY_PARSER_VERSION,
+      sourceId: profile.sourceId,
+      datasetId: profile.observationsDatasetId,
+      parserVersion: profile.parserVersion,
       // La transición: el contenido más el estado guardado que reemplaza.
       idempotencyKey: computeContentHash({
-        datasetId: BCRA_OBSERVATIONS_DATASET_ID,
+        datasetId: profile.observationsDatasetId,
         contentHash,
         supersedes: open.map((observation) => [
           observation.periodOn,
@@ -162,7 +162,7 @@ export async function recordBcraSeries(
       cursor: null,
       nextCursor: null,
       subjectKey: String(variableId),
-      selectionVersion: BCRA_REVISION_WINDOW_VERSION,
+      selectionVersion: profile.revisionWindowVersion,
       // Con la versión, dice desde qué fecha se controlaron revisiones.
       selectionAnchorOn: plan.windowStartsOn,
       status,

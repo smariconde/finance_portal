@@ -157,6 +157,25 @@ const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
     maxRedirects: 0,
   }),
   egressAllowlistEntrySchema.parse({
+    sourceId: "bcra-cambiarias-v1",
+    origins: [
+      {
+        host: "api.bcra.gob.ar",
+        // Sólo Estadísticas Cambiarias v1: el maestro de monedas y sus
+        // cotizaciones (ADR 0067). El resto del host queda cerrado.
+        pathPrefixes: [
+          "/estadisticascambiarias/v1.0/Maestros/Divisas",
+          "/estadisticascambiarias/v1.0/Cotizaciones/",
+        ],
+      },
+    ],
+    identification: "project",
+    // Una página de 1.000 días de una moneda son ~140 KB.
+    maxResponseBytes: 1024 * 1024,
+    deadlineMs: 30_000,
+    maxRedirects: 0,
+  }),
+  egressAllowlistEntrySchema.parse({
     sourceId: "damodaran-current-data",
     origins: [
       {

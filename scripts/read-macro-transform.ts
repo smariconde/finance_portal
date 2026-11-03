@@ -125,6 +125,13 @@ for (const kind of kinds) {
     [...reasons].map(([reason, count]) => `${reason} ${count}`).join(" · "),
   );
 
+  if (result.splice !== null) {
+    log(
+      "empalme",
+      `mayorista desde ${result.splice.on}; antes, cotización BCRA (${result.splice.beforeSplice.firstOn} a ${result.splice.beforeSplice.lastOn}) · salto de nivel ${result.splice.levelGap === null ? "sin cotización ese día" : `${(Number(result.splice.levelGap) * 100).toFixed(2)} %`}`,
+    );
+  }
+
   // Un punto por año —el último— y los cinco más recientes.
   const yearly = new Map<string, (typeof result.points)[number]>();
 

@@ -6,6 +6,7 @@ import type { SeriesPoint } from "./series-observation";
 import {
   chainCpiIndex,
   MacroTransformError,
+  SPLICE_BEFORE_BASIS,
   reconcileCpiChain,
   transformationEligibility,
   TRANSFORMATION_REFERENCE_BASES,
@@ -441,5 +442,115 @@ describe("reconcileCpiChain", () => {
     expect(
       reconcileCpiChain(gapped, series(["2026-01-31", "12.7"])).compared,
     ).toBe(0);
+  });
+});
+
+describe("dollars spliced before the wholesale rate", () => {
+  const wholesale = series(["2002-03-04", "2"], ["2002-03-05", "2.5"]);
+  const quote = series(
+    ["2001-12-20", "1"],
+    ["2002-01-11", "1.6"],
+    ["2002-03-04", "2.05"],
+    ["2002-03-05", "3"],
+  );
+
+  it("uses the BCRA quote only before the first wholesale day and names the splice", () => {
+    const result = computedOf(
+      run({
+        kind: "usd_spliced",
+        nominal: series(
+          ["2001-12-19", "10"],
+          ["2001-12-20", "10"],
+          ["2001-12-21", "10"],
+          ["2002-01-11", "16"],
+          ["2002-03-04", "20"],
+          ["2002-03-05", "25"],
+          ["2002-03-06", "25"],
+        ),
+        reference: wholesale,
+        beforeSplice: { basis: SPLICE_BEFORE_BASIS, points: quote },
+      }),
+    );
+
+    expect(
+      result.points.map((point) => [
+        point.periodOn,
+        point.value,
+        point.reason,
+        point.referenceSeries,
+      ]),
+    ).toEqual([
+      ["2001-12-19", null, "before_reference_history", null],
+      ["2001-12-20", "10", null, "before_splice"],
+      ["2001-12-21", null, "reference_gap", null],
+      ["2002-01-11", "10", null, "before_splice"],
+      // Desde el empalme manda el mayorista, aunque la cotización exista.
+      ["2002-03-04", "10", null, "reference"],
+      ["2002-03-05", "10", null, "reference"],
+      ["2002-03-06", null, "reference_not_published", null],
+    ]);
+    expect(result.splice).toEqual({
+      on: "2002-03-04",
+      beforeSplice: { firstOn: "2001-12-20", lastOn: "2002-03-05" },
+      levelGap: "0.025",
+    });
+    expect(result.unit).toBe("En millones de USD");
+  });
+
+  it("leaves the level gap null when the quote skips the splice day", () => {
+    const result = computedOf(
+      run({
+        kind: "usd_spliced",
+        nominal: series(["2002-03-04", "2"]),
+        reference: wholesale,
+        beforeSplice: {
+          basis: SPLICE_BEFORE_BASIS,
+          points: series(["2002-03-01", "2"]),
+        },
+      }),
+    );
+
+    expect(result.splice?.levelGap).toBeNull();
+  });
+
+  it("lets two-currency amounts reach spliced dollars only", () => {
+    expect(
+      transformationEligibility(
+        { ...PESOS, currencyCode: "MEyML" },
+        "usd_spliced",
+      ),
+    ).toBeNull();
+  });
+
+  it("refuses a series before the splice in another unit", () => {
+    expect(
+      run({
+        kind: "usd_spliced",
+        nominal: series(["2002-03-04", "2"]),
+        reference: wholesale,
+        beforeSplice: {
+          basis: { ...SPLICE_BEFORE_BASIS, unit: "Pesos argentinos por euro" },
+          points: quote,
+        },
+      }),
+    ).toMatchObject({ status: "reference_basis_unexpected" });
+  });
+
+  it("never runs without the series before the splice", () => {
+    expect(() =>
+      run({
+        kind: "usd_spliced",
+        nominal: series(["2002-03-04", "2"]),
+        reference: wholesale,
+      }),
+    ).toThrow(MacroTransformError);
+  });
+
+  it("carries the exchange-control caveat like the wholesale conversion", () => {
+    expect(
+      caveatsFor("usd_spliced", "2012-01-01", "2012-12-31").map(
+        (caveat) => caveat.code,
+      ),
+    ).toEqual(["official_fx_under_controls"]);
   });
 });

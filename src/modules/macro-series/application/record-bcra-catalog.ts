@@ -3,10 +3,9 @@ import { computeContentHash } from "@/modules/ingestion/domain/content-hash";
 import { ingestionRunSchema } from "@/modules/ingestion/domain/ingestion-run";
 
 import {
-  BCRA_CATALOG_DATASET_ID,
-  BCRA_MONETARY_PARSER_VERSION,
-  BCRA_MONETARY_SOURCE_ID,
-} from "../domain/bcra-monetary-source";
+  BCRA_MONETARY_PROFILE,
+  type BcraSourceProfile,
+} from "../domain/bcra-source-profile";
 import {
   catalogPlanChanges,
   definitionContentHash,
@@ -37,6 +36,8 @@ export type RecordBcraCatalogDependencies = {
   readonly acceptWithdrawals?: boolean;
   /** En seco no se registra corrida ni se escribe fila. */
   readonly dryRun?: boolean;
+  /** La API del BCRA: por defecto, Estadísticas Monetarias (ADR 0067). */
+  readonly profile?: BcraSourceProfile;
 };
 
 export type RecordBcraCatalogOutcome = {
@@ -57,10 +58,11 @@ export async function recordBcraCatalog(
     newId,
     acceptWithdrawals = false,
     dryRun = false,
+    profile = BCRA_MONETARY_PROFILE,
   } = dependencies;
   const startedAt = now();
   const fetched = await source.loadCatalog();
-  const current = await repository.listOpenDefinitions(BCRA_MONETARY_SOURCE_ID);
+  const current = await repository.listOpenDefinitions(profile.sourceId);
   const runId = newId();
   const plan = planCatalog({
     entries: fetched.entries,
@@ -70,10 +72,11 @@ export async function recordBcraCatalog(
     observedAt: fetched.observedAt,
     recordedAt: now(),
     sourceDocumentId: fetched.sourceDocumentId,
-    parserVersion: BCRA_MONETARY_PARSER_VERSION,
+    parserVersion: profile.parserVersion,
     ingestionRunId: runId,
     acceptWithdrawals,
     newId,
+    profile,
   });
 
   if (dryRun) {
@@ -89,6 +92,7 @@ export async function recordBcraCatalog(
           definitionContentOf(
             entry,
             fetched.methodologies.get(entry.variableId) ?? null,
+            profile,
           ),
         ),
       )
@@ -100,13 +104,13 @@ export async function recordBcraCatalog(
   const run = await ingestionRuns.append(
     ingestionRunSchema.parse({
       runId,
-      sourceId: BCRA_MONETARY_SOURCE_ID,
-      datasetId: BCRA_CATALOG_DATASET_ID,
-      parserVersion: BCRA_MONETARY_PARSER_VERSION,
+      sourceId: profile.sourceId,
+      datasetId: profile.catalogDatasetId,
+      parserVersion: profile.parserVersion,
       // La clave identifica la **transición**: el mismo catálogo que vuelve
       // después de otro es un cambio, no un replay del primero.
       idempotencyKey: computeContentHash({
-        datasetId: BCRA_CATALOG_DATASET_ID,
+        datasetId: profile.catalogDatasetId,
         contentHash,
         supersedes: current.map((definition) => definition.definitionId).sort(),
       }),

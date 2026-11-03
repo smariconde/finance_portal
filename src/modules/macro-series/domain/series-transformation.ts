@@ -28,6 +28,8 @@ import type { SeriesPoint } from "./series-observation";
  * real_cpi(m)      = nominal(m) × I(base) / I(m)      I(m) = Π (1 + π_k / 100), k ≤ m
  * real_cer(t)      = nominal(t) × CER(base) / CER(t)
  * usd_wholesale(t) = nominal(t) / mayorista(t)
+ * usd_spliced(t)   = nominal(t) / mayorista(t)            t ≥ primer mayorista
+ *                  = nominal(t) / cotización_BCRA(t)      t < primer mayorista
  * ```
  *
  * `nominal(m)` es el último punto de la serie dentro del mes `m`: un stock a
@@ -42,6 +44,7 @@ export const TRANSFORMATION_KINDS = [
   "real_cpi",
   "real_cer",
   "usd_wholesale",
+  "usd_spliced",
 ] as const;
 
 export type TransformationKind = (typeof TRANSFORMATION_KINDS)[number];
@@ -56,6 +59,15 @@ export const TRANSFORMATION_REFERENCES: Readonly<
   real_cer: 30,
   /** Tipo de cambio mayorista de referencia (Comunicación A 3500). */
   usd_wholesale: 5,
+  /** El mayorista desde su primer día; antes, la cotización del BCRA (ADR 0067). */
+  usd_spliced: 5,
+});
+
+/** La serie que cubre `usd_spliced` antes del primer mayorista: el dólar de Estadísticas Cambiarias. */
+export const SPLICE_BEFORE_BASIS: SeriesBasis = Object.freeze({
+  frequency: "daily",
+  unit: "Pesos argentinos por dólar estadounidense",
+  currencyCode: "ARS",
 });
 
 /**
@@ -73,6 +85,11 @@ export const TRANSFORMATION_REFERENCE_BASES: Readonly<
     currencyCode: "ML",
   },
   usd_wholesale: {
+    frequency: "daily",
+    unit: "Pesos argentinos por dólar estadounidense",
+    currencyCode: "ML",
+  },
+  usd_spliced: {
     frequency: "daily",
     unit: "Pesos argentinos por dólar estadounidense",
     currencyCode: "ML",
@@ -108,7 +125,8 @@ export function transformationEligibility(
     return null;
   }
 
-  return basis.currencyCode === "MEyML" && kind === "usd_wholesale"
+  return basis.currencyCode === "MEyML" &&
+    (kind === "usd_wholesale" || kind === "usd_spliced")
     ? null
     : "includes_foreign_currency";
 }
@@ -130,6 +148,23 @@ export type TransformedPoint = {
   readonly reason: PointUnavailableReason | null;
   /** Mes (`YYYY-MM`) o día de la referencia aplicada; `null` sin referencia. */
   readonly referenceOn: string | null;
+  /**
+   * Qué serie lo transformó: la referencia, o la anterior al empalme en
+   * `usd_spliced`. `null` sin referencia.
+   */
+  readonly referenceSeries: "reference" | "before_splice" | null;
+};
+
+/** El empalme de `usd_spliced`, nombrado en el resultado y nunca escondido. */
+export type SpliceSummary = {
+  /** Primer día de la referencia: desde él manda el mayorista. */
+  readonly on: string;
+  readonly beforeSplice: SeriesSpan;
+  /**
+   * `cotización(on) / mayorista(on) − 1`: el salto de nivel del empalme, o
+   * `null` si la serie anterior no publicó ese día.
+   */
+  readonly levelGap: string | null;
 };
 
 export type TransformationResult =
@@ -148,6 +183,8 @@ export type TransformationResult =
         readonly nominal: SeriesSpan | null;
         readonly reference: SeriesSpan | null;
       };
+      /** Sólo `usd_spliced`. */
+      readonly splice: SpliceSummary | null;
       readonly caveats: readonly TransformationCaveat[];
     }
   | {
@@ -181,6 +218,11 @@ export type TransformationInput = {
   readonly referenceBasis: SeriesBasis;
   readonly nominal: readonly SeriesPoint[];
   readonly reference: readonly SeriesPoint[];
+  /** La serie anterior al empalme, obligatoria para `usd_spliced`. */
+  readonly beforeSplice?: {
+    readonly basis: SeriesBasis;
+    readonly points: readonly SeriesPoint[];
+  };
   /**
    * Mes (`YYYY-MM`) para `real_cpi` o día para `real_cer` cuyos pesos son la
    * unidad. Sin él, el último que la referencia tiene al corte.
@@ -233,6 +275,24 @@ export function transformSeries(
       kind,
       referenceBasis: input.referenceBasis,
     };
+  }
+
+  if (kind === "usd_spliced") {
+    if (input.beforeSplice === undefined) {
+      throw new MacroTransformError(
+        "invalid_base",
+        "usd_spliced needs the series before the splice.",
+        ["beforeSplice"],
+      );
+    }
+
+    if (!sameBasis(input.beforeSplice.basis, SPLICE_BEFORE_BASIS)) {
+      return {
+        status: "reference_basis_unexpected",
+        kind,
+        referenceBasis: input.beforeSplice.basis,
+      };
+    }
   }
 
   if (input.reference.length === 0) {
@@ -362,6 +422,7 @@ function transformByCpi(input: TransformationInput): TransformationResult {
       ),
       reason: null,
       referenceOn: month,
+      referenceSeries: "reference",
     });
   }
 
@@ -375,24 +436,17 @@ function transformByDailyReference(
   input: TransformationInput,
 ): TransformationResult {
   const kind = input.kind;
-  const byDate = new Map<string, Dec>();
-
-  for (const point of input.reference) {
-    const value = decimal.parseDecimal(point.value, point.periodOn);
-
-    if (!value.greaterThan(ZERO)) {
-      throw new MacroTransformError(
-        "non_positive_reference",
-        "A CER or a wholesale rate must be strictly positive.",
-        [point.periodOn],
-      );
-    }
-
-    byDate.set(point.periodOn, value);
-  }
-
+  const byDate = positiveByDate(input.reference);
   const firstOn = input.reference[0]!.periodOn;
   const lastOn = input.reference.at(-1)!.periodOn;
+  const before =
+    kind === "usd_spliced" && input.beforeSplice!.points.length > 0
+      ? {
+          byDate: positiveByDate(input.beforeSplice!.points),
+          firstOn: input.beforeSplice!.points[0]!.periodOn,
+          lastOn: input.beforeSplice!.points.at(-1)!.periodOn,
+        }
+      : null;
   let baseOn: string | null = null;
   let base: Dec | null = null;
 
@@ -415,14 +469,17 @@ function transformByDailyReference(
   }
 
   const points: TransformedPoint[] = input.nominal.map((point) => {
-    const reference = byDate.get(point.periodOn);
+    // Antes del primer mayorista, y sólo entonces, manda la serie anterior.
+    const spliced = before !== null && point.periodOn < firstOn;
+    const span = spliced ? before : { byDate, firstOn, lastOn };
+    const reference = span.byDate.get(point.periodOn);
 
     if (reference === undefined) {
       return unavailable(
         point,
-        point.periodOn < firstOn
+        point.periodOn < span.firstOn
           ? "before_reference_history"
-          : point.periodOn > lastOn
+          : point.periodOn > span.lastOn
             ? "reference_not_published"
             : "reference_gap",
       );
@@ -440,10 +497,51 @@ function transformByDailyReference(
       value: decimal.formatDecimal(value, point.periodOn),
       reason: null,
       referenceOn: point.periodOn,
+      referenceSeries: spliced ? "before_splice" : "reference",
     };
   });
 
-  return computed(input, points, null, baseOn, { firstOn, lastOn });
+  const splice: SpliceSummary | null =
+    before === null
+      ? null
+      : {
+          on: firstOn,
+          beforeSplice: { firstOn: before.firstOn, lastOn: before.lastOn },
+          levelGap: before.byDate.has(firstOn)
+            ? decimal.formatDecimal(
+                decimal
+                  .divide(
+                    before.byDate.get(firstOn)!,
+                    byDate.get(firstOn)!,
+                    firstOn,
+                  )
+                  .minus(ONE),
+                firstOn,
+              )
+            : null,
+        };
+
+  return computed(input, points, null, baseOn, { firstOn, lastOn }, splice);
+}
+
+function positiveByDate(points: readonly SeriesPoint[]): Map<string, Dec> {
+  const byDate = new Map<string, Dec>();
+
+  for (const point of points) {
+    const value = decimal.parseDecimal(point.value, point.periodOn);
+
+    if (!value.greaterThan(ZERO)) {
+      throw new MacroTransformError(
+        "non_positive_reference",
+        "A CER or an exchange rate must be strictly positive.",
+        [point.periodOn],
+      );
+    }
+
+    byDate.set(point.periodOn, value);
+  }
+
+  return byDate;
 }
 
 function computed(
@@ -452,6 +550,7 @@ function computed(
   chainVersion: typeof CPI_CHAIN_VERSION | null,
   baseOn: string | null,
   reference: SeriesSpan,
+  splice: SpliceSummary | null = null,
 ): TransformationResult {
   const nominal =
     input.nominal.length === 0
@@ -467,12 +566,13 @@ function computed(
     version: MACRO_TRANSFORM_VERSION,
     chainVersion,
     unit:
-      input.kind === "usd_wholesale"
+      input.kind === "usd_wholesale" || input.kind === "usd_spliced"
         ? "En millones de USD"
         : `En millones de ARS de ${baseOn}`,
     baseOn,
     points,
     coverage: { nominal, reference },
+    splice,
     caveats:
       nominal === null
         ? []
@@ -490,6 +590,7 @@ function unavailable(
     value: null,
     reason,
     referenceOn: null,
+    referenceSeries: null,
   };
 }
 

@@ -101,12 +101,17 @@ export type ParsedPage<Row> =
       readonly offset: number;
       readonly rows: readonly Row[];
       readonly rejections: readonly RowRejection[];
+      /**
+       * Registros de la fuente que la página consumió, cuando no son sus filas:
+       * la API cambiaria pagina por cotización y un día puede traer varias.
+       */
+      readonly consumed?: number;
     }
   | { readonly ok: false; readonly code: PageFailureCode };
 
 const EXACT_KEYS: ReadonlySet<string> = new Set(["valor", "ultValorInformado"]);
 
-const resultsetSchema = z
+export const resultsetSchema = z
   .object({
     count: z.number().int().min(0),
     offset: z.number().int().min(0),
@@ -141,7 +146,7 @@ const POINT_KEYS = ["fecha", "valor"] as const;
 
 const isoDateSchema = z.iso.date();
 
-function decode(body: Uint8Array | string): string | null {
+export function decode(body: Uint8Array | string): string | null {
   if (typeof body === "string") {
     return body;
   }
@@ -191,7 +196,7 @@ function parseEnvelope(
 }
 
 /** Un objeto con exactamente estas claves: una más o una menos es otro cable. */
-function hasExactKeys(
+export function hasExactKeys(
   value: unknown,
   keys: readonly string[],
 ): value is Record<string, unknown> {
@@ -212,7 +217,7 @@ export function normalizeSourceText(value: string): string {
   return value.normalize("NFC").replace(/\s+/gu, " ").trim();
 }
 
-function readText(value: unknown, maxLength: number): string | null {
+export function readText(value: unknown, maxLength: number): string | null {
   if (typeof value !== "string") {
     return null;
   }
@@ -222,7 +227,7 @@ function readText(value: unknown, maxLength: number): string | null {
   return text.length > 0 && text.length <= maxLength ? text : null;
 }
 
-function readDate(value: unknown): string | null {
+export function readDate(value: unknown): string | null {
   return typeof value === "string" && isoDateSchema.safeParse(value).success
     ? value
     : null;
@@ -234,7 +239,7 @@ function readExactDecimal(value: unknown): string | null {
     : null;
 }
 
-function checkPagination(
+export function checkPagination(
   resultset: z.infer<typeof resultsetSchema>,
   expected: {
     readonly offset: number;
