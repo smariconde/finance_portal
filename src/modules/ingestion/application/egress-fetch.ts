@@ -92,6 +92,16 @@ export const DAMODARAN_REQUEST_PACING: RequestPacingPolicy = Object.freeze({
   maxRequests: 7,
 });
 
+/**
+ * Estadísticas Monetarias del BCRA: 30 requests por minuto y 500 por corrida,
+ * los de la matriz de uso (ADR 0065). La fuente controla por IP sin publicar
+ * cifra, así que el ritmo es prudencia nuestra.
+ */
+export const BCRA_REQUEST_PACING: RequestPacingPolicy = Object.freeze({
+  minIntervalMs: 2000,
+  maxRequests: 500,
+});
+
 export class RequestBudgetExhaustedError extends Error {
   readonly sourceId: string;
   readonly maxRequests: number;

@@ -50,7 +50,9 @@ describe("topes declarados", () => {
     expect(declaredDailyBudget("damodaran-current-data")).toBe(20);
     expect(declaredDailyBudget("openrouter")).toBe(100);
     expect(declaredDailyBudget("tavily")).toBe(10);
+    expect(declaredDailyBudget("bcra-monetarias-v4")).toBe(300);
     expect(Object.keys(SOURCE_DAILY_REQUEST_BUDGETS).sort()).toEqual([
+      "bcra-monetarias-v4",
       "caja-valores-cedear",
       "comafi-cedear",
       "damodaran-current-data",

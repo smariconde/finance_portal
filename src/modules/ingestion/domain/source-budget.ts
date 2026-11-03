@@ -48,6 +48,10 @@ export const SOURCE_DAILY_REQUEST_BUDGETS: Readonly<Record<string, number>> =
     // cubren varias corridas de prueba y dejan fuera cualquier bucle.
     "comafi-cedear": 10,
     "caja-valores-cedear": 10,
+    // La primera descarga del set declarado son ~88 requests y el catálogo 9;
+    // una actualización, 35 (ADR 0065). 300 cubren la primera vuelta, una
+    // repetición y varias actualizaciones el mismo día.
+    "bcra-monetarias-v4": 300,
     // Cuatro páginas por corrida (ADR 0032). Veinte por día cubren cinco
     // corridas, que es el tope de la matriz de uso, y dejan fuera cualquier bucle.
     "damodaran-current-data": 20,
