@@ -115,13 +115,21 @@ test.describe("shell del portal", () => {
     await expect(page).toHaveURL(/\/sectores$/u);
   });
 
+  test("la sidebar lleva al tablero argentino", async ({ page }) => {
+    await page.goto(ROUTES.home);
+    await openNavigation(page);
+
+    await page.getByRole("link", { name: "Argentina" }).click();
+    await expect(page).toHaveURL(/\/argentina$/u);
+  });
+
   test("las herramientas planificadas se anuncian como no disponibles", async ({
     page,
   }) => {
     await page.goto(ROUTES.home);
     await openNavigation(page);
 
-    for (const label of ["Empresas", "Argentina", "Agro"]) {
+    for (const label of ["Empresas", "Agro"]) {
       const item = page.getByRole("button", { name: new RegExp(label) });
       // El estado se anuncia con `aria-disabled` para conservar el tooltip que
       // etiqueta el control cuando la sidebar está colapsada.

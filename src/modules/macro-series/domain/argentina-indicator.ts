@@ -3,7 +3,11 @@ import { z } from "zod";
 import { createDecimalOperations } from "@/modules/numeric/domain/decimal-policy";
 
 /** Contract for the declared activity, fiscal and external series (F9-04). */
-export const ARGENTINA_INDICATOR_VERSION = "argentina-indicator-1.0.0";
+/**
+ * `1.1.0` adds the year-over-year change of an original series (`F9-06`); the
+ * three earlier readings are unchanged.
+ */
+export const ARGENTINA_INDICATOR_VERSION = "argentina-indicator-1.1.0";
 
 const finiteDecimalSchema = z.string().regex(/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/u);
 
@@ -252,6 +256,51 @@ export function seasonallyAdjustedMonthlyChange(input: {
   const d = createDecimalOperations((code) => new Error(code));
   try {
     const base = d.parseDecimal(previous.value, "previous");
+    if (base.isZero()) return unavailable("zero_denominator");
+    const value = d
+      .divide(d.parseDecimal(current.value, "current"), base, "change")
+      .minus(1)
+      .mul(100);
+    return {
+      status: "computed",
+      value: d.formatDecimal(value, "change"),
+      version: ARGENTINA_INDICATOR_VERSION,
+    };
+  } catch {
+    return unavailable("non_finite");
+  }
+}
+
+/**
+ * Change against the same month a year earlier, on the source's original
+ * series: seasonality cancels by construction, so no adjusted series is
+ * needed. Both points must share the segment, so a rebasing never compares.
+ */
+export function yearOverYearChange(input: {
+  readonly indicator: ArgentinaIndicator;
+  readonly yearEarlier: ArgentinaIndicatorVintage | null;
+  readonly current: ArgentinaIndicatorVintage | null;
+}): Comparison {
+  const { indicator, yearEarlier, current } = input;
+  if (
+    indicator.frequency !== "monthly" ||
+    indicator.seasonalAdjustment !== "original"
+  )
+    return unavailable("incompatible_basis");
+  if (!yearEarlier || !current) return unavailable("incompatible_period");
+  const expected = `${Number(current.periodOn.slice(0, 4)) - 1}${current.periodOn.slice(4, 7)}`;
+  if (
+    yearEarlier.periodOn.slice(0, 7) !== expected ||
+    yearEarlier.segment !== current.segment ||
+    yearEarlier.indicatorId !== indicator.id ||
+    current.indicatorId !== indicator.id
+  )
+    return unavailable("incompatible_period");
+  if (yearEarlier.value === null || current.value === null)
+    return unavailable("missing_value");
+  const d = createDecimalOperations((code) => new Error(code));
+  try {
+    const base = d.parseDecimal(yearEarlier.value, "yearEarlier");
     if (base.isZero()) return unavailable("zero_denominator");
     const value = d
       .divide(d.parseDecimal(current.value, "current"), base, "change")

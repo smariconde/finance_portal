@@ -6,6 +6,7 @@ import {
   readIndicatorVintages,
   seasonallyAdjustedMonthlyChange,
   tradeBalance,
+  yearOverYearChange,
   type ArgentinaIndicator,
   type ArgentinaIndicatorVintage,
 } from "./argentina-indicator";
@@ -271,5 +272,75 @@ describe("compatible macro calculations", () => {
         imports: { ...imports, seasonalAdjustment: "seasonally_adjusted" },
       }),
     ).toEqual({ status: "unavailable", reason: "incompatible_basis" });
+  });
+});
+
+describe("yearOverYearChange", () => {
+  const series = indicator({
+    id: "activity_original",
+    block: "activity",
+    currency: "index",
+    scale: null,
+    priceBasis: "constant",
+  });
+
+  it("compares a month with the same month a year earlier", () => {
+    expect(
+      yearOverYearChange({
+        indicator: series,
+        yearEarlier: point(series.id, "2025-08-01", "150"),
+        current: point(series.id, "2026-08-01", "147"),
+      }),
+    ).toMatchObject({ status: "computed", value: "-2" });
+  });
+
+  it("refuses an adjusted series, a different month, a rebasing and a gap", () => {
+    expect(
+      yearOverYearChange({
+        indicator: indicator({
+          ...series,
+          seasonalAdjustment: "seasonally_adjusted",
+        }),
+        yearEarlier: point(series.id, "2025-08-01", "150"),
+        current: point(series.id, "2026-08-01", "147"),
+      }),
+    ).toEqual({ status: "unavailable", reason: "incompatible_basis" });
+    expect(
+      yearOverYearChange({
+        indicator: series,
+        yearEarlier: point(series.id, "2025-07-01", "150"),
+        current: point(series.id, "2026-08-01", "147"),
+      }),
+    ).toEqual({ status: "unavailable", reason: "incompatible_period" });
+    expect(
+      yearOverYearChange({
+        indicator: series,
+        yearEarlier: point(series.id, "2025-08-01", "150", {
+          segment: "base-0",
+        }),
+        current: point(series.id, "2026-08-01", "147"),
+      }),
+    ).toEqual({ status: "unavailable", reason: "incompatible_period" });
+    expect(
+      yearOverYearChange({
+        indicator: series,
+        yearEarlier: null,
+        current: point(series.id, "2026-08-01", "147"),
+      }),
+    ).toEqual({ status: "unavailable", reason: "incompatible_period" });
+    expect(
+      yearOverYearChange({
+        indicator: series,
+        yearEarlier: point(series.id, "2025-08-01", "0"),
+        current: point(series.id, "2026-08-01", "147"),
+      }),
+    ).toEqual({ status: "unavailable", reason: "zero_denominator" });
+    expect(
+      yearOverYearChange({
+        indicator: series,
+        yearEarlier: point(series.id, "2025-08-01", null),
+        current: point(series.id, "2026-08-01", "147"),
+      }),
+    ).toEqual({ status: "unavailable", reason: "missing_value" });
   });
 });
