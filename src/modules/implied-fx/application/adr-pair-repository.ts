@@ -25,10 +25,14 @@ export interface AdrPairRepository {
     closes: readonly AdrLegClose[],
     ingestionRunId: string,
   ): Promise<AdrLegWriteSummary>;
-  /** Cierres de esas patas hasta `untilOn`, inclusive, ordenados por fecha. */
+  /**
+   * Cierres de esas patas hasta `untilOn`, inclusive, ordenados por fecha.
+   * Con `fromOn`, sólo desde esa fecha: una ventana no necesita la historia.
+   */
   listLegCloses(
     legIds: readonly string[],
     untilOn: string,
+    fromOn?: string,
   ): Promise<readonly StoredAdrLegClose[]>;
 }
 

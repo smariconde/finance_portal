@@ -14,6 +14,7 @@ import type { AdrPairRepository } from "./adr-pair-repository";
 export async function readImpliedCcl(
   query: PointInTimeQuery,
   repository: AdrPairRepository,
+  options: { readonly fromOn?: string } = {},
 ): Promise<readonly ImpliedCclPoint[]> {
   const legIds = DECLARED_ADR_PAIRS.flatMap((pair) => [
     legIdOf(pair.pairId, "adr"),
@@ -22,6 +23,7 @@ export async function readImpliedCcl(
   const stored = await repository.listLegCloses(
     legIds,
     query.effectiveAt.slice(0, 10),
+    options.fromOn,
   );
   const closes =
     query.revisionPolicy === "latest_restated"

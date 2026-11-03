@@ -108,7 +108,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    80 | `F9-03`    | `done`     | Cambiario usa fuentes oficiales con fecha propia por serie.                                                                                                                                                               | `F9-02`          |
 |    81 | `F9-07`    | `done`     | CCL implícito diario por pares ADR declarados y verificados, con la conversión «dólar CCL» al lado de la oficial y la brecha visible.                                                                                     | `F9-03`          |
 |    82 | `F9-04`    | `done`     | Actividad del INDEC (EMAE y 16 sectores), totales del ICA, IMIG y PIB nominal con revisiones por punto, signos del INDEC y ratios compatibles; conciliados con lo publicado.                                              |
-|    83 | `F9-06`    | `queued`   | Página Argentina: monetario, cambiario con CCL, actividad, fiscal y externo, cada bloque con gráfico, tabla accesible, frescura y metodología por serie.                                                                  |
+|    83 | `F9-06`    | `done`     | Página Argentina: actividad con mapa de sectores, dólar con CCL y bandas, inflación y reservas, fiscal sobre PIB y comercio exterior, cada bloque con gráfico, tabla accesible, fuente, fecha y metodología.              |
 |    84 | `F9-08`    | `queued`   | INDEC ampliado: IPC por componente y región, salarios, canastas, IPI, ICC y mayoristas con el mismo contrato y su conciliación.                                                                                           |
 |    85 | `F9-09`    | `queued`   | Composición del comercio exterior del INDEC por rubro, uso y destino, con las celdas suprimidas contadas y nunca rellenadas.                                                                                              |
 |    86 | `F9-10`    | `queued`   | Producción de petróleo y gas por pozo (Capítulo IV) agregada por empresa y cuenca, enlazada a las entidades del grafo.                                                                                                    |
@@ -6193,6 +6193,34 @@ Evidencia medida contra los cables reales, en una réplica vacía:
 
 Sigue `F9-06`: la página Argentina con lo que ya está guardado. `F9-08` a
 `F9-11` quedan en cola con su aceptación.
+
+**`F9-06` cerró el 2026-11-03** con `/argentina`, enlazada desde la sidebar.
+El owner eligió una sola página y que responda primero «¿cómo viene la
+economía?».
+
+- **Lectura.** `argentina-dashboard-1.0.0` lee todo a un solo corte, sin
+  descargar: cinco tarjetas con su cifra y su fecha, y cinco bloques con la
+  pregunta, la lectura en una frase, la fuente y la última fecha a la vista,
+  el gráfico, la tabla equivalente y la metodología plegadas.
+- **Bloques.** Actividad: EMAE desestacionalizado y tendencia, y un mapa de los
+  16 sectores en variación interanual (`argentina-indicator-1.1.0` suma la
+  interanual sobre la serie original). Dólar: mayorista, CCL implícito y bandas
+  de dos años, con la brecha aparte. Monetario: inflación mensual, reservas y
+  base monetaria real. Fiscal: primario e intereses sobre PIB por año completo;
+  el año en curso sólo en pesos. Externo: exportaciones, importaciones y saldo,
+  con la suma de doce meses sólo si están los doce.
+- **Lectura de datos.** Los 25 indicadores se leen en dos consultas, primero
+  las observaciones y después las definiciones, así una carga concurrente no
+  rompe la página; el CCL lee sólo su ventana (`fromOn`). Las observaciones se
+  insertan en lotes de 1.000: la primera carga en Neon, fila por fila, tardó
+  más de veinte minutos.
+
+Evidencia: build servido contra Production en sólo lectura, a 1440 y 390 px,
+claro y oscuro: axe 0 serious/critical, 0 px de desborde y ningún `NaN`,
+`undefined` ni `null` en el texto. Desde el host local la página tarda de 12 a
+17 s por la latencia a Neon; Production corre en `iad1`, junto a la base.
+
+Sigue `F9-05` o `F9-08`, a elección del owner.
 
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |

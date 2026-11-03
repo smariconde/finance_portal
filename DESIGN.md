@@ -326,12 +326,27 @@ Implementado en `src/app/sectores/[sector]/_components/` (`F7-05`). Es el primer
 - **Equivalent table:** mismas cifras sin recorte, ordenable por columna con `aria-sort`, números antes que texto para que el mobile lea la respuesta sin desplazar, y los `null` con su motivo e icono, nunca un cero.
 - **Quality reading:** un bloque previo al gráfico muestra nota operativa, cobertura, frescura, comparabilidad, validación interna y acuerdo no evaluable. La nota no absorbe ni oculta el panel de `null`; publica pesos, denominadores y el límite de una sola fuente.
 
+### Sector heatmap
+
+Implementado en `src/app/argentina/_components/sector-heatmap.tsx` (`F9-06`).
+
+- **Structure:** tabla semántica, no un dibujo: `th scope="row"` por sector con su letra ClaNAE y `th scope="col"` por mes, del más reciente al más viejo, para que en mobile lo último publicado se vea sin desplazar. Filas ordenadas por el último mes.
+- **Encoding:** la variación interanual va escrita con signo en cada celda. El tinte —`color-mix(in oklab, var(--chart-2 | --chart-5) N%, var(--card))`— sólo la refuerza: `--chart-2` sobre cero, `--chart-5` bajo cero, intensidades `0 / 6 / 11 / 16 / 22 %` por magnitud (1, 3, 6 y 10 puntos). El tope es el de la grilla de sensibilidad; axe midió 0 problemas de contraste en claro y oscuro.
+- **Missing:** un mes sin dato o sin su mes del año anterior escribe su motivo («Sin dato», «Período incompleto»), nunca un cero ni una celda vacía.
+
+### Time-series blocks
+
+Implementados en `src/app/argentina/_components/` (`F9-06`).
+
+- **Block:** una `section` con card: la pregunta como `h2`, la lectura en una frase sin causalidad, la fuente y la última fecha en una línea a la vista; después el gráfico, la tabla equivalente y la metodología, estas dos en `<details>` nativos.
+- **Charts:** Recharts sin tooltip ni animación. Líneas sólidas para la serie principal, punteadas para tendencia y bandas; barras desde cero con línea del cero visible. La leyenda repite el trazo (línea) o el relleno (cuadrado). Un punto sin dato corta la línea. Una escala se reduce sólo para el dibujo y el título dice la unidad («miles de millones de US$»); la tabla conserva la cifra exacta.
+
 ### Navigation
 
 - **Desktop:** sidebar de `16rem`, colapsable a iconos de `3rem`; shortcut `Ctrl/Cmd+B` y tooltips cuando está colapsada. El rail de arrastre queda fuera del árbol de accesibilidad: duplicaba el nombre del trigger sin agregar ninguna capacidad para teclado o lector de pantalla.
 - **Mobile:** drawer lateral de `18rem`; al elegir una ruta se cierra, y `Escape` lo cierra. Los tooltips **no** existen en este ancho: son una afordancia de puntero, y su trigger capturaba `Escape` antes de que llegara al drawer.
 - **Items:** altura base de `2rem`, radio `md`, icono de `1rem`; activo y hover usan sidebar-accent. Un ítem no disponible usa `aria-disabled`, no `disabled`, para conservar su tooltip —única etiqueta cuando la sidebar está colapsada— y seguir anunciándose como no accionable.
-- **Information architecture:** Inicio, Valuación y Configuración enlazan. Valuación abre `/valuacion`: encola la evaluación de un ticker sobre lo ya guardado y nombra el hueco, sin un valor por acción. La corrida de referencia, sobre un snapshot fijo, sigue en `/valuacion/referencia`. Las herramientas sin datos aparecen deshabilitadas con la etiqueta `Plan`.
+- **Information architecture:** Inicio, Valuación, Matrices, Argentina y Configuración enlazan. Valuación abre `/valuacion`: encola la evaluación de un ticker sobre lo ya guardado y nombra el hueco, sin un valor por acción. La corrida de referencia, sobre un snapshot fijo, sigue en `/valuacion/referencia`. Las herramientas sin datos aparecen deshabilitadas con la etiqueta `Plan`.
 
 ### Shell
 

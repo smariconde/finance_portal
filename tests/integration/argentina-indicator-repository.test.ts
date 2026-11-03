@@ -94,6 +94,9 @@ describe("PostgreSQL Argentina indicator repository", () => {
 
     const all = await repository.allObservations(indicator.id);
     expect(all).toHaveLength(25);
+    const batch = await repository.allObservationsOf([indicator.id, "emae_sa"]);
+    expect(batch.get(indicator.id)).toEqual(all);
+    expect(batch.get("emae_sa")).toEqual([]);
     const at = (knownAt: string) =>
       readIndicatorVintages(indicator, all, {
         effectiveOn: "2026-11-03",

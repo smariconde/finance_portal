@@ -55,6 +55,7 @@ test.describe("negativa del runtime trabado", () => {
       [ROUTES.sectors, "Las matrices por sector"],
       [ROUTES.sectorMatrix, "La matriz de riesgo sectorial"],
       [ROUTES.sectorDivergences, "La matriz de divergencias sectorial"],
+      [ROUTES.argentina, "El tablero argentino"],
     ] as const) {
       await page.goto(route);
 

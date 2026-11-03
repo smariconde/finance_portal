@@ -1,0 +1,173 @@
+import type { AdrPairRepository } from "@/modules/implied-fx/application/adr-pair-repository";
+import { readImpliedCcl } from "@/modules/implied-fx/application/read-implied-ccl";
+import type { ArgentinaIndicatorRepository } from "@/modules/macro-series/application/argentina-indicator-repository";
+import type { MacroSeriesRepository } from "@/modules/macro-series/application/macro-series-repository";
+import { readMacroSeries } from "@/modules/macro-series/application/read-macro-series";
+import { readTransformedMacroSeries } from "@/modules/macro-series/application/read-transformed-macro-series";
+import { readIndicatorVintages } from "@/modules/macro-series/domain/argentina-indicator";
+import {
+  bcraSeriesKey,
+  type BcraVariableId,
+} from "@/modules/macro-series/domain/bcra-monetary-source";
+import {
+  DECLARED_ARGENTINA_INDICATORS,
+  declaredArgentinaIndicator,
+} from "@/modules/macro-series/domain/declared-argentina-indicators";
+import { pointInTimeQuerySchema } from "@/modules/temporal/domain/point-in-time-query";
+
+import {
+  ARGENTINA_DASHBOARD_VERSION,
+  buildActivityBlock,
+  buildDollarBlock,
+  buildExternalBlock,
+  buildFiscalBlock,
+  buildMonetaryBlock,
+  dailyWindowStart,
+  type ActivityBlock,
+  type DollarBlock,
+  type ExternalBlock,
+  type FiscalBlock,
+  type IndicatorSeries,
+  type MonetaryBlock,
+} from "../domain/argentina-dashboard";
+
+/** The BCRA variables the page reads (`declared-bcra-series.ts`). */
+export const DASHBOARD_BCRA_VARIABLES = {
+  reserves: 1,
+  wholesaleUsd: 5,
+  baseMoney: 15,
+  monthlyInflation: 27,
+  annualInflation: 28,
+  bandLow: 1187,
+  bandHigh: 1188,
+} as const satisfies Record<string, BcraVariableId>;
+
+export type ArgentinaDashboard = {
+  readonly version: typeof ARGENTINA_DASHBOARD_VERSION;
+  /** The one cutoff every block was read at. */
+  readonly readAt: string;
+  readonly activity: ActivityBlock;
+  readonly dollar: DollarBlock;
+  readonly monetary: MonetaryBlock;
+  readonly fiscal: FiscalBlock;
+  readonly external: ExternalBlock;
+};
+
+/**
+ * Reads every block of `/argentina` at one cutoff: what was known now, as it
+ * was published. It never downloads: the page shows what the hand-run
+ * commands stored, with each series' own last date.
+ */
+export async function loadArgentinaDashboard(dependencies: {
+  readonly indicators: ArgentinaIndicatorRepository;
+  readonly macro: MacroSeriesRepository;
+  readonly adrPairs: AdrPairRepository;
+  readonly now: () => string;
+}): Promise<ArgentinaDashboard> {
+  const readAt = dependencies.now();
+  const today = readAt.slice(0, 10);
+  const query = pointInTimeQuerySchema.parse({
+    effectiveAt: readAt,
+    knownAt: readAt,
+    revisionPolicy: "as_known",
+    knowledgeBasis: "public_availability",
+    sourcePolicyVersion: "source-policy-1.0.0",
+  });
+
+  // One read for every declared indicator: two queries instead of two each.
+  const stored = await dependencies.indicators.allObservationsOf(
+    DECLARED_ARGENTINA_INDICATORS.map((item) => item.id),
+  );
+
+  function indicator(id: string): IndicatorSeries {
+    const declared = declaredArgentinaIndicator(id);
+    if (declared === null) throw new Error(`indicator_not_declared: ${id}`);
+    const points = readIndicatorVintages(declared, stored.get(id) ?? [], {
+      effectiveOn: today,
+      knownAt: readAt,
+      knowledgeBasis: "public_availability",
+    }).filter((point) => point.missingReason !== "withdrawn");
+    return { indicator: declared, points };
+  }
+
+  async function bcra(variableId: BcraVariableId) {
+    const reading = await readMacroSeries(
+      bcraSeriesKey(variableId),
+      query,
+      dependencies.macro,
+    );
+    return reading.status === "read"
+      ? reading.points.map((point) => ({
+          periodOn: point.periodOn,
+          value: point.value,
+        }))
+      : [];
+  }
+
+  const sectorIds = DECLARED_ARGENTINA_INDICATORS.filter((item) =>
+    item.id.startsWith("emae_sector_"),
+  ).map((item) => item.id);
+
+  const seasonallyAdjusted = indicator("emae_sa");
+  const trend = indicator("emae_trend");
+  const original = indicator("emae_original");
+  const sectors = sectorIds.map(indicator);
+  const primary = indicator("fiscal_primary_result");
+  const interest = indicator("fiscal_net_interest");
+  const gdp = indicator("gdp_nominal_annual");
+  const exports = indicator("exports_goods");
+  const imports = indicator("imports_goods");
+
+  const [
+    official,
+    bandLow,
+    bandHigh,
+    ccl,
+    monthlyInflation,
+    annualInflation,
+    reserves,
+    realBase,
+  ] = await Promise.all([
+    bcra(DASHBOARD_BCRA_VARIABLES.wholesaleUsd),
+    bcra(DASHBOARD_BCRA_VARIABLES.bandLow),
+    bcra(DASHBOARD_BCRA_VARIABLES.bandHigh),
+    readImpliedCcl(query, dependencies.adrPairs, {
+      fromOn: dailyWindowStart(today),
+    }),
+    bcra(DASHBOARD_BCRA_VARIABLES.monthlyInflation),
+    bcra(DASHBOARD_BCRA_VARIABLES.annualInflation),
+    bcra(DASHBOARD_BCRA_VARIABLES.reserves),
+    readTransformedMacroSeries(
+      { variableId: DASHBOARD_BCRA_VARIABLES.baseMoney, kind: "real_cpi" },
+      query,
+      dependencies.macro,
+    ),
+  ]);
+
+  const realBaseComputed =
+    realBase.status === "read" && realBase.transformation.status === "computed"
+      ? realBase.transformation
+      : null;
+
+  return {
+    version: ARGENTINA_DASHBOARD_VERSION,
+    readAt,
+    activity: buildActivityBlock({
+      seasonallyAdjusted,
+      trend,
+      original,
+      sectors,
+    }),
+    dollar: buildDollarBlock({ official, ccl, bandLow, bandHigh }),
+    monetary: buildMonetaryBlock({
+      monthlyInflation,
+      annualInflation,
+      reserves,
+      realBase: realBaseComputed?.points ?? [],
+      realBaseUnit: realBaseComputed?.unit ?? null,
+      realBaseOn: realBaseComputed?.baseOn ?? null,
+    }),
+    fiscal: buildFiscalBlock({ primary, interest, gdp }),
+    external: buildExternalBlock({ exports, imports }),
+  };
+}

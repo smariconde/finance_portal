@@ -42,6 +42,12 @@ export class InMemoryArgentinaIndicatorRepository implements ArgentinaIndicatorR
     return this.read(indicatorId, false);
   }
 
+  async allObservationsOf(
+    indicatorIds: readonly string[],
+  ): Promise<ReadonlyMap<string, readonly ArgentinaIndicatorVintage[]>> {
+    return new Map(indicatorIds.map((id) => [id, this.read(id, false)]));
+  }
+
   async apply(
     plan: ArgentinaIndicatorPlan,
     indicatorId: string,

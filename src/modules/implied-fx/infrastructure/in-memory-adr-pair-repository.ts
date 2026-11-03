@@ -43,11 +43,17 @@ export class InMemoryAdrPairRepository implements AdrPairRepository {
   async listLegCloses(
     legIds: readonly string[],
     untilOn: string,
+    fromOn?: string,
   ): Promise<readonly StoredAdrLegClose[]> {
     const wanted = new Set(legIds);
 
     return [...this.rows.values()]
-      .filter((row) => wanted.has(row.legId) && row.marketDate <= untilOn)
+      .filter(
+        (row) =>
+          wanted.has(row.legId) &&
+          row.marketDate <= untilOn &&
+          (fromOn === undefined || row.marketDate >= fromOn),
+      )
       .sort((left, right) => left.marketDate.localeCompare(right.marketDate));
   }
 }

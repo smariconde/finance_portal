@@ -18,6 +18,10 @@ export interface ArgentinaIndicatorRepository {
   allObservations(
     indicatorId: string,
   ): Promise<readonly ArgentinaIndicatorVintage[]>;
+  /** Every revision of several indicators in one read, keyed by ID. */
+  allObservationsOf(
+    indicatorIds: readonly string[],
+  ): Promise<ReadonlyMap<string, readonly ArgentinaIndicatorVintage[]>>;
   apply(plan: ArgentinaIndicatorPlan, indicatorId: string): Promise<void>;
 }
 

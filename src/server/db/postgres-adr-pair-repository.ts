@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq, inArray, lte } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 
 import {
@@ -89,7 +89,7 @@ export function createPostgresAdrPairRepository(
       });
     },
 
-    async listLegCloses(legIds, untilOn) {
+    async listLegCloses(legIds, untilOn, fromOn) {
       if (legIds.length === 0) {
         return [];
       }
@@ -111,6 +111,9 @@ export function createPostgresAdrPairRepository(
           and(
             inArray(schema.adrPairCloses.legId, [...legIds]),
             lte(schema.adrPairCloses.marketDate, untilOn),
+            fromOn === undefined
+              ? undefined
+              : gte(schema.adrPairCloses.marketDate, fromOn),
           ),
         )
         .orderBy(asc(schema.adrPairCloses.marketDate))

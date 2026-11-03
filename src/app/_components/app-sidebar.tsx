@@ -45,6 +45,12 @@ const activeItems = [
     badge: null,
   },
   {
+    href: "/argentina",
+    label: "Argentina",
+    icon: Landmark,
+    badge: null,
+  },
+  {
     href: "/configuracion",
     label: "Configuración",
     icon: Settings2,
@@ -53,14 +59,13 @@ const activeItems = [
 ] as const;
 
 /**
- * Lo que el backlog tiene por delante: la ficha de la empresa (`F6-25`) y
- * Argentina y soja (Fase 9). Las divergencias (Fase 8) viven en «Matrices»,
+ * Lo que el backlog tiene por delante: la ficha de la empresa (`F6-25`) y la
+ * soja (`F9-05`); Argentina ya enlaza (`F9-06`). Las divergencias (Fase 8) viven en «Matrices»,
  * junto al riesgo de cada sector. No hay screener: el filtrado amplio se hace
  * afuera (ADR 0016).
  */
 const plannedItems = [
   { label: "Empresas", icon: Building2 },
-  { label: "Argentina", icon: Landmark },
   { label: "Agro", icon: Wheat },
 ] as const;
 
