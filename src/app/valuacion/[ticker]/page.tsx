@@ -81,6 +81,7 @@ import { DerivationSummary } from "./_components/derivation-summary";
 import { GrowthDerivation } from "./_components/growth-derivation";
 import { AuditGroup } from "./_components/audit-group";
 import { CompanyHistory } from "./_components/company-history";
+import { CompanyProfile } from "./_components/company-profile";
 import { PeerContext } from "./_components/peer-context";
 import { PriceRequirements } from "./_components/price-requirements";
 import { ValueWalkthrough } from "./_components/value-walkthrough";
@@ -227,6 +228,7 @@ const SECTIONS = [
   { id: "veredicto", label: "Precio contra valor" },
   { id: "exigencias", label: "Qué tendría que pasar" },
   { id: "pares", label: "Frente a sus pares" },
+  { id: "ficha", label: "Ficha de la empresa" },
   { id: "historia", label: "Cómo viene la empresa" },
   { id: "valor", label: "Por qué vale eso" },
   { id: "escenarios", label: "Escenarios" },
@@ -435,6 +437,17 @@ function FinancialRunView({
           </AlertDescription>
         </Alert>
       ) : null}
+      <div id="ficha" className="scroll-mt-20">
+        <CompanyProfile profile={reading.profile} />
+      </div>
+      <CompanyHistory
+        trajectory={reading.trajectory}
+        knownAt={
+          run.provenance.knowledge.knownAt ??
+          run.provenance.knowledge.effectiveAt
+        }
+        focus="financial"
+      />
       <Card>
         <CardHeader>
           <CardTitle>Por qué vale eso</CardTitle>
@@ -780,6 +793,10 @@ export default async function ValuationResultPage({ params }: PageProps) {
 
       <Anchor id="pares">
         <PeerContext context={reading.peers} />
+      </Anchor>
+
+      <Anchor id="ficha">
+        <CompanyProfile profile={reading.profile} peBand={reading.peBand} />
       </Anchor>
 
       <Anchor id="historia">

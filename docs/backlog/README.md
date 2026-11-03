@@ -95,7 +95,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    67 | `F8-02`    | `done`     | Vista principal market cap vs EPS con sesgo de recompras visible y vistas alternativas con puente de dilución.                                                                                                            | `F8-01`          |
 |    68 | `F6-23`    | `queued`   | Deuda de las empresas con brazo financiero cautivo (CAT, DE): medir sus conceptos y decidir cómo se trata la financiera antes de valuarlas.                                                                               | `F6-18`          |
 |    69 | `F6-24`    | `queued`   | Año base TTM: el último 10-Q entra al año base (flujos TTM, balance al último cierre) y la corrida deja de quedar hasta un año atrás.                                                                                     | `F6-22`          |
-|    70 | `F6-25`    | `queued`   | Ficha de la empresa: múltiplos elegidos por arquetipo y su historia reportada en barras, calculados con datos propios.                                                                                                    | `F6-19`          |
+|    70 | `F6-25`    | `done`     | Ficha de la empresa: múltiplos elegidos por arquetipo y su historia reportada en barras, calculados con datos propios.                                                                                                    | `F6-19`          |
 |    71 | `F6-26`    | `done`     | Logo guardado medido y descartado (Wikidata + Hunter: 48 % útil contra 100 % de logo.dev); queda logo.dev en el navegador con su caché de 24 h y una URL por ticker, y monograma.                                         | `F6-25`          |
 |    72 | `F6-27`    | `done`     | Matriz de riesgo con logos, CEDEAR diferenciado y referencia S&P 500 destacada; CI quality y E2E del PR #81 aprobados.                                                                                                    | `F6-26`          |
 |    73 | `F7-09`    | `blocked`  | Extracto literal del Item 1 del 10-K en el punto seleccionado, con filing y fecha; publicación por cita elegida y comprobada contra el documento SEC.                                                                     | `F7-05`          |
@@ -3974,8 +3974,8 @@ Evidencia:
 
 #### `F6-25` — ficha de la empresa con múltiplos por arquetipo
 
-- Estado: `queued` (pedido del owner del 2026-10-27, con la ficha de Finviz
-  como referencia visual; Finviz sigue sin ser fuente, ADR 0016).
+- Estado: `done` el 2026-11-02 (el owner priorizó este slice ese día, con la ficha de
+  Finviz como referencia visual; Finviz sigue sin ser fuente, ADR 0016).
 - Alcance: múltiplos y rentabilidad calculados de la SEC y los precios
   guardados, elegidos por arquetipo: P/B y ROE para bancos, P/FFO o P/AFFO
   para REIT, EV/EBITDA sobre el ciclo para cíclicas, EV/Sales para
@@ -3994,6 +3994,35 @@ Evidencia:
 - Aceptación: cada múltiplo tiene fórmula versionada, corte y nulo con
   motivo; la elección por arquetipo es una regla versionada; la revisión pasa
   `impeccable` y `financial-visualization-review`.
+- Incremento del 2026-11-02: `company-profile-1.0.0` añade la ficha en
+  `/valuacion/[ticker]` con fórmulas y nulos por arquetipo; la historia en barras
+  ya existente se muestra también para financieras. `historical-pe-band-1.0.0`
+  calcula la banda fiscal de hasta cinco años con cierre y acciones del mismo
+  ejercicio y rechaza clases múltiples o splits sin base conciliada. La serie
+  SEC `annual-fundamentals-1.6.0` incorpora dividendos pagados, goodwill e
+  intangibles sin sustituir faltantes por cero. El perfil lee el mismo corte
+  que la corrida y no cambia su snapshot. Pasan 3.412 pruebas en 275 archivos,
+  typecheck, lint, formato y `git diff --check`. `pnpm build` falla antes de
+  compilar la página: Turbopack/PostCSS no puede abrir un puerto local
+  (`Operation not permitted`), incluso al elevar el comando; Webpack falla al
+  interpretar `tsc --showConfig`. `pnpm test:e2e` se detiene antes del build
+  porque `tsx` tampoco puede abrir su socket IPC en este entorno.
+  Pendiente: revisión renderizada escritorio/móvil y gate E2E. No marcar `done`
+  hasta que pasen.
+- Cierre del 2026-11-02: en el host, `pnpm build` y `pnpm test:e2e` pasan
+  (222 E2E, 3 omitidas; Quality y E2E del PR #99 también). La revisión
+  `financial-visualization-review` encontró los nombres de métricas en
+  castellano: la ficha ahora los toma de `financial-terms.ts`, término en
+  inglés primero y aclaración debajo, sin tocar el dominio ni la regla
+  `company-profile-1.0.0`. La revisión renderizada sobre el build y la base
+  personal (AAPL y AMZN maduras, JPM banco, PRU aseguradora; 1440 y 390 px,
+  claro y oscuro) no dio violaciones axe graves ni desborde de página, pero a
+  390 px la columna «Cálculo» empujaba el valor fuera de vista (tabla de 614–770
+  px en 326): la fórmula pasa bajo el nombre en móvil y los motivos de nulo
+  parten línea; después, 326 en 326. El P/E de la ficha coincide con el de la
+  cabecera (AAPL 45,46× a 348,91 USD). Ausencias medidas, no defectos de la
+  regla: AMZN sin FCF ni dividendos reportados con los conceptos de la serie y
+  JPM sin P/TBV por intangibles. Detector Impeccable sin hallazgos.
 
 #### `F6-28` — lectura rápida (pedido del owner del 2026-10-29)
 

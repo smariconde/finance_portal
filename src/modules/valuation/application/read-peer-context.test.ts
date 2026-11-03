@@ -171,7 +171,7 @@ describe("readPeerContext", () => {
       },
     });
     const series = (fiscalYearEnd: string): AnnualFundamentals => ({
-      version: "annual-fundamentals-1.5.0",
+      version: "annual-fundamentals-1.6.0",
       fiscalYears: [year(fiscalYearEnd)],
     });
 

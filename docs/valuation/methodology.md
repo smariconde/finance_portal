@@ -1295,6 +1295,32 @@ completos multiplica el costo por un orden de magnitud y empeora la extracción 
 diluir la señal. La cita de evidencia es obligatoria justamente para que una
 propuesta sin respaldo en el texto sea detectable.
 
+## Ficha de la empresa (`F6-25`)
+
+`company-profile-1.0.0` elige las métricas por el `assetProfile` guardado en la
+corrida; no reclasifica al emisor al mostrarla. Usa el ejercicio base y el corte
+de conocimiento de esa corrida, el cierre de mercado guardado que pasó la
+comparación de precio y las partidas seleccionadas por
+`annual-fundamentals-1.6.0`. El perfil es una lectura derivada y no altera el
+snapshot ni los hashes de la valuación. Toda celda ausente conserva un motivo.
+
+| Arquetipo           | Métricas y bases                                                                                                                                                                                                                                                                                                  |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Madura              | P/E y P/FCF = capitalización / utilidad neta o FCF; EV/EBIT = (capitalización + deuda, leases y minoritarios − caja excedente) / EBIT ajustado; FCF y dividend yield = flujo / capitalización; payout = dividendos pagados / utilidad neta; deuda neta/EBITDA = (deuda − caja excedente) / (EBIT ajustado + D&A). |
+| Alto crecimiento    | EV/ventas; Rule of 40 = crecimiento de ventas de dos ejercicios adyacentes + margen FCF; FCF y SBC sobre ventas.                                                                                                                                                                                                  |
+| Cíclica o commodity | EV/EBITDA con EBIT normalizado de la corrida más D&A reportada; P/E de ciclo sólo si existe utilidad normalizada explícita; P/B con patrimonio reportado.                                                                                                                                                         |
+| Banco o aseguradora | P/B sobre patrimonio común, P/TBV tras restar goodwill e intangibles reportados, ROE derivado sobre patrimonio común medio, costo de equity del primer período y diferencia en puntos porcentuales.                                                                                                               |
+| REIT                | P/AFFO y P/NAV sólo con insumos comunes conciliados; rendimiento de dividendos pagados. La negativa actual de `F6-22` deja AFFO y NAV ausentes.                                                                                                                                                                   |
+| En pérdidas         | EV/ventas y años de caja reportada al ritmo de FCF anual negativo; si no hay consumo, la duración no aplica.                                                                                                                                                                                                      |
+
+`historical-pe-band-1.0.0` calcula P/E con precio crudo de los siete días
+anteriores al cierre fiscal, acciones instantáneas de ese ejercicio y utilidad
+neta anual, sobre un máximo de cinco ejercicios de la serie al corte. Muestra
+mínimo, mediana, máximo y cada ausencia. Excluye ejercicios previos a un split
+posterior al precio si la base no está conciliada, y emisores con varias clases
+comunes: un múltiplo parcial sería engañoso. El P/E actual usa el precio de la
+corrida y puede tener otra fecha; ambas fechas quedan visibles.
+
 ## Validación
 
 Cada fórmula o método requiere:

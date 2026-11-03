@@ -113,6 +113,29 @@ export const FINANCIAL_TERMS = {
   returnOnEquity: { en: "ROE", es: "retorno sobre el patrimonio" },
   commonBookEquity: { en: "Common book equity", es: "patrimonio común" },
   excessReturn: { en: "Excess return", es: "retorno excedente" },
+  evToSales: { en: "EV/Sales", es: "valor de las operaciones sobre ventas" },
+  ruleOf40: { en: "Rule of 40", es: "crecimiento de ventas más margen FCF" },
+  fcfMargin: { en: "FCF margin", es: "flujo de caja libre sobre ventas" },
+  sbcToSales: { en: "SBC/Sales", es: "compensación en acciones sobre ventas" },
+  cashRunway: { en: "Cash runway", es: "años de caja al consumo actual" },
+  cyclePe: { en: "Cycle P/E", es: "precio sobre ganancia normalizada" },
+  cycleEvToEbitda: {
+    en: "Cycle EV/EBITDA",
+    es: "valor de las operaciones sobre EBITDA normalizado",
+  },
+  priceToBook: { en: "P/B", es: "precio sobre patrimonio contable" },
+  priceToTangibleBook: {
+    en: "P/TBV",
+    es: "precio sobre patrimonio tangible",
+  },
+  roeSpread: { en: "ROE − cost of equity", es: "retorno excedente anual" },
+  priceToAffo: { en: "P/AFFO", es: "precio sobre fondos de operaciones" },
+  priceToNav: { en: "P/NAV", es: "precio sobre valor neto de activos" },
+  dividendYield: { en: "Dividend yield", es: "rendimiento por dividendos" },
+  fcfYield: { en: "FCF yield", es: "flujo de caja libre sobre capitalización" },
+  priceToFcf: { en: "P/FCF", es: "precio sobre flujo de caja libre" },
+  payoutRatio: { en: "Payout ratio", es: "dividendos sobre ganancia" },
+  netDebtToEbitda: { en: "Net debt/EBITDA", es: "deuda neta sobre EBITDA" },
 } as const satisfies Record<string, FinancialTerm>;
 
 export type FinancialTermKey = keyof typeof FINANCIAL_TERMS;
