@@ -7,6 +7,7 @@ import {
   chainCpiIndex,
   MacroTransformError,
   SPLICE_BEFORE_BASIS,
+  IMPLIED_CCL_BASIS,
   reconcileCpiChain,
   transformationEligibility,
   TRANSFORMATION_REFERENCE_BASES,
@@ -552,5 +553,40 @@ describe("dollars spliced before the wholesale rate", () => {
         (caveat) => caveat.code,
       ),
     ).toEqual(["official_fx_under_controls"]);
+  });
+});
+
+describe("dollars at the implied CCL", () => {
+  it("divides by the same day's CCL and names it a market rate", () => {
+    const result = computedOf(
+      run({
+        kind: "usd_ccl",
+        basis: { ...PESOS, currencyCode: "MEyML" },
+        referenceBasis: IMPLIED_CCL_BASIS,
+        nominal: series(["2023-10-20", "1000"], ["2023-10-23", "1000"]),
+        reference: series(["2023-10-20", "1000"]),
+      }),
+    );
+
+    expect(result.unit).toBe("En millones de USD al CCL implícito");
+    expect(result.points.map((point) => [point.value, point.reason])).toEqual([
+      ["1", null],
+      [null, "reference_not_published"],
+    ]);
+    expect(result.caveats.map((caveat) => caveat.code)).toEqual([
+      "ccl_implied_market_rate",
+    ]);
+  });
+
+  it("keeps refusing to deflate two-currency amounts", () => {
+    expect(
+      transformationEligibility({ ...PESOS, currencyCode: "MEyML" }, "usd_ccl"),
+    ).toBeNull();
+    expect(
+      transformationEligibility(
+        { ...PESOS, currencyCode: "MEyML" },
+        "real_cpi",
+      ),
+    ).toBe("includes_foreign_currency");
   });
 });

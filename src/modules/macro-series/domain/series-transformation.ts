@@ -30,6 +30,7 @@ import type { SeriesPoint } from "./series-observation";
  * usd_wholesale(t) = nominal(t) / mayorista(t)
  * usd_spliced(t)   = nominal(t) / mayorista(t)            t ≥ primer mayorista
  *                  = nominal(t) / cotización_BCRA(t)      t < primer mayorista
+ * usd_ccl(t)       = nominal(t) / CCL_implícito(t)         (ADR 0068)
  * ```
  *
  * `nominal(m)` es el último punto de la serie dentro del mes `m`: un stock a
@@ -45,13 +46,17 @@ export const TRANSFORMATION_KINDS = [
   "real_cer",
   "usd_wholesale",
   "usd_spliced",
+  "usd_ccl",
 ] as const;
 
 export type TransformationKind = (typeof TRANSFORMATION_KINDS)[number];
 
 /** La serie del BCRA que cada transformación usa como referencia. */
+/** Las transformaciones cuya referencia es una serie del BCRA. */
+export type BcraReferencedKind = Exclude<TransformationKind, "usd_ccl">;
+
 export const TRANSFORMATION_REFERENCES: Readonly<
-  Record<TransformationKind, BcraVariableId>
+  Record<BcraReferencedKind, BcraVariableId>
 > = Object.freeze({
   /** Inflación mensual: variación del IPC del INDEC, en porcentaje. */
   real_cpi: 27,
@@ -61,6 +66,13 @@ export const TRANSFORMATION_REFERENCES: Readonly<
   usd_wholesale: 5,
   /** El mayorista desde su primer día; antes, la cotización del BCRA (ADR 0067). */
   usd_spliced: 5,
+});
+
+/** El CCL implícito por pares ADR (`ccl-implied-1.0.0`): una lectura, no una serie del BCRA. */
+export const IMPLIED_CCL_BASIS: SeriesBasis = Object.freeze({
+  frequency: "daily",
+  unit: "Pesos argentinos por dólar estadounidense (CCL implícito)",
+  currencyCode: "ARS",
 });
 
 /** La serie que cubre `usd_spliced` antes del primer mayorista: el dólar de Estadísticas Cambiarias. */
@@ -94,6 +106,7 @@ export const TRANSFORMATION_REFERENCE_BASES: Readonly<
     unit: "Pesos argentinos por dólar estadounidense",
     currencyCode: "ML",
   },
+  usd_ccl: IMPLIED_CCL_BASIS,
 });
 
 /** La única unidad que se transforma: un monto en millones de pesos. */
@@ -125,11 +138,19 @@ export function transformationEligibility(
     return null;
   }
 
-  return basis.currencyCode === "MEyML" &&
-    (kind === "usd_wholesale" || kind === "usd_spliced")
+  return basis.currencyCode === "MEyML" && isDollarKind(kind)
     ? null
     : "includes_foreign_currency";
 }
+
+export function isDollarKind(kind: TransformationKind): boolean {
+  return (
+    kind === "usd_wholesale" || kind === "usd_spliced" || kind === "usd_ccl"
+  );
+}
+
+/** Lo único que una transformación lee de un punto de su referencia. */
+export type ReferencePoint = Pick<SeriesPoint, "periodOn" | "value">;
 
 export type PointUnavailableReason =
   /** La fecha es anterior al primer dato de la referencia. */
@@ -217,11 +238,11 @@ export type TransformationInput = {
   readonly basis: SeriesBasis;
   readonly referenceBasis: SeriesBasis;
   readonly nominal: readonly SeriesPoint[];
-  readonly reference: readonly SeriesPoint[];
+  readonly reference: readonly ReferencePoint[];
   /** La serie anterior al empalme, obligatoria para `usd_spliced`. */
   readonly beforeSplice?: {
     readonly basis: SeriesBasis;
-    readonly points: readonly SeriesPoint[];
+    readonly points: readonly ReferencePoint[];
   };
   /**
    * Mes (`YYYY-MM`) para `real_cpi` o día para `real_cer` cuyos pesos son la
@@ -317,7 +338,7 @@ export type CpiIndexMonth = {
  * que falta abre un tramo nuevo en vez de interpolarse.
  */
 export function chainCpiIndex(
-  monthlyInflation: readonly SeriesPoint[],
+  monthlyInflation: readonly ReferencePoint[],
 ): readonly CpiIndexMonth[] {
   const months: CpiIndexMonth[] = [];
   let level = ONE;
@@ -524,7 +545,7 @@ function transformByDailyReference(
   return computed(input, points, null, baseOn, { firstOn, lastOn }, splice);
 }
 
-function positiveByDate(points: readonly SeriesPoint[]): Map<string, Dec> {
+function positiveByDate(points: readonly ReferencePoint[]): Map<string, Dec> {
   const byDate = new Map<string, Dec>();
 
   for (const point of points) {
@@ -566,9 +587,11 @@ function computed(
     version: MACRO_TRANSFORM_VERSION,
     chainVersion,
     unit:
-      input.kind === "usd_wholesale" || input.kind === "usd_spliced"
-        ? "En millones de USD"
-        : `En millones de ARS de ${baseOn}`,
+      input.kind === "usd_ccl"
+        ? "En millones de USD al CCL implícito"
+        : isDollarKind(input.kind)
+          ? "En millones de USD"
+          : `En millones de ARS de ${baseOn}`,
     baseOn,
     points,
     coverage: { nominal, reference },
@@ -645,8 +668,8 @@ export type CpiChainReconciliation = {
  * comparan meses cuyos dos extremos están en el mismo tramo.
  */
 export function reconcileCpiChain(
-  monthlyInflation: readonly SeriesPoint[],
-  yearOnYear: readonly SeriesPoint[],
+  monthlyInflation: readonly ReferencePoint[],
+  yearOnYear: readonly ReferencePoint[],
 ): CpiChainReconciliation {
   const byMonth = new Map(
     chainCpiIndex(monthlyInflation).map((entry) => [entry.month, entry]),

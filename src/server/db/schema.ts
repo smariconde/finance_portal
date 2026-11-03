@@ -2587,6 +2587,42 @@ export const benchmarkPrices = pgTable(
 );
 
 /**
+ * Cierres crudos de las patas de los pares ADR–acción local (`F9-07`,
+ * ADR 0068): el insumo del CCL implícito. Una pata no es una security del
+ * grafo —su emisor argentino no está constituido— sino una serie declarada en
+ * código (`declared-adr-pairs.ts`), como la referencia de la ADR 0029. El cierre
+ * se guarda **crudo**, con los splits posteriores deshechos, así que una fila
+ * es inmutable; el ratio y la mediana se aplican al leer.
+ */
+export const adrPairCloses = pgTable(
+  "adr_pair_closes",
+  {
+    legId: varchar("leg_id", { length: 32 }).notNull(),
+    marketDate: date("market_date", { mode: "string" }).notNull(),
+    close: numeric("close", { mode: "string" }).notNull(),
+    currency: varchar("currency", { length: 3 }).notNull(),
+    ingestionRunId: uuid("ingestion_run_id")
+      .notNull()
+      .references(() => ingestionRuns.runId),
+  },
+  (table) => [
+    primaryKey({
+      name: "adr_pair_closes_pkey",
+      columns: [table.legId, table.marketDate],
+    }),
+    check("adr_pair_closes_close_check", sql`${table.close} > 0`),
+    check(
+      "adr_pair_closes_currency_check",
+      sql`${table.currency} in ('USD', 'ARS')`,
+    ),
+    check(
+      "adr_pair_closes_leg_id_check",
+      sql`${table.legId} ~ '^[a-z0-9]+-(adr|local)$'`,
+    ),
+  ],
+);
+
+/**
  * Releases de datasets de referencia (`F3-04`, ADR 0032): una tabla publicada
  * —las betas por industria de Damodaran, su riesgo país— observada entera en un
  * instante. Es una versión temporal: `valid_from` y `available_at` son la

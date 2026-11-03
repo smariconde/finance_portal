@@ -85,8 +85,9 @@ export function buildChartUrl(
   symbol: string,
   now: Date,
   historyYears: 5 | 7 = PRICE_HISTORY_YEARS,
+  historyFrom: string | null = null,
 ): string {
-  const from = chartWindowStart(now, historyYears);
+  const from = historyFrom ?? chartWindowStart(now, historyYears);
   const period1 = Date.parse(`${from}T00:00:00.000Z`) / 1000;
   const period2 = Math.floor(now.getTime() / 1000);
 
@@ -105,6 +106,11 @@ export type PriceSourceDependencies = {
   readonly now: () => Date;
   /** Seven years covers a five-fiscal-year endpoint behind the latest filing. */
   readonly historyYears?: 5 | 7;
+  /**
+   * Primer día fijo, en lugar de una ventana: las patas del CCL implícito piden
+   * la historia desde 2000 (ADR 0068).
+   */
+  readonly historyFrom?: string;
 };
 
 export type FetchedSeries = {
@@ -156,7 +162,12 @@ export function createLivePriceSource(
       try {
         response = await dependencies.fetch({
           sourceId: PRICES_SOURCE_ID,
-          url: buildChartUrl(symbol, requestedAt, historyYears),
+          url: buildChartUrl(
+            symbol,
+            requestedAt,
+            historyYears,
+            dependencies.historyFrom ?? null,
+          ),
           accept: "application/json",
         });
       } catch (cause) {
@@ -196,7 +207,9 @@ export function createLivePriceSource(
         byteLength: response.byteLength,
         fetchedAt: response.fetchedAt,
         historyYears,
-        requestedFrom: chartWindowStart(requestedAt, historyYears),
+        requestedFrom:
+          dependencies.historyFrom ??
+          chartWindowStart(requestedAt, historyYears),
       };
     },
   };

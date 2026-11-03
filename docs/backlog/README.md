@@ -106,7 +106,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    78 | `F9-01`    | `done`     | Catálogo y vintages BCRA v4 con fallo seguro ante cambios de esquema, conservando release, unidad, frecuencia y revisión.                                                                                                 | Fase 8 `done`    |
 |    79 | `F9-02`    | `done`     | Nominal y monetario publican transformaciones auditables (real por inflación o CER, en dólares por el mayorista) y fechas propias por serie.                                                                              | `F9-01`          |
 |    80 | `F9-03`    | `done`     | Cambiario usa fuentes oficiales con fecha propia por serie.                                                                                                                                                               | `F9-02`          |
-|    81 | `F9-07`    | `ready`    | CCL implícito diario por pares ADR declarados y verificados, con la conversión «dólar CCL» al lado de la oficial y la brecha visible.                                                                                     | `F9-03`          |
+|    81 | `F9-07`    | `done`     | CCL implícito diario por pares ADR declarados y verificados, con la conversión «dólar CCL» al lado de la oficial y la brecha visible.                                                                                     | `F9-03`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -6110,6 +6110,35 @@ Evidencia medida contra el cable real, en una réplica vacía:
   con el mayorista solo, con un salto de 2,08 % el 2002-03-04.
 
 Sigue `F9-07`.
+
+**`F9-07` cerró el 2026-11-03** con la
+[ADR 0068](../architecture/adr/0068-implied-ccl-adr-pairs.md), la migración
+`0047` con su rollback y el comando `pnpm ccl:ingest`. Es el pedido del owner:
+en el cepo, el dólar oficial no era el accesible.
+
+- **Pares.** Diez pares ADR declarados con ratio fechado, verificados sobre
+  cierres crudos contra el mayorista de 2016–2019: GGAL, BMA, BBAR, TEO, EDN,
+  PAM, CEPU, LOMA, SUPV e YPF. El ratio de YPF pasa de 1 a 10 con el split local
+  de 2026; sobre la serie ajustada de Yahoo salía 10 desde siempre.
+- **Patas.** Van crudas a `adr_pair_closes`, fuera del grafo, con la rueda en
+  curso excluida por la regla de su mercado y la moneda exigida.
+- **Cálculo.** `ccl-implied-1.0.0` toma la mediana de los pares con las dos
+  patas cerradas el mismo día y exige tres. `fx-gap-1.0.0` mide la brecha.
+- **Conversión.** `usd_ccl` va **al lado** de las conversiones oficiales, nunca
+  en su lugar, con la advertencia `ccl_implied_market_rate`. Yahoo queda
+  `owner_accepted`, como en la ADR 0026.
+
+Evidencia medida contra Yahoo y el BCRA reales, en una réplica vacía:
+
+- patas: 20 requests en 35 s, 103.411 ruedas y 11 MB;
+- cobertura: CCL en 6.489 de 6.490 días desde 2000, con 3 a 10 pares por día;
+  la diferencia entre el par más alto y el más bajo tiene mediana 3,8 %;
+- brecha mediana por año: 0–2 % sin cepo, 35–55 % en 2012–2015, 69–103 % en
+  2020–2023 y 5–6 % con las bandas;
+- base monetaria a fines de 2023: 9.886 millones de dólares al CCL contra
+  11.884 al oficial.
+
+Sigue `F9-04`.
 
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |

@@ -58,6 +58,14 @@ export const DECLARED_TRANSFORMATION_CAVEATS: readonly TransformationCaveat[] =
       source: "BCRA, metodología de la variable 27",
     },
     {
+      code: "ccl_implied_market_rate",
+      kinds: ["usd_ccl"],
+      from: null,
+      to: null,
+      note: "CCL implícito: mediana de precio local × ratio / ADR entre pares declarados; es un tipo de cambio de mercado, no una cotización publicada, y en el cepo de 2019–2025 lo encarecieron también las restricciones a operar.",
+      source: "Yahoo Finance, ADR 0068",
+    },
+    {
       code: "official_fx_under_controls",
       kinds: ["usd_wholesale", "usd_spliced"],
       from: "2011-10-31",
