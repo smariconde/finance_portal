@@ -64,6 +64,7 @@ function block(overrides: Partial<Parameters<typeof buildSoyBlock>[0]> = {}) {
       ["2025-07-01", "49260376"],
     ]),
     yieldKgHa: empty("soy_yield"),
+    ccl: [],
     knownAt: KNOWN_AT,
     ...overrides,
   });
@@ -145,6 +146,55 @@ describe("soy block", () => {
       previous: "2024/25",
       change: { status: "computed" },
     });
+  });
+
+  it("reads the effective gap at the official rate outside every regime", () => {
+    const { latest } = block();
+    expect(latest).toMatchObject({
+      fxRegimeId: "official",
+      effectiveFx: "1542",
+      effectiveBasis: latest!.basis,
+      effectiveReason: null,
+    });
+  });
+
+  it("reads a blended day at the declared share and that day's CCL", () => {
+    const cclPoint = (marketDate: string, value: string | null) => ({
+      marketDate,
+      value,
+      reason: value === null ? ("insufficient_pairs" as const) : null,
+      pairs: [],
+      low: value,
+      high: value,
+    });
+    const { days, months } = block({
+      rosario: series("soy_rosario_pizarra", [
+        ["2023-11-24", "240000"],
+        ["2023-11-27", "225000"],
+      ]),
+      fx: series("usd_bna_divisas_buyer", [
+        ["2023-11-24", "356.6"],
+        ["2023-11-27", "358"],
+      ]),
+      chicago: series("soy_cbot_front", [
+        ["2023-11-24", "1330.75"],
+        ["2023-11-27", "1329.75"],
+      ]),
+      ccl: [cclPoint("2023-11-24", "950"), cclPoint("2023-11-27", null)],
+    });
+    expect(Number(days[0]!.basis)).toBeCloseTo(37.6, 1);
+    expect(days[0]).toMatchObject({
+      fxRegimeId: "pie-50-50",
+      effectiveFx: "653.3",
+      effectiveReason: null,
+    });
+    expect(Number(days[0]!.effectiveBasis)).toBeLessThan(-20);
+    // Without that day's CCL the effective reading is named, never borrowed.
+    expect(days[1]).toMatchObject({
+      effectiveBasis: null,
+      effectiveReason: "missing_ccl",
+    });
+    expect(months[0]!.effectiveBasis.closeOn).toBe("2023-11-24");
   });
 
   it("has nothing to say without data, and says nothing", () => {

@@ -881,6 +881,20 @@ as one more subject of Yahoo's job, whose checks count runs in any dataset of
 `recordedIn`. A future's bar enters the next day, so the latest basis is
 usually the previous business day.
 
+Since `F9-15` ([ADR 0072](docs/architecture/adr/0072-soy-gap-effective-export-dollar.md))
+the soy gap —«Brecha Rosario–Chicago» on the page, the owner's word for the
+basis— also reads at the dollar the exporter settled at
+(`soy-effective-basis-1.0.0`): the three «dólar soja» fixed rates, or the
+declared share of the BNA buyer rate plus the rest at that **same day's**
+implied CCL, from the decreed spans of `soy-export-fx-regimes-1.0.0` (Decreto
+576/2022 through the 80/20 blend that ended 2025-04-14); a blended day
+without a CCL is `missing_ccl`. It goes next to the official one, never
+instead. `soy-market-events-1.0.0` declares the soybean's export-duty changes
+since Decreto 37/2019 and an April–June harvest convention; the soy chart
+draws them through `TimelineChart`'s `context` in place of the general
+regimes. Measured: the 2023-11-24 peak of +37.6 % reads about −29 % at the
+50/50 rate, and every regime's median falls between −23 % and −37 %.
+
 Against Neon, the repo's commands need both env files, the last one winning —
 an exported `DATABASE_URL` does not beat `--env-file`:
 `node --env-file=.env.local --env-file=.env.neon.local --conditions=react-server --import tsx scripts/<command>.ts`.

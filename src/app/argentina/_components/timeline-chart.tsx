@@ -96,6 +96,66 @@ export type TimelineRow = {
   readonly values: Readonly<Record<string, string | null>>;
 };
 
+/**
+ * Un contexto propio en lugar de los regímenes generales (`F9-15`): tramos
+ * rotulados en el primer carril, temporadas sombreadas en el segundo y
+ * fechas puntuales como líneas verticales. Son datos declarados que el
+ * gráfico sólo ubica; las presidencias se dibujan igual.
+ */
+export type ChartContextSpan = {
+  readonly id: string;
+  readonly label: string;
+  readonly from: string;
+  /** Exclusivo, como en `argentina-timeline-1.0.0`. */
+  readonly to: string;
+  readonly description: string;
+  readonly source: string;
+};
+
+export type ChartContextEvent = {
+  readonly id: string;
+  readonly on: string;
+  readonly label: string;
+  readonly description: string;
+  readonly source: string;
+};
+
+export type ChartContext = {
+  /** El nombre del botón que muestra u oculta las marcas. */
+  readonly toggleLabel: string;
+  readonly spansTitle: string;
+  readonly spans: readonly ChartContextSpan[];
+  readonly seasons: readonly ChartContextSpan[];
+  readonly seasonNote: string;
+  readonly eventsTitle: string;
+  readonly events: readonly ChartContextEvent[];
+  /** Cierra la lista plegada: qué versión declara las fechas. */
+  readonly note: string;
+};
+
+/** Lo que la capa dibuja: un tramo en su carril, o una fecha. */
+type DrawnSpan = {
+  readonly id: string;
+  readonly label: string;
+  readonly from: string;
+  readonly to: string | null;
+  readonly lane: 0 | 1;
+  readonly color: string;
+};
+
+function overlapping<T extends { readonly from: string; readonly to: string }>(
+  spans: readonly T[],
+  fromOn: string,
+  toOn: string,
+): T[] {
+  return spans.filter((span) => span.from <= toOn && span.to > fromOn);
+}
+
+/** El último día de un tramo de fin exclusivo. */
+function lastDayOf(to: string): string {
+  return dateOf(dayNumber(to) - 1);
+}
+
 export type RangeId = "1y" | "2y" | "3y" | "5y" | "10y" | "20y" | "max";
 
 const RANGE_YEARS: Record<RangeId, number> = {
@@ -245,9 +305,13 @@ function compareNote(series: readonly TimelineSeries[]): string {
 function MarksLayer({
   fromOn,
   toOn,
+  spans,
+  events,
 }: {
   readonly fromOn: string;
   readonly toOn: string;
+  readonly spans: readonly DrawnSpan[];
+  readonly events: readonly ChartContextEvent[];
 }) {
   const xScale = useXAxisScale();
   const plot = usePlotArea();
@@ -257,7 +321,22 @@ function MarksLayer({
     return Number(xScale(dayNumber(clamped)));
   };
   const terms = termsOverlapping(fromOn, toOn);
-  const regimes = regimesOverlapping(fromOn, toOn);
+  // Una fecha se rotula sólo si su nombre no pisa el de la anterior ni se
+  // sale del dibujo.
+  const placedEvents: {
+    readonly event: ChartContextEvent;
+    readonly left: number;
+    readonly labeled: boolean;
+  }[] = [];
+  let lastLabelEnd = Number.NEGATIVE_INFINITY;
+  for (const event of events) {
+    if (event.on < fromOn || event.on > toOn) continue;
+    const left = x(event.on);
+    const labelEnd = left + 3 + event.label.length * 5.6 + 6;
+    const labeled = left + 3 >= lastLabelEnd && labelEnd <= plot.x + plot.width;
+    if (labeled) lastLabelEnd = labelEnd;
+    placedEvents.push({ event, left, labeled });
+  }
 
   return (
     <g aria-hidden="true" className="pointer-events-none">
@@ -302,38 +381,58 @@ function MarksLayer({
           </g>
         );
       })}
-      {regimes.map((regime) => {
-        const left = x(regime.from);
-        const right = x(regime.to ?? toOn);
+      {spans.map((span) => {
+        const left = x(span.from);
+        const right = x(span.to ?? toOn);
         const width = right - left;
         if (!(width > 1)) return null;
-        // El INDEC intervenido se superpone con el primer cepo: otro carril.
-        const lane = regime.id === "indec-intervention" ? 1 : 0;
-        const y = plot.y - 36;
-        const fits = width >= regime.label.length * 5.6 + 8;
+        const y = plot.y - 36 + span.lane * 11;
+        const fits = width >= span.label.length * 5.6 + 8;
         return (
-          <g key={regime.id}>
+          <g key={span.id}>
             <rect
               x={left}
-              y={y + lane * 11}
+              y={y}
               width={width}
               height={9}
               rx={2}
-              fill={lane === 0 ? "var(--chart-3)" : "var(--chart-4)"}
+              fill={span.color}
               fillOpacity={0.22}
             />
             {fits ? (
               <text
                 x={left + 3}
-                y={y + lane * 11 + 7.5}
+                y={y + 7.5}
                 className="fill-foreground text-[9px]"
               >
-                {regime.label}
+                {span.label}
               </text>
             ) : null}
           </g>
         );
       })}
+      {placedEvents.map(({ event, left, labeled }) => (
+        <g key={event.id}>
+          <line
+            x1={left}
+            x2={left}
+            y1={plot.y}
+            y2={plot.y + plot.height}
+            stroke="var(--chart-5)"
+            strokeOpacity={0.6}
+            strokeDasharray="3 3"
+          />
+          {labeled ? (
+            <text
+              x={left + 3}
+              y={plot.y + 10}
+              className="fill-muted-foreground text-[9px]"
+            >
+              {event.label}
+            </text>
+          ) : null}
+        </g>
+      ))}
     </g>
   );
 }
@@ -404,6 +503,7 @@ export function TimelineChart({
   height = "md",
   caption,
   showTable = true,
+  context,
 }: {
   /** El nombre accesible: qué muestra y la lectura en una frase. */
   readonly label: string;
@@ -428,6 +528,8 @@ export function TimelineChart({
    * el motivo de cada ausencia y esta sólo «Sin dato».
    */
   readonly showTable?: boolean;
+  /** Las fechas propias de la serie en lugar de los regímenes generales. */
+  readonly context?: ChartContext;
 }) {
   const instructionsId = useId();
   const firstOn = monthly[0]?.on ?? daily?.[0]?.on;
@@ -729,14 +831,40 @@ export function TimelineChart({
     value,
     label: RANGE_LABEL[value],
   }));
+  const rangeFrom = plotted.rows.length ? visible[0]!.on : null;
   const termsInRange =
-    firstOn && lastOn && plotted.rows.length
-      ? termsOverlapping(visible[0]!.on, lastOn)
-      : [];
+    rangeFrom && lastOn ? termsOverlapping(rangeFrom, lastOn) : [];
   const regimesInRange =
-    firstOn && lastOn && plotted.rows.length
-      ? regimesOverlapping(visible[0]!.on, lastOn)
+    rangeFrom && lastOn && context === undefined
+      ? regimesOverlapping(rangeFrom, lastOn)
       : [];
+  const contextSpansInRange =
+    rangeFrom && lastOn && context
+      ? overlapping(context.spans, rangeFrom, lastOn)
+      : [];
+  const contextEventsInRange =
+    rangeFrom && lastOn && context
+      ? context.events.filter(
+          (event) => event.on >= rangeFrom && event.on <= lastOn,
+        )
+      : [];
+  const marksInRange =
+    regimesInRange.length +
+    contextSpansInRange.length +
+    contextEventsInRange.length;
+
+  /** Lo que la franja y la etiqueta dicen del día, además del gobierno. */
+  function contextOn(on: string): string[] {
+    if (context === undefined) {
+      return regimesOverlapping(on, on).map((regime) => regime.label);
+    }
+    const span = context.spans.find((item) => on >= item.from && on < item.to);
+    const event = context.events.findLast((item) => item.on <= on);
+    return [span?.label, event?.label].filter(
+      (label): label is string => label !== undefined,
+    );
+  }
+
   const resolutionText =
     resolution === "daily"
       ? "Diario"
@@ -745,6 +873,36 @@ export function TimelineChart({
         : resolution === "monthly"
           ? "Mensual"
           : "Anual";
+
+  const drawnSpans = useMemo((): DrawnSpan[] => {
+    if (rangeFrom === null || !lastOn) return [];
+    if (context === undefined) {
+      return regimesOverlapping(rangeFrom, lastOn).map((regime) => ({
+        id: regime.id,
+        label: regime.label,
+        from: regime.from,
+        to: regime.to,
+        // El INDEC intervenido se superpone con el primer cepo: otro carril.
+        lane: regime.id === "indec-intervention" ? 1 : 0,
+        color:
+          regime.id === "indec-intervention"
+            ? "var(--chart-4)"
+            : "var(--chart-3)",
+      }));
+    }
+    return [
+      ...overlapping(context.spans, rangeFrom, lastOn).map((span) => ({
+        ...span,
+        lane: 0 as const,
+        color: "var(--chart-3)",
+      })),
+      ...overlapping(context.seasons, rangeFrom, lastOn).map((span) => ({
+        ...span,
+        lane: 1 as const,
+        color: "var(--chart-2)",
+      })),
+    ];
+  }, [context, rangeFrom, lastOn]);
 
   // El dibujo no depende del punto activo: la lectura va en su propia capa.
   const chart = useMemo(
@@ -788,7 +946,12 @@ export function TimelineChart({
             tickFormatter={(value: number) => axisLabel(axis, value)}
           />
           {showMarks && plotted.rows.length > 1 ? (
-            <MarksLayer fromOn={visible[0]!.on} toOn={dateOf(last)} />
+            <MarksLayer
+              fromOn={visible[0]!.on}
+              toOn={dateOf(last)}
+              spans={drawnSpans}
+              events={context?.events ?? []}
+            />
           ) : null}
           {zeroLine || hasBars ? (
             <ReferenceLine y={0} stroke="var(--muted-foreground)" />
@@ -876,6 +1039,8 @@ export function TimelineChart({
       domainFirst,
       domainLast,
       onPlot,
+      drawnSpans,
+      context,
     ],
   );
 
@@ -889,13 +1054,15 @@ export function TimelineChart({
       [plot.x, plot.x + plot.width],
     );
     if (x === null) return null;
-    const term = termOn(entry.on);
+    const detail = [termOn(entry.on)?.label, ...contextOn(entry.on)]
+      .filter((label): label is string => label !== undefined)
+      .join(" · ");
     return (
       <HoverLayer
         plot={plot}
         x={x}
         title={periodLabel(entry.on, resolution)}
-        detail={term?.label}
+        detail={detail || undefined}
         pointerY={pointer?.y ?? null}
         touch={pointer?.touch ?? false}
         points={series.map((item) => {
@@ -987,7 +1154,7 @@ export function TimelineChart({
             showMarks && "bg-muted text-foreground",
           )}
         >
-          Gobiernos y regímenes
+          {context?.toggleLabel ?? "Gobiernos y regímenes"}
         </button>
         <span className="text-xs text-muted-foreground">{resolutionText}</span>
       </ChartToolbar>
@@ -1007,8 +1174,8 @@ export function TimelineChart({
               <span className="text-muted-foreground">
                 {activeIndex === undefined ? "último dato · " : ""}
                 {termOn(shown.on)?.label ?? "antes de 1983"}
-                {regimesOverlapping(shown.on, shown.on)
-                  .map((regime) => ` · ${regime.label}`)
+                {contextOn(shown.on)
+                  .map((label) => ` · ${label}`)
                   .join("")}
               </span>
             </div>
@@ -1226,9 +1393,9 @@ export function TimelineChart({
         </details>
       ) : null}
 
-      {termsInRange.length + regimesInRange.length === 0 ? null : (
+      {termsInRange.length + marksInRange === 0 ? null : (
         <Fold
-          summary={`Gobiernos y regímenes en el período (${termsInRange.length + regimesInRange.length})`}
+          summary={`${context?.toggleLabel ?? "Gobiernos y regímenes"} en el período (${termsInRange.length + marksInRange})`}
         >
           <div className="flex flex-col gap-3 text-sm text-muted-foreground">
             <ul className="flex flex-col gap-1">
@@ -1250,7 +1417,46 @@ export function TimelineChart({
                 </li>
               ))}
             </ul>
+            {context ? (
+              <>
+                {contextSpansInRange.length > 0 ? (
+                  <div className="flex flex-col gap-1">
+                    <p className="font-medium text-foreground">
+                      {context.spansTitle}
+                    </p>
+                    <ul className="flex flex-col gap-1">
+                      {contextSpansInRange.map((span) => (
+                        <li key={span.id}>
+                          <span className="text-foreground">{span.label}</span>{" "}
+                          ({calendarDate(span.from)} a{" "}
+                          {calendarDate(lastDayOf(span.to))}):{" "}
+                          {span.description} Fuente: {span.source}.
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {contextEventsInRange.length > 0 ? (
+                  <div className="flex flex-col gap-1">
+                    <p className="font-medium text-foreground">
+                      {context.eventsTitle}
+                    </p>
+                    <ul className="flex flex-col gap-1">
+                      {contextEventsInRange.map((event) => (
+                        <li key={event.id}>
+                          <span className="text-foreground">{event.label}</span>{" "}
+                          ({calendarDate(event.on)}): {event.description}{" "}
+                          Fuente: {event.source}.
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                <p>{context.seasonNote}</p>
+              </>
+            ) : null}
             <p className="text-xs">
+              {context ? `${context.note} ` : ""}
               Presidencias: {PRESIDENTIAL_TERMS_SOURCE}. Las marcas ubican
               fechas; no atribuyen a un gobierno o a un régimen lo que hizo la
               serie (<code className="text-xs">argentina-timeline-1.0.0</code>

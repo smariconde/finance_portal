@@ -10,6 +10,18 @@ import type {
   SoyDay,
   SoyUnavailableReason,
 } from "@/modules/argentina-dashboard/domain/soy-block";
+import {
+  DECLARED_SOY_EXPORT_FX_REGIMES,
+  SOY_EFFECTIVE_BASIS_VERSION,
+  SOY_EXPORT_FX_REGIMES_VERSION,
+  soyExportFxRegimeOn,
+} from "@/modules/soy-basis/domain/soy-export-fx";
+import {
+  DECLARED_SOY_DUTY_CHANGES,
+  SOY_MARKET_EVENTS_VERSION,
+  soyDutyOn,
+  soyHarvestSeasons,
+} from "@/modules/soy-basis/domain/soy-market-events";
 import { formatCompactAmount } from "@/modules/valuation/domain/display-format";
 
 import { DashboardBlock, DataTable } from "./block";
@@ -29,7 +41,11 @@ import {
   signedPoints,
 } from "./format";
 import { SectorHeatmap } from "./sector-heatmap";
-import { TimelineChart, type TimelineRow } from "./timeline-chart";
+import {
+  TimelineChart,
+  type ChartContext,
+  type TimelineRow,
+} from "./timeline-chart";
 
 const NO_DATA = "Sin dato";
 
@@ -892,7 +908,42 @@ export function ExternalSection({
   );
 }
 
-/** Por qué un día de pizarra no tiene basis: la pata que faltó ese día. */
+/**
+ * Las fechas de la soja que el gráfico ubica (`F9-15`): los tramos del dólar
+ * exportador, la cosecha de cada año y los cambios de retenciones del poroto.
+ */
+function soyChartContext(fromYear: number, toYear: number): ChartContext {
+  return {
+    toggleLabel: "Gobiernos y fechas de la soja",
+    spansTitle: "Dólar que cobraba el exportador",
+    spans: DECLARED_SOY_EXPORT_FX_REGIMES.map((regime) => ({
+      id: regime.id,
+      label: regime.label,
+      from: regime.from,
+      to: regime.to,
+      description: regime.description,
+      source: regime.norm,
+    })),
+    seasons: soyHarvestSeasons(fromYear, toYear).map((season) => ({
+      ...season,
+      description: "Cosecha de soja de abril a junio.",
+      source: "convención del proyecto",
+    })),
+    seasonNote:
+      "La franja «Cosecha» sombrea abril a junio de cada año: es una convención del proyecto para ubicar la cosecha gruesa, no un calendario medido; el avance real cambia con cada campaña.",
+    eventsTitle: "Retenciones al poroto de soja",
+    events: DECLARED_SOY_DUTY_CHANGES.map((change) => ({
+      id: change.id,
+      on: change.on,
+      label: change.label,
+      description: change.description,
+      source: change.norm,
+    })),
+    note: `Fechas declaradas en ${SOY_EXPORT_FX_REGIMES_VERSION} y ${SOY_MARKET_EVENTS_VERSION}; las retenciones se listan desde diciembre de 2019.`,
+  };
+}
+
+/** Por qué un día de pizarra no tiene brecha: la pata que faltó ese día. */
 const SOY_UNAVAILABLE: Record<SoyUnavailableReason, string> = {
   missing_rosario: "Pizarra sin cotización",
   missing_fx: "Sin BNA ese día",
@@ -916,7 +967,13 @@ export function SoySection({ soy }: { readonly soy: SoyBlock }) {
       ? "Sin un día con pizarra, BNA y Chicago guardados a la vez."
       : [
           `El ${calendarDate(latest.on)} la pizarra de Rosario fue de US$ ${amount(latest.rosarioUsd!, 2)} por tonelada ($ ${amount(latest.rosarioArs!)} al BNA comprador de $ ${amount(latest.fx!, 2)})`,
-          ` y Chicago, de US$ ${amount(latest.chicagoUsd!, 2)} (${latest.contract}): un basis de ${signedPoints(latest.basis)}.`,
+          ` y Chicago, de US$ ${amount(latest.chicagoUsd!, 2)} (${latest.contract}): una brecha de ${signedPoints(latest.basis)}.`,
+          latest.fxRegimeId !== null && latest.fxRegimeId !== "official"
+            ? ` Al dólar que cobraba el exportador (${soyExportFxRegimeOn(latest.on)?.label}, $ ${amount(latest.effectiveFx!, 2)}), la brecha fue de ${latest.effectiveBasis === null ? "sin dato" : signedPoints(latest.effectiveBasis)}.`
+            : "",
+          soyDutyOn(latest.on)
+            ? ` Retenciones al poroto: ${soyDutyOn(latest.on)!.ratePct.replace(".", ",")} %.`
+            : "",
           latest.inDeliveryPeriod
             ? ` El ${latest.contract} estaba en su período de entrega, que termina el ${calendarDate(latest.lastTradeOn)}.`
             : "",
@@ -925,6 +982,7 @@ export function SoySection({ soy }: { readonly soy: SoyBlock }) {
     on: day.on,
     values: {
       basis: day.basis,
+      effectiveBasis: day.effectiveBasis,
       rosarioUsd: day.rosarioUsd,
       chicagoUsd: day.chicagoUsd,
     },
@@ -933,11 +991,19 @@ export function SoySection({ soy }: { readonly soy: SoyBlock }) {
     on: month.on,
     values: {
       basis: month.basis.value,
+      effectiveBasis: month.effectiveBasis.value,
       rosarioUsd: month.rosarioUsd.value,
       chicagoUsd: month.chicagoUsd.value,
     },
   }));
   const ranges = ["1y", "2y", "5y", "10y", "20y", "max"] as const;
+  const firstYear = Number(
+    (soy.months[0]?.on ?? soy.days[0]?.on ?? "2000").slice(0, 4),
+  );
+  const lastYear = Number(
+    (soy.days.at(-1)?.on ?? soy.months.at(-1)?.on ?? "2000").slice(0, 4),
+  );
+  const context = soyChartContext(firstYear, lastYear);
   const campaigns = soy.campaigns.filter(
     (campaign) => campaign.productionT !== null,
   );
@@ -966,7 +1032,7 @@ export function SoySection({ soy }: { readonly soy: SoyBlock }) {
             inmediata, pago contado, sobre camión o vagón en zona Rosario. Se
             pasa a dólares con la cotización de divisas del Banco Nación al
             cierre, tipo comprador, del mismo día: es la que usa la propia
-            Cámara. Un día sin pizarra, sin BNA o sin Chicago no tiene basis, y
+            Cámara. Un día sin pizarra, sin BNA o sin Chicago no tiene brecha, y
             nunca se toma el dato de otro día.
           </p>
           <p>
@@ -980,13 +1046,27 @@ export function SoySection({ soy }: { readonly soy: SoyBlock }) {
             cierre de Yahoo, no el precio de ajuste de CME.
           </p>
           <p>
-            El basis es pizarra en dólares sobre Chicago menos uno, en por
-            ciento (<code className="text-xs">soy-basis-1.0.0</code>). Esa
-            diferencia junta derechos de exportación, flete, márgenes y calidad;
-            esta página no la descompone. Durante el cepo y los programas de
-            «dólar soja» el exportador no liquidaba al BNA comprador, y en esos
-            períodos el basis en dólares oficiales no describe lo que cobraba el
-            mercado.
+            La brecha Rosario–Chicago (el basis del mercado) es la pizarra en
+            dólares sobre Chicago menos uno, en por ciento (
+            <code className="text-xs">soy-basis-1.0.0</code>). Esa diferencia
+            junta retenciones, flete, márgenes y calidad; esta página no la
+            descompone. Las retenciones al poroto se marcan en el gráfico con su
+            decreto.
+          </p>
+          <p>
+            Entre 2022 y 2025 el exportador no liquidaba al BNA comprador: tres
+            programas de «dólar soja» fijaron $ 200, $ 230 y $ 300 por dólar, el
+            Programa de Incremento Exportador dejó liquidar una parte al contado
+            con liquidación y el «dólar blend» mantuvo el 20 % al CCL hasta el
+            14 de abril de 2025. La brecha «al dólar del exportador» usa, cada
+            día, la tasa del programa o la parte declarada del BNA comprador más
+            el resto al CCL implícito de ese mismo día (
+            <code className="text-xs">{SOY_EFFECTIVE_BASIS_VERSION}</code>,
+            tramos en{" "}
+            <code className="text-xs">{SOY_EXPORT_FX_REGIMES_VERSION}</code>
+            ); un día mezclado sin CCL no tiene lectura. Fuera de esos tramos
+            las dos brechas son iguales. Va al lado de la oficial, nunca en su
+            lugar.
           </p>
           <p>
             Superficies, producción y rendimiento son las Estimaciones Agrícolas
@@ -996,7 +1076,7 @@ export function SoySection({ soy }: { readonly soy: SoyBlock }) {
             de cosecha.
           </p>
           <p>
-            Lectura <code className="text-xs">argentina-dashboard-2.1.0</code>.
+            Lectura <code className="text-xs">argentina-dashboard-2.2.0</code>.
           </p>
           <ChartReadingNote />
         </>
@@ -1010,12 +1090,13 @@ export function SoySection({ soy }: { readonly soy: SoyBlock }) {
           views={[
             {
               id: "basis",
-              label: "Basis",
+              label: "Brecha",
               content: (
                 <TimelineChart
                   key="basis"
-                  label={`Basis de la soja: pizarra de Rosario en dólares contra Chicago. ${reading}`}
-                  caption="Basis de la soja, pizarra de Rosario contra Chicago, en por ciento"
+                  label={`Brecha Rosario–Chicago de la soja: pizarra de Rosario en dólares contra Chicago, al dólar del exportador y al BNA oficial. ${reading}`}
+                  caption="Brecha Rosario–Chicago de la soja, al dólar del exportador y al BNA oficial, en por ciento"
+                  context={context}
                   daily={daily}
                   monthly={monthly}
                   frequency="daily"
@@ -1025,10 +1106,18 @@ export function SoySection({ soy }: { readonly soy: SoyBlock }) {
                   zeroLine
                   series={[
                     {
-                      key: "basis",
-                      label: "Basis",
+                      key: "effectiveBasis",
+                      label: "Al dólar del exportador",
                       color: "var(--chart-1)",
                       mark: "line",
+                      format: { kind: "signedPoints", scale: 1 },
+                      change: "difference",
+                    },
+                    {
+                      key: "basis",
+                      label: "Al BNA oficial",
+                      color: "var(--chart-3)",
+                      mark: "dashed",
                       format: { kind: "signedPoints", scale: 1 },
                       change: "difference",
                     },
@@ -1043,6 +1132,7 @@ export function SoySection({ soy }: { readonly soy: SoyBlock }) {
                 <TimelineChart
                   key="prices"
                   label="Pizarra de Rosario en dólares y Chicago, en dólares por tonelada."
+                  context={context}
                   caption="Pizarra de Rosario y Chicago en dólares por tonelada"
                   daily={daily}
                   monthly={monthly}
@@ -1081,14 +1171,14 @@ export function SoySection({ soy }: { readonly soy: SoyBlock }) {
             Últimas ruedas, con su contrato
           </h3>
           <DataTable
-            caption="Últimas ruedas de pizarra con BNA, Chicago, contrato y basis"
+            caption="Últimas ruedas de pizarra con BNA, Chicago, contrato y brecha"
             columns={[
               { label: "Fecha" },
               { label: "Pizarra, $/t", numeric: true },
               { label: "BNA comprador", numeric: true },
               { label: "Chicago, ¢/bu", numeric: true },
               { label: "Contrato" },
-              { label: "Basis", numeric: true },
+              { label: "Brecha", numeric: true },
             ]}
             rows={reversed(soy.days.slice(-SOY_RECENT_DAYS)).map((day) => [
               calendarDate(day.on),
