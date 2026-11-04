@@ -211,6 +211,10 @@ export type ArgentinaRefreshDependencies = {
   readonly ingestionRuns: IngestionRunRepository;
   readonly budgets: SourceBudgetStore;
   readonly now: () => string;
+  /** The same credential preflight as the egress door, without opening a socket. */
+  readonly credentialProblem?: (
+    sourceId: RefreshSourceId,
+  ) => "credential_missing" | "credential_invalid" | null;
 };
 
 type SourceAssessment = {
@@ -343,6 +347,18 @@ export async function openRefreshJobs(
     .filter((job) => job.kind === ARGENTINA_REFRESH_KIND);
 }
 
+/** One slow source must not delay or cancel work on another source. */
+export async function runIndependentRefreshJobs(
+  jobs: readonly IngestionJob[],
+  run: (job: IngestionJob) => Promise<unknown>,
+): Promise<void> {
+  const results = await Promise.allSettled(jobs.map(run));
+  const failed = results.find(
+    (result): result is PromiseRejectedResult => result.status === "rejected",
+  );
+  if (failed) throw failed.reason;
+}
+
 /**
  * What the page sees: counts, source labels and codes. Never an error
  * message, which can carry a host or a statement (`TM-02`).
@@ -360,7 +376,7 @@ export type ArgentinaRefreshStatus =
       readonly failed: number;
       /** Labels of the sources still being asked. */
       readonly sources: readonly string[];
-      /** The latest backoff a source asked for, if it is waiting. */
+      /** The latest backoff when all open sources are waiting. */
       readonly waitingUntil: string | null;
     }
   | {
@@ -369,7 +385,9 @@ export type ArgentinaRefreshStatus =
         | "source_disabled"
         | "daily_budget_exhausted"
         | "job_paused"
-        | "budget_undeclared";
+        | "budget_undeclared"
+        | "credential_missing"
+        | "credential_invalid";
       readonly source: string;
       readonly resumesAt: string | null;
     };
@@ -442,6 +460,22 @@ async function describeOpenJobs(
         job.kind === ARGENTINA_REFRESH_KIND && job.createdAt >= roundStart,
     );
   const runnable = open.filter((job) => job.status === "open");
+  const configured = runnable.filter(
+    (job) =>
+      dependencies.credentialProblem?.(job.sourceId as RefreshSourceId) == null,
+  );
+  if (configured.length === 0 && runnable.length > 0) {
+    const source = refreshSourceOf(runnable[0]!.sourceId);
+    return {
+      status: {
+        state: "blocked",
+        reason: dependencies.credentialProblem!(source.sourceId)!,
+        source: source.label,
+        resumesAt: null,
+      },
+      runWorker: false,
+    };
+  }
   if (runnable.length === 0) {
     return {
       status: {
@@ -465,7 +499,7 @@ async function describeOpenJobs(
     failed += counts.failed + counts.poisoned;
     total += job.itemCount;
   }
-  for (const job of runnable) {
+  for (const job of configured) {
     const [counts, next, lease] = await Promise.all([
       dependencies.jobs.countItems(job.jobId),
       dependencies.jobs.peekNext(job.jobId),
@@ -490,8 +524,8 @@ async function describeOpenJobs(
       done,
       total,
       failed,
-      sources: runnable.map((job) => refreshSourceOf(job.sourceId).label),
-      waitingUntil: waits.sort().at(-1) ?? null,
+      sources: configured.map((job) => refreshSourceOf(job.sourceId).label),
+      waitingUntil: anyRunnableNow ? null : (waits.sort().at(-1) ?? null),
     },
     runWorker: anyRunnableNow && !dependencies.workerActive(),
   };
@@ -519,6 +553,18 @@ export async function ensureArgentinaRefresh(
 
   for (const assessment of assessments) {
     if (assessment.stale.length === 0) continue;
+    const credential = dependencies.credentialProblem?.(
+      assessment.source.sourceId,
+    );
+    if (credential) {
+      blocked ??= {
+        state: "blocked",
+        reason: credential,
+        source: assessment.source.label,
+        resumesAt: null,
+      };
+      continue;
+    }
     // A stopped or exhausted source leaves no job that nobody can run.
     const refusal = await admissionBlock(
       dependencies.budgets,
@@ -595,7 +641,12 @@ export function assertArgentinaRefreshJob(job: IngestionJob): RefreshSource {
   };
   for (const [field, value] of Object.entries(expected)) {
     const actual = job[field as keyof typeof expected];
-    if (actual !== value) {
+    // The prior freshness rule planned the same subjects, only more often.
+    // Drain an already-open job after deployment; new jobs use the new rule.
+    const legacyFreshnessJob =
+      field === "selectionVersion" &&
+      actual === "argentina-refresh-freshness-1.0.0";
+    if (actual !== value && !legacyFreshnessJob) {
       throw new ArgentinaRefreshJobMismatchError(
         `Job ${job.jobId} was planned with ${field} ${String(actual)}; this code runs ${value}.`,
       );

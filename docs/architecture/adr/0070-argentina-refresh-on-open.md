@@ -67,9 +67,11 @@ una serie o el chart de una pata.
 - Un job planeado con otra regla u otro parser no corre con el código actual
   (`assertArgentinaRefreshJob`).
 
-El worker corre los jobs abiertos uno tras otro, en el orden declarado de las
-fuentes, con los mismos recorders que los comandos: `recordBcraSeries`,
-`ingestAdrLeg` y `recordArgentinaIndicator`. No hay una ingesta paralela.
+El worker corre los jobs de fuentes distintas en paralelo; dentro de cada
+fuente conserva el ritmo de una request por vez, su lease, su cuota y su kill
+switch. Usa los mismos recorders que los comandos: `recordBcraSeries`,
+`ingestAdrLeg` y `recordArgentinaIndicator`. Una fuente lenta o fallada no
+frena el avance de las demás.
 
 ## Decisión 3 — la Server Action (`TM-03`)
 
@@ -122,6 +124,34 @@ build servido y Chromium:
   próxima consulta retoma.
 - **Sin visita no hay actualización.** No hay cron: la página se pone al día
   cuando se la abre, que es cuando importa.
+
+## Enmienda del 2026-11-04 — fuentes independientes y frecuencia mensual
+
+La captura del owner mostró 33 de 52 sujetos mientras INDEC seguía activo: el
+worker en serie dejaba esperando a Series de Tiempo y a la soja. Desde esta
+enmienda cada fuente avanza simultáneamente bajo su propio lease y ritmo; un
+error de una fuente se recoge después de dejar avanzar a las otras.
+
+`argentina-refresh-freshness-1.1.0` pregunta por INDEC, Series de Tiempo y
+Estimaciones Agrícolas una vez por semana local, desde el lunes 00:00 de Buenos
+Aires. Las fuentes diarias conservan el cierre de día hábil. Los servicios
+mensuales no publican una señal barata y confiable de revisión de toda la
+historia; por eso una consulta semanal todavía puede repetir datos y una
+publicación nueva puede esperar hasta el lunes siguiente. «Reintentar» y el
+comando manual siguen disponibles para una revisión inmediata. Los jobs ya
+abiertos bajo `1.0.0` se terminan con sus sujetos originales; los nuevos se
+planean con `1.1.0`.
+
+El job privado de INDEC observado el 2026-11-04 estaba en `0/19`: 60 intentos
+habían terminado en `credential_missing`, sin abrir un socket. La señal genérica
+`refused` lo difería diez minutos y, al vencer ese plazo, cada consulta de la
+página volvía a tomar y soltar el lease sin avanzar. La actualización ahora
+comprueba la credencial con la misma regla de la puerta antes de planear o
+ejecutar ese job. Si falta o es inválida, informa el bloqueo y deja avanzar a
+las otras fuentes; el job abierto conserva sus sujetos y se reanuda al
+configurar el token. No se incrementa la cuota ni se reintenta en bucle.
+La inspección de Vercel confirmó que `INDEC_API_TOKEN` no está declarado en el
+proyecto; el archivo local sí lo tiene, pero no configura Production.
 
 ## Alternativas descartadas
 

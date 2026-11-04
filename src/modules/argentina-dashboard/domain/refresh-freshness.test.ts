@@ -5,6 +5,7 @@ import {
   lastDailySettledAt,
   selectStaleSubjects,
   startOfBuenosAiresDay,
+  startOfBuenosAiresWeek,
 } from "./refresh-freshness";
 
 describe("lastDailySettledAt", () => {
@@ -43,10 +44,24 @@ describe("startOfBuenosAiresDay", () => {
   });
 });
 
+describe("startOfBuenosAiresWeek", () => {
+  it("holds the monthly sources through the local week and turns on Monday", () => {
+    expect(startOfBuenosAiresWeek("2026-11-08T23:00:00.000Z")).toBe(
+      "2026-11-02T03:00:00.000Z",
+    );
+    expect(startOfBuenosAiresWeek("2026-11-09T02:59:00.000Z")).toBe(
+      "2026-11-02T03:00:00.000Z",
+    );
+    expect(startOfBuenosAiresWeek("2026-11-09T03:00:00.000Z")).toBe(
+      "2026-11-09T03:00:00.000Z",
+    );
+  });
+});
+
 describe("selectStaleSubjects", () => {
   const now = "2026-11-03T15:00:00.000Z";
 
-  it("keeps a daily subject checked after the last settle and a monthly one checked today", () => {
+  it("keeps daily subjects since the last settle and monthly subjects since Monday", () => {
     const lastChecks = new Map([
       ["fresh", "2026-11-02T23:10:00.000Z"],
       ["before-settle", "2026-11-02T22:59:00.000Z"],
@@ -69,11 +84,11 @@ describe("selectStaleSubjects", () => {
         cadence: "monthly",
         now,
       }),
-    ).toEqual(["fresh"]);
+    ).toEqual([]);
   });
 
   it("names the threshold of each cadence", () => {
     expect(freshSince("daily", now)).toBe("2026-11-02T23:00:00.000Z");
-    expect(freshSince("monthly", now)).toBe("2026-11-03T03:00:00.000Z");
+    expect(freshSince("monthly", now)).toBe("2026-11-02T03:00:00.000Z");
   });
 });

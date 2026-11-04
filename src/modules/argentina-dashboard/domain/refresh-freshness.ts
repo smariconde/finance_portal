@@ -6,7 +6,7 @@
  * nothing; a holiday simply leaves the check in place until the next one.
  */
 export const ARGENTINA_REFRESH_RULE_VERSION =
-  "argentina-refresh-freshness-1.0.0";
+  "argentina-refresh-freshness-1.1.0";
 
 export type RefreshCadence = "daily" | "monthly";
 
@@ -50,11 +50,18 @@ export function startOfBuenosAiresDay(now: string): string {
   ).toISOString();
 }
 
+/** Monday 00:00 in Buenos Aires of the current local week. */
+export function startOfBuenosAiresWeek(now: string): string {
+  const localDay = new Date(startOfBuenosAiresDay(now));
+  const daysSinceMonday = (localDay.getUTCDay() + 6) % 7;
+  return new Date(localDay.getTime() - daysSinceMonday * DAY_MS).toISOString();
+}
+
 /** A check at or after this instant makes a subject fresh. */
 export function freshSince(cadence: RefreshCadence, now: string): string {
   return cadence === "daily"
     ? lastDailySettledAt(now)
-    : startOfBuenosAiresDay(now);
+    : startOfBuenosAiresWeek(now);
 }
 
 /** Subjects without a check since the cadence's threshold, in plan order. */

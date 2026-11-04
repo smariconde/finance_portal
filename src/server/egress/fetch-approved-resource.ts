@@ -32,6 +32,15 @@ export const EGRESS_PROJECT_USER_AGENT = "portal-financiero/1.0";
  */
 const CREDENTIAL_PATTERN = /^[\x21-\x7e]{8,4096}$/u;
 
+/** Same preflight used by a job planner and by the door before a socket opens. */
+export function credentialProblem(
+  value: string | undefined,
+): "credential_missing" | "credential_invalid" | null {
+  const credential = value?.trim() ?? "";
+  if (credential.length === 0) return "credential_missing";
+  return CREDENTIAL_PATTERN.test(credential) ? null : "credential_invalid";
+}
+
 /** Códigos de redirect que se siguen. Un `GET` sigue siendo `GET` en los cinco. */
 const REDIRECT_STATUSES: ReadonlySet<number> = new Set([
   301, 302, 303, 307, 308,
@@ -175,7 +184,7 @@ export async function fetchApprovedResource(
   if (entry.credential !== null) {
     const credential = readCredential(entry.credential.variable)?.trim() ?? "";
 
-    if (credential.length === 0) {
+    if (credentialProblem(credential) === "credential_missing") {
       throw new EgressBlockedError(
         "credential_missing",
         entry.sourceId,
@@ -183,7 +192,7 @@ export async function fetchApprovedResource(
       );
     }
 
-    if (!CREDENTIAL_PATTERN.test(credential)) {
+    if (credentialProblem(credential) === "credential_invalid") {
       throw new EgressBlockedError(
         "credential_invalid",
         entry.sourceId,

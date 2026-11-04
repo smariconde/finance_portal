@@ -6245,6 +6245,25 @@ Evidencia en una réplica vacía con el catálogo del BCRA: primera visita, 52
 items en cuatro jobs, 0 fallados, «Datos al día.» a los 98 s con la página
 recargada; segunda visita, ningún job ni request.
 
+**`F9-12`, corrección del 2026-11-04.** La captura del owner mostró 33 de 52
+durante INDEC: el worker secuencial dejaba otras fuentes esperando. Ahora los
+jobs de fuentes distintas avanzan en paralelo, conservando lease, ritmo y
+cuota por fuente. La regla `argentina-refresh-freshness-1.1.0` revisa INDEC,
+Series de Tiempo y Estimaciones Agrícolas una vez por semana de Buenos Aires;
+lo diario sigue después del cierre hábil. Esto reduce las consultas mensuales
+repetidas; una publicación puede verse hasta la semana siguiente. Se admiten
+los jobs `1.0.0` ya abiertos para que terminen. Evidencia: tests de umbral
+local y avance independiente, typecheck y lint. El job privado de INDEC estaba
+en `0/19`: 60 intentos `credential_missing`, sin una request al proveedor,
+seguidos por miles de tomas y liberaciones del lease al consultar la página.
+Ahora la falta o invalidez del token bloquea sólo INDEC con una indicación
+concreta; las demás fuentes continúan y el job se reanuda al configurar el
+token. La latencia real del INDEC queda por medir después de configurarlo.
+Vercel confirmó que la variable falta en el proyecto, aunque está presente en
+`.env.local`. La corrección de código queda pendiente de build/CI: el build
+local no pudo iniciar el proceso de CSS de Turbopack (`Operation not permitted`)
+en este entorno; 3.704 unit, formato, tipos y lint pasan.
+
 Sigue `F9-05` o `F9-08`, a elección del owner.
 
 **`F9-13`, 2026-11-03.** Estado: `done`. Antes de seguir con la soja, el
