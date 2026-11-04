@@ -97,7 +97,8 @@ Las fases 0, 1, 2, 7, 3, 5, 4, 6 y 8 están cerradas, y el seguimiento `F6-25`
 de la ficha de empresa también. La Fase 9 está en curso: `F9-01` cerró el
 catálogo y los vintages del BCRA, `F9-02` sus lecturas en pesos constantes y en
 dólares, `F9-03` las cotizaciones oficiales de Estadísticas Cambiarias, `F9-07` el
-CCL implícito por ADR al lado del oficial, y sigue `F9-04`. El estado
+CCL implícito por ADR al lado del oficial. `F9-04`, `F9-06`, `F9-12` y `F9-13`
+también están cerrados; `F9-05` está en curso. El estado
 operativo y el historial de sesiones viven en `06_PHASED_ROADMAP.md`; el orden
 ejecutable vive en `../backlog/README.md`.
 La existencia de una página o documento no demuestra avance.
