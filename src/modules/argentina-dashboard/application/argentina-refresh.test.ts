@@ -20,6 +20,7 @@ import {
   openRefreshJobs,
   readArgentinaRefreshReadiness,
   refreshSourceOf,
+  runIndependentRefreshJobs,
 } from "./argentina-refresh";
 
 // A Tuesday afternoon: the daily threshold is Monday 23:00 UTC.
@@ -35,12 +36,16 @@ function setup() {
   const ingestionRuns = createInMemoryIngestionRunRepository();
   const budgets = createInMemorySourceBudgetStore();
   let workerActive = false;
+  let indecCredentialProblem:
+    "credential_missing" | "credential_invalid" | null = null;
   const dependencies = {
     jobs,
     ingestionRuns,
     budgets,
     now: () => clock,
     workerActive: () => workerActive,
+    credentialProblem: (sourceId: string) =>
+      sourceId === "indec-api" ? indecCredentialProblem : null,
   };
 
   async function recordRun(job: IngestionJob, subjectKey: string) {
@@ -112,6 +117,9 @@ function setup() {
     setWorkerActive: (next: boolean) => {
       workerActive = next;
     },
+    setIndecCredentialProblem: (next: typeof indecCredentialProblem) => {
+      indecCredentialProblem = next;
+    },
   };
 }
 
@@ -168,6 +176,33 @@ describe("ensureArgentinaRefresh", () => {
       state: "running",
       sources: ["BCRA", "Yahoo (CCL y Chicago)", "pizarra de Rosario", "BNA"],
     });
+  });
+
+  it("does not ask monthly sources again the next day, but does the next Monday", async () => {
+    const { dependencies, runOpen, recordsEverything, setClock } = setup();
+    await ensureArgentinaRefresh({ retryFailures: false }, dependencies);
+    await runOpen(() => recordsEverything);
+    setClock("2026-11-04T15:00:00.000Z");
+    const nextDay = await ensureArgentinaRefresh(
+      { retryFailures: false },
+      dependencies,
+    );
+    expect(nextDay.status.state).toBe("running");
+    if (nextDay.status.state === "running") {
+      expect(nextDay.status.sources).not.toContain("INDEC");
+      expect(nextDay.status.sources).not.toContain("Series de Tiempo");
+    }
+    await runOpen(() => recordsEverything);
+    setClock("2026-11-09T15:00:00.000Z");
+    const nextWeek = await ensureArgentinaRefresh(
+      { retryFailures: false },
+      dependencies,
+    );
+    expect(nextWeek.status.state).toBe("running");
+    if (nextWeek.status.state === "running") {
+      expect(nextWeek.status.sources).toContain("INDEC");
+      expect(nextWeek.status.sources).toContain("Series de Tiempo");
+    }
   });
 
   it("does not replan a failure on its own, only when the owner retries", async () => {
@@ -300,5 +335,78 @@ describe("ensureArgentinaRefresh", () => {
     );
     expect(result.runWorker).toBe(false);
     expect(result.status).toMatchObject({ state: "running" });
+  });
+
+  it("skips INDEC when its token is missing and resumes an open job when configured", async () => {
+    const {
+      dependencies,
+      jobs,
+      setIndecCredentialProblem,
+      runOpen,
+      recordsEverything,
+    } = setup();
+    setIndecCredentialProblem("credential_missing");
+    const planned = await ensureArgentinaRefresh(
+      { retryFailures: false },
+      dependencies,
+    );
+    expect(planned.status.state).toBe("running");
+    expect(
+      (await openRefreshJobs(jobs)).map((job) => job.sourceId),
+    ).not.toContain("indec-api");
+    await runOpen(() => recordsEverything);
+    expect(
+      (await ensureArgentinaRefresh({ retryFailures: false }, dependencies))
+        .status,
+    ).toMatchObject({
+      state: "blocked",
+      reason: "credential_missing",
+      source: "INDEC",
+    });
+
+    setIndecCredentialProblem(null);
+    await ensureArgentinaRefresh({ retryFailures: false }, dependencies);
+    const indecJob = (await openRefreshJobs(jobs)).find(
+      (job) => job.sourceId === "indec-api",
+    )!;
+    setIndecCredentialProblem("credential_invalid");
+    expect(
+      (await ensureArgentinaRefresh({ retryFailures: false }, dependencies))
+        .status,
+    ).toMatchObject({
+      state: "blocked",
+      reason: "credential_invalid",
+      source: "INDEC",
+    });
+    expect((await jobs.countItems(indecJob.jobId)).pending).toBe(
+      indecJob.itemCount,
+    );
+    setIndecCredentialProblem(null);
+    expect(
+      (await ensureArgentinaRefresh({ retryFailures: false }, dependencies))
+        .runWorker,
+    ).toBe(true);
+  });
+});
+
+describe("runIndependentRefreshJobs", () => {
+  it("starts other sources while INDEC waits, and lets them finish if it fails", async () => {
+    const indec = { sourceId: "indec-api" } as IngestionJob;
+    const series = { sourceId: "argentina-series-tiempo" } as IngestionJob;
+    let releaseIndec!: () => void;
+    const indecWaiting = new Promise<void>((resolve) => {
+      releaseIndec = resolve;
+    });
+    const completed: string[] = [];
+    const work = runIndependentRefreshJobs([indec, series], async (job) => {
+      if (job.sourceId === "indec-api") {
+        await indecWaiting;
+        throw new Error("indec_failed");
+      }
+      completed.push(job.sourceId);
+    });
+    expect(completed).toEqual(["argentina-series-tiempo"]);
+    releaseIndec();
+    await expect(work).rejects.toThrow("indec_failed");
   });
 });

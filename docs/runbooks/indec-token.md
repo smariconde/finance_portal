@@ -37,6 +37,11 @@ Anotar la fecha de generación: once meses después hay que repetir estos pasos.
 | `no_rows: emae_sector_…`                                                | el filtro declarado ya no devuelve filas (un sector renombrado) | revisar el servicio y cambiar la declaración en un diff revisable |
 | `schema_changed (…)`                                                    | el servicio cambió de columnas, filtros o signos                | no forzar: actualizar `INDEC_SERVICES` con su prueba              |
 
+En `/argentina`, un token ausente o inválido se muestra como bloqueo de INDEC.
+Las otras fuentes siguen y el job pendiente se conserva. Después de cargar el
+token en el entorno privado y reiniciar la aplicación, abrir la página retoma
+ese job sin replanear los 19 indicadores.
+
 ## Registrar los indicadores
 
 ```sh

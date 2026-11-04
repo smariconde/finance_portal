@@ -12,6 +12,7 @@ import {
   ensureArgentinaRefresh,
   openRefreshJobs,
   readArgentinaRefreshReadiness,
+  runIndependentRefreshJobs,
   RefreshSubjectRejectedError,
   type ArgentinaRefreshReadiness,
   type EnsureArgentinaRefreshResult,
@@ -51,6 +52,7 @@ import { declaredArgentinaIndicator } from "@/modules/macro-series/domain/declar
 import { declaredSoyIndicator } from "@/modules/macro-series/domain/declared-soy-indicators";
 import { createLivePriceSource } from "@/modules/prices/application/live-price-source";
 import { getMeteredEgressFetch } from "@/server/egress/get-source-egress-fetch";
+import { credentialProblem } from "@/server/egress/fetch-approved-resource";
 import { getAdrPairRepository } from "@/server/persistence/get-adr-pair-repository";
 import { getArgentinaIndicatorRepository } from "@/server/persistence/get-argentina-indicator-repository";
 import { getIngestionJobStore } from "@/server/persistence/get-ingestion-job-store";
@@ -79,6 +81,10 @@ function dependencies() {
     ingestionRuns: getIngestionRunRepository(),
     budgets: getSourceBudgetStore(),
     now,
+    credentialProblem: (sourceId: RefreshSourceId) =>
+      sourceId === "indec-api"
+        ? credentialProblem(process.env.INDEC_API_TOKEN)
+        : null,
   };
 }
 
@@ -122,7 +128,7 @@ const PACING: Readonly<Record<RefreshSourceId, RequestPacingPolicy>> = {
   "magyp-estimaciones": SOY_REQUEST_PACING,
 };
 
-/** The open jobs one after another, each under its source's lease. */
+/** Independent sources advance together; each keeps its own lease and pace. */
 async function runOpenJobs(): Promise<void> {
   const store = getIngestionJobStore();
   const registry = getSourceRegistryRepository();
@@ -131,7 +137,12 @@ async function runOpenJobs(): Promise<void> {
 
   // The oldest first, in the declared order of the sources.
   const open = [...(await openRefreshJobs(store))]
-    .filter((job) => job.status === "open")
+    .filter(
+      (job) =>
+        job.status === "open" &&
+        dependencies().credentialProblem(job.sourceId as RefreshSourceId) ===
+          null,
+    )
     .sort(
       (left, right) =>
         ARGENTINA_REFRESH_SOURCES.findIndex(
@@ -142,7 +153,7 @@ async function runOpenJobs(): Promise<void> {
         ),
     );
 
-  for (const job of open) {
+  await runIndependentRefreshJobs(open, async (job) => {
     const source = assertArgentinaRefreshJob(job);
     // The observer sits between the pacing and the meter: a refusal of the
     // daily budget is not a signal from the source (ADR 0020).
@@ -178,7 +189,7 @@ async function runOpenJobs(): Promise<void> {
         }),
       },
     );
-  }
+  });
 }
 
 type Recorder = (job: IngestionJob, subjectKey: string) => Promise<string>;

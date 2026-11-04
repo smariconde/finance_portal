@@ -117,7 +117,10 @@ export function ArgentinaRefresh({
         onView: (next) => {
           if (next.kind === "running") sawRunning.current = true;
           setView(next);
-          if (next.kind === "done" && sawRunning.current) {
+          if (
+            (next.kind === "done" || next.kind === "blocked") &&
+            sawRunning.current
+          ) {
             startTransition(() => router.refresh());
           }
         },
@@ -185,7 +188,7 @@ function RunningLine({ status }: { readonly status: RunningStatus }) {
       detail={
         waiting !== null
           ? `Una fuente pidió esperar; se retoma a las ${formatClock(waiting)}.`
-          : "Sólo lo que tiene publicación nueva posible. La página se actualiza al terminar."
+          : "Revisando cada fuente según su frecuencia. La página se actualiza al terminar."
       }
     >
       <div className="flex items-center gap-3">
@@ -216,6 +219,15 @@ function RunningLine({ status }: { readonly status: RunningStatus }) {
 
 function BlockedLine({ status }: { readonly status: BlockedStatus }) {
   switch (status.reason) {
+    case "credential_missing":
+    case "credential_invalid":
+      return (
+        <StatusLine
+          icon={CircleAlert}
+          title={`${status.source} necesita un token válido`}
+          detail="Configurá INDEC_API_TOKEN en el entorno privado y reiniciá la aplicación. Las demás fuentes pueden seguir actualizándose."
+        />
+      );
     case "daily_budget_exhausted":
       return (
         <StatusLine
