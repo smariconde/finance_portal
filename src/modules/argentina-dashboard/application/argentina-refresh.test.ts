@@ -16,6 +16,7 @@ import { createInMemorySourceBudgetStore } from "@/modules/ingestion/infrastruct
 import {
   ARGENTINA_REFRESH_KIND,
   ARGENTINA_REFRESH_SOURCES,
+  buildArgentinaRefreshPlan,
   ensureArgentinaRefresh,
   openRefreshJobs,
   readArgentinaRefreshReadiness,
@@ -269,6 +270,58 @@ describe("ensureArgentinaRefresh", () => {
       "soy_cbot_front",
     );
     expect(items).toHaveLength(yahoo.subjects.length - 1);
+  });
+
+  it("plans soy sources and the new Yahoo subject while an older INDEC job is blocked", async () => {
+    const { dependencies, jobs, budgets, recordsEverything } = setup();
+    const indec = refreshSourceOf("indec-api");
+    const yahoo = refreshSourceOf("yahoo-finance");
+    await jobs.createJob(buildArgentinaRefreshPlan(indec, indec.subjects), {
+      now: NOW,
+    });
+    const { job: oldYahoo } = await jobs.createJob(
+      buildArgentinaRefreshPlan(
+        yahoo,
+        yahoo.subjects.filter((subject) => subject !== "soy_cbot_front"),
+      ),
+      { now: NOW },
+    );
+    await runIngestionJob(
+      { jobId: oldYahoo.jobId, holder: "test-worker" },
+      {
+        store: jobs,
+        execute: recordsEverything,
+        now: () => NOW,
+        sleep: async () => {},
+        newLeaseToken: randomUUID,
+        startHeartbeat: () => () => {},
+      },
+    );
+    for (let request = 0; request < 60; request += 1) {
+      await budgets.consume("indec-api", NOW);
+    }
+
+    const result = await ensureArgentinaRefresh(
+      { retryFailures: false },
+      dependencies,
+    );
+    expect(result.runWorker).toBe(true);
+    expect(result.status).toMatchObject({ state: "running" });
+    const open = await openRefreshJobs(jobs);
+    expect(open.filter((job) => job.sourceId === "indec-api")).toHaveLength(1);
+    for (const sourceId of [
+      "bcr-cac-pizarra",
+      "bna-fx",
+      "magyp-estimaciones",
+    ]) {
+      expect(open.some((job) => job.sourceId === sourceId)).toBe(true);
+    }
+    const newYahoo = open.find((job) => job.sourceId === "yahoo-finance")!;
+    const items = await jobs.listItems({ jobId: newYahoo.jobId, limit: 100 });
+    expect(items.map((item) => item.subjectKey)).toEqual(["soy_cbot_front"]);
+
+    await ensureArgentinaRefresh({ retryFailures: false }, dependencies);
+    expect(await openRefreshJobs(jobs)).toHaveLength(open.length);
   });
 
   it("leaves no job for a stopped source and names it", async () => {
