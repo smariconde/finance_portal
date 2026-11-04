@@ -6319,7 +6319,8 @@ estaba y no es de este slice. 3.623 unit y `test:e2e` (238) pasan.
 `soy-basis-1.0.0` exige pizarra spot Rosario en ARS/t, BNA divisas comprador
 ARS/USD y una cotización de Chicago con contrato y unidad identificados, las
 tres de la misma fecha de mercado y conocidas al corte. Convierte USD/bushel
-con 36,7437 bushels/t, calcula `(Rosario USD/t ÷ Chicago USD/t − 1) × 100` y
+con 36,7437 bushels/t, o centavos/bushel primero a USD/bushel, calcula
+`(Rosario USD/t ÷ Chicago USD/t − 1) × 100` y
 expone las tres fuentes y sus fechas de disponibilidad. Una serie continua
 requiere regla de roll; ausencias, descalces de fecha y valores no positivos
 se rechazan por nombre. No hay ingesta, base ni superficie en este incremento.
@@ -6329,6 +6330,8 @@ declara entrega inmediata, ARS/t y conversión informativa con BNA comprador; el
 [BNA publica cotizaciones de divisas al cierre](https://www.bna.com.ar/Cotizador/MonedasHistorico/1000),
 pero la consulta pública no autoriza por sí misma automatización y retención;
 [CME ofrece los datos de contratos mediante una API licenciada](https://www.cmegroup.com/market-data/market-data-api.html).
+[Yahoo muestra el contrato individual ZSX26.CBT en centavos por bushel](https://finance.yahoo.com/quote/ZSX26.CBT/history/),
+pero sigue como candidato sin revisión de derechos específica para soja.
 El [dataset oficial de soja](https://datos.magyp.gob.ar/dataset/soja-siembra-cosecha-produccion-rendimiento)
 publica producción por campaña bajo CC BY 4.0. Siguen pendientes el canal y
 derechos concretos para las tres cotizaciones, el perfil técnico del CSV

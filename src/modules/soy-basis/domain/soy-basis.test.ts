@@ -76,6 +76,17 @@ describe("soy-basis-1.0.0", () => {
     });
   });
 
+  it("converts an individually identified contract quoted in US cents per bushel", () => {
+    const result = calculateSoyBasis({
+      ...sample,
+      chicago: { ...sample.chicago!, value: "1224.5", unit: "US_cents/bushel" },
+    });
+    expect(result).toMatchObject({
+      status: "computed",
+      chicagoUsdPerTon: "449.9266065",
+    });
+  });
+
   it.each([
     ["rosario", "missing_rosario"],
     ["fx", "missing_fx"],

@@ -26,7 +26,7 @@ const fxSchema = datedPriceSchema.extend({
 
 const chicagoSchema = datedPriceSchema
   .extend({
-    unit: z.enum(["USD/bushel", "USD/t"]),
+    unit: z.enum(["USD/bushel", "US_cents/bushel", "USD/t"]),
     contract: z.string().min(1),
     seriesKind: z.enum(["single_contract", "continuous"]),
     /** The contract is supplied per point; a continuous series also names its roll. */
@@ -117,15 +117,23 @@ export function calculateSoyBasis(raw: SoyBasisInput): SoyBasisResult {
   }
 
   const rosarioUsd = decimal.divide(pesoPrice, buyerFx, "rosarioUsdPerTon");
+  const dollarsPerBushel =
+    chicago.unit === "US_cents/bushel"
+      ? decimal.divide(
+          chicagoPrice,
+          decimal.parseDecimal("100", "centsPerDollar"),
+          "dollarsPerBushel",
+        )
+      : chicagoPrice;
   const chicagoUsd =
-    chicago.unit === "USD/bushel"
-      ? decimal.assertFinite(
-          chicagoPrice.mul(
+    chicago.unit === "USD/t"
+      ? chicagoPrice
+      : decimal.assertFinite(
+          dollarsPerBushel.mul(
             decimal.parseDecimal(BUSHELS_PER_METRIC_TON, "bushelsPerMetricTon"),
           ),
           "chicagoUsdPerTon",
-        )
-      : chicagoPrice;
+        );
   const basis = decimal.assertFinite(
     decimal.divide(rosarioUsd, chicagoUsd, "basisPct").minus(1).mul(100),
     "basisPct",
