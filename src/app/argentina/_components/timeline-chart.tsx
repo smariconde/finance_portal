@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useId, useState, type KeyboardEvent } from "react";
+import { useId, useState, type KeyboardEvent, type PointerEvent } from "react";
 import {
   Area,
   Bar,
@@ -14,7 +14,6 @@ import {
   usePlotArea,
   useXAxisScale,
   useYAxisScale,
-  type MouseHandlerDataParam,
 } from "recharts";
 
 import { InfoTip } from "@/app/_components/info-tip";
@@ -47,6 +46,7 @@ import {
   dateOf,
   dayNumber,
   formatValue,
+  linearTicks,
   logTicks,
   periodLabel,
   Segmented,
@@ -109,6 +109,53 @@ const RANGE_LABEL: Record<RangeId, string> = {
 
 /** Hasta cinco años, una serie diaria se dibuja día por día. */
 const DAILY_MAX_YEARS = 5;
+
+/**
+ * Las filas diarias son la unión de las fechas de todas las series: un día
+ * que publicó el CCL y no el mayorista deja un nulo que cortaría la línea
+ * como si faltara un tramo. Una línea cruza los nulos entre dos datos a lo
+ * sumo a una semana —un fin de semana largo—; un hueco mayor sigue cortado.
+ * Es sólo el trazo: la lectura y la tabla siguen diciendo «Sin dato».
+ */
+const DAILY_BRIDGE_DAYS = 7;
+
+/** La clave con que se dibuja una serie: la suya, con los nulos cortos cruzados. */
+function drawnKey(key: string): string {
+  return `${key}__drawn`;
+}
+
+function bridgeShortGaps(
+  rows: Record<string, number | string | null | readonly number[]>[],
+  key: string,
+  maxDays: number,
+): void {
+  let previous = -1;
+  rows.forEach((row, index) => {
+    const value = row[key];
+    row[drawnKey(key)] = typeof value === "number" ? value : null;
+    if (typeof value !== "number") return;
+    const before = rows[previous];
+    if (before !== undefined && index - previous > 1) {
+      const fromT = before.t as number;
+      const toT = row.t as number;
+      const fromValue = before[key] as number;
+      if (toT - fromT <= maxDays) {
+        // Sobre el segmento recto entre los dos datos: el mismo trazo que
+        // dibujaría la línea si el día del medio no existiera.
+        for (let middle = previous + 1; middle < index; middle += 1) {
+          const share = ((rows[middle]!.t as number) - fromT) / (toT - fromT);
+          rows[middle]![drawnKey(key)] =
+            fromValue + (value - fromValue) * share;
+        }
+      }
+    }
+    previous = index;
+  });
+}
+
+/** El ancho del eje Y y el margen derecho: entre ellos está el área del dibujo. */
+const Y_AXIS_WIDTH = 56;
+const PLOT_RIGHT = 8;
 
 const HEIGHT = { sm: "h-56", md: "h-72", lg: "h-80" } as const;
 
@@ -421,20 +468,30 @@ export function TimelineChart({
       const value = Number(text) / divisor;
       return Number.isFinite(value) ? value : null;
     };
-    const rows: PlotRow[] = visible.map((row) => {
+    const entries = visible.map((row) => {
       const entry: Record<string, number | string | null | readonly number[]> =
         { t: dayNumber(row.on), on: row.on };
       for (const key of keys) entry[key] = numbers(row, key);
-      if (band) {
-        const low = entry[band.lowKey];
-        const high = entry[band.highKey];
+      return entry;
+    });
+    for (const key of keys) {
+      bridgeShortGaps(
+        entries,
+        key,
+        resolution === "daily" ? DAILY_BRIDGE_DAYS : 0,
+      );
+    }
+    if (band) {
+      for (const entry of entries) {
+        const low = entry[drawnKey(band.lowKey)];
+        const high = entry[drawnKey(band.highKey)];
         entry.band =
           typeof low === "number" && typeof high === "number"
             ? [low, high]
             : null;
       }
-      return entry as PlotRow;
-    });
+    }
+    const rows = entries as PlotRow[];
     const values = rows.flatMap((row) =>
       keys
         .map((key) => row[key])
@@ -453,7 +510,13 @@ export function TimelineChart({
   const indexOf = new Map(plotted.rows.map((row, index) => [row.on, index]));
   const activeIndex =
     activeOn === null ? undefined : (indexOf.get(activeOn) ?? undefined);
-  const shownIndex = activeIndex ?? plotted.rows.length - 1;
+  // Sin un punto activo se lee el último que tiene alguna cifra: la base real
+  // de un mes cuyo IPC todavía no salió no es «el último dato».
+  const latestIndex = visible.findLastIndex((row) =>
+    series.some((item) => row.values[item.key] != null),
+  );
+  const shownIndex =
+    activeIndex ?? (latestIndex >= 0 ? latestIndex : visible.length - 1);
   const shown = visible[shownIndex];
   const pinned = pins
     .map((on) => visible[indexOf.get(on) ?? -1])
@@ -519,7 +582,7 @@ export function TimelineChart({
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     const count = visible.length;
     if (count === 0) return;
-    const current = activeIndex ?? count - 1;
+    const current = activeIndex ?? (latestIndex >= 0 ? latestIndex : count - 1);
     const step = event.shiftKey ? 10 : 1;
     switch (event.key) {
       case "ArrowLeft":
@@ -550,20 +613,49 @@ export function TimelineChart({
     event.preventDefault();
   }
 
-  function track(state: MouseHandlerDataParam) {
-    const index = Number(state.activeTooltipIndex);
-    const row = Number.isInteger(index) ? visible[index] : undefined;
+  /**
+   * La fila más cercana al puntero, calculada desde su posición. El índice que
+   * Recharts pasa al click es el de su último movimiento: un toque sin
+   * arrastre fijaba el punto anterior, y un índice nulo, el primero.
+   */
+  function rowAt(
+    clientX: number,
+    element: HTMLElement,
+  ): TimelineRow | undefined {
+    const rows = plotted.rows;
+    if (rows.length === 0) return undefined;
+    const box = element.getBoundingClientRect();
+    const width = box.width - Y_AXIS_WIDTH - PLOT_RIGHT;
+    if (width <= 0) return undefined;
+    const share = Math.min(
+      1,
+      Math.max(0, (clientX - box.left - Y_AXIS_WIDTH) / width),
+    );
+    const t = first + share * (last - first);
+    let low = 0;
+    let high = rows.length - 1;
+    while (low < high) {
+      const middle = (low + high) >> 1;
+      if (rows[middle]!.t < t) low = middle + 1;
+      else high = middle;
+    }
+    if (low > 0 && t - rows[low - 1]!.t < rows[low]!.t - t) low -= 1;
+    return visible[low];
+  }
+
+  function track(event: PointerEvent<HTMLDivElement>) {
+    const row = rowAt(event.clientX, event.currentTarget);
     if (row !== undefined) setActiveOn(row.on);
   }
 
-  const yDomain: [number | string, number | string] = useLog
-    ? [plotted.min * 0.92, plotted.max * 1.08]
+  const yTicks = useLog
+    ? logTicks(plotted.min, plotted.max)
     : hasBars || zeroLine
-      ? ([
-          (dataMin: number) => Math.min(0, dataMin),
-          (dataMax: number) => Math.max(0, dataMax),
-        ] as unknown as [number, number])
-      : ["auto", "auto"];
+      ? linearTicks(Math.min(0, plotted.min), Math.max(0, plotted.max))
+      : linearTicks(plotted.min, plotted.max);
+  const yDomain: [number, number] = useLog
+    ? [plotted.min * 0.92, plotted.max * 1.08]
+    : [yTicks[0] ?? 0, yTicks.at(-1) ?? 1];
 
   // «De cierre de ene 2000 a cierre de…» se lee mejor con el mes solo; la
   // resolución ya está dicha en la barra.
@@ -718,6 +810,18 @@ export function TimelineChart({
         aria-label={label}
         aria-describedby={instructionsId}
         onKeyDown={onKeyDown}
+        onPointerMove={track}
+        onPointerDown={track}
+        onPointerLeave={(event) => {
+          // Un toque deja la lectura donde quedó; el mouse que sale la suelta.
+          if (event.pointerType === "mouse") setActiveOn(null);
+        }}
+        onClick={(event) => {
+          const row = rowAt(event.clientX, event.currentTarget);
+          if (row === undefined) return;
+          setActiveOn(row.on);
+          if (comparing) pin(row.on);
+        }}
         className="touch-pan-y rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         <span id={instructionsId} className="sr-only">
@@ -733,16 +837,11 @@ export function TimelineChart({
           <ComposedChart
             accessibilityLayer={false}
             data={plotted.rows as PlotRow[]}
-            margin={{ top: showMarks ? 40 : 8, right: 8, bottom: 0, left: 0 }}
-            onMouseMove={track}
-            onTouchMove={track}
-            onTouchStart={track}
-            onMouseLeave={() => setActiveOn(null)}
-            onClick={(state) => {
-              track(state);
-              const index = Number(state.activeTooltipIndex);
-              const row = Number.isInteger(index) ? visible[index] : undefined;
-              if (comparing && row !== undefined) pin(row.on);
+            margin={{
+              top: showMarks ? 40 : 8,
+              right: PLOT_RIGHT,
+              bottom: 0,
+              left: 0,
             }}
           >
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
@@ -761,11 +860,11 @@ export function TimelineChart({
             <YAxis
               tickLine={false}
               axisLine={false}
-              width={56}
+              width={Y_AXIS_WIDTH}
               scale={useLog ? "log" : "linear"}
               domain={yDomain}
               allowDataOverflow={useLog}
-              ticks={useLog ? logTicks(plotted.min, plotted.max) : undefined}
+              ticks={yTicks}
               tickFormatter={(value: number) => axisLabel(axis, value)}
             />
             {showMarks && plotted.rows.length > 1 ? (
@@ -800,7 +899,7 @@ export function TimelineChart({
               ) : (
                 <Line
                   key={item.key}
-                  dataKey={item.key}
+                  dataKey={drawnKey(item.key)}
                   type="linear"
                   stroke={item.color}
                   strokeWidth={item.mark === "dashed" ? 1.5 : 2}

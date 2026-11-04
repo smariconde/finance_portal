@@ -59,6 +59,8 @@ export function ProjectionChart({
   }
 
   function track(state: MouseHandlerDataParam) {
+    // Sin punto activo Recharts pasa `null`, y `Number(null)` es 0.
+    if (state.activeTooltipIndex == null) return;
     const index = Number(state.activeTooltipIndex);
     if (Number.isInteger(index) && years[index] !== undefined) setActive(index);
   }

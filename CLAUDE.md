@@ -823,8 +823,7 @@ reads (`readArgentinaRefreshReadiness`). Measured on an empty replica with the
 BCRA catalog: 52 items in four jobs, 0 failed, «Datos al día.» after 98 s with
 the page reloaded; a second visit plans nothing.
 
-The charts of `/argentina` are walked, not just looked at (`F9-13`, in
-progress). `argentina-dashboard-2.0.0` sends every monthly series whole and a
+The charts of `/argentina` are walked, not just looked at (`F9-13`). `argentina-dashboard-2.0.0` sends every monthly series whole and a
 daily one day by day for five years plus at every month's close
 (`month-end-close-1.0.0`, the month's last published value, never an
 average); the CCL is read whole. `TimelineChart` reads any point by mouse,
@@ -839,7 +838,10 @@ last close before, or the month before; the inauguration month counts for
 the incoming term; a gap breaks the line and ends a cumulative path;
 interims stay out), shown by `GovernmentChart`. This replaces `F9-06`'s
 «Recharts sin tooltip». The valuation projection chart gained the same
-per-year reading.
+per-year reading. Reviewed on Production's data: a daily trace bridges nulls
+up to a week apart (rows are the union of dates), linear ticks are round
+(`linearTicks`), the idle reading is the last row with a value, and a pinned
+point comes from the pointer position, never Recharts' stale click index.
 
 Against Neon, the repo's commands need both env files, the last one winning —
 an exported `DATABASE_URL` does not beat `--env-file`:

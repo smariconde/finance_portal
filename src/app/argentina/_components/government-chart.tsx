@@ -36,6 +36,7 @@ import {
   axisLabel,
   ChartToolbar,
   formatValue,
+  linearTicks,
   logTicks,
   Segmented,
   type AxisFormat,
@@ -248,6 +249,9 @@ export function GovernmentChart({
   const logAvailable = allowLog && levelBasis && min > 0;
   const useLog = logScale && logAvailable;
   const reference = levelBasis ? 100 : 0;
+  const yTicks = useLog
+    ? logTicks(min, max)
+    : linearTicks(Math.min(min, reference), Math.max(max, reference));
 
   const config = Object.fromEntries(
     shownPaths.map((path) => [
@@ -303,6 +307,8 @@ export function GovernmentChart({
   }
 
   function track(state: MouseHandlerDataParam) {
+    // Sin punto activo Recharts pasa `null`, y `Number(null)` es 0.
+    if (state.activeTooltipIndex == null) return;
     const index = Number(state.activeTooltipIndex);
     if (Number.isInteger(index) && index >= 0 && index <= maxMonth) {
       setActiveMonth(index);
@@ -498,9 +504,13 @@ export function GovernmentChart({
               axisLine={false}
               width={56}
               scale={useLog ? "log" : "linear"}
-              domain={useLog ? [min * 0.92, max * 1.08] : ["auto", "auto"]}
+              domain={
+                useLog
+                  ? [min * 0.92, max * 1.08]
+                  : [yTicks[0] ?? 0, yTicks.at(-1) ?? 1]
+              }
               allowDataOverflow={useLog}
-              ticks={useLog ? logTicks(min, max) : undefined}
+              ticks={yTicks}
               tickFormatter={(value: number) => axisLabel(axis, value)}
             />
             <ReferenceLine y={reference} stroke="var(--muted-foreground)" />
