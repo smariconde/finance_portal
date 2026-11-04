@@ -116,6 +116,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    88 | `F9-12`    | `done`     | `/argentina` se actualiza sola al abrirse: un job durable por fuente con sólo lo atrasado según su cadencia, progreso visible y fallas con «Reintentar».                                                                  |
 |    89 | `F9-13`    | `done`     | `/argentina` se recorre: lectura por punto con mouse, toque y teclado, rangos hasta toda la historia con cierre de mes, escala log, comparación A→B, gobiernos y regímenes fechados y vista por gobierno.                 | `F9-12`          |
 |    90 | `F9-05`    | `done`     | Soja: basis Rosario/Chicago con contrato, roll, BNA y conversión nombrados, estimaciones agrícolas conciliadas contra CC BY y bloque en `/argentina` que se actualiza al abrir.                                           | `F9-04`          |
+|    91 | `F9-14`    | `done`     | Gráficos de `/argentina` con cruz de lectura: horizontal hasta el eje Y con su cifra, etiqueta al costado del punto y capa fuera de Recharts, sin redibujar las series al mover el puntero.                               | `F9-13`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -6452,6 +6453,52 @@ toneladas, −3,6 % contra 2024/25.
 Para Production: correr `pnpm argentina:indicators --soy --apply` contra Neon
 o dejar que la primera visita lo baje (cinco requests).
 
+**`F9-14`, 2026-11-04.** Estado: `done`. Después de ver la soja, el owner pidió
+una línea horizontal para saber en qué altura del eje Y cae el punto y la
+lectura al lado del mouse, no sólo en la franja, y dijo que la página se le
+hacía lenta.
+
+- **Medido primero.** Build de producción contra el Neon de Production, 1440
+  px: 3.333 nodos, 10 gráficos, 1,5 MB. El scroll va a 60 cuadros por segundo
+  aun con la CPU 4× más lenta y el puntero sobre los gráficos; mover el mouse
+  sobre un gráfico no: p50 49,9 ms y p95 66,7 ms por cuadro. Cada movimiento
+  re-renderizaba el gráfico entero. El comentario «el React Compiler memoiza
+  este componente» era falso: el compilador no está activado en
+  `next.config.ts`.
+- **Cruz de lectura.** `HoverLayer` (`chart-hover.tsx`) dibuja encima del
+  gráfico la vertical, los puntos, una horizontal punteada hasta el eje Y para
+  la serie más cercana al puntero (`nearestByY`; con el teclado, la primera) y
+  su cifra sobre el eje con un decimal más que los ticks (`axisReading`). Al
+  costado va una etiqueta con la fecha, la presidencia y cada serie, de ancho
+  según su texto (`readingWidth`); `readingPlacement` la pone a la derecha si
+  entra, si no a la izquierda, y si no entra de ningún lado no la dibuja: en
+  un teléfono taparía el eje, y la franja ya dice la cifra. La franja y la
+  región `polite` quedan como el camino del teclado y del lector de pantalla.
+- **Fuera de Recharts.** La capa ubica cada punto con `toPixel`, la misma
+  cuenta lineal o log10 que el eje de dominio fijo, sobre el área que informa
+  `PlotAreaProbe`. El dibujo y lo que deriva de los datos se memoizan a mano
+  en `TimelineChart` y `GovernmentChart`, que además lee el mes desde la
+  posición del puntero como ya lo hacía la línea de tiempo. Con la CPU 4× más
+  lenta, mover el mouse queda en p95 16,7 ms.
+- **Marco al tocar.** Recharts 3.8 pone `tabindex=-1` en sus capas
+  (`ZIndexPortal`): un toque les daba foco y el anillo global dibujaba un
+  marco blanco alrededor del dibujo. `ChartContainer` les quita el contorno,
+  como ya hacía shadcn con las otras capas; no están en el orden de Tab.
+
+Evidencia: 22 pruebas de `src/app/argentina` (toPixel, nearestByY,
+readingPlacement, readingWidth, axisReading); revisión con datos de
+Production y cada `POST` abortado, a 1440 px en claro (diez gráficos, mitad y
+borde derecho, y la vista «Por gobierno») y a 390 px en oscuro con toque y
+teclado: 0 px de desborde, sin `NaN` ni `undefined`, axe sin hallazgos en
+móvil y sólo `region` moderado de la sidebar en escritorio, previo. La primera
+medición de rendimiento, antes del slice, abrió la página sin abortar los
+`POST` y disparó una actualización real a las 19:13 UTC: cuatro jobs (Yahoo,
+BNA, Estimaciones y pizarra), siete ítems, todos `completed`.
+
+Fuera de este slice: el gráfico de proyección de `/valuacion/[ticker]` sigue
+con su lectura por año; la brecha Rosario–Chicago al dólar efectivo de
+exportación y las fechas de la soja van en su propio slice.
+
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
 | `F8-01` | Pipeline fiscal-aligned point-in-time de precio, market cap, net income, EPS y acciones para los filers del sector elegido, sin cargar el universo.                                   | Fase 6     | `TM-05`, `TM-06`, `TM-16` |
@@ -6461,20 +6508,21 @@ o dejar que la primera visita lo baje (cinco requests).
 
 ### Fase 9 — Argentina, BCRA y soja
 
-| Issue   | Resultado y aceptación mínima                                                                                                                                                                                                                                                                                               | Depende de | Controles                          |
-| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------- |
-| `F9-01` | Catálogo/vintages BCRA v4 falla seguro ante cambios de schema y conserva release, unidad, frecuencia y revisión.                                                                                                                                                                                                            | Fase 8     | `TM-05`, `TM-08`, `TM-10`, `TM-11` |
-| `F9-02` | Nominal y monetario publican transformaciones auditables y fechas propias por serie.                                                                                                                                                                                                                                        | `F9-01`    | `TM-05`, `TM-06`                   |
-| `F9-03` | Cambiario usa fuentes oficiales con fecha propia por serie.                                                                                                                                                                                                                                                                 | `F9-02`    | `TM-05`                            |
-| `F9-04` | Actividad, fiscal y externo preservan revisiones, quiebres, base, estacionalidad y denominadores compatibles.                                                                                                                                                                                                               | `F9-03`    | `TM-05`, `TM-06`                   |
-| `F9-05` | Rosario/Chicago identifica contrato, roll, FX y conversión antes de calcular basis; el volumen de soja sale de las estimaciones agrícolas del Ministerio de Agricultura (CC BY 4.0).                                                                                                                                        | `F9-04`    | `TM-05`, `TM-08`                   |
-| `F9-06` | Cada bloque cierra con gráfico, tabla accesible, freshness, metodología y lectura sin causalidad inventada. El bloque de soja entró con `F9-05`.                                                                                                                                                                            | `F9-04`    | `TM-12`, `TM-16`                   |
-| `F9-07` | CCL implícito por ADR con ratio declarado y verificado; dólar oficial y dólar CCL lado a lado con la brecha.                                                                                                                                                                                                                | `F9-03`    | `TM-05`, `TM-08`, `TM-10`          |
-| `F9-08` | Servicios del INDEC declarados uno por uno (IPC por componente y región, índice de salarios, CBA/CBT, IPI manufacturero y minero, ICC, SIPM) con perfil cerrado, filtros y signos; la última variación publicada concilia con la calculada; el IPC del INDEC no reemplaza la cadena del BCRA desde 1943.                    | `F9-04`    | `TM-05`, `TM-08`, `TM-10`          |
-| `F9-09` | Exportaciones por rubro y destino e importaciones por uso económico y origen desde el INDEC: participaciones sobre las celdas publicadas, celdas `s` y rubro confidencial contados y visibles, el total publicado del ICA al lado y nunca reemplazado por la suma.                                                          | `F9-04`    | `TM-05`, `TM-08`                   |
-| `F9-10` | Producción mensual por pozo del Capítulo IV de la Secretaría de Energía (CKAN, CC BY 4.0) agregada por operadora y cuenca, con la operadora resuelta a una entidad del grafo por declaración, nunca por nombre aproximado.                                                                                                  | `F9-04`    | `TM-05`, `TM-08`, `TM-10`          |
-| `F9-11` | Resultado financiero del SPN: identidad primario − intereses declarada y versionada, o fuente vigente (Presupuesto Abierto con token) con sus derechos; una serie que el distribuidor devuelve vacía nunca se lee como cero.                                                                                                | `F9-04`    | `TM-05`, `TM-06`, `TM-08`          |
-| `F9-13` | Cada gráfico de `/argentina` se lee punto por punto con mouse, toque y teclado; abarca toda la historia guardada con la resolución dicha; ofrece escala log en niveles, comparación entre dos puntos, gobiernos desde 1983 y regímenes con fecha y fuente, y una vista por gobierno desde la asunción, sin atribuir causas. | `F9-12`    | `TM-12`, `TM-16`                   |
+| Issue   | Resultado y aceptación mínima                                                                                                                                                                                                                                                                                                            | Depende de | Controles                          |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------- |
+| `F9-01` | Catálogo/vintages BCRA v4 falla seguro ante cambios de schema y conserva release, unidad, frecuencia y revisión.                                                                                                                                                                                                                         | Fase 8     | `TM-05`, `TM-08`, `TM-10`, `TM-11` |
+| `F9-02` | Nominal y monetario publican transformaciones auditables y fechas propias por serie.                                                                                                                                                                                                                                                     | `F9-01`    | `TM-05`, `TM-06`                   |
+| `F9-03` | Cambiario usa fuentes oficiales con fecha propia por serie.                                                                                                                                                                                                                                                                              | `F9-02`    | `TM-05`                            |
+| `F9-04` | Actividad, fiscal y externo preservan revisiones, quiebres, base, estacionalidad y denominadores compatibles.                                                                                                                                                                                                                            | `F9-03`    | `TM-05`, `TM-06`                   |
+| `F9-05` | Rosario/Chicago identifica contrato, roll, FX y conversión antes de calcular basis; el volumen de soja sale de las estimaciones agrícolas del Ministerio de Agricultura (CC BY 4.0).                                                                                                                                                     | `F9-04`    | `TM-05`, `TM-08`                   |
+| `F9-06` | Cada bloque cierra con gráfico, tabla accesible, freshness, metodología y lectura sin causalidad inventada. El bloque de soja entró con `F9-05`.                                                                                                                                                                                         | `F9-04`    | `TM-12`, `TM-16`                   |
+| `F9-07` | CCL implícito por ADR con ratio declarado y verificado; dólar oficial y dólar CCL lado a lado con la brecha.                                                                                                                                                                                                                             | `F9-03`    | `TM-05`, `TM-08`, `TM-10`          |
+| `F9-08` | Servicios del INDEC declarados uno por uno (IPC por componente y región, índice de salarios, CBA/CBT, IPI manufacturero y minero, ICC, SIPM) con perfil cerrado, filtros y signos; la última variación publicada concilia con la calculada; el IPC del INDEC no reemplaza la cadena del BCRA desde 1943.                                 | `F9-04`    | `TM-05`, `TM-08`, `TM-10`          |
+| `F9-09` | Exportaciones por rubro y destino e importaciones por uso económico y origen desde el INDEC: participaciones sobre las celdas publicadas, celdas `s` y rubro confidencial contados y visibles, el total publicado del ICA al lado y nunca reemplazado por la suma.                                                                       | `F9-04`    | `TM-05`, `TM-08`                   |
+| `F9-10` | Producción mensual por pozo del Capítulo IV de la Secretaría de Energía (CKAN, CC BY 4.0) agregada por operadora y cuenca, con la operadora resuelta a una entidad del grafo por declaración, nunca por nombre aproximado.                                                                                                               | `F9-04`    | `TM-05`, `TM-08`, `TM-10`          |
+| `F9-11` | Resultado financiero del SPN: identidad primario − intereses declarada y versionada, o fuente vigente (Presupuesto Abierto con token) con sus derechos; una serie que el distribuidor devuelve vacía nunca se lee como cero.                                                                                                             | `F9-04`    | `TM-05`, `TM-06`, `TM-08`          |
+| `F9-13` | Cada gráfico de `/argentina` se lee punto por punto con mouse, toque y teclado; abarca toda la historia guardada con la resolución dicha; ofrece escala log en niveles, comparación entre dos puntos, gobiernos desde 1983 y regímenes con fecha y fuente, y una vista por gobierno desde la asunción, sin atribuir causas.              | `F9-12`    | `TM-12`, `TM-16`                   |
+| `F9-14` | Al recorrer un gráfico de `/argentina`, una horizontal llega al eje Y con la cifra de la serie más cercana y una etiqueta al costado del punto lista cada serie sin salirse del dibujo; mover el puntero no redibuja las series (medido con CPU 4× más lenta) y la franja sigue siendo el equivalente para teclado y lector de pantalla. | `F9-13`    | `TM-12`, `TM-16`                   |
 
 ### Fase 10 — persistencia, asistente y hardening
 

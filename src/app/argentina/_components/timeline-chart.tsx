@@ -1,7 +1,14 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useId, useState, type KeyboardEvent, type PointerEvent } from "react";
+import {
+  useCallback,
+  useId,
+  useMemo,
+  useState,
+  type KeyboardEvent,
+  type PointerEvent,
+} from "react";
 import {
   Area,
   Bar,
@@ -40,8 +47,10 @@ import {
 } from "@/modules/argentina-dashboard/domain/chart-history";
 
 import { Fold } from "./block";
+import { HoverLayer, PlotAreaProbe, samePlot } from "./chart-hover";
 import {
   axisLabel,
+  axisReading,
   ChartToolbar,
   dateOf,
   dayNumber,
@@ -52,8 +61,10 @@ import {
   Segmented,
   Swatch,
   timeTicks,
+  toPixel,
   type AxisFormat,
   type LegendItem,
+  type PlotArea,
   type ValueFormat,
 } from "./chart-kit";
 import { calendarDate, fractionAsPoints, signedAmount } from "./format";
@@ -327,7 +338,7 @@ function MarksLayer({
   );
 }
 
-/** Los puntos activos y fijados, dibujados con las mismas escalas. */
+/** Los puntos fijados para comparar, dibujados con las mismas escalas. */
 function ActiveDots({
   rows,
   series,
@@ -436,8 +447,19 @@ export function TimelineChart({
   const [comparing, setComparing] = useState(false);
   const [pins, setPins] = useState<readonly string[]>([]);
   const [activeOn, setActiveOn] = useState<string | null>(null);
+  /** La altura del puntero sobre el gráfico; `null` con el teclado. */
+  const [pointer, setPointer] = useState<{
+    readonly y: number;
+    readonly touch: boolean;
+  } | null>(null);
+  const [plot, setPlot] = useState<PlotArea | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const [tableOpen, setTableOpen] = useState(false);
+  const onPlot = useCallback(
+    (next: PlotArea) =>
+      setPlot((current) => (samePlot(current, next) ? current : next)),
+    [],
+  );
 
   const years = RANGE_YEARS[range];
   const resolution: Resolution =
@@ -448,12 +470,15 @@ export function TimelineChart({
         : daily !== undefined && years <= DAILY_MAX_YEARS
           ? "daily"
           : "month_end";
-  const source = resolution === "daily" ? (daily ?? []) : monthly;
-  const fromOn = lastOn ? yearsBefore(lastOn, years) : "0000-01-01";
-  // Sin memo a mano: el React Compiler memoiza este componente.
-  const visible = source.filter((row) => row.on >= fromOn);
+  const source = resolution === "daily" && daily ? daily : monthly;
+  // Memo a mano: mover el puntero cambia el punto activo y re-renderiza el
+  // componente, y nada de lo que se dibuja debe recalcularse por eso.
+  const visible = useMemo(() => {
+    const fromOn = lastOn ? yearsBefore(lastOn, years) : "0000-01-01";
+    return source.filter((row) => row.on >= fromOn);
+  }, [source, lastOn, years]);
 
-  const plotted = (() => {
+  const plotted = useMemo(() => {
     const keys = [
       ...series.map((item) => item.key),
       ...(band ? [band.lowKey, band.highKey] : []),
@@ -502,12 +527,15 @@ export function TimelineChart({
       min: values.length ? Math.min(...values) : 0,
       max: values.length ? Math.max(...values) : 0,
     };
-  })();
+  }, [visible, series, band, resolution]);
 
   const hasBars = series.some((item) => item.mark === "bar");
   const logAvailable = allowLog && !hasBars && plotted.min > 0;
   const useLog = logScale && logAvailable;
-  const indexOf = new Map(plotted.rows.map((row, index) => [row.on, index]));
+  const indexOf = useMemo(
+    () => new Map(plotted.rows.map((row, index) => [row.on, index])),
+    [plotted],
+  );
   const activeIndex =
     activeOn === null ? undefined : (indexOf.get(activeOn) ?? undefined);
   // Sin un punto activo se lee el último que tiene alguna cifra: la base real
@@ -518,13 +546,17 @@ export function TimelineChart({
   const shownIndex =
     activeIndex ?? (latestIndex >= 0 ? latestIndex : visible.length - 1);
   const shown = visible[shownIndex];
-  const pinned = pins
-    .map((on) => visible[indexOf.get(on) ?? -1])
-    .filter((row): row is TimelineRow => row !== undefined);
+  const pinned = useMemo(
+    () =>
+      pins
+        .map((on) => visible[indexOf.get(on) ?? -1])
+        .filter((row): row is TimelineRow => row !== undefined),
+    [pins, visible, indexOf],
+  );
 
   const first = plotted.rows[0]?.t ?? 0;
   const last = plotted.rows.at(-1)?.t ?? 1;
-  const axisTicks = timeTicks(first, last);
+  const axisTicks = useMemo(() => timeTicks(first, last), [first, last]);
   // Una barra se centra en su punto: sin medio intervalo de cada lado la
   // primera tapa el eje Y y la última queda cortada.
   const halfStep =
@@ -533,9 +565,16 @@ export function TimelineChart({
       : 0;
   const domainFirst = first - halfStep;
   const domainLast = last + halfStep;
-  const config = Object.fromEntries(
-    series.map((item) => [item.key, { label: item.label, color: item.color }]),
-  ) satisfies ChartConfig;
+  const config = useMemo(
+    () =>
+      Object.fromEntries(
+        series.map((item) => [
+          item.key,
+          { label: item.label, color: item.color },
+        ]),
+      ) satisfies ChartConfig,
+    [series],
+  );
 
   const legend: LegendItem[] = [
     ...series.map((item) => ({
@@ -584,6 +623,7 @@ export function TimelineChart({
     const row = visible[index];
     if (row === undefined) return;
     setActiveOn(row.on);
+    setPointer(null);
     setAnnouncement(describe(row));
   }
 
@@ -653,17 +693,32 @@ export function TimelineChart({
 
   function track(event: PointerEvent<HTMLDivElement>) {
     const row = rowAt(event.clientX, event.currentTarget);
-    if (row !== undefined) setActiveOn(row.on);
+    if (row === undefined) return;
+    setActiveOn(row.on);
+    const box = event.currentTarget.getBoundingClientRect();
+    const y = event.clientY - box.top;
+    const touch = event.pointerType !== "mouse";
+    setPointer((current) =>
+      current?.y === y && current.touch === touch ? current : { y, touch },
+    );
   }
 
-  const yTicks = useLog
-    ? logTicks(plotted.min, plotted.max)
-    : hasBars || zeroLine
-      ? linearTicks(Math.min(0, plotted.min), Math.max(0, plotted.max))
-      : linearTicks(plotted.min, plotted.max);
-  const yDomain: [number, number] = useLog
-    ? [plotted.min * 0.92, plotted.max * 1.08]
-    : [yTicks[0] ?? 0, yTicks.at(-1) ?? 1];
+  const yTicks = useMemo(
+    () =>
+      useLog
+        ? logTicks(plotted.min, plotted.max)
+        : hasBars || zeroLine
+          ? linearTicks(Math.min(0, plotted.min), Math.max(0, plotted.max))
+          : linearTicks(plotted.min, plotted.max),
+    [useLog, hasBars, zeroLine, plotted],
+  );
+  const yDomain = useMemo(
+    (): [number, number] =>
+      useLog
+        ? [plotted.min * 0.92, plotted.max * 1.08]
+        : [yTicks[0] ?? 0, yTicks.at(-1) ?? 1],
+    [useLog, plotted, yTicks],
+  );
 
   // «De cierre de ene 2000 a cierre de…» se lee mejor con el mes solo; la
   // resolución ya está dicha en la barra.
@@ -690,6 +745,178 @@ export function TimelineChart({
         : resolution === "monthly"
           ? "Mensual"
           : "Anual";
+
+  // El dibujo no depende del punto activo: la lectura va en su propia capa.
+  const chart = useMemo(
+    () => (
+      <ChartContainer
+        config={config}
+        className={`aspect-auto ${HEIGHT[height]} w-full`}
+        initialDimension={{ width: 640, height: 288 }}
+      >
+        <ComposedChart
+          accessibilityLayer={false}
+          data={plotted.rows as PlotRow[]}
+          margin={{
+            top: showMarks ? 40 : 8,
+            right: PLOT_RIGHT,
+            bottom: 0,
+            left: 0,
+          }}
+        >
+          <CartesianGrid vertical={false} strokeDasharray="3 3" />
+          <XAxis
+            dataKey="t"
+            type="number"
+            domain={[domainFirst, domainLast]}
+            ticks={axisTicks.ticks}
+            tickFormatter={axisTicks.label}
+            tickLine={false}
+            axisLine={false}
+            tickMargin={6}
+            minTickGap={8}
+            allowDuplicatedCategory={false}
+          />
+          <YAxis
+            tickLine={false}
+            axisLine={false}
+            width={Y_AXIS_WIDTH}
+            scale={useLog ? "log" : "linear"}
+            domain={yDomain}
+            allowDataOverflow={useLog}
+            ticks={yTicks}
+            tickFormatter={(value: number) => axisLabel(axis, value)}
+          />
+          {showMarks && plotted.rows.length > 1 ? (
+            <MarksLayer fromOn={visible[0]!.on} toOn={dateOf(last)} />
+          ) : null}
+          {zeroLine || hasBars ? (
+            <ReferenceLine y={0} stroke="var(--muted-foreground)" />
+          ) : null}
+          {band ? (
+            <Area
+              dataKey="band"
+              type="linear"
+              stroke={band.color}
+              strokeDasharray="3 2"
+              strokeWidth={1}
+              fill={band.color}
+              fillOpacity={0.12}
+              connectNulls={false}
+              isAnimationActive={false}
+              activeDot={false}
+            />
+          ) : null}
+          {series.map((item) =>
+            item.mark === "bar" ? (
+              <Bar
+                key={item.key}
+                dataKey={item.key}
+                fill={item.color}
+                radius={1}
+                isAnimationActive={false}
+              />
+            ) : (
+              <Line
+                key={item.key}
+                dataKey={drawnKey(item.key)}
+                type="linear"
+                stroke={item.color}
+                strokeWidth={item.mark === "dashed" ? 1.5 : 2}
+                strokeDasharray={item.mark === "dashed" ? "4 3" : undefined}
+                dot={false}
+                activeDot={false}
+                connectNulls={false}
+                isAnimationActive={false}
+              />
+            ),
+          )}
+          {pinned.map((row, index) => (
+            <ReferenceLine
+              key={row.on}
+              x={dayNumber(row.on)}
+              stroke="var(--primary)"
+              strokeWidth={1.5}
+              label={{
+                value: index === 0 ? "A" : "B",
+                position: "insideTopLeft",
+                fill: "var(--primary)",
+                fontSize: 11,
+                fontWeight: 600,
+              }}
+            />
+          ))}
+          <ActiveDots
+            rows={plotted.rows}
+            series={series}
+            active={pinned.map((row) => indexOf.get(row.on) ?? -1)}
+          />
+          <PlotAreaProbe onChange={onPlot} />
+        </ComposedChart>
+      </ChartContainer>
+    ),
+    [
+      config,
+      height,
+      plotted,
+      showMarks,
+      visible,
+      last,
+      zeroLine,
+      hasBars,
+      band,
+      series,
+      pinned,
+      indexOf,
+      axis,
+      yDomain,
+      yTicks,
+      useLog,
+      axisTicks,
+      domainFirst,
+      domainLast,
+      onPlot,
+    ],
+  );
+
+  const hover = (() => {
+    if (plot === null || activeIndex === undefined) return null;
+    const row = plotted.rows[activeIndex]!;
+    const entry = visible[activeIndex]!;
+    const x = toPixel(
+      row.t,
+      [domainFirst, domainLast],
+      [plot.x, plot.x + plot.width],
+    );
+    if (x === null) return null;
+    const term = termOn(entry.on);
+    return (
+      <HoverLayer
+        plot={plot}
+        x={x}
+        title={periodLabel(entry.on, resolution)}
+        detail={term?.label}
+        pointerY={pointer?.y ?? null}
+        touch={pointer?.touch ?? false}
+        points={series.map((item) => {
+          const value = row[item.key];
+          const y =
+            typeof value === "number"
+              ? toPixel(value, yDomain, [plot.y + plot.height, plot.y], useLog)
+              : null;
+          return {
+            key: item.key,
+            label: item.label,
+            color: item.color,
+            y,
+            value: formatValue(entry.values[item.key] ?? null, item.format),
+            axisValue:
+              typeof value === "number" ? axisReading(axis, value) : null,
+          };
+        })}
+      />
+    );
+  })();
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
@@ -837,120 +1064,10 @@ export function TimelineChart({
           flecha para saltar diez, Inicio y Fin para los extremos.
           {comparing ? " Enter fija un punto para comparar; Escape borra." : ""}
         </span>
-        <ChartContainer
-          config={config}
-          className={`aspect-auto ${HEIGHT[height]} w-full`}
-          initialDimension={{ width: 640, height: 288 }}
-        >
-          <ComposedChart
-            accessibilityLayer={false}
-            data={plotted.rows as PlotRow[]}
-            margin={{
-              top: showMarks ? 40 : 8,
-              right: PLOT_RIGHT,
-              bottom: 0,
-              left: 0,
-            }}
-          >
-            <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis
-              dataKey="t"
-              type="number"
-              domain={[domainFirst, domainLast]}
-              ticks={axisTicks.ticks}
-              tickFormatter={axisTicks.label}
-              tickLine={false}
-              axisLine={false}
-              tickMargin={6}
-              minTickGap={8}
-              allowDuplicatedCategory={false}
-            />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              width={Y_AXIS_WIDTH}
-              scale={useLog ? "log" : "linear"}
-              domain={yDomain}
-              allowDataOverflow={useLog}
-              ticks={yTicks}
-              tickFormatter={(value: number) => axisLabel(axis, value)}
-            />
-            {showMarks && plotted.rows.length > 1 ? (
-              <MarksLayer fromOn={visible[0]!.on} toOn={dateOf(last)} />
-            ) : null}
-            {zeroLine || hasBars ? (
-              <ReferenceLine y={0} stroke="var(--muted-foreground)" />
-            ) : null}
-            {band ? (
-              <Area
-                dataKey="band"
-                type="linear"
-                stroke={band.color}
-                strokeDasharray="3 2"
-                strokeWidth={1}
-                fill={band.color}
-                fillOpacity={0.12}
-                connectNulls={false}
-                isAnimationActive={false}
-                activeDot={false}
-              />
-            ) : null}
-            {series.map((item) =>
-              item.mark === "bar" ? (
-                <Bar
-                  key={item.key}
-                  dataKey={item.key}
-                  fill={item.color}
-                  radius={1}
-                  isAnimationActive={false}
-                />
-              ) : (
-                <Line
-                  key={item.key}
-                  dataKey={drawnKey(item.key)}
-                  type="linear"
-                  stroke={item.color}
-                  strokeWidth={item.mark === "dashed" ? 1.5 : 2}
-                  strokeDasharray={item.mark === "dashed" ? "4 3" : undefined}
-                  dot={false}
-                  activeDot={false}
-                  connectNulls={false}
-                  isAnimationActive={false}
-                />
-              ),
-            )}
-            {pinned.map((row, index) => (
-              <ReferenceLine
-                key={row.on}
-                x={dayNumber(row.on)}
-                stroke="var(--primary)"
-                strokeWidth={1.5}
-                label={{
-                  value: index === 0 ? "A" : "B",
-                  position: "insideTopLeft",
-                  fill: "var(--primary)",
-                  fontSize: 11,
-                  fontWeight: 600,
-                }}
-              />
-            ))}
-            {activeIndex === undefined ? null : (
-              <ReferenceLine
-                x={plotted.rows[activeIndex]!.t}
-                stroke="var(--foreground)"
-                strokeOpacity={0.35}
-              />
-            )}
-            <ActiveDots
-              rows={plotted.rows}
-              series={series}
-              active={[
-                ...pinned.map((row) => indexOf.get(row.on) ?? -1),
-                ...(activeIndex === undefined ? [] : [activeIndex]),
-              ]}
-            />
-          </ComposedChart>
-        </ChartContainer>
+        <div className="relative">
+          {chart}
+          {hover}
+        </div>
       </div>
       <span className="sr-only" aria-live="polite">
         {announcement}

@@ -1,6 +1,13 @@
 "use client";
 
-import { useId, useMemo, useState, type KeyboardEvent } from "react";
+import {
+  useCallback,
+  useId,
+  useMemo,
+  useState,
+  type KeyboardEvent,
+  type PointerEvent,
+} from "react";
 import {
   CartesianGrid,
   Line,
@@ -10,7 +17,6 @@ import {
   YAxis,
   useXAxisScale,
   useYAxisScale,
-  type MouseHandlerDataParam,
 } from "recharts";
 
 import { InfoTip } from "@/app/_components/info-tip";
@@ -32,14 +38,18 @@ import type {
 } from "@/modules/argentina-dashboard/domain/government-comparison";
 
 import { Fold } from "./block";
+import { HoverLayer, PlotAreaProbe, samePlot } from "./chart-hover";
 import {
   axisLabel,
+  axisReading,
   ChartToolbar,
   formatValue,
   linearTicks,
   logTicks,
   Segmented,
+  toPixel,
   type AxisFormat,
+  type PlotArea,
   type ValueFormat,
 } from "./chart-kit";
 import { calendarDate, shortMonth } from "./format";
@@ -217,9 +227,25 @@ export function GovernmentChart({
   );
   const [logScale, setLogScale] = useState(false);
   const [activeMonth, setActiveMonth] = useState<number | null>(null);
+  /** La altura del puntero sobre el gráfico; `null` con el teclado. */
+  const [pointer, setPointer] = useState<{
+    readonly y: number;
+    readonly touch: boolean;
+  } | null>(null);
+  const [plot, setPlot] = useState<PlotArea | null>(null);
   const [announcement, setAnnouncement] = useState("");
+  const onPlot = useCallback(
+    (next: PlotArea) =>
+      setPlot((current) => (samePlot(current, next) ? current : next)),
+    [],
+  );
 
-  const shownPaths = computed.filter((path) => selected.includes(path.termId));
+  // Memo a mano: mover el puntero cambia el mes activo y re-renderiza el
+  // componente, y nada de lo que se dibuja debe recalcularse por eso.
+  const shownPaths = useMemo(
+    () => computed.filter((path) => selected.includes(path.termId)),
+    [computed, selected],
+  );
   const maxMonth = Math.max(
     1,
     ...shownPaths.map((path) => path.points.at(-1)?.month ?? 0),
@@ -238,30 +264,47 @@ export function GovernmentChart({
       }),
     [shownPaths, maxMonth],
   );
-  const values = rows.flatMap((row) =>
-    shownPaths
-      .map((path) => row[path.termId])
-      .filter((value): value is number => typeof value === "number"),
-  );
-  const min = values.length ? Math.min(...values) : 0;
-  const max = values.length ? Math.max(...values) : 1;
+  const { min, max } = useMemo(() => {
+    const values = rows.flatMap((row) =>
+      shownPaths
+        .map((path) => row[path.termId])
+        .filter((value): value is number => typeof value === "number"),
+    );
+    return {
+      min: values.length ? Math.min(...values) : 0,
+      max: values.length ? Math.max(...values) : 1,
+    };
+  }, [rows, shownPaths]);
   const levelBasis = basis === "index" || basis === "cumulative_rate";
   const logAvailable = allowLog && levelBasis && min > 0;
   const useLog = logScale && logAvailable;
   const reference = levelBasis ? 100 : 0;
-  const yTicks = useLog
-    ? logTicks(min, max)
-    : linearTicks(Math.min(min, reference), Math.max(max, reference));
+  const yTicks = useMemo(
+    () =>
+      useLog
+        ? logTicks(min, max)
+        : linearTicks(Math.min(min, reference), Math.max(max, reference)),
+    [useLog, min, max, reference],
+  );
+  const yDomain = useMemo(
+    (): [number, number] =>
+      useLog ? [min * 0.92, max * 1.08] : [yTicks[0] ?? 0, yTicks.at(-1) ?? 1],
+    [useLog, min, max, yTicks],
+  );
 
-  const config = Object.fromEntries(
-    shownPaths.map((path) => [
-      path.termId,
-      {
-        label: termOf(path.termId)?.label ?? path.termId,
-        color: colorOf.get(path.termId)!,
-      },
-    ]),
-  ) satisfies ChartConfig;
+  const config = useMemo(
+    () =>
+      Object.fromEntries(
+        shownPaths.map((path) => [
+          path.termId,
+          {
+            label: termOf(path.termId)?.label ?? path.termId,
+            color: colorOf.get(path.termId)!,
+          },
+        ]),
+      ) satisfies ChartConfig,
+    [shownPaths, colorOf],
+  );
 
   function valueAt(path: Computed, month: number) {
     return path.points.find((point) => point.month === month) ?? null;
@@ -278,6 +321,7 @@ export function GovernmentChart({
 
   function moveTo(month: number) {
     setActiveMonth(month);
+    setPointer(null);
     setAnnouncement(describe(month));
   }
 
@@ -306,13 +350,20 @@ export function GovernmentChart({
     event.preventDefault();
   }
 
-  function track(state: MouseHandlerDataParam) {
-    // Sin punto activo Recharts pasa `null`, y `Number(null)` es 0.
-    if (state.activeTooltipIndex == null) return;
-    const index = Number(state.activeTooltipIndex);
-    if (Number.isInteger(index) && index >= 0 && index <= maxMonth) {
-      setActiveMonth(index);
-    }
+  /** El mes más cercano al puntero, desde su posición sobre el dibujo. */
+  function track(event: PointerEvent<HTMLDivElement>) {
+    if (plot === null || plot.width <= 0) return;
+    const box = event.currentTarget.getBoundingClientRect();
+    const share = Math.min(
+      1,
+      Math.max(0, (event.clientX - box.left - plot.x) / plot.width),
+    );
+    setActiveMonth(Math.round(share * maxMonth));
+    const y = event.clientY - box.top;
+    const touch = event.pointerType !== "mouse";
+    setPointer((current) =>
+      current?.y === y && current.touch === touch ? current : { y, touch },
+    );
   }
 
   function toggle(termId: string) {
@@ -325,10 +376,139 @@ export function GovernmentChart({
     );
   }
 
-  const ticks = Array.from(
-    { length: Math.floor(maxMonth / 12) + 1 },
-    (_, index) => index * 12,
+  const ticks = useMemo(
+    () =>
+      Array.from(
+        { length: Math.floor(maxMonth / 12) + 1 },
+        (_, index) => index * 12,
+      ),
+    [maxMonth],
   );
+  const endLines = useMemo(
+    () =>
+      shownPaths.flatMap((path) => {
+        const last = [...path.points]
+          .reverse()
+          .find((point) => point.value !== null);
+        const value = last ? Number(last.value) : Number.NaN;
+        return last && Number.isFinite(value)
+          ? [
+              {
+                id: path.termId,
+                label: termOf(path.termId)?.label ?? path.termId,
+                color: colorOf.get(path.termId)!,
+                month: last.month,
+                value,
+              },
+            ]
+          : [];
+      }),
+    [shownPaths, colorOf],
+  );
+
+  // El dibujo no depende del mes activo: la lectura va en su propia capa.
+  const chart = useMemo(
+    () => (
+      <ChartContainer
+        config={config}
+        className="aspect-auto h-72 w-full"
+        initialDimension={{ width: 640, height: 288 }}
+      >
+        <LineChart
+          accessibilityLayer={false}
+          data={rows}
+          margin={{ top: 8, right: 92, bottom: 0, left: 0 }}
+        >
+          <CartesianGrid vertical={false} strokeDasharray="3 3" />
+          <XAxis
+            dataKey="month"
+            type="number"
+            domain={[0, maxMonth]}
+            ticks={ticks}
+            tickFormatter={monthLabel}
+            tickLine={false}
+            axisLine={false}
+            tickMargin={6}
+          />
+          <YAxis
+            tickLine={false}
+            axisLine={false}
+            width={56}
+            scale={useLog ? "log" : "linear"}
+            domain={yDomain}
+            allowDataOverflow={useLog}
+            ticks={yTicks}
+            tickFormatter={(value: number) => axisLabel(axis, value)}
+          />
+          <ReferenceLine y={reference} stroke="var(--muted-foreground)" />
+          {shownPaths.map((path) => (
+            <Line
+              key={path.termId}
+              dataKey={path.termId}
+              type="linear"
+              stroke={colorOf.get(path.termId)}
+              strokeWidth={path.running ? 2.5 : 1.75}
+              dot={false}
+              activeDot={false}
+              connectNulls={false}
+              isAnimationActive={false}
+            />
+          ))}
+          <EndLabels lines={endLines} />
+          <PlotAreaProbe onChange={onPlot} />
+        </LineChart>
+      </ChartContainer>
+    ),
+    [
+      config,
+      rows,
+      maxMonth,
+      ticks,
+      useLog,
+      yDomain,
+      yTicks,
+      axis,
+      reference,
+      shownPaths,
+      colorOf,
+      endLines,
+      onPlot,
+    ],
+  );
+
+  const hover = (() => {
+    if (plot === null || activeMonth === null) return null;
+    const x = toPixel(
+      activeMonth,
+      [0, maxMonth],
+      [plot.x, plot.x + plot.width],
+    );
+    if (x === null) return null;
+    return (
+      <HoverLayer
+        plot={plot}
+        x={x}
+        title={monthReading(activeMonth)}
+        pointerY={pointer?.y ?? null}
+        touch={pointer?.touch ?? false}
+        points={shownPaths.map((path) => {
+          const point = valueAt(path, activeMonth);
+          const value = point?.value == null ? Number.NaN : Number(point.value);
+          const placed = Number.isFinite(value);
+          return {
+            key: path.termId,
+            label: termOf(path.termId)?.label ?? path.termId,
+            color: colorOf.get(path.termId)!,
+            y: placed
+              ? toPixel(value, yDomain, [plot.y + plot.height, plot.y], useLog)
+              : null,
+            value: point ? formatValue(point.value, format) : "Sin dato",
+            axisValue: placed ? axisReading(axis, value) : null,
+          };
+        })}
+      />
+    );
+  })();
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
@@ -467,94 +647,22 @@ export function GovernmentChart({
         aria-label={label}
         aria-describedby={instructionsId}
         onKeyDown={onKeyDown}
+        onPointerMove={track}
+        onPointerDown={track}
+        onPointerLeave={(event) => {
+          // Un toque deja la lectura donde quedó; el mouse que sale la suelta.
+          if (event.pointerType === "mouse") setActiveMonth(null);
+        }}
         className="touch-pan-y rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         <span id={instructionsId} className="sr-only">
           Flechas izquierda y derecha para recorrer los meses de mandato,
           Mayúscula más flecha para saltar un año.
         </span>
-        <ChartContainer
-          config={config}
-          className="aspect-auto h-72 w-full"
-          initialDimension={{ width: 640, height: 288 }}
-        >
-          <LineChart
-            accessibilityLayer={false}
-            data={rows}
-            margin={{ top: 8, right: 92, bottom: 0, left: 0 }}
-            onMouseMove={track}
-            onTouchMove={track}
-            onTouchStart={track}
-            onClick={track}
-            onMouseLeave={() => setActiveMonth(null)}
-          >
-            <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis
-              dataKey="month"
-              type="number"
-              domain={[0, maxMonth]}
-              ticks={ticks}
-              tickFormatter={monthLabel}
-              tickLine={false}
-              axisLine={false}
-              tickMargin={6}
-            />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              width={56}
-              scale={useLog ? "log" : "linear"}
-              domain={
-                useLog
-                  ? [min * 0.92, max * 1.08]
-                  : [yTicks[0] ?? 0, yTicks.at(-1) ?? 1]
-              }
-              allowDataOverflow={useLog}
-              ticks={yTicks}
-              tickFormatter={(value: number) => axisLabel(axis, value)}
-            />
-            <ReferenceLine y={reference} stroke="var(--muted-foreground)" />
-            {activeMonth === null ? null : (
-              <ReferenceLine
-                x={activeMonth}
-                stroke="var(--foreground)"
-                strokeOpacity={0.35}
-              />
-            )}
-            {shownPaths.map((path) => (
-              <Line
-                key={path.termId}
-                dataKey={path.termId}
-                type="linear"
-                stroke={colorOf.get(path.termId)}
-                strokeWidth={path.running ? 2.5 : 1.75}
-                dot={false}
-                activeDot={{ r: 3.5 }}
-                connectNulls={false}
-                isAnimationActive={false}
-              />
-            ))}
-            <EndLabels
-              lines={shownPaths.flatMap((path) => {
-                const last = [...path.points]
-                  .reverse()
-                  .find((point) => point.value !== null);
-                const value = last ? Number(last.value) : Number.NaN;
-                return last && Number.isFinite(value)
-                  ? [
-                      {
-                        id: path.termId,
-                        label: termOf(path.termId)?.label ?? path.termId,
-                        color: colorOf.get(path.termId)!,
-                        month: last.month,
-                        value,
-                      },
-                    ]
-                  : [];
-              })}
-            />
-          </LineChart>
-        </ChartContainer>
+        <div className="relative">
+          {chart}
+          {hover}
+        </div>
       </div>
       <span className="sr-only" aria-live="polite">
         {announcement}
