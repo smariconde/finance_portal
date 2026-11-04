@@ -118,6 +118,16 @@ export const INDEC_REQUEST_PACING: RequestPacingPolicy = Object.freeze({
   maxRequests: 60,
 });
 
+/**
+ * Fuentes de la soja: una request por serie con la historia entera, y el
+ * Ministerio dos por corrida (ADR 0071). Ninguna publica cuota; una cada dos
+ * segundos es prudencia nuestra.
+ */
+export const SOY_REQUEST_PACING: RequestPacingPolicy = Object.freeze({
+  minIntervalMs: 2000,
+  maxRequests: 10,
+});
+
 export class RequestBudgetExhaustedError extends Error {
   readonly sourceId: string;
   readonly maxRequests: number;

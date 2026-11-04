@@ -4,6 +4,7 @@ import { parseArgs } from "node:util";
 import {
   ARGENTINA_SERIES_REQUEST_PACING,
   INDEC_REQUEST_PACING,
+  SOY_REQUEST_PACING,
 } from "@/modules/ingestion/application/egress-fetch";
 import { checkSourceBudget } from "@/modules/ingestion/application/metered-egress-fetch";
 import { syncDeclaredSourceRegistry } from "@/modules/ingestion/application/sync-source-registry";
@@ -18,6 +19,15 @@ import {
   IndecSourceError,
 } from "@/modules/macro-series/application/live-indec-source";
 import {
+  createLiveBnaSource,
+  createLiveCacPizarraSource,
+  createLiveMagypSource,
+  createLiveYahooFuturesSource,
+  MAGYP_ESTIMACIONES_SOURCE_ID,
+  MAGYP_OPEN_DATA_SOURCE_ID,
+  SoySourceError,
+} from "@/modules/macro-series/application/live-soy-sources";
+import {
   recordArgentinaIndicator,
   type ArgentinaIndicatorSource,
 } from "@/modules/macro-series/application/record-argentina-indicator";
@@ -25,6 +35,10 @@ import {
   DECLARED_ARGENTINA_INDICATORS,
   declaredArgentinaIndicator,
 } from "@/modules/macro-series/domain/declared-argentina-indicators";
+import {
+  DECLARED_SOY_INDICATORS,
+  declaredSoyIndicator,
+} from "@/modules/macro-series/domain/declared-soy-indicators";
 import { getSourceEgressFetch } from "@/server/egress/get-source-egress-fetch";
 import { getArgentinaIndicatorRepository } from "@/server/persistence/get-argentina-indicator-repository";
 import { getIngestionRunRepository } from "@/server/persistence/get-ingestion-run-repository";
@@ -33,11 +47,13 @@ import { getSourceRegistryRepository } from "@/server/persistence/get-source-reg
 
 /**
  * Registra los indicadores declarados de actividad y sector externo
- * ([ADR 0069](../docs/architecture/adr/0069-argentina-activity-fiscal-external.md)).
+ * ([ADR 0069](../docs/architecture/adr/0069-argentina-activity-fiscal-external.md))
+ * y los de la soja ([ADR 0071](../docs/architecture/adr/0071-soy-basis-sources.md)).
  *
  *   pnpm argentina:indicators --declared                # en seco: baja y planea, no escribe
  *   pnpm argentina:indicators --indicator emae_sa --apply
  *   pnpm argentina:indicators --declared --apply
+ *   pnpm argentina:indicators --soy --apply             # pizarra, BNA, Chicago y estimaciones
  *
  * Cada corrida lee la historia entera del indicador y la compara con la
  * guardada: lo nuevo, lo revisado y lo retirado salen de esa comparación.
@@ -46,6 +62,7 @@ const { values } = parseArgs({
   options: {
     indicator: { type: "string", multiple: true, default: [] },
     declared: { type: "boolean", default: false },
+    soy: { type: "boolean", default: false },
     apply: { type: "boolean", default: false },
     "accept-mass-change": { type: "boolean", default: false },
   },
@@ -53,25 +70,29 @@ const { values } = parseArgs({
 
 const DRY_RUN = !values.apply;
 
-if (values.declared === values.indicator.length > 0) {
-  console.error(
-    "Pedir --declared o uno o más --indicator, no las dos ni ninguna.",
-  );
+if (
+  [values.declared, values.soy, values.indicator.length > 0].filter(Boolean)
+    .length !== 1
+) {
+  console.error("Pedir --declared, --soy o uno o más --indicator: uno solo.");
   process.exit(2);
 }
 
 const requested = values.declared
   ? DECLARED_ARGENTINA_INDICATORS
-  : values.indicator.map((id) => {
-      const indicator = declaredArgentinaIndicator(id);
-      if (indicator === null) {
-        console.error(
-          `${id}: no está en el set declarado (declared-argentina-indicators.ts). Agregarlo es un diff revisable.`,
-        );
-        process.exit(2);
-      }
-      return indicator;
-    });
+  : values.soy
+    ? DECLARED_SOY_INDICATORS
+    : values.indicator.map((id) => {
+        const indicator =
+          declaredArgentinaIndicator(id) ?? declaredSoyIndicator(id);
+        if (indicator === null) {
+          console.error(
+            `${id}: no está en un set declarado (declared-argentina-indicators.ts, declared-soy-indicators.ts). Agregarlo es un diff revisable.`,
+          );
+          process.exit(2);
+        }
+        return indicator;
+      });
 
 function log(label: string, value: unknown): void {
   console.log(`${label.padEnd(26)} ${String(value)}`);
@@ -89,12 +110,30 @@ const sources: ArgentinaIndicatorSource[] = [
     sourceRegistry: registry,
     fetch: getSourceEgressFetch(INDEC_REQUEST_PACING),
   }),
+  ...[
+    createLiveCacPizarraSource,
+    createLiveBnaSource,
+    createLiveYahooFuturesSource,
+    createLiveMagypSource,
+  ].map((create) =>
+    create({
+      sourceRegistry: registry,
+      fetch: getSourceEgressFetch(SOY_REQUEST_PACING),
+      now: () => new Date(),
+    }),
+  ),
 ];
 
 // Peor caso: una página por indicador. Son mensuales y una página son 1.000
 // meses; una serie más larga lo excede y la corrida lo dice en requests usados.
+// Las estimaciones agrícolas son un `POST` y un CSV para las cuatro series.
 const worstCaseBySource = new Map<string, number>();
 for (const indicator of requested) {
+  if (indicator.sourceId === MAGYP_ESTIMACIONES_SOURCE_ID) {
+    worstCaseBySource.set(MAGYP_ESTIMACIONES_SOURCE_ID, 1);
+    worstCaseBySource.set(MAGYP_OPEN_DATA_SOURCE_ID, 1);
+    continue;
+  }
   worstCaseBySource.set(
     indicator.sourceId,
     (worstCaseBySource.get(indicator.sourceId) ?? 0) + 1,
@@ -170,7 +209,8 @@ for (const indicator of requested) {
   } catch (error) {
     if (
       !(error instanceof ArgentinaSeriesSourceError) &&
-      !(error instanceof IndecSourceError)
+      !(error instanceof IndecSourceError) &&
+      !(error instanceof SoySourceError)
     ) {
       throw error;
     }

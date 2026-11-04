@@ -11,6 +11,8 @@ import {
 } from "./demo-ingestion-fixtures";
 
 const RECORDED_AT = "2026-08-23T00:00:00.000Z";
+const SOY_RIGHTS_REVIEWED_AT = "2026-11-04T00:00:00.000Z";
+const SOY_RIGHTS_REVIEW_DUE_AT = "2027-02-04T00:00:00.000Z";
 
 /** Fecha en que el owner revisó y aprobó las rights rows de Fase 2. */
 const RIGHTS_REVIEWED_AT = "2026-09-05T00:00:00.000Z";
@@ -339,6 +341,8 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         "yahoo.benchmark-close",
         // Patas de los pares ADR del CCL implícito (ADR 0068).
         "yahoo.adr-pair-close",
+        // Contrato más cercano de soja de CBOT, `ZS=F` (ADR 0071).
+        "yahoo.futures-close",
       ],
       endpoints: ["https://query1.finance.yahoo.com/v8/finance/chart/"],
       authentication: "none",
@@ -348,8 +352,9 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
       expectedCadence: "EOD a mano, nunca programado",
       freshnessTarget: "cierre del día de mercado anterior",
       timezone: "America/New_York",
-      units: [],
-      currencies: ["USD"],
+      units: ["US cents/bushel"],
+      // `USX`: centavos de dólar, como Yahoo cotiza los granos de CBOT.
+      currencies: ["USD", "USX"],
       parserVersion: null,
       fixturePolicy:
         "Fixture recortada del payload real, sin conservar la respuesta completa.",
@@ -848,5 +853,217 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
       ownerNotes:
         "Decisión del owner del 2026-10-02: búsqueda básica en el plan gratuito, sólo como segunda evidencia. Brave se descartó porque sus términos prohíben almacenar resultados y evaluar modelos con ellos.",
       recordedAt: AI_LAYER_RIGHTS_REVIEWED_AT,
+    }),
+    /**
+     * Fuentes de la soja (ADR 0071). Tres sin concesión: la Cámara Arbitral no
+     * publica términos, el BNA admite la descarga «para uso personal y privado»
+     * y prohíbe reproducir, y Estimaciones Agrícolas no declara licencia aunque
+     * su serie se publique CC BY 4.0 una campaña atrás. El owner decidió
+     * proceder el 2026-11-04 porque el portal es personal; nada se muestra en
+     * público ni se exporta, y el payload no se guarda.
+     */
+    sourceRegistryEntrySchema.parse({
+      sourceId: "bcr-cac-pizarra",
+      displayName:
+        "Bolsa de Comercio de Rosario — pizarra de la Cámara Arbitral",
+      owner: "Bolsa de Comercio de Rosario",
+      canonicalUrl: "https://www.cac.bcr.com.ar/es/precios-de-pizarra",
+      documentationUrls: [
+        "https://www.cac.bcr.com.ar/es/precios-de-pizarra",
+        "https://www.cac.bcr.com.ar/es/precios-de-pizarra/consultas",
+      ],
+      datasets: ["bcr-cac.pizarra"],
+      endpoints: ["https://www.cac.bcr.com.ar/es/api/prices/987/export"],
+      authentication: "none",
+      applicablePlan: null,
+      rateLimit: "sin cuota publicada; el tope diario es interno",
+      attribution: "Cámara Arbitral de Cereales, Bolsa de Comercio de Rosario",
+      expectedCadence: "al abrir la página, una vez por día hábil",
+      freshnessTarget: "pizarra del último día hábil",
+      timezone: "America/Argentina/Buenos_Aires",
+      units: ["$/Tn"],
+      currencies: ["ARS"],
+      parserVersion: "bcr-cac-pizarra-1.0.0",
+      fixturePolicy:
+        "Fixture sintética: sin términos que autoricen almacenar la planilla, ningún archivo capturado entra al repositorio.",
+      fallbackSourceIds: [],
+      rights: {
+        personalUse: "owner_accepted",
+        automatedAccess: "owner_accepted",
+        rawStorage: "restricted",
+        normalizedStorage: "owner_accepted",
+        derivedStorage: "owner_accepted",
+        publicDisplay: "restricted",
+        export: "restricted",
+        aiTransfer: "restricted",
+      },
+      technicalStatus: "integrated",
+      approvalStatus: "approved_personal",
+      reviewedAt: SOY_RIGHTS_REVIEWED_AT,
+      rightsReviewedAt: SOY_RIGHTS_REVIEWED_AT,
+      rightsReviewDueAt: SOY_RIGHTS_REVIEW_DUE_AT,
+      reviewEvidence: [
+        "docs/architecture/adr/0071-soy-basis-sources.md",
+        "docs/data/provider-use-matrix.md#soja",
+      ],
+      retentionClasses: ["R3"],
+      quotaPolicyId: null,
+      ownerNotes:
+        "Decisión del owner del 2026-11-04 sobre evidencia: el sitio dice «Todos los derechos reservados» y no publica condiciones de uso. Es la referencia del mercado físico de Rosario; se guardan precios normalizados y nunca la planilla.",
+      recordedAt: SOY_RIGHTS_REVIEWED_AT,
+    }),
+    sourceRegistryEntrySchema.parse({
+      sourceId: "bna-fx",
+      displayName: "Banco de la Nación Argentina — cotizaciones",
+      owner: "Banco de la Nación Argentina",
+      canonicalUrl: "https://www.bna.com.ar/Cotizador/MonedasHistorico",
+      documentationUrls: [
+        "https://www.bna.com.ar/Cotizador/MonedasHistorico",
+        "https://www.bna.com.ar/Home/TerminosYCondiciones",
+      ],
+      datasets: ["bna.divisas"],
+      endpoints: ["https://www.bna.com.ar/Cotizador/DescargarPorFecha"],
+      authentication: "none",
+      applicablePlan: null,
+      rateLimit: "sin cuota publicada; el tope diario es interno",
+      attribution: "Banco de la Nación Argentina",
+      expectedCadence: "al abrir la página, una vez por día hábil",
+      freshnessTarget: "cierre del último día hábil",
+      timezone: "America/Argentina/Buenos_Aires",
+      units: ["Pesos por dólar"],
+      currencies: ["ARS", "USD"],
+      parserVersion: "bna-divisas-1.0.0",
+      fixturePolicy:
+        "Fixture sintética: los términos prohíben reproducir el contenido, así que ningún CSV capturado entra al repositorio.",
+      fallbackSourceIds: [],
+      rights: {
+        personalUse: "owner_accepted",
+        automatedAccess: "owner_accepted",
+        rawStorage: "restricted",
+        normalizedStorage: "owner_accepted",
+        derivedStorage: "owner_accepted",
+        publicDisplay: "restricted",
+        export: "restricted",
+        aiTransfer: "restricted",
+      },
+      technicalStatus: "integrated",
+      approvalStatus: "approved_personal",
+      reviewedAt: SOY_RIGHTS_REVIEWED_AT,
+      rightsReviewedAt: SOY_RIGHTS_REVIEWED_AT,
+      rightsReviewDueAt: SOY_RIGHTS_REVIEW_DUE_AT,
+      reviewEvidence: [
+        "docs/architecture/adr/0071-soy-basis-sources.md",
+        "docs/data/provider-use-matrix.md#soja",
+      ],
+      retentionClasses: ["R3"],
+      quotaPolicyId: null,
+      ownerNotes:
+        "Decisión del owner del 2026-11-04 sobre evidencia: los términos permiten descargar «para uso personal y privado» y prohíben reproducir, modificar o transmitir sin autorización escrita. Es el dólar con el que la Cámara Arbitral convierte su pizarra; la cotización del BCRA no lo reemplaza.",
+      recordedAt: SOY_RIGHTS_REVIEWED_AT,
+    }),
+    sourceRegistryEntrySchema.parse({
+      sourceId: "magyp-estimaciones",
+      displayName: "Ministerio de Agricultura — Estimaciones Agrícolas",
+      owner: "Ministerio de Agricultura, Ganadería y Pesca",
+      canonicalUrl:
+        "https://datosestimaciones.magyp.gob.ar/reportes.php?reporte=Estimaciones",
+      documentationUrls: [
+        "https://datosestimaciones.magyp.gob.ar/reportes.php?reporte=Estimaciones",
+        "https://datos.magyp.gob.ar/dataset/soja-siembra-cosecha-produccion-rendimiento",
+      ],
+      datasets: ["magyp.estimaciones"],
+      endpoints: [
+        "https://datosestimaciones.magyp.gob.ar/reportes.php?reporte=Estimaciones",
+      ],
+      authentication: "none",
+      applicablePlan: null,
+      rateLimit: "sin cuota publicada; el tope diario es interno",
+      attribution:
+        "Dirección de Estimaciones Agrícolas, Ministerio de Agricultura, Ganadería y Pesca",
+      expectedCadence: "al abrir la página, una vez por día",
+      freshnessTarget: "última actualización de la campaña en curso",
+      timezone: "America/Argentina/Buenos_Aires",
+      units: ["ha", "t", "kg/ha"],
+      currencies: [],
+      parserVersion: "magyp-estimaciones-1.0.0",
+      fixturePolicy:
+        "Fixtures sintéticas con la forma del CSV; ninguna captura real en el repositorio.",
+      fallbackSourceIds: ["magyp-datos-abiertos"],
+      rights: {
+        personalUse: "owner_accepted",
+        automatedAccess: "owner_accepted",
+        rawStorage: "restricted",
+        normalizedStorage: "owner_accepted",
+        derivedStorage: "owner_accepted",
+        publicDisplay: "restricted",
+        export: "restricted",
+        aiTransfer: "restricted",
+      },
+      technicalStatus: "integrated",
+      approvalStatus: "approved_personal",
+      reviewedAt: SOY_RIGHTS_REVIEWED_AT,
+      rightsReviewedAt: SOY_RIGHTS_REVIEWED_AT,
+      rightsReviewDueAt: SOY_RIGHTS_REVIEW_DUE_AT,
+      reviewEvidence: [
+        "docs/architecture/adr/0071-soy-basis-sources.md",
+        "docs/data/provider-use-matrix.md#soja",
+      ],
+      retentionClasses: ["R3"],
+      quotaPolicyId: null,
+      ownerNotes:
+        "Decisión del owner del 2026-11-04: el sitio no declara licencia; la misma serie, de la misma dirección, se publica CC BY 4.0 en datos.magyp.gob.ar hasta la campaña anterior, y cada corrida la concilia contra ese archivo.",
+      recordedAt: SOY_RIGHTS_REVIEWED_AT,
+    }),
+    sourceRegistryEntrySchema.parse({
+      sourceId: "magyp-datos-abiertos",
+      displayName: "Ministerio de Agricultura — datos abiertos",
+      owner: "Ministerio de Agricultura, Ganadería y Pesca",
+      canonicalUrl:
+        "https://datos.magyp.gob.ar/dataset/soja-siembra-cosecha-produccion-rendimiento",
+      documentationUrls: [
+        "https://datos.magyp.gob.ar/dataset/soja-siembra-cosecha-produccion-rendimiento",
+      ],
+      datasets: ["magyp.annual-csv"],
+      endpoints: [
+        "https://datos.magyp.gob.ar/dataset/8ae4865f-d2f2-45a2-9343-7a4a12728a90/resource/3bfe4630-91e2-46cd-82ad-cf8dc94d3dfb/download/soja-serie-1941-2024-anual.csv",
+      ],
+      authentication: "none",
+      applicablePlan: null,
+      rateLimit: "sin cuota publicada; el tope diario es interno",
+      attribution:
+        "Ministerio de Agricultura, Ganadería y Pesca — Dirección Nacional de Agricultura (CC BY 4.0)",
+      expectedCadence: "con cada corrida de Estimaciones, para conciliar",
+      freshnessTarget: "última campaña cerrada",
+      timezone: "America/Argentina/Buenos_Aires",
+      units: ["ha", "t", "kg/ha"],
+      currencies: [],
+      parserVersion: "magyp-annual-csv-1.0.0",
+      fixturePolicy:
+        "Fixtures sintéticas con la forma del CSV; ninguna captura real en el repositorio.",
+      fallbackSourceIds: [],
+      rights: {
+        personalUse: "allowed",
+        automatedAccess: "allowed",
+        rawStorage: "restricted",
+        normalizedStorage: "allowed",
+        derivedStorage: "allowed",
+        publicDisplay: "restricted",
+        export: "allowed",
+        aiTransfer: "restricted",
+      },
+      technicalStatus: "integrated",
+      approvalStatus: "approved_personal",
+      reviewedAt: SOY_RIGHTS_REVIEWED_AT,
+      rightsReviewedAt: SOY_RIGHTS_REVIEWED_AT,
+      rightsReviewDueAt: SOY_RIGHTS_REVIEW_DUE_AT,
+      reviewEvidence: [
+        "docs/architecture/adr/0071-soy-basis-sources.md",
+        "docs/data/provider-use-matrix.md#soja",
+      ],
+      retentionClasses: ["R3"],
+      quotaPolicyId: null,
+      ownerNotes:
+        "CC BY 4.0 declarada en el dataset (2026-11-04). Sólo se usa para conciliar Estimaciones; no se guarda como serie propia.",
+      recordedAt: SOY_RIGHTS_REVIEWED_AT,
     }),
   ]);

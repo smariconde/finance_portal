@@ -843,6 +843,27 @@ up to a week apart (rows are the union of dates), linear ticks are round
 (`linearTicks`), the idle reading is the last row with a value, and a pinned
 point comes from the pointer position, never Recharts' stale click index.
 
+```bash
+pnpm argentina:indicators --soy                      # dry run: pizarra, BNA, ZS=F and crop estimates (5 requests)
+pnpm argentina:indicators --soy --apply
+```
+
+Soy (`F9-05`, in progress, [ADR 0071](docs/architecture/adr/0071-soy-basis-sources.md),
+no migration). Seven series in the indicator registry of `F9-04`, declared apart
+in `declared-soy-indicators.ts` so the dashboard's read does not carry them: the
+Cámara Arbitral's Rosario board (`bcr-cac-pizarra`, one `.xlsx` since 2000), BNA
+divisas buyer (`bna-fx`, the rate the board converts with, not the BCRA's), Yahoo
+`ZS=F` in US cents/bushel and the Ministry's crop estimates by campaign
+(`magyp-estimaciones`, a form `POST`, reconciled every run against the CC BY CSV
+of `magyp-datos-abiertos`). The first three and the estimates are
+`owner_accepted`. `cbot-soy-front-contract-1.0.0` names `ZS=F`'s contract per
+day —the nearest whose last trading day has not passed, 121 of 121 measured
+days— and marks its delivery period, which is shown, never excluded (owner).
+`yahoo-chart-1.3.0` dates bars in the exchange's IANA zone: `1.2.0` applied
+today's offset to every bar and put each summer futures bar a day early.
+`soy-basis-1.0.0` compares the three legs of one market day; the basis reading
+at a cutoff, the refresh on open and the `/argentina` block are still to come.
+
 Against Neon, the repo's commands need both env files, the last one winning —
 an exported `DATABASE_URL` does not beat `--env-file`:
 `node --env-file=.env.local --env-file=.env.neon.local --conditions=react-server --import tsx scripts/<command>.ts`.

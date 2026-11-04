@@ -23,6 +23,10 @@ describe("egress allowlist", () => {
         "bcra-cambiarias-v1",
         "argentina-series-tiempo",
         "indec-api",
+        "bcr-cac-pizarra",
+        "bna-fx",
+        "magyp-estimaciones",
+        "magyp-datos-abiertos",
         "damodaran-current-data",
         "openrouter",
         "tavily",
@@ -150,6 +154,13 @@ describe("egress allowlist", () => {
       if (entry.sourceId === "openrouter" || entry.sourceId === "tavily") {
         continue;
       }
+      // Estimaciones Agrícolas answers a form, not a URL (ADR 0071).
+      if (entry.sourceId === "magyp-estimaciones") {
+        expect(entry.method).toBe("POST");
+        expect(entry.credential).toBeNull();
+        expect(entry.maxRedirects).toBe(0);
+        continue;
+      }
 
       expect(entry.method).toBe("GET");
       expect(entry.maxRequestBytes).toBe(0);
@@ -157,6 +168,46 @@ describe("egress allowlist", () => {
         expect(entry.credential?.variable).toBe("INDEC_API_TOKEN");
       } else {
         expect(entry.credential).toBeNull();
+      }
+    }
+  });
+
+  it("reaches only the one resource each soy source publishes", () => {
+    // ADR 0071: each host serves far more than the series the portal reads.
+    const cases: readonly (readonly [string, string, readonly string[]])[] = [
+      [
+        "bcr-cac-pizarra",
+        "https://www.cac.bcr.com.ar/es/api/prices/987/export?product=13&type=pizarra&date_start=2000-01-01&date_end=2026-11-04&period=day",
+        [
+          "https://www.cac.bcr.com.ar/es/precios-de-pizarra/consultas",
+          "https://www.bcr.com.ar/es/mercados",
+        ],
+      ],
+      [
+        "bna-fx",
+        "https://www.bna.com.ar/Cotizador/DescargarPorFecha?idMonedaDescarga=55&fechaDesde=01%2F01%2F2000&fechaHasta=04%2F11%2F2026&id=monedas",
+        [
+          "https://www.bna.com.ar/Personas",
+          "https://www.bna.com.ar/Cotizador/MonedasHistorico",
+        ],
+      ],
+      [
+        "magyp-estimaciones",
+        "https://datosestimaciones.magyp.gob.ar/reportes.php?reporte=Estimaciones",
+        ["https://datosestimaciones.magyp.gob.ar/ajax/getProvincias.php"],
+      ],
+      [
+        "magyp-datos-abiertos",
+        "https://datos.magyp.gob.ar/dataset/8ae4865f-d2f2-45a2-9343-7a4a12728a90/resource/3bfe4630-91e2-46cd-82ad-cf8dc94d3dfb/download/soja-serie-1941-2024-anual.csv",
+        ["https://datos.magyp.gob.ar/api/3/action/package_show?id=soja"],
+      ],
+    ];
+    for (const [sourceId, allowed, refused] of cases) {
+      const entry = findEgressAllowlistEntry(sourceId)!;
+      expect(entry.identification).toBe("project");
+      expect(authorizeEgressUrl(allowed, entry).allowed).toBe(true);
+      for (const url of refused) {
+        expect(authorizeEgressUrl(url, entry).allowed).toBe(false);
       }
     }
   });

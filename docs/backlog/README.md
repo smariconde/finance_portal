@@ -115,7 +115,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    87 | `F9-11`    | `queued`      | Resultado financiero y ejecución presupuestaria con fuente vigente o identidad declarada, nunca una serie vacía leída como cero.                                                                                          | `F9-07`          |
 |    88 | `F9-12`    | `done`        | `/argentina` se actualiza sola al abrirse: un job durable por fuente con sólo lo atrasado según su cadencia, progreso visible y fallas con «Reintentar».                                                                  |
 |    89 | `F9-13`    | `done`        | `/argentina` se recorre: lectura por punto con mouse, toque y teclado, rangos hasta toda la historia con cierre de mes, escala log, comparación A→B, gobiernos y regímenes fechados y vista por gobierno.                 | `F9-12`          |
-|    90 | `F9-05`    | `in_progress` | Soja: contrato determinista del basis iniciado; faltan precio Rosario, BNA, Chicago, volumen agrícola, persistencia y bloque visual.                                                                                      | `F9-04`          |
+|    90 | `F9-05`    | `in_progress` | Soja: contrato del basis y las siete series registradas con historia completa (pizarra, BNA, Chicago y estimaciones); faltan la lectura del basis, la actualización al abrir y el bloque visual.                          | `F9-04`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -6337,6 +6337,46 @@ publica producción por campaña bajo CC BY 4.0. Siguen pendientes el canal y
 derechos concretos para las tres cotizaciones, el perfil técnico del CSV
 agrícola, las fixtures de proveedor, la persistencia y el bloque visual. No se
 eleva ninguna fuente de precio de `rights_review_pending` por esta lectura.
+
+**`F9-05`, incremento 2, 2026-11-04.** Estado: `in_progress`. Fuentes y
+persistencia ([ADR 0071](../architecture/adr/0071-soy-basis-sources.md)).
+Medido antes de codificar, contra los cables reales: la Cámara Arbitral exporta
+la pizarra desde 2000 en una planilla (una request), el BNA entrega divisas
+comprador desde 2002 en un CSV que responde sin sesión, Yahoo conserva pocos
+contratos de soja vencidos y `ZS=F` coincide en 121 de 121 días verificables con
+el contrato más cercano cuyo último día de negociación no pasó, y Estimaciones
+Agrícolas trae la campaña 2025/26, que el CSV CC BY todavía no tiene.
+
+Decisiones del owner: `owner_accepted` para la pizarra (sin términos), el BNA
+(descarga para uso personal) y Estimaciones (sin licencia declarada); el
+contrato de Chicago se nombra y el período de entrega se marca sin excluirse;
+Estimaciones se concilia en cada corrida contra el CSV CC BY.
+
+Entregado:
+
+- cinco filas de allowlist, derechos y tope diario: `bcr-cac-pizarra`,
+  `bna-fx` (el ID que el registro ya reservaba), `magyp-estimaciones` (`POST`
+  sin credencial), `magyp-datos-abiertos` y el dataset `yahoo.futures-close` en
+  la fila de Yahoo;
+- lectores cerrados `bcr-cac-pizarra-1.0.0` (con `cac-peso-cents-1.0.0`),
+  `bna-divisas-1.0.0`, `magyp-estimaciones-1.0.0` y `magyp-annual-csv-1.0.0`, y
+  `magyp-reconciliation-1.0.0`;
+- `cbot-soy-front-contract-1.0.0`: contrato, first notice day, último día de
+  negociación y período de entrega de cada día;
+- siete series en el registro de indicadores de `F9-04` (bloque `agro`,
+  frecuencia `daily`, moneda `physical`), sin migración, en un set aparte;
+  `pnpm argentina:indicators --soy`;
+- `yahoo-chart-1.3.0`: fecha cada instante en la zona IANA del mercado. Con
+  `1.2.0` cada rueda de verano de `ZS=F` caía el día anterior (796 en domingo);
+  una acción sella a la apertura y no cambia.
+
+Evidencia, en una réplica vacía y migrada: primera vuelta siete `succeeded`,
+19.419 puntos y 5 requests; segunda, siete `duplicate`; 5,1 MB (~269 B/fila);
+ninguna rueda en fin de semana. Basis calculado con `soy-basis-1.0.0` en 5.239
+días: −20,7 % el 2026-11-03 con `ZSX26` en período de entrega; mediana de los
+días de entrega −27,5 % contra −27,3 % del resto; 2023 con mediana −11,4 % por
+el «dólar soja». Sigue: lectura del basis al corte, actualización al abrir
+`/argentina` y el bloque de soja.
 
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |

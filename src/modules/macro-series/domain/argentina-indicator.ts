@@ -36,13 +36,15 @@ export type IndecConventionalSign = z.infer<typeof indecConventionalSignSchema>;
 export const argentinaIndicatorSchema = z.object({
   id: z.string().regex(/^[a-z0-9_]+$/u),
   externalId: z.string().min(1),
-  block: z.enum(["activity", "fiscal", "external"]),
-  frequency: z.enum(["monthly", "quarterly", "annual"]),
+  /** `agro` and `daily` carry the soy series (ADR 0071). */
+  block: z.enum(["activity", "fiscal", "external", "agro"]),
+  frequency: z.enum(["daily", "monthly", "quarterly", "annual"]),
   /** The unit as the source prints it; the parser checks it on every page. */
   unit: z.string().min(1),
   /** Magnitude behind the unit, so two sources' wordings compare. */
   scale: z.enum(["unit", "thousand", "million"]).nullable(),
-  currency: z.enum(["ARS", "USD", "index", "percent"]),
+  /** The unit's numerator currency: «US cents/bushel» is `USD`, «ARS/USD» is `ARS`. */
+  currency: z.enum(["ARS", "USD", "index", "percent", "physical"]),
   seasonalAdjustment: z.enum([
     "original",
     "seasonally_adjusted",
