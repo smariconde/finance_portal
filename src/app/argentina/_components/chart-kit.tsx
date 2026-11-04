@@ -58,6 +58,18 @@ const twoDecimals = new Intl.NumberFormat("es-AR", {
 });
 
 export function axisLabel(format: AxisFormat, value: number): string {
+  return axisText(format, value, false);
+}
+
+/**
+ * La cifra de un punto en las unidades del eje, con un decimal más que los
+ * ticks: el rótulo que la lectura pone sobre el eje Y.
+ */
+export function axisReading(format: AxisFormat, value: number): string {
+  return axisText(format, value, true);
+}
+
+function axisText(format: AxisFormat, value: number, precise: boolean): string {
   switch (format) {
     case "points":
       return `${oneDecimal.format(value)} %`;
@@ -69,13 +81,13 @@ export function axisLabel(format: AxisFormat, value: number): string {
       return `${oneDecimal.format(value * 100)} %`;
     case "millions":
       return Math.abs(value) >= 1000
-        ? `${oneDecimal.format(value / 1000)} mil`
+        ? `${(precise ? twoDecimals : oneDecimal).format(value / 1000)} mil`
         : group.format(value);
     case "pesos":
     case "index":
       return Math.abs(value) < 10
         ? twoDecimals.format(value)
-        : group.format(value);
+        : (precise ? oneDecimal : group).format(value);
   }
 }
 
@@ -201,6 +213,94 @@ export function linearTicks(min: number, max: number, target = 5): number[] {
     ticks.push(Number((index * step).toPrecision(12)));
   }
   return ticks;
+}
+
+/** El área del dibujo dentro del gráfico, en píxeles desde su esquina. */
+export type PlotArea = {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+};
+
+/**
+ * La posición en píxeles de un valor, con la misma cuenta que hace Recharts
+ * para un eje numérico de dominio fijo: lineal, o lineal en log10. Fuera de
+ * lo que la escala puede ubicar —un dominio plano, un valor no positivo en
+ * log— no hay posición.
+ */
+export function toPixel(
+  value: number,
+  domain: readonly [number, number],
+  range: readonly [number, number],
+  log = false,
+): number | null {
+  let [from, to] = domain;
+  let at = value;
+  if (log) {
+    if (!(at > 0) || !(from > 0) || !(to > 0)) return null;
+    at = Math.log10(at);
+    from = Math.log10(from);
+    to = Math.log10(to);
+  }
+  if (from === to) return null;
+  const pixel = range[0] + ((at - from) / (to - from)) * (range[1] - range[0]);
+  return Number.isFinite(pixel) ? pixel : null;
+}
+
+/** El punto más cercano en vertical; sin altura del puntero, el primero. */
+export function nearestByY<T extends { readonly y: number | null }>(
+  points: readonly T[],
+  y: number | null,
+): T | undefined {
+  const placed = points.filter((point) => point.y !== null);
+  if (y === null) return placed[0];
+  let best: T | undefined;
+  for (const point of placed) {
+    if (best === undefined || Math.abs(point.y! - y) < Math.abs(best.y! - y)) {
+      best = point;
+    }
+  }
+  return best;
+}
+
+/**
+ * Dónde va la lectura flotante: al costado del punto, a la derecha si entra
+ * entera dentro del dibujo y si no a la izquierda. Si no entra de ningún lado
+ * —un teléfono angosto— no hay lugar: taparía el eje o la serie, y la franja
+ * de arriba ya dice la cifra. En vertical se centra en el punto sin salirse
+ * del área.
+ */
+export function readingPlacement(input: {
+  readonly x: number;
+  readonly y: number;
+  readonly plot: PlotArea;
+  readonly width: number;
+  readonly height: number;
+  readonly gap: number;
+}): { readonly left: number; readonly top: number } | null {
+  const { x, y, plot, width, height, gap } = input;
+  const right = plot.x + plot.width;
+  let left: number;
+  if (x + gap + width <= right) left = x + gap;
+  else if (x - gap - width >= plot.x) left = x - gap - width;
+  else return null;
+  const bottom = plot.y + plot.height;
+  const top =
+    height >= plot.height
+      ? plot.y
+      : Math.max(plot.y, Math.min(y - height / 2, bottom - height));
+  return { left, top };
+}
+
+/**
+ * El ancho de la lectura flotante según su texto más largo, a unos 6,5 px por
+ * carácter de `text-xs`, entre 160 y 288 px: lo bastante justo para ubicarla
+ * al lado del punto sin dejar un hueco cuando se da vuelta.
+ */
+export function readingWidth(lines: readonly string[], extra = 0): number {
+  const longest = Math.max(0, ...lines.map((line) => line.length));
+  return Math.round(Math.min(288, Math.max(160, longest * 6.5 + extra + 24)));
 }
 
 /** El rótulo de una fila según su frecuencia. */

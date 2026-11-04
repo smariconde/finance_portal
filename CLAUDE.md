@@ -827,7 +827,7 @@ The charts of `/argentina` are walked, not just looked at (`F9-13`). `argentina-
 daily one day by day for five years plus at every month's close
 (`month-end-close-1.0.0`, the month's last published value, never an
 average); the CCL is read whole. `TimelineChart` reads any point by mouse,
-touch or arrow keys in a fixed strip, never a floating tooltip; ranges go
+touch or arrow keys in a fixed strip; ranges go
 1A to Máx with the resolution named; log scale is offered only for levels and
 disabled when a value is ≤ 0; «Comparar dos puntos» uses `point-change-1.0.0`
 (ratio for a level with a strictly positive base, difference for a rate or a
@@ -842,6 +842,18 @@ per-year reading. Reviewed on Production's data: a daily trace bridges nulls
 up to a week apart (rows are the union of dates), linear ticks are round
 (`linearTicks`), the idle reading is the last row with a value, and a pinned
 point comes from the pointer position, never Recharts' stale click index.
+
+Since `F9-14` the walked point also carries a crosshair (`HoverLayer` in
+`chart-hover.tsx`): a dashed horizontal to the Y axis for the series nearest
+the pointer with its value on the axis (`axisReading`, one decimal finer than
+the ticks), and a label beside the point that flips sides and is not drawn
+when it fits on neither (a phone; the strip already says it). It lives
+**outside** the Recharts tree, placed by `toPixel` over the area
+`PlotAreaProbe` reports, and both charts memoize their drawing by hand: the
+React Compiler is **not** enabled, and without that every pointer move
+re-rendered the whole chart (p95 66.7 ms per frame at 4× CPU, 16.7 ms after).
+Recharts 3.8 layers carry `tabindex=-1`; `ChartContainer` removes their
+outline so a tap does not frame the plot.
 
 ```bash
 pnpm argentina:indicators --soy                      # dry run: pizarra, BNA, ZS=F and crop estimates (5 requests)
