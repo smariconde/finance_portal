@@ -42,6 +42,12 @@ Las otras fuentes siguen y el job pendiente se conserva. Después de cargar el
 token en el entorno privado y reiniciar la aplicación, abrir la página retoma
 ese job sin replanear los 19 indicadores.
 
+Si el token se cargó después de que la cuota diaria quedó en `60/60`, la
+página debe mostrar la hora de reposición. La cuota se reinicia a las 00:00
+UTC (21:00 de Buenos Aires); al abrir la página después de ese momento se
+retoma el job pendiente. Refrescar antes no adelanta la cuota ni justifica
+subir el límite.
+
 ## Registrar los indicadores
 
 ```sh

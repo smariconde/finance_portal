@@ -6,6 +6,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 import {
   ARGENTINA_REFRESH_SOURCES,
+  argentinaRefreshAdmissionBlock,
   assertArgentinaRefreshJob,
   createArgentinaRefreshAdmission,
   createArgentinaRefreshExecutor,
@@ -136,13 +137,23 @@ async function runOpenJobs(): Promise<void> {
   const holder = `web/${hostname().replace(/[^A-Za-z0-9.-]/gu, "-")}/${process.pid}/${randomUUID().slice(0, 8)}`;
 
   // The oldest first, in the declared order of the sources.
-  const open = [...(await openRefreshJobs(store))]
-    .filter(
-      (job) =>
-        job.status === "open" &&
-        dependencies().credentialProblem(job.sourceId as RefreshSourceId) ===
-          null,
-    )
+  const available = await Promise.all(
+    (await openRefreshJobs(store)).map(async (job) => {
+      if (job.status !== "open") return null;
+      const source = assertArgentinaRefreshJob(job);
+      if (dependencies().credentialProblem(source.sourceId) !== null) {
+        return null;
+      }
+      const blocked = await argentinaRefreshAdmissionBlock(
+        getSourceBudgetStore(),
+        source,
+        now(),
+      );
+      return blocked === null ? job : null;
+    }),
+  );
+  const open = available
+    .filter((job): job is IngestionJob => job !== null)
     .sort(
       (left, right) =>
         ARGENTINA_REFRESH_SOURCES.findIndex(

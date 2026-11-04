@@ -150,8 +150,25 @@ comprueba la credencial con la misma regla de la puerta antes de planear o
 ejecutar ese job. Si falta o es inválida, informa el bloqueo y deja avanzar a
 las otras fuentes; el job abierto conserva sus sujetos y se reanuda al
 configurar el token. No se incrementa la cuota ni se reintenta en bucle.
-La inspección de Vercel confirmó que `INDEC_API_TOKEN` no está declarado en el
-proyecto; el archivo local sí lo tiene, pero no configura Production.
+La inspección inicial de Vercel confirmó que `INDEC_API_TOKEN` no estaba
+declarado en el proyecto; el archivo local sí lo tenía, pero no configuraba
+Production. El token se agregó más tarde ese día.
+
+## Corrección del 2026-11-04 — cuota de un job ya abierto
+
+Después de configurar el token en Production, los 60 rechazos anteriores
+habían consumido las 60 unidades de la cuota UTC del día. El job seguía
+abierto en `0/19`: la admisión de cada intento lo detenía antes del socket,
+pero la lectura de estado trataba un job abierto como ejecutable y la página
+seguía mostrando «Actualizando». El worker tomaba y soltaba el lease en cada
+consulta, sin mover el cursor.
+
+La lectura y el worker ahora comprueban la cuota y el kill switch también
+para los jobs **ya abiertos**, antes de describirlos como ejecutables o tomar
+el lease. La superficie existente muestra «Se agotó la cuota diaria de INDEC»
+y el horario UTC de reposición expresado en hora local. Abrir la página
+después de la reposición retoma el mismo job. La cuota no se eleva ni se borra
+para forzar una request: el límite del owner sigue siendo vinculante.
 
 ## Alternativas descartadas
 
