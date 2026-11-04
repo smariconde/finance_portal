@@ -86,7 +86,7 @@ function summariesOf(dashboard: ArgentinaDashboard): readonly Summary[] {
     },
     {
       href: "#soja",
-      label: "Basis de la soja",
+      label: "Brecha Rosario–Chicago",
       value: soy.latest ? signedPoints(soy.latest.basis) : "Sin dato",
       detail: soy.latest
         ? `US$ ${amount(soy.latest.rosarioUsd!, 0)} contra US$ ${amount(soy.latest.chicagoUsd!, 0)} por t`

@@ -1,9 +1,14 @@
+import type { ImpliedCclPoint } from "@/modules/implied-fx/domain/implied-ccl";
 import type { ArgentinaIndicatorVintage } from "@/modules/macro-series/domain/argentina-indicator";
 import { cbotSoyFrontContract } from "@/modules/soy-basis/domain/cbot-soy-contract";
 import {
   calculateSoyBasis,
   type SoyBasisResult,
 } from "@/modules/soy-basis/domain/soy-basis";
+import {
+  calculateSoyEffectiveBasis,
+  type SoyEffectiveBasis,
+} from "@/modules/soy-basis/domain/soy-export-fx";
 
 import {
   monthEndCloses,
@@ -20,6 +25,11 @@ import { dailyWindowStart, type IndicatorSeries } from "./argentina-dashboard";
  * day where a leg is missing says which. Chicago's contract comes from
  * `cbot-soy-front-contract-1.0.0` and its delivery period is marked, never
  * dropped (owner's decision).
+ *
+ * Since `F9-15` each day also reads the gap at the dollar the exporter
+ * settled at (`soy-effective-basis-1.0.0`): a «dólar soja» rate, or the
+ * declared share of the BNA rate plus the rest at that day's implied CCL. The
+ * official reading stays; the effective one goes next to it, never instead.
  */
 export type SoyUnavailableReason = Extract<
   SoyBasisResult,
@@ -40,11 +50,24 @@ export type SoyDay = {
   /** `(Rosario ÷ Chicago − 1) × 100`, in percent. */
   readonly basis: string | null;
   readonly reason: SoyUnavailableReason | null;
+  /** The declared export regime of the day; `official` outside them all. */
+  readonly fxRegimeId: string | null;
+  /** Pesos per dollar the exporter settled at. */
+  readonly effectiveFx: string | null;
+  /** The gap at that dollar, in percent. */
+  readonly effectiveBasis: string | null;
+  readonly effectiveReason: SoyEffectiveUnavailableReason | null;
 };
+
+export type SoyEffectiveUnavailableReason = Extract<
+  SoyEffectiveBasis,
+  { status: "unavailable" }
+>["reason"];
 
 export type SoyMonth = {
   readonly on: string;
   readonly basis: MonthEndValue;
+  readonly effectiveBasis: MonthEndValue;
   readonly rosarioUsd: MonthEndValue;
   readonly chicagoUsd: MonthEndValue;
 };
@@ -108,12 +131,17 @@ export function buildSoyBlock(input: {
   readonly harvested: IndicatorSeries;
   readonly production: IndicatorSeries;
   readonly yieldKgHa: IndicatorSeries;
+  /** The implied CCL read at the same cutoff, for the blended regimes. */
+  readonly ccl: readonly ImpliedCclPoint[];
   /** The cutoff the page reads at. */
   readonly knownAt: string;
 }): SoyBlock {
   const fx = new Map(input.fx.points.map((point) => [point.periodOn, point]));
   const chicago = new Map(
     input.chicago.points.map((point) => [point.periodOn, point]),
+  );
+  const ccl = new Map(
+    input.ccl.map((point) => [point.marketDate, point.value]),
   );
 
   let latest: SoyLatest | null = null;
@@ -162,6 +190,32 @@ export function buildSoyBlock(input: {
               rollPolicy: contract.version,
             },
     });
+    // The effective reading needs the same day's legs and the official one
+    // to be computable: a leg the official reading lacks is lacking here too.
+    function effectiveOf() {
+      const chicagoUsd =
+        result.status === "computed" ? result.chicagoUsdPerTon : null;
+      const effective =
+        result.status === "computed"
+          ? calculateSoyEffectiveBasis({
+              on,
+              rosarioArs: board.value,
+              bnaBuyer: quote?.value ?? null,
+              ccl: ccl.get(on) ?? null,
+              chicagoUsdPerTon: chicagoUsd,
+            })
+          : null;
+      return {
+        fxRegimeId:
+          effective?.status === "computed" ? effective.regimeId : null,
+        effectiveFx:
+          effective?.status === "computed" ? effective.pesosPerDollar : null,
+        effectiveBasis:
+          effective?.status === "computed" ? effective.basisPct : null,
+        effectiveReason:
+          effective?.status === "unavailable" ? effective.reason : null,
+      };
+    }
     const day: SoyDay = {
       on,
       rosarioArs: board.value,
@@ -173,6 +227,7 @@ export function buildSoyBlock(input: {
       inDeliveryPeriod: contract.inDeliveryPeriod,
       basis: result.status === "computed" ? result.basisPct : null,
       reason: result.status === "computed" ? null : result.reason,
+      ...effectiveOf(),
     };
     if (result.status === "computed") {
       latest = {
@@ -196,6 +251,7 @@ export function buildSoyBlock(input: {
       ).map((close) => [close.on, close]),
     );
   const basisMonths = closes((day) => day.basis);
+  const effectiveMonths = closes((day) => day.effectiveBasis);
   const rosarioMonths = closes((day) => day.rosarioUsd);
   const chicagoMonths = closes((day) => day.chicagoUsd);
   const empty = (on: string): MonthEndValue => ({
@@ -206,6 +262,7 @@ export function buildSoyBlock(input: {
   const months = [...basisMonths.keys()].map((on): SoyMonth => ({
     on,
     basis: basisMonths.get(on)!,
+    effectiveBasis: effectiveMonths.get(on) ?? empty(on),
     rosarioUsd: rosarioMonths.get(on) ?? empty(on),
     chicagoUsd: chicagoMonths.get(on) ?? empty(on),
   }));

@@ -117,6 +117,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    89 | `F9-13`    | `done`     | `/argentina` se recorre: lectura por punto con mouse, toque y teclado, rangos hasta toda la historia con cierre de mes, escala log, comparación A→B, gobiernos y regímenes fechados y vista por gobierno.                 | `F9-12`          |
 |    90 | `F9-05`    | `done`     | Soja: basis Rosario/Chicago con contrato, roll, BNA y conversión nombrados, estimaciones agrícolas conciliadas contra CC BY y bloque en `/argentina` que se actualiza al abrir.                                           | `F9-04`          |
 |    91 | `F9-14`    | `done`     | Gráficos de `/argentina` con cruz de lectura: horizontal hasta el eje Y con su cifra, etiqueta al costado del punto y capa fuera de Recharts, sin redibujar las series al mover el puntero.                               | `F9-13`          |
+|    92 | `F9-15`    | `done`     | Brecha Rosario–Chicago al dólar del exportador (dólar soja, PIE y blend con su decreto) al lado de la oficial, y retenciones y cosecha marcadas en el gráfico de la soja.                                                 | `F9-05`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -6499,6 +6500,45 @@ Fuera de este slice: el gráfico de proyección de `/valuacion/[ticker]` sigue
 con su lectura por año; la brecha Rosario–Chicago al dólar efectivo de
 exportación y las fechas de la soja van en su propio slice.
 
+**`F9-15`, 2026-11-04.** Estado: `done`
+([ADR 0072](../architecture/adr/0072-soy-gap-effective-export-dollar.md)). El
+owner vio un pico de +37,6 % en la brecha de noviembre de 2023 y preguntó si
+era un error; pidió además llamarla «brecha» y marcar fechas de la soja para
+decidir cuándo vender.
+
+- **Medido primero.** El pico es la conversión: la pizarra en pesos subió 25 %
+  tras el balotaje y se dividía por el BNA de 356,60, mientras el exportador
+  liquidaba 50 % al CCL. Con los tramos declarados, la mediana de cada régimen
+  queda entre −23 % y −37 % (tabla en la ADR). De paso: el BNA del 2023-12-07
+  vino como 384 entre 362,70 y 364,95 (el mayorista del BCRA fue 364,41); es
+  un error de la fuente, no afecta la brecha porque la pizarra estuvo «S/C».
+- **Tramos y fórmula.** `soy-export-fx-regimes-1.0.0` declara siete tramos con
+  su decreto, verificados contra cada norma; `soy-effective-basis-1.0.0` usa la
+  tasa fija o la parte del BNA comprador más el resto al CCL implícito del
+  mismo día, y nombra `missing_ccl` sin tomar otro día. El 549/2023 fue 70/30,
+  no 50/50 como se le había dicho al owner.
+- **Fechas.** `soy-market-events-1.0.0`: trece cambios de retenciones al poroto
+  desde el Decreto 37/2019, con los escalones de 2020, el 0 % del 682/2025 y
+  el cronograma del 423/2026; la cosecha de abril a junio como convención.
+- **Superficie.** `argentina-dashboard-2.2.0` pasa el CCL al bloque de soja.
+  `TimelineChart` acepta un `context` con tramos, temporadas y fechas que
+  reemplaza a los regímenes generales; la vista «Brecha» dibuja la del
+  exportador sólida y la oficial punteada; tarjeta, tabla y lectura dicen
+  «brecha», y la lectura agrega la retención vigente y, dentro de un tramo, la
+  brecha al dólar del exportador.
+
+Evidencia: 13 pruebas nuevas en `soy-basis` (tramos, borde de cada tramo,
+mezcla con el CCL del día, `missing_ccl`, nulos, cero, negativo y no finito;
+retenciones ordenadas y vigentes por día; cosecha) y 2 en el bloque; revisión
+con datos de Production y cada `POST` abortado a 1440 px claro (2A, 5A y Máx,
+lista de fechas abierta) y 390 px oscuro con toque: 0 px de desborde, sin
+`NaN` ni `undefined`, axe sin hallazgos en `#soja`. Un rótulo que se salía del
+dibujo en el teléfono ahora no se dibuja.
+
+Fuera de este slice: descomponer la brecha (retención, prima FOB, fobbing) y
+la decisión de vender o guardar (futuros de Matba-Rofex, costo de almacenaje y
+financiación) piden medir fuentes primero.
+
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
 | `F8-01` | Pipeline fiscal-aligned point-in-time de precio, market cap, net income, EPS y acciones para los filers del sector elegido, sin cargar el universo.                                   | Fase 6     | `TM-05`, `TM-06`, `TM-16` |
@@ -6523,6 +6563,7 @@ exportación y las fechas de la soja van en su propio slice.
 | `F9-11` | Resultado financiero del SPN: identidad primario − intereses declarada y versionada, o fuente vigente (Presupuesto Abierto con token) con sus derechos; una serie que el distribuidor devuelve vacía nunca se lee como cero.                                                                                                             | `F9-04`    | `TM-05`, `TM-06`, `TM-08`          |
 | `F9-13` | Cada gráfico de `/argentina` se lee punto por punto con mouse, toque y teclado; abarca toda la historia guardada con la resolución dicha; ofrece escala log en niveles, comparación entre dos puntos, gobiernos desde 1983 y regímenes con fecha y fuente, y una vista por gobierno desde la asunción, sin atribuir causas.              | `F9-12`    | `TM-12`, `TM-16`                   |
 | `F9-14` | Al recorrer un gráfico de `/argentina`, una horizontal llega al eje Y con la cifra de la serie más cercana y una etiqueta al costado del punto lista cada serie sin salirse del dibujo; mover el puntero no redibuja las series (medido con CPU 4× más lenta) y la franja sigue siendo el equivalente para teclado y lector de pantalla. | `F9-13`    | `TM-12`, `TM-16`                   |
+| `F9-15` | La brecha Rosario–Chicago se lee también al dólar que cobraba el exportador, con cada tramo declarado con su norma y el CCL del mismo día, al lado de la oficial; el gráfico marca las retenciones al poroto y la cosecha con su fuente, sin atribuir causas.                                                                            | `F9-05`    | `TM-12`, `TM-16`                   |
 
 ### Fase 10 — persistencia, asistente y hardening
 

@@ -185,6 +185,7 @@ export async function loadArgentinaDashboard(dependencies: {
       harvested: indicator("soy_area_harvested"),
       production: indicator("soy_production"),
       yieldKgHa: indicator("soy_yield"),
+      ccl,
       knownAt: readAt,
     }),
   };
