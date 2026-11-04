@@ -22,7 +22,6 @@ import {
   buildExternalBlock,
   buildFiscalBlock,
   buildMonetaryBlock,
-  dailyWindowStart,
   type ActivityBlock,
   type DollarBlock,
   type ExternalBlock,
@@ -131,9 +130,10 @@ export async function loadArgentinaDashboard(dependencies: {
     bcra(DASHBOARD_BCRA_VARIABLES.wholesaleUsd),
     bcra(DASHBOARD_BCRA_VARIABLES.bandLow),
     bcra(DASHBOARD_BCRA_VARIABLES.bandHigh),
-    readImpliedCcl(query, dependencies.adrPairs, {
-      fromOn: dailyWindowStart(today),
-    }),
+    // The whole history: the long ranges and the comparison per presidency
+    // read every month's close (`F9-13`). Twenty legs since 2000 are about
+    // 130,000 rows, below the read's ceiling of 200,000.
+    readImpliedCcl(query, dependencies.adrPairs),
     bcra(DASHBOARD_BCRA_VARIABLES.monthlyInflation),
     bcra(DASHBOARD_BCRA_VARIABLES.annualInflation),
     bcra(DASHBOARD_BCRA_VARIABLES.reserves),

@@ -7,7 +7,8 @@ import type {
 } from "@/modules/argentina-dashboard/domain/argentina-dashboard";
 
 import { DashboardBlock, DataTable } from "./block";
-import { BarSeriesChart, TimeSeriesChart, type ChartRow } from "./charts";
+import { ChartViews } from "./chart-views";
+import { GovernmentChart } from "./government-chart";
 import {
   amount,
   calendarDate,
@@ -15,8 +16,6 @@ import {
   comparisonText,
   fractionAsPoints,
   longMonth,
-  plotNumber,
-  plotScaled,
   points,
   resultWord,
   shortMonth,
@@ -24,6 +23,7 @@ import {
   signedPoints,
 } from "./format";
 import { SectorHeatmap } from "./sector-heatmap";
+import { TimelineChart, type TimelineRow } from "./timeline-chart";
 
 const NO_DATA = "Sin dato";
 
@@ -40,6 +40,40 @@ function reversed<T>(items: readonly T[]): T[] {
   return [...items].reverse();
 }
 
+function rowsOf(
+  points: readonly { readonly on: string; readonly value: string | null }[],
+  key: string,
+): TimelineRow[] {
+  return points.map((point) => ({
+    on: point.on,
+    values: { [key]: point.value },
+  }));
+}
+
+const VIEW_TIMELINE = "Línea de tiempo";
+
+/**
+ * Cómo se leen los gráficos de largo plazo: va en la metodología de cada
+ * bloque que los usa, para que la regla esté junto al dato.
+ */
+function ChartReadingNote() {
+  return (
+    <p>
+      Más allá de cinco años una serie diaria se dibuja al cierre de cada mes:
+      el último valor publicado en el mes, nunca un promedio (
+      <code className="text-xs">month-end-close-1.0.0</code>). La comparación
+      entre dos puntos es su variación porcentual para un nivel y su diferencia
+      para una tasa o un saldo (
+      <code className="text-xs">point-change-1.0.0</code>). La vista por
+      gobierno lee cada presidencia desde su asunción (
+      <code className="text-xs">government-comparison-1.0.0</code>) y las marcas
+      de gobiernos y regímenes son fechas declaradas con su fuente (
+      <code className="text-xs">argentina-timeline-1.0.0</code>).
+    </p>
+  );
+}
+const VIEW_GOVERNMENTS = "Por gobierno";
+
 export function ActivitySection({
   activity,
 }: {
@@ -47,10 +81,9 @@ export function ActivitySection({
 }) {
   const latest = activity.latest;
   const trend = new Map(activity.trend.map((point) => [point.on, point.value]));
-  const rows: ChartRow[] = activity.seasonallyAdjusted.map((point) => ({
+  const rows: TimelineRow[] = activity.seasonallyAdjusted.map((point) => ({
     on: point.on,
-    sa: plotNumber(point.value),
-    trend: plotNumber(trend.get(point.on) ?? null),
+    values: { sa: point.value, trend: trend.get(point.on) ?? null },
   }));
   const reading =
     latest === null
@@ -84,51 +117,79 @@ export function ActivitySection({
           </p>
           <p>
             Fórmulas <code className="text-xs">argentina-indicator-1.1.0</code>;
-            lectura
-            <code className="text-xs">argentina-dashboard-1.0.0</code>.
+            lectura <code className="text-xs">argentina-dashboard-2.0.0</code>.
           </p>
+          <ChartReadingNote />
         </>
       }
     >
       {rows.length === 0 ? (
         <Empty what="datos de actividad" />
       ) : (
-        <>
-          <TimeSeriesChart
-            label={`EMAE desestacionalizado y tendencia-ciclo, últimos ${rows.length} meses. ${reading}`}
-            data={rows}
-            format="index"
-            lines={[
-              {
-                key: "sa",
-                label: "Desestacionalizado",
-                color: "var(--chart-1)",
-              },
-              {
-                key: "trend",
-                label: "Tendencia-ciclo",
-                color: "var(--chart-4)",
-                dashed: true,
-              },
-            ]}
-          />
-          <DataTable
-            caption="EMAE desestacionalizado y tendencia-ciclo por mes"
-            columns={[
-              { label: "Mes" },
-              { label: "Desestacionalizado", numeric: true },
-              { label: "Tendencia-ciclo", numeric: true },
-            ]}
-            rows={reversed(activity.seasonallyAdjusted).map((point) => {
-              const trendValue = trend.get(point.on) ?? null;
-              return [
-                shortMonth(point.on),
-                point.value === null ? NO_DATA : amount(point.value, 1),
-                trendValue === null ? NO_DATA : amount(trendValue, 1),
-              ];
-            })}
-          />
-        </>
+        <ChartViews
+          label="Vista de la actividad"
+          views={[
+            {
+              id: "timeline",
+              label: VIEW_TIMELINE,
+              content: (
+                <TimelineChart
+                  key="timeline"
+                  label={`EMAE desestacionalizado y tendencia-ciclo desde ${shortMonth(rows[0]!.on)}. ${reading}`}
+                  caption="EMAE desestacionalizado y tendencia-ciclo por mes"
+                  monthly={rows}
+                  frequency="monthly"
+                  ranges={["2y", "5y", "10y", "20y", "max"]}
+                  defaultRange="5y"
+                  axis="index"
+                  allowLog
+                  series={[
+                    {
+                      key: "sa",
+                      label: "Desestacionalizado",
+                      color: "var(--chart-1)",
+                      mark: "line",
+                      format: { kind: "amount", scale: 1 },
+                      change: "ratio",
+                    },
+                    {
+                      key: "trend",
+                      label: "Tendencia-ciclo",
+                      color: "var(--chart-4)",
+                      mark: "dashed",
+                      format: { kind: "amount", scale: 1 },
+                      change: "ratio",
+                    },
+                  ]}
+                />
+              ),
+            },
+            {
+              id: "governments",
+              label: VIEW_GOVERNMENTS,
+              content: (
+                <GovernmentChart
+                  key="governments"
+                  label="EMAE desestacionalizado de cada presidencia, con 100 el mes anterior a la asunción."
+                  caption="EMAE desestacionalizado por presidencia, índice 100 el mes anterior a asumir"
+                  basis="index"
+                  basisNote="EMAE desestacionalizado, 100 = mes anterior a asumir"
+                  format={{ kind: "amount", scale: 1 }}
+                  axis="index"
+                  options={[
+                    {
+                      id: "emae",
+                      label: "EMAE",
+                      paths: activity.governments,
+                      baseFormat: { kind: "amount", scale: 1 },
+                      baseIsDay: false,
+                    },
+                  ]}
+                />
+              ),
+            },
+          ]}
+        />
       )}
       {activity.sectors.length === 0 ||
       activity.sectorMonths.length === 0 ? null : (
@@ -171,16 +232,28 @@ export function DollarSection({ dollar }: { readonly dollar: DollarBlock }) {
               ? ` El mayorista está dentro de la banda cambiaria ($ ${amount(latestBand.low, 2)} a $ ${amount(latestBand.high, 2)}).`
               : ` El mayorista está fuera de la banda cambiaria ($ ${amount(latestBand.low, 2)} a $ ${amount(latestBand.high, 2)}).`,
         ].join("");
-  const rows: ChartRow[] = dollar.days.map((day) => ({
+  const values = (day: (typeof dollar.days)[number]) => ({
+    official: day.official,
+    ccl: day.ccl,
+    bandLow: day.bandLow,
+    bandHigh: day.bandHigh,
+  });
+  const daily: TimelineRow[] = dollar.days.map((day) => ({
     on: day.on,
-    official: plotNumber(day.official),
-    ccl: plotNumber(day.ccl),
-    bandLow: plotNumber(day.bandLow),
-    bandHigh: plotNumber(day.bandHigh),
+    values: values(day),
   }));
-  const gapRows: ChartRow[] = dollar.days
+  const monthly: TimelineRow[] = dollar.months.map((month) => ({
+    on: month.on,
+    values: values(month),
+  }));
+  const gapDaily: TimelineRow[] = dollar.days
     .filter((day) => day.gap !== null)
-    .map((day) => ({ on: day.on, gap: plotNumber(day.gap) }));
+    .map((day) => ({ on: day.on, values: { gap: day.gap } }));
+  const gapMonthly: TimelineRow[] = dollar.months.map((month) => ({
+    on: month.on,
+    values: { gap: month.gap },
+  }));
+  const dollarRanges = ["1y", "2y", "5y", "10y", "20y", "max"] as const;
 
   return (
     <DashboardBlock
@@ -190,7 +263,8 @@ export function DollarSection({ dollar }: { readonly dollar: DollarBlock }) {
       provenance={
         <>
           BCRA (mayorista Com. A 3500 y bandas) y CCL implícito por diez pares
-          ADR · pesos por dólar · últimos dos años
+          ADR · pesos por dólar · diario en los últimos cinco años, al cierre de
+          cada mes antes
         </>
       }
       methodology={
@@ -210,74 +284,123 @@ export function DollarSection({ dollar }: { readonly dollar: DollarBlock }) {
             que los dos publicaron (
             <code className="text-xs">fx-gap-1.0.0</code>).
           </p>
+          <ChartReadingNote />
         </>
       }
     >
-      {rows.length === 0 ? (
+      {daily.length === 0 ? (
         <Empty what="cotizaciones" />
       ) : (
-        <>
-          <TimeSeriesChart
-            label={`Mayorista oficial, CCL implícito y bandas cambiarias, últimos dos años. ${reading}`}
-            data={rows}
-            format="pesos"
-            height="h-64"
-            lines={[
-              {
-                key: "official",
-                label: "Mayorista oficial",
-                color: "var(--chart-1)",
-              },
-              { key: "ccl", label: "CCL implícito", color: "var(--chart-3)" },
-              {
-                key: "bandHigh",
-                label: "Banda superior",
-                color: "var(--muted-foreground)",
-                dashed: true,
-              },
-              {
-                key: "bandLow",
-                label: "Banda inferior",
-                color: "var(--muted-foreground)",
-                dashed: true,
-              },
-            ]}
-          />
-          {gapRows.length === 0 ? null : (
-            <div className="flex flex-col gap-2">
-              <h3 className="text-sm font-medium">Brecha CCL / oficial</h3>
-              <TimeSeriesChart
-                label={`Brecha entre el CCL implícito y el mayorista oficial, últimos dos años.${latestGap ? ` Último dato ${fractionAsPoints(latestGap.gap)} el ${calendarDate(latestGap.on)}.` : ""}`}
-                data={gapRows}
-                format="fraction"
-                height="h-40"
-                zeroLine
-                lines={[
-                  { key: "gap", label: "Brecha", color: "var(--chart-3)" },
-                ]}
-              />
-            </div>
-          )}
-          <DataTable
-            caption="Mayorista oficial, CCL implícito, brecha y bandas por día"
-            columns={[
-              { label: "Día" },
-              { label: "Oficial", numeric: true },
-              { label: "CCL", numeric: true },
-              { label: "Brecha", numeric: true },
-              { label: "Banda inferior", numeric: true },
-              { label: "Banda superior", numeric: true },
-            ]}
-            rows={reversed(dollar.days).map((day) => [
-              calendarDate(day.on),
-              day.official === null ? NO_DATA : amount(day.official, 2),
-              day.ccl === null ? NO_DATA : amount(day.ccl, 2),
-              day.gap === null ? NO_DATA : fractionAsPoints(day.gap),
-              day.bandLow === null ? "—" : amount(day.bandLow, 2),
-              day.bandHigh === null ? "—" : amount(day.bandHigh, 2),
-            ])}
-          />
-        </>
+        <ChartViews
+          label="Vista del dólar"
+          views={[
+            {
+              id: "timeline",
+              label: VIEW_TIMELINE,
+              content: (
+                <div key="timeline" className="flex flex-col gap-6">
+                  <TimelineChart
+                    label={`Mayorista oficial, CCL implícito y bandas cambiarias. ${reading}`}
+                    caption="Mayorista oficial, CCL implícito y bandas cambiarias, en pesos por dólar"
+                    daily={daily}
+                    monthly={monthly}
+                    frequency="daily"
+                    ranges={dollarRanges}
+                    defaultRange="2y"
+                    axis="pesos"
+                    allowLog
+                    series={[
+                      {
+                        key: "official",
+                        label: "Mayorista oficial",
+                        color: "var(--chart-1)",
+                        mark: "line",
+                        format: { kind: "amount", scale: 2 },
+                        change: "ratio",
+                      },
+                      {
+                        key: "ccl",
+                        label: "CCL implícito",
+                        color: "var(--chart-3)",
+                        mark: "line",
+                        format: { kind: "amount", scale: 2 },
+                        change: "ratio",
+                      },
+                    ]}
+                    band={{
+                      lowKey: "bandLow",
+                      highKey: "bandHigh",
+                      label: "Banda cambiaria",
+                      color: "var(--muted-foreground)",
+                      format: { kind: "amount", scale: 2 },
+                    }}
+                  />
+                  {gapDaily.length === 0 ? null : (
+                    <div className="flex flex-col gap-2">
+                      <h3 className="text-sm font-medium">
+                        Brecha CCL / oficial
+                      </h3>
+                      <TimelineChart
+                        label={`Brecha entre el CCL implícito y el mayorista oficial.${latestGap ? ` Último dato ${fractionAsPoints(latestGap.gap)} el ${calendarDate(latestGap.on)}.` : ""}`}
+                        caption="Brecha entre el CCL implícito y el mayorista oficial"
+                        daily={gapDaily}
+                        monthly={gapMonthly}
+                        frequency="daily"
+                        ranges={dollarRanges}
+                        defaultRange="2y"
+                        axis="fraction"
+                        height="sm"
+                        zeroLine
+                        series={[
+                          {
+                            key: "gap",
+                            label: "Brecha",
+                            color: "var(--chart-3)",
+                            mark: "line",
+                            format: { kind: "fraction" },
+                            change: "difference",
+                          },
+                        ]}
+                      />
+                    </div>
+                  )}
+                </div>
+              ),
+            },
+            {
+              id: "governments",
+              label: VIEW_GOVERNMENTS,
+              content: (
+                <GovernmentChart
+                  key="governments"
+                  label="Dólar de cada presidencia, con 100 el último cierre anterior a la asunción."
+                  caption="Dólar por presidencia, índice 100 el último cierre anterior a asumir"
+                  basis="index"
+                  basisNote="100 = último cierre antes de asumir"
+                  format={{ kind: "amount", scale: 1 }}
+                  axis="index"
+                  allowLog
+                  options={[
+                    {
+                      id: "official",
+                      label: "Mayorista",
+                      paths: dollar.governments.official,
+                      baseFormat: { kind: "amount", scale: 2 },
+                      baseIsDay: true,
+                    },
+                    {
+                      id: "ccl",
+                      label: "CCL",
+                      paths: dollar.governments.ccl,
+                      baseFormat: { kind: "amount", scale: 2 },
+                      baseIsDay: true,
+                    },
+                  ]}
+                />
+              ),
+            },
+          ]}
+        />
       )}
     </DashboardBlock>
   );
@@ -329,56 +452,166 @@ export function MonetarySection({
             <code className="text-xs">bcra-cpi-chain-1.0.0</code>); su unidad
             nombra el mes base.
           </p>
+          <ChartReadingNote />
         </>
       }
     >
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="flex min-w-0 flex-col gap-2">
-          <h3 className="text-sm font-medium">Inflación mensual, en %</h3>
-          {monetary.monthlyInflation.length === 0 ? (
-            <Empty what="datos de inflación" />
-          ) : (
-            <BarSeriesChart
-              label={`Inflación mensual, últimos ${monetary.monthlyInflation.length} meses. ${reading}`}
-              data={monetary.monthlyInflation.map((point) => ({
-                on: point.on,
-                inflation: plotNumber(point.value),
-              }))}
-              format="points"
-              bars={[
-                {
-                  key: "inflation",
-                  label: "Inflación mensual",
-                  color: "var(--chart-1)",
-                },
-              ]}
-            />
-          )}
-        </div>
-        <div className="flex min-w-0 flex-col gap-2">
-          <h3 className="text-sm font-medium">
-            Reservas internacionales, en miles de millones de US$
-          </h3>
-          {monetary.reserves.length === 0 ? (
-            <Empty what="datos de reservas" />
-          ) : (
-            <TimeSeriesChart
-              label={`Reservas internacionales brutas, últimos dos años.${lastReserve?.value ? ` Último dato US$ ${amount(lastReserve.value)} millones el ${calendarDate(lastReserve.on)}.` : ""}`}
-              data={monetary.reserves.map((point) => ({
-                on: point.on,
-                reserves: plotScaled(point.value, 1_000),
-              }))}
-              format="decimal"
-              lines={[
-                {
-                  key: "reserves",
-                  label: "Reservas brutas",
-                  color: "var(--chart-2)",
-                },
-              ]}
-            />
-          )}
-        </div>
+      <div className="flex min-w-0 flex-col gap-2">
+        <h3 className="text-sm font-medium">Inflación</h3>
+        {monetary.monthlyInflation.length === 0 ? (
+          <Empty what="datos de inflación" />
+        ) : (
+          <ChartViews
+            label="Vista de la inflación"
+            views={[
+              {
+                id: "monthly",
+                label: "Mensual",
+                content: (
+                  <TimelineChart
+                    key="monthly"
+                    label={`Inflación mensual desde ${shortMonth(monetary.monthlyInflation[0]!.on)}. ${reading}`}
+                    caption="Inflación mensual por mes, en %"
+                    monthly={rowsOf(monetary.monthlyInflation, "inflation")}
+                    frequency="monthly"
+                    ranges={["2y", "5y", "10y", "20y", "max"]}
+                    defaultRange="2y"
+                    axis="points"
+                    series={[
+                      {
+                        key: "inflation",
+                        label: "Inflación mensual",
+                        color: "var(--chart-1)",
+                        mark: "bar",
+                        format: { kind: "points" },
+                        change: "difference",
+                      },
+                    ]}
+                  />
+                ),
+              },
+              {
+                id: "annual",
+                label: "Interanual",
+                content: (
+                  <TimelineChart
+                    key="annual"
+                    label={`Inflación interanual que publica el BCRA, mes por mes.${monetary.annualInflation?.value ? ` Último dato ${points(monetary.annualInflation.value)} en ${shortMonth(monetary.annualInflation.on)}.` : ""}`}
+                    caption="Inflación interanual por mes, en %"
+                    monthly={rowsOf(monetary.annualInflationSeries, "annual")}
+                    frequency="monthly"
+                    ranges={["2y", "5y", "10y", "20y", "max"]}
+                    defaultRange="10y"
+                    axis="points"
+                    allowLog
+                    series={[
+                      {
+                        key: "annual",
+                        label: "Inflación interanual",
+                        color: "var(--chart-1)",
+                        mark: "line",
+                        format: { kind: "points" },
+                        change: "difference",
+                      },
+                    ]}
+                  />
+                ),
+              },
+              {
+                id: "governments",
+                label: VIEW_GOVERNMENTS,
+                content: (
+                  <GovernmentChart
+                    key="governments"
+                    label="Precios acumulados de cada presidencia desde la asunción, con 100 el mes anterior."
+                    caption="Nivel de precios por presidencia, índice 100 el mes anterior a asumir"
+                    basis="cumulative_rate"
+                    basisNote="Precios, 100 = mes anterior a asumir"
+                    format={{ kind: "amount", scale: 1 }}
+                    axis="index"
+                    allowLog
+                    options={[
+                      {
+                        id: "prices",
+                        label: "Precios",
+                        paths: monetary.governments.prices,
+                        baseFormat: { kind: "points" },
+                        baseIsDay: false,
+                      },
+                    ]}
+                  />
+                ),
+              },
+            ]}
+          />
+        )}
+      </div>
+      <div className="flex min-w-0 flex-col gap-2">
+        <h3 className="text-sm font-medium">
+          Reservas internacionales brutas, en miles de millones de US$
+        </h3>
+        {monetary.reserves.length === 0 ? (
+          <Empty what="datos de reservas" />
+        ) : (
+          <ChartViews
+            label="Vista de las reservas"
+            views={[
+              {
+                id: "timeline",
+                label: VIEW_TIMELINE,
+                content: (
+                  <TimelineChart
+                    key="timeline"
+                    label={`Reservas internacionales brutas.${lastReserve?.value ? ` Último dato US$ ${amount(lastReserve.value)} millones el ${calendarDate(lastReserve.on)}.` : ""}`}
+                    caption="Reservas internacionales brutas, en millones de US$"
+                    daily={rowsOf(monetary.reserves, "reserves")}
+                    monthly={rowsOf(monetary.reserveMonths, "reserves")}
+                    frequency="daily"
+                    ranges={["1y", "2y", "5y", "10y", "20y", "max"]}
+                    defaultRange="2y"
+                    axis="decimal"
+                    allowLog
+                    series={[
+                      {
+                        key: "reserves",
+                        label: "Reservas brutas, US$ M",
+                        color: "var(--chart-2)",
+                        mark: "line",
+                        format: { kind: "amount" },
+                        change: "ratio",
+                        divisor: 1_000,
+                      },
+                    ]}
+                  />
+                ),
+              },
+              {
+                id: "governments",
+                label: VIEW_GOVERNMENTS,
+                content: (
+                  <GovernmentChart
+                    key="governments"
+                    label="Reservas ganadas o perdidas por cada presidencia desde el último día antes de asumir, en millones de US$."
+                    caption="Variación de reservas por presidencia, en millones de US$ contra el último día antes de asumir"
+                    basis="difference"
+                    basisNote="Diferencia en US$ M contra el último día antes de asumir"
+                    format={{ kind: "signedAmount" }}
+                    axis="millions"
+                    options={[
+                      {
+                        id: "reserves",
+                        label: "Reservas",
+                        paths: monetary.governments.reserves,
+                        baseFormat: { kind: "amount" },
+                        baseIsDay: true,
+                      },
+                    ]}
+                  />
+                ),
+              },
+            ]}
+          />
+        )}
       </div>
       {monetary.realBase.length === 0 ? null : (
         <div className="flex min-w-0 flex-col gap-2">
@@ -388,35 +621,30 @@ export function MonetarySection({
               ? ` de ${longMonth(`${monetary.realBaseOn.slice(0, 7)}-01`)}`
               : null}
           </h3>
-          <TimeSeriesChart
-            label="Base monetaria en pesos constantes, últimos cinco años."
-            data={monetary.realBase.map((point) => ({
-              on: point.on,
-              base: plotScaled(point.value, 1_000_000),
-            }))}
-            format="decimal"
-            height="h-40"
-            lines={[
+          <TimelineChart
+            label="Base monetaria en pesos constantes."
+            caption="Base monetaria real, en millones de pesos constantes"
+            monthly={rowsOf(monetary.realBase, "base")}
+            frequency="monthly"
+            ranges={["2y", "5y", "10y", "20y", "max"]}
+            defaultRange="5y"
+            axis="decimal"
+            height="sm"
+            allowLog
+            series={[
               {
                 key: "base",
-                label: "Base monetaria real",
+                label: "Base monetaria real, $ M",
                 color: "var(--chart-1)",
+                mark: "line",
+                format: { kind: "amount" },
+                change: "ratio",
+                divisor: 1_000_000,
               },
             ]}
           />
         </div>
       )}
-      <DataTable
-        caption="Inflación mensual por mes"
-        columns={[
-          { label: "Mes" },
-          { label: "Inflación mensual", numeric: true },
-        ]}
-        rows={reversed(monetary.monthlyInflation).map((point) => [
-          shortMonth(point.on),
-          point.value === null ? NO_DATA : points(point.value),
-        ])}
-      />
     </DashboardBlock>
   );
 }
@@ -458,6 +686,7 @@ export function FiscalSection({ fiscal }: { readonly fiscal: FiscalBlock }) {
             todavía: el distribuidor publica su serie vacía y derivarlo es una
             decisión pendiente (<code className="text-xs">F9-11</code>).
           </p>
+          <ChartReadingNote />
         </>
       }
     >
@@ -465,31 +694,42 @@ export function FiscalSection({ fiscal }: { readonly fiscal: FiscalBlock }) {
         <Empty what="resultados fiscales" />
       ) : (
         <>
-          <BarSeriesChart
+          <TimelineChart
             label={`Resultado primario e intereses netos en % del PIB, ${fiscal.years[0]!.year} a ${lastYear!.year}. ${reading}`}
-            category="year"
-            data={fiscal.years.map((year) => ({
-              on: String(year.year),
-              primary:
-                year.primary.status === "computed"
-                  ? plotNumber(year.primary.value)
-                  : null,
-              interest:
-                year.interest.status === "computed"
-                  ? plotNumber(year.interest.value)
-                  : null,
+            caption="Resultado primario e intereses netos en % del PIB por año"
+            monthly={fiscal.years.map((year) => ({
+              on: `${year.year}-01-01`,
+              values: {
+                primary:
+                  year.primary.status === "computed"
+                    ? year.primary.value
+                    : null,
+                interest:
+                  year.interest.status === "computed"
+                    ? year.interest.value
+                    : null,
+              },
             }))}
-            format="points"
-            bars={[
+            frequency="annual"
+            ranges={["max"]}
+            axis="points"
+            showTable={false}
+            series={[
               {
                 key: "primary",
                 label: "Resultado primario",
                 color: "var(--chart-1)",
+                mark: "bar",
+                format: { kind: "signedPoints", scale: 2 },
+                change: "difference",
               },
               {
                 key: "interest",
                 label: "Intereses netos",
                 color: "var(--chart-3)",
+                mark: "bar",
+                format: { kind: "points", scale: 2 },
+                change: "difference",
               },
             ]}
           />
@@ -537,8 +777,7 @@ export function ExternalSection({
       provenance={
         <>
           INDEC, Intercambio Comercial Argentino, vía Series de Tiempo ·
-          millones de US$ · exportaciones FOB, importaciones CIF · últimos tres
-          años
+          millones de US$ · exportaciones FOB, importaciones CIF · toda la serie
         </>
       }
       methodology={
@@ -552,6 +791,7 @@ export function ExternalSection({
             La composición por rubro, uso económico y destino llega con
             <code className="text-xs">F9-09</code>, desde el INDEC directo.
           </p>
+          <ChartReadingNote />
         </>
       }
     >
@@ -559,50 +799,86 @@ export function ExternalSection({
         <Empty what="datos de comercio exterior" />
       ) : (
         <>
-          <BarSeriesChart
-            label={`Exportaciones, importaciones y saldo comercial mensual, últimos ${external.months.length} meses. ${reading}`}
-            data={external.months.map((month) => ({
-              on: month.on,
-              exports: plotNumber(month.exports),
-              imports: plotNumber(month.imports),
-              balance:
-                month.balance.status === "computed"
-                  ? plotNumber(month.balance.value)
-                  : null,
-            }))}
-            format="millions"
-            bars={[
+          <ChartViews
+            label="Vista del comercio exterior"
+            views={[
               {
-                key: "exports",
-                label: "Exportaciones",
-                color: "var(--chart-2)",
+                id: "timeline",
+                label: VIEW_TIMELINE,
+                content: (
+                  <TimelineChart
+                    key="timeline"
+                    label={`Exportaciones, importaciones y saldo comercial mensual desde ${shortMonth(external.months[0]!.on)}. ${reading}`}
+                    caption="Exportaciones, importaciones y saldo comercial por mes, en millones de US$"
+                    monthly={external.months.map((month) => ({
+                      on: month.on,
+                      values: {
+                        exports: month.exports,
+                        imports: month.imports,
+                        balance:
+                          month.balance.status === "computed"
+                            ? month.balance.value
+                            : null,
+                      },
+                    }))}
+                    frequency="monthly"
+                    ranges={["2y", "3y", "5y", "10y", "20y", "max"]}
+                    defaultRange="3y"
+                    axis="millions"
+                    series={[
+                      {
+                        key: "balance",
+                        label: "Saldo",
+                        color: "var(--chart-1)",
+                        mark: "bar",
+                        format: { kind: "signedAmount" },
+                        change: "difference",
+                      },
+                      {
+                        key: "exports",
+                        label: "Exportaciones",
+                        color: "var(--chart-2)",
+                        mark: "line",
+                        format: { kind: "amount" },
+                        change: "ratio",
+                      },
+                      {
+                        key: "imports",
+                        label: "Importaciones",
+                        color: "var(--chart-4)",
+                        mark: "dashed",
+                        format: { kind: "amount" },
+                        change: "ratio",
+                      },
+                    ]}
+                  />
+                ),
               },
               {
-                key: "imports",
-                label: "Importaciones",
-                color: "var(--chart-4)",
+                id: "governments",
+                label: VIEW_GOVERNMENTS,
+                content: (
+                  <GovernmentChart
+                    key="governments"
+                    label="Saldo comercial acumulado por cada presidencia desde el mes de asunción, en millones de US$."
+                    caption="Saldo comercial acumulado por presidencia, en millones de US$"
+                    basis="cumulative_sum"
+                    basisNote="Saldo acumulado desde el mes de asunción, US$ M"
+                    format={{ kind: "signedAmount" }}
+                    axis="millions"
+                    options={[
+                      {
+                        id: "balance",
+                        label: "Saldo",
+                        paths: external.governments,
+                        baseFormat: { kind: "signedAmount" },
+                        baseIsDay: false,
+                      },
+                    ]}
+                  />
+                ),
               },
             ]}
-            line={{
-              key: "balance",
-              label: "Saldo",
-              color: "var(--foreground)",
-            }}
-          />
-          <DataTable
-            caption="Exportaciones, importaciones y saldo comercial por mes, en millones de US$"
-            columns={[
-              { label: "Mes" },
-              { label: "Exportaciones", numeric: true },
-              { label: "Importaciones", numeric: true },
-              { label: "Saldo", numeric: true },
-            ]}
-            rows={reversed(external.months).map((month) => [
-              shortMonth(month.on),
-              month.exports === null ? NO_DATA : amount(month.exports),
-              month.imports === null ? NO_DATA : amount(month.imports),
-              comparisonText(month.balance, (value) => signedAmount(value)),
-            ])}
           />
         </>
       )}

@@ -114,6 +114,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    86 | `F9-10`    | `queued`   | Producción de petróleo y gas por pozo (Capítulo IV) agregada por empresa y cuenca, enlazada a las entidades del grafo.                                                                                                    |
 |    87 | `F9-11`    | `queued`   | Resultado financiero y ejecución presupuestaria con fuente vigente o identidad declarada, nunca una serie vacía leída como cero.                                                                                          | `F9-07`          |
 |    88 | `F9-12`    | `done`     | `/argentina` se actualiza sola al abrirse: un job durable por fuente con sólo lo atrasado según su cadencia, progreso visible y fallas con «Reintentar».                                                                  |
+|    89 | `F9-13`    | `done`     | `/argentina` se recorre: lectura por punto con mouse, toque y teclado, rangos hasta toda la historia con cierre de mes, escala log, comparación A→B, gobiernos y regímenes fechados y vista por gobierno.                 | `F9-12`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -6245,6 +6246,74 @@ recargada; segunda visita, ningún job ni request.
 
 Sigue `F9-05` o `F9-08`, a elección del owner.
 
+**`F9-13`, 2026-11-03.** Estado: `done`. Antes de seguir con la soja, el
+owner pidió gráficos más útiles: ver el valor del punto que se toca, ir más
+atrás en el tiempo, otra vista para los rangos largos, y comparar momentos
+históricos, gobiernos y hechos importantes. Decidió marcar gobiernos desde 1983
+y regímenes, y meter la vista por gobierno en este mismo slice.
+
+- **Lectura.** `argentina-dashboard-2.0.0` manda cada serie mensual completa;
+  una diaria va día por día en sus últimos cinco años y al cierre de cada mes
+  en toda su historia (`month-end-close-1.0.0`: el último valor publicado del
+  mes, nunca un promedio). El CCL se lee completo (unas 130 mil filas, debajo
+  del techo de 200 mil de la lectura).
+- **Contexto.** `argentina-timeline-1.0.0` declara doce presidencias desde
+  1983, con los tres interinatos de 2001 juntos, y cinco regímenes
+  (convertibilidad, INDEC intervenido, los dos cepos y las bandas), cada uno
+  con su norma. Los cepos usan las mismas fechas que
+  `declared-transformation-caveats-1.0.0`.
+- **Comparación.** `point-change-1.0.0` compara un nivel por su cociente, con
+  base estrictamente positiva, y una tasa o un saldo por su diferencia.
+  `government-comparison-1.0.0` lee cada presidencia desde su asunción: la base
+  es el último cierre previo, o el mes previo en una serie mensual; el mes de
+  asunción cuenta para quien asume; las bases son índice, diferencia, tasa
+  encadenada o suma acumulada; un hueco corta la línea, y en un acumulado la
+  termina. Los interinatos quedan afuera.
+- **Superficie.** `TimelineChart` tiene rangos de 1A a Máx, «Diario» o «Cierre
+  de cada mes» a la vista, escala lineal o log (deshabilitada y explicada si hay
+  valores ≤ 0), «Comparar dos puntos», gobiernos y regímenes que se pueden
+  ocultar, una tabla del rango visible y una lista de las marcas con su fuente.
+  `GovernmentChart` permite elegir hasta seis gobiernos, con el nombre al final
+  de cada línea. Las vistas por bloque: actividad, dólar (mayorista o CCL),
+  precios acumulados, reservas ganadas o perdidas y saldo comercial acumulado;
+  la inflación suma «Interanual». Comercio pasó a líneas de exportaciones e
+  importaciones sobre barras de saldo. La proyección de la valuación ganó
+  lectura por año. Reemplaza la regla de `F9-06` «Recharts sin tooltip».
+
+Evidencia: 38 pruebas del módulo y la suite completa de 3.619 unit pasan;
+formato, lint, tipos, build y `test:e2e` (238 pasan, 3 omitidos) también. La
+superficie se revisó sobre una página temporal con datos sintéticos que pasan
+por los mismos builders, a 1440 px en claro y 390 px en oscuro: 0 px de
+desborde, ningún `NaN` ni `undefined`, axe sin serious ni critical.
+
+Revisión con datos reales (autorizada por el owner el 2026-11-03): el build se
+sirvió contra el Neon de Production desde este host, con cada `POST` abortado
+para que la actualización al abrir no escribiera. La página pesa 1,1 MB de HTML
+(193 kB comprimido; el panel serializado son 644 kB, 281 kB de ellos el dólar)
+y tarda 22–32 s desde acá: el pool de runtime tiene una sola conexión, así que
+las lecturas «en paralelo» van en fila a ~450 ms por ida y vuelta, y el CCL
+completo cuesta 4,3 s contra 2,4 s de la ventana de dos años, unos 2 s más en
+total. En `iad1`, al lado de Neon, esa latencia desaparece. Con 0 px de
+desborde, sin choques de rótulos ni texto inválido, salieron cuatro defectos
+que la vista sintética no tenía, todos corregidos:
+
+- La línea diaria y la banda cambiaria se cortaban en cada día que publicó una
+  serie y no la otra (las filas son la unión de fechas). Ahora un trazo diario
+  cruza nulos entre dos datos a lo sumo a una semana; un hueco mayor sigue
+  cortado, y la lectura y la tabla siguen diciendo «Sin dato».
+- Los ejes marcaban 3,7 %, 26,6 % o pasos de 350: `linearTicks` da pasos de 1,
+  2, 2,5 o 5 por potencia de diez y el dominio va del primero al último.
+- La base monetaria real abría en «oct 2026 · Sin dato», un mes sin IPC
+  todavía: sin punto activo se lee el último que tiene alguna cifra.
+- «Comparar dos puntos» fijaba el punto anterior al tocado, y el primero si el
+  índice venía nulo: el índice de Recharts en el click es el de su último
+  movimiento y `Number(null)` es 0. El punto sale ahora de la posición del
+  puntero; las otras dos lecturas ignoran el índice nulo.
+
+Con eso los puntos fijados caen donde se tocan (A 2004 y B 2024 a 1440 px; un
+toque a 390 px). Axe sólo deja `region` moderado sobre la sidebar, que ya
+estaba y no es de este slice. 3.623 unit y `test:e2e` (238) pasan.
+
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
 | `F8-01` | Pipeline fiscal-aligned point-in-time de precio, market cap, net income, EPS y acciones para los filers del sector elegido, sin cargar el universo.                                   | Fase 6     | `TM-05`, `TM-06`, `TM-16` |
@@ -6254,19 +6323,20 @@ Sigue `F9-05` o `F9-08`, a elección del owner.
 
 ### Fase 9 — Argentina, BCRA y soja
 
-| Issue   | Resultado y aceptación mínima                                                                                                                                                                                                                                                                            | Depende de | Controles                          |
-| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------- |
-| `F9-01` | Catálogo/vintages BCRA v4 falla seguro ante cambios de schema y conserva release, unidad, frecuencia y revisión.                                                                                                                                                                                         | Fase 8     | `TM-05`, `TM-08`, `TM-10`, `TM-11` |
-| `F9-02` | Nominal y monetario publican transformaciones auditables y fechas propias por serie.                                                                                                                                                                                                                     | `F9-01`    | `TM-05`, `TM-06`                   |
-| `F9-03` | Cambiario usa fuentes oficiales con fecha propia por serie.                                                                                                                                                                                                                                              | `F9-02`    | `TM-05`                            |
-| `F9-04` | Actividad, fiscal y externo preservan revisiones, quiebres, base, estacionalidad y denominadores compatibles.                                                                                                                                                                                            | `F9-03`    | `TM-05`, `TM-06`                   |
-| `F9-05` | Rosario/Chicago identifica contrato, roll, FX y conversión antes de calcular basis; el volumen de soja sale de las estimaciones agrícolas del Ministerio de Agricultura (CC BY 4.0).                                                                                                                     | `F9-04`    | `TM-05`, `TM-08`                   |
-| `F9-06` | Cada bloque cierra con gráfico, tabla accesible, freshness, metodología y lectura sin causalidad inventada. El bloque de soja entra cuando `F9-05` cierre.                                                                                                                                               | `F9-04`    | `TM-12`, `TM-16`                   |
-| `F9-07` | CCL implícito por ADR con ratio declarado y verificado; dólar oficial y dólar CCL lado a lado con la brecha.                                                                                                                                                                                             | `F9-03`    | `TM-05`, `TM-08`, `TM-10`          |
-| `F9-08` | Servicios del INDEC declarados uno por uno (IPC por componente y región, índice de salarios, CBA/CBT, IPI manufacturero y minero, ICC, SIPM) con perfil cerrado, filtros y signos; la última variación publicada concilia con la calculada; el IPC del INDEC no reemplaza la cadena del BCRA desde 1943. | `F9-04`    | `TM-05`, `TM-08`, `TM-10`          |
-| `F9-09` | Exportaciones por rubro y destino e importaciones por uso económico y origen desde el INDEC: participaciones sobre las celdas publicadas, celdas `s` y rubro confidencial contados y visibles, el total publicado del ICA al lado y nunca reemplazado por la suma.                                       | `F9-04`    | `TM-05`, `TM-08`                   |
-| `F9-10` | Producción mensual por pozo del Capítulo IV de la Secretaría de Energía (CKAN, CC BY 4.0) agregada por operadora y cuenca, con la operadora resuelta a una entidad del grafo por declaración, nunca por nombre aproximado.                                                                               | `F9-04`    | `TM-05`, `TM-08`, `TM-10`          |
-| `F9-11` | Resultado financiero del SPN: identidad primario − intereses declarada y versionada, o fuente vigente (Presupuesto Abierto con token) con sus derechos; una serie que el distribuidor devuelve vacía nunca se lee como cero.                                                                             | `F9-04`    | `TM-05`, `TM-06`, `TM-08`          |
+| Issue   | Resultado y aceptación mínima                                                                                                                                                                                                                                                                                               | Depende de | Controles                          |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------- |
+| `F9-01` | Catálogo/vintages BCRA v4 falla seguro ante cambios de schema y conserva release, unidad, frecuencia y revisión.                                                                                                                                                                                                            | Fase 8     | `TM-05`, `TM-08`, `TM-10`, `TM-11` |
+| `F9-02` | Nominal y monetario publican transformaciones auditables y fechas propias por serie.                                                                                                                                                                                                                                        | `F9-01`    | `TM-05`, `TM-06`                   |
+| `F9-03` | Cambiario usa fuentes oficiales con fecha propia por serie.                                                                                                                                                                                                                                                                 | `F9-02`    | `TM-05`                            |
+| `F9-04` | Actividad, fiscal y externo preservan revisiones, quiebres, base, estacionalidad y denominadores compatibles.                                                                                                                                                                                                               | `F9-03`    | `TM-05`, `TM-06`                   |
+| `F9-05` | Rosario/Chicago identifica contrato, roll, FX y conversión antes de calcular basis; el volumen de soja sale de las estimaciones agrícolas del Ministerio de Agricultura (CC BY 4.0).                                                                                                                                        | `F9-04`    | `TM-05`, `TM-08`                   |
+| `F9-06` | Cada bloque cierra con gráfico, tabla accesible, freshness, metodología y lectura sin causalidad inventada. El bloque de soja entra cuando `F9-05` cierre.                                                                                                                                                                  | `F9-04`    | `TM-12`, `TM-16`                   |
+| `F9-07` | CCL implícito por ADR con ratio declarado y verificado; dólar oficial y dólar CCL lado a lado con la brecha.                                                                                                                                                                                                                | `F9-03`    | `TM-05`, `TM-08`, `TM-10`          |
+| `F9-08` | Servicios del INDEC declarados uno por uno (IPC por componente y región, índice de salarios, CBA/CBT, IPI manufacturero y minero, ICC, SIPM) con perfil cerrado, filtros y signos; la última variación publicada concilia con la calculada; el IPC del INDEC no reemplaza la cadena del BCRA desde 1943.                    | `F9-04`    | `TM-05`, `TM-08`, `TM-10`          |
+| `F9-09` | Exportaciones por rubro y destino e importaciones por uso económico y origen desde el INDEC: participaciones sobre las celdas publicadas, celdas `s` y rubro confidencial contados y visibles, el total publicado del ICA al lado y nunca reemplazado por la suma.                                                          | `F9-04`    | `TM-05`, `TM-08`                   |
+| `F9-10` | Producción mensual por pozo del Capítulo IV de la Secretaría de Energía (CKAN, CC BY 4.0) agregada por operadora y cuenca, con la operadora resuelta a una entidad del grafo por declaración, nunca por nombre aproximado.                                                                                                  | `F9-04`    | `TM-05`, `TM-08`, `TM-10`          |
+| `F9-11` | Resultado financiero del SPN: identidad primario − intereses declarada y versionada, o fuente vigente (Presupuesto Abierto con token) con sus derechos; una serie que el distribuidor devuelve vacía nunca se lee como cero.                                                                                                | `F9-04`    | `TM-05`, `TM-06`, `TM-08`          |
+| `F9-13` | Cada gráfico de `/argentina` se lee punto por punto con mouse, toque y teclado; abarca toda la historia guardada con la resolución dicha; ofrece escala log en niveles, comparación entre dos puntos, gobiernos desde 1983 y regímenes con fecha y fuente, y una vista por gobierno desde la asunción, sin atribuir causas. | `F9-12`    | `TM-12`, `TM-16`                   |
 
 ### Fase 10 — persistencia, asistente y hardening
 
