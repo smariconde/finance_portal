@@ -187,8 +187,11 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
             </figcaption>
             <ProjectionChart
               label={`Flujo de caja libre proyectado: ${compact(chain.firstYear.fcff)} en el año 1 y ${compact(chain.lastYear.fcff)} en el año ${chain.explicitYears}. Traídos a hoy, los ${chain.explicitYears} años suman ${compact(chain.explicitPresentValue)}.`}
+              unit={projectionUnit}
               years={projection.map((period) => ({
                 year: `Año ${period.periodIndex}`,
+                fcffLabel: inProjection(period.fcff),
+                presentValueLabel: inProjection(period.presentValue),
                 fcff: Number(period.fcff) / 10 ** projectionMagnitude.exponent,
                 presentValue:
                   Number(period.presentValue) /

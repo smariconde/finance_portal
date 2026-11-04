@@ -1,0 +1,1035 @@
+"use client";
+
+import { X } from "lucide-react";
+import { useId, useState, type KeyboardEvent } from "react";
+import {
+  Area,
+  Bar,
+  CartesianGrid,
+  ComposedChart,
+  Line,
+  ReferenceLine,
+  XAxis,
+  YAxis,
+  usePlotArea,
+  useXAxisScale,
+  useYAxisScale,
+  type MouseHandlerDataParam,
+} from "recharts";
+
+import { InfoTip } from "@/app/_components/info-tip";
+import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { cn } from "@/lib/utils";
+import {
+  PRESIDENTIAL_TERMS_SOURCE,
+  regimesOverlapping,
+  termOn,
+  termsOverlapping,
+} from "@/modules/argentina-dashboard/domain/argentina-timeline";
+import {
+  pointChange,
+  type ChangeKind,
+} from "@/modules/argentina-dashboard/domain/chart-history";
+
+import { Fold } from "./block";
+import {
+  axisLabel,
+  ChartToolbar,
+  dateOf,
+  dayNumber,
+  formatValue,
+  logTicks,
+  periodLabel,
+  Segmented,
+  Swatch,
+  timeTicks,
+  type AxisFormat,
+  type LegendItem,
+  type ValueFormat,
+} from "./chart-kit";
+import { calendarDate, fractionAsPoints, signedAmount } from "./format";
+
+export type TimelineSeries = {
+  readonly key: string;
+  readonly label: string;
+  readonly color: string;
+  readonly mark: "line" | "dashed" | "bar";
+  /** Cómo se escribe la cifra en la lectura y en la tabla. */
+  readonly format: ValueFormat;
+  /** Un nivel cambia por su cociente; una tasa o un saldo, por su diferencia. */
+  readonly change: ChangeKind;
+  /** Sólo para el dibujo: la unidad del eje la dice el título. */
+  readonly divisor?: number;
+};
+
+/** Una banda sombreada entre dos claves de la fila, como las cambiarias. */
+export type TimelineBand = {
+  readonly lowKey: string;
+  readonly highKey: string;
+  readonly label: string;
+  readonly color: string;
+  readonly format: ValueFormat;
+};
+
+export type TimelineRow = {
+  readonly on: string;
+  readonly values: Readonly<Record<string, string | null>>;
+};
+
+export type RangeId = "1y" | "2y" | "3y" | "5y" | "10y" | "20y" | "max";
+
+const RANGE_YEARS: Record<RangeId, number> = {
+  "1y": 1,
+  "2y": 2,
+  "3y": 3,
+  "5y": 5,
+  "10y": 10,
+  "20y": 20,
+  max: Number.POSITIVE_INFINITY,
+};
+
+const RANGE_LABEL: Record<RangeId, string> = {
+  "1y": "1A",
+  "2y": "2A",
+  "3y": "3A",
+  "5y": "5A",
+  "10y": "10A",
+  "20y": "20A",
+  max: "Máx",
+};
+
+/** Hasta cinco años, una serie diaria se dibuja día por día. */
+const DAILY_MAX_YEARS = 5;
+
+const HEIGHT = { sm: "h-56", md: "h-72", lg: "h-80" } as const;
+
+type Resolution = "daily" | "month_end" | "monthly" | "annual";
+
+type PlotRow = {
+  readonly t: number;
+  readonly on: string;
+  readonly [key: string]: number | string | null | readonly number[];
+};
+
+function yearsBefore(on: string, years: number): string {
+  if (!Number.isFinite(years)) return "0000-01-01";
+  const date = new Date(`${on}T00:00:00Z`);
+  date.setUTCFullYear(date.getUTCFullYear() - years);
+  return date.toISOString().slice(0, 10);
+}
+
+function elapsed(fromOn: string, toOn: string): string {
+  const [fy, fm, fd] = fromOn.split("-").map(Number) as [
+    number,
+    number,
+    number,
+  ];
+  const [ty, tm, td] = toOn.split("-").map(Number) as [number, number, number];
+  const days = Math.round(dayNumber(toOn) - dayNumber(fromOn));
+  if (Math.abs(days) < 90) return `${days} días`;
+  let months = (ty - fy) * 12 + (tm - fm) - (td < fd ? 1 : 0);
+  const years = Math.floor(months / 12);
+  months -= years * 12;
+  const parts = [
+    years > 0 ? `${years} ${years === 1 ? "año" : "años"}` : null,
+    months > 0 ? `${months} ${months === 1 ? "mes" : "meses"}` : null,
+  ].filter(Boolean);
+  return parts.join(" y ") || "menos de un mes";
+}
+
+function changeText(
+  from: string | null,
+  to: string | null,
+  series: TimelineSeries,
+): string {
+  const change = pointChange(from, to, series.change);
+  if (change.status === "unavailable") {
+    return change.reason === "missing_value" ? "Sin dato" : "Base no positiva";
+  }
+  if (series.change === "ratio") return fractionAsPoints(change.value);
+  switch (series.format.kind) {
+    case "points":
+    case "signedPoints":
+      return `${signedAmount(change.value, series.format.scale ?? 1)} pp`;
+    case "fraction":
+      return fractionAsPoints(change.value).replace(" %", " pp");
+    default:
+      return signedAmount(change.value, series.format.scale ?? 0);
+  }
+}
+
+function compareNote(series: readonly TimelineSeries[]): string {
+  const ratio = series.some((item) => item.change === "ratio");
+  const difference = series.some((item) => item.change === "difference");
+  const rule =
+    ratio && difference
+      ? "Un nivel se compara por su variación porcentual; una tasa o un saldo, por su diferencia (pp son puntos porcentuales)."
+      : ratio
+        ? "Se compara la variación porcentual entre los dos puntos."
+        : "Se compara la diferencia entre los dos puntos (pp son puntos porcentuales).";
+  return `${rule} Describe el cambio entre dos fechas; no dice por qué ocurrió.`;
+}
+
+/**
+ * La capa de contexto: gobiernos como franjas alternadas con su nombre arriba
+ * y regímenes como barras sobre el área del gráfico. Va por encima del
+ * margen superior, así nunca tapa la serie. Sólo ubica fechas declaradas.
+ */
+function MarksLayer({
+  fromOn,
+  toOn,
+}: {
+  readonly fromOn: string;
+  readonly toOn: string;
+}) {
+  const xScale = useXAxisScale();
+  const plot = usePlotArea();
+  if (xScale === undefined || plot === undefined) return null;
+  const x = (on: string) => {
+    const clamped = on < fromOn ? fromOn : on > toOn ? toOn : on;
+    return Number(xScale(dayNumber(clamped)));
+  };
+  const terms = termsOverlapping(fromOn, toOn);
+  const regimes = regimesOverlapping(fromOn, toOn);
+
+  return (
+    <g aria-hidden="true" className="pointer-events-none">
+      {terms.map((term, index) => {
+        const left = x(term.from);
+        const right = x(term.to ?? toOn);
+        const width = right - left;
+        if (!(width > 0)) return null;
+        const fits = width >= term.label.length * 6 + 10;
+        return (
+          <g key={term.id}>
+            {index % 2 === 0 ? null : (
+              <rect
+                x={left}
+                y={plot.y}
+                width={width}
+                height={plot.height}
+                fill="var(--muted-foreground)"
+                fillOpacity={0.07}
+              />
+            )}
+            {term.from >= fromOn ? (
+              <line
+                x1={left}
+                x2={left}
+                y1={plot.y - 14}
+                y2={plot.y + plot.height}
+                stroke="var(--muted-foreground)"
+                strokeOpacity={0.45}
+                strokeDasharray="2 3"
+              />
+            ) : null}
+            {fits ? (
+              <text
+                x={left + 4}
+                y={plot.y - 4}
+                className="fill-muted-foreground text-[10px]"
+              >
+                {term.label}
+              </text>
+            ) : null}
+          </g>
+        );
+      })}
+      {regimes.map((regime) => {
+        const left = x(regime.from);
+        const right = x(regime.to ?? toOn);
+        const width = right - left;
+        if (!(width > 1)) return null;
+        // El INDEC intervenido se superpone con el primer cepo: otro carril.
+        const lane = regime.id === "indec-intervention" ? 1 : 0;
+        const y = plot.y - 36;
+        const fits = width >= regime.label.length * 5.6 + 8;
+        return (
+          <g key={regime.id}>
+            <rect
+              x={left}
+              y={y + lane * 11}
+              width={width}
+              height={9}
+              rx={2}
+              fill={lane === 0 ? "var(--chart-3)" : "var(--chart-4)"}
+              fillOpacity={0.22}
+            />
+            {fits ? (
+              <text
+                x={left + 3}
+                y={y + lane * 11 + 7.5}
+                className="fill-foreground text-[9px]"
+              >
+                {regime.label}
+              </text>
+            ) : null}
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+/** Los puntos activos y fijados, dibujados con las mismas escalas. */
+function ActiveDots({
+  rows,
+  series,
+  active,
+}: {
+  readonly rows: readonly PlotRow[];
+  readonly series: readonly TimelineSeries[];
+  readonly active: readonly number[];
+}) {
+  const xScale = useXAxisScale();
+  const yScale = useYAxisScale();
+  if (xScale === undefined || yScale === undefined) return null;
+  return (
+    <g aria-hidden="true" className="pointer-events-none">
+      {active.map((index) => {
+        const row = rows[index];
+        if (row === undefined) return null;
+        return series
+          .filter((item) => item.mark !== "bar")
+          .map((item) => {
+            const value = row[item.key];
+            if (typeof value !== "number") return null;
+            const cx = Number(xScale(row.t));
+            const cy = Number(yScale(value));
+            if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null;
+            return (
+              <circle
+                key={`${index}-${item.key}`}
+                cx={cx}
+                cy={cy}
+                r={4}
+                fill="var(--card)"
+                stroke={item.color}
+                strokeWidth={2}
+              />
+            );
+          });
+      })}
+    </g>
+  );
+}
+
+/**
+ * Una serie de tiempo que se recorre (`F9-13`): la cifra de cualquier punto
+ * con mouse, toque o flechas; rangos de un año a toda la historia, con la
+ * resolución dicha a la vista; escala lineal o logarítmica; dos puntos
+ * fijados que se comparan; y detrás, los gobiernos y los regímenes con su
+ * fecha. Un punto sin dato corta la línea. La tabla plegada tiene las mismas
+ * filas que el rango a la vista.
+ */
+export function TimelineChart({
+  label,
+  series,
+  band,
+  daily,
+  monthly,
+  frequency,
+  ranges = ["2y", "5y", "10y", "max"],
+  defaultRange,
+  axis,
+  zeroLine = false,
+  allowLog = false,
+  height = "md",
+  caption,
+  showTable = true,
+}: {
+  /** El nombre accesible: qué muestra y la lectura en una frase. */
+  readonly label: string;
+  readonly series: readonly TimelineSeries[];
+  readonly band?: TimelineBand;
+  /** Las filas diarias de los últimos años, sólo para una serie diaria. */
+  readonly daily?: readonly TimelineRow[];
+  /** Toda la historia: cierre de mes para una serie diaria, o sus meses. */
+  readonly monthly: readonly TimelineRow[];
+  readonly frequency: "daily" | "monthly" | "annual";
+  readonly ranges?: readonly RangeId[];
+  readonly defaultRange?: RangeId;
+  readonly axis: AxisFormat;
+  readonly zeroLine?: boolean;
+  /** Ofrecer escala logarítmica: sólo para niveles. */
+  readonly allowLog?: boolean;
+  readonly height?: keyof typeof HEIGHT;
+  /** El caption de la tabla equivalente. */
+  readonly caption: string;
+  /**
+   * `false` cuando la sección trae su propia tabla, porque la suya escribe
+   * el motivo de cada ausencia y esta sólo «Sin dato».
+   */
+  readonly showTable?: boolean;
+}) {
+  const instructionsId = useId();
+  const firstOn = monthly[0]?.on ?? daily?.[0]?.on;
+  const lastOn = (daily?.at(-1) ?? monthly.at(-1))?.on;
+  const spanYears =
+    firstOn && lastOn ? (dayNumber(lastOn) - dayNumber(firstOn)) / 365.25 : 0;
+  const offered = ranges.filter(
+    (range) => range === "max" || RANGE_YEARS[range] < spanYears + 0.25,
+  );
+  const [range, setRange] = useState<RangeId>(
+    defaultRange && offered.includes(defaultRange)
+      ? defaultRange
+      : (offered[0] ?? "max"),
+  );
+  const [logScale, setLogScale] = useState(false);
+  const [showMarks, setShowMarks] = useState(true);
+  const [comparing, setComparing] = useState(false);
+  const [pins, setPins] = useState<readonly string[]>([]);
+  const [activeOn, setActiveOn] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState("");
+  const [tableOpen, setTableOpen] = useState(false);
+
+  const years = RANGE_YEARS[range];
+  const resolution: Resolution =
+    frequency === "annual"
+      ? "annual"
+      : frequency === "monthly"
+        ? "monthly"
+        : daily !== undefined && years <= DAILY_MAX_YEARS
+          ? "daily"
+          : "month_end";
+  const source = resolution === "daily" ? (daily ?? []) : monthly;
+  const fromOn = lastOn ? yearsBefore(lastOn, years) : "0000-01-01";
+  // Sin memo a mano: el React Compiler memoiza este componente.
+  const visible = source.filter((row) => row.on >= fromOn);
+
+  const plotted = (() => {
+    const keys = [
+      ...series.map((item) => item.key),
+      ...(band ? [band.lowKey, band.highKey] : []),
+    ];
+    const numbers = (row: TimelineRow, key: string) => {
+      const text = row.values[key] ?? null;
+      if (text === null) return null;
+      const divisor =
+        series.find((item) => item.key === key)?.divisor ??
+        series[0]?.divisor ??
+        1;
+      const value = Number(text) / divisor;
+      return Number.isFinite(value) ? value : null;
+    };
+    const rows: PlotRow[] = visible.map((row) => {
+      const entry: Record<string, number | string | null | readonly number[]> =
+        { t: dayNumber(row.on), on: row.on };
+      for (const key of keys) entry[key] = numbers(row, key);
+      if (band) {
+        const low = entry[band.lowKey];
+        const high = entry[band.highKey];
+        entry.band =
+          typeof low === "number" && typeof high === "number"
+            ? [low, high]
+            : null;
+      }
+      return entry as PlotRow;
+    });
+    const values = rows.flatMap((row) =>
+      keys
+        .map((key) => row[key])
+        .filter((value): value is number => typeof value === "number"),
+    );
+    return {
+      rows,
+      min: values.length ? Math.min(...values) : 0,
+      max: values.length ? Math.max(...values) : 0,
+    };
+  })();
+
+  const hasBars = series.some((item) => item.mark === "bar");
+  const logAvailable = allowLog && !hasBars && plotted.min > 0;
+  const useLog = logScale && logAvailable;
+  const indexOf = new Map(plotted.rows.map((row, index) => [row.on, index]));
+  const activeIndex =
+    activeOn === null ? undefined : (indexOf.get(activeOn) ?? undefined);
+  const shownIndex = activeIndex ?? plotted.rows.length - 1;
+  const shown = visible[shownIndex];
+  const pinned = pins
+    .map((on) => visible[indexOf.get(on) ?? -1])
+    .filter((row): row is TimelineRow => row !== undefined);
+
+  const first = plotted.rows[0]?.t ?? 0;
+  const last = plotted.rows.at(-1)?.t ?? 1;
+  const axisTicks = timeTicks(first, last);
+  const config = Object.fromEntries(
+    series.map((item) => [item.key, { label: item.label, color: item.color }]),
+  ) satisfies ChartConfig;
+
+  const legend: LegendItem[] = [
+    ...series.map((item) => ({
+      key: item.key,
+      label: item.label,
+      color: item.color,
+      shape:
+        item.mark === "bar"
+          ? ("square" as const)
+          : item.mark === "dashed"
+            ? ("dashed" as const)
+            : ("line" as const),
+    })),
+    ...(band
+      ? [
+          {
+            key: "band",
+            label: band.label,
+            color: band.color,
+            shape: "band" as const,
+          },
+        ]
+      : []),
+  ];
+
+  function describe(row: TimelineRow): string {
+    const values = series
+      .map(
+        (item) =>
+          `${item.label} ${formatValue(row.values[item.key] ?? null, item.format)}`,
+      )
+      .join(", ");
+    const term = termOn(row.on);
+    return `${periodLabel(row.on, resolution)}: ${values}${term ? `. Presidencia de ${term.president}` : ""}.`;
+  }
+
+  function pin(on: string) {
+    setPins((current) =>
+      current.length >= 2 || current.includes(on)
+        ? [on]
+        : [...current, on].sort(),
+    );
+  }
+
+  function moveTo(index: number) {
+    const row = visible[index];
+    if (row === undefined) return;
+    setActiveOn(row.on);
+    setAnnouncement(describe(row));
+  }
+
+  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const count = visible.length;
+    if (count === 0) return;
+    const current = activeIndex ?? count - 1;
+    const step = event.shiftKey ? 10 : 1;
+    switch (event.key) {
+      case "ArrowLeft":
+        moveTo(Math.max(0, current - step));
+        break;
+      case "ArrowRight":
+        moveTo(Math.min(count - 1, current + step));
+        break;
+      case "Home":
+        moveTo(0);
+        break;
+      case "End":
+        moveTo(count - 1);
+        break;
+      case "Enter":
+      case " ":
+        if (!comparing) return;
+        pin(visible[current]!.on);
+        setAnnouncement(`Punto fijado: ${describe(visible[current]!)}`);
+        break;
+      case "Escape":
+        setPins([]);
+        setActiveOn(null);
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+  }
+
+  function track(state: MouseHandlerDataParam) {
+    const index = Number(state.activeTooltipIndex);
+    const row = Number.isInteger(index) ? visible[index] : undefined;
+    if (row !== undefined) setActiveOn(row.on);
+  }
+
+  const yDomain: [number | string, number | string] = useLog
+    ? [plotted.min * 0.92, plotted.max * 1.08]
+    : hasBars || zeroLine
+      ? ([
+          (dataMin: number) => Math.min(0, dataMin),
+          (dataMax: number) => Math.max(0, dataMax),
+        ] as unknown as [number, number])
+      : ["auto", "auto"];
+
+  // «De cierre de ene 2000 a cierre de…» se lee mejor con el mes solo; la
+  // resolución ya está dicha en la barra.
+  const compareResolution: Resolution =
+    resolution === "month_end" ? "monthly" : resolution;
+
+  const rangeOptions = offered.map((value) => ({
+    value,
+    label: RANGE_LABEL[value],
+  }));
+  const termsInRange =
+    firstOn && lastOn && plotted.rows.length
+      ? termsOverlapping(visible[0]!.on, lastOn)
+      : [];
+  const regimesInRange =
+    firstOn && lastOn && plotted.rows.length
+      ? regimesOverlapping(visible[0]!.on, lastOn)
+      : [];
+  const resolutionText =
+    resolution === "daily"
+      ? "Diario"
+      : resolution === "month_end"
+        ? "Cierre de cada mes"
+        : resolution === "monthly"
+          ? "Mensual"
+          : "Anual";
+
+  return (
+    <div className="flex min-w-0 flex-col gap-3">
+      <ChartToolbar>
+        {rangeOptions.length > 1 ? (
+          <Segmented
+            label="Período"
+            options={rangeOptions}
+            value={range}
+            onChange={(value) => {
+              setRange(value);
+              setPins([]);
+              setActiveOn(null);
+            }}
+          />
+        ) : null}
+        {allowLog ? (
+          <span className="inline-flex items-center gap-0.5">
+            <Segmented
+              label="Escala"
+              options={[
+                { value: "linear", label: "Lineal" },
+                {
+                  value: "log",
+                  label: "Log",
+                  disabled: !logAvailable,
+                },
+              ]}
+              value={useLog ? "log" : "linear"}
+              onChange={(value) => setLogScale(value === "log")}
+            />
+            <InfoTip title="Escala logarítmica">
+              <p>
+                En escala logarítmica la misma distancia vertical es la misma
+                variación porcentual: pasar de 10 a 20 ocupa lo mismo que de
+                1.000 a 2.000. Sirve para comparar épocas cuando la serie se
+                multiplicó muchas veces.
+              </p>
+              {logAvailable ? null : (
+                <p>
+                  No está disponible en este rango porque la serie tiene valores
+                  en cero o negativos.
+                </p>
+              )}
+            </InfoTip>
+          </span>
+        ) : null}
+        <button
+          type="button"
+          aria-pressed={comparing}
+          onClick={() => {
+            setComparing((value) => !value);
+            setPins([]);
+          }}
+          className={cn(
+            "min-h-7 rounded-md border px-2 text-xs font-medium text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none",
+            comparing && "border-primary bg-primary/10 text-foreground",
+          )}
+        >
+          Comparar dos puntos
+        </button>
+        <button
+          type="button"
+          aria-pressed={showMarks}
+          onClick={() => setShowMarks((value) => !value)}
+          className={cn(
+            "min-h-7 rounded-md border px-2 text-xs font-medium text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none",
+            showMarks && "bg-muted text-foreground",
+          )}
+        >
+          Gobiernos y regímenes
+        </button>
+        <span className="text-xs text-muted-foreground">{resolutionText}</span>
+      </ChartToolbar>
+
+      <div
+        className="min-h-14 rounded-md border bg-muted/30 px-3 py-2 text-xs"
+        aria-hidden="true"
+      >
+        {shown === undefined ? (
+          <span className="text-muted-foreground">Sin datos en el rango.</span>
+        ) : (
+          <div className="flex flex-col gap-1">
+            <div className="flex flex-wrap items-baseline gap-x-2">
+              <span className="font-medium text-foreground">
+                {periodLabel(shown.on, resolution)}
+              </span>
+              <span className="text-muted-foreground">
+                {activeIndex === undefined ? "último dato · " : ""}
+                {termOn(shown.on)?.label ?? "antes de 1983"}
+                {regimesOverlapping(shown.on, shown.on)
+                  .map((regime) => ` · ${regime.label}`)
+                  .join("")}
+              </span>
+            </div>
+            <ul className="flex flex-wrap gap-x-4 gap-y-0.5">
+              {series.map((item, index) => (
+                <li key={item.key} className="flex items-center gap-1.5">
+                  <Swatch item={legend[index]!} />
+                  <span className="text-muted-foreground">{item.label}</span>
+                  <span className="numeric font-medium text-foreground">
+                    {formatValue(shown.values[item.key] ?? null, item.format)}
+                  </span>
+                </li>
+              ))}
+              {band &&
+              shown.values[band.lowKey] != null &&
+              shown.values[band.highKey] != null ? (
+                <li className="flex items-center gap-1.5">
+                  <Swatch item={legend.at(-1)!} />
+                  <span className="text-muted-foreground">{band.label}</span>
+                  <span className="numeric font-medium text-foreground">
+                    {formatValue(shown.values[band.lowKey]!, band.format)} a{" "}
+                    {formatValue(shown.values[band.highKey]!, band.format)}
+                  </span>
+                </li>
+              ) : null}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      <div
+        role="group"
+        tabIndex={0}
+        aria-label={label}
+        aria-describedby={instructionsId}
+        onKeyDown={onKeyDown}
+        className="touch-pan-y rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <span id={instructionsId} className="sr-only">
+          Flechas izquierda y derecha para recorrer los puntos, Mayúscula más
+          flecha para saltar diez, Inicio y Fin para los extremos.
+          {comparing ? " Enter fija un punto para comparar; Escape borra." : ""}
+        </span>
+        <ChartContainer
+          config={config}
+          className={`aspect-auto ${HEIGHT[height]} w-full`}
+          initialDimension={{ width: 640, height: 288 }}
+        >
+          <ComposedChart
+            accessibilityLayer={false}
+            data={plotted.rows as PlotRow[]}
+            margin={{ top: showMarks ? 40 : 8, right: 8, bottom: 0, left: 0 }}
+            onMouseMove={track}
+            onTouchMove={track}
+            onTouchStart={track}
+            onMouseLeave={() => setActiveOn(null)}
+            onClick={(state) => {
+              track(state);
+              const index = Number(state.activeTooltipIndex);
+              const row = Number.isInteger(index) ? visible[index] : undefined;
+              if (comparing && row !== undefined) pin(row.on);
+            }}
+          >
+            <CartesianGrid vertical={false} strokeDasharray="3 3" />
+            <XAxis
+              dataKey="t"
+              type="number"
+              domain={[first, last]}
+              ticks={axisTicks.ticks}
+              tickFormatter={axisTicks.label}
+              tickLine={false}
+              axisLine={false}
+              tickMargin={6}
+              minTickGap={8}
+              allowDuplicatedCategory={false}
+            />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              width={56}
+              scale={useLog ? "log" : "linear"}
+              domain={yDomain}
+              allowDataOverflow={useLog}
+              ticks={useLog ? logTicks(plotted.min, plotted.max) : undefined}
+              tickFormatter={(value: number) => axisLabel(axis, value)}
+            />
+            {showMarks && plotted.rows.length > 1 ? (
+              <MarksLayer fromOn={visible[0]!.on} toOn={dateOf(last)} />
+            ) : null}
+            {zeroLine || hasBars ? (
+              <ReferenceLine y={0} stroke="var(--muted-foreground)" />
+            ) : null}
+            {band ? (
+              <Area
+                dataKey="band"
+                type="linear"
+                stroke={band.color}
+                strokeDasharray="3 2"
+                strokeWidth={1}
+                fill={band.color}
+                fillOpacity={0.12}
+                connectNulls={false}
+                isAnimationActive={false}
+                activeDot={false}
+              />
+            ) : null}
+            {series.map((item) =>
+              item.mark === "bar" ? (
+                <Bar
+                  key={item.key}
+                  dataKey={item.key}
+                  fill={item.color}
+                  radius={1}
+                  isAnimationActive={false}
+                />
+              ) : (
+                <Line
+                  key={item.key}
+                  dataKey={item.key}
+                  type="linear"
+                  stroke={item.color}
+                  strokeWidth={item.mark === "dashed" ? 1.5 : 2}
+                  strokeDasharray={item.mark === "dashed" ? "4 3" : undefined}
+                  dot={false}
+                  activeDot={false}
+                  connectNulls={false}
+                  isAnimationActive={false}
+                />
+              ),
+            )}
+            {pinned.map((row, index) => (
+              <ReferenceLine
+                key={row.on}
+                x={dayNumber(row.on)}
+                stroke="var(--primary)"
+                strokeWidth={1.5}
+                label={{
+                  value: index === 0 ? "A" : "B",
+                  position: "insideTopLeft",
+                  fill: "var(--primary)",
+                  fontSize: 11,
+                  fontWeight: 600,
+                }}
+              />
+            ))}
+            {activeIndex === undefined ? null : (
+              <ReferenceLine
+                x={plotted.rows[activeIndex]!.t}
+                stroke="var(--foreground)"
+                strokeOpacity={0.35}
+              />
+            )}
+            <ActiveDots
+              rows={plotted.rows}
+              series={series}
+              active={[
+                ...pinned.map((row) => indexOf.get(row.on) ?? -1),
+                ...(activeIndex === undefined ? [] : [activeIndex]),
+              ]}
+            />
+          </ComposedChart>
+        </ChartContainer>
+      </div>
+      <span className="sr-only" aria-live="polite">
+        {announcement}
+      </span>
+
+      <ul
+        className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"
+        aria-hidden="true"
+      >
+        {legend.map((item) => (
+          <li key={item.key} className="flex items-center gap-1.5">
+            <Swatch item={item} />
+            {item.label}
+          </li>
+        ))}
+      </ul>
+
+      {comparing ? (
+        <div
+          className="flex flex-col gap-2 rounded-md border border-primary/40 bg-primary/5 px-3 py-2 text-xs"
+          aria-live="polite"
+        >
+          {pinned.length < 2 ? (
+            <p className="text-muted-foreground">
+              {pinned.length === 0
+                ? "Tocá o hacé click en un punto para fijar el primero (A)."
+                : `A: ${periodLabel(pinned[0]!.on, compareResolution)}. Ahora el segundo punto (B).`}
+            </p>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="font-medium text-foreground">
+                  De {periodLabel(pinned[0]!.on, compareResolution)} (A) a{" "}
+                  {periodLabel(pinned[1]!.on, compareResolution)} (B):{" "}
+                  {elapsed(pinned[0]!.on, pinned[1]!.on)}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setPins([])}
+                  className="inline-flex min-h-7 items-center gap-1 rounded-md px-1.5 text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+                >
+                  <X aria-hidden="true" className="size-3.5" />
+                  Borrar
+                </button>
+              </div>
+              <ul className="flex flex-col gap-1">
+                {series.map((item) => {
+                  const a = pinned[0]!.values[item.key] ?? null;
+                  const b = pinned[1]!.values[item.key] ?? null;
+                  return (
+                    <li
+                      key={item.key}
+                      className="flex flex-wrap items-baseline gap-x-2"
+                    >
+                      <span className="text-muted-foreground">
+                        {item.label}:
+                      </span>
+                      <span className="numeric">
+                        {formatValue(a, item.format)} →{" "}
+                        {formatValue(b, item.format)}
+                      </span>
+                      <span className="numeric font-medium text-foreground">
+                        {changeText(a, b, item)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="text-muted-foreground">{compareNote(series)}</p>
+            </>
+          )}
+        </div>
+      ) : null}
+
+      {showTable ? (
+        <details
+          className="group border-t pt-3"
+          onToggle={(event) => setTableOpen(event.currentTarget.open)}
+        >
+          <summary className="flex cursor-pointer list-none items-center gap-1 text-sm font-medium text-primary [&::-webkit-details-marker]:hidden">
+            <span
+              aria-hidden="true"
+              className="inline-block transition-transform group-open:rotate-90 motion-reduce:transition-none"
+            >
+              ›
+            </span>
+            Ver los datos del período ({visible.length} filas)
+          </summary>
+          {tableOpen ? (
+            <div className="mt-3 max-h-96 overflow-auto rounded-md border">
+              <Table>
+                <TableCaption className="sr-only">
+                  {caption}, {resolutionText.toLowerCase()}
+                </TableCaption>
+                <TableHeader className="sticky top-0 bg-card">
+                  <TableRow>
+                    <TableHead scope="col">
+                      {resolution === "daily"
+                        ? "Día"
+                        : resolution === "annual"
+                          ? "Año"
+                          : "Mes"}
+                    </TableHead>
+                    {series.map((item) => (
+                      <TableHead
+                        key={item.key}
+                        scope="col"
+                        className="text-right"
+                      >
+                        {item.label}
+                      </TableHead>
+                    ))}
+                    {band ? (
+                      <TableHead scope="col" className="text-right">
+                        {band.label}
+                      </TableHead>
+                    ) : null}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {[...visible].reverse().map((row) => (
+                    <TableRow key={row.on}>
+                      <TableHead scope="row" className="font-normal">
+                        {periodLabel(row.on, resolution)}
+                      </TableHead>
+                      {series.map((item) => (
+                        <TableCell
+                          key={item.key}
+                          className="numeric text-right"
+                        >
+                          {formatValue(
+                            row.values[item.key] ?? null,
+                            item.format,
+                          )}
+                        </TableCell>
+                      ))}
+                      {band ? (
+                        <TableCell className="numeric text-right">
+                          {row.values[band.lowKey] != null &&
+                          row.values[band.highKey] != null
+                            ? `${formatValue(row.values[band.lowKey]!, band.format)} a ${formatValue(row.values[band.highKey]!, band.format)}`
+                            : "—"}
+                        </TableCell>
+                      ) : null}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : null}
+        </details>
+      ) : null}
+
+      {termsInRange.length + regimesInRange.length === 0 ? null : (
+        <Fold
+          summary={`Gobiernos y regímenes en el período (${termsInRange.length + regimesInRange.length})`}
+        >
+          <div className="flex flex-col gap-3 text-sm text-muted-foreground">
+            <ul className="flex flex-col gap-1">
+              {termsInRange.map((term) => (
+                <li key={term.id}>
+                  <span className="text-foreground">{term.president}</span>:{" "}
+                  {calendarDate(term.from)} a{" "}
+                  {term.to ? calendarDate(term.to) : "hoy"}
+                </li>
+              ))}
+            </ul>
+            <ul className="flex flex-col gap-1">
+              {regimesInRange.map((regime) => (
+                <li key={regime.id}>
+                  <span className="text-foreground">{regime.label}</span> (
+                  {calendarDate(regime.from)} a{" "}
+                  {regime.to ? calendarDate(regime.to) : "hoy"}):{" "}
+                  {regime.description} Fuente: {regime.source}.
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs">
+              Presidencias: {PRESIDENTIAL_TERMS_SOURCE}. Las marcas ubican
+              fechas; no atribuyen a un gobierno o a un régimen lo que hizo la
+              serie (<code className="text-xs">argentina-timeline-1.0.0</code>
+              ).
+            </p>
+          </div>
+        </Fold>
+      )}
+    </div>
+  );
+}

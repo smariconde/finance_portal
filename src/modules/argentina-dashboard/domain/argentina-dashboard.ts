@@ -9,28 +9,38 @@ import {
   type Comparison,
 } from "@/modules/macro-series/domain/argentina-indicator";
 
-/**
- * How the Argentina page reads what is stored (`F9-06`): windows, latest
- * points and the readings each block shows. It never fills a gap: a missing
- * point is a `null` with its reason, and a block without data says so.
- */
-export const ARGENTINA_DASHBOARD_VERSION = "argentina-dashboard-1.0.0";
+import {
+  monthEndCloses,
+  shiftMonth,
+  type DatedValue,
+  type MonthEndValue,
+} from "./chart-history";
+import {
+  compareGovernments,
+  type GovernmentPath,
+} from "./government-comparison";
 
-/** Months of the activity chart, trade chart and inflation chart. */
-export const ACTIVITY_WINDOW_MONTHS = 60;
+export type { DatedValue } from "./chart-history";
+
+/**
+ * How the Argentina page reads what is stored (`F9-06`): latest points and
+ * the readings each block shows. It never fills a gap: a missing point is a
+ * `null` with its reason, and a block without data says so.
+ *
+ * Since `2.0.0` (`F9-13`) every monthly series goes out whole, a daily series
+ * goes out day by day for its last five years and at each month's close for
+ * its whole history (`month-end-close-1.0.0`), and each block carries its
+ * path per presidency (`government-comparison-1.0.0`). Which range opens
+ * first is the chart's choice, not the read's.
+ */
+export const ARGENTINA_DASHBOARD_VERSION = "argentina-dashboard-2.0.0";
+
 export const SECTOR_WINDOW_MONTHS = 12;
-export const TRADE_WINDOW_MONTHS = 36;
-export const INFLATION_WINDOW_MONTHS = 24;
-/** Calendar days of the dollar and reserves charts. */
-export const DAILY_WINDOW_DAYS = 730;
+/** Calendar days a daily series goes out day by day: five years. */
+export const DAILY_WINDOW_DAYS = 1_827;
 export const FIRST_FISCAL_YEAR = 2016;
 
 const decimal = createDecimalOperations((code) => new Error(code));
-
-export type DatedValue = {
-  readonly on: string;
-  readonly value: string | null;
-};
 
 export type IndicatorSeries = {
   readonly indicator: ArgentinaIndicator;
@@ -58,6 +68,8 @@ export type ActivityBlock = {
     readonly label: string;
     readonly cells: readonly DatedComparison[];
   }[];
+  /** The seasonally adjusted EMAE per presidency, `100` the month before. */
+  readonly governments: readonly GovernmentPath[];
 };
 
 export type DollarDay = {
@@ -70,8 +82,27 @@ export type DollarDay = {
   readonly bandHigh: string | null;
 };
 
+/** A month read at each series' own close (`month-end-close-1.0.0`). */
+export type DollarMonth = {
+  readonly on: string;
+  readonly official: string | null;
+  readonly ccl: string | null;
+  /** The gap of the month's last day on which both quotes published. */
+  readonly gap: string | null;
+  readonly bandLow: string | null;
+  readonly bandHigh: string | null;
+};
+
 export type DollarBlock = {
+  /** The last five years, day by day. */
   readonly days: readonly DollarDay[];
+  /** The whole history, one row per month. */
+  readonly months: readonly DollarMonth[];
+  readonly governments: {
+    /** Each presidency, `100` the last close before taking office. */
+    readonly official: readonly GovernmentPath[];
+    readonly ccl: readonly GovernmentPath[];
+  };
   readonly latestOfficial: DatedValue | null;
   readonly latestCcl: DatedValue | null;
   /** The latest day with both quotes, which may precede either latest. */
@@ -85,12 +116,23 @@ export type DollarBlock = {
 
 export type MonetaryBlock = {
   readonly monthlyInflation: readonly DatedValue[];
+  /** Year-over-year inflation as the BCRA publishes it, every month. */
+  readonly annualInflationSeries: readonly DatedValue[];
   readonly annualInflation: DatedValue | null;
+  /** The last five years, day by day. */
   readonly reserves: readonly DatedValue[];
+  /** The whole history at each month's close. */
+  readonly reserveMonths: readonly MonthEndValue[];
   readonly realBase: readonly DatedValue[];
   readonly realBaseUnit: string | null;
   /** The month whose pesos are the unit of the real base. */
   readonly realBaseOn: string | null;
+  readonly governments: {
+    /** Prices chained from the month before taking office, `100` there. */
+    readonly prices: readonly GovernmentPath[];
+    /** Reserves gained or lost since the last day before taking office. */
+    readonly reserves: readonly GovernmentPath[];
+  };
 };
 
 export type FiscalYear = {
@@ -119,6 +161,8 @@ export type TradeMonth = {
 
 export type ExternalBlock = {
   readonly months: readonly TradeMonth[];
+  /** The trade balance added month by month from the inauguration month. */
+  readonly governments: readonly GovernmentPath[];
   /** Sums of the last twelve months, only when all twelve are present. */
   readonly lastTwelve: {
     readonly fromOn: string;
@@ -129,18 +173,8 @@ export type ExternalBlock = {
   } | null;
 };
 
-function lastN<T>(items: readonly T[], count: number): readonly T[] {
-  return items.slice(Math.max(0, items.length - count));
-}
-
 function toDated(points: readonly ArgentinaIndicatorVintage[]): DatedValue[] {
   return points.map((point) => ({ on: point.periodOn, value: point.value }));
-}
-
-function shiftMonth(periodOn: string, months: number): string {
-  const date = new Date(`${periodOn.slice(0, 7)}-01T00:00:00Z`);
-  date.setUTCMonth(date.getUTCMonth() + months);
-  return date.toISOString().slice(0, 10);
 }
 
 /** First calendar day of a daily window ending on `lastOn`. */
@@ -199,8 +233,8 @@ export function buildActivityBlock(input: {
         );
 
   return {
-    seasonallyAdjusted: toDated(lastN(sa, ACTIVITY_WINDOW_MONTHS)),
-    trend: toDated(lastN(input.trend.points, ACTIVITY_WINDOW_MONTHS)),
+    seasonallyAdjusted: toDated(sa),
+    trend: toDated(input.trend.points),
     latest,
     sectorMonths,
     sectors: input.sectors.map((sector) => {
@@ -222,6 +256,11 @@ export function buildActivityBlock(input: {
         })),
       };
     }),
+    governments: compareGovernments({
+      points: toDated(sa),
+      frequency: "monthly",
+      basis: "index",
+    }),
   };
 }
 
@@ -230,6 +269,24 @@ type DailyPoint = { readonly periodOn: string; readonly value: string };
 function latestOf(points: readonly DailyPoint[]): DatedValue | null {
   const last = points.at(-1);
   return last ? { on: last.periodOn, value: last.value } : null;
+}
+
+function gapOf(official: string | null, ccl: string | null, on: string) {
+  if (official === null || ccl === null) return null;
+  return decimal.formatDecimal(
+    decimal
+      .divide(
+        decimal.parseDecimal(ccl, on),
+        decimal.parseDecimal(official, on),
+        on,
+      )
+      .minus(1),
+    on,
+  );
+}
+
+function dated(points: readonly DailyPoint[]): DatedValue[] {
+  return points.map((point) => ({ on: point.periodOn, value: point.value }));
 }
 
 export function buildDollarBlock(input: {
@@ -248,54 +305,58 @@ export function buildDollarBlock(input: {
   if (lastOn === undefined) {
     return {
       days: [],
+      months: [],
+      governments: { official: [], ccl: [] },
       latestOfficial: null,
       latestCcl: null,
       latestGap: null,
       latestBand: null,
     };
   }
-  const fromOn = dailyWindowStart(lastOn);
-  const inWindow = (on: string) => on >= fromOn && on <= lastOn;
-  const official = new Map(
-    input.official
-      .filter((p) => inWindow(p.periodOn))
-      .map((p) => [p.periodOn, p.value]),
-  );
-  const ccl = new Map(
-    input.ccl
-      .filter((p) => inWindow(p.marketDate))
-      .map((p) => [p.marketDate, p.value]),
-  );
+  const official = new Map(input.official.map((p) => [p.periodOn, p.value]));
+  const ccl = new Map(input.ccl.map((p) => [p.marketDate, p.value]));
   const low = new Map(input.bandLow.map((p) => [p.periodOn, p.value]));
   const high = new Map(input.bandHigh.map((p) => [p.periodOn, p.value]));
   const dates = [...new Set([...official.keys(), ...ccl.keys()])].sort();
 
-  const days = dates.map((on): DollarDay => {
+  const allDays = dates.map((on): DollarDay => {
     const o = official.get(on) ?? null;
     const c = ccl.get(on) ?? null;
     return {
       on,
       official: o,
       ccl: c,
-      gap:
-        o === null || c === null
-          ? null
-          : decimal.formatDecimal(
-              decimal
-                .divide(
-                  decimal.parseDecimal(c, on),
-                  decimal.parseDecimal(o, on),
-                  on,
-                )
-                .minus(1),
-              on,
-            ),
+      gap: gapOf(o, c, on),
       bandLow: low.get(on) ?? null,
       bandHigh: high.get(on) ?? null,
     };
   });
+  const fromOn = dailyWindowStart(lastOn);
+  const days = allDays.filter((day) => day.on >= fromOn);
 
-  const withGap = days.filter((day) => day.gap !== null).at(-1);
+  const cclDated = input.ccl.map((p) => ({ on: p.marketDate, value: p.value }));
+  const closes = (points: readonly DatedValue[]) =>
+    new Map(monthEndCloses(points).map((close) => [close.on, close.value]));
+  const officialMonths = closes(dated(input.official));
+  const cclMonths = closes(cclDated);
+  const gapMonths = closes(
+    allDays.map((day) => ({ on: day.on, value: day.gap })),
+  );
+  const lowMonths = closes(dated(input.bandLow));
+  const highMonths = closes(dated(input.bandHigh));
+  const monthKeys = [
+    ...new Set([...officialMonths.keys(), ...cclMonths.keys()]),
+  ].sort();
+  const months = monthKeys.map((on): DollarMonth => ({
+    on,
+    official: officialMonths.get(on) ?? null,
+    ccl: cclMonths.get(on) ?? null,
+    gap: gapMonths.get(on) ?? null,
+    bandLow: lowMonths.get(on) ?? null,
+    bandHigh: highMonths.get(on) ?? null,
+  }));
+
+  const withGap = allDays.filter((day) => day.gap !== null).at(-1);
   const cclPoints = input.ccl.filter(
     (p): p is { marketDate: string; value: string } => p.value !== null,
   );
@@ -304,6 +365,19 @@ export function buildDollarBlock(input: {
 
   return {
     days,
+    months,
+    governments: {
+      official: compareGovernments({
+        points: dated(input.official),
+        frequency: "daily",
+        basis: "index",
+      }),
+      ccl: compareGovernments({
+        points: cclDated,
+        frequency: "daily",
+        basis: "index",
+      }),
+    },
     latestOfficial: latestOf(input.official),
     latestCcl: cclPoints.length
       ? { on: cclPoints.at(-1)!.marketDate, value: cclPoints.at(-1)!.value }
@@ -329,24 +403,29 @@ export function buildMonetaryBlock(input: {
 }): MonetaryBlock {
   const lastReserve = input.reserves.at(-1)?.periodOn;
   const fromOn = lastReserve ? dailyWindowStart(lastReserve) : null;
+  const reserves = dated(input.reserves);
   return {
-    monthlyInflation: lastN(
-      input.monthlyInflation,
-      INFLATION_WINDOW_MONTHS,
-    ).map((p) => ({ on: p.periodOn, value: p.value })),
+    monthlyInflation: dated(input.monthlyInflation),
+    annualInflationSeries: dated(input.annualInflation),
     annualInflation: latestOf(input.annualInflation),
     reserves:
-      fromOn === null
-        ? []
-        : input.reserves
-            .filter((p) => p.periodOn >= fromOn)
-            .map((p) => ({ on: p.periodOn, value: p.value })),
-    realBase: lastN(input.realBase, ACTIVITY_WINDOW_MONTHS).map((p) => ({
-      on: p.periodOn,
-      value: p.value,
-    })),
+      fromOn === null ? [] : reserves.filter((point) => point.on >= fromOn),
+    reserveMonths: monthEndCloses(reserves),
+    realBase: input.realBase.map((p) => ({ on: p.periodOn, value: p.value })),
     realBaseUnit: input.realBaseUnit,
     realBaseOn: input.realBaseOn,
+    governments: {
+      prices: compareGovernments({
+        points: dated(input.monthlyInflation),
+        frequency: "monthly",
+        basis: "cumulative_rate",
+      }),
+      reserves: compareGovernments({
+        points: reserves,
+        frequency: "daily",
+        basis: "difference",
+      }),
+    },
   };
 }
 
@@ -414,22 +493,20 @@ export function buildExternalBlock(input: {
   readonly imports: IndicatorSeries;
 }): ExternalBlock {
   const imports = byPeriod(input.imports.points);
-  const months = lastN(input.exports.points, TRADE_WINDOW_MONTHS).map(
-    (exportPoint): TradeMonth => {
-      const importPoint = imports.get(exportPoint.periodOn) ?? null;
-      return {
-        on: exportPoint.periodOn,
-        exports: exportPoint.value,
-        imports: importPoint?.value ?? null,
-        balance: tradeBalance({
-          exports: input.exports.indicator,
-          imports: input.imports.indicator,
-          exportPoint,
-          importPoint,
-        }),
-      };
-    },
-  );
+  const months = input.exports.points.map((exportPoint): TradeMonth => {
+    const importPoint = imports.get(exportPoint.periodOn) ?? null;
+    return {
+      on: exportPoint.periodOn,
+      exports: exportPoint.value,
+      imports: importPoint?.value ?? null,
+      balance: tradeBalance({
+        exports: input.exports.indicator,
+        imports: input.imports.indicator,
+        exportPoint,
+        importPoint,
+      }),
+    };
+  });
 
   const twelve = months.slice(-12);
   const complete =
@@ -444,6 +521,14 @@ export function buildExternalBlock(input: {
 
   return {
     months,
+    governments: compareGovernments({
+      points: months.map((month) => ({
+        on: month.on,
+        value: month.balance.status === "computed" ? month.balance.value : null,
+      })),
+      frequency: "monthly",
+      basis: "cumulative_sum",
+    }),
     lastTwelve: complete
       ? {
           fromOn: twelve[0]!.on,

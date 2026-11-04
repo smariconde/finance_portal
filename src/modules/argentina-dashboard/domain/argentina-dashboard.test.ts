@@ -133,6 +133,48 @@ describe("buildDollarBlock", () => {
     });
   });
 
+  it("keeps five years day by day and the whole history at each month's close", () => {
+    const official = [
+      { periodOn: "2015-12-09", value: "9.7" },
+      { periodOn: "2015-12-30", value: "13" },
+      { periodOn: "2016-01-29", value: "13.9" },
+      { periodOn: "2026-10-30", value: "1000" },
+      { periodOn: "2026-11-02", value: "1010" },
+    ];
+    const block = buildDollarBlock({
+      official,
+      ccl: [{ marketDate: "2015-12-30", value: "14.3" }],
+      bandLow: [],
+      bandHigh: [],
+    });
+    expect(block.days.map((day) => day.on)).toEqual([
+      "2026-10-30",
+      "2026-11-02",
+    ]);
+    expect(block.months[0]).toEqual({
+      on: "2015-12-01",
+      official: "13",
+      ccl: "14.3",
+      gap: "0.1",
+      bandLow: null,
+      bandHigh: null,
+    });
+    expect(block.months.at(-1)).toMatchObject({
+      on: "2026-11-01",
+      official: "1010",
+      ccl: null,
+    });
+    // Macri took office on 2015-12-10: the base is the close of the 9th.
+    const macri = block.governments.official.find(
+      (path) => path.termId === "macri",
+    );
+    expect(macri).toMatchObject({
+      status: "computed",
+      baseOn: "2015-12-09",
+      baseValue: "9.7",
+    });
+  });
+
   it("returns an empty block without quotes", () => {
     expect(
       buildDollarBlock({ official: [], ccl: [], bandLow: [], bandHigh: [] }),
