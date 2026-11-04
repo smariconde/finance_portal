@@ -308,10 +308,11 @@ async function assessSource(
 async function assessAll(
   dependencies: ArgentinaRefreshDependencies,
   retryFailures: boolean,
+  sources: readonly RefreshSource[] = ARGENTINA_REFRESH_SOURCES,
 ): Promise<readonly SourceAssessment[]> {
   const completed = (
     await Promise.all(
-      ARGENTINA_REFRESH_SOURCES.map((source) =>
+      sources.map((source) =>
         dependencies.jobs.listJobs({
           sourceId: source.sourceId,
           statuses: ["completed"],
@@ -323,7 +324,7 @@ async function assessAll(
     .flat()
     .filter((job) => job.kind === ARGENTINA_REFRESH_KIND);
   return Promise.all(
-    ARGENTINA_REFRESH_SOURCES.map((source) =>
+    sources.map((source) =>
       assessSource(source, completed, dependencies, retryFailures),
     ),
   );
@@ -544,9 +545,9 @@ async function describeOpenJobs(
 }
 
 /**
- * One step: the open refresh jobs if there are any; otherwise one new job per
- * source with stale subjects; otherwise `fresh`. Idempotent: while a job is
- * open nothing else is planned, and an equal plan returns the existing job.
+ * One step: keep each source's open job and plan stale subjects only for sources
+ * without one. A blocked source cannot prevent newly added sources or subjects
+ * of another source from being checked. An equal plan returns the existing job.
  */
 export async function ensureArgentinaRefresh(
   input: { readonly retryFailures: boolean },
@@ -555,9 +556,14 @@ export async function ensureArgentinaRefresh(
   },
 ): Promise<EnsureArgentinaRefreshResult> {
   const open = await openRefreshJobs(dependencies.jobs);
-  if (open.length > 0) return describeOpenJobs(open, dependencies);
-
-  const assessments = await assessAll(dependencies, input.retryFailures);
+  const openSources = new Set(open.map((job) => job.sourceId));
+  const assessments = await assessAll(
+    dependencies,
+    input.retryFailures,
+    ARGENTINA_REFRESH_SOURCES.filter(
+      (source) => !openSources.has(source.sourceId),
+    ),
+  );
   const now = dependencies.now();
   const planned: IngestionJob[] = [];
   let blocked: Extract<ArgentinaRefreshStatus, { state: "blocked" }> | null =
@@ -594,7 +600,8 @@ export async function ensureArgentinaRefresh(
     planned.push(job);
   }
 
-  if (planned.length > 0) return describeOpenJobs(planned, dependencies);
+  if (open.length > 0 || planned.length > 0)
+    return describeOpenJobs([...open, ...planned], dependencies);
   if (blocked !== null) return { status: blocked, runWorker: false };
 
   return {

@@ -6276,6 +6276,17 @@ Prueba focalizada: un job abierto con `60/60` queda `blocked`, no inicia worker.
 `pnpm test` (3.705), formato, tipos y lint, build de Vercel, `quality` y
 `E2E and accessibility` del PR #110 pasaron.
 
+**`F9-12`, corrección 3 del 2026-11-04.** La lectura privada de Production
+mostró que pizarra, BNA y Estimaciones Agrícolas no tenían jobs ni corridas;
+Yahoo sólo había terminado las 20 patas del CCL. El job abierto de INDEC
+impedía planificar cualquier fuente nueva. El planificador ahora revisa cada
+fuente sin job abierto por separado: puede crear los tres jobs de soja y pedir
+sólo `soy_cbot_front` a Yahoo mientras INDEC espera su cuota. Una fuente con job
+abierto conserva su cursor y no recibe un duplicado. La prueba de regresión
+reproduce el job viejo de Yahoo y el INDEC abierto con cuota agotada; 13 pruebas
+focalizadas y 3.706 unit pasan, junto con lint, tipos y formato. La verificación de CI y Production queda registrada en el
+log de sesión del roadmap.
+
 Sigue `F9-05` o `F9-08`, a elección del owner.
 
 **`F9-13`, 2026-11-03.** Estado: `done`. Antes de seguir con la soja, el

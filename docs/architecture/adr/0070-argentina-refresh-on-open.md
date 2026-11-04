@@ -170,6 +170,20 @@ y el horario UTC de reposición expresado en hora local. Abrir la página
 después de la reposición retoma el mismo job. La cuota no se eleva ni se borra
 para forzar una request: el límite del owner sigue siendo vinculante.
 
+## Corrección del 2026-11-04 — planificar otras fuentes con INDEC abierto
+
+El job de INDEC seguía abierto y bloqueado por cuota. El planificador devolvía
+su estado antes de revisar cualquier otra fuente. Por eso las fuentes de soja
+incorporadas después —pizarra, BNA y Estimaciones Agrícolas— nunca tuvieron un
+job en Production; tampoco se pidió `soy_cbot_front` al completar un job viejo
+de Yahoo que sólo contenía las patas del CCL.
+
+Ahora se revisa la frescura de cada fuente que no tenga un job abierto o pausado,
+aunque otra fuente sí lo tenga. Se crea un job sólo con sus sujetos atrasados y
+el worker recibe todos los jobs elegibles. La fuente con job abierto conserva su
+cursor y no se duplica. Los sujetos ya comprobados por un job terminado o una
+corrida manual siguen fuera del plan hasta su próxima cadencia.
+
 ## Alternativas descartadas
 
 - **Mirar las fechas de los datos.** Ninguna fuente publica cuándo publicó, y una
