@@ -848,7 +848,7 @@ pnpm argentina:indicators --soy                      # dry run: pizarra, BNA, ZS
 pnpm argentina:indicators --soy --apply
 ```
 
-Soy (`F9-05`, in progress, [ADR 0071](docs/architecture/adr/0071-soy-basis-sources.md),
+Soy (`F9-05`, [ADR 0071](docs/architecture/adr/0071-soy-basis-sources.md),
 no migration). Seven series in the indicator registry of `F9-04`, declared apart
 in `declared-soy-indicators.ts` so the dashboard's read does not carry them: the
 Cámara Arbitral's Rosario board (`bcr-cac-pizarra`, one `.xlsx` since 2000), BNA
@@ -861,8 +861,13 @@ day —the nearest whose last trading day has not passed, 121 of 121 measured
 days— and marks its delivery period, which is shown, never excluded (owner).
 `yahoo-chart-1.3.0` dates bars in the exchange's IANA zone: `1.2.0` applied
 today's offset to every bar and put each summer futures bar a day early.
-`soy-basis-1.0.0` compares the three legs of one market day; the basis reading
-at a cutoff, the refresh on open and the `/argentina` block are still to come.
+`soy-basis-1.0.0` compares the three legs of one market day, never borrowing
+another day's leg. `/argentina` reads them in its sixth block
+(`argentina-dashboard-2.1.0`, `soy-block.ts`) and brings them up to date on
+open: board and BNA daily, the estimates once per Buenos Aires day, and `ZS=F`
+as one more subject of Yahoo's job, whose checks count runs in any dataset of
+`recordedIn`. A future's bar enters the next day, so the latest basis is
+usually the previous business day.
 
 Against Neon, the repo's commands need both env files, the last one winning —
 an exported `DATABASE_URL` does not beat `--env-file`:

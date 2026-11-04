@@ -166,7 +166,7 @@ describe("ensureArgentinaRefresh", () => {
     );
     expect(next.status).toMatchObject({
       state: "running",
-      sources: ["BCRA", "pares ADR del CCL"],
+      sources: ["BCRA", "Yahoo (CCL y Chicago)", "pizarra de Rosario", "BNA"],
     });
   });
 
@@ -210,6 +210,30 @@ describe("ensureArgentinaRefresh", () => {
     expect(
       result.status.state === "running" ? result.status.sources : [],
     ).not.toContain("INDEC");
+  });
+
+  it("counts a soybean run under its own dataset as a check of Yahoo's job", async () => {
+    const { dependencies, recordRun, jobs } = setup();
+    const yahoo = refreshSourceOf("yahoo-finance");
+    expect(yahoo.subjects).toContain("soy_cbot_front");
+    await recordRun(
+      {
+        sourceId: yahoo.sourceId,
+        datasetId: "yahoo.futures-close",
+        parserVersion: yahoo.parserVersion,
+      } as IngestionJob,
+      "soy_cbot_front",
+    );
+
+    await ensureArgentinaRefresh({ retryFailures: false }, dependencies);
+    const planned = (await openRefreshJobs(jobs)).find(
+      (job) => job.sourceId === "yahoo-finance",
+    )!;
+    const items = await jobs.listItems({ jobId: planned.jobId, limit: 100 });
+    expect(items.map((item) => item.subjectKey)).not.toContain(
+      "soy_cbot_front",
+    );
+    expect(items).toHaveLength(yahoo.subjects.length - 1);
   });
 
   it("leaves no job for a stopped source and names it", async () => {

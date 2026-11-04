@@ -5,6 +5,12 @@ import type {
   FiscalBlock,
   MonetaryBlock,
 } from "@/modules/argentina-dashboard/domain/argentina-dashboard";
+import type {
+  SoyBlock,
+  SoyDay,
+  SoyUnavailableReason,
+} from "@/modules/argentina-dashboard/domain/soy-block";
+import { formatCompactAmount } from "@/modules/valuation/domain/display-format";
 
 import { DashboardBlock, DataTable } from "./block";
 import { ChartViews } from "./chart-views";
@@ -882,6 +888,285 @@ export function ExternalSection({
           />
         </>
       )}
+    </DashboardBlock>
+  );
+}
+
+/** Por qué un día de pizarra no tiene basis: la pata que faltó ese día. */
+const SOY_UNAVAILABLE: Record<SoyUnavailableReason, string> = {
+  missing_rosario: "Pizarra sin cotización",
+  missing_fx: "Sin BNA ese día",
+  missing_chicago: "Sin Chicago ese día",
+  date_mismatch: "Fechas distintas",
+  not_yet_known: "No publicado al corte",
+  non_positive_input: "Precio no positivo",
+};
+
+function contractText(day: SoyDay): string {
+  return day.inDeliveryPeriod ? `${day.contract} · en entrega` : day.contract;
+}
+
+/** Cuántas ruedas recientes lista la tabla con contrato y motivo. */
+const SOY_RECENT_DAYS = 30;
+
+export function SoySection({ soy }: { readonly soy: SoyBlock }) {
+  const { latest, legs } = soy;
+  const reading =
+    latest === null
+      ? "Sin un día con pizarra, BNA y Chicago guardados a la vez."
+      : [
+          `El ${calendarDate(latest.on)} la pizarra de Rosario fue de US$ ${amount(latest.rosarioUsd!, 2)} por tonelada ($ ${amount(latest.rosarioArs!)} al BNA comprador de $ ${amount(latest.fx!, 2)})`,
+          ` y Chicago, de US$ ${amount(latest.chicagoUsd!, 2)} (${latest.contract}): un basis de ${signedPoints(latest.basis)}.`,
+          latest.inDeliveryPeriod
+            ? ` El ${latest.contract} estaba en su período de entrega, que termina el ${calendarDate(latest.lastTradeOn)}.`
+            : "",
+        ].join("");
+  const daily: TimelineRow[] = soy.days.map((day) => ({
+    on: day.on,
+    values: {
+      basis: day.basis,
+      rosarioUsd: day.rosarioUsd,
+      chicagoUsd: day.chicagoUsd,
+    },
+  }));
+  const monthly: TimelineRow[] = soy.months.map((month) => ({
+    on: month.on,
+    values: {
+      basis: month.basis.value,
+      rosarioUsd: month.rosarioUsd.value,
+      chicagoUsd: month.chicagoUsd.value,
+    },
+  }));
+  const ranges = ["1y", "2y", "5y", "10y", "20y", "max"] as const;
+  const campaigns = soy.campaigns.filter(
+    (campaign) => campaign.productionT !== null,
+  );
+  const lastCampaign = campaigns.at(-1);
+  const change = soy.productionChange;
+  const legDate = (leg: { readonly on: string } | null) =>
+    leg === null ? NO_DATA : calendarDate(leg.on);
+
+  return (
+    <DashboardBlock
+      id="soja"
+      title="Soja: Rosario contra Chicago"
+      reading={reading}
+      provenance={
+        <>
+          Cámara Arbitral de Cereales (BCR) · BNA divisas comprador · CBOT vía
+          Yahoo (ZS=F) · US$ por tonelada · pizarra {legDate(legs.rosario)}, BNA{" "}
+          {legDate(legs.fx)}, Chicago {legDate(legs.chicago)}
+        </>
+      }
+      methodology={
+        <>
+          <p>
+            La pizarra es el precio que fija la Cámara Arbitral de Cereales de
+            la Bolsa de Comercio de Rosario: pesos por tonelada, entrega
+            inmediata, pago contado, sobre camión o vagón en zona Rosario. Se
+            pasa a dólares con la cotización de divisas del Banco Nación al
+            cierre, tipo comprador, del mismo día: es la que usa la propia
+            Cámara. Un día sin pizarra, sin BNA o sin Chicago no tiene basis, y
+            nunca se toma el dato de otro día.
+          </p>
+          <p>
+            Chicago es el cierre diario del contrato más cercano de soja de CBOT
+            según Yahoo, en centavos de dólar por bushel, pasado a dólares por
+            tonelada con 36,7437 bushels por tonelada. Yahoo rueda al último día
+            de negociación —el hábil anterior al 15 del mes del contrato—; el
+            contrato de cada día se deduce con esa regla (
+            <code className="text-xs">cbot-soy-front-contract-1.0.0</code>) y
+            los días desde el first notice day se marcan «en entrega». Es el
+            cierre de Yahoo, no el precio de ajuste de CME.
+          </p>
+          <p>
+            El basis es pizarra en dólares sobre Chicago menos uno, en por
+            ciento (<code className="text-xs">soy-basis-1.0.0</code>). Esa
+            diferencia junta derechos de exportación, flete, márgenes y calidad;
+            esta página no la descompone. Durante el cepo y los programas de
+            «dólar soja» el exportador no liquidaba al BNA comprador, y en esos
+            períodos el basis en dólares oficiales no describe lo que cobraba el
+            mercado.
+          </p>
+          <p>
+            Superficies, producción y rendimiento son las Estimaciones Agrícolas
+            del Ministerio de Agricultura, Ganadería y Pesca, conciliadas en
+            cada corrida con la serie CC BY 4.0 de datos.magyp.gob.ar. La
+            campaña en curso se revisa mes a mes; el gráfico la ubica en su año
+            de cosecha.
+          </p>
+          <p>
+            Lectura <code className="text-xs">argentina-dashboard-2.1.0</code>.
+          </p>
+          <ChartReadingNote />
+        </>
+      }
+    >
+      {daily.length === 0 ? (
+        <Empty what="precios de soja" />
+      ) : (
+        <ChartViews
+          label="Vista de la soja"
+          views={[
+            {
+              id: "basis",
+              label: "Basis",
+              content: (
+                <TimelineChart
+                  key="basis"
+                  label={`Basis de la soja: pizarra de Rosario en dólares contra Chicago. ${reading}`}
+                  caption="Basis de la soja, pizarra de Rosario contra Chicago, en por ciento"
+                  daily={daily}
+                  monthly={monthly}
+                  frequency="daily"
+                  ranges={ranges}
+                  defaultRange="2y"
+                  axis="points"
+                  zeroLine
+                  series={[
+                    {
+                      key: "basis",
+                      label: "Basis",
+                      color: "var(--chart-1)",
+                      mark: "line",
+                      format: { kind: "signedPoints", scale: 1 },
+                      change: "difference",
+                    },
+                  ]}
+                />
+              ),
+            },
+            {
+              id: "prices",
+              label: "Precios en US$/t",
+              content: (
+                <TimelineChart
+                  key="prices"
+                  label="Pizarra de Rosario en dólares y Chicago, en dólares por tonelada."
+                  caption="Pizarra de Rosario y Chicago en dólares por tonelada"
+                  daily={daily}
+                  monthly={monthly}
+                  frequency="daily"
+                  ranges={ranges}
+                  defaultRange="2y"
+                  axis="pesos"
+                  allowLog
+                  series={[
+                    {
+                      key: "rosarioUsd",
+                      label: "Rosario (pizarra)",
+                      color: "var(--chart-1)",
+                      mark: "line",
+                      format: { kind: "amount", scale: 2 },
+                      change: "ratio",
+                    },
+                    {
+                      key: "chicagoUsd",
+                      label: "Chicago (contrato más cercano)",
+                      color: "var(--chart-3)",
+                      mark: "dashed",
+                      format: { kind: "amount", scale: 2 },
+                      change: "ratio",
+                    },
+                  ]}
+                />
+              ),
+            },
+          ]}
+        />
+      )}
+      {soy.days.length === 0 ? null : (
+        <div className="flex flex-col gap-2">
+          <h3 className="text-sm font-medium">
+            Últimas ruedas, con su contrato
+          </h3>
+          <DataTable
+            caption="Últimas ruedas de pizarra con BNA, Chicago, contrato y basis"
+            columns={[
+              { label: "Fecha" },
+              { label: "Pizarra, $/t", numeric: true },
+              { label: "BNA comprador", numeric: true },
+              { label: "Chicago, ¢/bu", numeric: true },
+              { label: "Contrato" },
+              { label: "Basis", numeric: true },
+            ]}
+            rows={reversed(soy.days.slice(-SOY_RECENT_DAYS)).map((day) => [
+              calendarDate(day.on),
+              day.rosarioArs === null ? "S/C" : amount(day.rosarioArs),
+              day.fx === null ? NO_DATA : amount(day.fx, 2),
+              day.chicagoCents === null ? NO_DATA : amount(day.chicagoCents, 2),
+              contractText(day),
+              day.basis === null
+                ? SOY_UNAVAILABLE[day.reason!]
+                : signedPoints(day.basis),
+            ])}
+          />
+        </div>
+      )}
+      <div className="flex flex-col gap-2">
+        <h3 className="text-sm font-medium">Producción por campaña</h3>
+        {lastCampaign === undefined ? (
+          <Empty what="estimaciones agrícolas" />
+        ) : (
+          <>
+            <p className="text-sm">
+              {`La campaña ${lastCampaign.campaign} produjo ${formatCompactAmount(lastCampaign.productionT!, { scale: 1 })} de toneladas`}
+              {change !== null && change.change.status === "computed"
+                ? `, ${fractionAsPoints(change.change.value)} contra ${change.previous}.`
+                : "."}
+            </p>
+            <TimelineChart
+              label={`Producción de soja por campaña y año de cosecha, con el eje en millones de toneladas. La campaña ${lastCampaign.campaign} produjo ${formatCompactAmount(lastCampaign.productionT!, { scale: 1 })} de toneladas.`}
+              caption="Producción de soja por campaña"
+              monthly={campaigns.map((campaign) => ({
+                // Año de cosecha: la campaña 2025/26 se cosecha en 2026.
+                on: `${Number(campaign.on.slice(0, 4)) + 1}-01-01`,
+                values: { production: campaign.productionT },
+              }))}
+              frequency="annual"
+              ranges={["20y", "max"]}
+              defaultRange="20y"
+              axis="decimal"
+              height="sm"
+              showTable={false}
+              series={[
+                {
+                  key: "production",
+                  label: "Producción, t",
+                  color: "var(--chart-2)",
+                  mark: "bar",
+                  format: { kind: "amount", scale: 0 },
+                  change: "ratio",
+                  divisor: 1_000_000,
+                },
+              ]}
+            />
+            <DataTable
+              caption="Superficie, producción y rendimiento de soja por campaña"
+              columns={[
+                { label: "Campaña" },
+                { label: "Sembrada, ha", numeric: true },
+                { label: "Cosechada, ha", numeric: true },
+                { label: "Producción, t", numeric: true },
+                { label: "Rendimiento, kg/ha", numeric: true },
+              ]}
+              rows={reversed(soy.campaigns).map((campaign) => [
+                campaign.campaign,
+                campaign.sownHa === null ? NO_DATA : amount(campaign.sownHa),
+                campaign.harvestedHa === null
+                  ? NO_DATA
+                  : amount(campaign.harvestedHa),
+                campaign.productionT === null
+                  ? NO_DATA
+                  : amount(campaign.productionT),
+                campaign.yieldKgHa === null
+                  ? NO_DATA
+                  : amount(campaign.yieldKgHa),
+              ])}
+            />
+          </>
+        )}
+      </div>
     </DashboardBlock>
   );
 }

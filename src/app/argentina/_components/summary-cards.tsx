@@ -10,6 +10,7 @@ import {
   resultWord,
   shortMonth,
   signedAmount,
+  signedPoints,
 } from "./format";
 
 type Summary = {
@@ -23,7 +24,7 @@ type Summary = {
 };
 
 function summariesOf(dashboard: ArgentinaDashboard): readonly Summary[] {
-  const { activity, dollar, monetary, fiscal, external } = dashboard;
+  const { activity, dollar, monetary, fiscal, external, soy } = dashboard;
   const inflation = monetary.monthlyInflation.at(-1);
   const fiscalYear = fiscal.years.at(-1);
   const trade = external.months.at(-1);
@@ -83,6 +84,15 @@ function summariesOf(dashboard: ArgentinaDashboard): readonly Summary[] {
         : "Bienes, ICA",
       asOf: trade ? shortMonth(trade.on) : null,
     },
+    {
+      href: "#soja",
+      label: "Basis de la soja",
+      value: soy.latest ? signedPoints(soy.latest.basis) : "Sin dato",
+      detail: soy.latest
+        ? `US$ ${amount(soy.latest.rosarioUsd!, 0)} contra US$ ${amount(soy.latest.chicagoUsd!, 0)} por t`
+        : "Pizarra de Rosario y CBOT",
+      asOf: soy.latest ? calendarDate(soy.latest.on) : null,
+    },
   ];
 }
 
@@ -98,12 +108,9 @@ export function SummaryCards({
 }) {
   return (
     <nav aria-label="Lectura rápida">
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {summariesOf(dashboard).map((summary) => (
-          <li
-            key={summary.href}
-            className="min-w-0 last:col-span-2 sm:last:col-span-1"
-          >
+          <li key={summary.href} className="min-w-0">
             <a
               href={summary.href}
               className="flex h-full flex-col gap-1 rounded-xl bg-card p-3 ring-1 ring-foreground/10 transition-colors hover:bg-muted/50 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"

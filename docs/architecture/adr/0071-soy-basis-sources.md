@@ -129,9 +129,18 @@ Lo que no se ve en la tabla:
    concilia detiene la corrida por nombre (`reconciliation_failed`) antes de
    tocar lo guardado.
 
-6. **Fuera de este incremento, en el mismo slice:** la lectura del basis desde
-   lo guardado, la actualización al abrir `/argentina` (ADR 0070) y el bloque
-   de soja.
+6. **La página la lee y la pone al día.** `/argentina` suma un bloque de
+   soja (`argentina-dashboard-2.1.0`, `soy-block.ts`) leído al mismo corte que
+   los otros: el basis de cada día de pizarra con las patas de ese mismo día
+   —el que no las tiene dice cuál faltó—, cinco años día por día y la historia
+   al cierre de mes, la última lectura con su contrato y su período de
+   entrega, la fecha propia de cada pata y la producción por campaña. La
+   actualización al abrir (ADR 0070) suma tres fuentes —pizarra y BNA diarias,
+   Estimaciones una vez por día de Buenos Aires— y `ZS=F` entra como un sujeto
+   más del job de Yahoo, que cuenta como revisión una corrida en
+   `yahoo.futures-close` o en las patas del CCL (`recordedIn`). Como la rueda
+   de un futuro entra al día siguiente, el último basis suele ser del día
+   hábil anterior.
 
 ## Evidencia
 
@@ -151,6 +160,16 @@ En una réplica vacía y migrada, contra los cables reales, con
   (−27,5 % y −27,3 %): marcarlos sin excluirlos no sesga la serie. 2023 da
   mediana −11,4 % y p90 +9 %: es el «dólar soja», en el que la pizarra en pesos
   no se cobraba al BNA comprador.
+
+En una réplica vacía, con BCRA, INDEC y Series de Tiempo frenados por el kill
+switch, abrir `/argentina` planeó un job por fuente y grabó las siete series de
+soja y las 20 patas del CCL en 58 s; una segunda visita no planeó nada. El
+render con esos datos, a 1440 px en claro y 390 px en oscuro: 0 px de desborde,
+ningún `NaN`, `undefined` ni `null`, axe sin serious ni critical con las tablas
+abiertas, después de volver enfocables las regiones con scroll de las tablas
+(`scrollable-region-focusable`, que afectaba a todos los bloques) y de abrir
+medio intervalo el dominio de los gráficos de barras, cuya primera barra tapaba
+el eje.
 
 ## Consecuencias
 

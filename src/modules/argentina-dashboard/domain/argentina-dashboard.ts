@@ -32,8 +32,11 @@ export type { DatedValue } from "./chart-history";
  * its whole history (`month-end-close-1.0.0`), and each block carries its
  * path per presidency (`government-comparison-1.0.0`). Which range opens
  * first is the chart's choice, not the read's.
+ *
+ * `2.1.0` (`F9-05`) adds the soy block (`soy-block.ts`); the other five read
+ * as before.
  */
-export const ARGENTINA_DASHBOARD_VERSION = "argentina-dashboard-2.0.0";
+export const ARGENTINA_DASHBOARD_VERSION = "argentina-dashboard-2.1.0";
 
 export const SECTOR_WINDOW_MONTHS = 12;
 /** Calendar days a daily series goes out day by day: five years. */

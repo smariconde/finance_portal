@@ -21,13 +21,14 @@ import {
   ExternalSection,
   FiscalSection,
   MonetarySection,
+  SoySection,
 } from "./_components/sections";
 import { SummaryCards } from "./_components/summary-cards";
 
 export const metadata: Metadata = {
   title: "Argentina | Portal Financiero",
   description:
-    "Actividad, dólar, inflación, resultado fiscal y comercio exterior de la Argentina al último dato guardado, con su fuente y su fecha.",
+    "Actividad, dólar, inflación, resultado fiscal, comercio exterior y soja de la Argentina al último dato guardado, con su fuente y su fecha.",
 };
 
 /** Ver [ADR 0005](../../../docs/architecture/adr/0005-request-time-runtime-boundary.md). */
@@ -91,11 +92,13 @@ export default async function ArgentinaPage() {
             ¿Cómo viene la economía argentina?
           </h1>
           <p className="max-w-3xl text-sm text-muted-foreground md:text-base">
-            Lo último que publicaron el INDEC, el BCRA y la Secretaría de
-            Hacienda. Al abrir la página se busca lo que pudo haberse publicado
-            desde la última revisión. Cada serie tiene su propia fecha: la
-            actividad sale con dos meses de rezago y el dólar es diario.
-            Describe lo que pasó; no explica por qué ni anticipa lo que viene.
+            Lo último que publicaron el INDEC, el BCRA, la Secretaría de
+            Hacienda, la Bolsa de Comercio de Rosario y el Ministerio de
+            Agricultura. Al abrir la página se busca lo que pudo haberse
+            publicado desde la última revisión. Cada serie tiene su propia
+            fecha: la actividad sale con dos meses de rezago y el dólar es
+            diario. Describe lo que pasó; no explica por qué ni anticipa lo que
+            viene.
           </p>
         </section>
 
@@ -113,6 +116,7 @@ export default async function ArgentinaPage() {
         <MonetarySection monetary={dashboard.monetary} />
         <FiscalSection fiscal={dashboard.fiscal} />
         <ExternalSection external={dashboard.external} />
+        <SoySection soy={dashboard.soy} />
       </div>
     </div>
   );
