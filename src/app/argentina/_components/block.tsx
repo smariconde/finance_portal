@@ -102,7 +102,13 @@ export function DataTable({
 }) {
   return (
     <Fold summary={`Ver los datos (${rows.length} filas)`}>
-      <div className="max-h-96 overflow-auto rounded-md border">
+      {/* Con scroll propio: tiene que poder enfocarse para recorrerlo con teclado. */}
+      <div
+        role="region"
+        aria-label={caption}
+        tabIndex={0}
+        className="max-h-96 overflow-auto rounded-md border focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+      >
         <Table>
           <TableCaption className="sr-only">{caption}</TableCaption>
           <TableHeader className="sticky top-0 bg-card">

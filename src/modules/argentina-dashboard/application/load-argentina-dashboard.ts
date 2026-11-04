@@ -13,6 +13,10 @@ import {
   DECLARED_ARGENTINA_INDICATORS,
   declaredArgentinaIndicator,
 } from "@/modules/macro-series/domain/declared-argentina-indicators";
+import {
+  DECLARED_SOY_INDICATORS,
+  declaredSoyIndicator,
+} from "@/modules/macro-series/domain/declared-soy-indicators";
 import { pointInTimeQuerySchema } from "@/modules/temporal/domain/point-in-time-query";
 
 import {
@@ -29,6 +33,7 @@ import {
   type IndicatorSeries,
   type MonetaryBlock,
 } from "../domain/argentina-dashboard";
+import { buildSoyBlock, type SoyBlock } from "../domain/soy-block";
 
 /** The BCRA variables the page reads (`declared-bcra-series.ts`). */
 export const DASHBOARD_BCRA_VARIABLES = {
@@ -50,6 +55,7 @@ export type ArgentinaDashboard = {
   readonly monetary: MonetaryBlock;
   readonly fiscal: FiscalBlock;
   readonly external: ExternalBlock;
+  readonly soy: SoyBlock;
 };
 
 /**
@@ -74,12 +80,14 @@ export async function loadArgentinaDashboard(dependencies: {
   });
 
   // One read for every declared indicator: two queries instead of two each.
-  const stored = await dependencies.indicators.allObservationsOf(
-    DECLARED_ARGENTINA_INDICATORS.map((item) => item.id),
-  );
+  // The soy set is its own declaration (ADR 0071) but the same read.
+  const stored = await dependencies.indicators.allObservationsOf([
+    ...DECLARED_ARGENTINA_INDICATORS.map((item) => item.id),
+    ...DECLARED_SOY_INDICATORS.map((item) => item.id),
+  ]);
 
   function indicator(id: string): IndicatorSeries {
-    const declared = declaredArgentinaIndicator(id);
+    const declared = declaredArgentinaIndicator(id) ?? declaredSoyIndicator(id);
     if (declared === null) throw new Error(`indicator_not_declared: ${id}`);
     const points = readIndicatorVintages(declared, stored.get(id) ?? [], {
       effectiveOn: today,
@@ -169,5 +177,15 @@ export async function loadArgentinaDashboard(dependencies: {
     }),
     fiscal: buildFiscalBlock({ primary, interest, gdp }),
     external: buildExternalBlock({ exports, imports }),
+    soy: buildSoyBlock({
+      rosario: indicator("soy_rosario_pizarra"),
+      fx: indicator("usd_bna_divisas_buyer"),
+      chicago: indicator("soy_cbot_front"),
+      sown: indicator("soy_area_sown"),
+      harvested: indicator("soy_area_harvested"),
+      production: indicator("soy_production"),
+      yieldKgHa: indicator("soy_yield"),
+      knownAt: readAt,
+    }),
   };
 }

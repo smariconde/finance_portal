@@ -28,7 +28,17 @@ import { INDEC_API_PARSER_VERSION } from "@/modules/macro-series/domain/indec-ap
 import { ARGENTINA_SERIES_DATASET_ID } from "@/modules/macro-series/application/live-argentina-series-source";
 import { ARGENTINA_SERIES_PARSER_VERSION } from "@/modules/macro-series/domain/argentina-series-parser";
 import { BCRA_MONETARY_PROFILE } from "@/modules/macro-series/domain/bcra-source-profile";
+import {
+  BNA_DATASET_ID,
+  CAC_PIZARRA_DATASET_ID,
+  MAGYP_ESTIMACIONES_DATASET_ID,
+  YAHOO_FUTURES_DATASET_ID,
+} from "@/modules/macro-series/application/live-soy-sources";
+import { BCR_CAC_PIZARRA_PARSER_VERSION } from "@/modules/macro-series/domain/bcr-cac-pizarra-parser";
+import { BNA_DIVISAS_PARSER_VERSION } from "@/modules/macro-series/domain/bna-divisas-parser";
 import { DECLARED_ARGENTINA_INDICATORS } from "@/modules/macro-series/domain/declared-argentina-indicators";
+import { DECLARED_SOY_INDICATORS } from "@/modules/macro-series/domain/declared-soy-indicators";
+import { MAGYP_ESTIMACIONES_PARSER_VERSION } from "@/modules/macro-series/domain/magyp-estimaciones-parser";
 import { CHART_PARSER_VERSION } from "@/modules/prices/domain/parse-chart-payload";
 
 import {
@@ -50,7 +60,11 @@ import { DASHBOARD_BCRA_VARIABLES } from "./load-argentina-dashboard";
  */
 export const ARGENTINA_REFRESH_KIND = "argentina_data_refresh";
 
-/** Every item is one request: a page of a series or a chart of a leg. */
+/**
+ * Every item is one request: a page of a series or a chart of a leg. The
+ * crop estimates are the exception that proves it: the first of the four
+ * series asks two (the form and the CC BY file) and the other three none.
+ */
 export const MAX_REQUESTS_PER_REFRESH_ITEM = 1;
 
 /** Completed jobs read to know what a job already checked. */
@@ -63,11 +77,21 @@ export type RefreshSourceId =
   | "bcra-monetarias-v4"
   | "yahoo-finance"
   | "indec-api"
-  | "argentina-series-tiempo";
+  | "argentina-series-tiempo"
+  | "bcr-cac-pizarra"
+  | "bna-fx"
+  | "magyp-estimaciones";
 
 export type RefreshSource = {
   readonly sourceId: RefreshSourceId;
+  /** The dataset the job is planned under. */
   readonly datasetId: string;
+  /**
+   * Datasets whose runs count as a check of a subject. Yahoo's job carries
+   * the CCL legs and the soybean front month (ADR 0071), which record under
+   * two datasets of the one source the lease guards.
+   */
+  readonly recordedIn: readonly string[];
   readonly parserVersion: string;
   readonly cadence: RefreshCadence;
   /** How the page names it in a status line. */
@@ -81,6 +105,7 @@ export const ARGENTINA_REFRESH_SOURCES: readonly RefreshSource[] = [
   {
     sourceId: "bcra-monetarias-v4",
     datasetId: BCRA_MONETARY_PROFILE.observationsDatasetId,
+    recordedIn: [BCRA_MONETARY_PROFILE.observationsDatasetId],
     parserVersion: BCRA_MONETARY_PROFILE.parserVersion,
     cadence: "daily",
     label: "BCRA",
@@ -89,17 +114,22 @@ export const ARGENTINA_REFRESH_SOURCES: readonly RefreshSource[] = [
   {
     sourceId: "yahoo-finance",
     datasetId: ADR_PAIR_DATASET_ID,
+    recordedIn: [ADR_PAIR_DATASET_ID, YAHOO_FUTURES_DATASET_ID],
     parserVersion: CHART_PARSER_VERSION,
     cadence: "daily",
-    label: "pares ADR del CCL",
-    subjects: DECLARED_ADR_PAIRS.flatMap((pair) => [
-      legIdOf(pair.pairId, "adr"),
-      legIdOf(pair.pairId, "local"),
-    ]),
+    label: "Yahoo (CCL y Chicago)",
+    subjects: [
+      ...DECLARED_ADR_PAIRS.flatMap((pair) => [
+        legIdOf(pair.pairId, "adr"),
+        legIdOf(pair.pairId, "local"),
+      ]),
+      ...soySubjectsOf("yahoo-finance"),
+    ],
   },
   {
     sourceId: "indec-api",
     datasetId: INDEC_DATASET_ID,
+    recordedIn: [INDEC_DATASET_ID],
     parserVersion: INDEC_API_PARSER_VERSION,
     cadence: "monthly",
     label: "INDEC",
@@ -110,6 +140,7 @@ export const ARGENTINA_REFRESH_SOURCES: readonly RefreshSource[] = [
   {
     sourceId: "argentina-series-tiempo",
     datasetId: ARGENTINA_SERIES_DATASET_ID,
+    recordedIn: [ARGENTINA_SERIES_DATASET_ID],
     parserVersion: ARGENTINA_SERIES_PARSER_VERSION,
     cadence: "monthly",
     label: "Series de Tiempo",
@@ -117,7 +148,41 @@ export const ARGENTINA_REFRESH_SOURCES: readonly RefreshSource[] = [
       (item) => item.sourceId === "argentina-series-tiempo",
     ).map((item) => item.id),
   },
+  {
+    sourceId: "bcr-cac-pizarra",
+    datasetId: CAC_PIZARRA_DATASET_ID,
+    recordedIn: [CAC_PIZARRA_DATASET_ID],
+    parserVersion: BCR_CAC_PIZARRA_PARSER_VERSION,
+    cadence: "daily",
+    label: "pizarra de Rosario",
+    subjects: soySubjectsOf("bcr-cac-pizarra"),
+  },
+  {
+    sourceId: "bna-fx",
+    datasetId: BNA_DATASET_ID,
+    recordedIn: [BNA_DATASET_ID],
+    parserVersion: BNA_DIVISAS_PARSER_VERSION,
+    cadence: "daily",
+    label: "BNA",
+    subjects: soySubjectsOf("bna-fx"),
+  },
+  {
+    sourceId: "magyp-estimaciones",
+    datasetId: MAGYP_ESTIMACIONES_DATASET_ID,
+    recordedIn: [MAGYP_ESTIMACIONES_DATASET_ID],
+    parserVersion: MAGYP_ESTIMACIONES_PARSER_VERSION,
+    // The estimates move monthly at most; once per Buenos Aires day.
+    cadence: "monthly",
+    label: "Estimaciones Agrícolas",
+    subjects: soySubjectsOf("magyp-estimaciones"),
+  },
 ];
+
+function soySubjectsOf(sourceId: string): readonly string[] {
+  return DECLARED_SOY_INDICATORS.filter(
+    (item) => item.sourceId === sourceId,
+  ).map((item) => item.id);
+}
 
 export function refreshSourceOf(sourceId: string): RefreshSource {
   const source = ARGENTINA_REFRESH_SOURCES.find(
@@ -168,11 +233,17 @@ async function assessSource(
   retryFailures: boolean,
 ): Promise<SourceAssessment> {
   const now = dependencies.now();
-  const runs = await dependencies.ingestionRuns.list({
-    sourceId: source.sourceId,
-    datasetId: source.datasetId,
-    limit: RECENT_RUNS_LIMIT,
-  });
+  const runs = (
+    await Promise.all(
+      source.recordedIn.map((datasetId) =>
+        dependencies.ingestionRuns.list({
+          sourceId: source.sourceId,
+          datasetId,
+          limit: RECENT_RUNS_LIMIT,
+        }),
+      ),
+    )
+  ).flat();
   const recorded = new Map<string, string>();
   for (const run of runs) {
     if (run.subjectKey === null || run.status === "failed") continue;
@@ -588,6 +659,7 @@ const SUBJECT_LEVEL_CODES = new Set([
   "payload_rejected",
   "leg_currency_mismatch",
   "pagination_failed",
+  "reconciliation_failed",
 ]);
 
 export function createArgentinaRefreshExecutor(dependencies: {

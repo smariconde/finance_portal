@@ -115,6 +115,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    87 | `F9-11`    | `queued`   | Resultado financiero y ejecución presupuestaria con fuente vigente o identidad declarada, nunca una serie vacía leída como cero.                                                                                          | `F9-07`          |
 |    88 | `F9-12`    | `done`     | `/argentina` se actualiza sola al abrirse: un job durable por fuente con sólo lo atrasado según su cadencia, progreso visible y fallas con «Reintentar».                                                                  |
 |    89 | `F9-13`    | `done`     | `/argentina` se recorre: lectura por punto con mouse, toque y teclado, rangos hasta toda la historia con cierre de mes, escala log, comparación A→B, gobiernos y regímenes fechados y vista por gobierno.                 | `F9-12`          |
+|    90 | `F9-05`    | `done`     | Soja: basis Rosario/Chicago con contrato, roll, BNA y conversión nombrados, estimaciones agrícolas conciliadas contra CC BY y bloque en `/argentina` que se actualiza al abrir.                                           | `F9-04`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -6314,6 +6315,101 @@ Con eso los puntos fijados caen donde se tocan (A 2004 y B 2024 a 1440 px; un
 toque a 390 px). Axe sólo deja `region` moderado sobre la sidebar, que ya
 estaba y no es de este slice. 3.623 unit y `test:e2e` (238) pasan.
 
+**`F9-05`, incremento 1, 2026-11-04.** Estado: `in_progress`. El contrato puro
+`soy-basis-1.0.0` exige pizarra spot Rosario en ARS/t, BNA divisas comprador
+ARS/USD y una cotización de Chicago con contrato y unidad identificados, las
+tres de la misma fecha de mercado y conocidas al corte. Convierte USD/bushel
+con 36,7437 bushels/t, o centavos/bushel primero a USD/bushel, calcula
+`(Rosario USD/t ÷ Chicago USD/t − 1) × 100` y
+expone las tres fuentes y sus fechas de disponibilidad. Una serie continua
+requiere regla de roll; ausencias, descalces de fecha y valores no positivos
+se rechazan por nombre. No hay ingesta, base ni superficie en este incremento.
+
+Fuentes revisadas: la [pizarra CAC de Rosario](https://cac.bcr.com.ar/es/precios-de-pizarra)
+declara entrega inmediata, ARS/t y conversión informativa con BNA comprador; el
+[BNA publica cotizaciones de divisas al cierre](https://www.bna.com.ar/Cotizador/MonedasHistorico/1000),
+pero la consulta pública no autoriza por sí misma automatización y retención;
+[CME ofrece los datos de contratos mediante una API licenciada](https://www.cmegroup.com/market-data/market-data-api.html).
+[Yahoo muestra el contrato individual ZSX26.CBT en centavos por bushel](https://finance.yahoo.com/quote/ZSX26.CBT/history/),
+pero sigue como candidato sin revisión de derechos específica para soja.
+El [dataset oficial de soja](https://datos.magyp.gob.ar/dataset/soja-siembra-cosecha-produccion-rendimiento)
+publica producción por campaña bajo CC BY 4.0. Siguen pendientes el canal y
+derechos concretos para las tres cotizaciones, el perfil técnico del CSV
+agrícola, las fixtures de proveedor, la persistencia y el bloque visual. No se
+eleva ninguna fuente de precio de `rights_review_pending` por esta lectura.
+
+**`F9-05`, incremento 2, 2026-11-04.** Estado: `in_progress`. Fuentes y
+persistencia ([ADR 0071](../architecture/adr/0071-soy-basis-sources.md)).
+Medido antes de codificar, contra los cables reales: la Cámara Arbitral exporta
+la pizarra desde 2000 en una planilla (una request), el BNA entrega divisas
+comprador desde 2002 en un CSV que responde sin sesión, Yahoo conserva pocos
+contratos de soja vencidos y `ZS=F` coincide en 121 de 121 días verificables con
+el contrato más cercano cuyo último día de negociación no pasó, y Estimaciones
+Agrícolas trae la campaña 2025/26, que el CSV CC BY todavía no tiene.
+
+Decisiones del owner: `owner_accepted` para la pizarra (sin términos), el BNA
+(descarga para uso personal) y Estimaciones (sin licencia declarada); el
+contrato de Chicago se nombra y el período de entrega se marca sin excluirse;
+Estimaciones se concilia en cada corrida contra el CSV CC BY.
+
+Entregado:
+
+- cinco filas de allowlist, derechos y tope diario: `bcr-cac-pizarra`,
+  `bna-fx` (el ID que el registro ya reservaba), `magyp-estimaciones` (`POST`
+  sin credencial), `magyp-datos-abiertos` y el dataset `yahoo.futures-close` en
+  la fila de Yahoo;
+- lectores cerrados `bcr-cac-pizarra-1.0.0` (con `cac-peso-cents-1.0.0`),
+  `bna-divisas-1.0.0`, `magyp-estimaciones-1.0.0` y `magyp-annual-csv-1.0.0`, y
+  `magyp-reconciliation-1.0.0`;
+- `cbot-soy-front-contract-1.0.0`: contrato, first notice day, último día de
+  negociación y período de entrega de cada día;
+- siete series en el registro de indicadores de `F9-04` (bloque `agro`,
+  frecuencia `daily`, moneda `physical`), sin migración, en un set aparte;
+  `pnpm argentina:indicators --soy`;
+- `yahoo-chart-1.3.0`: fecha cada instante en la zona IANA del mercado. Con
+  `1.2.0` cada rueda de verano de `ZS=F` caía el día anterior (796 en domingo);
+  una acción sella a la apertura y no cambia.
+
+Evidencia, en una réplica vacía y migrada: primera vuelta siete `succeeded`,
+19.419 puntos y 5 requests; segunda, siete `duplicate`; 5,1 MB (~269 B/fila);
+ninguna rueda en fin de semana. Basis calculado con `soy-basis-1.0.0` en 5.239
+días: −20,7 % el 2026-11-03 con `ZSX26` en período de entrega; mediana de los
+días de entrega −27,5 % contra −27,3 % del resto; 2023 con mediana −11,4 % por
+el «dólar soja». Sigue: lectura del basis al corte, actualización al abrir
+`/argentina` y el bloque de soja.
+
+**`F9-05`, incremento 3 y cierre, 2026-11-04.** Estado: `done`. `/argentina`
+lee la soja al mismo corte que los otros bloques
+(`argentina-dashboard-2.1.0`, `soy-block.ts`): el basis de cada día de pizarra
+con el BNA y Chicago **de ese día** —un día sin una pata dice cuál faltó, nunca
+toma la de otro—, cinco años día por día y la historia al cierre de mes, la
+última lectura con su contrato (`ZSX26 · en entrega`), la fecha propia de cada
+pata y la producción por campaña con su tabla. Una sexta tarjeta lleva el basis.
+
+La actualización al abrir (ADR 0070) suma pizarra y BNA con cadencia diaria y
+Estimaciones una vez por día; `ZS=F` es un sujeto más del job de Yahoo, que
+cuenta como revisión una corrida en cualquiera de sus datasets (`recordedIn`).
+La rueda de un futuro entra al día siguiente, así que el último basis suele
+ser del día hábil anterior.
+
+Dos arreglos compartidos que salieron de la revisión: las tablas con scroll
+propio son regiones etiquetadas y enfocables (axe marcaba
+`scrollable-region-focusable` serious con cualquier tabla abierta), y un
+gráfico de barras abre su dominio medio intervalo de cada lado (la primera
+barra tapaba el eje y la última quedaba cortada, también en el bloque fiscal).
+
+Evidencia, en una réplica vacía con BCRA, INDEC y Series de Tiempo frenados
+por kill switch: abrir la página grabó las siete series y las 20 patas del CCL
+en 58 s; la segunda visita no planeó nada. A 1440 px en claro y 390 px en
+oscuro, con datos reales: 0 px de desborde, sin `NaN`, `undefined` ni `null`,
+axe sin serious ni critical con las tablas abiertas (sólo `region` y
+`landmark-unique` moderados de la sidebar, previos). Basis −20,7 % el
+2026-11-03 con `ZSX26` en entrega; campaña 2025/26 de 49,3 millones de
+toneladas, −3,6 % contra 2024/25.
+
+Para Production: correr `pnpm argentina:indicators --soy --apply` contra Neon
+o dejar que la primera visita lo baje (cinco requests).
+
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
 | `F8-01` | Pipeline fiscal-aligned point-in-time de precio, market cap, net income, EPS y acciones para los filers del sector elegido, sin cargar el universo.                                   | Fase 6     | `TM-05`, `TM-06`, `TM-16` |
@@ -6330,7 +6426,7 @@ estaba y no es de este slice. 3.623 unit y `test:e2e` (238) pasan.
 | `F9-03` | Cambiario usa fuentes oficiales con fecha propia por serie.                                                                                                                                                                                                                                                                 | `F9-02`    | `TM-05`                            |
 | `F9-04` | Actividad, fiscal y externo preservan revisiones, quiebres, base, estacionalidad y denominadores compatibles.                                                                                                                                                                                                               | `F9-03`    | `TM-05`, `TM-06`                   |
 | `F9-05` | Rosario/Chicago identifica contrato, roll, FX y conversión antes de calcular basis; el volumen de soja sale de las estimaciones agrícolas del Ministerio de Agricultura (CC BY 4.0).                                                                                                                                        | `F9-04`    | `TM-05`, `TM-08`                   |
-| `F9-06` | Cada bloque cierra con gráfico, tabla accesible, freshness, metodología y lectura sin causalidad inventada. El bloque de soja entra cuando `F9-05` cierre.                                                                                                                                                                  | `F9-04`    | `TM-12`, `TM-16`                   |
+| `F9-06` | Cada bloque cierra con gráfico, tabla accesible, freshness, metodología y lectura sin causalidad inventada. El bloque de soja entró con `F9-05`.                                                                                                                                                                            | `F9-04`    | `TM-12`, `TM-16`                   |
 | `F9-07` | CCL implícito por ADR con ratio declarado y verificado; dólar oficial y dólar CCL lado a lado con la brecha.                                                                                                                                                                                                                | `F9-03`    | `TM-05`, `TM-08`, `TM-10`          |
 | `F9-08` | Servicios del INDEC declarados uno por uno (IPC por componente y región, índice de salarios, CBA/CBT, IPI manufacturero y minero, ICC, SIPM) con perfil cerrado, filtros y signos; la última variación publicada concilia con la calculada; el IPC del INDEC no reemplaza la cadena del BCRA desde 1943.                    | `F9-04`    | `TM-05`, `TM-08`, `TM-10`          |
 | `F9-09` | Exportaciones por rubro y destino e importaciones por uso económico y origen desde el INDEC: participaciones sobre las celdas publicadas, celdas `s` y rubro confidencial contados y visibles, el total publicado del ICA al lado y nunca reemplazado por la suma.                                                          | `F9-04`    | `TM-05`, `TM-08`                   |

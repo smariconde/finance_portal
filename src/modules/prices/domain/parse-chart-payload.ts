@@ -15,8 +15,15 @@ import { z } from "zod";
  * `1.1.0` (`F7-05`) lee además la sesión en curso que declara la respuesta
  * —`currentTradingPeriod.regular` y `regularMarketTime`—, sin la cual no hay
  * forma de saber si la última rueda es un cierre o un precio intradía.
+ *
+ * `1.3.0` (`F9-05`, ADR 0071) fecha cada instante en la zona IANA del mercado
+ * (`exchangeTimezoneName`) cuando la respuesta la declara. `gmtoffset` es el
+ * desfase **de hoy**: un futuro sella su rueda a la medianoche de Nueva York, y
+ * con el desfase de invierno cada rueda de verano caía el día anterior (796 de
+ * 6.573 de `ZS=F` en domingo). Una acción sella a la apertura, así que su fecha
+ * no cambia.
  */
-export const CHART_PARSER_VERSION = "yahoo-chart-1.2.0";
+export const CHART_PARSER_VERSION = "yahoo-chart-1.3.0";
 
 const finiteNumber = z.number().finite();
 
@@ -29,8 +36,10 @@ const chartPayloadSchema = z.object({
             currency: z.string().trim().min(1).max(8).nullish(),
             symbol: z.string().trim().min(1).max(32),
             exchangeName: z.string().nullish(),
-            /** Desfase en segundos del mercado respecto de UTC. */
+            /** Desfase en segundos del mercado respecto de UTC, hoy. */
             gmtoffset: z.number().int().nullish(),
+            /** Zona IANA del mercado (`America/New_York`). */
+            exchangeTimezoneName: z.string().trim().min(1).max(64).nullish(),
             /** Instante del último precio publicado, en epoch segundos. */
             regularMarketTime: z.number().int().nullish(),
             currentTradingPeriod: z
@@ -95,7 +104,9 @@ export type ChartRejectionCode =
   /** La serie no declara moneda y un precio sin moneda no es un precio. */
   | "currency_missing"
   /** Un split con numerador o denominador cero no define un ratio. */
-  | "invalid_split";
+  | "invalid_split"
+  /** La zona declarada del mercado no es una zona IANA conocida. */
+  | "timezone_unknown";
 
 export type ChartBar = {
   readonly marketDate: string;
@@ -166,6 +177,35 @@ function marketDateOf(epochSeconds: number, gmtOffsetSeconds: number): string {
   const shifted = new Date((epochSeconds + gmtOffsetSeconds) * 1000);
 
   return shifted.toISOString().slice(0, 10);
+}
+
+/**
+ * Con la zona del mercado, cada instante se fecha con **su** desfase, horario
+ * de verano incluido. Sin zona, el desfase de la respuesta, como hasta `1.2.0`.
+ */
+function marketDateReader(
+  timeZone: string | null | undefined,
+  gmtOffsetSeconds: number,
+): ((epochSeconds: number) => string) | null {
+  if (timeZone === null || timeZone === undefined) {
+    return (epochSeconds) => marketDateOf(epochSeconds, gmtOffsetSeconds);
+  }
+
+  let format: Intl.DateTimeFormat;
+
+  try {
+    // `en-CA` escribe la fecha como `aaaa-mm-dd`.
+    format = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+  } catch {
+    return null;
+  }
+
+  return (epochSeconds) => format.format(new Date(epochSeconds * 1000));
 }
 
 /**
@@ -241,6 +281,12 @@ export function parseChartPayload(body: unknown): ChartParseResult {
   }
 
   const gmtOffset = result.meta.gmtoffset ?? 0;
+  const dateOf = marketDateReader(result.meta.exchangeTimezoneName, gmtOffset);
+
+  if (dateOf === null) {
+    return reject("timezone_unknown");
+  }
+
   const bars: ChartBar[] = [];
   let barsWithoutClose = 0;
 
@@ -257,7 +303,7 @@ export function parseChartPayload(body: unknown): ChartParseResult {
     }
 
     bars.push({
-      marketDate: marketDateOf(timestamp, gmtOffset),
+      marketDate: dateOf(timestamp),
       close: toDecimalString(close),
     });
   }
@@ -270,7 +316,7 @@ export function parseChartPayload(body: unknown): ChartParseResult {
     }
 
     splits.push({
-      effectiveOn: marketDateOf(split.date, gmtOffset),
+      effectiveOn: dateOf(split.date),
       ratio: toDecimalString(split.numerator / split.denominator),
     });
   }
@@ -283,7 +329,7 @@ export function parseChartPayload(body: unknown): ChartParseResult {
     }
 
     dividends.push({
-      effectiveOn: marketDateOf(dividend.date, gmtOffset),
+      effectiveOn: dateOf(dividend.date),
       amount: toDecimalString(dividend.amount),
     });
   }
@@ -293,7 +339,7 @@ export function parseChartPayload(body: unknown): ChartParseResult {
     regular === null || regular === undefined
       ? null
       : {
-          marketDate: marketDateOf(regular.start, gmtOffset),
+          marketDate: dateOf(regular.start),
           regularEnd: new Date(regular.end * 1000).toISOString(),
           lastPriceAt:
             result.meta.regularMarketTime === null ||

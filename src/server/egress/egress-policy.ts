@@ -103,7 +103,9 @@ export const MAX_EGRESS_URL_LENGTH = 2048;
 /**
  * Método que una fuente admite. Uno solo por fuente: un buscador o un modelo se
  * consultan con `POST` y no tienen nada que pedir por `GET`, y una fuente de
- * datos se lee con `GET` y no tiene nada que recibir (ADR 0033).
+ * datos se lee con `GET` y no tiene nada que recibir (ADR 0033). La excepción es
+ * una fuente de datos que sólo responde a un formulario, como Estimaciones
+ * Agrícolas (ADR 0071): `POST`, sin credencial y con techo de cuerpo.
  */
 export const egressMethodSchema = z.enum(["GET", "POST"]);
 

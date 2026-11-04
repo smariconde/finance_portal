@@ -214,6 +214,69 @@ const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
     deadlineMs: 30_000,
     maxRedirects: 0,
   }),
+  // Soja (ADR 0071): un recurso por fuente. Cada host sirve mucho más —el
+  // sitio de la Bolsa, el home banking del BNA, el resto de los reportes del
+  // Ministerio— y nada de eso se alcanza.
+  egressAllowlistEntrySchema.parse({
+    sourceId: "bcr-cac-pizarra",
+    origins: [
+      {
+        host: "www.cac.bcr.com.ar",
+        pathPrefixes: ["/es/api/prices/987/export"],
+      },
+    ],
+    identification: "project",
+    // La planilla con 27 años de pizarra pesa ~160 KB.
+    maxResponseBytes: 4 * 1024 * 1024,
+    // El servidor tarda ~15 s en armarla.
+    deadlineMs: 60_000,
+    maxRedirects: 0,
+  }),
+  egressAllowlistEntrySchema.parse({
+    sourceId: "bna-fx",
+    origins: [
+      {
+        host: "www.bna.com.ar",
+        pathPrefixes: ["/Cotizador/DescargarPorFecha"],
+      },
+    ],
+    identification: "project",
+    // Veinticinco años de una moneda son ~250 KB.
+    maxResponseBytes: 2 * 1024 * 1024,
+    deadlineMs: 30_000,
+    maxRedirects: 0,
+  }),
+  egressAllowlistEntrySchema.parse({
+    sourceId: "magyp-estimaciones",
+    origins: [
+      {
+        host: "datosestimaciones.magyp.gob.ar",
+        pathPrefixes: ["/reportes.php"],
+      },
+    ],
+    // Un formulario: cultivo, variables y rango. Sin credencial.
+    method: "POST",
+    identification: "project",
+    maxRequestBytes: 4 * 1024,
+    maxResponseBytes: 1024 * 1024,
+    deadlineMs: 30_000,
+    maxRedirects: 0,
+  }),
+  egressAllowlistEntrySchema.parse({
+    sourceId: "magyp-datos-abiertos",
+    origins: [
+      {
+        host: "datos.magyp.gob.ar",
+        pathPrefixes: [
+          "/dataset/8ae4865f-d2f2-45a2-9343-7a4a12728a90/resource/3bfe4630-91e2-46cd-82ad-cf8dc94d3dfb/download/",
+        ],
+      },
+    ],
+    identification: "project",
+    maxResponseBytes: 1024 * 1024,
+    deadlineMs: 30_000,
+    maxRedirects: 0,
+  }),
   egressAllowlistEntrySchema.parse({
     sourceId: "damodaran-current-data",
     origins: [

@@ -28,6 +28,7 @@ import {
   createPacedEgressFetch,
   INDEC_REQUEST_PACING,
   PRICES_REQUEST_PACING,
+  SOY_REQUEST_PACING,
   type RequestPacingPolicy,
 } from "@/modules/ingestion/application/egress-fetch";
 import { runIngestionJob } from "@/modules/ingestion/application/run-ingestion-job";
@@ -38,9 +39,16 @@ import { DEMO_SOURCE_REGISTRY } from "@/modules/ingestion/infrastructure/demo-so
 import { createLiveArgentinaSeriesSource } from "@/modules/macro-series/application/live-argentina-series-source";
 import { createLiveBcraSource } from "@/modules/macro-series/application/live-bcra-source";
 import { createLiveIndecSource } from "@/modules/macro-series/application/live-indec-source";
+import {
+  createLiveBnaSource,
+  createLiveCacPizarraSource,
+  createLiveMagypSource,
+  createLiveYahooFuturesSource,
+} from "@/modules/macro-series/application/live-soy-sources";
 import { recordArgentinaIndicator } from "@/modules/macro-series/application/record-argentina-indicator";
 import { recordBcraSeries } from "@/modules/macro-series/application/record-bcra-series";
 import { declaredArgentinaIndicator } from "@/modules/macro-series/domain/declared-argentina-indicators";
+import { declaredSoyIndicator } from "@/modules/macro-series/domain/declared-soy-indicators";
 import { createLivePriceSource } from "@/modules/prices/application/live-price-source";
 import { getMeteredEgressFetch } from "@/server/egress/get-source-egress-fetch";
 import { getAdrPairRepository } from "@/server/persistence/get-adr-pair-repository";
@@ -109,6 +117,9 @@ const PACING: Readonly<Record<RefreshSourceId, RequestPacingPolicy>> = {
   "yahoo-finance": PRICES_REQUEST_PACING,
   "indec-api": INDEC_REQUEST_PACING,
   "argentina-series-tiempo": ARGENTINA_SERIES_REQUEST_PACING,
+  "bcr-cac-pizarra": SOY_REQUEST_PACING,
+  "bna-fx": SOY_REQUEST_PACING,
+  "magyp-estimaciones": SOY_REQUEST_PACING,
 };
 
 /** The open jobs one after another, each under its source's lease. */
@@ -179,6 +190,34 @@ function recorderFor(
 ): Recorder {
   const ingestionRuns = getIngestionRunRepository();
   const newId = () => randomUUID();
+  const soyAdapters = {
+    sourceRegistry: registry,
+    fetch,
+    now: () => new Date(),
+  };
+
+  /** A declared soy series recorded through the given adapter (ADR 0071). */
+  function soyRecorder(
+    adapter: ReturnType<typeof createLiveCacPizarraSource>,
+  ): Recorder {
+    return async (_job, subjectKey) => {
+      const indicator = declaredSoyIndicator(subjectKey);
+      if (indicator === null || indicator.sourceId !== adapter.sourceId) {
+        throw new RefreshSubjectRejectedError("not_declared");
+      }
+      const outcome = await recordArgentinaIndicator(indicator, {
+        sources: [adapter],
+        repository: getArgentinaIndicatorRepository(),
+        ingestionRuns,
+        now,
+        newId,
+      });
+      if (outcome.runId === null) {
+        throw new RefreshSubjectRejectedError("indicator_not_recorded");
+      }
+      return outcome.runId;
+    };
+  }
 
   switch (source.sourceId) {
     case "bcra-monetarias-v4": {
@@ -204,7 +243,11 @@ function recorderFor(
         now: () => new Date(),
         historyFrom: ADR_PAIR_HISTORY_FROM,
       });
-      return async (_job, subjectKey) => {
+      const futures = soyRecorder(createLiveYahooFuturesSource(soyAdapters));
+      return async (job, subjectKey) => {
+        if (declaredSoyIndicator(subjectKey) !== null) {
+          return futures(job, subjectKey);
+        }
         const side = subjectKey.endsWith("-adr") ? "adr" : "local";
         const pairId = subjectKey.slice(0, subjectKey.lastIndexOf("-"));
         const outcome = await ingestAdrLeg(pairId, side, {
@@ -249,5 +292,12 @@ function recorderFor(
         return outcome.runId;
       };
     }
+    case "bcr-cac-pizarra":
+      return soyRecorder(createLiveCacPizarraSource(soyAdapters));
+    case "bna-fx":
+      return soyRecorder(createLiveBnaSource(soyAdapters));
+    case "magyp-estimaciones":
+      // One adapter for the job: its four series share one download.
+      return soyRecorder(createLiveMagypSource(soyAdapters));
   }
 }

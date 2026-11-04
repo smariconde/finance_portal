@@ -54,15 +54,23 @@ describe("topes declarados", () => {
     expect(declaredDailyBudget("bcra-cambiarias-v1")).toBe(100);
     expect(declaredDailyBudget("argentina-series-tiempo")).toBe(50);
     expect(declaredDailyBudget("indec-api")).toBe(60);
+    expect(declaredDailyBudget("bcr-cac-pizarra")).toBe(20);
+    expect(declaredDailyBudget("bna-fx")).toBe(20);
+    expect(declaredDailyBudget("magyp-estimaciones")).toBe(20);
+    expect(declaredDailyBudget("magyp-datos-abiertos")).toBe(20);
     expect(Object.keys(SOURCE_DAILY_REQUEST_BUDGETS).sort()).toEqual([
       "argentina-series-tiempo",
+      "bcr-cac-pizarra",
       "bcra-cambiarias-v1",
       "bcra-monetarias-v4",
+      "bna-fx",
       "caja-valores-cedear",
       "comafi-cedear",
       "damodaran-current-data",
       "datahub-sp500-pddl",
       "indec-api",
+      "magyp-datos-abiertos",
+      "magyp-estimaciones",
       "openrouter",
       "sec-edgar",
       "tavily",

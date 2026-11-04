@@ -259,6 +259,61 @@ describe("parseChartPayload", () => {
     });
   });
 
+  it("dates a bar stamped at midnight with that day's offset, summer included", () => {
+    // A CBOT future stamps its bar at 00:00 in New York: 04:00 UTC in summer,
+    // 05:00 UTC in winter. `gmtoffset` is only today's (ADR 0071).
+    const future = (timeZone: string | undefined) => ({
+      chart: {
+        error: null,
+        result: [
+          {
+            meta: {
+              currency: "USX",
+              symbol: "ZS=F",
+              exchangeName: "CBT",
+              gmtoffset: -18_000,
+              ...(timeZone === undefined
+                ? {}
+                : { exchangeTimezoneName: timeZone }),
+            },
+            timestamp: [
+              Date.parse("2025-07-14T04:00:00.000Z") / 1000,
+              Date.parse("2025-11-14T05:00:00.000Z") / 1000,
+            ],
+            indicators: { quote: [{ close: [997, 1112.75] }] },
+          },
+        ],
+      },
+    });
+
+    expect(
+      parsedOk(future("America/New_York")).bars.map((bar) => bar.marketDate),
+    ).toEqual(["2025-07-14", "2025-11-14"]);
+    // Without a zone, the response's offset as before: summer slips a day.
+    expect(parsedOk(future(undefined)).bars[0]!.marketDate).toBe("2025-07-13");
+    expect(parseChartPayload(future("Mars/Olympus"))).toMatchObject({
+      ok: false,
+      code: "timezone_unknown",
+    });
+  });
+
+  it("keeps an equity's opening on its own day in either zone reading", () => {
+    const [result] = [FIXTURE_CHART_PAYLOAD.chart.result[0]!];
+    const zoned = {
+      chart: {
+        error: null,
+        result: [
+          {
+            ...result,
+            meta: { ...result.meta, exchangeTimezoneName: "America/New_York" },
+          },
+        ],
+      },
+    };
+
+    expect(parsedOk(zoned).bars).toEqual(parsedOk(FIXTURE_CHART_PAYLOAD).bars);
+  });
+
   it("does not leak the received value in a rejection", () => {
     const result = parseChartPayload({ secret: "do-not-echo-this" });
 

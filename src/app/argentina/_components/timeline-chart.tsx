@@ -525,6 +525,14 @@ export function TimelineChart({
   const first = plotted.rows[0]?.t ?? 0;
   const last = plotted.rows.at(-1)?.t ?? 1;
   const axisTicks = timeTicks(first, last);
+  // Una barra se centra en su punto: sin medio intervalo de cada lado la
+  // primera tapa el eje Y y la última queda cortada.
+  const halfStep =
+    hasBars && plotted.rows.length > 1
+      ? (last - first) / (plotted.rows.length - 1) / 2
+      : 0;
+  const domainFirst = first - halfStep;
+  const domainLast = last + halfStep;
   const config = Object.fromEntries(
     series.map((item) => [item.key, { label: item.label, color: item.color }]),
   ) satisfies ChartConfig;
@@ -631,7 +639,7 @@ export function TimelineChart({
       1,
       Math.max(0, (clientX - box.left - Y_AXIS_WIDTH) / width),
     );
-    const t = first + share * (last - first);
+    const t = domainFirst + share * (domainLast - domainFirst);
     let low = 0;
     let high = rows.length - 1;
     while (low < high) {
@@ -848,7 +856,7 @@ export function TimelineChart({
             <XAxis
               dataKey="t"
               type="number"
-              domain={[first, last]}
+              domain={[domainFirst, domainLast]}
               ticks={axisTicks.ticks}
               tickFormatter={axisTicks.label}
               tickLine={false}
@@ -1032,7 +1040,12 @@ export function TimelineChart({
             Ver los datos del período ({visible.length} filas)
           </summary>
           {tableOpen ? (
-            <div className="mt-3 max-h-96 overflow-auto rounded-md border">
+            <div
+              role="region"
+              aria-label={`${caption}, ${resolutionText.toLowerCase()}`}
+              tabIndex={0}
+              className="mt-3 max-h-96 overflow-auto rounded-md border focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+            >
               <Table>
                 <TableCaption className="sr-only">
                   {caption}, {resolutionText.toLowerCase()}

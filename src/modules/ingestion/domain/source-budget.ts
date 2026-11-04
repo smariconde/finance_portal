@@ -62,6 +62,13 @@ export const SOURCE_DAILY_REQUEST_BUDGETS: Readonly<Record<string, number>> =
     // dicen). Sesenta cubren la primera carga de los servicios declarados y
     // varias vueltas; se revisa con el primer 429 (ADR 0069).
     "indec-api": 60,
+    // Soja (ADR 0071): cada corrida pide la historia entera en una request por
+    // serie —dos en el Ministerio, que concilia—. Veinte cubren la actualización
+    // al abrir y varias corridas a mano el mismo día.
+    "bcr-cac-pizarra": 20,
+    "bna-fx": 20,
+    "magyp-estimaciones": 20,
+    "magyp-datos-abiertos": 20,
     // Cuatro páginas por corrida (ADR 0032). Veinte por día cubren cinco
     // corridas, que es el tope de la matriz de uso, y dejan fuera cualquier bucle.
     "damodaran-current-data": 20,
