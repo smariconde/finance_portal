@@ -398,7 +398,7 @@ export type EnsureArgentinaRefreshResult = {
   readonly runWorker: boolean;
 };
 
-async function admissionBlock(
+export async function argentinaRefreshAdmissionBlock(
   budgets: SourceBudgetStore,
   source: RefreshSource,
   now: string,
@@ -460,19 +460,31 @@ async function describeOpenJobs(
         job.kind === ARGENTINA_REFRESH_KIND && job.createdAt >= roundStart,
     );
   const runnable = open.filter((job) => job.status === "open");
-  const configured = runnable.filter(
-    (job) =>
-      dependencies.credentialProblem?.(job.sourceId as RefreshSourceId) == null,
+  const availability = await Promise.all(
+    runnable.map(async (job) => {
+      const source = refreshSourceOf(job.sourceId);
+      const credential = dependencies.credentialProblem?.(source.sourceId);
+      const blocked = credential
+        ? ({
+            state: "blocked",
+            reason: credential,
+            source: source.label,
+            resumesAt: null,
+          } as const)
+        : await argentinaRefreshAdmissionBlock(
+            dependencies.budgets,
+            source,
+            now,
+          );
+      return { job, blocked };
+    }),
   );
-  if (configured.length === 0 && runnable.length > 0) {
-    const source = refreshSourceOf(runnable[0]!.sourceId);
+  const eligible = availability
+    .filter((entry) => entry.blocked === null)
+    .map((entry) => entry.job);
+  if (eligible.length === 0 && runnable.length > 0) {
     return {
-      status: {
-        state: "blocked",
-        reason: dependencies.credentialProblem!(source.sourceId)!,
-        source: source.label,
-        resumesAt: null,
-      },
+      status: availability[0]!.blocked!,
       runWorker: false,
     };
   }
@@ -499,7 +511,7 @@ async function describeOpenJobs(
     failed += counts.failed + counts.poisoned;
     total += job.itemCount;
   }
-  for (const job of configured) {
+  for (const job of eligible) {
     const [counts, next, lease] = await Promise.all([
       dependencies.jobs.countItems(job.jobId),
       dependencies.jobs.peekNext(job.jobId),
@@ -524,7 +536,7 @@ async function describeOpenJobs(
       done,
       total,
       failed,
-      sources: configured.map((job) => refreshSourceOf(job.sourceId).label),
+      sources: eligible.map((job) => refreshSourceOf(job.sourceId).label),
       waitingUntil: anyRunnableNow ? null : (waits.sort().at(-1) ?? null),
     },
     runWorker: anyRunnableNow && !dependencies.workerActive(),
@@ -566,7 +578,7 @@ export async function ensureArgentinaRefresh(
       continue;
     }
     // A stopped or exhausted source leaves no job that nobody can run.
-    const refusal = await admissionBlock(
+    const refusal = await argentinaRefreshAdmissionBlock(
       dependencies.budgets,
       assessment.source,
       now,
@@ -670,7 +682,7 @@ export function createArgentinaRefreshAdmission(dependencies: {
     ) {
       return { status: "budget_reserve" };
     }
-    const blocked = await admissionBlock(
+    const blocked = await argentinaRefreshAdmissionBlock(
       dependencies.budgets,
       dependencies.source,
       dependencies.now(),

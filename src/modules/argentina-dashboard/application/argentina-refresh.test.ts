@@ -387,6 +387,42 @@ describe("ensureArgentinaRefresh", () => {
         .runWorker,
     ).toBe(true);
   });
+
+  it("reports an exhausted budget on an open job without starting another worker", async () => {
+    const { dependencies, budgets, jobs, runOpen, recordsEverything } = setup();
+    await ensureArgentinaRefresh({ retryFailures: false }, dependencies);
+    await runOpen((job) =>
+      job.sourceId === "indec-api"
+        ? async () => ({
+            kind: "source_signal",
+            signal: "refused",
+            ingestionRunId: null,
+            retryAfter: null,
+            message: "credential_missing",
+          })
+        : recordsEverything,
+    );
+    const indecJob = (await openRefreshJobs(jobs)).find(
+      (job) => job.sourceId === "indec-api",
+    )!;
+    expect(indecJob.status).toBe("open");
+    for (let request = 0; request < 60; request += 1) {
+      expect((await budgets.consume("indec-api", NOW)).status).toBe("allowed");
+    }
+    const result = await ensureArgentinaRefresh(
+      { retryFailures: false },
+      dependencies,
+    );
+    expect(result).toEqual({
+      status: {
+        state: "blocked",
+        reason: "daily_budget_exhausted",
+        source: "INDEC",
+        resumesAt: "2026-11-04T00:00:00.000Z",
+      },
+      runWorker: false,
+    });
+  });
 });
 
 describe("runIndependentRefreshJobs", () => {

@@ -6259,10 +6259,19 @@ seguidos por miles de tomas y liberaciones del lease al consultar la página.
 Ahora la falta o invalidez del token bloquea sólo INDEC con una indicación
 concreta; las demás fuentes continúan y el job se reanuda al configurar el
 token. La latencia real del INDEC queda por medir después de configurarlo.
-Vercel confirmó que la variable falta en el proyecto, aunque está presente en
-`.env.local`. La corrección de código queda pendiente de build/CI: el build
+Vercel confirmó que la variable faltaba entonces en el proyecto, aunque estaba
+presente en `.env.local`. La corrección de código quedó pendiente de build/CI: el build
 local no pudo iniciar el proceso de CSS de Turbopack (`Operation not permitted`)
 en este entorno; 3.704 unit, formato, tipos y lint pasan.
+
+**`F9-12`, corrección 2 del 2026-11-04.** El token se agregó a Production,
+pero el job privado siguió en `0/19`: los 60 rechazos anteriores habían gastado
+la cuota UTC del día (`60/60`). La lectura de jobs abiertos omitía ese control,
+mostraba «Actualizando INDEC» y lanzaba workers que sólo tomaban y soltaban el
+lease. Ahora la lectura y el worker comprueban cuota y kill switch antes de
+decir que un job abierto puede avanzar. Se muestra la hora de reposición y el
+job se conserva para retomarlo al reabrir la página; no se altera el tope.
+Prueba focalizada: un job abierto con `60/60` queda `blocked`, no inicia worker.
 
 Sigue `F9-05` o `F9-08`, a elección del owner.
 
