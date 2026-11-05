@@ -6588,6 +6588,17 @@ y `git diff --check` pasan. La integración PostgreSQL sigue sin ejecutarse en
 este entorno: la conexión a la base de pruebas local devuelve `EPERM`. El build
 vuelve a fallar en PostCSS/Turbopack al abrir un puerto local (`EPERM`).
 
+**`F9-08`, persistencia del incremento 1 (2026-11-05).** Estado:
+`in_progress`. Una prueba de integración usa el adaptador INDEC con cable
+sintético, concilia dos publicaciones del IPC, guarda la segunda como revisión
+sin borrar la primera y verifica que una tercera tasa inconciliable no cambie
+las observaciones. Las cuatro pruebas del repositorio de indicadores pasan en
+PostgreSQL dedicado al habilitar la conexión local; lint, tipos y diff pasan.
+El build también falla con acceso ampliado en PostCSS/Turbopack al abrir un
+puerto local. El catálogo público no expone por HTML los perfiles de IPI, ICC
+o SIPM; siguen pendientes los nombres, columnas y filtros observados antes de
+declarar otra familia.
+
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
 | `F8-01` | Pipeline fiscal-aligned point-in-time de precio, market cap, net income, EPS y acciones para los filers del sector elegido, sin cargar el universo.                                   | Fase 6     | `TM-05`, `TM-06`, `TM-16` |
