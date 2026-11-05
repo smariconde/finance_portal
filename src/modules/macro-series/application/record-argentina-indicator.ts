@@ -3,6 +3,7 @@ import { computeContentHash } from "@/modules/ingestion/domain/content-hash";
 import { ingestionRunSchema } from "@/modules/ingestion/domain/ingestion-run";
 
 import type { ArgentinaIndicator } from "../domain/argentina-indicator";
+import type { IndecMonthlyReconciliation } from "../domain/indec-monthly-reconciliation";
 import {
   planArgentinaIndicator,
   type ArgentinaIndicatorPlan,
@@ -20,6 +21,8 @@ export type FetchedIndicatorPoints = {
   readonly observedAt: string;
   readonly requests: number;
   readonly bytes: number;
+  /** Present for the expanded INDEC series whose published rate is checked. */
+  readonly reconciliation?: IndecMonthlyReconciliation;
 };
 
 /**

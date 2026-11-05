@@ -193,12 +193,14 @@ const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
     origins: [
       {
         host: "api.indec.gob.ar",
-        // Sólo los servicios declarados de `F9-04` (ADR 0069). El catálogo, el
+        // Servicios de datos declarados de `F9-04` y `F9-08`. El catálogo, el
         // login y el OpenAPI del portal quedan fuera: el token sirve para leer
         // datos. Cada servicio nuevo es una fila más, con su slice.
         pathPrefixes: [
           "/v1/estimador-mensual-de-actividad-economica-nivel-general",
           "/v1/estimador-mensual-de-actividad-economica-sectores",
+          "/v1/ipc_nacional",
+          "/v1/valorizacion_canastas_cba_cbt",
         ],
       },
     ],

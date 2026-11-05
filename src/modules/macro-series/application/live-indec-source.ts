@@ -4,6 +4,11 @@ import { evaluateIngestionRights } from "@/modules/ingestion/domain/source-regis
 
 import type { ArgentinaIndicator } from "../domain/argentina-indicator";
 import { DECLARED_ARGENTINA_INDICATORS } from "../domain/declared-argentina-indicators";
+import { DECLARED_INDEC_EXPANDED_INDICATORS } from "../domain/declared-indec-expanded-indicators";
+import {
+  publishedMonthlyRateIndicator,
+  reconcileLatestIndecMonthlyRate,
+} from "../domain/indec-monthly-reconciliation";
 import {
   INDEC_API_PARSER_VERSION,
   INDEC_MAX_PAGES,
@@ -34,9 +39,10 @@ export class IndecSourceError extends Error {
       | "unexpected_status"
       | "schema_changed"
       | "no_rows"
-      | "pagination_failed",
+      | "pagination_failed"
+      | "reconciliation_failed",
     readonly indicatorId: string,
-    readonly detail: IndecParseFailure | null = null,
+    readonly detail: IndecParseFailure | string | null = null,
     readonly retryAfter: string | null = null,
   ) {
     super(`${code}${detail ? ` (${detail})` : ""}: ${indicatorId}`);
@@ -59,9 +65,10 @@ export function createLiveIndecSource(dependencies: {
     async load(indicator: ArgentinaIndicator): Promise<FetchedIndicatorPoints> {
       if (
         indicator.sourceId !== INDEC_SOURCE_ID ||
-        !DECLARED_ARGENTINA_INDICATORS.some(
-          (item) => JSON.stringify(item) === JSON.stringify(indicator),
-        )
+        ![
+          ...DECLARED_ARGENTINA_INDICATORS,
+          ...DECLARED_INDEC_EXPANDED_INDICATORS,
+        ].some((item) => JSON.stringify(item) === JSON.stringify(indicator))
       ) {
         throw new IndecSourceError("not_declared", indicator.id);
       }
@@ -83,12 +90,15 @@ export function createLiveIndecSource(dependencies: {
       let observedAt: string | null = null;
       let requests = 0;
       let bytes = 0;
-      for (let page = 0; page < INDEC_MAX_PAGES; page += 1) {
+      async function fetchPage(
+        target: ArgentinaIndicator,
+        offset: number,
+      ): Promise<readonly IndecPoint[]> {
         let response: Awaited<ReturnType<EgressFetch>>;
         try {
           response = await dependencies.fetch({
             sourceId: INDEC_SOURCE_ID,
-            url: indecPageUrl(indicator, points.length),
+            url: indecPageUrl(target, offset),
             accept: "application/json",
           });
         } catch {
@@ -113,7 +123,7 @@ export function createLiveIndecSource(dependencies: {
         }
         const parsed = parseIndecPage(
           new TextDecoder().decode(response.body),
-          indicator,
+          target,
         );
         if (!parsed.ok) {
           throw new IndecSourceError(
@@ -122,19 +132,57 @@ export function createLiveIndecSource(dependencies: {
             parsed.reason,
           );
         }
-        const first = parsed.points[0];
+        return parsed.points;
+      }
+
+      for (let page = 0; page < INDEC_MAX_PAGES; page += 1) {
+        const pagePoints = await fetchPage(indicator, points.length);
+        const first = pagePoints[0];
         const last = points.at(-1);
         if (first && last && first.periodOn <= last.periodOn) {
           throw new IndecSourceError("pagination_failed", indicator.id);
         }
-        points.push(...parsed.points);
-        if (parsed.points.length < INDEC_PAGE_LIMIT) {
+        points.push(...pagePoints);
+        if (pagePoints.length < INDEC_PAGE_LIMIT) {
           if (points.length === 0) {
             // A declared series always has history: zero rows means a renamed
             // filter value or a withdrawn service, never "nothing to record".
             throw new IndecSourceError("no_rows", indicator.id);
           }
-          return { points, observedAt, requests, bytes };
+          if (observedAt === null) {
+            throw new IndecSourceError("fetch_failed", indicator.id);
+          }
+          const expanded = DECLARED_INDEC_EXPANDED_INDICATORS.some(
+            (item) => item.id === indicator.id,
+          );
+          if (!expanded) return { points, observedAt, requests, bytes };
+
+          const rate = publishedMonthlyRateIndicator(indicator);
+          const rates = await fetchPage(rate, 0);
+          if (rates.length === 0) {
+            throw new IndecSourceError(
+              "no_rows",
+              indicator.id,
+              "published_rate",
+            );
+          }
+          if (rates.length === INDEC_PAGE_LIMIT) {
+            throw new IndecSourceError("pagination_failed", indicator.id);
+          }
+          const reconciliation = reconcileLatestIndecMonthlyRate({
+            level: indicator,
+            rate,
+            levels: points,
+            rates,
+          });
+          if (reconciliation.status === "refused") {
+            throw new IndecSourceError(
+              "reconciliation_failed",
+              indicator.id,
+              reconciliation.reason,
+            );
+          }
+          return { points, observedAt, requests, bytes, reconciliation };
         }
       }
       throw new IndecSourceError("pagination_failed", indicator.id);

@@ -1,10 +1,35 @@
 import { describe, expect, it } from "vitest";
 
 import { declaredArgentinaIndicator } from "./declared-argentina-indicators";
+import { declaredIndecExpandedIndicator } from "./declared-indec-expanded-indicators";
 import { indecPageUrl, parseIndecPage } from "./indec-api-parser";
 
 const emae = declaredArgentinaIndicator("emae_sa")!;
 const sector = declaredArgentinaIndicator("emae_sector_f")!;
+const ipc = declaredIndecExpandedIndicator("ipc_nacional")!;
+const basket = declaredIndecExpandedIndicator("basket_cba")!;
+
+function expandedRow(
+  indicator: typeof ipc,
+  period: string,
+  value: string | null,
+  overrides: Record<string, unknown> = {},
+): string {
+  const fields: Record<string, unknown> = {
+    ...indicator.filters,
+    periodo: period,
+    anio: Number(period.slice(0, 4)),
+    mes: Number(period.slice(4)),
+    valor: "__RAW_VALUE__",
+    valor_null: value === null ? "///" : null,
+    observaciones: null,
+    ...overrides,
+  };
+  return JSON.stringify(fields).replace(
+    '"valor":"__RAW_VALUE__"',
+    `"valor":${value ?? "null"}`,
+  );
+}
 
 /** Synthetic rows with the general-level service's columns. */
 function row(
@@ -36,6 +61,51 @@ function row(
 const page = (...rows: string[]) => `[${rows.join(",")}]`;
 
 describe("parseIndecPage", () => {
+  it("reads the declared IPC and basket wire shapes without losing decimal digits", () => {
+    expect(
+      parseIndecPage(
+        page(
+          expandedRow(ipc, "202608", "12276.766"),
+          expandedRow(ipc, "202609", "12514.1508000001"),
+        ),
+        ipc,
+      ),
+    ).toEqual({
+      ok: true,
+      points: [
+        { periodOn: "2026-08-01", value: "12276.766", note: null },
+        { periodOn: "2026-09-01", value: "12514.1508000001", note: null },
+      ],
+    });
+    expect(
+      parseIndecPage(page(expandedRow(basket, "202609", "239058.22")), basket),
+    ).toEqual({
+      ok: true,
+      points: [{ periodOn: "2026-09-01", value: "239058.22", note: null }],
+    });
+  });
+
+  it("rejects a changed IPC region, extra basket column and unexplained null", () => {
+    expect(
+      parseIndecPage(
+        page(expandedRow(ipc, "202609", "12514", { region: "GBA" })),
+        ipc,
+      ),
+    ).toEqual({ ok: false, reason: "filter_mismatch" });
+    expect(
+      parseIndecPage(
+        page(expandedRow(basket, "202609", "239058", { extra: "x" })),
+        basket,
+      ),
+    ).toEqual({ ok: false, reason: "schema_changed" });
+    expect(
+      parseIndecPage(
+        page(expandedRow(basket, "202609", null, { valor_null: null })),
+        basket,
+      ),
+    ).toEqual({ ok: false, reason: "invalid_value" });
+  });
+
   it("keeps every digit the source printed and orders by period", () => {
     const parsed = parseIndecPage(
       page(row("202602", "101.10000000000001"), row("202601", "100.5")),

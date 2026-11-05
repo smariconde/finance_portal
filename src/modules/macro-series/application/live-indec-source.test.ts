@@ -10,6 +10,8 @@ import { createInMemorySourceRegistryRepository } from "@/modules/ingestion/infr
 
 import { argentinaIndicatorSchema } from "../domain/argentina-indicator";
 import { declaredArgentinaIndicator } from "../domain/declared-argentina-indicators";
+import { declaredIndecExpandedIndicator } from "../domain/declared-indec-expanded-indicators";
+import { publishedMonthlyRateIndicator } from "../domain/indec-monthly-reconciliation";
 
 import { createLiveIndecSource } from "./live-indec-source";
 
@@ -128,5 +130,70 @@ describe("live INDEC source", () => {
       code: "not_declared",
     });
     expect(requests).toHaveLength(0);
+  });
+
+  it("admits an expanded IPC series but refuses a modified region before fetching", async () => {
+    const ipc = declaredIndecExpandedIndicator("ipc_nacional")!;
+    const sample = (periodo: string, valor: number, rate = false) => ({
+      ...(rate ? publishedMonthlyRateIndicator(ipc).filters : ipc.filters),
+      periodo,
+      anio: Number(periodo.slice(0, 4)),
+      mes: Number(periodo.slice(4)),
+      valor,
+      valor_null: null,
+      observaciones: null,
+    });
+    const { requests, source } = harness([
+      {
+        status: 200,
+        body: JSON.stringify([
+          sample("202608", 12276.766),
+          sample("202609", 12514.1508),
+        ]),
+      },
+      { status: 200, body: JSON.stringify([sample("202609", 1.9, true)]) },
+    ]);
+    const fetched = await source.load(ipc);
+    expect(fetched.points).toEqual([
+      { periodOn: "2026-08-01", value: "12276.766", note: null },
+      { periodOn: "2026-09-01", value: "12514.1508", note: null },
+    ]);
+    expect(fetched.reconciliation).toMatchObject({
+      status: "matched",
+      published: "1.9",
+    });
+    expect(requests).toHaveLength(2);
+    await expect(
+      source.load({ ...ipc, filters: { ...ipc.filters, region: "GBA" } }),
+    ).rejects.toMatchObject({ code: "not_declared" });
+    expect(requests).toHaveLength(2);
+  });
+
+  it("refuses an expanded publication when its monthly rate disagrees", async () => {
+    const ipc = declaredIndecExpandedIndicator("ipc_nacional")!;
+    const row = (periodo: string, valor: number, rate = false) => ({
+      ...(rate ? publishedMonthlyRateIndicator(ipc).filters : ipc.filters),
+      periodo,
+      anio: Number(periodo.slice(0, 4)),
+      mes: Number(periodo.slice(4)),
+      valor,
+      valor_null: null,
+      observaciones: null,
+    });
+    const { requests, source } = harness([
+      {
+        status: 200,
+        body: JSON.stringify([
+          row("202608", 12276.766),
+          row("202609", 12514.1508),
+        ]),
+      },
+      { status: 200, body: JSON.stringify([row("202609", 3.5, true)]) },
+    ]);
+    await expect(source.load(ipc)).rejects.toMatchObject({
+      code: "reconciliation_failed",
+      detail: "published_mismatch",
+    });
+    expect(requests).toHaveLength(2);
   });
 });

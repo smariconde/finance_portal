@@ -530,9 +530,9 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
       expectedCadence: "a mano; servicios mensuales declarados",
       freshnessTarget: "última publicación de cada servicio",
       timezone: "America/Argentina/Buenos_Aires",
-      units: ["Índice 2004=100", "Dólares"],
-      currencies: ["USD"],
-      parserVersion: "indec-api-1.0.0",
+      units: ["Índice 2004=100", "Unidad", "Pesos argentinos", "Dólares"],
+      currencies: ["USD", "ARS"],
+      parserVersion: "indec-api-1.1.0",
       fixturePolicy:
         "Fixtures sintéticas de filas por servicio; ninguna respuesta real en el repositorio.",
       fallbackSourceIds: ["argentina-series-tiempo"],

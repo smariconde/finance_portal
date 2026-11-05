@@ -10,7 +10,7 @@ import {
   type IndecConventionalSign,
 } from "./argentina-indicator";
 
-export const INDEC_API_PARSER_VERSION = "indec-api-1.0.0";
+export const INDEC_API_PARSER_VERSION = "indec-api-1.1.0";
 export const INDEC_API_BASE_URL = "https://api.indec.gob.ar/v1/";
 /** The API returns at most 1,000 rows, whatever `limit` asks (Catálogo API-INDEC). */
 export const INDEC_PAGE_LIMIT = 1000;
@@ -65,6 +65,58 @@ export const INDEC_SERVICES: Readonly<Record<string, IndecServiceProfile>> = {
       "observaciones",
     ],
     order: "anio,mes,codigo,descripcion,periodo,tipo_de_indicador",
+    year: "anio",
+    month: "mes",
+    period: "periodo",
+    value: "valor",
+    valueNull: "valor_null",
+    note: "observaciones",
+  },
+  ipc_nacional: {
+    columns: [
+      "clasificador",
+      "nivel",
+      "codigo",
+      "descripcion",
+      "periodo",
+      "anio",
+      "mes",
+      "indicador",
+      "tipo_de_indicador",
+      "tipo_de_indicador_descripcion",
+      "region",
+      "unidad_de_medida",
+      "valor",
+      "valor_null",
+      "observaciones",
+    ],
+    order: "anio,mes,periodo,region,nivel,codigo,tipo_de_indicador",
+    year: "anio",
+    month: "mes",
+    period: "periodo",
+    value: "valor",
+    valueNull: "valor_null",
+    note: "observaciones",
+  },
+  valorizacion_canastas_cba_cbt: {
+    columns: [
+      "clasificador",
+      "nivel",
+      "codigo",
+      "descripcion",
+      "periodo",
+      "anio",
+      "mes",
+      "indicador",
+      "tipo_de_indicador",
+      "tipo_de_indicador_descripcion",
+      "region",
+      "unidad_de_medida",
+      "valor",
+      "valor_null",
+      "observaciones",
+    ],
+    order: "anio,mes,periodo,codigo,tipo_de_indicador",
     year: "anio",
     month: "mes",
     period: "periodo",
