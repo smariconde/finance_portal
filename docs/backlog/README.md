@@ -6579,6 +6579,15 @@ desde esta rama. Sigue el resto de `F9-08`: salarios, IPI, ICC y SIPM, con
 sus perfiles y signos propios; el servicio beta no listó salarios entre sus
 servicios al 2026-11-05, así que su fuente deberá declararse por separado.
 
+**`F9-08`, endurecimiento del incremento 1 (2026-11-05).** Estado:
+`in_progress`. El lector niega un nivel cero o negativo de IPC o canasta en
+cualquier mes de la historia, antes de pedir la variación mensual. Una tasa
+mensual negativa sigue siendo válida si concilia. Pruebas del cable y del
+adaptador cubren el valor histórico inválido; 3.745 unit, formato, lint, tipos
+y `git diff --check` pasan. La integración PostgreSQL sigue sin ejecutarse en
+este entorno: la conexión a la base de pruebas local devuelve `EPERM`. El build
+vuelve a fallar en PostCSS/Turbopack al abrir un puerto local (`EPERM`).
+
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
 | `F8-01` | Pipeline fiscal-aligned point-in-time de precio, market cap, net income, EPS y acciones para los filers del sector elegido, sin cargar el universo.                                   | Fase 6     | `TM-05`, `TM-06`, `TM-16` |

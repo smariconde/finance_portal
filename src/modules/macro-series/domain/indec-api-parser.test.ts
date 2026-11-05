@@ -106,6 +106,35 @@ describe("parseIndecPage", () => {
     ).toEqual({ ok: false, reason: "invalid_value" });
   });
 
+  it("refuses non-positive IPC and basket history, but keeps a negative published rate", () => {
+    for (const indicator of [ipc, basket]) {
+      for (const value of ["0", "-1"]) {
+        expect(
+          parseIndecPage(
+            page(expandedRow(indicator, "202601", value)),
+            indicator,
+          ),
+        ).toEqual({ ok: false, reason: "invalid_value" });
+      }
+    }
+    const rate = {
+      ...ipc,
+      filters: {
+        ...ipc.filters,
+        tipo_de_indicador: "v_m",
+        tipo_de_indicador_descripcion:
+          "Variación porcentual respecto del período anterior",
+        unidad_de_medida: "Porcentaje",
+      },
+    };
+    expect(
+      parseIndecPage(page(expandedRow(rate, "202601", "-0.2")), rate),
+    ).toEqual({
+      ok: true,
+      points: [{ periodOn: "2026-01-01", value: "-0.2", note: null }],
+    });
+  });
+
   it("keeps every digit the source printed and orders by period", () => {
     const parsed = parseIndecPage(
       page(row("202602", "101.10000000000001"), row("202601", "100.5")),

@@ -196,4 +196,32 @@ describe("live INDEC source", () => {
     });
     expect(requests).toHaveLength(2);
   });
+
+  it("refuses a corrupt older IPC level before requesting the monthly rate", async () => {
+    const ipc = declaredIndecExpandedIndicator("ipc_nacional")!;
+    const row = (periodo: string, valor: number) => ({
+      ...ipc.filters,
+      periodo,
+      anio: Number(periodo.slice(0, 4)),
+      mes: Number(periodo.slice(4)),
+      valor,
+      valor_null: null,
+      observaciones: null,
+    });
+    const { requests, source } = harness([
+      {
+        status: 200,
+        body: JSON.stringify([
+          row("202607", -1),
+          row("202608", 100),
+          row("202609", 102),
+        ]),
+      },
+    ]);
+    await expect(source.load(ipc)).rejects.toMatchObject({
+      code: "schema_changed",
+      detail: "invalid_value",
+    });
+    expect(requests).toHaveLength(1);
+  });
 });

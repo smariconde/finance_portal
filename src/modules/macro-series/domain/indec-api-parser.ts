@@ -3,6 +3,7 @@ import {
   ExactJsonNumber,
   parseJsonPreservingNumbers,
 } from "@/modules/fundamentals/domain/exact-json";
+import { createDecimalOperations } from "@/modules/numeric/domain/decimal-policy";
 
 import {
   indecConventionalSignSchema,
@@ -15,6 +16,7 @@ export const INDEC_API_BASE_URL = "https://api.indec.gob.ar/v1/";
 /** The API returns at most 1,000 rows, whatever `limit` asks (Catálogo API-INDEC). */
 export const INDEC_PAGE_LIMIT = 1000;
 export const INDEC_MAX_PAGES = 10;
+const decimal = createDecimalOperations((code) => new Error(code));
 
 /**
  * What the project knows about one INDEC data service: its exact column set,
@@ -279,6 +281,22 @@ export function parseIndecPage(
         : null;
     if (value === null || nullSign !== null) {
       return { ok: false, reason: "invalid_value" };
+    }
+    // IPC levels and basket costs are strictly positive across the whole
+    // history. Checking only the last two months at reconciliation would let
+    // a corrupt older level become a published observation.
+    if (
+      (indicator.externalId === "ipc_nacional" ||
+        indicator.externalId === "valorizacion_canastas_cba_cbt") &&
+      indicator.filters.tipo_de_indicador !== "v_m"
+    ) {
+      try {
+        if (decimal.parseDecimal(value, "indec_level").lte(0)) {
+          return { ok: false, reason: "invalid_value" };
+        }
+      } catch {
+        return { ok: false, reason: "invalid_value" };
+      }
     }
     points.push({ periodOn, value, note });
   }
