@@ -224,10 +224,26 @@ describe("egress allowlist", () => {
         indec,
       ).allowed,
     ).toBe(true);
+    for (const service of [
+      "ipc_nacional",
+      "valorizacion_canastas_cba_cbt",
+      "ipi_manufacturero",
+      "ipi_minero",
+      "sipm_precios_mayoristas",
+      "icc_precios_construccion",
+      "indice_salarios",
+    ]) {
+      expect(
+        authorizeEgressUrl(
+          `https://api.indec.gob.ar/v1/${service}?limit=1000&offset=0`,
+          indec,
+        ).allowed,
+      ).toBe(true);
+    }
     for (const url of [
       "https://api.indec.gob.ar/api/datasets",
       "https://api.indec.gob.ar/api/auth/me",
-      "https://api.indec.gob.ar/v1/ipc_nacional",
+      "https://api.indec.gob.ar/v1/ipi_pesquero",
       "https://www.indec.gob.ar/v1/comercio_exterior_exportacion_bienes",
     ]) {
       expect(authorizeEgressUrl(url, indec).allowed).toBe(false);

@@ -17,7 +17,7 @@ import {
  * `www.sec.gov` no sirven los mismos recursos, y acotar el path evita que un bug
  * de construcción de URL termine paseando por el sitio entero de la SEC.
  */
-export const EGRESS_ALLOWLIST_VERSION = "egress-allowlist-1.2.0";
+export const EGRESS_ALLOWLIST_VERSION = "egress-allowlist-1.3.0";
 
 const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
   egressAllowlistEntrySchema.parse({
@@ -193,12 +193,19 @@ const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
     origins: [
       {
         host: "api.indec.gob.ar",
-        // Sólo los servicios declarados de `F9-04` (ADR 0069). El catálogo, el
+        // Servicios de datos declarados de `F9-04` y `F9-08`. El catálogo, el
         // login y el OpenAPI del portal quedan fuera: el token sirve para leer
         // datos. Cada servicio nuevo es una fila más, con su slice.
         pathPrefixes: [
           "/v1/estimador-mensual-de-actividad-economica-nivel-general",
           "/v1/estimador-mensual-de-actividad-economica-sectores",
+          "/v1/ipc_nacional",
+          "/v1/valorizacion_canastas_cba_cbt",
+          "/v1/ipi_manufacturero",
+          "/v1/ipi_minero",
+          "/v1/sipm_precios_mayoristas",
+          "/v1/icc_precios_construccion",
+          "/v1/indice_salarios",
         ],
       },
     ],

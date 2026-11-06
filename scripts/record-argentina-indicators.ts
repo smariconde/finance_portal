@@ -36,6 +36,10 @@ import {
   declaredArgentinaIndicator,
 } from "@/modules/macro-series/domain/declared-argentina-indicators";
 import {
+  DECLARED_INDEC_EXPANDED_INDICATORS,
+  declaredIndecExpandedIndicator,
+} from "@/modules/macro-series/domain/declared-indec-expanded-indicators";
+import {
   DECLARED_SOY_INDICATORS,
   declaredSoyIndicator,
 } from "@/modules/macro-series/domain/declared-soy-indicators";
@@ -53,6 +57,7 @@ import { getSourceRegistryRepository } from "@/server/persistence/get-source-reg
  *   pnpm argentina:indicators --declared                # en seco: baja y planea, no escribe
  *   pnpm argentina:indicators --indicator emae_sa --apply
  *   pnpm argentina:indicators --declared --apply
+ *   pnpm argentina:indicators --expanded --apply          # IPC, canastas, IPI, SIPM, ICC y salarios de F9-08
  *   pnpm argentina:indicators --soy --apply             # pizarra, BNA, Chicago y estimaciones
  *
  * Cada corrida lee la historia entera del indicador y la compara con la
@@ -62,6 +67,7 @@ const { values } = parseArgs({
   options: {
     indicator: { type: "string", multiple: true, default: [] },
     declared: { type: "boolean", default: false },
+    expanded: { type: "boolean", default: false },
     soy: { type: "boolean", default: false },
     apply: { type: "boolean", default: false },
     "accept-mass-change": { type: "boolean", default: false },
@@ -71,28 +77,38 @@ const { values } = parseArgs({
 const DRY_RUN = !values.apply;
 
 if (
-  [values.declared, values.soy, values.indicator.length > 0].filter(Boolean)
-    .length !== 1
+  [
+    values.declared,
+    values.expanded,
+    values.soy,
+    values.indicator.length > 0,
+  ].filter(Boolean).length !== 1
 ) {
-  console.error("Pedir --declared, --soy o uno o más --indicator: uno solo.");
+  console.error(
+    "Pedir --declared, --expanded, --soy o uno o más --indicator: uno solo.",
+  );
   process.exit(2);
 }
 
 const requested = values.declared
   ? DECLARED_ARGENTINA_INDICATORS
-  : values.soy
-    ? DECLARED_SOY_INDICATORS
-    : values.indicator.map((id) => {
-        const indicator =
-          declaredArgentinaIndicator(id) ?? declaredSoyIndicator(id);
-        if (indicator === null) {
-          console.error(
-            `${id}: no está en un set declarado (declared-argentina-indicators.ts, declared-soy-indicators.ts). Agregarlo es un diff revisable.`,
-          );
-          process.exit(2);
-        }
-        return indicator;
-      });
+  : values.expanded
+    ? DECLARED_INDEC_EXPANDED_INDICATORS
+    : values.soy
+      ? DECLARED_SOY_INDICATORS
+      : values.indicator.map((id) => {
+          const indicator =
+            declaredArgentinaIndicator(id) ??
+            declaredIndecExpandedIndicator(id) ??
+            declaredSoyIndicator(id);
+          if (indicator === null) {
+            console.error(
+              `${id}: no está en un set declarado. Agregarlo es un diff revisable.`,
+            );
+            process.exit(2);
+          }
+          return indicator;
+        });
 
 function log(label: string, value: unknown): void {
   console.log(`${label.padEnd(26)} ${String(value)}`);
@@ -124,8 +140,9 @@ const sources: ArgentinaIndicatorSource[] = [
   ),
 ];
 
-// Peor caso: una página por indicador. Son mensuales y una página son 1.000
-// meses; una serie más larga lo excede y la corrida lo dice en requests usados.
+// Plan inicial: una página por indicador, más su variación publicada cuando
+// corresponde. Son mensuales y una página son 1.000 meses; una historia más
+// larga se mide por cada request real y la corrida informa el uso efectivo.
 // Las estimaciones agrícolas son un `POST` y un CSV para las cuatro series.
 const worstCaseBySource = new Map<string, number>();
 for (const indicator of requested) {
@@ -136,7 +153,8 @@ for (const indicator of requested) {
   }
   worstCaseBySource.set(
     indicator.sourceId,
-    (worstCaseBySource.get(indicator.sourceId) ?? 0) + 1,
+    (worstCaseBySource.get(indicator.sourceId) ?? 0) +
+      (declaredIndecExpandedIndicator(indicator.id) ? 2 : 1),
   );
 }
 for (const [sourceId, worstCase] of worstCaseBySource) {
@@ -185,6 +203,12 @@ for (const indicator of requested) {
       "leído",
       `${fetched.points.length} puntos · ${fetched.requests} requests · ${fetched.bytes} bytes`,
     );
+    if (fetched.reconciliation?.status === "matched") {
+      log(
+        "variación publicada",
+        `${fetched.reconciliation.periodOn}: ${fetched.reconciliation.published} % · calculada ${fetched.reconciliation.computed} % · diferencia ${fetched.reconciliation.differencePp} pp`,
+      );
+    }
     log(
       "último punto",
       last ? `${last.periodOn} = ${last.value ?? "null"}` : "ninguno",

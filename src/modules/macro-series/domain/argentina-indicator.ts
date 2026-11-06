@@ -37,7 +37,15 @@ export const argentinaIndicatorSchema = z.object({
   id: z.string().regex(/^[a-z0-9_]+$/u),
   externalId: z.string().min(1),
   /** `agro` and `daily` carry the soy series (ADR 0071). */
-  block: z.enum(["activity", "fiscal", "external", "agro"]),
+  block: z.enum([
+    "activity",
+    "fiscal",
+    "external",
+    "agro",
+    "prices",
+    "living_cost",
+    "wages",
+  ]),
   frequency: z.enum(["daily", "monthly", "quarterly", "annual"]),
   /** The unit as the source prints it; the parser checks it on every page. */
   unit: z.string().min(1),
