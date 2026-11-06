@@ -15,7 +15,10 @@ import {
 } from "@/modules/macro-series/application/record-argentina-indicator";
 import { readIndicatorVintages } from "@/modules/macro-series/domain/argentina-indicator";
 import { DECLARED_ARGENTINA_INDICATORS } from "@/modules/macro-series/domain/declared-argentina-indicators";
-import { declaredIndecExpandedIndicator } from "@/modules/macro-series/domain/declared-indec-expanded-indicators";
+import {
+  DECLARED_INDEC_EXPANDED_INDICATORS,
+  declaredIndecExpandedIndicator,
+} from "@/modules/macro-series/domain/declared-indec-expanded-indicators";
 import { createPostgresArgentinaIndicatorRepository } from "@/server/db/postgres-argentina-indicator-repository";
 import { createPostgresIngestionRunRepository } from "@/server/db/postgres-ingestion-run-repository";
 import * as schema from "@/server/db/schema";
@@ -299,5 +302,57 @@ describe("PostgreSQL Argentina indicator repository", () => {
       periodOn: "2026-08-01",
       value: "102",
     });
+  });
+
+  it("stores and replays the 28 declared expanded definitions without collisions", async () => {
+    const indicators = DECLARED_INDEC_EXPANDED_INDICATORS;
+    expect(indicators).toHaveLength(28);
+    let clock = Date.parse("2026-11-06T15:00:00.000Z");
+    const now = () => new Date((clock += 1000)).toISOString();
+    const source: ArgentinaIndicatorSource = {
+      sourceId: "indec-api",
+      datasetId: "indec.service-rows",
+      parserVersion: "indec-api-1.2.0",
+      async load() {
+        return {
+          points: [
+            { periodOn: "2026-07-01", value: "100", note: null },
+            { periodOn: "2026-08-01", value: "102", note: null },
+          ],
+          observedAt: now(),
+          requests: 0,
+          bytes: 0,
+        };
+      },
+    };
+    const repository = createPostgresArgentinaIndicatorRepository(database);
+    const dependencies = {
+      sources: [source],
+      repository,
+      ingestionRuns: createPostgresIngestionRunRepository(database),
+      now,
+      newId: () => randomUUID(),
+    };
+    for (const item of indicators) {
+      const first = await recordArgentinaIndicator(item, dependencies);
+      expect(first.runStatus).toBe("succeeded");
+      const replay = await recordArgentinaIndicator(item, dependencies);
+      expect(replay.runStatus).toBe("duplicate");
+    }
+    const all = await repository.allObservationsOf(
+      indicators.map((item) => item.id),
+    );
+    expect(all.size).toBe(28);
+    for (const item of indicators) {
+      const stored = all.get(item.id)!;
+      expect(stored).toHaveLength(2);
+      expect(
+        readIndicatorVintages(item, stored, {
+          effectiveOn: "2026-08-01",
+          knownAt: "2026-11-06T15:10:00.000Z",
+          knowledgeBasis: "system_recorded",
+        }).at(-1),
+      ).toMatchObject({ value: "102", revision: 0 });
+    }
   });
 });

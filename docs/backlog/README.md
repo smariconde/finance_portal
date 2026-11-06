@@ -6660,10 +6660,25 @@ nuevos, incluido el null de salarios. Pasan 3.758 unit y cinco pruebas de
 integración del repositorio en PostgreSQL, además de lint, tipos, formato y
 diff. No se escribió Production. Falta persistir y repetir el set completo
 en una base personal migrada, y superar el build, que continúa fallando en
-PostCSS/Turbopack al abrir un puerto local en este entorno. La vía webpack
-también falla al interpretar la salida de TypeScript `--showConfig`, aunque
-`pnpm exec tsc --showConfig` devuelve JSON válido. `F9-08` no se marca `done`
-antes de esos gates.
+PostCSS/Turbopack al abrir un puerto local en este entorno. En la primera
+prueba, la vía webpack también falló al interpretar la salida de TypeScript
+`--showConfig`, aunque `pnpm exec tsc --showConfig` devolvía JSON válido.
+`F9-08` no se marca `done` antes de esos gates.
+
+**`F9-08`, replay del set declarado (2026-11-06).** Estado: `in_progress`.
+
+Una prueba de integración publica las 28 definiciones ampliadas en PostgreSQL
+de pruebas con dos niveles sintéticos por serie, repite cada corrida y comprueba
+que las 28 repeticiones son `duplicate`, sin colisiones ni observaciones extra.
+La lectura `as_known` de cada serie conserva el valor y la revisión esperados:
+seis pruebas del repositorio pasan. El build de producción con webpack también
+terminó al ejecutarse con acceso ampliado. La falla anterior de `--showConfig`
+se reprodujo como stdout vacío de un proceso Node hijo dentro del sandbox,
+aunque el proceso sale con código 0; no exige cambiar código de la aplicación.
+El build ordinario con Turbopack sigue bloqueado por `EPERM` al abrir un puerto
+local. La prueba usa cable sintético y no sustituye la persistencia y repetición
+de las 28 historias reales en una base personal migrada. No se escribió
+Production ni se usó cuota adicional del INDEC.
 
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
