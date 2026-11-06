@@ -6599,6 +6599,72 @@ puerto local. El catálogo público no expone por HTML los perfiles de IPI, ICC
 o SIPM; siguen pendientes los nombres, columnas y filtros observados antes de
 declarar otra familia.
 
+**`F9-08`, incremento 2 (2026-11-05).** Estado: `in_progress`.
+
+Las capturas del owner identificaron `ipi_manufacturero`, `ipi_minero` y
+`sipm_precios_mayoristas`. Una lectura medida de cada servicio confirmó las
+columnas, las claves y los filtros del nivel general. Quedan declaradas cinco
+series nuevas fuera del refresh automático: IPI manufacturero desestacionalizado
+(base 2004), IPI minero desestacionalizado (base 2016) e IPIM, IPIB e IPP del
+SIPM (base 1993; referencia diciembre de 2015=100). El lector
+`indec-api-1.2.0` cierra el perfil de los tres servicios y falla ante columna,
+filtro, período, signo o nivel no positivo. Para el SIPM, la única nota textual
+observada, `* Dato provisorio`, se normaliza al signo convencional `*`; otra
+nota se rechaza. La política `indec-monthly-reconciliation-1.1.0` coteja la
+variación intermensual de cada IPI con tolerancia de 1e-8 pp porque el cable
+publica precisión completa; IPC, canastas y SIPM conservan 0,051 pp para tasas
+redondeadas a una décima.
+
+Las cinco historias completas conciliaron antes de publicar: 128 y 116 niveles
+de IPI, 130 niveles de cada índice del SIPM, 634 en total y diez requests. El
+mayor desvío de IPI fue 5,84e-15 pp; el mayor del SIPM, 0,04256 pp. El set
+`--expanded` pasa de 21 a 26 series y su plan inicial pide 52 requests, dentro
+del límite diario de 60 sólo si el día tiene cuota suficiente. `--indicator`
+permite una serie por vez. Pruebas sintéticas cubren los tres cables, los
+filtros, las notas, el cero, la tasa negativa de IPI y el rechazo de una
+discrepancia. Tres fixtures sintéticas independientes fijan el cable de cada
+servicio; 3.754 unit, lint, tipos y diff pasan. No se escribió Production.
+Siguen salarios e ICC, que necesitan sus perfiles y fuentes observados, y la
+persistencia/replay del nuevo set sobre una base con `0048`.
+
+**`F9-08`, perfil ICC (2026-11-05).** Estado: `in_progress`.
+
+El owner indicó `/icc_precios_construccion`; dos consultas medidas confirmaron
+el nivel general `ICC` del GBA, `codigo_apertura=0`, `codigo_CPC_1=-`,
+`clasificador=ICC 93`, base 1993 y referencia enero de 2022=100. El lector
+exige las 16 columnas observadas y los filtros completos; normaliza sólo la
+nota exacta `* Dato provisorio` al signo `*`. `icc_gba_general` queda en el set
+manual `--expanded`: ahora 27 series y 54 requests esperadas. Una fixture
+sintética independiente y el contrato del adaptador cubren forma, nota y
+conciliación. La lectura completa del ICC no se hizo: la puerta cortó antes del
+socket al llegar a 60/60 solicitudes INDEC del día en la base local. No subir el
+tope ni cambiar de base para eludirlo; después de su reposición queda pendiente
+conciliar el cable completo, persistir y repetir la corrida. El índice de
+salarios sigue sin servicio observado.
+
+**`F9-08`, set completo leído (2026-11-06).** Estado: `in_progress`.
+
+Las capturas del owner identificaron `/indice_salarios`. El servicio confirmó
+el nivel general (`IS 2001`, nivel `0`, código `0`) con base octubre de 2016=100
+y variación mensual publicada a dos decimales. `wages_general` usa el perfil
+cerrado de 14 columnas y tolera 0,0051 pp para ese redondeo. Su primera fila
+de octubre de 2015 tiene `valor_null=///`: se conserva como faltante, no como
+cero. El ICC también completó su lectura real después de reponerse la cuota.
+
+El set manual `--expanded` ahora tiene 28 series y requiere 56 requests en una
+vuelta ordinaria; no se mezcla con las 19 del EMAE dentro del tope diario de 60. Se leyeron y conciliaron las **28 historias completas**: 3.390 niveles y
+56 requests en total. La mayor diferencia fue 0,04916 pp (división 05 del
+IPC), dentro de 0,051 pp; salarios difirió 0,00140 pp y los IPI menos de
+6e-15 pp. Las fixtures sintéticas independientes cubren los cuatro servicios
+nuevos, incluido el null de salarios. Pasan 3.758 unit y cinco pruebas de
+integración del repositorio en PostgreSQL, además de lint, tipos, formato y
+diff. No se escribió Production. Falta persistir y repetir el set completo
+en una base personal migrada, y superar el build, que continúa fallando en
+PostCSS/Turbopack al abrir un puerto local en este entorno. La vía webpack
+también falla al interpretar la salida de TypeScript `--showConfig`, aunque
+`pnpm exec tsc --showConfig` devuelve JSON válido. `F9-08` no se marca `done`
+antes de esos gates.
+
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
 | `F8-01` | Pipeline fiscal-aligned point-in-time de precio, market cap, net income, EPS y acciones para los filers del sector elegido, sin cargar el universo.                                   | Fase 6     | `TM-05`, `TM-06`, `TM-16` |

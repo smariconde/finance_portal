@@ -55,6 +55,12 @@ pnpm argentina:indicators --declared                  # en seco: baja y planea, 
 pnpm argentina:indicators --declared --apply          # 25 series: 19 del INDEC y 6 de Series de Tiempo
 pnpm argentina:indicators --indicator emae_sa --apply
 pnpm argentina:indicators --declared --apply --accept-mass-change   # el owner acepta un cambio masivo
+pnpm argentina:indicators --expanded                 # 28 series: IPC, canastas, IPI, SIPM, ICC y salarios; 56 requests esperadas
+pnpm argentina:indicators --indicator ipi_manufacturero_sa --apply
+pnpm argentina:indicators --indicator ipi_minero_sa --apply
+pnpm argentina:indicators --indicator sipm_ipim_general --apply
+pnpm argentina:indicators --indicator icc_gba_general --apply
+pnpm argentina:indicators --indicator wages_general --apply
 ```
 
 Cada corrida lee la historia entera de la serie y la compara con la guardada:

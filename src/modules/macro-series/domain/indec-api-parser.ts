@@ -11,7 +11,7 @@ import {
   type IndecConventionalSign,
 } from "./argentina-indicator";
 
-export const INDEC_API_PARSER_VERSION = "indec-api-1.1.0";
+export const INDEC_API_PARSER_VERSION = "indec-api-1.2.0";
 export const INDEC_API_BASE_URL = "https://api.indec.gob.ar/v1/";
 /** The API returns at most 1,000 rows, whatever `limit` asks (Catálogo API-INDEC). */
 export const INDEC_PAGE_LIMIT = 1000;
@@ -31,7 +31,7 @@ export type IndecServiceProfile = {
   readonly period: string;
   readonly value: string;
   readonly valueNull: string;
-  readonly note: string;
+  readonly note: string | null;
 };
 
 export const INDEC_SERVICES: Readonly<Record<string, IndecServiceProfile>> = {
@@ -126,6 +126,137 @@ export const INDEC_SERVICES: Readonly<Record<string, IndecServiceProfile>> = {
     valueNull: "valor_null",
     note: "observaciones",
   },
+  ipi_manufacturero: {
+    columns: [
+      "periodo",
+      "anio",
+      "mes",
+      "indicador",
+      "cuadro_web",
+      "codigo_CLaNAE_2004",
+      "descripcion",
+      "serie",
+      "tipo_de_indicador",
+      "unidad_de_medida",
+      "valor",
+      "valor_null",
+    ],
+    order:
+      "periodo,indicador,cuadro_web,codigo_CLaNAE_2004,descripcion,serie,tipo_de_indicador",
+    year: "anio",
+    month: "mes",
+    period: "periodo",
+    value: "valor",
+    valueNull: "valor_null",
+    note: null,
+  },
+  ipi_minero: {
+    columns: [
+      "periodo",
+      "anio",
+      "mes",
+      "indicador",
+      "cuadro_web",
+      "codigo_ClaNAE_2010",
+      "codigo_CPC_2_1",
+      "serie",
+      "descripcion",
+      "tipo_de_indicador",
+      "unidad_de_medida",
+      "valor",
+      "valor_null",
+    ],
+    order:
+      "periodo,indicador,cuadro_web,codigo_ClaNAE_2010,codigo_CPC_2_1,serie,descripcion,tipo_de_indicador,unidad_de_medida",
+    year: "anio",
+    month: "mes",
+    period: "periodo",
+    value: "valor",
+    valueNull: "valor_null",
+    note: null,
+  },
+  sipm_precios_mayoristas: {
+    columns: [
+      "operativo",
+      "indicador",
+      "clasificador",
+      "nivel",
+      "codigo_apertura",
+      "descripcion",
+      "periodo",
+      "anio",
+      "mes",
+      "tipo_de_indicador",
+      "tipo_de_indicador_descripcion",
+      "region",
+      "unidad_de_medida",
+      "valor",
+      "valor_null",
+      "observaciones",
+    ],
+    order:
+      "periodo,operativo,indicador,clasificador,nivel,codigo_apertura,descripcion,tipo_de_indicador,tipo_de_indicador_descripcion,region,unidad_de_medida",
+    year: "anio",
+    month: "mes",
+    period: "periodo",
+    value: "valor",
+    valueNull: "valor_null",
+    note: "observaciones",
+  },
+  icc_precios_construccion: {
+    columns: [
+      "indicador",
+      "codigo_apertura",
+      "codigo_CPC_1",
+      "clasificador",
+      "nivel",
+      "descripcion",
+      "periodo",
+      "anio",
+      "mes",
+      "tipo_de_indicador",
+      "tipo_de_indicador_descripcion",
+      "region",
+      "unidad_de_medida",
+      "valor",
+      "valor_null",
+      "observaciones",
+    ],
+    order:
+      "periodo,indicador,codigo_apertura,codigo_CPC_1,clasificador,nivel,descripcion,tipo_de_indicador,tipo_de_indicador_descripcion,region,unidad_de_medida",
+    year: "anio",
+    month: "mes",
+    period: "periodo",
+    value: "valor",
+    valueNull: "valor_null",
+    note: "observaciones",
+  },
+  indice_salarios: {
+    columns: [
+      "clasificador",
+      "nivel",
+      "codigo",
+      "descripcion",
+      "periodo",
+      "anio",
+      "mes",
+      "indicador",
+      "tipo_de_indicador",
+      "tipo_de_indicador_descripcion",
+      "unidad_de_medida",
+      "valor",
+      "valor_null",
+      "observaciones",
+    ],
+    order:
+      "periodo,clasificador,nivel,codigo,descripcion,indicador,tipo_de_indicador,tipo_de_indicador_descripcion,unidad_de_medida",
+    year: "anio",
+    month: "mes",
+    period: "periodo",
+    value: "valor",
+    valueNull: "valor_null",
+    note: "observaciones",
+  },
 };
 
 export type IndecPoint = {
@@ -201,6 +332,20 @@ function signOf(value: unknown): IndecConventionalSign | null | undefined {
   return sign.success ? sign.data : undefined;
 }
 
+function noteOf(
+  value: unknown,
+  indicator: ArgentinaIndicator,
+): IndecConventionalSign | null | undefined {
+  if (
+    (indicator.externalId === "sipm_precios_mayoristas" ||
+      indicator.externalId === "icc_precios_construccion") &&
+    value === "* Dato provisorio"
+  ) {
+    return "*";
+  }
+  return signOf(value);
+}
+
 /**
  * Reads one page of a declared INDEC series. Every row must carry exactly the
  * service's columns and the indicator's filter values; a missing value needs a
@@ -263,7 +408,8 @@ export function parseIndecPage(
     seen.add(periodOn);
 
     const nullSign = signOf(row[service.valueNull]);
-    const note = signOf(row[service.note]);
+    const note =
+      service.note === null ? null : noteOf(row[service.note], indicator);
     if (nullSign === undefined || note === undefined) {
       return { ok: false, reason: "unknown_note" };
     }
@@ -286,9 +432,17 @@ export function parseIndecPage(
     // history. Checking only the last two months at reconciliation would let
     // a corrupt older level become a published observation.
     if (
-      (indicator.externalId === "ipc_nacional" ||
-        indicator.externalId === "valorizacion_canastas_cba_cbt") &&
-      indicator.filters.tipo_de_indicador !== "v_m"
+      [
+        "ipc_nacional",
+        "valorizacion_canastas_cba_cbt",
+        "ipi_manufacturero",
+        "ipi_minero",
+        "sipm_precios_mayoristas",
+        "icc_precios_construccion",
+        "indice_salarios",
+      ].includes(indicator.externalId) &&
+      indicator.filters.tipo_de_indicador !== "v_m" &&
+      indicator.filters.tipo_de_indicador !== "Variación intermensual"
     ) {
       try {
         if (decimal.parseDecimal(value, "indec_level").lte(0)) {

@@ -22,6 +22,55 @@ const input = {
 };
 
 describe("latest INDEC monthly variation", () => {
+  it("uses each IPI service's intermonthly wire labels and full-precision tolerance", () => {
+    for (const id of ["ipi_manufacturero_sa", "ipi_minero_sa"]) {
+      const ipi = declaredIndecExpandedIndicator(id)!;
+      const published = publishedMonthlyRateIndicator(ipi);
+      expect(published.filters.tipo_de_indicador).toBe(
+        "Variación intermensual",
+      );
+      expect(published.filters.unidad_de_medida).toBe("%");
+      const shared = {
+        level: ipi,
+        rate: published,
+        levels: [point("2026-07-01", "100"), point("2026-08-01", "99")],
+      };
+      expect(
+        reconcileLatestIndecMonthlyRate({
+          ...shared,
+          rates: [point("2026-08-01", "-1")],
+        }).status,
+      ).toBe("matched");
+      expect(
+        reconcileLatestIndecMonthlyRate({
+          ...shared,
+          rates: [point("2026-08-01", "-1.01")],
+        }),
+      ).toEqual({ status: "refused", reason: "published_mismatch" });
+    }
+  });
+
+  it("uses the salary service's two-decimal published rate", () => {
+    const wages = declaredIndecExpandedIndicator("wages_general")!;
+    const published = publishedMonthlyRateIndicator(wages);
+    const shared = {
+      level: wages,
+      rate: published,
+      levels: [point("2026-07-01", "100"), point("2026-08-01", "102.7286")],
+    };
+    expect(
+      reconcileLatestIndecMonthlyRate({
+        ...shared,
+        rates: [point("2026-08-01", "2.73")],
+      }).status,
+    ).toBe("matched");
+    expect(
+      reconcileLatestIndecMonthlyRate({
+        ...shared,
+        rates: [point("2026-08-01", "2.75")],
+      }),
+    ).toEqual({ status: "refused", reason: "published_mismatch" });
+  });
   it("reconciles the national IPC level against the published rounded rate", () => {
     const result = reconcileLatestIndecMonthlyRate(input);
     expect(result).toMatchObject({

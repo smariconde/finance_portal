@@ -224,4 +224,52 @@ describe("live INDEC source", () => {
     });
     expect(requests).toHaveLength(1);
   });
+
+  it.each([
+    "ipi_manufacturero_sa",
+    "ipi_minero_sa",
+    "sipm_ipim_general",
+    "sipm_ipib_general",
+    "sipm_ipp_general",
+    "icc_gba_general",
+    "wages_general",
+  ])("reconciles and isolates %s before publishing", async (id) => {
+    const indicator = declaredIndecExpandedIndicator(id)!;
+    const rate = publishedMonthlyRateIndicator(indicator);
+    const row = (periodo: string, valor: number, published = false) => ({
+      ...(published ? rate.filters : indicator.filters),
+      periodo,
+      anio: Number(periodo.slice(0, 4)),
+      mes: Number(periodo.slice(4)),
+      valor,
+      valor_null: null,
+      ...(["sipm_precios_mayoristas", "icc_precios_construccion"].includes(
+        indicator.externalId,
+      )
+        ? { observaciones: "* Dato provisorio" }
+        : indicator.externalId === "indice_salarios"
+          ? { observaciones: null }
+          : {}),
+    });
+    const { requests, source } = harness([
+      {
+        status: 200,
+        body: JSON.stringify([row("202607", 100), row("202608", 102)]),
+      },
+      { status: 200, body: JSON.stringify([row("202608", 2, true)]) },
+    ]);
+    const fetched = await source.load(indicator);
+    expect(fetched.points).toHaveLength(2);
+    expect(fetched.reconciliation).toMatchObject({
+      status: "matched",
+      published: "2",
+    });
+    expect(requests).toHaveLength(2);
+    expect(new URL(requests[0]!.url).searchParams.get("indicador")).toBe(
+      `eq.${indicator.filters.indicador}`,
+    );
+    expect(
+      new URL(requests[1]!.url).searchParams.get("tipo_de_indicador"),
+    ).toBe(`eq.${rate.filters.tipo_de_indicador}`);
+  });
 });

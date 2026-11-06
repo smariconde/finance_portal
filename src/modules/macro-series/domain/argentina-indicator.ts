@@ -44,6 +44,7 @@ export const argentinaIndicatorSchema = z.object({
     "agro",
     "prices",
     "living_cost",
+    "wages",
   ]),
   frequency: z.enum(["daily", "monthly", "quarterly", "annual"]),
   /** The unit as the source prints it; the parser checks it on every page. */

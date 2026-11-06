@@ -19,10 +19,12 @@ import { declaredIndecExpandedIndicator } from "@/modules/macro-series/domain/de
 import { createPostgresArgentinaIndicatorRepository } from "@/server/db/postgres-argentina-indicator-repository";
 import { createPostgresIngestionRunRepository } from "@/server/db/postgres-ingestion-run-repository";
 import * as schema from "@/server/db/schema";
+import { INDEC_WAGES_LEVEL_ROWS } from "../fixtures/indec-expanded-rows";
 
 const databaseTestUrl = process.env.DATABASE_TEST_URL!.trim();
 const indicator = DECLARED_ARGENTINA_INDICATORS[0]!;
 const expanded = declaredIndecExpandedIndicator("ipc_nacional")!;
+const wages = declaredIndecExpandedIndicator("wages_general")!;
 
 let sql: Sql;
 let database: PostgresJsDatabase<typeof schema>;
@@ -236,5 +238,66 @@ describe("PostgreSQL Argentina indicator repository", () => {
       detail: "published_mismatch",
     });
     expect(await repository.allObservations(expanded.id)).toEqual(all);
+  });
+
+  it("persists a salary null as missing while publishing reconciled levels", async () => {
+    const early = {
+      ...INDEC_WAGES_LEVEL_ROWS[0],
+      periodo: "201510",
+      anio: 2015,
+      mes: 10,
+      valor: null,
+      valor_null: "///",
+    };
+    const rate = {
+      ...INDEC_WAGES_LEVEL_ROWS[1],
+      tipo_de_indicador: "v_m",
+      tipo_de_indicador_descripcion:
+        "Variación porcentual respecto del período anterior",
+      unidad_de_medida: "Porcentaje",
+      valor: 2,
+    };
+    const bodies = [
+      JSON.stringify([early, ...INDEC_WAGES_LEVEL_ROWS]),
+      JSON.stringify([rate]),
+    ];
+    let requests = 0;
+    const fetch: EgressFetch = async () => {
+      const body = new TextEncoder().encode(bodies[requests++]!);
+      return {
+        status: 200,
+        body,
+        byteLength: body.byteLength,
+        fetchedAt: "2026-11-06T15:00:00.000Z",
+      };
+    };
+    const repository = createPostgresArgentinaIndicatorRepository(database);
+    const result = await recordArgentinaIndicator(wages, {
+      sources: [
+        createLiveIndecSource({
+          sourceRegistry:
+            createInMemorySourceRegistryRepository(DEMO_SOURCE_REGISTRY),
+          fetch,
+        }),
+      ],
+      repository,
+      ingestionRuns: createPostgresIngestionRunRepository(database),
+      now: () => "2026-11-06T15:01:00.000Z",
+      newId: () => randomUUID(),
+    });
+    expect(result.runStatus).toBe("succeeded");
+    expect(result.fetched.reconciliation?.status).toBe("matched");
+    const all = await repository.allObservations(wages.id);
+    expect(all).toHaveLength(3);
+    expect(all[0]).toMatchObject({
+      periodOn: "2015-10-01",
+      value: null,
+      missingReason: "source_null",
+      sourceNote: "///",
+    });
+    expect(all.at(-1)).toMatchObject({
+      periodOn: "2026-08-01",
+      value: "102",
+    });
   });
 });

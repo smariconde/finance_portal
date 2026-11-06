@@ -4,10 +4,12 @@ import type { ArgentinaIndicator } from "./argentina-indicator";
 import type { IndecPoint } from "./indec-api-parser";
 
 export const INDEC_MONTHLY_RECONCILIATION_VERSION =
-  "indec-monthly-reconciliation-1.0.0";
+  "indec-monthly-reconciliation-1.1.0";
 
-/** The API publishes rates rounded to one tenth of a percentage point. */
+/** IPC, baskets, SIPM and ICC publish one decimal; wages two; IPI full precision. */
 const MAX_DIFFERENCE_PP = "0.051";
+const WAGES_MAX_DIFFERENCE_PP = "0.0051";
+const IPI_MAX_DIFFERENCE_PP = "0.00000001";
 
 export type IndecMonthlyReconciliation =
   | {
@@ -33,18 +35,27 @@ export type IndecMonthlyReconciliation =
 export function publishedMonthlyRateIndicator(
   indicator: ArgentinaIndicator,
 ): ArgentinaIndicator {
+  const ipi =
+    indicator.externalId === "ipi_manufacturero" ||
+    indicator.externalId === "ipi_minero";
   return {
     ...indicator,
-    unit: "Porcentaje",
+    unit: ipi ? "%" : "Porcentaje",
     currency: "percent",
     indexBase: null,
-    filters: {
-      ...indicator.filters,
-      tipo_de_indicador: "v_m",
-      tipo_de_indicador_descripcion:
-        "Variación porcentual respecto del período anterior",
-      unidad_de_medida: "Porcentaje",
-    },
+    filters: ipi
+      ? {
+          ...indicator.filters,
+          tipo_de_indicador: "Variación intermensual",
+          unidad_de_medida: "%",
+        }
+      : {
+          ...indicator.filters,
+          tipo_de_indicador: "v_m",
+          tipo_de_indicador_descripcion:
+            "Variación porcentual respecto del período anterior",
+          unidad_de_medida: "Porcentaje",
+        },
   };
 }
 
@@ -105,7 +116,14 @@ export function reconcileLatestIndecMonthlyRate(input: {
     const rateValue = d.parseDecimal(published.value, "published");
     const computed = d.divide(last, base, "rate").minus(1).mul(100);
     const difference = computed.minus(rateValue).abs();
-    if (difference.gt(d.parseDecimal(MAX_DIFFERENCE_PP, "tolerance"))) {
+    const tolerance =
+      level.externalId === "ipi_manufacturero" ||
+      level.externalId === "ipi_minero"
+        ? IPI_MAX_DIFFERENCE_PP
+        : level.externalId === "indice_salarios"
+          ? WAGES_MAX_DIFFERENCE_PP
+          : MAX_DIFFERENCE_PP;
+    if (difference.gt(d.parseDecimal(tolerance, "tolerance"))) {
       return { status: "refused", reason: "published_mismatch" };
     }
     return {

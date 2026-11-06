@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
 
+import {
+  INDEC_IPIM_LEVEL_ROWS,
+  INDEC_ICC_LEVEL_ROWS,
+  INDEC_MANUFACTURING_LEVEL_ROWS,
+  INDEC_MINING_LEVEL_ROWS,
+  INDEC_WAGES_LEVEL_ROWS,
+} from "../../../../tests/fixtures/indec-expanded-rows";
+
 import { declaredArgentinaIndicator } from "./declared-argentina-indicators";
 import { declaredIndecExpandedIndicator } from "./declared-indec-expanded-indicators";
 import { indecPageUrl, parseIndecPage } from "./indec-api-parser";
@@ -8,6 +16,11 @@ const emae = declaredArgentinaIndicator("emae_sa")!;
 const sector = declaredArgentinaIndicator("emae_sector_f")!;
 const ipc = declaredIndecExpandedIndicator("ipc_nacional")!;
 const basket = declaredIndecExpandedIndicator("basket_cba")!;
+const manufacturing = declaredIndecExpandedIndicator("ipi_manufacturero_sa")!;
+const mining = declaredIndecExpandedIndicator("ipi_minero_sa")!;
+const wholesale = declaredIndecExpandedIndicator("sipm_ipim_general")!;
+const construction = declaredIndecExpandedIndicator("icc_gba_general")!;
+const wages = declaredIndecExpandedIndicator("wages_general")!;
 
 function expandedRow(
   indicator: typeof ipc,
@@ -61,6 +74,98 @@ function row(
 const page = (...rows: string[]) => `[${rows.join(",")}]`;
 
 describe("parseIndecPage", () => {
+  it("accepts independent synthetic fixtures for the observed IPI and SIPM wires", () => {
+    for (const [indicator, rows] of [
+      [manufacturing, INDEC_MANUFACTURING_LEVEL_ROWS],
+      [mining, INDEC_MINING_LEVEL_ROWS],
+      [wholesale, INDEC_IPIM_LEVEL_ROWS],
+      [construction, INDEC_ICC_LEVEL_ROWS],
+      [wages, INDEC_WAGES_LEVEL_ROWS],
+    ] as const) {
+      const parsed = parseIndecPage(JSON.stringify(rows), indicator);
+      expect(parsed).toMatchObject({
+        ok: true,
+        points: [
+          { periodOn: "2026-07-01", value: "100" },
+          { periodOn: "2026-08-01", value: "102" },
+        ],
+      });
+    }
+  });
+
+  it("keeps an early salary null with its published conventional sign", () => {
+    const row = {
+      ...INDEC_WAGES_LEVEL_ROWS[0],
+      periodo: "201510",
+      anio: 2015,
+      mes: 10,
+      valor: null,
+      valor_null: "///",
+    };
+    expect(parseIndecPage(JSON.stringify([row]), wages)).toEqual({
+      ok: true,
+      points: [{ periodOn: "2015-10-01", value: null, note: "///" }],
+    });
+  });
+  it("reads the three new service shapes and normalizes SIPM's provisional note", () => {
+    const row = (indicator: typeof ipc, extra: Record<string, unknown> = {}) =>
+      JSON.stringify({
+        ...indicator.filters,
+        periodo: "202608",
+        anio: 2026,
+        mes: 8,
+        valor: 123.45,
+        valor_null: null,
+        ...(indicator.externalId === "sipm_precios_mayoristas"
+          ? { observaciones: "* Dato provisorio" }
+          : {}),
+        ...extra,
+      });
+    for (const indicator of [manufacturing, mining]) {
+      expect(parseIndecPage(`[${row(indicator)}]`, indicator)).toEqual({
+        ok: true,
+        points: [{ periodOn: "2026-08-01", value: "123.45", note: null }],
+      });
+    }
+    expect(parseIndecPage(`[${row(wholesale)}]`, wholesale)).toEqual({
+      ok: true,
+      points: [{ periodOn: "2026-08-01", value: "123.45", note: "*" }],
+    });
+    expect(
+      parseIndecPage(
+        `[${row(wholesale, { observaciones: "otra nota" })}]`,
+        wholesale,
+      ),
+    ).toEqual({ ok: false, reason: "unknown_note" });
+  });
+
+  it("refuses a wrong IPI code, missing column and non-positive SIPM level", () => {
+    const row = (indicator: typeof ipc, extra: Record<string, unknown> = {}) =>
+      JSON.stringify({
+        ...indicator.filters,
+        periodo: "202608",
+        anio: 2026,
+        mes: 8,
+        valor: 123,
+        valor_null: null,
+        ...(indicator.externalId === "sipm_precios_mayoristas"
+          ? { observaciones: null }
+          : {}),
+        ...extra,
+      });
+    expect(
+      parseIndecPage(
+        `[${row(manufacturing, { codigo_CLaNAE_2004: "X" })}]`,
+        manufacturing,
+      ),
+    ).toEqual({ ok: false, reason: "filter_mismatch" });
+    expect(
+      parseIndecPage(`[${row(mining, { observaciones: null })}]`, mining),
+    ).toEqual({ ok: false, reason: "schema_changed" });
+    expect(
+      parseIndecPage(`[${row(wholesale, { valor: 0 })}]`, wholesale),
+    ).toEqual({ ok: false, reason: "invalid_value" });
+  });
   it("reads the declared IPC and basket wire shapes without losing decimal digits", () => {
     expect(
       parseIndecPage(

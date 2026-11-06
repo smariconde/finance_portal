@@ -17,7 +17,7 @@ import {
  * `www.sec.gov` no sirven los mismos recursos, y acotar el path evita que un bug
  * de construcción de URL termine paseando por el sitio entero de la SEC.
  */
-export const EGRESS_ALLOWLIST_VERSION = "egress-allowlist-1.2.0";
+export const EGRESS_ALLOWLIST_VERSION = "egress-allowlist-1.3.0";
 
 const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
   egressAllowlistEntrySchema.parse({
@@ -201,6 +201,11 @@ const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
           "/v1/estimador-mensual-de-actividad-economica-sectores",
           "/v1/ipc_nacional",
           "/v1/valorizacion_canastas_cba_cbt",
+          "/v1/ipi_manufacturero",
+          "/v1/ipi_minero",
+          "/v1/sipm_precios_mayoristas",
+          "/v1/icc_precios_construccion",
+          "/v1/indice_salarios",
         ],
       },
     ],

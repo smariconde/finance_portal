@@ -2904,7 +2904,7 @@ export const argentinaIndicatorObservations = pgTable(
     revision: smallint("revision").notNull(),
     value: numeric("value", { mode: "string" }),
     missingReason: varchar("missing_reason", { length: 16 }),
-    /** INDEC's conventional sign for the point, as printed (ADR 0069). */
+    /** INDEC's conventional sign, including an exact normalized textual note. */
     sourceNote: varchar("source_note", { length: 8 }),
     availableAt: timestamp("available_at", {
       withTimezone: true,

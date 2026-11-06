@@ -57,7 +57,7 @@ import { getSourceRegistryRepository } from "@/server/persistence/get-source-reg
  *   pnpm argentina:indicators --declared                # en seco: baja y planea, no escribe
  *   pnpm argentina:indicators --indicator emae_sa --apply
  *   pnpm argentina:indicators --declared --apply
- *   pnpm argentina:indicators --expanded --apply          # IPC y canastas de F9-08
+ *   pnpm argentina:indicators --expanded --apply          # IPC, canastas, IPI, SIPM, ICC y salarios de F9-08
  *   pnpm argentina:indicators --soy --apply             # pizarra, BNA, Chicago y estimaciones
  *
  * Cada corrida lee la historia entera del indicador y la compara con la
@@ -140,8 +140,9 @@ const sources: ArgentinaIndicatorSource[] = [
   ),
 ];
 
-// Peor caso: una página por indicador. Son mensuales y una página son 1.000
-// meses; una serie más larga lo excede y la corrida lo dice en requests usados.
+// Plan inicial: una página por indicador, más su variación publicada cuando
+// corresponde. Son mensuales y una página son 1.000 meses; una historia más
+// larga se mide por cada request real y la corrida informa el uso efectivo.
 // Las estimaciones agrícolas son un `POST` y un CSV para las cuatro series.
 const worstCaseBySource = new Map<string, number>();
 for (const indicator of requested) {
