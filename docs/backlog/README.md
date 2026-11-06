@@ -6680,6 +6680,17 @@ local. La prueba usa cable sintético y no sustituye la persistencia y repetici�
 de las 28 historias reales en una base personal migrada. No se escribió
 Production ni se usó cuota adicional del INDEC.
 
+**`F9-08`, primera historia real persistida (2026-11-06).** Estado:
+`in_progress`. La base personal local de `.env.local` recibió las migraciones
+`0046` a `0049` y quedó en 50/50; Neon/Production no se modificó. Con los dos
+requests INDEC que restaban hoy, `wages_general --apply` concilió la variación
+de agosto de 2026 (2,73 % publicado frente a 2,7286005 % calculado; diferencia
+0,0013995 pp) y publicó 131 períodos, una definición y una corrida exitosa.
+La lectura SQL confirmó los 131 registros, 12 ausencias de la fuente y revisión
+máxima 0. La cuota local quedó en 60/60. Faltan publicar las otras 27 historias
+reales y repetir el set completo para verificar `duplicate` contra la misma
+fuente, respetando la reposición diaria de 60 requests. `F9-08` sigue abierto.
+
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
 | `F8-01` | Pipeline fiscal-aligned point-in-time de precio, market cap, net income, EPS y acciones para los filers del sector elegido, sin cargar el universo.                                   | Fase 6     | `TM-05`, `TM-06`, `TM-16` |
