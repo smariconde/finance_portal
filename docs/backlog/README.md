@@ -6691,6 +6691,19 @@ máxima 0. La cuota local quedó en 60/60. Faltan publicar las otras 27 historia
 reales y repetir el set completo para verificar `duplicate` contra la misma
 fuente, respetando la reposición diaria de 60 requests. `F9-08` sigue abierto.
 
+**`F9-08`, historias reales completas en la base local (2026-11-06, 21:00
+ART).** Estado: `in_progress`. Tras reponerse la cuota del 2026-11-07 UTC,
+`--expanded --apply` publicó las otras 27 series con 56 requests; salarios
+repitió como `duplicate`. Los 28 perfiles conciliaron su variación publicada.
+La base personal local contiene 28 definiciones abiertas y 3.392 observaciones
+abiertas, 12 ausencias de la fuente y ninguna revisión; una lectura `as_known`
+por tiempo de registro devuelve las 28 series y los 3.392 puntos. El total
+creció en dos puntos frente a la lectura anterior porque ambos IPI incorporaron
+septiembre de 2026. Con los cuatro requests restantes, `ipc_division_05` e
+`icc_gba_general` también repitieron como `duplicate`: tres replays reales
+verificados en total. La cuota quedó en 60/60. Faltan los otros 25 replays
+reales (50 requests) para cerrar el gate; no se escribió Neon/Production.
+
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
 | `F8-01` | Pipeline fiscal-aligned point-in-time de precio, market cap, net income, EPS y acciones para los filers del sector elegido, sin cargar el universo.                                   | Fase 6     | `TM-05`, `TM-06`, `TM-16` |
