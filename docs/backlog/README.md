@@ -6759,6 +6759,8 @@ pruebas unitarias, lint, tipos, build y E2E (238 aprobadas, 3 omitidas). La
 revisión de sólo lectura sobre cifras reales en 1440 y 390 px, claro y oscuro,
 dio cero desborde y cero hallazgos serios o críticos de axe; los `POST` de
 refresh se bloquearon. `F9-17` queda `ready`.
+La rama `feat/f9-16-wholesale-band-position` está publicada. Falta abrir PR y
+verificar CI: `gh auth status` reporta un token inválido; `main` no cambió.
 Antes de cada gráfico, registrar pregunta, decisión a la que ayuda, series
 mínimas, cálculo, límites de interpretación y fuente de cada pata. El IPC
 nacional ya disponible permite deflactar; regiones, divisiones, canastas,
