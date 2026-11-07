@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { DataUnavailableNotice } from "@/app/_components/data-unavailable-notice";
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
@@ -15,6 +16,7 @@ import { getArgentinaIndicatorRepository } from "@/server/persistence/get-argent
 import { getMacroSeriesRepository } from "@/server/persistence/get-macro-series-repository";
 
 import { ArgentinaRefresh } from "./_components/argentina-refresh";
+import { ExpandedIndecOverview } from "./_components/expanded-indec-overview";
 import {
   ActivitySection,
   DollarSection,
@@ -111,12 +113,22 @@ export default async function ArgentinaPage() {
 
         <SummaryCards dashboard={dashboard} />
 
+        <p className="text-sm">
+          <Link
+            href="#indec-ampliado"
+            className="font-medium text-primary underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            Ver IPC, canastas, industria, construcción y salarios del INDEC
+          </Link>
+        </p>
+
         <ActivitySection activity={dashboard.activity} />
         <DollarSection dollar={dashboard.dollar} />
         <MonetarySection monetary={dashboard.monetary} />
         <FiscalSection fiscal={dashboard.fiscal} />
         <ExternalSection external={dashboard.external} />
         <SoySection soy={dashboard.soy} />
+        <ExpandedIndecOverview />
       </div>
     </div>
   );
