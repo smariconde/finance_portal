@@ -19,6 +19,10 @@ import {
   compareGovernments,
   type GovernmentPath,
 } from "./government-comparison";
+import {
+  wholesaleBandPosition,
+  type WholesaleBandPosition,
+} from "./wholesale-band-position";
 
 export type { DatedValue } from "./chart-history";
 
@@ -35,9 +39,10 @@ export type { DatedValue } from "./chart-history";
  *
  * `2.1.0` (`F9-05`) adds the soy block (`soy-block.ts`); the other five read
  * as before. `2.2.0` (`F9-15`) adds the soy gap at the effective export
- * dollar, read with the same CCL as the dollar block.
+ * dollar, read with the same CCL as the dollar block. `2.3.0` (`F9-16`)
+ * places the latest wholesale quote within its same-day BCRA band.
  */
-export const ARGENTINA_DASHBOARD_VERSION = "argentina-dashboard-2.2.0";
+export const ARGENTINA_DASHBOARD_VERSION = "argentina-dashboard-2.3.0";
 
 export const SECTOR_WINDOW_MONTHS = 12;
 /** Calendar days a daily series goes out day by day: five years. */
@@ -116,6 +121,7 @@ export type DollarBlock = {
     readonly low: string;
     readonly high: string;
   } | null;
+  readonly bandPosition: WholesaleBandPosition;
 };
 
 export type MonetaryBlock = {
@@ -315,6 +321,12 @@ export function buildDollarBlock(input: {
       latestCcl: null,
       latestGap: null,
       latestBand: null,
+      bandPosition: wholesaleBandPosition({
+        on: null,
+        official: null,
+        low: null,
+        high: null,
+      }),
     };
   }
   const official = new Map(input.official.map((p) => [p.periodOn, p.value]));
@@ -366,6 +378,13 @@ export function buildDollarBlock(input: {
   );
   const lastLow = input.bandLow.at(-1);
   const lastHigh = input.bandHigh.at(-1);
+  const latestOfficial = latestOf(input.official);
+  const bandPosition = wholesaleBandPosition({
+    on: latestOfficial?.on ?? null,
+    official: latestOfficial?.value ?? null,
+    low: latestOfficial ? (low.get(latestOfficial.on) ?? null) : null,
+    high: latestOfficial ? (high.get(latestOfficial.on) ?? null) : null,
+  });
 
   return {
     days,
@@ -382,7 +401,7 @@ export function buildDollarBlock(input: {
         basis: "index",
       }),
     },
-    latestOfficial: latestOf(input.official),
+    latestOfficial,
     latestCcl: cclPoints.length
       ? { on: cclPoints.at(-1)!.marketDate, value: cclPoints.at(-1)!.value }
       : null,
@@ -391,6 +410,7 @@ export function buildDollarBlock(input: {
       lastLow && lastHigh && lastLow.periodOn === lastHigh.periodOn
         ? { on: lastLow.periodOn, low: lastLow.value, high: lastHigh.value }
         : null,
+    bandPosition,
   };
 }
 
