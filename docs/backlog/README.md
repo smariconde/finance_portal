@@ -109,19 +109,19 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    81 | `F9-07`    | `done`     | CCL implícito diario por pares ADR declarados y verificados, con la conversión «dólar CCL» al lado de la oficial y la brecha visible.                                                                                     | `F9-03`          |
 |    82 | `F9-04`    | `done`     | Actividad del INDEC (EMAE y 16 sectores), totales del ICA, IMIG y PIB nominal con revisiones por punto, signos del INDEC y ratios compatibles; conciliados con lo publicado.                                              |
 |    83 | `F9-06`    | `done`     | Página Argentina: actividad con mapa de sectores, dólar con CCL y bandas, inflación y reservas, fiscal sobre PIB y comercio exterior, cada bloque con gráfico, tabla accesible, fuente, fecha y metodología.              |
-|    84 | `F9-08`    | `done`     | INDEC ampliado: IPC por componente y región, salarios, canastas, IPI, ICC y mayoristas con el mismo contrato y su conciliación.                                                                                           |
-|    85 | `F9-09`    | `queued`   | Composición del comercio exterior del INDEC por rubro, uso y destino, con las celdas suprimidas contadas y nunca rellenadas.                                                                                              |
-|    86 | `F9-10`    | `queued`   | Producción de petróleo y gas por pozo (Capítulo IV) agregada por empresa y cuenca, enlazada a las entidades del grafo.                                                                                                    |
-|    87 | `F9-11`    | `queued`   | Resultado financiero y ejecución presupuestaria con fuente vigente o identidad declarada, nunca una serie vacía leída como cero.                                                                                          | `F9-07`          |
-|    88 | `F9-12`    | `done`     | `/argentina` se actualiza sola al abrirse: un job durable por fuente con sólo lo atrasado según su cadencia, progreso visible y fallas con «Reintentar».                                                                  |
-|    89 | `F9-13`    | `done`     | `/argentina` se recorre: lectura por punto con mouse, toque y teclado, rangos hasta toda la historia con cierre de mes, escala log, comparación A→B, gobiernos y regímenes fechados y vista por gobierno.                 | `F9-12`          |
-|    90 | `F9-05`    | `done`     | Soja: basis Rosario/Chicago con contrato, roll, BNA y conversión nombrados, estimaciones agrícolas conciliadas contra CC BY y bloque en `/argentina` que se actualiza al abrir.                                           | `F9-04`          |
-|    91 | `F9-14`    | `done`     | Gráficos de `/argentina` con cruz de lectura: horizontal hasta el eje Y con su cifra, etiqueta al costado del punto y capa fuera de Recharts, sin redibujar las series al mover el puntero.                               | `F9-13`          |
-|    92 | `F9-15`    | `done`     | Brecha Rosario–Chicago al dólar del exportador (dólar soja, PIE y blend con su decreto) al lado de la oficial, y retenciones y cosecha marcadas en el gráfico de la soja.                                                 | `F9-05`          |
-|    93 | `F9-16`    | `queued`   | Posición del mayorista dentro de la banda del mismo día; conserva valores fuera del rango y ausencia con motivo.                                                                                                          | `F9-11`          |
-|    94 | `F9-17`    | `queued`   | ITCRM diario del BCRA como índice real multilateral con historia, base, metodología y vintages observadas; lectura sin señal de inversión.                                                                                | `F9-16`          |
-|    95 | `F9-18`    | `queued`   | REM mensual contra IPC observado: pronóstico fechado para el mes correcto, error en puntos porcentuales y corte anterior a la publicación del dato.                                                                       | `F9-17`, `F9-08` |
-|    96 | `F9-19`    | `queued`   | Decidir la fuente, definición, procedencia y derechos del riesgo país en una ADR antes de autorizar ingesta o gráfico.                                                                                                    | `F9-18`          |
+|    84 | `F9-08`    | `done`     | Perfiles y conciliación del INDEC ampliado; el catálogo visible se retiró después por falta de una pregunta de inversión.                                                                                                 |
+|    85 | `F9-16`    | `queued`   | Posición del mayorista dentro de la banda del mismo día; conserva valores fuera del rango y ausencia con motivo.                                                                                                          | `F9-03`          |
+|    86 | `F9-17`    | `queued`   | ITCRM diario del BCRA como índice real multilateral con historia, base, metodología y vintages observadas; lectura sin señal de inversión.                                                                                | `F9-16`          |
+|    87 | `F9-18`    | `queued`   | REM mensual contra IPC observado: pronóstico fechado para el mes correcto, error en puntos porcentuales y corte anterior a la publicación del dato.                                                                       | `F9-17`, `F9-01` |
+|    88 | `F9-19`    | `queued`   | Decidir la fuente, definición, procedencia y derechos del riesgo país en una ADR antes de autorizar ingesta o gráfico.                                                                                                    | `F9-18`          |
+|    89 | `F9-09`    | `queued`   | Composición del comercio exterior del INDEC por rubro, uso y destino, con las celdas suprimidas contadas y nunca rellenadas.                                                                                              |
+|    90 | `F9-10`    | `queued`   | Producción de petróleo y gas por pozo (Capítulo IV) agregada por empresa y cuenca, enlazada a las entidades del grafo.                                                                                                    |
+|    91 | `F9-11`    | `queued`   | Resultado financiero y ejecución presupuestaria con fuente vigente o identidad declarada, nunca una serie vacía leída como cero.                                                                                          | `F9-07`          |
+|    92 | `F9-12`    | `done`     | `/argentina` se actualiza sola al abrirse: un job durable por fuente con sólo lo atrasado según su cadencia, progreso visible y fallas con «Reintentar».                                                                  |
+|    93 | `F9-13`    | `done`     | `/argentina` se recorre: lectura por punto con mouse, toque y teclado, rangos hasta toda la historia con cierre de mes, escala log, comparación A→B, gobiernos y regímenes fechados y vista por gobierno.                 | `F9-12`          |
+|    94 | `F9-05`    | `done`     | Soja: basis Rosario/Chicago con contrato, roll, BNA y conversión nombrados, estimaciones agrícolas conciliadas contra CC BY y bloque en `/argentina` que se actualiza al abrir.                                           | `F9-04`          |
+|    95 | `F9-14`    | `done`     | Gráficos de `/argentina` con cruz de lectura: horizontal hasta el eje Y con su cifra, etiqueta al costado del punto y capa fuera de Recharts, sin redibujar las series al mover el puntero.                               | `F9-13`          |
+|    96 | `F9-15`    | `done`     | Brecha Rosario–Chicago al dólar del exportador (dólar soja, PIE y blend con su decreto) al lado de la oficial, y retenciones y cosecha marcadas en el gráfico de la soja.                                                 | `F9-05`          |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -6732,6 +6732,45 @@ al abrir un puerto de PostCSS en este entorno; el build webpack pasó. La
 comprobación pendiente de las 25 repeticiones se
 conserva como deuda explícita para un día con cuota libre; no bloquea el
 siguiente slice por decisión del owner.
+
+**Corrección de alcance de `F9-08` (2026-11-06).** El owner aclaró que
+`/argentina` debe servir análisis económicos para decidir inversiones, no
+exponer todas las series que una fuente ofrece. Se retiró el inventario de
+28 series y su ruta de gráfico individual: no respondían una pregunta
+económica seleccionada. Las observaciones ya publicadas no se borran; la
+carga ampliada era manual y queda fuera del refresh automático. No ejecutar
+los 25 replays reales pendientes ni nuevas vueltas completas de `--expanded`
+por inercia. El set de entrada de cada análisis se elegirá por pregunta,
+medida y fuente antes de volver a descargar datos.
+
+El owner pidió conservar los seis bloques anteriores de `/argentina` y
+enriquecer sus lecturas con gráficos seleccionados. No conserva los ejemplos
+exactos de [@dosinaga2](https://x.com/dosinaga2), pero referencias públicas
+verificables apuntan al tipo de cambio real multilateral y a comparar
+rendimientos de inversiones contra inflación: [entrevista sobre ITCRM](https://ciudadano.news/economia/tipo-cambio-atrasado-dolar-competitivo-supuesta-corrida-semana-n105634/amp),
+[comparación de rendimientos](https://www.ambito.com/finanzas/no-es-el-dolar-ni-el-plazo-fijo-tradicional-cual-es-la-inversion-ganadora-lo-que-va-del-ano-n6078082).
+Los próximos slices ya declarados son `F9-16` (posición del dólar en la
+banda), `F9-17` (ITCRM), `F9-18` (REM frente a inflación observada) y
+`F9-19` (derechos y fuente del riesgo país). `F9-09` a `F9-11` quedan en
+cola hasta que un análisis concreto justifique sus nuevas fuentes.
+Antes de cada gráfico, registrar pregunta, decisión a la que ayuda, series
+mínimas, cálculo, límites de interpretación y fuente de cada pata. El IPC
+nacional ya disponible permite deflactar; regiones, divisiones, canastas,
+IPI, ICC y SIPM no entran por defecto.
+
+Validación de la corrección: build del gate E2E, 238 pruebas aprobadas y tres
+omitidas; lint, tipos y formato pasan. Build local contra Neon, sólo lectura:
+los seis bloques previos aparecen a 1440 px claro y 390 px oscuro, la tabla
+ampliada no aparece, `/argentina/indec` responde 404, 0 px de desborde y
+axe sin hallazgos serios o críticos. La corrección no cambia Neon ni llama al
+INDEC.
+
+| Slice   | Pregunta para la lectura de inversiones                                                                                                                                   | Datos mínimos                                                                             |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `F9-16` | ¿Dónde está el mayorista dentro de la banda vigente y cuánto espacio hay hasta sus límites? Contexto para exposición cambiaria en pesos, sin proyectar el precio.         | Mayorista, piso y techo del mismo día ya guardados.                                       |
+| `F9-17` | ¿Cómo cambió la competitividad cambiaria real frente a su propia historia? Contexto para exposición a Argentina, sin convertir el índice en un precio objetivo del dólar. | ITCRM oficial del BCRA; no requiere las 28 series ampliadas.                              |
+| `F9-18` | ¿Qué esperaba el mercado para cada mes y qué inflación se observó después? Ayuda a interpretar riesgo de instrumentos en pesos.                                           | REM mensual y sólo IPC nacional observado, con sus fechas de disponibilidad.              |
+| `F9-19` | ¿Qué spread soberano se está pagando y de qué fuente proviene? La visualización espera a resolver procedencia y derechos.                                                 | Una fuente autorizada de riesgo país o rendimientos de bonos, no nuevas series del INDEC. |
 
 | Issue   | Resultado y aceptación mínima                                                                                                                                                         | Depende de | Controles                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |

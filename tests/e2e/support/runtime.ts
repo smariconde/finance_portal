@@ -93,7 +93,6 @@ export const ROUTES = {
   sectorMatrix: "/sectores/communication-services",
   sectorDivergences: "/sectores/communication-services/divergencias",
   argentina: "/argentina",
-  argentinaIndec: "/argentina/indec",
   missing: "/ruta-que-no-existe",
 } as const;
 
