@@ -6894,3 +6894,21 @@ probar el control; fases posteriores pueden volver a verificarlo.
 Agregar un issue nuevo sólo cuando el roadmap no lo cubra o un walkthrough produzca
 deuda real. No usar el backlog para adelantar una fase ni convertir una idea en
 capacidad disponible.
+
+## Operación: transferencia de Neon Free (2026-11-09)
+
+El proyecto `finance_portal` notificó el límite mensual de 5 GB de transferencia.
+El MCP de Neon informó 5.026.472.450 bytes para el período noviembre de 2026;
+la base tenía 155 MB de tablas sin índices y el timer local ejecutó nueve dumps
+completos entre el 2 y el 9 de noviembre. No se puede atribuir la cuota entera
+a esos dumps: Neon no informa egress por consulta. La compresión del archivo
+ocurre después de que PostgreSQL envía los datos al cliente.
+
+Por decisión del owner, se detuvo, deshabilitó y retiró la automatización del
+backup local. La [ADR 0073](../architecture/adr/0073-neon-free-network-transfer-recovery.md)
+registra la menor cobertura de recuperación aceptada: seis horas de historia
+en Free y un snapshot manual, sin dump periódico. Los archivos locales ya
+creados se conservan privados e inertes; no se borraron. Antes de una migración
+de Production se verifica un snapshot reciente en Neon y se detiene el cambio
+si ese punto de recuperación no está disponible. No se modificó la base ni el
+plan de Neon.
