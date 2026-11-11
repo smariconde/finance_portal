@@ -84,43 +84,33 @@ Con autorización explícita del owner, se restauró un dump consistente de la
 personal local sobre Neon vacío, incluyendo el journal. Las 46 tablas
 coincidieron por conteo y hashes de contenido antes de probar la aplicación.
 Backup y manifiesto permanecen privados fuera de Git, y la base Docker se
-conserva. El respaldo del traslado es temporal y no sustituye el backup
-operativo de producción que se describe abajo.
+conserva. El respaldo del traslado fue una prueba histórica; la política operativa de
+recuperación cambió el 2026-11-09 según la [ADR 0073](../architecture/adr/0073-neon-free-network-transfer-recovery.md).
 
-## Backup operativo de Neon
+## Recuperación de Neon sin dump periódico
 
-`scripts/backup-neon.ts` usa únicamente `DATABASE_DIRECT_URL` del perfil
-`.env.neon.local`. Produce un dump PostgreSQL custom en
-`~/.local/share/finance-portal/backups/`, comprueba que `pg_restore --list`
-pueda leerlo y escribe un manifiesto privado con SHA-256, bytes, fecha y
-cantidad de tablas. La carpeta tiene modo `0700`; dump y manifiesto, `0600`.
-La contraseña llega a `pg_dump` por el entorno del proceso, no por sus
-argumentos ni por el log. El script nunca limpia un backup si el nuevo falla.
+El owner retiró el backup local periódico el 2026-11-09
+([ADR 0073](../architecture/adr/0073-neon-free-network-transfer-recovery.md)).
+El timer de usuario y su servicio se detuvieron, deshabilitaron y retiraron de
+`~/.config/systemd/user/`; sus fuentes versionadas y el script de `pg_dump`
+desde Neon también se retiraron. Los archivos privados ya creados no se borraron.
 
-El timer de usuario versionado en `ops/systemd/` corre diariamente a las
-04:15 hora local con hasta 30 minutos de dispersión. `Persistent=true` intenta
-la corrida pendiente al volver a iniciar sesión si la máquina estaba apagada.
-Conserva todos los dumps verificados de los últimos 30 días y, como mínimo,
-los dos más nuevos. Al ser un backup local, una máquina apagada no hace una
-copia remota: revisar el timer y la antigüedad del último manifiesto antes de
-una migración. No se instaló un servicio de almacenamiento externo.
+En Free, Neon ofrece seis horas de historia y un solo snapshot manual. Antes de
+una migración de Production, comprobar en **Backup & restore** de Neon que la
+rama `production` tenga un snapshot manual reciente que se pueda identificar
+por nombre y fecha. Si no lo tiene, crearlo allí y verificar que aparezca en
+la lista. Un slot ocupado no se reemplaza automáticamente: detener la
+migración hasta que el owner decida si conservar el anterior, sustituirlo o
+cambiar de plan. El snapshot vive en Neon; no es una copia independiente del
+proveedor. Para un restore, usar una rama nueva para verificar contenido y
+schema antes de cambiar Production; nunca restaurar directamente sobre la
+rama activa sin decisión explícita.
 
-```bash
-systemctl --user list-timers finance-portal-neon-backup.timer
-systemctl --user status finance-portal-neon-backup.service
-journalctl --user -u finance-portal-neon-backup.service -n 30 --no-pager
-# Copia extra antes de una migración:
-/usr/bin/node --env-file=.env.neon.local --import tsx scripts/backup-neon.ts
-```
-
-El 2026-10-26, un dump de Neon se restauró en una base **local descartable**;
+El respaldo del 2026-10-26 se restauró entonces en una base **local descartable**;
 las 46 tablas y los conteos de `valuation_runs`, `valuation_jobs` y
-`observations` coincidieron (11, 22 y 29.146). La base de prueba se eliminó
-después. El backup privado se conserva fuera de Git. Una ejecución posterior
-del script verificó 46 tablas y el servicio de systemd se comprobó por
-separado. Para recuperar de verdad, verificar primero el SHA-256 del manifiesto,
-restaurar en una base nueva y comparar esquema y conteos antes de cambiar
-ninguna conexión de producción; no restaurar sobre la rama activa.
+`observations` coincidieron (11, 22 y 29.146). Esa prueba histórica no implica
+que el dump local siga programado. La ventana de recuperación actual y el
+límite de snapshot son los de la ADR 0073.
 
 `finance_portal_runtime` tiene los cuatro permisos DML sobre las 45 tablas
 públicas y permisos por defecto para las futuras tablas del owner. No puede
@@ -168,8 +158,13 @@ el 2026-10-30 Neon tenía 42 de 46 migraciones y cada pedido de valuación
 terminaba en `valuation enqueue failed`, porque `0043`–`0045` cambian
 `valuation_jobs`. Por eso, con CI verde y justo antes del merge:
 
+1. Revisar en Neon **Backup & restore** el snapshot manual reciente de la
+   rama `production`, o crearlo y comprobar que aparece. Free admite uno;
+   si está ocupado, resolverlo con el owner antes de avanzar. Registrar su
+   nombre, fecha y rama sin datos privados.
+2. Ejecutar la migración y comprobar el journal:
+
 ```bash
-/usr/bin/node --env-file=.env.neon.local --import tsx scripts/backup-neon.ts
 pnpm db:migrate:neon
 pnpm db:status:neon   # sólo lee; sale con 1 y nombra lo pendiente
 ```

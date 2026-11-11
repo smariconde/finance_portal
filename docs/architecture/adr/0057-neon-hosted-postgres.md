@@ -66,9 +66,11 @@ las diez corridas AAPL/AMZN se reproducen sin divergencias en Neon. La prueba
 del runtime usa ese rol limitado, no el owner.
 
 Free tiene una ventana de recuperación limitada y no se presenta como una
-política de backup suficiente. Se mantienen backups privados antes de
-migraciones y traslados; contratar más retención o cambiar de plan requiere una
-decisión explícita. No se habilitan llamadas a fuentes ni IA para probar la
+política de backup suficiente. La política posterior de la
+[ADR 0073](0073-neon-free-network-transfer-recovery.md) retira los dumps
+locales periódicos y exige un snapshot manual reciente antes de migrar
+Production; Free sólo permite uno. Esta enmienda no cambia la evidencia
+histórica del traslado. No se habilitan llamadas a fuentes ni IA para probar la
 conexión.
 
 La aplicación sigue ejecutándose localmente o en Vercel protegido. Neon no
