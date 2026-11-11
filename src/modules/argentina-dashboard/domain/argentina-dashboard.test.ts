@@ -131,6 +131,11 @@ describe("buildDollarBlock", () => {
       low: "900",
       high: "1500",
     });
+    expect(block.bandPosition).toMatchObject({
+      status: "computed",
+      on: "2026-11-02",
+      position: "0.1833333333333333333333333333333333",
+    });
   });
 
   it("keeps five years day by day and the whole history at each month's close", () => {
@@ -164,6 +169,9 @@ describe("buildDollarBlock", () => {
       official: "1010",
       ccl: null,
     });
+    expect(block.bandPosition).toMatchObject({
+      reason: "missing_same_day_band",
+    });
     // Macri took office on 2015-12-10: the base is the close of the 9th.
     const macri = block.governments.official.find(
       (path) => path.termId === "macri",
@@ -179,6 +187,20 @@ describe("buildDollarBlock", () => {
     expect(
       buildDollarBlock({ official: [], ccl: [], bandLow: [], bandHigh: [] }),
     ).toMatchObject({ days: [], latestGap: null, latestOfficial: null });
+  });
+
+  it("does not pair the latest official quote with yesterday's band", () => {
+    const block = buildDollarBlock({
+      official: [{ periodOn: "2026-11-06", value: "1250" }],
+      ccl: [],
+      bandLow: [{ periodOn: "2026-11-05", value: "1000" }],
+      bandHigh: [{ periodOn: "2026-11-05", value: "1500" }],
+    });
+    expect(block.bandPosition).toEqual({
+      status: "unavailable",
+      on: "2026-11-06",
+      reason: "missing_same_day_band",
+    });
   });
 });
 

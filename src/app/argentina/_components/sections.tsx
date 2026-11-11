@@ -22,7 +22,10 @@ import {
   soyDutyOn,
   soyHarvestSeasons,
 } from "@/modules/soy-basis/domain/soy-market-events";
-import { formatCompactAmount } from "@/modules/valuation/domain/display-format";
+import {
+  formatCompactAmount,
+  formatPercent,
+} from "@/modules/valuation/domain/display-format";
 
 import { DashboardBlock, DataTable } from "./block";
 import { ChartViews } from "./chart-views";
@@ -227,15 +230,19 @@ export function ActivitySection({
 }
 
 export function DollarSection({ dollar }: { readonly dollar: DollarBlock }) {
-  const { latestOfficial, latestCcl, latestGap, latestBand } = dollar;
-  const insideBand =
-    latestOfficial &&
-    latestBand &&
-    latestBand.on === latestOfficial.on &&
-    latestOfficial.value !== null
-      ? Number(latestOfficial.value) >= Number(latestBand.low) &&
-        Number(latestOfficial.value) <= Number(latestBand.high)
+  const { latestOfficial, latestCcl, latestGap, bandPosition } = dollar;
+  const bandReading =
+    bandPosition.status === "computed"
+      ? Number(bandPosition.position) < 0
+        ? "debajo del piso"
+        : Number(bandPosition.position) > 1
+          ? "encima del techo"
+          : "dentro de la banda"
       : null;
+  const bandLimits =
+    bandPosition.status === "computed"
+      ? ` ($ ${amount(bandPosition.low, 2)} a $ ${amount(bandPosition.high, 2)})`
+      : "";
   const reading =
     latestOfficial === null || latestOfficial.value === null
       ? "Sin cotizaciones guardadas."
@@ -248,11 +255,9 @@ export function DollarSection({ dollar }: { readonly dollar: DollarBlock }) {
             ? `; la brecha del ${calendarDate(latestGap.on)} fue de ${fractionAsPoints(latestGap.gap)}`
             : "",
           ".",
-          insideBand === null || !latestBand
+          bandReading === null
             ? ""
-            : insideBand
-              ? ` El mayorista está dentro de la banda cambiaria ($ ${amount(latestBand.low, 2)} a $ ${amount(latestBand.high, 2)}).`
-              : ` El mayorista está fuera de la banda cambiaria ($ ${amount(latestBand.low, 2)} a $ ${amount(latestBand.high, 2)}).`,
+            : ` El mayorista está ${bandReading}${bandLimits}.`,
         ].join("");
   const values = (day: (typeof dollar.days)[number]) => ({
     official: day.official,
@@ -294,7 +299,11 @@ export function DollarSection({ dollar }: { readonly dollar: DollarBlock }) {
           <p>
             El mayorista es el tipo de cambio de referencia que publica el BCRA.
             Las bandas son los límites del régimen cambiario que el BCRA publica
-            día por día.
+            día por día. La posición es (mayorista − piso) / (techo − piso),
+            sólo cuando las tres cifras tienen la misma fecha y el techo supera
+            al piso. No se recorta fuera del 0–100 %; las distancias son pesos
+            por dólar con signo. El CCL no interviene (
+            <code className="text-xs">wholesale-band-position-1.0.0</code>).
           </p>
           <p>
             El CCL implícito es la mediana, entre los pares que cotizaron ese
@@ -310,6 +319,53 @@ export function DollarSection({ dollar }: { readonly dollar: DollarBlock }) {
         </>
       }
     >
+      <div
+        className="border-y py-4"
+        aria-label="Posición del mayorista en la banda cambiaria"
+      >
+        <h3 className="text-sm font-medium">
+          Posición del mayorista en la banda
+        </h3>
+        {bandPosition.status === "computed" ? (
+          <>
+            <p className="mt-1 text-xs text-muted-foreground">
+              BCRA · {calendarDate(bandPosition.on)} · tres cotizaciones del
+              mismo día
+            </p>
+            <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-3">
+              <div>
+                <dt className="text-muted-foreground">Posición</dt>
+                <dd className="numeric font-semibold">
+                  {formatPercent(bandPosition.position, { scale: 1 })} ·{" "}
+                  {bandReading}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Desde el piso</dt>
+                <dd className="numeric font-medium">
+                  $ {signedAmount(bandPosition.toFloor, 2)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Hasta el techo</dt>
+                <dd className="numeric font-medium">
+                  $ {signedAmount(bandPosition.toCeiling, 2)}
+                </dd>
+              </div>
+            </dl>
+          </>
+        ) : (
+          <p className="mt-2 text-sm text-muted-foreground">
+            {bandPosition.reason === "missing_official"
+              ? "Sin mayorista oficial guardado."
+              : bandPosition.reason === "missing_same_day_band"
+                ? `Falta el piso o el techo para el ${calendarDate(bandPosition.on!)}.`
+                : bandPosition.reason === "invalid_band"
+                  ? "Banda no calculable: el techo no supera al piso."
+                  : "Banda no calculable: una cifra no es válida."}
+          </p>
+        )}
+      </div>
       {daily.length === 0 ? (
         <Empty what="cotizaciones" />
       ) : (
@@ -1076,7 +1132,7 @@ export function SoySection({ soy }: { readonly soy: SoyBlock }) {
             de cosecha.
           </p>
           <p>
-            Lectura <code className="text-xs">argentina-dashboard-2.2.0</code>.
+            Lectura <code className="text-xs">argentina-dashboard-2.3.0</code>.
           </p>
           <ChartReadingNote />
         </>
