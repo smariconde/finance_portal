@@ -6771,9 +6771,8 @@ móvil. La lectura del gráfico ahora se selecciona en PostgreSQL: días de los
 últimos cinco años y un cierre por mes anterior, con corte temporal y revisión
 visible; la prueba de integración local pasó. La rama está publicada como
 [PR borrador #119](https://github.com/smariconde/finance_portal/pull/119).
-Quality y E2E/accesibilidad de CI pasaron sobre la primera versión del PR; el
-nuevo commit de la lectura acotada requiere su propia corrida. El gate de
-entrega queda pendiente de esa CI y una carga en Production
+Quality, E2E/accesibilidad y Preview de CI pasaron sobre el commit `8e274e1`
+de la lectura acotada. El gate de entrega queda pendiente de una carga en Production
 cuando la cuota de Neon permita probarla; ninguna escritura remota forma parte
 de esta sesión. No confundir este estado actual con el `ready` y el estado de
 `main` que la sesión anterior dejó registrados arriba.
