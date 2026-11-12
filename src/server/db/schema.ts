@@ -2952,6 +2952,61 @@ export const argentinaIndicatorObservations = pgTable(
   ],
 );
 
+/** F9-18: each REM round forecasts distinct target months; revisions are observed. */
+export const remInflationForecasts = pgTable(
+  "rem_inflation_forecasts",
+  {
+    roundMonth: date("round_month", { mode: "string" }).notNull(),
+    targetMonth: date("target_month", { mode: "string" }).notNull(),
+    revision: smallint("revision").notNull(),
+    medianPercent: numeric("median_percent", { mode: "string" }).notNull(),
+    publishedOn: date("published_on", { mode: "string" }).notNull(),
+    availableAt: timestamp("available_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+    supersededAt: timestamp("superseded_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    ingestionRunId: uuid("ingestion_run_id").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      name: "rem_inflation_forecasts_pkey",
+      columns: [table.roundMonth, table.targetMonth, table.revision],
+    }),
+    foreignKey({
+      name: "rem_inflation_forecasts_run_fk",
+      columns: [table.ingestionRunId],
+      foreignColumns: [ingestionRuns.runId],
+    }),
+    uniqueIndex("rem_inflation_forecasts_open_uidx")
+      .on(table.roundMonth, table.targetMonth)
+      .where(sql`${table.supersededAt} is null`),
+    index("rem_inflation_forecasts_target_idx").on(
+      table.targetMonth,
+      table.availableAt,
+    ),
+    check(
+      "rem_inflation_forecasts_revision_check",
+      sql`${table.revision} >= 0`,
+    ),
+    check(
+      "rem_inflation_forecasts_round_check",
+      sql`extract(day from ${table.roundMonth}) = 1`,
+    ),
+    check(
+      "rem_inflation_forecasts_target_check",
+      sql`extract(day from ${table.targetMonth}) = 1`,
+    ),
+    check(
+      "rem_inflation_forecasts_time_check",
+      sql`${table.supersededAt} is null or ${table.supersededAt} > ${table.availableAt}`,
+    ),
+  ],
+);
+
 export const depositaryProgramType = pgEnum("depositary_program_type", [
   "cedear",
   "adr",

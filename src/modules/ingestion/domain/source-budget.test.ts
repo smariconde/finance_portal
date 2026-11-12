@@ -53,6 +53,7 @@ describe("topes declarados", () => {
     expect(declaredDailyBudget("bcra-monetarias-v4")).toBe(300);
     expect(declaredDailyBudget("bcra-cambiarias-v1")).toBe(100);
     expect(declaredDailyBudget("bcra-itcrm-xlsx")).toBe(10);
+    expect(declaredDailyBudget("bcra-rem-release")).toBe(10);
     expect(declaredDailyBudget("argentina-series-tiempo")).toBe(50);
     expect(declaredDailyBudget("indec-api")).toBe(60);
     expect(declaredDailyBudget("bcr-cac-pizarra")).toBe(20);
@@ -65,6 +66,7 @@ describe("topes declarados", () => {
       "bcra-cambiarias-v1",
       "bcra-itcrm-xlsx",
       "bcra-monetarias-v4",
+      "bcra-rem-release",
       "bna-fx",
       "caja-valores-cedear",
       "comafi-cedear",

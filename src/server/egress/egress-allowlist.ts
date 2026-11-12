@@ -151,6 +151,22 @@ const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
     maxRedirects: 0,
   }),
   egressAllowlistEntrySchema.parse({
+    sourceId: "bcra-rem-release",
+    origins: [
+      {
+        host: "www.bcra.gob.ar",
+        pathPrefixes: [
+          "/publicaciones/relevamiento-de-expectativas-de-mercado-rem-octubre-de-2026/",
+          "/archivos/Pdfs/PublicacionesEstadisticas/informes/relevamiento-expectativas-mercado-tablas-2026-10.xlsx",
+        ],
+      },
+    ],
+    identification: "project",
+    maxResponseBytes: 2 * 1024 * 1024,
+    deadlineMs: 30_000,
+    maxRedirects: 0,
+  }),
+  egressAllowlistEntrySchema.parse({
     sourceId: "bcra-monetarias-v4",
     origins: [
       {
