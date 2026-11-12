@@ -6767,7 +6767,7 @@ E2E/accesibilidad y Preview aprobaron el 2026-11-09. `main` aún no cambió.
 medida, sin guardar el libro: 10.907 puntos de 1997-01-01 a 2026-11-11.
 La base personal **local** publicó esas 10.907 observaciones y `/argentina`
 mostró el índice, su base, la fecha observada y la metodología en escritorio y
-móvil. El gate de entrega queda pendiente de CI, PR y una carga en Production
+móvil. La rama está publicada como [PR borrador #119](https://github.com/smariconde/finance_portal/pull/119). El gate de entrega queda pendiente de CI y una carga en Production
 cuando la cuota de Neon permita probarla; ninguna escritura remota forma parte
 de esta sesión. No confundir este estado actual con el `ready` y el estado de
 `main` que la sesión anterior dejó registrados arriba.
