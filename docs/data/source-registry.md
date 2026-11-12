@@ -342,6 +342,18 @@ Después del spike, una ADR decide adopción, presupuesto y estrategia de salida
 Si los datos live fueran a mostrarse en una URL anónima, se abre un gate nuevo de
 display, redistribución y alcance regulatorio.
 
+## REM mensual (`F9-18`, 2026-11-12)
+
+`bcra-rem-release` está en `technical_reviewed / rights_review_pending` para
+`bcra.rem-monthly-inflation`. La edición de octubre de 2026 tiene página y
+planilla oficiales verificadas; el adaptador acepta sólo esa ronda, exige la
+fecha pública y el enlace exacto, y falla antes del egress mientras los derechos
+sigan pendientes. El destino y el presupuesto están declarados por separado:
+dos requests por edición, diez por día, máximo 2 MB por respuesta, sin redirects.
+No se conserva HTML ni XLSX. Una nueva ronda requiere comprobar su página,
+planilla y forma antes de ampliar la allowlist. Fuente y decisión:
+[ADR 0075](../architecture/adr/0075-bcra-rem-release-forecasts.md).
+
 ## Decisiones abiertas
 
 - Alpaca IEX versus SIP demorado para el job EOD y los derechos del plan concreto.

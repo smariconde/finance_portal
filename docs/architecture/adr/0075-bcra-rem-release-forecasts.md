@@ -51,10 +51,12 @@ ese período al mes sin confundirlo con la ronda. El libro se inspeccionó en
    unidad, con ambos datos conocidos al corte, y si la edición REM precede a la
    publicación del IPC. Un faltante o una incompatibilidad se muestran con
    motivo; no se convierten en cero.
-5. La persistencia, la ingesta medida y la lectura de `/argentina` requieren
-   sus propios controles de derechos, presupuesto y acceso personal antes de
-   abrir red o publicar el bloque. Esta ADR no autoriza guardar el XLSX crudo ni
-   mostrar datos REM en una URL pública.
+5. La ingesta medida y la lectura de `/argentina` requieren sus propios
+   controles de derechos, presupuesto y acceso personal antes de abrir red o
+   publicar el bloque. La migración `0050` y el adaptador están preparados, pero
+   la rights row permanece en `rights_review_pending` hasta la decisión del
+   owner. Esta ADR no autoriza guardar el XLSX crudo ni mostrar datos REM en una
+   URL pública.
 
 ## Consecuencias
 

@@ -6794,8 +6794,41 @@ enlace exacto a su XLSX; la disponibilidad conservadora es 2026-11-06 03:00 UTC.
 La fórmula `rem-inflation-error-1.0.0` rechaza pronósticos publicados después
 del IPC, meses o unidades distintos, valores faltantes y no finitos. Pasaron
 siete pruebas de dominio y tipos. **Estado parcial:** faltan la ingesta medida,
-persistencia, lectura
-point-in-time e interfaz; no hay datos REM publicados ni llamadas a Neon.
+persistencia, lectura point-in-time e interfaz; no hay datos REM publicados ni
+llamadas a Neon.
+
+**`F9-18`, segundo incremento, 2026-11-12:** el adaptador de la edición de
+octubre de 2026 exige la página oficial, fecha de publicación y enlace exacto
+antes de bajar la planilla. La allowlist sólo abre esos dos recursos, con diez
+requests por día y 2 MB por respuesta; un cambio de schema, `429` o `503`
+detiene la publicación. La rights row está en `rights_review_pending`, por lo
+que la fuente real no abre red. Fixtures sintéticas prueban el camino y los
+rechazos. **Estado:** `in_progress`; persisten como próximos pasos la decisión
+del owner sobre derechos, la persistencia, lectura histórica e interfaz.
+
+**`F9-18`, tercer incremento, 2026-11-12:** migración `0050` y
+`pnpm rem:ingest --round 2026-10` preparan la publicación de una edición
+declarada. Cada `(ronda, mes objetivo)` conserva revisiones; la corrección
+observada después toma nueva disponibilidad y la corrida y sus filas se
+publican en una transacción. La lectura `as_known` exige elegir
+`public_availability` o `system_recorded`, y la segunda oculta una ingesta
+tardía. La prueba con PostgreSQL local cubre duplicados, revisiones, ambas
+bases y rollback; no se descargó ni publicó REM real. **Estado:**
+`in_progress`; faltan derechos aprobados, contraste de la última edición,
+enlace con IPC nacional y bloque de `/argentina`. La migración no se aplica a
+Neon antes del gate de snapshot del PR.
+
+**`F9-18`, cuarto incremento, 2026-11-12:**
+`ipc-monthly-index-change-1.0.0` obtiene la inflación mensual de dos niveles
+consecutivos del IPC nacional del INDEC, en la misma base, con disponibilidad
+de la última pata. Rechaza índice faltante, cero, negativo, no finito o base
+distinta. La lectura junta esa cifra con la última ronda REM visible y aplica
+`rem-inflation-error-1.0.0` sólo al mismo mes objetivo. Las pruebas de dominio
+fijan el caso antes y después de conocer el IPC. El bloque de `/argentina`
+permanece sin publicar por el gate de derechos de la ADR 0075. Lint, tipos,
+formato y `git diff --check` pasan; el build de producción con webpack pasa.
+Turbopack sigue fallando al abrir el puerto local de PostCSS, incluso fuera del
+sandbox, antes de compilar los cambios. No se usó Neon.
 Antes de cada gráfico, registrar pregunta, decisión a la que ayuda, series
 mínimas, cálculo, límites de interpretación y fuente de cada pata. El IPC
 nacional ya disponible permite deflactar; regiones, divisiones, canastas,
