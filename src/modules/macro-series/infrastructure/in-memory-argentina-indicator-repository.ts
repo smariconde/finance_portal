@@ -1,5 +1,7 @@
 import type { ArgentinaIndicatorRepository } from "../application/argentina-indicator-repository";
 import type { ArgentinaIndicatorVintage } from "../domain/argentina-indicator";
+import { readIndicatorVintages } from "../domain/argentina-indicator";
+import { declaredArgentinaIndicator } from "../domain/declared-argentina-indicators";
 import type {
   ArgentinaDefinitionVersion,
   ArgentinaIndicatorPlan,
@@ -46,6 +48,35 @@ export class InMemoryArgentinaIndicatorRepository implements ArgentinaIndicatorR
     indicatorIds: readonly string[],
   ): Promise<ReadonlyMap<string, readonly ArgentinaIndicatorVintage[]>> {
     return new Map(indicatorIds.map((id) => [id, this.read(id, false)]));
+  }
+
+  async chartObservations(input: {
+    indicatorId: string;
+    effectiveOn: string;
+    knownAt: string;
+    dailyFromOn: string;
+  }): Promise<readonly ArgentinaIndicatorVintage[]> {
+    const indicator = declaredArgentinaIndicator(input.indicatorId);
+    if (!indicator) throw new Error("indicator_not_declared");
+    const visible = readIndicatorVintages(
+      indicator,
+      this.read(input.indicatorId, false),
+      {
+        effectiveOn: input.effectiveOn,
+        knownAt: input.knownAt,
+        knowledgeBasis: "public_availability",
+      },
+    ).filter((point) => point.value !== null);
+    const older = new Map<string, ArgentinaIndicatorVintage>();
+    for (const point of visible) {
+      if (point.periodOn < input.dailyFromOn) {
+        older.set(point.periodOn.slice(0, 7), point);
+      }
+    }
+    return [
+      ...older.values(),
+      ...visible.filter((point) => point.periodOn >= input.dailyFromOn),
+    ];
   }
 
   async apply(

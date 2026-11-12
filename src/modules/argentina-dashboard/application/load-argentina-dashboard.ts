@@ -11,8 +11,10 @@ import {
 } from "@/modules/macro-series/domain/bcra-monetary-source";
 import {
   DECLARED_ARGENTINA_INDICATORS,
+  DECLARED_ITCRM,
   declaredArgentinaIndicator,
 } from "@/modules/macro-series/domain/declared-argentina-indicators";
+import { monthEndCloses } from "../domain/chart-history";
 import {
   DECLARED_SOY_INDICATORS,
   declaredSoyIndicator,
@@ -56,6 +58,22 @@ export type ArgentinaDashboard = {
   readonly fiscal: FiscalBlock;
   readonly external: ExternalBlock;
   readonly soy: SoyBlock;
+  readonly itcrm: {
+    readonly days: readonly {
+      readonly on: string;
+      readonly value: string | null;
+    }[];
+    readonly months: readonly {
+      readonly on: string;
+      readonly value: string | null;
+    }[];
+    readonly latest: {
+      readonly on: string;
+      readonly value: string;
+      readonly observedAt: string;
+      readonly revision: number;
+    } | null;
+  };
 };
 
 /**
@@ -71,6 +89,11 @@ export async function loadArgentinaDashboard(dependencies: {
 }): Promise<ArgentinaDashboard> {
   const readAt = dependencies.now();
   const today = readAt.slice(0, 10);
+  const fiveYearsAgo = new Date(
+    Date.parse(`${today}T00:00:00Z`) - 1_827 * 86_400_000,
+  )
+    .toISOString()
+    .slice(0, 10);
   const query = pointInTimeQuerySchema.parse({
     effectiveAt: readAt,
     knownAt: readAt,
@@ -85,15 +108,25 @@ export async function loadArgentinaDashboard(dependencies: {
     ...DECLARED_ARGENTINA_INDICATORS.map((item) => item.id),
     ...DECLARED_SOY_INDICATORS.map((item) => item.id),
   ]);
+  const itcrmStored = await dependencies.indicators.chartObservations({
+    indicatorId: DECLARED_ITCRM.id,
+    effectiveOn: today,
+    knownAt: readAt,
+    dailyFromOn: fiveYearsAgo,
+  });
 
   function indicator(id: string): IndicatorSeries {
     const declared = declaredArgentinaIndicator(id) ?? declaredSoyIndicator(id);
     if (declared === null) throw new Error(`indicator_not_declared: ${id}`);
-    const points = readIndicatorVintages(declared, stored.get(id) ?? [], {
-      effectiveOn: today,
-      knownAt: readAt,
-      knowledgeBasis: "public_availability",
-    }).filter((point) => point.missingReason !== "withdrawn");
+    const points = readIndicatorVintages(
+      declared,
+      id === DECLARED_ITCRM.id ? itcrmStored : (stored.get(id) ?? []),
+      {
+        effectiveOn: today,
+        knownAt: readAt,
+        knowledgeBasis: "public_availability",
+      },
+    ).filter((point) => point.missingReason !== "withdrawn");
     return { indicator: declared, points };
   }
 
@@ -124,6 +157,12 @@ export async function loadArgentinaDashboard(dependencies: {
   const gdp = indicator("gdp_nominal_annual");
   const exports = indicator("exports_goods");
   const imports = indicator("imports_goods");
+  const itcrm = indicator(DECLARED_ITCRM.id).points;
+  const itcrmValues = itcrm.map((point) => ({
+    on: point.periodOn,
+    value: point.value,
+  }));
+  const lastItcrm = [...itcrm].reverse().find((point) => point.value !== null);
 
   const [
     official,
@@ -188,5 +227,17 @@ export async function loadArgentinaDashboard(dependencies: {
       ccl,
       knownAt: readAt,
     }),
+    itcrm: {
+      days: itcrmValues.filter((point) => point.on >= fiveYearsAgo),
+      months: monthEndCloses(itcrmValues),
+      latest: lastItcrm?.value
+        ? {
+            on: lastItcrm.periodOn,
+            value: lastItcrm.value,
+            observedAt: lastItcrm.availableAt,
+            revision: lastItcrm.revision,
+          }
+        : null,
+    },
   };
 }

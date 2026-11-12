@@ -124,6 +124,67 @@ describe("PostgreSQL Argentina indicator repository", () => {
       revision: 1,
       segment: indicator.segment,
     });
+    const firstClose = all.find(
+      (point) => point.periodOn === "2025-12-01" && point.revision === 0,
+    )!;
+    const revisedClose = all.find(
+      (point) => point.periodOn === "2025-12-01" && point.revision === 1,
+    )!;
+    const chartAt = async (knownAt: string) =>
+      (
+        await repository.chartObservations({
+          indicatorId: indicator.id,
+          effectiveOn: "2025-12-31",
+          knownAt,
+          dailyFromOn: "2026-01-01",
+        })
+      ).at(-1);
+    expect(await chartAt(firstClose.availableAt)).toMatchObject({
+      value: "123",
+      revision: 0,
+    });
+    expect(await chartAt(revisedClose.availableAt)).toMatchObject({
+      value: "999.25",
+      revision: 1,
+    });
+  });
+
+  it("selects old monthly closes and recent daily points in PostgreSQL", async () => {
+    const { repository, dependencies, setPoints } = setup();
+    const base = months(24);
+    setPoints([
+      ...base,
+      { periodOn: "2024-01-20", value: "120" },
+      { periodOn: "2025-12-20", value: "220" },
+    ]);
+    await recordArgentinaIndicator(indicator, dependencies);
+    const points = await repository.chartObservations({
+      indicatorId: indicator.id,
+      effectiveOn: "2025-12-31",
+      knownAt: "2026-11-04T00:00:00.000Z",
+      dailyFromOn: "2025-12-15",
+    });
+    expect(points).toHaveLength(24);
+    expect(
+      points.find((point) => point.periodOn === "2024-01-01"),
+    ).toBeUndefined();
+    expect(points.find((point) => point.periodOn === "2024-01-20")?.value).toBe(
+      "120",
+    );
+    expect(
+      points.find((point) => point.periodOn === "2025-12-01"),
+    ).toBeUndefined();
+    expect(points.find((point) => point.periodOn === "2025-12-20")?.value).toBe(
+      "220",
+    );
+
+    const beforePublication = await repository.chartObservations({
+      indicatorId: indicator.id,
+      effectiveOn: "2025-12-31",
+      knownAt: "2026-11-01T00:00:00.000Z",
+      dailyFromOn: "2025-12-15",
+    });
+    expect(beforePublication).toEqual([]);
   });
 
   it("keeps one open revision per date when a stale plan is applied", async () => {

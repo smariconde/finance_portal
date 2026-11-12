@@ -22,6 +22,13 @@ export interface ArgentinaIndicatorRepository {
   allObservationsOf(
     indicatorIds: readonly string[],
   ): Promise<ReadonlyMap<string, readonly ArgentinaIndicatorVintage[]>>;
+  /** Visible daily points since a date, plus one published close per older month. */
+  chartObservations(input: {
+    indicatorId: string;
+    effectiveOn: string;
+    knownAt: string;
+    dailyFromOn: string;
+  }): Promise<readonly ArgentinaIndicatorVintage[]>;
   apply(plan: ArgentinaIndicatorPlan, indicatorId: string): Promise<void>;
 }
 

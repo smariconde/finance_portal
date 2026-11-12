@@ -136,6 +136,21 @@ const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
     maxRedirects: 0,
   }),
   egressAllowlistEntrySchema.parse({
+    sourceId: "bcra-itcrm-xlsx",
+    origins: [
+      {
+        host: "www.bcra.gob.ar",
+        pathPrefixes: [
+          "/archivos/Pdfs/PublicacionesEstadisticas/itcrm-serie.xlsx",
+        ],
+      },
+    ],
+    identification: "project",
+    maxResponseBytes: 8 * 1024 * 1024,
+    deadlineMs: 30_000,
+    maxRedirects: 0,
+  }),
+  egressAllowlistEntrySchema.parse({
     sourceId: "bcra-monetarias-v4",
     origins: [
       {

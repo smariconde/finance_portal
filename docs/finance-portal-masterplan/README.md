@@ -48,6 +48,7 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 
 ## Documentos derivados
 
+- [`../architecture/adr/0074-bcra-itcrm-history.md`](../architecture/adr/0074-bcra-itcrm-history.md): fuente oficial del ITCRM, lectura de la planilla, revisiones observadas y límites de interpretación.
 - [`../architecture/adr/0057-neon-hosted-postgres.md`](../architecture/adr/0057-neon-hosted-postgres.md): Neon elegido para PostgreSQL personal; configuración del CLI/MCP, conexiones separadas y traslado verificable de la base.
 - [`../runbooks/protected-deployment.md`](../runbooks/protected-deployment.md): preparación de `F6-06`, protección de todos los hosts antes de conectar datos, PostgreSQL hosteada y walkthrough real.
 - [`../backlog/README.md`](../backlog/README.md): tracker ejecutable con orden, dependencias, criterios de aceptación y trazabilidad de deuda.

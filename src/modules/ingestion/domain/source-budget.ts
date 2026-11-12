@@ -56,6 +56,8 @@ export const SOURCE_DAILY_REQUEST_BUDGETS: Readonly<Record<string, number>> =
     // una actualización, 5 (ADR 0067). 100 cubren dos primeras vueltas y varias
     // actualizaciones el mismo día.
     "bcra-cambiarias-v1": 100,
+    // One official workbook per manual run; ten permit checking revisions.
+    "bcra-itcrm-xlsx": 10,
     // Cinco series declaradas; una primera carga y varias revisiones manuales.
     "argentina-series-tiempo": 50,
     // El INDEC no publica su cuota (la FAQ remite a los términos, que no la

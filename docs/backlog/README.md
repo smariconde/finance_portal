@@ -111,8 +111,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    83 | `F9-06`    | `done`     | Página Argentina: actividad con mapa de sectores, dólar con CCL y bandas, inflación y reservas, fiscal sobre PIB y comercio exterior, cada bloque con gráfico, tabla accesible, fuente, fecha y metodología.              |
 |    84 | `F9-08`    | `done`     | Perfiles y conciliación del INDEC ampliado; el catálogo visible se retiró después por falta de una pregunta de inversión.                                                                                                 |
 |    85 | `F9-16`    | `done`     | Posición del mayorista dentro de la banda del mismo día; conserva valores fuera del rango y ausencia con motivo.                                                                                                          | `F9-03`          |
-|    86 | `F9-17`    | `ready`    | ITCRM diario del BCRA como índice real multilateral con historia, base, metodología y vintages observadas; lectura sin señal de inversión.                                                                                | `F9-16`          |
-|    87 | `F9-18`    | `queued`   | REM mensual contra IPC observado: pronóstico fechado para el mes correcto, error en puntos porcentuales y corte anterior a la publicación del dato.                                                                       | `F9-17`, `F9-01` |
+|    86 | `F9-17`    | `done`     | ITCRM diario del BCRA como índice real multilateral con historia, base, metodología y vintages observadas; lectura sin señal de inversión. Carga y comprobación en Production diferidas por el owner.                     | `F9-16`          |
+|    87 | `F9-18`    | `ready`    | REM mensual contra IPC observado: pronóstico fechado para el mes correcto, error en puntos porcentuales y corte anterior a la publicación del dato.                                                                       | `F9-17`, `F9-01` |
 |    88 | `F9-19`    | `queued`   | Decidir la fuente, definición, procedencia y derechos del riesgo país en una ADR antes de autorizar ingesta o gráfico.                                                                                                    | `F9-18`          |
 |    89 | `F9-09`    | `queued`   | Composición del comercio exterior del INDEC por rubro, uso y destino, con las celdas suprimidas contadas y nunca rellenadas.                                                                                              |
 |    90 | `F9-10`    | `queued`   | Producción de petróleo y gas por pozo (Capítulo IV) agregada por empresa y cuenca, enlazada a las entidades del grafo.                                                                                                    |
@@ -6762,6 +6762,28 @@ refresh se bloquearon. `F9-17` queda `ready`.
 La rama `feat/f9-16-wholesale-band-position` está publicada como
 [PR #117](https://github.com/smariconde/finance_portal/pull/117); Quality,
 E2E/accesibilidad y Preview aprobaron el 2026-11-09. `main` aún no cambió.
+**Estado de `F9-17` al 2026-11-12:** `in_progress` en
+`feat/f9-17-itcrm-history` (ADR 0074). El XLSX oficial se leyó con una request
+medida, sin guardar el libro: 10.907 puntos de 1997-01-01 a 2026-11-11.
+La base personal **local** publicó esas 10.907 observaciones y `/argentina`
+mostró el índice, su base, la fecha observada y la metodología en escritorio y
+móvil. La lectura del gráfico ahora se selecciona en PostgreSQL: días de los
+últimos cinco años y un cierre por mes anterior, con corte temporal y revisión
+visible; la prueba de integración local pasó. La rama está publicada como
+[PR borrador #119](https://github.com/smariconde/finance_portal/pull/119).
+Quality, E2E/accesibilidad y Preview de CI pasaron sobre el commit `8e274e1`
+de la lectura acotada. El gate de entrega queda pendiente de una carga en Production
+cuando la cuota de Neon permita probarla; ninguna escritura remota forma parte
+de esta sesión. No confundir este estado actual con el `ready` y el estado de
+`main` que la sesión anterior dejó registrados arriba.
+
+**Decisión del owner, 2026-11-12:** se cierra la entrega de código de `F9-17`
+con CI aprobada y publicación local comprobada. La carga y la verificación en
+Neon Production quedan **diferidas**, sin declararlas realizadas ni bloquear
+`F9-18`. Antes de esa carga, volver a medir `data_transfer_bytes`, publicar una
+sola vez y contrastar cantidad, extremos y lectura del tablero; la cuota se
+renueva el 2026-12-01 a las 00:00 UTC. No se usa el despliegue del código como
+evidencia de que los datos existen en Production.
 Antes de cada gráfico, registrar pregunta, decisión a la que ayuda, series
 mínimas, cálculo, límites de interpretación y fuente de cada pata. El IPC
 nacional ya disponible permite deflactar; regiones, divisiones, canastas,
