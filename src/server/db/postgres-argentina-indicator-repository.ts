@@ -131,6 +131,71 @@ export function createPostgresArgentinaIndicatorRepository(
     return result;
   }
 
+  async function chartObservations(input: {
+    indicatorId: string;
+    effectiveOn: string;
+    knownAt: string;
+    dailyFromOn: string;
+  }): Promise<readonly ArgentinaIndicatorVintage[]> {
+    const observation = schema.argentinaIndicatorObservations;
+    const rows = await database
+      .select({
+        observation,
+        recordedAt: schema.ingestionRuns.recordedAt,
+      })
+      .from(observation)
+      .innerJoin(
+        schema.ingestionRuns,
+        eq(schema.ingestionRuns.runId, observation.ingestionRunId),
+      )
+      .where(
+        and(
+          eq(observation.indicatorId, input.indicatorId),
+          sql`(${observation.periodOn}, ${observation.revision}) in (
+            with visible as (
+              select period_on, revision, value,
+                row_number() over (partition by period_on order by revision desc) as revision_rank
+              from argentina_indicator_observations
+              where indicator_id = ${input.indicatorId}
+                and period_on <= ${input.effectiveOn}::date
+                and available_at <= ${input.knownAt}::timestamptz
+            ), published as (
+              select period_on, revision,
+                row_number() over (
+                  partition by date_trunc('month', period_on::timestamp)
+                  order by period_on desc
+                ) as month_rank
+              from visible
+              where revision_rank = 1 and value is not null
+            )
+            select period_on, revision from published
+            where period_on >= ${input.dailyFromOn}::date or month_rank = 1
+          )`,
+        ),
+      )
+      .orderBy(asc(observation.periodOn));
+    if (rows.length === 0) return [];
+    const definitions = await database
+      .select()
+      .from(schema.argentinaIndicatorDefinitions)
+      .where(
+        eq(schema.argentinaIndicatorDefinitions.indicatorId, input.indicatorId),
+      );
+    return rows.map((row) => {
+      const matches = definitions.filter(
+        (definition) =>
+          definition.availableAt <= row.observation.availableAt &&
+          (definition.supersededAt === null ||
+            row.observation.availableAt < definition.supersededAt),
+      );
+      if (matches.length !== 1) throw new Error("definition_revision_conflict");
+      return toObservation({
+        ...row,
+        segment: argentinaIndicatorSchema.parse(matches[0]!.definition).segment,
+      });
+    });
+  }
+
   return {
     storage: "personal-postgres",
     async currentDefinition(indicatorId) {
@@ -151,6 +216,7 @@ export function createPostgresArgentinaIndicatorRepository(
     allObservations: async (indicatorId) =>
       (await observations([indicatorId], false)).get(indicatorId)!,
     allObservationsOf: (indicatorIds) => observations(indicatorIds, false),
+    chartObservations,
     async apply(plan, indicatorId) {
       if (plan.guard.refused) throw new Error("mass_change_refused");
       await database.transaction(async (tx) => {

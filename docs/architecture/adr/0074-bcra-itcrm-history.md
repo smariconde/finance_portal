@@ -49,6 +49,10 @@ serie para lectura, sin exportar el libro ni transferirlo a IA.
    versión, junto con una línea con rangos. Hasta cinco años usa días; para la
    historia larga usa el último dato de cada mes. La base 100 no es un valor
    justo del dólar y la sección no da una señal para dolarizarse.
+   PostgreSQL selecciona los días recientes y los cierres mensuales anteriores
+   antes de transferir filas al servidor de la aplicación. La selección aplica
+   el mismo corte de conocimiento y la última revisión visible de cada día;
+   nunca carga toda la historia diaria para una visita.
 
 ## Consecuencias
 
