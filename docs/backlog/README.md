@@ -6789,10 +6789,12 @@ evidencia de que los datos existen en Production.
 separa la ronda del mes objetivo y exige la fecha pública de cada edición.
 El parser de la planilla individual de octubre de 2026 se cotejó contra el
 archivo oficial: siete medianas mensuales, de octubre de 2026 a abril de 2027.
+El parser de la página de octubre de 2026 verificó la fecha 2026-11-05 y el
+enlace exacto a su XLSX; la disponibilidad conservadora es 2026-11-06 03:00 UTC.
 La fórmula `rem-inflation-error-1.0.0` rechaza pronósticos publicados después
 del IPC, meses o unidades distintos, valores faltantes y no finitos. Pasaron
-cinco pruebas de dominio y tipos. **Estado parcial:** faltan la captura de
-fecha de publicación por edición, ingesta medida, persistencia, lectura
+siete pruebas de dominio y tipos. **Estado parcial:** faltan la ingesta medida,
+persistencia, lectura
 point-in-time e interfaz; no hay datos REM publicados ni llamadas a Neon.
 Antes de cada gráfico, registrar pregunta, decisión a la que ayuda, series
 mínimas, cálculo, límites de interpretación y fuente de cada pata. El IPC

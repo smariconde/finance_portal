@@ -43,7 +43,9 @@ ese período al mes sin confundirlo con la ronda. El libro se inspeccionó en
    de forma conservadora al inicio del día siguiente en Argentina cuando no hay
    hora. `recorded_at` conserva cuándo la instalación obtuvo el documento.
    Una corrección detectada después es otra versión con nueva disponibilidad;
-   nunca reescribe el pronóstico anterior.
+   nunca reescribe el pronóstico anterior. El parser de la página exige la
+   fecha en `fecha-publicacion` y el enlace exacto al XLSX de la ronda pedida;
+   no infiere una URL desde el calendario para abrirla sin evidencia.
 4. El error es `IPC observado − mediana REM`, en puntos porcentuales, con la
    versión `rem-inflation-error-1.0.0`. Sólo se calcula para el mismo mes y
    unidad, con ambos datos conocidos al corte, y si la edición REM precede a la
@@ -56,8 +58,8 @@ ese período al mes sin confundirlo con la ronda. El libro se inspeccionó en
 
 ## Consecuencias
 
-El núcleo del parser y del error se puede probar sin Neon ni llamadas en las
-pruebas. La fecha de publicación y el valor de un informe archivado sólo se
+Los parsers de página y libro y el error se pueden probar sin Neon ni llamadas
+en las pruebas. La fecha de publicación y el valor de un informe archivado sólo se
 consideran defendibles con evidencia de esa edición, no por extrapolación del
 calendario mensual. Una revisión posterior del archivo oficial no cambia una
 consulta `as_known` anterior.
