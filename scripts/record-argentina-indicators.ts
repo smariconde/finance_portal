@@ -15,6 +15,10 @@ import {
   createLiveArgentinaSeriesSource,
 } from "@/modules/macro-series/application/live-argentina-series-source";
 import {
+  createLiveBcraItcrmSource,
+  BcraItcrmSourceError,
+} from "@/modules/macro-series/application/live-bcra-itcrm-source";
+import {
   createLiveIndecSource,
   IndecSourceError,
 } from "@/modules/macro-series/application/live-indec-source";
@@ -59,6 +63,7 @@ import { getSourceRegistryRepository } from "@/server/persistence/get-source-reg
  *   pnpm argentina:indicators --declared --apply
  *   pnpm argentina:indicators --expanded --apply          # IPC, canastas, IPI, SIPM, ICC y salarios de F9-08
  *   pnpm argentina:indicators --soy --apply             # pizarra, BNA, Chicago y estimaciones
+ *   pnpm argentina:indicators --indicator itcrm_daily    # BCRA XLSX, en seco
  *
  * Cada corrida lee la historia entera del indicador y la compara con la
  * guardada: lo nuevo, lo revisado y lo retirado salen de esa comparación.
@@ -118,6 +123,10 @@ const registry = getSourceRegistryRepository();
 await syncDeclaredSourceRegistry(DEMO_SOURCE_REGISTRY, registry);
 
 const sources: ArgentinaIndicatorSource[] = [
+  createLiveBcraItcrmSource({
+    sourceRegistry: registry,
+    fetch: getSourceEgressFetch(SOY_REQUEST_PACING),
+  }),
   createLiveArgentinaSeriesSource({
     sourceRegistry: registry,
     fetch: getSourceEgressFetch(ARGENTINA_SERIES_REQUEST_PACING),
@@ -233,6 +242,7 @@ for (const indicator of requested) {
   } catch (error) {
     if (
       !(error instanceof ArgentinaSeriesSourceError) &&
+      !(error instanceof BcraItcrmSourceError) &&
       !(error instanceof IndecSourceError) &&
       !(error instanceof SoySourceError)
     ) {
@@ -250,7 +260,7 @@ for (const indicator of requested) {
     if (error.code === "rate_limited" || error.code === "fetch_failed") {
       log(
         "se detiene",
-        error.retryAfter === null
+        !("retryAfter" in error) || error.retryAfter === null
           ? "sin Retry-After"
           : `Retry-After ${error.retryAfter}`,
       );

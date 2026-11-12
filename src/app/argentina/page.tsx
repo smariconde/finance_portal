@@ -15,6 +15,7 @@ import { getArgentinaIndicatorRepository } from "@/server/persistence/get-argent
 import { getMacroSeriesRepository } from "@/server/persistence/get-macro-series-repository";
 
 import { ArgentinaRefresh } from "./_components/argentina-refresh";
+import { ItcrmSection } from "./_components/itcrm-section";
 import {
   ActivitySection,
   DollarSection,
@@ -113,6 +114,7 @@ export default async function ArgentinaPage() {
 
         <ActivitySection activity={dashboard.activity} />
         <DollarSection dollar={dashboard.dollar} />
+        <ItcrmSection itcrm={dashboard.itcrm} />
         <MonetarySection monetary={dashboard.monetary} />
         <FiscalSection fiscal={dashboard.fiscal} />
         <ExternalSection external={dashboard.external} />

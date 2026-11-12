@@ -210,8 +210,31 @@ export const DECLARED_ARGENTINA_INDICATORS: readonly ArgentinaIndicator[] = [
   }),
 ];
 
+/** `F9-17`: the official daily multilateral real exchange-rate index. */
+export const DECLARED_ITCRM = argentinaIndicatorSchema.parse({
+  id: "itcrm_daily",
+  externalId: "ITCRM",
+  block: "prices",
+  frequency: "daily",
+  unit: "Índice 17-12-2015=100",
+  scale: null,
+  currency: "index",
+  seasonalAdjustment: "original",
+  priceBasis: "constant",
+  indexBase: "17-12-2015=100",
+  reportingScope: "Argentina · tipo de cambio real multilateral diario",
+  sourceId: "bcra-itcrm-xlsx",
+  filters: {},
+  sourceUrl: "https://www.bcra.gob.ar/indices-de-tipo-de-cambio-multilateral/",
+  segment: "itcrm-2015",
+  methodology:
+    "Índice Laspeyres geométrico encadenado del BCRA, ponderado por el comercio de manufacturas; los IPC recientes son estimados y el BCRA revisa la historia al publicarse nuevos datos.",
+});
+
 export function declaredArgentinaIndicator(
   id: string,
 ): ArgentinaIndicator | null {
-  return DECLARED_ARGENTINA_INDICATORS.find((item) => item.id === id) ?? null;
+  return id === DECLARED_ITCRM.id
+    ? DECLARED_ITCRM
+    : (DECLARED_ARGENTINA_INDICATORS.find((item) => item.id === id) ?? null);
 }

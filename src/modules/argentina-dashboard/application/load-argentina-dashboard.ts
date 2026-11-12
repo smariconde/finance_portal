@@ -11,8 +11,10 @@ import {
 } from "@/modules/macro-series/domain/bcra-monetary-source";
 import {
   DECLARED_ARGENTINA_INDICATORS,
+  DECLARED_ITCRM,
   declaredArgentinaIndicator,
 } from "@/modules/macro-series/domain/declared-argentina-indicators";
+import { monthEndCloses } from "../domain/chart-history";
 import {
   DECLARED_SOY_INDICATORS,
   declaredSoyIndicator,
@@ -56,6 +58,22 @@ export type ArgentinaDashboard = {
   readonly fiscal: FiscalBlock;
   readonly external: ExternalBlock;
   readonly soy: SoyBlock;
+  readonly itcrm: {
+    readonly days: readonly {
+      readonly on: string;
+      readonly value: string | null;
+    }[];
+    readonly months: readonly {
+      readonly on: string;
+      readonly value: string | null;
+    }[];
+    readonly latest: {
+      readonly on: string;
+      readonly value: string;
+      readonly observedAt: string;
+      readonly revision: number;
+    } | null;
+  };
 };
 
 /**
@@ -83,6 +101,7 @@ export async function loadArgentinaDashboard(dependencies: {
   // The soy set is its own declaration (ADR 0071) but the same read.
   const stored = await dependencies.indicators.allObservationsOf([
     ...DECLARED_ARGENTINA_INDICATORS.map((item) => item.id),
+    DECLARED_ITCRM.id,
     ...DECLARED_SOY_INDICATORS.map((item) => item.id),
   ]);
 
@@ -124,6 +143,17 @@ export async function loadArgentinaDashboard(dependencies: {
   const gdp = indicator("gdp_nominal_annual");
   const exports = indicator("exports_goods");
   const imports = indicator("imports_goods");
+  const itcrm = indicator(DECLARED_ITCRM.id).points;
+  const itcrmValues = itcrm.map((point) => ({
+    on: point.periodOn,
+    value: point.value,
+  }));
+  const lastItcrm = [...itcrm].reverse().find((point) => point.value !== null);
+  const fiveYearsAgo = new Date(
+    Date.parse(`${today}T00:00:00Z`) - 1_827 * 86_400_000,
+  )
+    .toISOString()
+    .slice(0, 10);
 
   const [
     official,
@@ -188,5 +218,17 @@ export async function loadArgentinaDashboard(dependencies: {
       ccl,
       knownAt: readAt,
     }),
+    itcrm: {
+      days: itcrmValues.filter((point) => point.on >= fiveYearsAgo),
+      months: monthEndCloses(itcrmValues),
+      latest: lastItcrm?.value
+        ? {
+            on: lastItcrm.periodOn,
+            value: lastItcrm.value,
+            observedAt: lastItcrm.availableAt,
+            revision: lastItcrm.revision,
+          }
+        : null,
+    },
   };
 }

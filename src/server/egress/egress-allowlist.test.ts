@@ -19,6 +19,7 @@ describe("egress allowlist", () => {
         "yahoo-finance",
         "comafi-cedear",
         "caja-valores-cedear",
+        "bcra-itcrm-xlsx",
         "bcra-monetarias-v4",
         "bcra-cambiarias-v1",
         "argentina-series-tiempo",
@@ -32,6 +33,22 @@ describe("egress allowlist", () => {
         "tavily",
       ],
     );
+  });
+
+  it("opens only the official ITCRM workbook on the BCRA site", () => {
+    const source = findEgressAllowlistEntry("bcra-itcrm-xlsx")!;
+    expect(
+      authorizeEgressUrl(
+        "https://www.bcra.gob.ar/archivos/Pdfs/PublicacionesEstadisticas/itcrm-serie.xlsx",
+        source,
+      ).allowed,
+    ).toBe(true);
+    expect(
+      authorizeEgressUrl(
+        "https://www.bcra.gob.ar/archivos/Pdfs/PublicacionesEstadisticas/otra-serie.xlsx",
+        source,
+      ).allowed,
+    ).toBe(false);
   });
 
   it("limits Argentina Series access to the series endpoint", () => {

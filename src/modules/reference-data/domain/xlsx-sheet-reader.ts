@@ -195,6 +195,7 @@ function openPart(
   entries: ReadonlyMap<string, Entry>,
   name: string,
   budget: { remaining: number },
+  maxPartBytes = XLSX_MAX_PART_BYTES,
 ): string | null {
   const entry = entries.get(name);
 
@@ -203,7 +204,7 @@ function openPart(
   if (entry.method !== 0 && entry.method !== 8) {
     throw new XlsxError("compression_unsupported");
   }
-  if (entry.size > XLSX_MAX_PART_BYTES) throw new XlsxError("part_too_large");
+  if (entry.size > maxPartBytes) throw new XlsxError("part_too_large");
   if (entry.size > budget.remaining) throw new XlsxError("archive_too_large");
 
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -452,16 +453,30 @@ function rowsOf(xml: string, shared: readonly string[]): XlsxRow[] {
 export function readXlsxSheets(
   bytes: Uint8Array,
   sheetNames: readonly string[],
+  limits: {
+    readonly maxPartBytes: number;
+    readonly maxTotalBytes: number;
+  } = {
+    maxPartBytes: XLSX_MAX_PART_BYTES,
+    maxTotalBytes: XLSX_MAX_TOTAL_BYTES,
+  },
 ): XlsxReadResult {
   try {
     const entries = centralDirectory(bytes);
-    const budget = { remaining: XLSX_MAX_TOTAL_BYTES };
-    const workbook = openPart(bytes, entries, "xl/workbook.xml", budget);
+    const budget = { remaining: limits.maxTotalBytes };
+    const workbook = openPart(
+      bytes,
+      entries,
+      "xl/workbook.xml",
+      budget,
+      limits.maxPartBytes,
+    );
     const relationships = openPart(
       bytes,
       entries,
       "xl/_rels/workbook.xml.rels",
       budget,
+      limits.maxPartBytes,
     );
 
     if (workbook === null || relationships === null) {
@@ -470,7 +485,13 @@ export function readXlsxSheets(
 
     const paths = sheetPaths(workbook, relationships);
     const shared = sharedStringsOf(
-      openPart(bytes, entries, "xl/sharedStrings.xml", budget),
+      openPart(
+        bytes,
+        entries,
+        "xl/sharedStrings.xml",
+        budget,
+        limits.maxPartBytes,
+      ),
     );
     const sheets = new Map<string, readonly XlsxRow[]>();
 
@@ -479,7 +500,7 @@ export function readXlsxSheets(
 
       if (path === undefined) throw new XlsxError("sheet_missing");
 
-      const xml = openPart(bytes, entries, path, budget);
+      const xml = openPart(bytes, entries, path, budget, limits.maxPartBytes);
 
       if (xml === null) throw new XlsxError("part_missing");
       sheets.set(sheetName, rowsOf(xml, shared));
