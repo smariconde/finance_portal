@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { parseTradingSecretKey } from "@/modules/trading/domain/trading-secret-key";
+
 import { parseDatabaseTarget, sameDatabaseTarget } from "./database-target";
 
 /**
@@ -47,12 +49,27 @@ const personalRuntimeDatabaseVariables = ["DATABASE_URL"] as const;
  */
 const TRADING_DATABASE_VARIABLE = "TRADING_DATABASE_URL";
 
+/**
+ * La conexión con Schwab (ADR 0076, secciones 5 y 6): la app, el callback
+ * registrado y la clave del módulo. Como la base de trading, no forma parte de
+ * `personal`.
+ */
+const SCHWAB_VARIABLES = [
+  "SCHWAB_APP_KEY",
+  "SCHWAB_APP_SECRET",
+  "SCHWAB_CALLBACK_URL",
+  "TRADING_SECRET_KEY",
+] as const;
+
+/** El path que la app de Schwab tiene registrado como callback. */
+export const SCHWAB_CALLBACK_PATH = "/cuenta/schwab/callback";
+
 export type AppMode = z.infer<typeof appModeSchema>;
 export type AppRuntimeAccess = z.infer<typeof appRuntimeAccessSchema>;
 export type ConfigStatus = "ready" | "degraded" | "disabled";
 
 export type ConfigHealthItem = {
-  id: "core" | "database" | "liveIntegrations" | "trading";
+  id: "core" | "database" | "liveIntegrations" | "trading" | "schwab";
   label: string;
   status: ConfigStatus;
   message: string;
@@ -319,8 +336,119 @@ function inspectTrading(
   };
 }
 
+function callbackProblem(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol !== "https:" ||
+      url.pathname !== SCHWAB_CALLBACK_PATH ||
+      url.search !== "" ||
+      url.hash !== "" ||
+      url.username !== "" ||
+      url.password !== ""
+    );
+  } catch {
+    return true;
+  }
+}
+
+function inspectSchwab(
+  environment: Environment,
+  runtime: RuntimeResolution,
+  trading: ConfigHealthItem,
+): ConfigHealthItem {
+  const label = "Conexión Schwab";
+  const configured = SCHWAB_VARIABLES.filter((name) =>
+    hasValue(environment[name]),
+  );
+
+  if (runtime.mode === "locked") {
+    return {
+      id: "schwab",
+      label,
+      status: "disabled",
+      message:
+        configured.length > 0
+          ? "Hay credenciales de Schwab, pero un runtime trabado no las usa."
+          : "Bloqueada mientras el runtime esté trabado.",
+      missingVariables: [],
+    };
+  }
+
+  // `TM-14`: el callback registrado no coincidiría con una URL de Preview.
+  if (environment.VERCEL_ENV === "preview") {
+    return {
+      id: "schwab",
+      label,
+      status: configured.length > 0 ? "degraded" : "disabled",
+      message:
+        configured.length > 0
+          ? "Preview no debe recibir credenciales de Schwab; se ignoran."
+          : "Preview no recibe credenciales de Schwab.",
+      missingVariables: [...configured],
+    };
+  }
+
+  if (trading.status !== "ready") {
+    return {
+      id: "schwab",
+      label,
+      status: "disabled",
+      message: "Necesita la base de trading, donde viven los tokens cifrados.",
+      missingVariables: [],
+    };
+  }
+
+  const missing = SCHWAB_VARIABLES.filter(
+    (name) => !hasValue(environment[name]),
+  );
+
+  if (missing.length > 0) {
+    return {
+      id: "schwab",
+      label,
+      status: "disabled",
+      message:
+        "Sin la app de Schwab y la clave del módulo, la cuenta no se conecta.",
+      missingVariables: [...missing],
+    };
+  }
+
+  const invalid = [
+    ...(/^[A-Za-z0-9]{16,64}$/u.test(environment.SCHWAB_APP_KEY?.trim() ?? "")
+      ? []
+      : ["SCHWAB_APP_KEY"]),
+    ...(callbackProblem(environment.SCHWAB_CALLBACK_URL?.trim() ?? "")
+      ? ["SCHWAB_CALLBACK_URL"]
+      : []),
+    ...(parseTradingSecretKey(environment.TRADING_SECRET_KEY).ok
+      ? []
+      : ["TRADING_SECRET_KEY"]),
+  ];
+
+  if (invalid.length > 0) {
+    return {
+      id: "schwab",
+      label,
+      status: "degraded",
+      message: `Valores inválidos: el callback tiene que ser HTTPS a ${SCHWAB_CALLBACK_PATH} y la clave, 32 bytes en base64.`,
+      missingVariables: invalid,
+    };
+  }
+
+  return {
+    id: "schwab",
+    label,
+    status: "ready",
+    message:
+      "Configurada; este health no prueba la conexión, que se ve en Cuenta.",
+    missingVariables: [],
+  };
+}
+
 export function getConfigHealth(environment: Environment): ConfigHealth {
   const runtime = resolveRuntime(environment);
+  const trading = inspectTrading(environment, runtime);
 
   return {
     mode: runtime.mode,
@@ -329,7 +457,8 @@ export function getConfigHealth(environment: Environment): ConfigHealth {
       inspectCore(environment, runtime),
       inspectDatabase(environment, runtime),
       inspectLiveIntegrations(environment, runtime.mode),
-      inspectTrading(environment, runtime),
+      trading,
+      inspectSchwab(environment, runtime, trading),
     ],
   };
 }
@@ -348,6 +477,13 @@ export function servesRealData(health: ConfigHealth): boolean {
  * base bien configurada. Las superficies de la cuenta preguntan por acá y, si
  * no, nombran la variable que falta (ADR 0076).
  */
+export function servesSchwabConnection(health: ConfigHealth): boolean {
+  return (
+    servesTradingData(health) &&
+    health.items.some((item) => item.id === "schwab" && item.status === "ready")
+  );
+}
+
 export function servesTradingData(health: ConfigHealth): boolean {
   return (
     servesRealData(health) &&

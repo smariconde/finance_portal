@@ -602,3 +602,191 @@ describe("fetchApprovedResource with a POST source", () => {
     ).toBe(false);
   });
 });
+
+/**
+ * Credenciales de Schwab (ADR 0076): la app se autentica con Basic desde dos
+ * variables y la cuenta con un bearer que entrega un proveedor. En los dos casos
+ * la puerta lo agrega después de autorizar el destino.
+ */
+describe("fetchApprovedResource with Schwab credentials", () => {
+  const TOKEN_ENTRY: EgressAllowlistEntry = egressAllowlistEntrySchema.parse({
+    sourceId: "schwab-oauth",
+    origins: [{ host: "api.schwabapi.com", pathPrefixes: ["/v1/oauth/token"] }],
+    method: "POST",
+    identification: "project",
+    credential: {
+      kind: "env_basic",
+      userVariable: "SCHWAB_APP_KEY",
+      passwordVariable: "SCHWAB_APP_SECRET",
+      header: "authorization",
+      scheme: "Basic",
+    },
+    maxRequestBytes: 4096,
+    maxResponseBytes: 64 * 1024,
+    deadlineMs: 15_000,
+    maxRedirects: 0,
+  });
+  const ACCOUNT_ENTRY: EgressAllowlistEntry = egressAllowlistEntrySchema.parse({
+    sourceId: "schwab-trader",
+    origins: [
+      { host: "api.schwabapi.com", pathPrefixes: ["/trader/v1/accounts"] },
+    ],
+    identification: "project",
+    credential: {
+      kind: "provided_bearer",
+      provider: "schwab-access-token",
+      header: "authorization",
+      scheme: "Bearer",
+    },
+    maxResponseBytes: 64 * 1024,
+    deadlineMs: 15_000,
+    maxRedirects: 0,
+  });
+  const APP_KEY = "AppKeySynthetic0123456789abcdef";
+  const APP_SECRET = "SecretSynth01234";
+  const ACCESS = "I0.synthetic-access-token@";
+  const FORM = new TextEncoder().encode(
+    "grant_type=refresh_token&refresh_token=r",
+  );
+
+  function schwabHarness(
+    variables: Record<string, string | undefined> = {
+      SCHWAB_APP_KEY: APP_KEY,
+      SCHWAB_APP_SECRET: APP_SECRET,
+    },
+    provided: string | undefined = ACCESS,
+  ) {
+    const base = harness([ok('{"ok":true}')]);
+    const readCredential = vi.fn((variable: string) => variables[variable]);
+    const provideCredential = vi.fn(async () => provided);
+
+    return {
+      ...base,
+      readCredential,
+      provideCredential,
+      dependencies: {
+        ...base.dependencies,
+        findEntry: (sourceId: string) =>
+          [TOKEN_ENTRY, ACCOUNT_ENTRY].find(
+            (entry) => entry.sourceId === sourceId,
+          ) ?? null,
+        readCredential,
+        provideCredential,
+      },
+    };
+  }
+
+  it("authenticates the app with Basic from its two variables", async () => {
+    const { dependencies, transport, provideCredential } = schwabHarness();
+
+    await fetchApprovedResource(
+      {
+        sourceId: "schwab-oauth",
+        url: "https://api.schwabapi.com/v1/oauth/token",
+        method: "POST",
+        body: FORM,
+        contentType: "application/x-www-form-urlencoded",
+      },
+      dependencies,
+    );
+
+    const [hop] = transport.mock.calls[0];
+    expect(hop.headers.authorization).toBe(
+      `Basic ${Buffer.from(`${APP_KEY}:${APP_SECRET}`).toString("base64")}`,
+    );
+    expect(hop.headers["content-type"]).toBe(
+      "application/x-www-form-urlencoded",
+    );
+    expect(provideCredential).not.toHaveBeenCalled();
+  });
+
+  it("names the missing half of the Basic pair, never a value", async () => {
+    const { dependencies, transport } = schwabHarness({
+      SCHWAB_APP_KEY: APP_KEY,
+    });
+
+    const operation = fetchApprovedResource(
+      {
+        sourceId: "schwab-oauth",
+        url: "https://api.schwabapi.com/v1/oauth/token",
+        method: "POST",
+        body: FORM,
+      },
+      dependencies,
+    );
+
+    await expectBlocked(operation, "credential_missing");
+    await operation.catch((error: unknown) => {
+      expect((error as Error).message).toContain("SCHWAB_APP_SECRET");
+      expect((error as Error).message).not.toContain(APP_KEY);
+    });
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it("adds the provided bearer only after authorizing the destination", async () => {
+    const { dependencies, transport, provideCredential } = schwabHarness();
+
+    await expectBlocked(
+      fetchApprovedResource(
+        {
+          sourceId: "schwab-trader",
+          url: "https://api.schwabapi.com/v1/oauth/authorize",
+        },
+        dependencies,
+      ),
+      "path_not_allowlisted",
+    );
+    expect(provideCredential).not.toHaveBeenCalled();
+
+    await fetchApprovedResource(
+      {
+        sourceId: "schwab-trader",
+        url: "https://api.schwabapi.com/trader/v1/accounts/accountNumbers",
+      },
+      dependencies,
+    );
+
+    expect(provideCredential).toHaveBeenCalledWith("schwab-access-token");
+    expect(transport.mock.calls[0][0].headers.authorization).toBe(
+      `Bearer ${ACCESS}`,
+    );
+  });
+
+  it("refuses to place an order: a POST to an account source never leaves", async () => {
+    const { dependencies, transport, provideCredential } = schwabHarness();
+
+    await expectBlocked(
+      fetchApprovedResource(
+        {
+          sourceId: "schwab-trader",
+          url: "https://api.schwabapi.com/trader/v1/accounts/HASH/orders",
+          method: "POST",
+          body: new TextEncoder().encode("{}"),
+        },
+        dependencies,
+      ),
+      "method_not_allowed",
+    );
+    expect(provideCredential).not.toHaveBeenCalled();
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it("refuses when the provider has no token, naming the provider", async () => {
+    // Una cadena vacía es lo que entrega el proveedor sin conexión guardada.
+    const { dependencies, transport } = schwabHarness(undefined, "");
+
+    const operation = fetchApprovedResource(
+      {
+        sourceId: "schwab-trader",
+        url: "https://api.schwabapi.com/trader/v1/accounts/accountNumbers",
+      },
+      dependencies,
+    );
+
+    await expectBlocked(operation, "credential_missing");
+    await operation.catch((error: unknown) => {
+      expect((error as Error).message).toContain("schwab-access-token");
+    });
+    expect(transport).not.toHaveBeenCalled();
+  });
+});

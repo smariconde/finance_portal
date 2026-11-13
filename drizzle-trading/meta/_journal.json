@@ -8,6 +8,13 @@
       "when": 1794603359726,
       "tag": "0000_runtime_role",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794605813924,
+      "tag": "0001_schwab_connection",
+      "breakpoints": true
     }
   ]
 }

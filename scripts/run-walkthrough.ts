@@ -106,6 +106,9 @@ const servers: readonly ServerSpec[] = [
       // Lo mismo para la base de trading (ADR 0076).
       TRADING_DATABASE_URL: "",
       TRADING_DATABASE_DIRECT_URL: "",
+      SCHWAB_APP_KEY: "",
+      SCHWAB_APP_SECRET: "",
+      TRADING_SECRET_KEY: "",
       VERCEL: "",
       VERCEL_ENV: "",
     },

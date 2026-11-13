@@ -76,6 +76,13 @@ export const SOURCE_DAILY_REQUEST_BUDGETS: Readonly<Record<string, number>> =
     // Cuatro páginas por corrida (ADR 0032). Veinte por día cubren cinco
     // corridas, que es el tope de la matriz de uso, y dejan fuera cualquier bucle.
     "damodaran-current-data": 20,
+    // Schwab (ADR 0076). No publica cuota diaria; fuentes secundarias reportan
+    // 120 requests por minuto. El token se pide al conectar y cada 30 minutos
+    // de uso; la cuenta y el market data, al abrir sus páginas. Se revisa con
+    // las mediciones de `F11-04`.
+    "schwab-oauth": 100,
+    "schwab-trader": 1000,
+    "schwab-marketdata": 1000,
     // ADR 0033: las 16 ambiguas de la muestra del gate con los tres escalones
     // y una repetición con búsqueda son 96 llamadas en el peor caso. El gasto
     // en dólares tiene su propio tope (`ai-spend`), que suele mandar antes.

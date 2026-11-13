@@ -28,6 +28,58 @@ const AI_LAYER_RIGHTS_REVIEWED_AT = "2026-10-02T00:00:00.000Z";
 const AI_LAYER_RIGHTS_REVIEW_DUE_AT = "2027-04-01T00:00:00.000Z";
 
 /**
+ * Schwab (ADR 0076): las tres fuentes nacen en `rights_review_pending`. Los
+ * términos del sitio de desarrolladores se leyeron el 2026-11-13; el acuerdo que
+ * rige la API (Developer Program Agreement) todavía no, y hasta entonces el gate
+ * de derechos no deja salir nada.
+ */
+const SCHWAB_RECORDED_AT = "2026-11-13T00:00:00.000Z";
+
+function pendingSchwabSource(input: {
+  sourceId: string;
+  displayName: string;
+  datasets: string[];
+  endpoints: string[];
+  rateLimit: string;
+  expectedCadence: string;
+  ownerNotes: string;
+}): SourceRegistryEntry {
+  return sourceRegistryEntrySchema.parse({
+    ...input,
+    owner: "Charles Schwab & Co., Inc.",
+    canonicalUrl: "https://developer.schwab.com/",
+    documentationUrls: [
+      "https://developer.schwab.com/products/trader-api--individual",
+      "https://developer.schwab.com/terms-and-conditions",
+    ],
+    authentication: "account",
+    applicablePlan: "Trader API – Individual, app del owner con Order Limit 0",
+    attribution: null,
+    freshnessTarget:
+      "al momento del request; nada se presenta como vigente sin su hora",
+    timezone: "America/New_York",
+    units: [],
+    currencies: ["USD"],
+    parserVersion: null,
+    fixturePolicy:
+      "Fixtures sintéticas; ninguna respuesta de la cuenta del owner en el repositorio.",
+    fallbackSourceIds: [],
+    rights: {},
+    technicalStatus: "technical_reviewed",
+    approvalStatus: "rights_review_pending",
+    reviewedAt: SCHWAB_RECORDED_AT,
+    rightsReviewedAt: null,
+    rightsReviewDueAt: null,
+    reviewEvidence: [
+      "docs/architecture/adr/0076-schwab-read-only-account-trading-journal.md",
+    ],
+    retentionClasses: [],
+    quotaPolicyId: null,
+    recordedAt: SCHWAB_RECORDED_AT,
+  });
+}
+
+/**
  * Registro de fuentes del modo demo.
  *
  * Cada fila lleva su estado honesto, porque el registro existe justamente para que
@@ -431,6 +483,46 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
       ownerNotes:
         "Candidata de Fase 2 y sólo para modo personal. El default `iex` del endpoint no prueba entitlement de la cuenta.",
       recordedAt: RECORDED_AT,
+    }),
+    pendingSchwabSource({
+      sourceId: "schwab-oauth",
+      displayName: "Schwab — OAuth de la Trader API",
+      datasets: ["schwab.oauth-token"],
+      endpoints: ["https://api.schwabapi.com/v1/oauth/token"],
+      rateLimit: "sin cuota publicada; 100 requests/día internos",
+      expectedCadence: "al conectar y cada 30 minutos de uso",
+      ownerNotes:
+        "Sólo canjea el código y renueva el access token. Los tokens se guardan cifrados en la base de trading y nunca en claro.",
+    }),
+    pendingSchwabSource({
+      sourceId: "schwab-trader",
+      displayName: "Schwab — cuentas (Trader API)",
+      datasets: ["schwab.accounts", "schwab.transactions"],
+      endpoints: ["https://api.schwabapi.com/trader/v1/accounts"],
+      rateLimit:
+        "120 requests/minuto según fuentes secundarias; 1.000 requests/día internos",
+      expectedCadence: "al abrir la cuenta o el diario",
+      ownerNotes:
+        "Sólo GET: posiciones, saldos, órdenes abiertas y transacciones. Nunca órdenes (ADR 0076, sección 2).",
+    }),
+    pendingSchwabSource({
+      sourceId: "schwab-marketdata",
+      displayName: "Schwab — market data (Trader API)",
+      datasets: [
+        "schwab.quotes",
+        "schwab.price-history",
+        "schwab.market-hours",
+      ],
+      endpoints: [
+        "https://api.schwabapi.com/marketdata/v1/quotes",
+        "https://api.schwabapi.com/marketdata/v1/pricehistory",
+        "https://api.schwabapi.com/marketdata/v1/markets",
+      ],
+      rateLimit:
+        "120 requests/minuto según fuentes secundarias; 1.000 requests/día internos",
+      expectedCadence: "sólo con la página visible y posiciones abiertas",
+      ownerNotes:
+        "Cotizaciones y velas se muestran y no se guardan (ADR 0076, sección 8).",
     }),
     sourceRegistryEntrySchema.parse({
       sourceId: "damodaran-current-data",

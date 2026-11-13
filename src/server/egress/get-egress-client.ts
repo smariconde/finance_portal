@@ -71,6 +71,14 @@ export function getEgressClient(): EgressClient {
           now: () => new Date().toISOString(),
           elapsedMs: () => performance.now(),
           readCredential: (variable) => process.env[variable],
+          // El access token de Schwab lo entrega su proveedor (ADR 0076). Se
+          // importa al usarlo: el proveedor renueva por esta misma puerta.
+          provideCredential: async (provider) => {
+            if (provider !== "schwab-access-token") return undefined;
+            const { provideSchwabAccessTokenForEgress } =
+              await import("@/server/trading/schwab-connection");
+            return provideSchwabAccessTokenForEgress();
+          },
         },
       );
     };

@@ -1,8 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 
-import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres, { type Sql } from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -17,6 +15,7 @@ const ROLLBACK = readFileSync(
   "drizzle-trading/rollback/0000_runtime_role.down.sql",
   "utf8",
 );
+const MIGRATION = readFileSync("drizzle-trading/0000_runtime_role.sql", "utf8");
 const JOURNAL = JSON.parse(
   readFileSync("drizzle-trading/meta/_journal.json", "utf8"),
 ) as { entries: { tag: string; when: number }[] };
@@ -170,7 +169,11 @@ describe("trading runtime role", () => {
     });
   });
 
-  it("rolls back and migrates again to the same privileges", async () => {
+  // El migrador de Drizzle aplica sólo lo posterior a la última migración
+  // registrada, así que con `0001` aplicada no vuelve a correr `0000` aunque se
+  // borre su fila. El ciclo se prueba con el SQL de la migración, que es
+  // idempotente sobre el rol.
+  it("rolls back and re-applies 0000 to the same privileges", async () => {
     const migrated = await runtimePrivileges();
     expect(migrated).toEqual({
       explicit_schema_usage: true,
@@ -189,11 +192,9 @@ describe("trading runtime role", () => {
         table_defaults: [],
       });
     } finally {
-      await client`
-        delete from drizzle.__drizzle_migrations
-        where created_at = ${JOURNAL.entries[0]!.when}
-      `;
-      await migrate(drizzle(client), { migrationsFolder: "drizzle-trading" });
+      for (const statement of MIGRATION.split("--> statement-breakpoint")) {
+        await client.unsafe(statement).simple();
+      }
     }
 
     expect(await runtimePrivileges()).toEqual(migrated);

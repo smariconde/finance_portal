@@ -17,7 +17,7 @@ import {
  * `www.sec.gov` no sirven los mismos recursos, y acotar el path evita que un bug
  * de construcción de URL termine paseando por el sitio entero de la SEC.
  */
-export const EGRESS_ALLOWLIST_VERSION = "egress-allowlist-1.3.0";
+export const EGRESS_ALLOWLIST_VERSION = "egress-allowlist-1.4.0";
 
 const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
   egressAllowlistEntrySchema.parse({
@@ -384,6 +384,70 @@ const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
     // Hasta cinco resultados con su extracto.
     maxResponseBytes: 512 * 1024,
     deadlineMs: 30_000,
+    maxRedirects: 0,
+  }),
+  // Schwab (ADR 0076): lectura de la cuenta, nunca órdenes. Tres fuentes en el
+  // mismo host y un solo `POST`, el del token. Ninguna entrada admite escribir
+  // sobre `/trader/v1/`: una orden necesitaría `POST`, `PUT` o `DELETE` ahí, y
+  // la puerta rechaza cualquier método que no sea el de la fuente. La app de
+  // Schwab, además, tiene Order Limit 0.
+  egressAllowlistEntrySchema.parse({
+    sourceId: "schwab-oauth",
+    origins: [{ host: "api.schwabapi.com", pathPrefixes: ["/v1/oauth/token"] }],
+    method: "POST",
+    identification: "project",
+    // La app se autentica con Basic; la puerta lo arma desde las dos variables.
+    credential: {
+      kind: "env_basic",
+      userVariable: "SCHWAB_APP_KEY",
+      passwordVariable: "SCHWAB_APP_SECRET",
+      header: "authorization",
+      scheme: "Basic",
+    },
+    // El formulario lleva el código o el refresh token: unos cientos de bytes.
+    maxRequestBytes: 4 * 1024,
+    maxResponseBytes: 64 * 1024,
+    deadlineMs: 15_000,
+    maxRedirects: 0,
+  }),
+  egressAllowlistEntrySchema.parse({
+    sourceId: "schwab-trader",
+    origins: [
+      { host: "api.schwabapi.com", pathPrefixes: ["/trader/v1/accounts"] },
+    ],
+    identification: "project",
+    credential: {
+      kind: "provided_bearer",
+      provider: "schwab-access-token",
+      header: "authorization",
+      scheme: "Bearer",
+    },
+    // Posiciones, saldos u órdenes de una cuenta; las transacciones de un rango.
+    maxResponseBytes: 4 * 1024 * 1024,
+    deadlineMs: 15_000,
+    maxRedirects: 0,
+  }),
+  egressAllowlistEntrySchema.parse({
+    sourceId: "schwab-marketdata",
+    origins: [
+      {
+        host: "api.schwabapi.com",
+        pathPrefixes: [
+          "/marketdata/v1/quotes",
+          "/marketdata/v1/pricehistory",
+          "/marketdata/v1/markets",
+        ],
+      },
+    ],
+    identification: "project",
+    credential: {
+      kind: "provided_bearer",
+      provider: "schwab-access-token",
+      header: "authorization",
+      scheme: "Bearer",
+    },
+    maxResponseBytes: 4 * 1024 * 1024,
+    deadlineMs: 15_000,
     maxRedirects: 0,
   }),
 ]);

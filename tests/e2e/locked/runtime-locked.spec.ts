@@ -56,6 +56,7 @@ test.describe("negativa del runtime trabado", () => {
       [ROUTES.sectorMatrix, "La matriz de riesgo sectorial"],
       [ROUTES.sectorDivergences, "La matriz de divergencias sectorial"],
       [ROUTES.argentina, "El tablero argentino"],
+      [ROUTES.account, "La cuenta"],
     ] as const) {
       await page.goto(route);
 
@@ -66,6 +67,20 @@ test.describe("negativa del runtime trabado", () => {
         page.getByText(new RegExp(`${surface} no se sirve porque`)),
       ).toBeVisible();
     }
+  });
+
+  test("el callback de Schwab no abre nada y no repite el input", async ({
+    request,
+  }) => {
+    const response = await request.get(
+      "/cuenta/schwab/callback?code=C0.sentinel-code&state=sentinel-state",
+      { maxRedirects: 0 },
+    );
+    expect(response.status()).toBe(303);
+    expect(response.headers()["cache-control"]).toContain("no-store");
+    expect(response.headers().location).toMatch(
+      /\/cuenta\?schwab=unavailable$/u,
+    );
   });
 
   test("niega la URL directa del CSV antes de leer fuentes", async ({
