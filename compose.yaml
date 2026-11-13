@@ -10,6 +10,10 @@
 ##
 ## `POSTGRES_DB` es la base del owner. `finance_portal_test` la crea
 ## `scripts/init-test-db.sh` cuando el volumen se inicializa por primera vez.
+##
+## La base de trading (ADR 0076) suma otras dos en el mismo servidor:
+## `finance_portal_trading` y su `_test`, que crea `scripts/init-trading-db.sh`.
+## En Production viven en otro proyecto de Neon; acá alcanza con otra base.
 
 name: finance-portal
 
@@ -22,11 +26,14 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env.docker.local}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.docker.local}
       POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env.docker.local}
+      # Login local del rol de runtime de trading; vacío, el rol queda NOLOGIN.
+      TRADING_RUNTIME_PASSWORD: ${TRADING_RUNTIME_PASSWORD:-}
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-55432}:5432"
     volumes:
       - finance_portal_postgres:/var/lib/postgresql/data
       - ./scripts/init-test-db.sh:/docker-entrypoint-initdb.d/init-test-db.sh:ro
+      - ./scripts/init-trading-db.sh:/docker-entrypoint-initdb.d/init-trading-db.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 2s

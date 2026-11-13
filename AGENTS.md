@@ -24,6 +24,7 @@ The current application command contract is:
 - `pnpm db:generate`: generate reviewed SQL migrations from the Drizzle schema.
 - `pnpm db:migrate`: apply migrations through the direct administrative connection.
 - `pnpm db:migrate:neon`: apply those same migrations through `.env.neon.local`'s separate administrative connection.
+- `pnpm db:trading:migrate` / `db:trading:migrate:neon` / `db:trading:status[:neon]` / `db:trading:audit[:neon]`: the trading database's own chain in `drizzle-trading/` (ADR 0076); `audit` checks over the runtime URL that the role is DML-only. `pnpm test:integration:trading` needs `TRADING_DATABASE_TEST_URL`. See `docs/runbooks/trading-database.md`.
 - `pnpm db:up`: start the local PostgreSQL container that hosts the personal and the disposable test database.
 - `pnpm db:down`: stop the local PostgreSQL container without deleting its volume.
 - `pnpm universe:constitute`: constitute the S&P 500 universe; dry run unless `--apply`.

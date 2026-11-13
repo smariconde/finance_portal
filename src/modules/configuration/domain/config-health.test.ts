@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   getConfigHealth,
   servesRealData,
+  servesTradingData,
 } from "@/modules/configuration/domain/config-health";
 
 const PRIVATE_LOCAL = {
@@ -22,6 +23,11 @@ describe("getConfigHealth", () => {
       expect.objectContaining({ id: "core", status: "ready" }),
       expect.objectContaining({ id: "database", status: "disabled" }),
       expect.objectContaining({ id: "liveIntegrations", status: "disabled" }),
+      expect.objectContaining({
+        id: "trading",
+        status: "disabled",
+        missingVariables: [],
+      }),
     ]);
   });
 
@@ -186,6 +192,110 @@ describe("getConfigHealth", () => {
   });
 
   /**
+   * La base de trading (`F11-02`, ADR 0076) no entra en la definición de
+   * `personal`: su ausencia no traba nada ni enciende «requiere atención».
+   */
+  describe("base de trading", () => {
+    const LOCAL_ANALYSIS =
+      "postgresql://u:p@127.0.0.1:55432/finance_portal_personal";
+    const LOCAL_TRADING =
+      "postgresql://u:p@127.0.0.1:55432/finance_portal_trading";
+
+    function tradingItem(environment: Record<string, string>) {
+      return getConfigHealth(environment).items.find(
+        (item) => item.id === "trading",
+      );
+    }
+
+    it("serves trading data with its own pooled base", () => {
+      const health = getConfigHealth({
+        ...PRIVATE_LOCAL,
+        DATABASE_URL: LOCAL_ANALYSIS,
+        TRADING_DATABASE_URL: LOCAL_TRADING,
+      });
+
+      expect(servesTradingData(health)).toBe(true);
+      expect(health.items.find((item) => item.id === "trading")).toMatchObject({
+        status: "ready",
+        missingVariables: [],
+      });
+    });
+
+    it("names the missing variable without degrading the portal", () => {
+      const health = getConfigHealth(PRIVATE_LOCAL);
+
+      expect(health.mode).toBe("personal");
+      expect(servesRealData(health)).toBe(true);
+      expect(servesTradingData(health)).toBe(false);
+      expect(health.items.find((item) => item.id === "trading")).toMatchObject({
+        status: "disabled",
+        missingVariables: ["TRADING_DATABASE_URL"],
+      });
+      expect(health.items.some((item) => item.status === "degraded")).toBe(
+        false,
+      );
+    });
+
+    it("does not ask a locked runtime for the trading base", () => {
+      // El aviso de runtime trabado junta los faltantes de todos los ítems: si
+      // la de trading figurara, cada página trabada la pediría.
+      expect(tradingItem({})).toMatchObject({
+        status: "disabled",
+        missingVariables: [],
+      });
+      expect(
+        servesTradingData(
+          getConfigHealth({ TRADING_DATABASE_URL: LOCAL_TRADING }),
+        ),
+      ).toBe(false);
+    });
+
+    it("refuses the analysis base as the trading base", () => {
+      const health = getConfigHealth({
+        ...PRIVATE_LOCAL,
+        DATABASE_URL: LOCAL_ANALYSIS,
+        TRADING_DATABASE_URL:
+          "postgresql://other:role@127.0.0.1:55432/finance_portal_personal?sslmode=disable",
+      });
+
+      expect(servesTradingData(health)).toBe(false);
+      expect(health.items.find((item) => item.id === "trading")).toMatchObject({
+        status: "degraded",
+        missingVariables: ["TRADING_DATABASE_URL"],
+      });
+    });
+
+    it("refuses a value that is not a PostgreSQL url", () => {
+      expect(
+        tradingItem({ ...PRIVATE_LOCAL, TRADING_DATABASE_URL: "trading" }),
+      ).toMatchObject({ status: "degraded" });
+    });
+
+    it("ignores the trading base on a Vercel preview (TM-14)", () => {
+      const preview = {
+        APP_MODE: "personal",
+        APP_RUNTIME_ACCESS: "protected",
+        DATABASE_URL: LOCAL_ANALYSIS,
+        VERCEL: "1",
+        VERCEL_ENV: "preview",
+      };
+
+      expect(
+        servesTradingData(
+          getConfigHealth({ ...preview, TRADING_DATABASE_URL: LOCAL_TRADING }),
+        ),
+      ).toBe(false);
+      expect(
+        tradingItem({ ...preview, TRADING_DATABASE_URL: LOCAL_TRADING }),
+      ).toMatchObject({ status: "degraded" });
+      expect(tradingItem(preview)).toMatchObject({
+        status: "disabled",
+        missingVariables: [],
+      });
+    });
+  });
+
+  /**
    * `TM-02` no se cierra probando la variable que uno se acordó de probar. Acá
    * cada variable declarada en `.env.example` recibe un valor centinela único y
    * ninguno puede aparecer en la salida, en ningún modo. Si mañana el health
@@ -200,6 +310,9 @@ describe("getConfigHealth", () => {
       "DATABASE_URL",
       "DATABASE_DIRECT_URL",
       "DATABASE_TEST_URL",
+      "TRADING_DATABASE_URL",
+      "TRADING_DATABASE_DIRECT_URL",
+      "TRADING_DATABASE_TEST_URL",
       "CRON_SECRET",
       "MARKET_DATA_PROVIDER",
       "ALPACA_API_KEY_ID",

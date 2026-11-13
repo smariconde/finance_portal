@@ -217,7 +217,10 @@ Definir variables en `.env.local` no habilita por sí solo una integración toda
 | `pnpm test:watch`                              | Ejecuta tests en modo interactivo.                                                                                                 |
 | `pnpm db:generate`                             | Genera SQL versionado desde el schema Drizzle.                                                                                     |
 | `pnpm db:migrate`                              | Aplica migraciones con `DATABASE_DIRECT_URL`.                                                                                      |
-| `pnpm db:up`                                   | Inicia el PostgreSQL local con la base personal y la de tests.                                                                     |
+| `pnpm db:trading:migrate`                      | Aplica `drizzle-trading/` con `TRADING_DATABASE_DIRECT_URL`. [Runbook](docs/runbooks/trading-database.md).                         |
+| `pnpm db:trading:audit`                        | Comprueba con la URL del runtime que el rol de la base de trading sea sólo DML.                                                    |
+| `pnpm test:integration:trading`                | Prueba el rol y el rollback de la base de trading contra su base de prueba.                                                        |
+| `pnpm db:up`                                   | Inicia el PostgreSQL local con las bases personal, de trading y sus bases de tests.                                                |
 | `pnpm db:down`                                 | Detiene PostgreSQL local sin borrar su volumen.                                                                                    |
 | `pnpm universe:constitute`                     | Constituye el universo S&P 500; dry run salvo `--apply`.                                                                           |
 | `pnpm fundamentals:ingest`                     | Ingiere companyfacts de la SEC por ticker; dry run salvo `--apply`.                                                                |

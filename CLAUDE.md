@@ -1361,6 +1361,36 @@ report the same concepts, and a declared alternative is the opposite of a silent
 substitution. An anchor with none of its alternatives is `no reportada`, never a
 zero.
 
+```bash
+pnpm db:trading:migrate              # drizzle-trading/ with TRADING_DATABASE_DIRECT_URL; also :neon
+pnpm db:trading:status:neon          # read-only; exits 1 if any is pending
+pnpm db:trading:audit                # over the runtime URL: the role is DML only; also :neon
+pnpm test:integration:trading        # needs TRADING_DATABASE_TEST_URL
+```
+
+The trading database (`F11-02`, ADR 0076,
+[runbook](docs/runbooks/trading-database.md)) is a second database with its own
+schema (`src/server/db/trading/schema.ts`), its own chain in `drizzle-trading/`
+with a rollback per migration, and its own Neon project
+(`finance_portal_trading`). It is **optional**: `personal` does not require it,
+and without `TRADING_DATABASE_URL` the «Base de trading» health item is
+`disabled` and names the variable, never `degraded`, so the shell asks for
+nothing. `degraded` is a misconfiguration: not a PostgreSQL URL, the same
+database as `DATABASE_URL` (host, port and name, whatever the role or Neon
+pooler), or present on a Vercel preview (`TM-14`). Surfaces gate on
+`servesTradingData(health)`; dependencies go through `selectTradingDependency`
+(`RuntimeLockedError` when locked, `TradingUnavailableError` otherwise) in
+`src/server/persistence/trading/`, the only place ESLint lets import
+`@/server/db/trading/*`, and code there cannot import the analysis client,
+schema or repositories, so the account works with the analysis database down.
+Migration `0000` (hand-written) creates `finance_portal_trading_runtime` as
+`NOLOGIN` with DML-only default privileges and revokes `TEMP`; its login is
+enabled per environment, by SQL (a Neon console or API role joins
+`neon_superuser`). `scripts/migrate.ts` and `migration-status.ts` take
+`--target analysis|trading`, never read the other target's connection and refuse
+two that name the same database. Locally the container holds
+`finance_portal_trading` and `_trading_test` (`scripts/init-trading-db.sh`).
+
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 
 Node `>=22.11.0 <27`, pnpm `10.33.2` via corepack. Arch Linux dev host — use POSIX shell syntax for env-var examples in docs, matching the `ubuntu-latest` runners CI validates on.
