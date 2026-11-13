@@ -77,10 +77,23 @@ const actions = [
   values.limit !== undefined || values["spend-limit"] !== undefined,
 ].filter(Boolean).length;
 
+// Las fuentes de Schwab cuentan su cuota y su kill switch en la base de
+// trading (ADR 0076); este comando lee y escribe la de análisis, así que un
+// control acá no las frenaría.
+const isTradingSource = (sourceId: string) => sourceId.startsWith("schwab-");
+
+if (values.source !== undefined && isTradingSource(values.source)) {
+  fail(
+    `${values.source} cuenta su cuota en la base de trading; este comando no la ve ni la frena (ver docs/runbooks/schwab-connection.md).`,
+  );
+}
+
 if (actions === 0) {
   const sourceIds =
     values.source === undefined
-      ? Object.keys(SOURCE_DAILY_REQUEST_BUDGETS).sort()
+      ? Object.keys(SOURCE_DAILY_REQUEST_BUDGETS)
+          .filter((sourceId) => !isTradingSource(sourceId))
+          .sort()
       : [values.source];
 
   for (const sourceId of sourceIds) {

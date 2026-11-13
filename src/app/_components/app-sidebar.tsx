@@ -8,6 +8,7 @@ import {
   Home,
   Landmark,
   Settings2,
+  Wallet,
   Wheat,
 } from "lucide-react";
 import Link from "next/link";
@@ -48,6 +49,12 @@ const activeItems = [
     href: "/argentina",
     label: "Argentina",
     icon: Landmark,
+    badge: null,
+  },
+  {
+    href: "/cuenta",
+    label: "Cuenta",
+    icon: Wallet,
     badge: null,
   },
   {

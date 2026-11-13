@@ -5,6 +5,8 @@ import {
   EgressBlockedError,
   MAX_EGRESS_URL_LENGTH,
   type EgressAllowlistEntry,
+  type EgressCredential,
+  type EgressCredentialProvider,
 } from "./egress-policy";
 import type { EgressTransport } from "./https-transport";
 
@@ -16,7 +18,7 @@ import type { EgressTransport } from "./https-transport";
  * proveedor construye el path de su recurso y nada más; no elige a dónde va el
  * socket (`TM-08`).
  */
-export const APPROVED_RESOURCE_CLIENT_VERSION = "egress-client-1.1.0";
+export const APPROVED_RESOURCE_CLIENT_VERSION = "egress-client-1.2.0";
 
 /**
  * Nombre con el que se presenta el proyecto ante una fuente que no exige
@@ -89,7 +91,65 @@ export type FetchApprovedResourceDependencies = {
    * de autorizar el destino.
    */
   readCredential?: (variable: string) => string | undefined;
+  /**
+   * Entrega el bearer de un proveedor declarado (ADR 0076). Como
+   * `readCredential`, se llama recién después de autorizar el destino.
+   */
+  provideCredential?: (
+    provider: EgressCredentialProvider,
+  ) => Promise<string | undefined>;
 };
+
+function checkedCredential(
+  value: string | undefined,
+  sourceId: string,
+  name: string,
+): string {
+  const credential = value?.trim() ?? "";
+  const problem = credentialProblem(credential);
+
+  // El error nombra la variable o el proveedor, jamás el valor (`TM-02`).
+  if (problem !== null) throw new EgressBlockedError(problem, sourceId, name);
+
+  return credential;
+}
+
+async function credentialHeaderOf(
+  sourceId: string,
+  credential: EgressCredential,
+  readCredential: (variable: string) => string | undefined,
+  provideCredential: (
+    provider: EgressCredentialProvider,
+  ) => Promise<string | undefined>,
+): Promise<string> {
+  switch (credential.kind) {
+    case "env_bearer":
+      return `Bearer ${checkedCredential(readCredential(credential.variable), sourceId, credential.variable)}`;
+    case "env_basic": {
+      const user = checkedCredential(
+        readCredential(credential.userVariable),
+        sourceId,
+        credential.userVariable,
+      );
+      const password = checkedCredential(
+        readCredential(credential.passwordVariable),
+        sourceId,
+        credential.passwordVariable,
+      );
+      // RFC 7617: un `:` en el usuario partiría el par.
+      if (user.includes(":")) {
+        throw new EgressBlockedError(
+          "credential_invalid",
+          sourceId,
+          credential.userVariable,
+        );
+      }
+      return `Basic ${Buffer.from(`${user}:${password}`, "utf8").toString("base64")}`;
+    }
+    case "provided_bearer":
+      return `Bearer ${checkedCredential(await provideCredential(credential.provider), sourceId, credential.provider)}`;
+  }
+}
 
 function authorizeOrThrow(
   rawUrl: string,
@@ -116,6 +176,7 @@ export async function fetchApprovedResource(
     elapsedMs,
     findEntry = findEgressAllowlistEntry,
     readCredential = () => undefined,
+    provideCredential = async () => undefined,
   } = dependencies;
 
   const entry = findEntry(request.sourceId);
@@ -182,26 +243,12 @@ export async function fetchApprovedResource(
   // a un host fuera de la lista no llega a leerla. El error nombra la variable,
   // jamás el valor (`TM-02`).
   if (entry.credential !== null) {
-    const credential = readCredential(entry.credential.variable)?.trim() ?? "";
-
-    if (credentialProblem(credential) === "credential_missing") {
-      throw new EgressBlockedError(
-        "credential_missing",
-        entry.sourceId,
-        entry.credential.variable,
-      );
-    }
-
-    if (credentialProblem(credential) === "credential_invalid") {
-      throw new EgressBlockedError(
-        "credential_invalid",
-        entry.sourceId,
-        entry.credential.variable,
-      );
-    }
-
-    headers[entry.credential.header] =
-      `${entry.credential.scheme} ${credential}`;
+    headers[entry.credential.header] = await credentialHeaderOf(
+      entry.sourceId,
+      entry.credential,
+      readCredential,
+      provideCredential,
+    );
   }
 
   for (let hop = 0; hop <= entry.maxRedirects; hop += 1) {

@@ -20,6 +20,9 @@ playwright-report/
 !.env.docker.example
 !.env.docker.personal.example
 
+# Local HTTPS certificate for `pnpm dev:https` (scripts/local-https-cert.sh).
+.certs/
+
 # Logs and local tooling
 *.log
 .vercel/

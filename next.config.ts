@@ -17,6 +17,13 @@ const nextConfig: NextConfig = {
   agentRules: false,
   allowedDevOrigins,
   cacheComponents: true,
+  // La vuelta de Schwab trae el código de autorización y el `state` en el
+  // query (ADR 0076). El log de requests de Next imprime la URL entera, así que
+  // esas visitas no se registran: el callback deja su propia línea con el
+  // `request_id` y el resultado, sin el input.
+  logging: {
+    incomingRequests: { ignore: [/[?&](code|state|session)=/u] },
+  },
   poweredByHeader: false,
   typedRoutes: true,
   async headers() {

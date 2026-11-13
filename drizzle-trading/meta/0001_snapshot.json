@@ -1,0 +1,438 @@
+{
+  "id": "a5e64847-7ce3-46e3-95f6-86b9e62e8692",
+  "prevId": "47fe2b8a-dd64-4268-b0b1-9e9236ca2bfb",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.schwab_connection_events": {
+      "name": "schwab_connection_events",
+      "schema": "",
+      "columns": {
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "schwab_connection_event_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "request_id": {
+          "name": "request_id",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "occurred_at": {
+          "name": "occurred_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "detail": {
+          "name": "detail",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "schwab_connection_events_occurred_idx": {
+          "name": "schwab_connection_events_occurred_idx",
+          "columns": [
+            {
+              "expression": "occurred_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "schwab_connection_events_code_check": {
+          "name": "schwab_connection_events_code_check",
+          "value": "\"schwab_connection_events\".\"code\" ~ '^[a-z0-9_:.-]{1,64}$'"
+        },
+        "schwab_connection_events_detail_check": {
+          "name": "schwab_connection_events_detail_check",
+          "value": "\"schwab_connection_events\".\"detail\" is null or length(\"schwab_connection_events\".\"detail\") <= 512"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.schwab_connections": {
+      "name": "schwab_connections",
+      "schema": "",
+      "columns": {
+        "connection_id": {
+          "name": "connection_id",
+          "type": "varchar(16)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "access_envelope": {
+          "name": "access_envelope",
+          "type": "bytea",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "access_expires_at": {
+          "name": "access_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "refresh_envelope": {
+          "name": "refresh_envelope",
+          "type": "bytea",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "authorized_at": {
+          "name": "authorized_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "refresh_expires_at": {
+          "name": "refresh_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "envelope_version": {
+          "name": "envelope_version",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "refresh_claimed_until": {
+          "name": "refresh_claimed_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "schwab_connections_owner_check": {
+          "name": "schwab_connections_owner_check",
+          "value": "\"schwab_connections\".\"connection_id\" = 'owner'"
+        },
+        "schwab_connections_refresh_lifetime_check": {
+          "name": "schwab_connections_refresh_lifetime_check",
+          "value": "\"schwab_connections\".\"refresh_expires_at\" > \"schwab_connections\".\"authorized_at\""
+        },
+        "schwab_connections_timeline_check": {
+          "name": "schwab_connections_timeline_check",
+          "value": "\"schwab_connections\".\"updated_at\" >= \"schwab_connections\".\"authorized_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.schwab_oauth_states": {
+      "name": "schwab_oauth_states",
+      "schema": "",
+      "columns": {
+        "state_hash": {
+          "name": "state_hash",
+          "type": "bytea",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "consumed_at": {
+          "name": "consumed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "schwab_oauth_states_expires_idx": {
+          "name": "schwab_oauth_states_expires_idx",
+          "columns": [
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "schwab_oauth_states_hash_check": {
+          "name": "schwab_oauth_states_hash_check",
+          "value": "octet_length(\"schwab_oauth_states\".\"state_hash\") = 32"
+        },
+        "schwab_oauth_states_lifetime_check": {
+          "name": "schwab_oauth_states_lifetime_check",
+          "value": "\"schwab_oauth_states\".\"expires_at\" > \"schwab_oauth_states\".\"created_at\""
+        },
+        "schwab_oauth_states_consumed_check": {
+          "name": "schwab_oauth_states_consumed_check",
+          "value": "\"schwab_oauth_states\".\"consumed_at\" is null or \"schwab_oauth_states\".\"consumed_at\" >= \"schwab_oauth_states\".\"created_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.source_budgets": {
+      "name": "source_budgets",
+      "schema": "",
+      "columns": {
+        "source_id": {
+          "name": "source_id",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "usage_on": {
+          "name": "usage_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "requests": {
+          "name": "requests",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "first_request_at": {
+          "name": "first_request_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_request_at": {
+          "name": "last_request_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "source_budgets_pkey": {
+          "name": "source_budgets_pkey",
+          "columns": ["source_id", "usage_on"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "source_budgets_requests_check": {
+          "name": "source_budgets_requests_check",
+          "value": "\"source_budgets\".\"requests\" >= 0"
+        },
+        "source_budgets_timeline_check": {
+          "name": "source_budgets_timeline_check",
+          "value": "\"source_budgets\".\"last_request_at\" >= \"source_budgets\".\"first_request_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.source_controls": {
+      "name": "source_controls",
+      "schema": "",
+      "columns": {
+        "control_id": {
+          "name": "control_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "source_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "daily_request_limit": {
+          "name": "daily_request_limit",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "daily_spend_limit_nano_usd": {
+          "name": "daily_spend_limit_nano_usd",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "varchar(240)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor": {
+          "name": "actor",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "recorded_at": {
+          "name": "recorded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "superseded_at": {
+          "name": "superseded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "source_controls_current_uidx": {
+          "name": "source_controls_current_uidx",
+          "columns": [
+            {
+              "expression": "source_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"source_controls\".\"superseded_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "source_controls_source_idx": {
+          "name": "source_controls_source_idx",
+          "columns": [
+            {
+              "expression": "source_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "recorded_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "source_controls_limit_check": {
+          "name": "source_controls_limit_check",
+          "value": "\"source_controls\".\"daily_request_limit\" is null or \"source_controls\".\"daily_request_limit\" >= 0"
+        },
+        "source_controls_spend_limit_check": {
+          "name": "source_controls_spend_limit_check",
+          "value": "\"source_controls\".\"daily_spend_limit_nano_usd\" is null or \"source_controls\".\"daily_spend_limit_nano_usd\" >= 0"
+        },
+        "source_controls_timeline_check": {
+          "name": "source_controls_timeline_check",
+          "value": "\"source_controls\".\"superseded_at\" is null or \"source_controls\".\"superseded_at\" >= \"source_controls\".\"recorded_at\""
+        },
+        "source_controls_actor_check": {
+          "name": "source_controls_actor_check",
+          "value": "\"source_controls\".\"actor\" ~ '^[A-Za-z0-9._:@/-]{1,128}$'"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.schwab_connection_event_kind": {
+      "name": "schwab_connection_event_kind",
+      "schema": "public",
+      "values": [
+        "connected",
+        "access_refreshed",
+        "refresh_failed",
+        "exchange_failed",
+        "callback_rejected",
+        "disconnected"
+      ]
+    },
+    "public.source_status": {
+      "name": "source_status",
+      "schema": "public",
+      "values": ["enabled", "disabled"]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

@@ -20,7 +20,7 @@ import { classifyIpAddress } from "./ip-address-policy";
  * controles a propósito —uno responde «¿a dónde se puede abrir un socket?» y el
  * otro «¿tenemos derecho a estos datos?»— y ninguno cubre al otro.
  */
-export const EGRESS_POLICY_VERSION = "egress-policy-1.1.0";
+export const EGRESS_POLICY_VERSION = "egress-policy-1.2.0";
 
 export const egressRejectionCodeSchema = z.enum([
   "source_not_allowlisted",
@@ -125,11 +125,51 @@ export type EgressIdentification = z.infer<typeof egressIdentificationSchema>;
  * nunca el valor. La agrega la puerta al salir, así que un adaptador no la ve y
  * no puede mandarla a otro host (`TM-02`, `TM-08`).
  */
-export const egressCredentialSchema = z.object({
-  variable: z.string().regex(/^[A-Z][A-Z0-9_]{2,63}$/u),
+const credentialVariableSchema = z.string().regex(/^[A-Z][A-Z0-9_]{2,63}$/u);
+
+const envBearerCredentialSchema = z.object({
+  kind: z.literal("env_bearer").default("env_bearer"),
+  variable: credentialVariableSchema,
   header: z.literal("authorization"),
   scheme: z.literal("Bearer"),
 });
+
+/**
+ * Autenticación Basic de una app OAuth: `base64(usuario:clave)` desde dos
+ * variables (ADR 0076). Sólo para un endpoint de token: es la app la que se
+ * autentica, no el owner.
+ */
+const envBasicCredentialSchema = z.object({
+  kind: z.literal("env_basic"),
+  userVariable: credentialVariableSchema,
+  passwordVariable: credentialVariableSchema,
+  header: z.literal("authorization"),
+  scheme: z.literal("Basic"),
+});
+
+/**
+ * Un bearer que no vive en el entorno: lo entrega un proveedor server-only por
+ * su nombre declarado —el access token de Schwab, que se descifra de la base de
+ * trading y se renueva cada 30 minutos (ADR 0076)—. El adaptador tampoco lo ve.
+ */
+export const egressCredentialProviderSchema = z.enum(["schwab-access-token"]);
+
+export type EgressCredentialProvider = z.infer<
+  typeof egressCredentialProviderSchema
+>;
+
+const providedBearerCredentialSchema = z.object({
+  kind: z.literal("provided_bearer"),
+  provider: egressCredentialProviderSchema,
+  header: z.literal("authorization"),
+  scheme: z.literal("Bearer"),
+});
+
+export const egressCredentialSchema = z.union([
+  envBearerCredentialSchema,
+  envBasicCredentialSchema,
+  providedBearerCredentialSchema,
+]);
 
 export type EgressCredential = z.infer<typeof egressCredentialSchema>;
 

@@ -124,8 +124,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    96 | `F9-15`    | `done`     | Brecha Rosario–Chicago al dólar del exportador (dólar soja, PIE y blend con su decreto) al lado de la oficial, y retenciones y cosecha marcadas en el gráfico de la soja.                                                 | `F9-05`            |
 |    97 | `F11-01`   | `done`     | ADR 0076 aceptada por el owner; alcance, threat model, roadmap y backlog enmendados; proyecto Neon `finance_portal_trading` creado.                                                                                       | -                  |
 |    98 | `F11-02`   | `done`     | Base de trading con conexión server-only, migraciones propias con rollback, rol de runtime limitado y bases local y de pruebas.                                                                                           | `F11-01`           |
-|    99 | `F11-03`   | `ready`    | Conexión OAuth con Schwab: términos leídos, _Order Limit_ 0, callbacks, tokens cifrados y aviso del login semanal; sin escritura alcanzable.                                                                              | `F11-02`           |
-|   100 | `F11-04`   | `queued`   | Cuenta en vivo: posiciones, saldos, poder de compra intradía y overnight, órdenes abiertas y luz LIVE/STALE.                                                                                                              | `F11-03`           |
+|    99 | `F11-03`   | `done`     | Conexión OAuth con Schwab: términos leídos, _Order Limit_ 0, callbacks, tokens cifrados y aviso del login semanal; sin escritura alcanzable.                                                                              | `F11-02`           |
+|   100 | `F11-04`   | `ready`    | Cuenta en vivo: posiciones, saldos, poder de compra intradía y overnight, órdenes abiertas y luz LIVE/STALE.                                                                                                              | `F11-03`           |
 |   101 | `F11-05`   | `queued`   | Transacciones como hechos con revisiones y round trips FIFO en decimal que reconcilian al centavo con sus `netAmount`.                                                                                                    | `F11-04`           |
 |   102 | `F11-06`   | `queued`   | P&L del día en dinero y en R, y calendario por sesión de Nueva York con totales semanales y mensuales.                                                                                                                    | `F11-05`           |
 |   103 | `F11-07`   | `queued`   | Diario por trade y rutina: setup, notas, plan y gráfico del trade dibujado con velas de Schwab sin guardarlas.                                                                                                            | `F11-05`           |
@@ -7006,6 +7006,36 @@ Decidida por la [ADR 0076](../architecture/adr/0076-schwab-read-only-account-tra
 
 Vercel no recibe `TRADING_DATABASE_URL` hasta `F11-03` (decisión del owner). **Estado:** `done`; `F11-03` queda `ready`.
 
+**`F11-03`, 2026-11-13.** La cuenta Schwab del owner quedó conectada en modo lectura, con la cuenta real ([runbook](../runbooks/schwab-connection.md), [enmienda de la ADR 0076](../architecture/adr/0076-schwab-read-only-account-trading-journal.md#enmienda-del-2026-11-13-lo-que-cambió-al-implementar-f11-03)).
+
+- **Términos y derechos.**
+  - Los términos del sitio de desarrolladores prohíben el acceso automatizado, así que el owner navegó el portal y el agente leyó capturas.
+  - El acuerdo de la API no aparece fuera del login. Las tres fuentes quedaron `approved_personal` con `owner_accepted` para uso personal, acceso automatizado y guardado normalizado, y con `restricted` el payload crudo, la exhibición pública, el export y la IA.
+- **App de Schwab.** _Order Limit_ pasó de 120 a 0 y se registraron los callbacks local y de Production. Se quitó el subdominio de Render. La app siguió en «Ready For Use».
+- **Puerta.**
+  - `schwab-oauth` hace `POST` sólo a `/v1/oauth/token`, con Basic desde dos variables.
+  - `schwab-trader` y `schwab-marketdata` son `GET`, con un bearer que entrega un proveedor server-only.
+  - Un test fija que no hay escritura bajo `/trader/v1/`.
+- **Tokens.** AES-256-GCM bajo una subclave HKDF de `TRADING_SECRET_KEY`, con el tipo de token como AAD. El vencimiento del login se fija al autorizar.
+- **Conexión y renovación.**
+  - `connectSchwab` y `GET /cuenta/schwab/callback` usan un `state` de un solo uso consumido en una sentencia.
+  - La renovación reclama la fila; no usa un lock que retendría la única conexión.
+  - Presupuesto y kill switch en la base de trading (migración `0001`). `ingestion:sources` se niega con `schwab-*`.
+- **`/cuenta`.** Muestra la conexión, el aviso 24 h antes del vencimiento, lo que falta configurar y el registro de eventos.
+- **HTTPS local.** `pnpm dev:https` con un certificado de `openssl`.
+- **Callbacks nuevos.** Tardaron en propagarse: el login daba un loop que nunca llegaba al portal. Fuera de Vercel se admite la raíz `https://127.0.0.1:5000` del Flask, y la raíz reenvía al callback.
+- **Log de requests.** Next dejó de registrar URLs con `code`, `state` o `session`.
+
+**Evidencia.**
+
+- **Gates.** Unitarios 3.937 y E2E 259, con `/cuenta` y el callback en los dos modos.
+- **Integración de trading.** 28 casos: las dos suites de contrato sobre PostgreSQL y el ciclo de rollback de `0000`. El rollback de `0001` corrió en local.
+- **Neon de trading.** Snapshot `f11-03-before-0001-2026-11-13`, que reemplaza al de `F11-02` (decisión del owner); `0001` aplicada; `db:trading:audit:neon` 8 de 8 sobre 5 tablas.
+- **Cuenta real.** Conexión `connected`. Una renovación forzada no movió el vencimiento del login. `accountNumbers` respondió 200 con una cuenta. Se gastaron 2 pedidos a `schwab-oauth` y 1 a `schwab-trader`.
+- **Vercel Production.** Recibió las cuatro variables, cargadas por el owner.
+
+La primera conexión en Production se prueba con el owner después del merge. **Estado:** `done`; `F11-04` queda `ready`.
+
 Insumos que el owner ya tiene, para los slices que los usan:
 
 - **`F11-03`.** El `.env` local de su webapp Flask tiene la app key y el secret de su app de Schwab. Se copian a `.env.local` sin pasar por el transcript y nunca al repo. Para leer los términos de la Trader API y revisar _Order Limit_ y callbacks, el agente maneja un navegador (Brave u otro) y el owner se autentica en él.
@@ -7035,7 +7065,7 @@ probar el control; fases posteriores pueden volver a verificarlo.
 | `TM-14` | `F2-01`, antes del primer deploy remoto | `F6-06`, `F10-03`, `F11-02`                  | done en `F6-06`: All Deployments intercepta los hosts conocidos, Production sirve datos sólo autenticado y no quedan bypasses activos                                                                                                                                                           |
 | `TM-15` | `F3-03`, nivel de rigor declarado       | cada IA/export, `F5-03`, `F6-03`             | rescopeado por ADR 0007: derechos pasan a procedencia informativa; el control ahora es el nivel de rigor declarado                                                                                                                                                                              |
 | `TM-16` | `F1-03`                                 | cada operación y gate                        | `done` sobre ingesta y valuación: corridas append-only con hash, versión y error seguro                                                                                                                                                                                                         |
-| `TM-17` | `F11-03`                                | `F11-04`, `F11-11`                           | `contracted` por la ADR 0076: fuentes de cuenta `GET`, _Order Limit_ 0 y tokens cifrados                                                                                                                                                                                                        |
+| `TM-17` | `F11-03`                                | `F11-04`, `F11-11`                           | `done` en `F11-03`: fuentes de cuenta `GET` fijadas por test, _Order Limit_ 0 registrado y tokens cifrados                                                                                                                                                                                      |
 | `UI-01` | Fase `0B.7`                             | revisar copy al cambiar roadmap              | revisar: el copy de la home cita el orden de fases anterior al pivote                                                                                                                                                                                                                           |
 | `UI-02` | `F1-07`                                 | `F6-03`, `F6-06`, `F10-06`                   | `done`: revisión renderizada automatizada en 6 proyectos con `axe-core`, teclado, reflow y movimiento reducido                                                                                                                                                                                  |
 | `UI-03` | `F1-01`                                 | cada feedback stateful, `F10-06`             | `done`: estados y reduced motion conservan feedback                                                                                                                                                                                                                                             |

@@ -38,6 +38,12 @@ export const SECRET_SENTINELS = {
     "postgresql://sentinel-trading-user:sentinel-trading-password@127.0.0.1:1/sentinel-trading",
   TRADING_DATABASE_DIRECT_URL:
     "postgresql://sentinel-trading-direct-user:sentinel-trading-direct-password@127.0.0.1:1/sentinel-trading",
+  // La app de Schwab y la clave del módulo (ADR 0076). Tienen la forma válida
+  // para que el health las vea listas y `/cuenta` llegue a leer su base.
+  SCHWAB_APP_KEY: "SentinelSchwabAppKeyMustNotLeak0",
+  SCHWAB_APP_SECRET: "SentinelSchwabSecretNoLeak",
+  // base64 de "sentinel-trading-secret-key-32b!"
+  TRADING_SECRET_KEY: "c2VudGluZWwtdHJhZGluZy1zZWNyZXQta2V5LTMyYiE=",
 } as const;
 
 export const SENTINEL_VALUES = Object.values(SECRET_SENTINELS);
@@ -73,6 +79,7 @@ export const PERSONAL_ENVIRONMENT: Record<string, string> = {
   APP_MODE: "personal",
   APP_RUNTIME_ACCESS: "local",
   DATABASE_URL: UNREACHABLE_DATABASE_URL,
+  SCHWAB_CALLBACK_URL: "https://127.0.0.1:3443/cuenta/schwab/callback",
   VERCEL: "",
   VERCEL_ENV: "",
 };
@@ -100,6 +107,7 @@ export const ROUTES = {
   sectorMatrix: "/sectores/communication-services",
   sectorDivergences: "/sectores/communication-services/divergencias",
   argentina: "/argentina",
+  account: "/cuenta",
   missing: "/ruta-que-no-existe",
 } as const;
 
@@ -112,4 +120,7 @@ export const ROUTES = {
 export const LEAK_SURFACES = [
   ...Object.values(ROUTES),
   "/sectores/communication-services/export",
+  // El callback de Schwab con un código y un `state` inventados: su
+  // redirección tampoco puede citar nada (ADR 0076).
+  "/cuenta/schwab/callback?code=C0.sentinel-code&state=sentinel-state",
 ] as const;

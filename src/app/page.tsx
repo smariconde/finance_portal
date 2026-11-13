@@ -5,7 +5,9 @@ import {
   ChevronRight,
   ShieldCheck,
 } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { StatusMark } from "@/app/_components/status-mark";
 import { ValuationRequestForm } from "@/app/valuacion/_components/valuation-request-form";
@@ -18,7 +20,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { servesRealData } from "@/modules/configuration/domain/config-health";
+import {
+  servesRealData,
+  servesSchwabConnection,
+} from "@/modules/configuration/domain/config-health";
+import {
+  forwardedCallbackPath,
+  schwabCallbackForm,
+} from "@/modules/trading/domain/schwab-callback-url";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
 
 /**
@@ -76,8 +85,26 @@ const evidenceContract = [
  */
 export const instant = false;
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const health = await getRequestConfigHealth();
+
+  // Vuelta de Schwab al callback del Flask, que la app tiene registrado en la
+  // raíz de 127.0.0.1 (`F11-03`): se reenvía al callback del portal con sólo
+  // `code`, `state` y `error`. Fuera de ese caso la raíz ignora el query.
+  if (
+    servesSchwabConnection(health) &&
+    schwabCallbackForm(process.env.SCHWAB_CALLBACK_URL, {
+      onVercel: process.env.VERCEL === "1",
+    }) === "local_root"
+  ) {
+    const forward = forwardedCallbackPath(await searchParams);
+    if (forward !== null) redirect(forward as Route);
+  }
+
   const live = servesRealData(health);
   const attentionCount = health.items.filter(
     (item) => item.status === "degraded",

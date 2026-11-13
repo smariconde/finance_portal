@@ -22,6 +22,7 @@ export default defineConfig([
       // suyas, porque una regla posterior reemplaza a la anterior.
       "src/server/db/trading/**",
       "src/server/persistence/trading/**",
+      "tests/integration-trading/**",
     ],
     rules: {
       "no-restricted-imports": [
@@ -99,6 +100,9 @@ export default defineConfig([
     files: [
       "src/server/db/trading/**/*.ts",
       "src/server/persistence/trading/**/*.ts",
+      // Prueban los almacenes de trading, como la integración de análisis
+      // prueba los suyos; tampoco llegan a la base de análisis.
+      "tests/integration-trading/**/*.ts",
     ],
     rules: {
       "no-restricted-imports": [

@@ -32,8 +32,142 @@ describe("egress allowlist", () => {
         "damodaran-current-data",
         "openrouter",
         "tavily",
+        "schwab-oauth",
+        "schwab-trader",
+        "schwab-marketdata",
       ],
     );
+  });
+
+  describe("Schwab (ADR 0076): reading the account, never orders", () => {
+    const schwab = listEgressAllowlistEntries().filter((entry) =>
+      entry.origins.some((origin) => origin.host === "api.schwabapi.com"),
+    );
+
+    it("is exactly the three declared sources", () => {
+      expect(schwab.map((entry) => entry.sourceId)).toEqual([
+        "schwab-oauth",
+        "schwab-trader",
+        "schwab-marketdata",
+      ]);
+    });
+
+    it("has no write path: the only POST on the host is the token endpoint", () => {
+      // Gate de la Fase 11. Una orden es POST, PUT o DELETE sobre
+      // /trader/v1/accounts/{hash}/orders; la puerta sólo admite el método de
+      // la fuente y ninguna fuente que no sea GET llega a /trader/.
+      for (const entry of schwab) {
+        if (entry.method === "GET") {
+          expect(entry.maxRequestBytes).toBe(0);
+          continue;
+        }
+        expect(entry.sourceId).toBe("schwab-oauth");
+        expect(entry.origins).toEqual([
+          { host: "api.schwabapi.com", pathPrefixes: ["/v1/oauth/token"] },
+        ]);
+      }
+
+      const orders = "https://api.schwabapi.com/trader/v1/accounts/HASH/orders";
+      expect(
+        authorizeEgressUrl(orders, findEgressAllowlistEntry("schwab-oauth")!)
+          .allowed,
+      ).toBe(false);
+      expect(
+        schwab.filter(
+          (entry) =>
+            entry.method !== "GET" && authorizeEgressUrl(orders, entry).allowed,
+        ),
+      ).toEqual([]);
+    });
+
+    it("never follows a redirect and never reaches another host or the login", () => {
+      for (const entry of schwab) {
+        expect(entry.maxRedirects).toBe(0);
+        expect(entry.identification).toBe("project");
+        for (const url of [
+          "https://api.schwabapi.com/v1/oauth/authorize",
+          "https://api.schwabapi.com/trader/v1/userPreference",
+          "https://api.schwabapi.com/marketdata/v1/chains",
+          "https://developer.schwab.com/dashboard/apps",
+        ]) {
+          expect(authorizeEgressUrl(url, entry).allowed).toBe(false);
+        }
+      }
+    });
+
+    it("authenticates the app with Basic and the account with a provided bearer", () => {
+      expect(findEgressAllowlistEntry("schwab-oauth")!.credential).toEqual({
+        kind: "env_basic",
+        userVariable: "SCHWAB_APP_KEY",
+        passwordVariable: "SCHWAB_APP_SECRET",
+        header: "authorization",
+        scheme: "Basic",
+      });
+      for (const sourceId of ["schwab-trader", "schwab-marketdata"]) {
+        expect(findEgressAllowlistEntry(sourceId)!.credential).toEqual({
+          kind: "provided_bearer",
+          provider: "schwab-access-token",
+          header: "authorization",
+          scheme: "Bearer",
+        });
+      }
+    });
+
+    it("records rights accepted by the owner and never granted", () => {
+      // El acuerdo de la API no se leyó: `owner_accepted`, nunca `allowed`, y
+      // sólo para leer la cuenta propia (ADR 0076). Lo demás queda cerrado.
+      for (const sourceId of [
+        "schwab-oauth",
+        "schwab-trader",
+        "schwab-marketdata",
+      ]) {
+        const entry = DEMO_SOURCE_REGISTRY.find(
+          (candidate) => candidate.sourceId === sourceId,
+        );
+        expect(entry?.approvalStatus).toBe("approved_personal");
+        expect(entry?.rights).toEqual({
+          personalUse: "owner_accepted",
+          automatedAccess: "owner_accepted",
+          rawStorage: "restricted",
+          normalizedStorage: "owner_accepted",
+          derivedStorage: "owner_accepted",
+          publicDisplay: "restricted",
+          export: "restricted",
+          aiTransfer: "restricted",
+        });
+      }
+    });
+
+    it("reaches the account, quotes, candles and market hours", () => {
+      for (const [sourceId, url] of [
+        ["schwab-oauth", "https://api.schwabapi.com/v1/oauth/token"],
+        [
+          "schwab-trader",
+          "https://api.schwabapi.com/trader/v1/accounts/accountNumbers",
+        ],
+        [
+          "schwab-trader",
+          "https://api.schwabapi.com/trader/v1/accounts/HASH/transactions?types=TRADE",
+        ],
+        [
+          "schwab-marketdata",
+          "https://api.schwabapi.com/marketdata/v1/quotes?symbols=AAPL",
+        ],
+        [
+          "schwab-marketdata",
+          "https://api.schwabapi.com/marketdata/v1/pricehistory?symbol=AAPL",
+        ],
+        [
+          "schwab-marketdata",
+          "https://api.schwabapi.com/marketdata/v1/markets?markets=equity",
+        ],
+      ] as const) {
+        expect(
+          authorizeEgressUrl(url, findEgressAllowlistEntry(sourceId)!).allowed,
+          `${sourceId} ${url}`,
+        ).toBe(true);
+      }
+    });
   });
 
   it("opens only the official ITCRM workbook on the BCRA site", () => {
@@ -155,8 +289,14 @@ describe("egress allowlist", () => {
       expect(entry.credential?.header).toBe("authorization");
     }
 
-    expect(openrouter.credential?.variable).toBe("OPENROUTER_API_KEY");
-    expect(tavily.credential?.variable).toBe("TAVILY_API_KEY");
+    expect(openrouter.credential).toMatchObject({
+      kind: "env_bearer",
+      variable: "OPENROUTER_API_KEY",
+    });
+    expect(tavily.credential).toMatchObject({
+      kind: "env_bearer",
+      variable: "TAVILY_API_KEY",
+    });
     expect(
       authorizeEgressUrl(
         "https://openrouter.ai/api/v1/chat/completions",
@@ -185,7 +325,11 @@ describe("egress allowlist", () => {
 
   it("keeps every data source on GET, with a credential only where the source demands one", () => {
     for (const entry of listEgressAllowlistEntries()) {
-      if (entry.sourceId === "openrouter" || entry.sourceId === "tavily") {
+      if (
+        entry.sourceId === "openrouter" ||
+        entry.sourceId === "tavily" ||
+        entry.sourceId.startsWith("schwab-")
+      ) {
         continue;
       }
       // Estimaciones Agrícolas answers a form, not a URL (ADR 0071).
@@ -199,7 +343,10 @@ describe("egress allowlist", () => {
       expect(entry.method).toBe("GET");
       expect(entry.maxRequestBytes).toBe(0);
       if (entry.sourceId === "indec-api") {
-        expect(entry.credential?.variable).toBe("INDEC_API_TOKEN");
+        expect(entry.credential).toMatchObject({
+          kind: "env_bearer",
+          variable: "INDEC_API_TOKEN",
+        });
       } else {
         expect(entry.credential).toBeNull();
       }

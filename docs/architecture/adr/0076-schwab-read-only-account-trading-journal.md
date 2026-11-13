@@ -310,6 +310,57 @@ nombra en vez de esconderse.
   ([ADR 0008](0008-remote-personal-access.md)). Una sesión robada expone
   datos de la cuenta pero no puede operar (sección 2).
 
+## Enmienda del 2026-11-13: lo que cambió al implementar `F11-03`
+
+La conexión se implementó y se probó con la cuenta real el mismo día. Siete
+puntos quedaron distintos de lo previsto:
+
+1. **El portal de desarrolladores no se automatiza.** Sus términos («Website
+   Terms of Use», actualizados el 2023-02-14) dicen: «You may not use automated
+   systems (e.g., robots, spiders, etc.) to access the Site». El agente no
+   maneja un navegador en developer.schwab.com, ni siquiera con la sesión del
+   owner. El owner navega y modifica la app; el agente lee capturas o archivos
+   que el owner guarda.
+2. **Derechos `owner_accepted`, no `allowed`.** El acuerdo que rige la API
+   (Developer Program Agreement) no aparece fuera del login y no se leyó. El
+   owner aceptó el riesgo para un uso acotado: leer su propia cuenta, de forma
+   automatizada, y guardarla normalizada. El payload crudo, la exhibición
+   pública, el export y la transferencia a IA quedan `restricted`, como se
+   esperaba. Se revisa al encontrar el acuerdo o antes del 2027-05-13.
+3. **La app de Schwab, registrada.** Desde una captura del owner, el 2026-11-13:
+   _Order Limit_ pasó de **120 a 0**. Los callbacks pasaron a ser
+   `https://127.0.0.1:5000` (el del Flask), `https://127.0.0.1:3443/cuenta/schwab/callback`
+   y `https://finance-portal-flame.vercel.app/cuenta/schwab/callback`; se quitó
+   `schwab-portal.onrender.com`, un subdominio de Render que ya no se usa y
+   que otro podría reclamar. La app siguió en «Ready For Use».
+4. **Los callbacks nuevos tardan en propagarse.** Con el callback recién
+   registrado, Schwab devolvía al login en un loop y nunca llamaba al portal.
+   Con el del Flask la conexión funcionó a la primera. Mientras tanto, fuera de
+   Vercel, `SCHWAB_CALLBACK_URL` admite la raíz de `127.0.0.1`, y la raíz del
+   portal reenvía `code`, `state` y `error` al callback real
+   (`schwab-callback-url`). En Vercel sólo vale `/cuenta/schwab/callback`.
+5. **Dos formas de credencial en la puerta.** `env_basic` arma la
+   autenticación Basic de la app desde dos variables, sólo hacia
+   `schwab-oauth`. `provided_bearer` pide el access token a un proveedor
+   server-only por nombre (`schwab-access-token`), recién después de autorizar
+   el destino.
+6. **La cuota de Schwab vive en la base de trading.** El presupuesto diario y
+   el kill switch de las tres fuentes usan el mismo puerto y la misma suite de
+   contrato que los de análisis, sobre tablas de la base de trading. Si la base
+   de análisis no responde, la cuenta igual cuenta su cuota.
+7. **La renovación se reclama sobre la fila, no con un lock.** El cliente del
+   runtime tiene una sola conexión. Un lock de transacción la retendría
+   mientras se llama a Schwab, y la renovación necesita la base para contar la
+   cuota y registrar el evento. Quien renueva marca `refresh_claimed_until` con
+   una sentencia condicionada y escribe sólo si su reclamo sigue vigente; los
+   demás releen hasta 5 segundos.
+
+El log de requests de Next imprimía la URL del callback con el código y el
+`state`. Ahora esas visitas no se registran (`logging.incomingRequests`). Los
+logs de la plataforma pueden conservar el query del callback. Es un riesgo
+residual acotado: el código es de un solo uso, se consume en el mismo request
+y no sirve sin el secret de la app.
+
 ## Controles del threat model
 
 | Control | Cómo se cierra en la Fase 11                                                                                                                                                      |

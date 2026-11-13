@@ -1391,6 +1391,46 @@ enabled per environment, by SQL (a Neon console or API role joins
 two that name the same database. Locally the container holds
 `finance_portal_trading` and `_trading_test` (`scripts/init-trading-db.sh`).
 
+```bash
+pnpm certs:local                     # self-signed certificate in .certs/ (30 days), never installed
+pnpm dev:https                       # https://127.0.0.1:3443, the portal's own Schwab callback
+pnpm dev:https:5000                  # https://127.0.0.1:5000, the Flask's registered root callback
+```
+
+The Schwab connection (`F11-03`, ADR 0076 and its 2026-11-13 amendment,
+[runbook](docs/runbooks/schwab-connection.md)) is read-only by three independent
+controls: the door admits only `GET` under `/trader/v1/` and `/marketdata/v1/`
+(`schwab-trader`, `schwab-marketdata`) and one `POST` to `/v1/oauth/token`
+(`schwab-oauth`), pinned by an allowlist test; the code has no order operation;
+the Schwab app has Order Limit 0 (it was 120). The door gained two credential
+kinds: `env_basic` (the app key and secret as Basic, token endpoint only) and
+`provided_bearer` (the access token from a server-only provider by name, asked
+after authorizing the destination). Rights are `owner_accepted`, never `allowed`:
+the Developer Program Agreement sits behind the login and was not read; raw
+payload, public display, export and AI stay `restricted`. Schwab's site terms
+forbid automated access to developer.schwab.com, so the owner navigates it and
+the agent reads screenshots. `/cuenta` shows the connection, the weekly expiry
+with a 24-hour warning (`schwab-connection-status-1.0.0`) and the event log;
+the «Conexión Schwab» health item needs the trading base plus `SCHWAB_APP_KEY`,
+`SCHWAB_APP_SECRET`, `SCHWAB_CALLBACK_URL` and `TRADING_SECRET_KEY`, and is
+`disabled`, never `degraded`, when they are missing. `connectSchwab` issues a
+single-use ten-minute `state` (only its SHA-256 is stored) in a callback-path
+cookie; `GET /cuenta/schwab/callback` consumes it atomically, exchanges the code
+through the door and redirects with a closed outcome code. Tokens are sealed
+with AES-256-GCM under an HKDF subkey of `TRADING_SECRET_KEY`, with the token
+kind as AAD; the refresh token's expiry is fixed at login
+(`schwab-refresh-lifetime-1.0.0`). Renewal is a row claim with expiry
+(`refresh_claimed_until`), not a transaction lock: the runtime client has one
+connection and renewal needs the database too. Schwab's daily budget and kill
+switch live in the trading database (migration `0001`, same store contract as
+the analysis one), so `pnpm ingestion:sources` refuses a `schwab-*` source.
+Newly registered callbacks took time to propagate (a login loop that never
+reached the portal); outside Vercel `SCHWAB_CALLBACK_URL` may be the Flask's
+root `https://127.0.0.1:5000`, and the home page forwards `code`, `state` and
+`error` to the callback. Next's request log skips URLs carrying `code`, `state`
+or `session`. Measured with the real account: connected, a forced renewal kept
+the login expiry, and `accountNumbers` answered 200 through the provided bearer.
+
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 
 Node `>=22.11.0 <27`, pnpm `10.33.2` via corepack. Arch Linux dev host — use POSIX shell syntax for env-var examples in docs, matching the `ubuntu-latest` runners CI validates on.
