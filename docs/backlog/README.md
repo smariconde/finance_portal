@@ -6845,6 +6845,19 @@ del sandbox falla al obtener `tsc --showConfig`, pero fuera compila. El mismo
 artefacto pasó 238 E2E (3 omitidas), y la revisión local a 1440/390 px no mostró
 desborde; axe sobre la sección nueva no halló violaciones. No se usó Neon.
 **Estado:** `in_progress` hasta CI y publicación protegida del PR.
+
+**Decisión del owner, 2026-11-13:** se difieren las pruebas y la carga de
+`F9-18` en Neon Production hasta disponer de cuota. Quality, E2E/accesibilidad
+y Preview del [PR borrador #120](https://github.com/smariconde/finance_portal/pull/120)
+pasaron; la ingesta y la lectura sólo están comprobadas en PostgreSQL local.
+La migración `0050` **no** se aplicó a Neon y el PR no se integra mientras falte
+el snapshot manual reciente, la migración previa al merge y `db:status:neon`
+sin pendientes. El owner autorizó continuar con el análisis de `F9-19` sin
+tomar el despliegue de Preview como prueba de datos Production. Si la cuota
+sigue siendo un límite tras optimizar las lecturas, evaluar primero un proyecto
+Neon nuevo en la misma cuenta: Free declara 5 GB de transferencia por proyecto
+y 1 GB de almacenamiento por proyecto. Eso requeriría un traslado verificado
+de datos y conexiones; no se creó proyecto ni cuenta nuevos en esta sesión.
 Antes de cada gráfico, registrar pregunta, decisión a la que ayuda, series
 mínimas, cálculo, límites de interpretación y fuente de cada pata. El IPC
 nacional ya disponible permite deflactar; regiones, divisiones, canastas,
