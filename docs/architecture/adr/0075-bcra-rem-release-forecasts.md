@@ -54,9 +54,11 @@ ese período al mes sin confundirlo con la ronda. El libro se inspeccionó en
 5. La ingesta medida y la lectura de `/argentina` requieren sus propios
    controles de derechos, presupuesto y acceso personal antes de abrir red o
    publicar el bloque. La migración `0050` y el adaptador están preparados, pero
-   la rights row permanece en `rights_review_pending` hasta la decisión del
-   owner. Esta ADR no autoriza guardar el XLSX crudo ni mostrar datos REM en una
-   URL pública.
+   el owner aprobó el 2026-11-13 uso personal, dos requests por edición y
+   persistencia exclusiva de las medianas normalizadas. La rights row queda en
+   `approved_personal`; raw, export, demo pública, derivados almacenados e IA
+   siguen restringidos. Esta ADR no autoriza guardar el XLSX crudo ni mostrar
+   datos REM en una URL pública.
 
 ## Consecuencias
 

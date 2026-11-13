@@ -162,10 +162,10 @@ Entran como `rights_unreviewed` cuando se elija un dataset y endpoint concretos.
 `bcra-rem-release` (`F9-18`) tiene diez requests por día y dos por ronda
 declarada: página de publicación y planilla enlazada. No hay cuota externa
 publicada; el tope es prudencia interna. La [ADR 0075](../architecture/adr/0075-bcra-rem-release-forecasts.md)
-separa el dato observado del informe crudo. Derechos de uso personal,
-automatización y persistencia normalizada: `unknown`, pendientes de decisión
-explícita del owner; `rawStorage`, `publicDisplay`, `export` y `aiTransfer` están
-`restricted`. El gate de derechos impide toda descarga hasta esa decisión.
+separa el dato observado del informe crudo. El owner aprobó el 2026-11-13 uso
+personal y persistencia de medianas normalizadas; la automatización acotada
+figura como `owner_accepted`. `rawStorage`, `derivedStorage`, `publicDisplay`,
+`export` y `aiTransfer` están `restricted`; la atribución al BCRA es obligatoria.
 
 Los límites internos son hard caps, no metas de consumo. Se aplican por fuente y entorno,
 incluyen reintentos y quedan por debajo de la cuota publicada cuando existe. Un page view

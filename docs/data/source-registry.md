@@ -344,13 +344,14 @@ display, redistribución y alcance regulatorio.
 
 ## REM mensual (`F9-18`, 2026-11-12)
 
-`bcra-rem-release` está en `technical_reviewed / rights_review_pending` para
+`bcra-rem-release` está en `integrated / approved_personal` para
 `bcra.rem-monthly-inflation`. La edición de octubre de 2026 tiene página y
 planilla oficiales verificadas; el adaptador acepta sólo esa ronda, exige la
-fecha pública y el enlace exacto, y falla antes del egress mientras los derechos
-sigan pendientes. El destino y el presupuesto están declarados por separado:
+fecha pública y el enlace exacto. El owner aprobó el 2026-11-13 sólo uso
+personal, dos requests por edición y medianas normalizadas. El destino y el
+presupuesto están declarados por separado:
 dos requests por edición, diez por día, máximo 2 MB por respuesta, sin redirects.
-No se conserva HTML ni XLSX. Una nueva ronda requiere comprobar su página,
+No se conserva HTML ni XLSX, ni se exporta. Una nueva ronda requiere comprobar su página,
 planilla y forma antes de ampliar la allowlist. Fuente y decisión:
 [ADR 0075](../architecture/adr/0075-bcra-rem-release-forecasts.md).
 

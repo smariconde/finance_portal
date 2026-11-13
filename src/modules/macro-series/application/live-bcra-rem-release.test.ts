@@ -34,19 +34,19 @@ const entry = DEMO_SOURCE_REGISTRY.find(
 const registry = (approved: boolean) =>
   createInMemorySourceRegistryRepository([
     approved
-      ? {
+      ? entry
+      : {
           ...entry,
-          technicalStatus: "integrated",
-          approvalStatus: "approved_personal",
-          rightsReviewedAt: "2026-11-12T00:00:00.000Z",
+          technicalStatus: "technical_reviewed",
+          approvalStatus: "rights_review_pending",
+          rightsReviewedAt: null,
           rights: {
             ...entry.rights,
-            personalUse: "allowed",
-            automatedAccess: "owner_accepted",
-            normalizedStorage: "allowed",
+            personalUse: "unknown",
+            automatedAccess: "unknown",
+            normalizedStorage: "unknown",
           },
-        }
-      : entry,
+        },
   ]);
 
 describe("BCRA REM release adapter", () => {

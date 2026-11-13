@@ -34,6 +34,9 @@ await syncDeclaredSourceRegistry(
   DEMO_SOURCE_REGISTRY.filter((entry) => entry.sourceId === BCRA_REM_SOURCE_ID),
   registry,
 );
+// Check the local schema and current round before spending the two source calls.
+const repository = getRemForecastRepository();
+const open = await repository.open(round);
 const budget = await checkSourceBudget(
   getSourceBudgetStore(),
   BCRA_REM_SOURCE_ID,
@@ -62,12 +65,11 @@ try {
   }
   throw error;
 }
-const repository = getRemForecastRepository();
 const runId = randomUUID();
 const plan = planRemRelease({
   ...release,
   runId,
-  open: await repository.open(round),
+  open,
 });
 console.log(
   JSON.stringify(
