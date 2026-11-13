@@ -13,9 +13,15 @@ import { readArgentinaRefreshReadinessForRender } from "@/server/jobs/argentina-
 import { getAdrPairRepository } from "@/server/persistence/get-adr-pair-repository";
 import { getArgentinaIndicatorRepository } from "@/server/persistence/get-argentina-indicator-repository";
 import { getMacroSeriesRepository } from "@/server/persistence/get-macro-series-repository";
+import { getRemForecastRepository } from "@/server/persistence/get-rem-forecast-repository";
+import {
+  readRemInflationComparison,
+  type RemInflationComparisonRow,
+} from "@/modules/macro-series/application/read-rem-inflation-comparison";
 
 import { ArgentinaRefresh } from "./_components/argentina-refresh";
 import { ItcrmSection } from "./_components/itcrm-section";
+import { RemInflationSection } from "./_components/rem-inflation-section";
 import {
   ActivitySection,
   DollarSection,
@@ -29,7 +35,7 @@ import { SummaryCards } from "./_components/summary-cards";
 export const metadata: Metadata = {
   title: "Argentina | Portal Financiero",
   description:
-    "Actividad, dólar, inflación, resultado fiscal, comercio exterior y soja de la Argentina al último dato guardado, con su fuente y su fecha.",
+    "Actividad, dólar, inflación observada y esperada, resultado fiscal, comercio exterior y soja de la Argentina, con fuente y fecha.",
 };
 
 /** Ver [ADR 0005](../../../docs/architecture/adr/0005-request-time-runtime-boundary.md). */
@@ -52,6 +58,7 @@ export default async function ArgentinaPage() {
 
   let dashboard: ArgentinaDashboard;
   let readiness: ArgentinaRefreshReadiness | null = null;
+  let remComparison: readonly RemInflationComparisonRow[] | null = null;
 
   try {
     // Only reads: the render plans no job and opens no socket (ADR 0070).
@@ -79,6 +86,20 @@ export default async function ArgentinaPage() {
     return <DataUnavailableNotice surface="El tablero argentino" />;
   }
 
+  try {
+    remComparison = await readRemInflationComparison({
+      knownAt: dashboard.readAt,
+      knowledgeBasis: "public_availability",
+      forecasts: getRemForecastRepository(),
+      indicators: getArgentinaIndicatorRepository(),
+    });
+  } catch (error) {
+    console.error(
+      "argentina REM comparison read failed",
+      error instanceof Error ? error.name : typeof error,
+    );
+  }
+
   return (
     <div id="contenido" className="flex-1">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 md:p-6 lg:p-8">
@@ -98,8 +119,9 @@ export default async function ArgentinaPage() {
             Agricultura. Al abrir la página se busca lo que pudo haberse
             publicado desde la última revisión. Cada serie tiene su propia
             fecha: la actividad sale con dos meses de rezago y el dólar es
-            diario. Describe lo que pasó; no explica por qué ni anticipa lo que
-            viene.
+            diario. El REM muestra expectativas para los meses siguientes,
+            separadas del IPC observado. El tablero no explica causas ni emite
+            recomendaciones.
           </p>
         </section>
 
@@ -116,6 +138,7 @@ export default async function ArgentinaPage() {
         <DollarSection dollar={dashboard.dollar} />
         <ItcrmSection itcrm={dashboard.itcrm} />
         <MonetarySection monetary={dashboard.monetary} />
+        <RemInflationSection rows={remComparison} />
         <FiscalSection fiscal={dashboard.fiscal} />
         <ExternalSection external={dashboard.external} />
         <SoySection soy={dashboard.soy} />

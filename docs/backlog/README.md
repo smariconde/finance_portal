@@ -6829,6 +6829,22 @@ permanece sin publicar por el gate de derechos de la ADR 0075. Lint, tipos,
 formato y `git diff --check` pasan; el build de producción con webpack pasa.
 Turbopack sigue fallando al abrir el puerto local de PostCSS, incluso fuera del
 sandbox, antes de compilar los cambios. No se usó Neon.
+
+**`F9-18`, ingesta y lectura visual local, 2026-11-13:** el owner aprobó uso
+personal del REM, dos requests por edición y guardar sólo medianas normalizadas;
+la ADR 0075 y la rights row registran ese límite. La edición de octubre de
+2026 se cotejó en seco y se publicó en PostgreSQL local: siete meses objetivo,
+publicación BCRA del 5 de noviembre, dos requests y 158.118 bytes. La CLI
+verifica que la tabla exista antes de abrir red. `/argentina` presenta la ronda,
+los meses y la diferencia en pp cuando ambas patas estén disponibles. Aunque
+INDEC publicó el IPC nacional de octubre el 12 de noviembre, su API seguía
+entregando como último mes septiembre al probarla el 13 de noviembre: la
+comparación muestra «Pendiente», sin inventar un valor ni cambiar de fuente.
+`pnpm test` (3.785), lint, tipos, formato y build webpack pasan; el build dentro
+del sandbox falla al obtener `tsc --showConfig`, pero fuera compila. El mismo
+artefacto pasó 238 E2E (3 omitidas), y la revisión local a 1440/390 px no mostró
+desborde; axe sobre la sección nueva no halló violaciones. No se usó Neon.
+**Estado:** `in_progress` hasta CI y publicación protegida del PR.
 Antes de cada gráfico, registrar pregunta, decisión a la que ayuda, series
 mínimas, cálculo, límites de interpretación y fuente de cada pata. El IPC
 nacional ya disponible permite deflactar; regiones, divisiones, canastas,
