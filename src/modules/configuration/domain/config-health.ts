@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { parseDatabaseTarget, sameDatabaseTarget } from "./database-target";
+
 /**
  * Resolución del modo efectivo del runtime
  * ([ADR 0004](../../../../docs/architecture/adr/0004-personal-first-runtime.md),
@@ -38,12 +40,19 @@ const liveConfigurationVariables = [
 
 const personalRuntimeDatabaseVariables = ["DATABASE_URL"] as const;
 
+/**
+ * La base de trading ([ADR 0076](../../../../docs/architecture/adr/0076-schwab-read-only-account-trading-journal.md)).
+ * No forma parte de la definición de `personal`: el resto del portal sirve
+ * igual sin ella, y sólo la cuenta y el diario la necesitan.
+ */
+const TRADING_DATABASE_VARIABLE = "TRADING_DATABASE_URL";
+
 export type AppMode = z.infer<typeof appModeSchema>;
 export type AppRuntimeAccess = z.infer<typeof appRuntimeAccessSchema>;
 export type ConfigStatus = "ready" | "degraded" | "disabled";
 
 export type ConfigHealthItem = {
-  id: "core" | "database" | "liveIntegrations";
+  id: "core" | "database" | "liveIntegrations" | "trading";
   label: string;
   status: ConfigStatus;
   message: string;
@@ -228,6 +237,88 @@ function inspectLiveIntegrations(
   };
 }
 
+/**
+ * Una base que falta es `disabled`, no `degraded`: el shell marca «requiere
+ * atención» en todas las páginas ante un `degraded`, y que la cuenta no esté
+ * configurada no le pide nada al resto del portal. `degraded` queda para una
+ * configuración que está mal, no ausente.
+ */
+function inspectTrading(
+  environment: Environment,
+  runtime: RuntimeResolution,
+): ConfigHealthItem {
+  const label = "Base de trading";
+  const tradingUrl = environment[TRADING_DATABASE_VARIABLE];
+  const configured = hasValue(tradingUrl);
+
+  if (runtime.mode === "locked") {
+    return {
+      id: "trading",
+      label,
+      status: "disabled",
+      message: configured
+        ? "Hay una base de trading configurada, pero un runtime trabado no la abre."
+        : "Bloqueada mientras el runtime esté trabado.",
+      missingVariables: [],
+    };
+  }
+
+  // `TM-14`: Preview no recibe la base de trading. Su URL cambia en cada
+  // deploy, así que tampoco coincidiría con un callback registrado en Schwab.
+  if (environment.VERCEL_ENV === "preview") {
+    return {
+      id: "trading",
+      label,
+      status: configured ? "degraded" : "disabled",
+      message: configured
+        ? "Preview no debe recibir la base de trading; se ignora."
+        : "Preview no recibe la base de trading.",
+      missingVariables: configured ? [TRADING_DATABASE_VARIABLE] : [],
+    };
+  }
+
+  if (!configured) {
+    return {
+      id: "trading",
+      label,
+      status: "disabled",
+      message:
+        "Sin su base, la cuenta y el diario no se ofrecen; el resto del portal no cambia.",
+      missingVariables: [TRADING_DATABASE_VARIABLE],
+    };
+  }
+
+  if (!parseDatabaseTarget(tradingUrl ?? "")) {
+    return {
+      id: "trading",
+      label,
+      status: "degraded",
+      message: "El valor no es una URL de PostgreSQL con host y base.",
+      missingVariables: [TRADING_DATABASE_VARIABLE],
+    };
+  }
+
+  if (sameDatabaseTarget(tradingUrl ?? "", environment.DATABASE_URL ?? "")) {
+    return {
+      id: "trading",
+      label,
+      status: "degraded",
+      message:
+        "Apunta a la misma base que el análisis; la de trading tiene que ser otra.",
+      missingVariables: [TRADING_DATABASE_VARIABLE],
+    };
+  }
+
+  return {
+    id: "trading",
+    label,
+    status: "ready",
+    message:
+      "Configurada para runtime pooled en una base aparte del análisis; este health no prueba conectividad.",
+    missingVariables: [],
+  };
+}
+
 export function getConfigHealth(environment: Environment): ConfigHealth {
   const runtime = resolveRuntime(environment);
 
@@ -238,6 +329,7 @@ export function getConfigHealth(environment: Environment): ConfigHealth {
       inspectCore(environment, runtime),
       inspectDatabase(environment, runtime),
       inspectLiveIntegrations(environment, runtime.mode),
+      inspectTrading(environment, runtime),
     ],
   };
 }
@@ -249,4 +341,18 @@ export function getConfigHealth(environment: Environment): ConfigHealth {
  */
 export function servesRealData(health: ConfigHealth): boolean {
   return health.mode === "personal";
+}
+
+/**
+ * Único predicado que autoriza leer la base de trading: modo personal **y** su
+ * base bien configurada. Las superficies de la cuenta preguntan por acá y, si
+ * no, nombran la variable que falta (ADR 0076).
+ */
+export function servesTradingData(health: ConfigHealth): boolean {
+  return (
+    servesRealData(health) &&
+    health.items.some(
+      (item) => item.id === "trading" && item.status === "ready",
+    )
+  );
 }

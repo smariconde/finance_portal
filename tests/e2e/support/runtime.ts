@@ -31,6 +31,13 @@ export const SECRET_SENTINELS = {
   CRON_SECRET: "sentinel-cron-secret-must-not-leak",
   DATABASE_DIRECT_URL:
     "postgresql://sentinel-direct-user:sentinel-direct-password@127.0.0.1:1/sentinel",
+  // La base de trading (ADR 0076). La pooled es una URL válida a propósito: el
+  // servidor personal la ve configurada y lista, y como apunta a un puerto
+  // cerrado, una superficie que la abriera fallaría en vez de pasar.
+  TRADING_DATABASE_URL:
+    "postgresql://sentinel-trading-user:sentinel-trading-password@127.0.0.1:1/sentinel-trading",
+  TRADING_DATABASE_DIRECT_URL:
+    "postgresql://sentinel-trading-direct-user:sentinel-trading-direct-password@127.0.0.1:1/sentinel-trading",
 } as const;
 
 export const SENTINEL_VALUES = Object.values(SECRET_SENTINELS);

@@ -24,6 +24,13 @@ un volumen Docker.
 | `finance_portal_personal` | runtime personal: universo y corridas | persistente; es el dato del owner   |
 | `finance_portal_test`     | `pnpm test:integration`               | desechable; la suite le borra filas |
 
+La base de trading (ADR 0076) suma `finance_portal_trading` y
+`finance_portal_trading_test` en el mismo servidor, con su propia cadena en
+`drizzle-trading/` y sus comandos `db:trading:*`: ver
+[base de trading](trading-database.md). `scripts/migrate.ts` y
+`scripts/migration-status.ts` toman `--target analysis` (el default, lo de este
+runbook) o `--target trading`; ninguno lee la conexión del otro destino.
+
 La división existe por una razón concreta y no por simetría: la suite de integración
 borra **todas** las filas de las tablas que toca —`universe-repository.test.ts` vacía
 las nueve del grafo de identidad sin filtrar— así que no puede compartir base con el

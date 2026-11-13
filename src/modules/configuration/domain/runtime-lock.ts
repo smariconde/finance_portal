@@ -1,4 +1,8 @@
-import type { AppMode } from "./config-health";
+import {
+  servesTradingData,
+  type AppMode,
+  type ConfigHealth,
+} from "./config-health";
 
 /**
  * Negativa del runtime trabado
@@ -47,4 +51,49 @@ export function selectPersonalDependency<TDependency>(
   }
 
   return createPersonal();
+}
+
+/**
+ * Negativa de la base de trading
+ * ([ADR 0076](../../../../docs/architecture/adr/0076-schwab-read-only-account-trading-journal.md)):
+ * el runtime es personal pero la base de trading falta o está mal configurada.
+ * Es otra negativa que la del runtime trabado: el resto del portal sirve igual.
+ */
+export class TradingUnavailableError extends Error {
+  readonly resource: string;
+
+  constructor(resource: string) {
+    super(
+      `The trading database is not configured and cannot provide "${resource}". The account needs TRADING_DATABASE_URL on its own database.`,
+    );
+    this.name = "TradingUnavailableError";
+    this.resource = resource;
+  }
+}
+
+export function isTradingUnavailableError(
+  error: unknown,
+): error is TradingUnavailableError {
+  return error instanceof TradingUnavailableError;
+}
+
+/**
+ * Construye una dependencia de la base de trading sólo si el runtime es
+ * personal y esa base está lista. Un runtime trabado lanza `RuntimeLockedError`
+ * antes de mirar la configuración de trading, como cualquier otra dependencia.
+ */
+export function selectTradingDependency<TDependency>(
+  health: ConfigHealth,
+  resource: string,
+  createTrading: () => TDependency,
+): TDependency {
+  if (health.mode !== "personal") {
+    throw new RuntimeLockedError(resource);
+  }
+
+  if (!servesTradingData(health)) {
+    throw new TradingUnavailableError(resource);
+  }
+
+  return createTrading();
 }

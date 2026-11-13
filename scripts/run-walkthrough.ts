@@ -103,6 +103,9 @@ const servers: readonly ServerSpec[] = [
       // No se lee en runtime, pero vaciarla deja explícito que este servidor no
       // tiene ninguna ruta hacia la base del owner, ni siquiera la administrativa.
       DATABASE_DIRECT_URL: "",
+      // Lo mismo para la base de trading (ADR 0076).
+      TRADING_DATABASE_URL: "",
+      TRADING_DATABASE_DIRECT_URL: "",
       VERCEL: "",
       VERCEL_ENV: "",
     },
