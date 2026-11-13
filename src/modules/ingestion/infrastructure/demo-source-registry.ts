@@ -28,14 +28,19 @@ const AI_LAYER_RIGHTS_REVIEWED_AT = "2026-10-02T00:00:00.000Z";
 const AI_LAYER_RIGHTS_REVIEW_DUE_AT = "2027-04-01T00:00:00.000Z";
 
 /**
- * Schwab (ADR 0076): las tres fuentes nacen en `rights_review_pending`. Los
- * términos del sitio de desarrolladores se leyeron el 2026-11-13; el acuerdo que
- * rige la API (Developer Program Agreement) todavía no, y hasta entonces el gate
- * de derechos no deja salir nada.
+ * Schwab (ADR 0076). El 2026-11-13 se leyeron los términos del sitio de
+ * desarrolladores, que prohíben acceder **al sitio** con herramientas
+ * automatizadas y no hablan de la API. El acuerdo que rige la API (Developer
+ * Program Agreement) no se encontró publicado fuera del login y no se leyó. El
+ * owner aceptó el riesgo ese día para un uso acotado: leer su propia cuenta,
+ * de forma automatizada, y guardarla normalizada. Por eso `owner_accepted` y no
+ * `allowed`: nadie lo concedió por escrito. El payload crudo, la exhibición
+ * pública, el export y la transferencia a IA quedan `restricted`.
  */
 const SCHWAB_RECORDED_AT = "2026-11-13T00:00:00.000Z";
+const SCHWAB_RIGHTS_REVIEW_DUE_AT = "2027-05-13T00:00:00.000Z";
 
-function pendingSchwabSource(input: {
+function schwabSource(input: {
   sourceId: string;
   displayName: string;
   datasets: string[];
@@ -64,16 +69,26 @@ function pendingSchwabSource(input: {
     fixturePolicy:
       "Fixtures sintéticas; ninguna respuesta de la cuenta del owner en el repositorio.",
     fallbackSourceIds: [],
-    rights: {},
-    technicalStatus: "technical_reviewed",
-    approvalStatus: "rights_review_pending",
+    rights: {
+      personalUse: "owner_accepted",
+      automatedAccess: "owner_accepted",
+      rawStorage: "restricted",
+      normalizedStorage: "owner_accepted",
+      derivedStorage: "owner_accepted",
+      publicDisplay: "restricted",
+      export: "restricted",
+      aiTransfer: "restricted",
+    },
+    technicalStatus: "spike_ready",
+    approvalStatus: "approved_personal",
     reviewedAt: SCHWAB_RECORDED_AT,
-    rightsReviewedAt: null,
-    rightsReviewDueAt: null,
+    rightsReviewedAt: SCHWAB_RECORDED_AT,
+    rightsReviewDueAt: SCHWAB_RIGHTS_REVIEW_DUE_AT,
     reviewEvidence: [
       "docs/architecture/adr/0076-schwab-read-only-account-trading-journal.md",
+      "https://developer.schwab.com/terms-and-conditions",
     ],
-    retentionClasses: [],
+    retentionClasses: ["R3"],
     quotaPolicyId: null,
     recordedAt: SCHWAB_RECORDED_AT,
   });
@@ -484,7 +499,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         "Candidata de Fase 2 y sólo para modo personal. El default `iex` del endpoint no prueba entitlement de la cuenta.",
       recordedAt: RECORDED_AT,
     }),
-    pendingSchwabSource({
+    schwabSource({
       sourceId: "schwab-oauth",
       displayName: "Schwab — OAuth de la Trader API",
       datasets: ["schwab.oauth-token"],
@@ -494,7 +509,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
       ownerNotes:
         "Sólo canjea el código y renueva el access token. Los tokens se guardan cifrados en la base de trading y nunca en claro.",
     }),
-    pendingSchwabSource({
+    schwabSource({
       sourceId: "schwab-trader",
       displayName: "Schwab — cuentas (Trader API)",
       datasets: ["schwab.accounts", "schwab.transactions"],
@@ -505,7 +520,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
       ownerNotes:
         "Sólo GET: posiciones, saldos, órdenes abiertas y transacciones. Nunca órdenes (ADR 0076, sección 2).",
     }),
-    pendingSchwabSource({
+    schwabSource({
       sourceId: "schwab-marketdata",
       displayName: "Schwab — market data (Trader API)",
       datasets: [

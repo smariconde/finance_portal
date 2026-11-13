@@ -364,7 +364,7 @@ describe("getConfigHealth", () => {
       ],
       [
         "another callback path",
-        { SCHWAB_CALLBACK_URL: "https://127.0.0.1:5000" },
+        { SCHWAB_CALLBACK_URL: "https://127.0.0.1:5000/callback" },
         "SCHWAB_CALLBACK_URL",
       ],
       [
@@ -383,6 +383,22 @@ describe("getConfigHealth", () => {
       expect(schwabItem(environment)).toMatchObject({
         status: "degraded",
         missingVariables: [variable],
+      });
+    });
+
+    it("accepts the Flask's root callback only outside Vercel", () => {
+      const local = { ...READY, SCHWAB_CALLBACK_URL: "https://127.0.0.1:5000" };
+      expect(servesSchwabConnection(getConfigHealth(local))).toBe(true);
+
+      const production = {
+        ...local,
+        APP_RUNTIME_ACCESS: "protected",
+        VERCEL: "1",
+        VERCEL_ENV: "production",
+      };
+      expect(schwabItem(production)).toMatchObject({
+        status: "degraded",
+        missingVariables: ["SCHWAB_CALLBACK_URL"],
       });
     });
 

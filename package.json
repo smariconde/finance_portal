@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:https": "next dev --hostname 127.0.0.1 --port 3443 --experimental-https --experimental-https-key .certs/127.0.0.1-key.pem --experimental-https-cert .certs/127.0.0.1.pem",
+    "dev:https:5000": "next dev --hostname 127.0.0.1 --port 5000 --experimental-https --experimental-https-key .certs/127.0.0.1-key.pem --experimental-https-cert .certs/127.0.0.1.pem",
     "certs:local": "sh scripts/local-https-cert.sh",
     "dev:neon": "node --network-family-autoselection-attempt-timeout=2000 --env-file=.env.neon.local node_modules/next/dist/bin/next dev --hostname 127.0.0.1",
     "build": "next build",

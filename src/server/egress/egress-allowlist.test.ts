@@ -113,6 +113,31 @@ describe("egress allowlist", () => {
       }
     });
 
+    it("records rights accepted by the owner and never granted", () => {
+      // El acuerdo de la API no se leyó: `owner_accepted`, nunca `allowed`, y
+      // sólo para leer la cuenta propia (ADR 0076). Lo demás queda cerrado.
+      for (const sourceId of [
+        "schwab-oauth",
+        "schwab-trader",
+        "schwab-marketdata",
+      ]) {
+        const entry = DEMO_SOURCE_REGISTRY.find(
+          (candidate) => candidate.sourceId === sourceId,
+        );
+        expect(entry?.approvalStatus).toBe("approved_personal");
+        expect(entry?.rights).toEqual({
+          personalUse: "owner_accepted",
+          automatedAccess: "owner_accepted",
+          rawStorage: "restricted",
+          normalizedStorage: "owner_accepted",
+          derivedStorage: "owner_accepted",
+          publicDisplay: "restricted",
+          export: "restricted",
+          aiTransfer: "restricted",
+        });
+      }
+    });
+
     it("reaches the account, quotes, candles and market hours", () => {
       for (const [sourceId, url] of [
         ["schwab-oauth", "https://api.schwabapi.com/v1/oauth/token"],

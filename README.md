@@ -204,36 +204,37 @@ Definir variables en `.env.local` no habilita por sí solo una integración toda
 
 ## Comandos
 
-| Comando                                        | Uso                                                                                                                                |
-| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm dev`                                     | Inicia el servidor local con recarga en desarrollo.                                                                                |
-| `pnpm build`                                   | Genera y valida el build de producción.                                                                                            |
-| `pnpm start`                                   | Sirve un build de producción ya generado.                                                                                          |
-| `pnpm lint`                                    | Ejecuta ESLint sin permitir warnings.                                                                                              |
-| `pnpm typecheck`                               | Verifica TypeScript sin emitir archivos.                                                                                           |
-| `pnpm test`                                    | Ejecuta la suite unitaria una vez.                                                                                                 |
-| `pnpm test:integration`                        | Prueba migración y repositorio contra una base PostgreSQL dedicada.                                                                |
-| `pnpm test:e2e`                                | Gate E2E y de accesibilidad sobre un build servido en ambos modos.                                                                 |
-| `pnpm test:watch`                              | Ejecuta tests en modo interactivo.                                                                                                 |
-| `pnpm db:generate`                             | Genera SQL versionado desde el schema Drizzle.                                                                                     |
-| `pnpm db:migrate`                              | Aplica migraciones con `DATABASE_DIRECT_URL`.                                                                                      |
-| `pnpm db:trading:migrate`                      | Aplica `drizzle-trading/` con `TRADING_DATABASE_DIRECT_URL`. [Runbook](docs/runbooks/trading-database.md).                         |
-| `pnpm db:trading:audit`                        | Comprueba con la URL del runtime que el rol de la base de trading sea sólo DML.                                                    |
-| `pnpm test:integration:trading`                | Prueba el rol y el rollback de la base de trading contra su base de prueba.                                                        |
-| `pnpm db:up`                                   | Inicia el PostgreSQL local con las bases personal, de trading y sus bases de tests.                                                |
-| `pnpm db:down`                                 | Detiene PostgreSQL local sin borrar su volumen.                                                                                    |
-| `pnpm universe:constitute`                     | Constituye el universo S&P 500; dry run salvo `--apply`.                                                                           |
-| `pnpm fundamentals:ingest`                     | Ingiere companyfacts de la SEC por ticker; dry run salvo `--apply`.                                                                |
-| `pnpm corporate-actions:record`                | Verifica y registra las sucesiones de emisor declaradas; dry run salvo `--apply`.                                                  |
-| `pnpm corporate-actions:splits`                | Verifica y registra los splits de un ticker ya ingerido; dry run salvo `--apply`.                                                  |
-| `pnpm corporate-actions:listings`              | Reconcilia traspasos, delistings y renombres con evidencia fechada; dry run salvo `--apply`.                                       |
-| `pnpm corporate-actions:declare --file <path>` | Verifica una declaración de adquisición o ticker; dry run salvo `--apply`. [Runbook](docs/runbooks/declared-corporate-events.md).  |
-| `pnpm fundamentals:backfill`                   | Planea, crea y corre el backfill durable de companyfacts; dry run salvo `--apply`. [Runbook](docs/runbooks/ingestion-backfill.md). |
-| `pnpm ingestion:jobs`                          | Inspecciona jobs y leases; pausa, reanuda, cancela, reencola o libera con `--reason`; dry run salvo `--apply`.                     |
-| `pnpm fundamentals:prune`                      | Borra la historia fuera de la ventana y registra la poda; dry run salvo `--apply`. [Runbook](docs/runbooks/history-prune.md).      |
-| `pnpm ingestion:sources`                       | Presupuesto diario y kill switch por fuente; dry run salvo `--apply`. [Runbook](docs/runbooks/source-budgets.md).                  |
-| `pnpm format:check`                            | Comprueba el formato del repositorio.                                                                                              |
-| `pnpm format`                                  | Aplica Prettier a los archivos permitidos.                                                                                         |
+| Comando                                        | Uso                                                                                                                                                |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`                                     | Inicia el servidor local con recarga en desarrollo.                                                                                                |
+| `pnpm build`                                   | Genera y valida el build de producción.                                                                                                            |
+| `pnpm start`                                   | Sirve un build de producción ya generado.                                                                                                          |
+| `pnpm lint`                                    | Ejecuta ESLint sin permitir warnings.                                                                                                              |
+| `pnpm typecheck`                               | Verifica TypeScript sin emitir archivos.                                                                                                           |
+| `pnpm test`                                    | Ejecuta la suite unitaria una vez.                                                                                                                 |
+| `pnpm test:integration`                        | Prueba migración y repositorio contra una base PostgreSQL dedicada.                                                                                |
+| `pnpm test:e2e`                                | Gate E2E y de accesibilidad sobre un build servido en ambos modos.                                                                                 |
+| `pnpm test:watch`                              | Ejecuta tests en modo interactivo.                                                                                                                 |
+| `pnpm db:generate`                             | Genera SQL versionado desde el schema Drizzle.                                                                                                     |
+| `pnpm db:migrate`                              | Aplica migraciones con `DATABASE_DIRECT_URL`.                                                                                                      |
+| `pnpm dev:https`                               | Sirve el portal en `https://127.0.0.1:3443` para el callback de Schwab (antes, `pnpm certs:local`). [Runbook](docs/runbooks/schwab-connection.md). |
+| `pnpm db:trading:migrate`                      | Aplica `drizzle-trading/` con `TRADING_DATABASE_DIRECT_URL`. [Runbook](docs/runbooks/trading-database.md).                                         |
+| `pnpm db:trading:audit`                        | Comprueba con la URL del runtime que el rol de la base de trading sea sólo DML.                                                                    |
+| `pnpm test:integration:trading`                | Prueba el rol y el rollback de la base de trading contra su base de prueba.                                                                        |
+| `pnpm db:up`                                   | Inicia el PostgreSQL local con las bases personal, de trading y sus bases de tests.                                                                |
+| `pnpm db:down`                                 | Detiene PostgreSQL local sin borrar su volumen.                                                                                                    |
+| `pnpm universe:constitute`                     | Constituye el universo S&P 500; dry run salvo `--apply`.                                                                                           |
+| `pnpm fundamentals:ingest`                     | Ingiere companyfacts de la SEC por ticker; dry run salvo `--apply`.                                                                                |
+| `pnpm corporate-actions:record`                | Verifica y registra las sucesiones de emisor declaradas; dry run salvo `--apply`.                                                                  |
+| `pnpm corporate-actions:splits`                | Verifica y registra los splits de un ticker ya ingerido; dry run salvo `--apply`.                                                                  |
+| `pnpm corporate-actions:listings`              | Reconcilia traspasos, delistings y renombres con evidencia fechada; dry run salvo `--apply`.                                                       |
+| `pnpm corporate-actions:declare --file <path>` | Verifica una declaración de adquisición o ticker; dry run salvo `--apply`. [Runbook](docs/runbooks/declared-corporate-events.md).                  |
+| `pnpm fundamentals:backfill`                   | Planea, crea y corre el backfill durable de companyfacts; dry run salvo `--apply`. [Runbook](docs/runbooks/ingestion-backfill.md).                 |
+| `pnpm ingestion:jobs`                          | Inspecciona jobs y leases; pausa, reanuda, cancela, reencola o libera con `--reason`; dry run salvo `--apply`.                                     |
+| `pnpm fundamentals:prune`                      | Borra la historia fuera de la ventana y registra la poda; dry run salvo `--apply`. [Runbook](docs/runbooks/history-prune.md).                      |
+| `pnpm ingestion:sources`                       | Presupuesto diario y kill switch por fuente; dry run salvo `--apply`. [Runbook](docs/runbooks/source-budgets.md).                                  |
+| `pnpm format:check`                            | Comprueba el formato del repositorio.                                                                                                              |
+| `pnpm format`                                  | Aplica Prettier a los archivos permitidos.                                                                                                         |
 
 Antes de entregar un cambio:
 

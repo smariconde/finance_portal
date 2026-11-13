@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { schwabCallbackForm } from "@/modules/trading/domain/schwab-callback-url";
 import { parseTradingSecretKey } from "@/modules/trading/domain/trading-secret-key";
 
 import { parseDatabaseTarget, sameDatabaseTarget } from "./database-target";
@@ -61,8 +62,7 @@ const SCHWAB_VARIABLES = [
   "TRADING_SECRET_KEY",
 ] as const;
 
-/** El path que la app de Schwab tiene registrado como callback. */
-export const SCHWAB_CALLBACK_PATH = "/cuenta/schwab/callback";
+export { SCHWAB_CALLBACK_PATH } from "@/modules/trading/domain/schwab-callback-url";
 
 export type AppMode = z.infer<typeof appModeSchema>;
 export type AppRuntimeAccess = z.infer<typeof appRuntimeAccessSchema>;
@@ -336,22 +336,6 @@ function inspectTrading(
   };
 }
 
-function callbackProblem(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return (
-      url.protocol !== "https:" ||
-      url.pathname !== SCHWAB_CALLBACK_PATH ||
-      url.search !== "" ||
-      url.hash !== "" ||
-      url.username !== "" ||
-      url.password !== ""
-    );
-  } catch {
-    return true;
-  }
-}
-
 function inspectSchwab(
   environment: Environment,
   runtime: RuntimeResolution,
@@ -418,7 +402,9 @@ function inspectSchwab(
     ...(/^[A-Za-z0-9]{16,64}$/u.test(environment.SCHWAB_APP_KEY?.trim() ?? "")
       ? []
       : ["SCHWAB_APP_KEY"]),
-    ...(callbackProblem(environment.SCHWAB_CALLBACK_URL?.trim() ?? "")
+    ...(schwabCallbackForm(environment.SCHWAB_CALLBACK_URL, {
+      onVercel: environment.VERCEL === "1",
+    }) === null
       ? ["SCHWAB_CALLBACK_URL"]
       : []),
     ...(parseTradingSecretKey(environment.TRADING_SECRET_KEY).ok
@@ -431,7 +417,8 @@ function inspectSchwab(
       id: "schwab",
       label,
       status: "degraded",
-      message: `Valores inválidos: el callback tiene que ser HTTPS a ${SCHWAB_CALLBACK_PATH} y la clave, 32 bytes en base64.`,
+      message:
+        "Valores inválidos: el callback tiene que ser HTTPS al callback del portal (o la raíz de 127.0.0.1, sólo en local) y la clave, 32 bytes en base64.",
       missingVariables: invalid,
     };
   }
