@@ -1,6 +1,6 @@
 # ADR 0076: cuenta Schwab de solo lectura y diario de trading
 
-- Estado: propuesta; espera la aceptación del owner.
+- Estado: aceptada por el owner el 2026-11-13.
 - Fecha: 2026-11-13.
 - Alcance: enmienda [`01_PRODUCT_AND_SCOPE.md`](../../finance-portal-masterplan/01_PRODUCT_AND_SCOPE.md)
   para admitir la conexión de **lectura** a un broker; abre la Fase 11.
