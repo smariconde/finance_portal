@@ -112,7 +112,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    84 | `F9-08`    | `done`     | Perfiles y conciliación del INDEC ampliado; el catálogo visible se retiró después por falta de una pregunta de inversión.                                                                                                 |
 |    85 | `F9-16`    | `done`     | Posición del mayorista dentro de la banda del mismo día; conserva valores fuera del rango y ausencia con motivo.                                                                                                          | `F9-03`          |
 |    86 | `F9-17`    | `done`     | ITCRM diario del BCRA como índice real multilateral con historia, base, metodología y vintages observadas; lectura sin señal de inversión. Carga y comprobación en Production diferidas por el owner.                     | `F9-16`          |
-|    87 | `F9-18`    | `ready`    | REM mensual contra IPC observado: pronóstico fechado para el mes correcto, error en puntos porcentuales y corte anterior a la publicación del dato.                                                                       | `F9-17`, `F9-01` |
+|    87 | `F9-18`    | `done`     | REM mensual contra IPC observado: pronóstico fechado para el mes correcto, error en puntos porcentuales y corte anterior a la publicación del dato.                                                                       | `F9-17`, `F9-01` |
 |    88 | `F9-19`    | `queued`   | Decidir la fuente, definición, procedencia y derechos del riesgo país en una ADR antes de autorizar ingesta o gráfico.                                                                                                    | `F9-18`          |
 |    89 | `F9-09`    | `queued`   | Composición del comercio exterior del INDEC por rubro, uso y destino, con las celdas suprimidas contadas y nunca rellenadas.                                                                                              |
 |    90 | `F9-10`    | `queued`   | Producción de petróleo y gas por pozo (Capítulo IV) agregada por empresa y cuenca, enlazada a las entidades del grafo.                                                                                                    |
@@ -6867,6 +6867,15 @@ E2E/accesibilidad y Preview del PR #120 pasaron en el commit `5e8c672`.
 El owner aclaró que **no** se inicia `F9-19` en esta sesión; su análisis queda
 para otra. **Estado:** `ready`; entrega de código lista, publicación y comprobación
 de datos Production diferidas.
+
+**Cierre de `F9-18`, 2026-11-13 (owner):** se cierra como `F9-17`: código
+integrado, carga local comprobada y verificación en Production diferida, sin
+declararla realizada. La cuota de transferencia de Neon se renueva el
+2026-12-01 a las 00:00 UTC; los pasos para publicar y comprobar REM e ITCRM
+están en el [runbook de cargas diferidas](../runbooks/deferred-production-loads.md).
+`F9-19` queda `queued`: el owner priorizó una fase de cuenta Schwab de solo
+lectura y diario de trading, que entra con su propia ADR. **Estado:** `done`;
+datos Production diferidos.
 Antes de cada gráfico, registrar pregunta, decisión a la que ayuda, series
 mínimas, cálculo, límites de interpretación y fuente de cada pata. El IPC
 nacional ya disponible permite deflactar; regiones, divisiones, canastas,
