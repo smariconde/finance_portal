@@ -1,6 +1,6 @@
 # ADR 0075: Pronósticos REM por publicación y mes objetivo
 
-- Estado: aceptada para `F9-18`, implementación en progreso.
+- Estado: aceptada para `F9-18`; código validado, publicación de datos en Production diferida.
 - Fecha: 2026-11-12.
 - Relacionadas: [ADR 0065](0065-bcra-monetary-catalog-vintages.md),
   [ADR 0069](0069-argentina-activity-fiscal-external.md) y
