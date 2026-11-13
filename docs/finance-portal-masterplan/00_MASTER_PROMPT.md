@@ -120,7 +120,7 @@ Construye un vertical slice desplegable:
 - tests unitarios del dominio, contract tests del fake y un E2E del flujo demo;
 - despliegue de preview o instrucciones exactas si falta autorizacion para desplegar.
 
-No integres una API real hasta que el contrato y los tests con fixtures esten aprobados. No agregues login, cuentas, roles, multi-tenancy, BYOK, pagos, portfolios sociales, noticias genericas, trading ni RAG vectorial. Auth de aplicacion solo se reconsidera si el owner cambia expresamente el alcance.
+No integres una API real hasta que el contrato y los tests con fixtures esten aprobados. No agregues login, cuentas, roles, multi-tenancy, BYOK, pagos, portfolios sociales, noticias genericas, ejecucion de ordenes ni RAG vectorial. La lectura de la cuenta Schwab del owner entra con la [ADR 0076](../architecture/adr/0076-schwab-read-only-account-trading-journal.md). Auth de aplicacion solo se reconsidera si el owner cambia expresamente el alcance.
 
 No ejecutes Fase 0 y Fase 1 en la misma sesion. Dentro de cada una sigue los slices y estados de `06_PHASED_ROADMAP.md`.
 

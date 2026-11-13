@@ -48,6 +48,7 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 
 ## Documentos derivados
 
+- [`../architecture/adr/0076-schwab-read-only-account-trading-journal.md`](../architecture/adr/0076-schwab-read-only-account-trading-journal.md): cuenta Schwab de solo lectura y diario de trading, en una base Neon aparte; las órdenes quedan inalcanzables por construcción.
 - [`../architecture/adr/0075-bcra-rem-release-forecasts.md`](../architecture/adr/0075-bcra-rem-release-forecasts.md): ronda y mes objetivo del REM, fecha de publicación, comparación con IPC observado y límites del libro histórico.
 - [`../architecture/adr/0074-bcra-itcrm-history.md`](../architecture/adr/0074-bcra-itcrm-history.md): fuente oficial del ITCRM, lectura de la planilla, revisiones observadas y límites de interpretación.
 - [`../architecture/adr/0057-neon-hosted-postgres.md`](../architecture/adr/0057-neon-hosted-postgres.md): Neon elegido para PostgreSQL personal; configuración del CLI/MCP, conexiones separadas y traslado verificable de la base.
