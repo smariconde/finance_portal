@@ -58,6 +58,8 @@ export const SOURCE_DAILY_REQUEST_BUDGETS: Readonly<Record<string, number>> =
     "bcra-cambiarias-v1": 100,
     // One official workbook per manual run; ten permit checking revisions.
     "bcra-itcrm-xlsx": 10,
+    // One verified release needs its publication page and its workbook.
+    "bcra-rem-release": 10,
     // Cinco series declaradas; una primera carga y varias revisiones manuales.
     "argentina-series-tiempo": 50,
     // El INDEC no publica su cuota (la FAQ remite a los términos, que no la

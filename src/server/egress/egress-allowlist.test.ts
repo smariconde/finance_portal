@@ -20,6 +20,7 @@ describe("egress allowlist", () => {
         "comafi-cedear",
         "caja-valores-cedear",
         "bcra-itcrm-xlsx",
+        "bcra-rem-release",
         "bcra-monetarias-v4",
         "bcra-cambiarias-v1",
         "argentina-series-tiempo",
@@ -46,6 +47,22 @@ describe("egress allowlist", () => {
     expect(
       authorizeEgressUrl(
         "https://www.bcra.gob.ar/archivos/Pdfs/PublicacionesEstadisticas/otra-serie.xlsx",
+        source,
+      ).allowed,
+    ).toBe(false);
+  });
+
+  it("limits REM egress to the verified October page and workbook", () => {
+    const source = findEgressAllowlistEntry("bcra-rem-release")!;
+    expect(source.maxRedirects).toBe(0);
+    for (const url of [
+      "https://www.bcra.gob.ar/publicaciones/relevamiento-de-expectativas-de-mercado-rem-octubre-de-2026/",
+      "https://www.bcra.gob.ar/archivos/Pdfs/PublicacionesEstadisticas/informes/relevamiento-expectativas-mercado-tablas-2026-10.xlsx",
+    ])
+      expect(authorizeEgressUrl(url, source).allowed).toBe(true);
+    expect(
+      authorizeEgressUrl(
+        "https://www.bcra.gob.ar/archivos/Pdfs/PublicacionesEstadisticas/informes/relevamiento-expectativas-mercado-tablas-2026-09.xlsx",
         source,
       ).allowed,
     ).toBe(false);

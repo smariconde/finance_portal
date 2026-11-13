@@ -112,7 +112,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    84 | `F9-08`    | `done`     | Perfiles y conciliación del INDEC ampliado; el catálogo visible se retiró después por falta de una pregunta de inversión.                                                                                                 |
 |    85 | `F9-16`    | `done`     | Posición del mayorista dentro de la banda del mismo día; conserva valores fuera del rango y ausencia con motivo.                                                                                                          | `F9-03`          |
 |    86 | `F9-17`    | `done`     | ITCRM diario del BCRA como índice real multilateral con historia, base, metodología y vintages observadas; lectura sin señal de inversión. Carga y comprobación en Production diferidas por el owner.                     | `F9-16`          |
-|    87 | `F9-18`    | `ready`    | REM mensual contra IPC observado: pronóstico fechado para el mes correcto, error en puntos porcentuales y corte anterior a la publicación del dato.                                                                       | `F9-17`, `F9-01` |
+|    87 | `F9-18`    | `done`     | REM mensual contra IPC observado: pronóstico fechado para el mes correcto, error en puntos porcentuales y corte anterior a la publicación del dato.                                                                       | `F9-17`, `F9-01` |
 |    88 | `F9-19`    | `queued`   | Decidir la fuente, definición, procedencia y derechos del riesgo país en una ADR antes de autorizar ingesta o gráfico.                                                                                                    | `F9-18`          |
 |    89 | `F9-09`    | `queued`   | Composición del comercio exterior del INDEC por rubro, uso y destino, con las celdas suprimidas contadas y nunca rellenadas.                                                                                              |
 |    90 | `F9-10`    | `queued`   | Producción de petróleo y gas por pozo (Capítulo IV) agregada por empresa y cuenca, enlazada a las entidades del grafo.                                                                                                    |
@@ -6784,6 +6784,98 @@ Neon Production quedan **diferidas**, sin declararlas realizadas ni bloquear
 sola vez y contrastar cantidad, extremos y lectura del tablero; la cuota se
 renueva el 2026-12-01 a las 00:00 UTC. No se usa el despliegue del código como
 evidencia de que los datos existen en Production.
+
+**Inicio de `F9-18`, 2026-11-12:** la [ADR 0075](../architecture/adr/0075-bcra-rem-release-forecasts.md)
+separa la ronda del mes objetivo y exige la fecha pública de cada edición.
+El parser de la planilla individual de octubre de 2026 se cotejó contra el
+archivo oficial: siete medianas mensuales, de octubre de 2026 a abril de 2027.
+El parser de la página de octubre de 2026 verificó la fecha 2026-11-05 y el
+enlace exacto a su XLSX; la disponibilidad conservadora es 2026-11-06 03:00 UTC.
+La fórmula `rem-inflation-error-1.0.0` rechaza pronósticos publicados después
+del IPC, meses o unidades distintos, valores faltantes y no finitos. Pasaron
+siete pruebas de dominio y tipos. **Estado parcial:** faltan la ingesta medida,
+persistencia, lectura point-in-time e interfaz; no hay datos REM publicados ni
+llamadas a Neon.
+
+**`F9-18`, segundo incremento, 2026-11-12:** el adaptador de la edición de
+octubre de 2026 exige la página oficial, fecha de publicación y enlace exacto
+antes de bajar la planilla. La allowlist sólo abre esos dos recursos, con diez
+requests por día y 2 MB por respuesta; un cambio de schema, `429` o `503`
+detiene la publicación. La rights row está en `rights_review_pending`, por lo
+que la fuente real no abre red. Fixtures sintéticas prueban el camino y los
+rechazos. **Estado:** `in_progress`; persisten como próximos pasos la decisión
+del owner sobre derechos, la persistencia, lectura histórica e interfaz.
+
+**`F9-18`, tercer incremento, 2026-11-12:** migración `0050` y
+`pnpm rem:ingest --round 2026-10` preparan la publicación de una edición
+declarada. Cada `(ronda, mes objetivo)` conserva revisiones; la corrección
+observada después toma nueva disponibilidad y la corrida y sus filas se
+publican en una transacción. La lectura `as_known` exige elegir
+`public_availability` o `system_recorded`, y la segunda oculta una ingesta
+tardía. La prueba con PostgreSQL local cubre duplicados, revisiones, ambas
+bases y rollback; no se descargó ni publicó REM real. **Estado:**
+`in_progress`; faltan derechos aprobados, contraste de la última edición,
+enlace con IPC nacional y bloque de `/argentina`. La migración no se aplica a
+Neon antes del gate de snapshot del PR.
+
+**`F9-18`, cuarto incremento, 2026-11-12:**
+`ipc-monthly-index-change-1.0.0` obtiene la inflación mensual de dos niveles
+consecutivos del IPC nacional del INDEC, en la misma base, con disponibilidad
+de la última pata. Rechaza índice faltante, cero, negativo, no finito o base
+distinta. La lectura junta esa cifra con la última ronda REM visible y aplica
+`rem-inflation-error-1.0.0` sólo al mismo mes objetivo. Las pruebas de dominio
+fijan el caso antes y después de conocer el IPC. El bloque de `/argentina`
+permanece sin publicar por el gate de derechos de la ADR 0075. Lint, tipos,
+formato y `git diff --check` pasan; el build de producción con webpack pasa.
+Turbopack sigue fallando al abrir el puerto local de PostCSS, incluso fuera del
+sandbox, antes de compilar los cambios. No se usó Neon.
+
+**`F9-18`, ingesta y lectura visual local, 2026-11-13:** el owner aprobó uso
+personal del REM, dos requests por edición y guardar sólo medianas normalizadas;
+la ADR 0075 y la rights row registran ese límite. La edición de octubre de
+2026 se cotejó en seco y se publicó en PostgreSQL local: siete meses objetivo,
+publicación BCRA del 5 de noviembre, dos requests y 158.118 bytes. La CLI
+verifica que la tabla exista antes de abrir red. `/argentina` presenta la ronda,
+los meses y la diferencia en pp cuando ambas patas estén disponibles. Aunque
+INDEC publicó el IPC nacional de octubre el 12 de noviembre, su API seguía
+entregando como último mes septiembre al probarla el 13 de noviembre: la
+comparación muestra «Pendiente», sin inventar un valor ni cambiar de fuente.
+`pnpm test` (3.785), lint, tipos, formato y build webpack pasan; el build dentro
+del sandbox falla al obtener `tsc --showConfig`, pero fuera compila. El mismo
+artefacto pasó 238 E2E (3 omitidas), y la revisión local a 1440/390 px no mostró
+desborde; axe sobre la sección nueva no halló violaciones. No se usó Neon.
+**Estado:** `in_progress` hasta CI y publicación protegida del PR.
+
+**Decisión del owner, 2026-11-13:** se difieren las pruebas y la carga de
+`F9-18` en Neon Production hasta disponer de cuota. Quality, E2E/accesibilidad
+y Preview del [PR borrador #120](https://github.com/smariconde/finance_portal/pull/120)
+pasaron; la ingesta y la lectura sólo están comprobadas en PostgreSQL local.
+La migración `0050` todavía no se había aplicado a Neon en ese momento y el PR
+no se integraba mientras faltaran snapshot, migración previa al merge y
+`db:status:neon` sin pendientes. Preview no prueba datos Production. Si la cuota
+sigue siendo un límite tras optimizar las lecturas, evaluar primero un proyecto
+Neon nuevo en la misma cuenta: Free declara 5 GB de transferencia por proyecto
+y 1 GB de almacenamiento por proyecto. Eso requeriría un traslado verificado
+de datos y conexiones; no se creó proyecto ni cuenta nuevos en esta sesión.
+
+**Cierre de `F9-18`, 2026-11-13:** a pedido del owner se integra el código
+validado sin adelantar la carga ni las pruebas con datos REM en Production.
+Antes del merge se creó y verificó en Neon `production` el snapshot manual
+`pre-f9-18-0050-2026-11-13` (2026-11-13 18:36 UTC), se aplicó la migración
+aditiva `0050` y `pnpm db:status:neon` confirmó 51 de 51. Quality,
+E2E/accesibilidad y Preview del PR #120 pasaron en el commit `5e8c672`.
+El owner aclaró que **no** se inicia `F9-19` en esta sesión; su análisis queda
+para otra. **Estado:** `ready`; entrega de código lista, publicación y comprobación
+de datos Production diferidas.
+
+**Cierre de `F9-18`, 2026-11-13 (owner):** se cierra como `F9-17`: código
+integrado, carga local comprobada y verificación en Production diferida, sin
+declararla realizada. La cuota de transferencia de Neon se renueva el
+2026-12-01 a las 00:00 UTC; los pasos para publicar y comprobar REM e ITCRM
+están en el [runbook de cargas diferidas](../runbooks/deferred-production-loads.md).
+`F9-19` queda `queued`: el owner priorizó una fase de cuenta Schwab de solo
+lectura y diario de trading, que entra con su propia ADR. **Estado:** `done`;
+datos Production diferidos.
 Antes de cada gráfico, registrar pregunta, decisión a la que ayuda, series
 mínimas, cálculo, límites de interpretación y fuente de cada pata. El IPC
 nacional ya disponible permite deflactar; regiones, divisiones, canastas,
