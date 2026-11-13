@@ -11,6 +11,7 @@ Todas las secciones siguientes pertenecen a la vision objetivo, pero no se const
 ## Usuario y operacion
 
 - El owner es un inversor argentino que analiza acciones globales accesibles mediante CEDEAR, compara fundamentales, valora empresas y sigue el regimen macro local.
+- Tambien opera acciones de EE.UU. en una cuenta Schwab, swing y day trading, siempre a mano desde thinkorswim. El portal lee esa cuenta y lleva el diario; nunca manda ordenes ([ADR 0076](../architecture/adr/0076-schwab-read-only-account-trading-journal.md)).
 - El repositorio puede ser publico como portfolio tecnico; las claves, la base y los datos reales no forman parte del repositorio.
 - La instancia live se usa en localhost o en un deployment protegido por la plataforma. La URL publica, si existe, funciona exclusivamente como demo con fixtures.
 - No existe onboarding de terceros ni aislamiento entre usuarios.
@@ -23,6 +24,7 @@ Todas las secciones siguientes pertenecen a la vision objetivo, pero no se const
 4. Seguir una empresa elegida: "como evolucionaron EPS, ventas, margen, capitalizacion y acciones diluidas en 2/5 anos".
 5. Entender Argentina: "que dicen reservas, liquidez, inflacion, actividad, sector externo y soja".
 6. Auditar: "de donde salio cada dato, de que fecha es y que transformacion recibio".
+7. Seguir mis trades: "que tengo abierto y cuanto arriesgo, cuanto gane o perdi hoy, y con que setups me va mejor".
 
 ## Navegacion objetivo
 
@@ -33,6 +35,9 @@ Todas las secciones siguientes pertenecen a la vision objetivo, pero no se const
 - `/valuacion`: selector/buscador y valuaciones recientes.
 - `/valuacion/[symbol]`: wizard automatico, supuestos, escenarios y resultados.
 - `/argentina`: tablero por bloques, no una pared de graficos.
+- `/cuenta`: la cuenta Schwab leida al momento: posiciones, saldos, poder de compra y ordenes abiertas, con su hora y sin controles de orden.
+- `/diario`: P&L del dia, calendario, trades con sus notas y estadisticas en R.
+- `/aprender`: lecciones de analisis tecnico, cada setup atado a una etiqueta del diario.
 - `/metodologia`: formulas, fuentes, cobertura, limitaciones y changelog.
 - `/configuracion`: health, consumo de cuota, freshness, refresh manual y preferencias del owner.
 
@@ -92,10 +97,10 @@ Cada bloque termina con "por que importa", "que cambio" y "que podria invalidar 
 
 - Screener general del universo: constructor de filtros, presets y ratios fundamentales sobre todas las empresas. Para eso se usa Finviz gratuito, de forma manual ([ADR 0016](../architecture/adr/0016-analysis-scope-sector-matrices.md)).
 - Carga de fundamentals de todo el universo y valuacion por lote.
-- Ejecucion de ordenes, conexion a broker o custodia.
+- Ejecucion de ordenes, automatizacion de trading y custodia. La conexion de **lectura** a la cuenta Schwab del owner entra con la [ADR 0076](../architecture/adr/0076-schwab-read-only-account-trading-journal.md).
 - Recomendaciones personales basadas en patrimonio o tolerancia al riesgo.
 - Portfolios sociales, copy trading, pagos y suscripciones.
-- Datos tick-by-tick o promesa de tiempo real.
+- Datos tick-by-tick o promesa de tiempo real. La cuenta muestra posiciones y cotizaciones leidas al momento, con su hora visible.
 - Chat general que responda sin fuentes.
 - RAG/vector database antes de demostrar una necesidad real.
 - App movil nativa.
