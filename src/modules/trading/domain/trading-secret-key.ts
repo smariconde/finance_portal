@@ -12,7 +12,8 @@ import { hkdfSync } from "node:crypto";
  */
 export const TRADING_KEY_DERIVATION_VERSION = "trading-key-derivation-1.0.0";
 
-export type TradingKeyUse = "schwab-token-encryption" | "account-hmac";
+export type TradingKeyUse =
+  "schwab-token-encryption" | "account-hmac" | "quote-scope";
 
 const KEY_BYTES = 32;
 const SALT = Buffer.from("portal-financiero/trading", "utf8");

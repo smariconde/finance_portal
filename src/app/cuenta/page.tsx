@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
 import {
@@ -44,16 +45,22 @@ import type {
 } from "@/modules/trading/application/schwab-connection-store";
 import type { SchwabConnectionStatus } from "@/modules/trading/domain/schwab-connection-status";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
+import { safeErrorSummary } from "@/server/trading/safe-error";
 import {
   getSchwabRuntime,
   schwabRightsBlockedBy,
 } from "@/server/trading/schwab-connection";
 
 import { ConnectSchwabButton } from "./_components/connect-schwab-button";
+import {
+  LiveAccountSection,
+  LiveAccountSkeleton,
+} from "./_components/live-account-section";
 
 export const metadata: Metadata = {
   title: "Cuenta | Portal Financiero",
-  description: "Conexión de lectura con la cuenta Schwab del owner.",
+  description:
+    "Cuenta Schwab del owner en modo lectura: saldos, posiciones y órdenes abiertas.",
 };
 
 /** Ver [ADR 0005](../../../docs/architecture/adr/0005-request-time-runtime-boundary.md). */
@@ -170,8 +177,9 @@ function PageHeader() {
         Cuenta
       </h1>
       <p className="max-w-3xl text-sm text-muted-foreground md:text-base">
-        Conexión de lectura con tu cuenta Schwab. El portal no envía, modifica
-        ni cancela órdenes: sus fuentes sólo leen, y la app de Schwab tiene un
+        Tu cuenta Schwab en modo lectura: saldos, poder de compra, posiciones y
+        órdenes abiertas, leídos al momento. El portal no envía, modifica ni
+        cancela órdenes: sus fuentes sólo leen, y la app de Schwab tiene un
         límite de cero órdenes.
       </p>
     </section>
@@ -442,12 +450,8 @@ export default async function AccountPage({
       ]);
       reading = { status, events };
     } catch (error) {
-      // Sólo el tipo: el mensaje puede traer host o SQL (`TM-02`).
-      console.error(
-        "account read failed",
-        failure,
-        error instanceof Error ? error.name : typeof error,
-      );
+      // Tipo y código del driver; el mensaje puede traer host o SQL (`TM-02`).
+      console.error("account read failed", failure, safeErrorSummary(error));
     }
 
     body =
@@ -455,6 +459,12 @@ export default async function AccountPage({
         <TradingDatabaseUnavailable reference={failure} />
       ) : (
         <>
+          {reading.status.status === "connected" ||
+          reading.status.status === "expiring" ? (
+            <Suspense fallback={<LiveAccountSkeleton />}>
+              <LiveAccountSection />
+            </Suspense>
+          ) : null}
           <ConnectionCard
             status={reading.status}
             now={now}

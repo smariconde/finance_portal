@@ -7,6 +7,7 @@ import { cookies } from "next/headers";
 import { servesSchwabConnection } from "@/modules/configuration/domain/config-health";
 import { completeSchwabConnection } from "@/modules/trading/application/schwab-connection-service";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
+import { safeErrorSummary } from "@/server/trading/safe-error";
 import { getSchwabRuntime } from "@/server/trading/schwab-connection";
 
 import {
@@ -71,12 +72,9 @@ export async function GET(request: Request): Promise<Response> {
     console.info("schwab callback", requestId, outcome);
     return back(outcome, outcome === "connected" ? undefined : requestId);
   } catch (error) {
-    // Ni el código ni el `state` ni el mensaje: sólo el tipo (`TM-02`).
-    console.error(
-      "schwab callback failed",
-      requestId,
-      error instanceof Error ? error.name : typeof error,
-    );
+    // Ni el código ni el `state` ni el mensaje: el tipo y el código del
+    // driver (`TM-02`).
+    console.error("schwab callback failed", requestId, safeErrorSummary(error));
     return back("error", requestId);
   }
 }

@@ -1,6 +1,6 @@
 # Conexión con Schwab
 
-- Estado: procedimiento de `F11-03`
+- Estado: procedimiento de `F11-03` y `F11-04`
 - Decisión: [ADR 0076](../architecture/adr/0076-schwab-read-only-account-trading-journal.md),
   secciones 2, 5, 6 y 7 y su enmienda del 2026-11-13
 - Relacionados: [base de trading](trading-database.md) y
@@ -128,8 +128,50 @@ callback del Flask:
 | «Login vencido»                 | Pasaron 7 días. Reconectar; no hay forma automática.                                                                                                           |
 | `refresh_failed` en el registro | Schwab rechazó la renovación, la puerta no tenía cuota o el sobre no abre (otra `TRADING_SECRET_KEY`). Reconectar.                                             |
 
-El kill switch de las fuentes de Schwab vive en la base de trading y su
-comando llega con `F11-04`. `pnpm ingestion:sources` escribe en la base de
-análisis y se niega con una fuente `schwab-*`, para que nadie crea que la
-apagó. Mientras tanto, se frena todo pedido a Schwab quitando
-`SCHWAB_APP_SECRET` del entorno: la puerta se niega con `credential_missing`.
+## Cuenta en vivo
+
+Con la conexión vigente, `/cuenta` lee la cuenta en el request y después la
+relee desde el navegador, sólo con la página visible:
+
+| Qué                         | En sesión de Nueva York | Fuera de sesión | Pedidos                  |
+| --------------------------- | ----------------------- | --------------- | ------------------------ |
+| Cuenta (saldos, posiciones) | cada 60 s               | cada 5 min      | 4 de `schwab-trader`     |
+| Cotizaciones                | cada 15 s               | cada 5 min      | 1 de `schwab-marketdata` |
+
+- **Qué se lee.** Saldos, poder de compra overnight (disponible para operar)
+  e intradía (tal cual lo informa Schwab), posiciones y órdenes abiertas. Nada
+  de eso se guarda.
+- **Cotizaciones.** Sólo de acciones y ETFs abiertos, por un alcance que firma
+  el servidor. Sin posiciones no se pide ninguna.
+- **LIVE/STALE.** LIVE hasta dos períodos de la cadencia. Si una lectura
+  falla, queda en pantalla la anterior con su hora, marcada STALE, y el motivo.
+- **Cruce.** Valuación, sector y CEDEAR salen de la base de análisis. Si no
+  responde, la cuenta se ve igual y la tabla lo dice.
+- **Órdenes.** Todas las de 7 días y las activas de hasta 60. Una GTC más
+  vieja no aparece.
+
+Lo que puede mostrar en lugar de la cuenta:
+
+| Mensaje                      | Causa y salida                                                                                      |
+| ---------------------------- | --------------------------------------------------------------------------------------------------- |
+| «Sin acceso a la cuenta»     | No hay token: sin conectar, login vencido o renovación fallida. Reconectar.                         |
+| «Schwab rechazó el token»    | `http_401`. Reconectar.                                                                             |
+| «Se agotó la cuota del día»  | Tope de 3.000 o 2.000 cumplido. Se repone a las 0 h UTC; ver el consumo con `pnpm trading:sources`. |
+| «Cuenta de margen sin medir» | Schwab informa `MARGIN`. Medir sus saldos y declarar el parser antes de mostrarla.                  |
+| «Schwab cambió el formato»   | Un parser cerrado rechazó la respuesta. El log tiene el código; medir la forma nueva.               |
+| «Schwab no respondió»        | La puerta cortó (`egress_*`). La página reintenta en la próxima lectura.                            |
+
+## Cuota y kill switch
+
+La cuota y el kill switch de las fuentes de Schwab viven en la base de
+trading:
+
+```bash
+pnpm trading:sources                                                  # consumo y controles
+pnpm trading:sources --source schwab-trader --disable --reason "…" --apply
+pnpm trading:sources --source schwab-trader --enable --reason "…" --apply
+```
+
+`pnpm ingestion:sources` escribe en la base de análisis y se niega con una
+fuente `schwab-*`; `trading:sources` se niega con cualquier otra. Quitar
+`SCHWAB_APP_SECRET` del entorno sigue frenando la renovación del token.
