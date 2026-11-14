@@ -31,8 +31,14 @@ import { tradingSessionOf } from "./trading-session";
  *
  * El multiplicador sólo viaja para mostrar y para R (`F11-06`); nunca reescala
  * un importe de Schwab.
+ *
+ * - **Realizado por salida** (`1.1.0`, `F11-06`): cada salida lleva lo que
+ *   realizó, su neto más el costo FIFO de los lotes que consumió, al centavo. La
+ *   salida que cierra el ciclo se lleva el resto, así que las salidas de un
+ *   trade cerrado suman exactamente su P&L, y lo realizado de uno abierto es la
+ *   suma de sus salidas. Es lo que reparte el P&L por sesión.
  */
-export const ROUND_TRIP_VERSION = "trade-round-trip-fifo-1.0.0";
+export const ROUND_TRIP_VERSION = "trade-round-trip-fifo-1.1.0";
 
 export class RoundTripError extends Error {
   constructor(
@@ -85,6 +91,11 @@ export type FillPortion = {
   readonly price: string;
   readonly netAmount: string;
   readonly executedAt: string;
+  /**
+   * Una salida: lo que realizó, al centavo. Una entrada, o una salida sin
+   * entrada a la vista: `null`.
+   */
+  readonly realizedPnl: string | null;
 };
 
 export type RoundTrip = {
@@ -113,8 +124,8 @@ export type RoundTrip = {
   /** Promedio ponderado de las salidas; `null` sin salidas. */
   readonly averageExitPrice: string | null;
   /**
-   * Cerrado: suma de los `netAmount`. Abierto: lo realizado por FIFO. `null` si
-   * la entrada es anterior a la historia.
+   * Cerrado: suma de los `netAmount`. Abierto: la suma de lo realizado por sus
+   * salidas. `null` si la entrada es anterior a la historia.
    */
   readonly realizedPnl: string | null;
   /** `null` si alguna ejecución no separa comisiones. */
@@ -191,12 +202,8 @@ function finish(cycle: OpenCycle, closedAt: string | null): RoundTrip {
     openQuantity: formatDecimal(openQuantity, path),
     averageEntryPrice: weightedAverage(opens, path),
     averageExitPrice: weightedAverage(closes, path),
-    realizedPnl: formatDecimal(
-      closed
-        ? sum(cycle.portions.map((p) => parseDecimal(p.netAmount, path)))
-        : cycle.realized,
-      path,
-    ),
+    // Cerrado, es la suma de los `netAmount` por construcción de la última salida.
+    realizedPnl: formatDecimal(cycle.realized, path),
     fees: cycle.feesKnown ? formatDecimal(cycle.fees, path) : null,
     portions: cycle.portions,
   };
@@ -279,7 +286,15 @@ export function buildRoundTrips(fills: readonly TradeFill[]): RoundTrip[] {
         toClose = toClose.minus(used);
         if (lot.quantity.isZero()) cycle.lots.shift();
       }
-      cycle.realized = cycle.realized.plus(part.net).plus(cost);
+      // La salida que cierra el ciclo se lleva el resto: el trade cerrado suma
+      // exactamente sus `netAmount`, sin el redondeo de las salidas previas.
+      const realized =
+        cycle.lots.length === 0
+          ? sum(cycle.portions.map((p) => parseDecimal(p.netAmount, path)))
+              .plus(part.net)
+              .minus(cycle.realized)
+          : parseDecimal(toFixedScale(part.net.plus(cost), CENTS, path), path);
+      cycle.realized = cycle.realized.plus(realized);
       cycle.portions.push({
         fillId: fill.fillId,
         side: fill.side,
@@ -288,6 +303,7 @@ export function buildRoundTrips(fills: readonly TradeFill[]): RoundTrip[] {
         price: fill.price,
         netAmount: formatDecimal(part.net, path),
         executedAt: fill.executedAt,
+        realizedPnl: formatDecimal(realized, path),
       });
       if (part.fees === null) cycle.feesKnown = false;
       else cycle.fees = cycle.fees.plus(part.fees);
@@ -342,6 +358,7 @@ export function buildRoundTrips(fills: readonly TradeFill[]): RoundTrip[] {
       price: fill.price,
       netAmount: formatDecimal(part.net, path),
       executedAt: fill.executedAt,
+      realizedPnl: null,
     });
     if (part.fees === null) cycle.feesKnown = false;
     else cycle.fees = cycle.fees.plus(part.fees);
@@ -395,6 +412,7 @@ function beforeHistory(
         price: fill.price,
         netAmount: formatDecimal(net, path),
         executedAt: fill.executedAt,
+        realizedPnl: null,
       },
     ],
   };

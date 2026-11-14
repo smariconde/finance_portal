@@ -146,7 +146,11 @@ export default async function JournalPage() {
       {reading.account === null ? (
         <FirstLoad />
       ) : (
-        <JournalView trades={reading.trades} summary={reading.summary} />
+        <JournalView
+          trades={reading.trades}
+          summary={reading.summary}
+          calendar={reading.calendar}
+        />
       )}
     </Shell>
   );

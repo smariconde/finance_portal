@@ -34,9 +34,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
+import type { CalendarBook } from "@/modules/trading/domain/daily-pnl";
 import type { JournalSummary } from "@/modules/trading/domain/journal";
 import type { RoundTrip } from "@/modules/trading/domain/trade-round-trips";
+
+import { Money } from "./pnl-values";
+import { SessionCalendar } from "./session-calendar";
+import { TodayStrip } from "./today-strip";
 
 type Filter = "all" | "day" | "swing" | "winners" | "losers" | "open";
 
@@ -73,31 +77,6 @@ function daysHeld(trade: RoundTrip): number | null {
   return Math.round(
     (Date.parse(trade.closedSession) - Date.parse(trade.openedSession)) /
       86_400_000,
-  );
-}
-
-function Money({
-  value,
-  signed = false,
-  className,
-}: {
-  readonly value: string | null;
-  readonly signed?: boolean;
-  readonly className?: string;
-}) {
-  if (value === null) return <span className="text-muted-foreground">—</span>;
-  const sign = signOf(value);
-  return (
-    <span
-      className={cn(
-        "numeric",
-        signed && sign > 0 && "text-emerald-700 dark:text-emerald-400",
-        signed && sign < 0 && "text-red-700 dark:text-red-400",
-        className,
-      )}
-    >
-      {signed ? formatSignedMoney(value) : formatMoney(value)}
-    </span>
   );
 }
 
@@ -517,12 +496,19 @@ function TradesTable({ trades }: { readonly trades: readonly RoundTrip[] }) {
 export function JournalView({
   trades,
   summary,
+  calendar,
 }: {
   readonly trades: readonly RoundTrip[];
   readonly summary: JournalSummary;
+  readonly calendar: CalendarBook;
 }) {
   return (
     <div className="flex flex-col gap-6">
+      <TodayStrip
+        session={calendar.today.session}
+        realized={calendar.today.pnl}
+      />
+      <SessionCalendar book={calendar} />
       <SummaryStrip summary={summary} />
       <PnlChart summary={summary} />
       <TradesTable trades={trades} />

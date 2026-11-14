@@ -190,6 +190,20 @@ minuto en sesión, cinco fuera):
   como HMAC (`schwab-account-key-1.0.0`). Otra `TRADING_SECRET_KEY` deja las
   transacciones guardadas bajo una cuenta que ya no se reconoce.
 
+## El día y el calendario
+
+`/diario` abre con la franja «Hoy» y el calendario por sesión de Nueva York
+(`F11-06`).
+
+- **Realizado y calendario:** se arman con las transacciones guardadas. No piden
+  nada a Schwab.
+- **Abierto:** lo lee `readOpenPnl` en 2 pedidos a `schwab-trader` al abrir el
+  diario y con el botón de releer. No hay polling.
+- **Total del día:** es `null` si falta lo abierto. Lo realizado solo no es el
+  día.
+- **R en «—»:** el trade no tiene stop planeado. El ⓘ dice cuántas salidas no lo
+  tienen.
+
 ## Cuota y kill switch
 
 La cuota y el kill switch de las fuentes de Schwab viven en la base de

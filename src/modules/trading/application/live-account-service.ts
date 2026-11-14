@@ -3,6 +3,11 @@ import type {
   EgressFetchResponse,
 } from "@/modules/ingestion/application/egress-fetch";
 import {
+  openDayPnl,
+  OPEN_DAY_PNL_VERSION,
+  type OpenDayPnl,
+} from "@/modules/trading/domain/open-day-pnl";
+import {
   issueQuoteScope,
   quotableSymbols,
   verifyQuoteScope,
@@ -123,7 +128,7 @@ export function liveFailureCode(error: unknown): string {
 }
 
 async function get(
-  dependencies: LiveAccountDependencies,
+  dependencies: Pick<LiveAccountDependencies, "egress">,
   sourceId: "schwab-trader" | "schwab-marketdata",
   url: string,
 ): Promise<EgressFetchResponse> {
@@ -160,9 +165,11 @@ export async function readLiveAccount(
   }
 }
 
-async function readUnguarded(
-  dependencies: LiveAccountDependencies,
-): Promise<LiveAccountReading> {
+async function readAccountNumber(
+  dependencies: Pick<LiveAccountDependencies, "egress">,
+): Promise<
+  { readonly accountNumber: string; readonly hashValue: string } | LiveFailure
+> {
   const numbersResponse = await get(
     dependencies,
     "schwab-trader",
@@ -180,7 +187,15 @@ async function readUnguarded(
   if (numbers.value.length > 1) {
     return { state: "failed", code: "multiple_accounts_not_measured" };
   }
-  const { accountNumber, hashValue } = numbers.value[0]!;
+  return numbers.value[0]!;
+}
+
+async function readUnguarded(
+  dependencies: LiveAccountDependencies,
+): Promise<LiveAccountReading> {
+  const number = await readAccountNumber(dependencies);
+  if ("state" in number) return number;
+  const { accountNumber, hashValue } = number;
 
   const to = new Date(dependencies.now());
   const [accountResponse, recentResponse, workingResponse] = await Promise.all([
@@ -260,6 +275,51 @@ async function readUnguarded(
       OPEN_ORDERS_WINDOW.version,
     ],
   };
+}
+
+export type OpenDayPnlReading =
+  | {
+      readonly state: "read";
+      readonly readAt: string;
+      readonly pnl: OpenDayPnl;
+      readonly versions: readonly string[];
+    }
+  | LiveFailure;
+
+/**
+ * Lo abierto del día para el diario (`F11-06`): dos `GET`, `accountNumbers` y la
+ * cuenta con posiciones, sin órdenes ni cotizaciones. Sale de la cuenta sólo la
+ * suma; ni el número ni las posiciones.
+ */
+export async function readOpenDayPnl(
+  dependencies: Pick<LiveAccountDependencies, "egress">,
+): Promise<OpenDayPnlReading> {
+  try {
+    const number = await readAccountNumber(dependencies);
+    if ("state" in number) return number;
+
+    const response = await get(
+      dependencies,
+      "schwab-trader",
+      `${TRADER}/${number.hashValue}?fields=positions`,
+    );
+    const failure = httpFailure(response);
+    if (failure !== null) return failure;
+
+    const account = parseSchwabAccount(response.body);
+    if (!account.ok) return { state: "failed", code: account.code };
+    if (account.value.accountNumber !== number.accountNumber) {
+      return { state: "failed", code: "account_number_mismatch" };
+    }
+    return {
+      state: "read",
+      readAt: response.fetchedAt,
+      pnl: openDayPnl(account.value.positions),
+      versions: [SCHWAB_ACCOUNT_PARSER_VERSION, OPEN_DAY_PNL_VERSION],
+    };
+  } catch (error) {
+    return { state: "failed", code: liveFailureCode(error) };
+  }
 }
 
 /**

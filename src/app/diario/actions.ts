@@ -4,11 +4,16 @@ import { z } from "zod";
 
 import { servesSchwabConnection } from "@/modules/configuration/domain/config-health";
 import {
+  readOpenDayPnl,
+  type OpenDayPnlReading,
+} from "@/modules/trading/application/live-account-service";
+import {
   syncSchwabTransactions,
   transactionsDue,
   type TransactionSyncResult,
 } from "@/modules/trading/application/transaction-sync-service";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
+import { getLiveAccountDependencies } from "@/server/trading/live-account";
 import { safeErrorSummary } from "@/server/trading/safe-error";
 import { getTransactionSyncDependencies } from "@/server/trading/transactions";
 
@@ -51,6 +56,35 @@ export async function syncTransactions(
     return result;
   } catch (error) {
     console.error("schwab transactions sync failed", safeErrorSummary(error));
+    return { state: "unavailable" };
+  }
+}
+
+const openPnlRequestSchema = z.object({}).strict();
+
+export type OpenPnlResult =
+  OpenDayPnlReading | { readonly state: "unavailable" };
+
+/**
+ * Lo abierto del día para la franja «Hoy» (`F11-06`, `open-day-pnl-1.0.0`): dos
+ * `GET` por la puerta medida, al abrir el diario y cuando el owner lo pide. La
+ * respuesta es la suma de Schwab y su hora, nunca posiciones ni la cuenta.
+ */
+export async function readOpenPnl(input: unknown): Promise<OpenPnlResult> {
+  const health = await getRequestConfigHealth();
+  if (!servesSchwabConnection(health)) return { state: "unavailable" };
+  if (!openPnlRequestSchema.safeParse(input).success) {
+    return { state: "unavailable" };
+  }
+
+  try {
+    const reading = await readOpenDayPnl(getLiveAccountDependencies());
+    if (reading.state === "failed") {
+      console.warn("schwab open pnl read failed", reading.code);
+    }
+    return reading;
+  } catch (error) {
+    console.error("schwab open pnl read failed", safeErrorSummary(error));
     return { state: "unavailable" };
   }
 }

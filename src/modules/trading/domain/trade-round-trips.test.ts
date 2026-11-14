@@ -101,6 +101,34 @@ describe("buildRoundTrips (golden)", () => {
       closedAt: null,
       dayTrade: false,
     });
+    expect(trades[0]!.portions.map((p) => p.realizedPnl)).toEqual([
+      null,
+      null,
+      "200",
+    ]);
+  });
+
+  it("realizes each exit to the cent, the closing one taking the rest", () => {
+    const [trade] = buildRoundTrips([
+      fill("buy", "3", "10", "-10", MON),
+      // 4 − 10/3 rounds to 0.67; the last exit realizes 2 − 0.67.
+      fill("sell", "1", "4", "4", TUE),
+      fill("sell", "2", "4", "8", WED),
+    ]);
+    expect(trade!.portions.map((p) => p.realizedPnl)).toEqual([
+      null,
+      "0.67",
+      "1.33",
+    ]);
+    expect(trade!.realizedPnl).toBe("2");
+  });
+
+  it("an open trade realizes the sum of its exits, to the cent", () => {
+    const [trade] = buildRoundTrips([
+      fill("buy", "3", "10", "-10", MON),
+      fill("sell", "1", "4", "4", TUE),
+    ]);
+    expect(trade).toMatchObject({ status: "open", realizedPnl: "0.67" });
   });
 
   it("splits a fill that flips from long to short, cents exact", () => {
