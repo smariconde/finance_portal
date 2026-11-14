@@ -5,6 +5,8 @@ import {
 } from "@/modules/numeric/domain/decimal-policy";
 
 import type { SchwabTransaction } from "./schwab-transactions";
+import type { ReviewStatus } from "./trade-annotation";
+import type { RMultiple } from "./trade-r-multiple";
 import {
   buildRoundTrips,
   type RoundTrip,
@@ -63,6 +65,16 @@ export function fillsFromTransactions(
     ];
   });
 }
+
+/** Lo que el diario muestra de la anotación de cada trade (`F11-07`). */
+export type JournalEntry = {
+  /** Segmento de `/diario/[trade]`. */
+  readonly ref: string;
+  readonly setupCode: string | null;
+  readonly review: ReviewStatus;
+  /** R de lo realizado con el stop planeado (`trade-r-multiple-1.0.0`). */
+  readonly r: RMultiple;
+};
 
 export type JournalPoint = {
   readonly tradeId: string;

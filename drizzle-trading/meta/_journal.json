@@ -22,6 +22,20 @@
       "when": 1794626148136,
       "tag": "0002_schwab_transactions",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794691742245,
+      "tag": "0003_trade_annotations",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794695027037,
+      "tag": "0004_trading_routine",
+      "breakpoints": true
     }
   ]
 }

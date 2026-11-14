@@ -54,6 +54,35 @@ test.describe("cuenta Schwab sin base de trading", () => {
     await expect(page.getByRole("heading", { name: /Trades/u })).toHaveCount(0);
   });
 
+  test("un trade del diario dice que la base no respondió, sin pedir nada", async ({
+    page,
+  }) => {
+    await page.goto(ROUTES.journalTrade);
+
+    await expect(
+      page.getByRole("heading", {
+        level: 1,
+        name: "Base de trading no disponible",
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Plan y anotación" }),
+    ).toHaveCount(0);
+  });
+
+  test("un segmento que no es un trade es 404 y no se repite", async ({
+    page,
+  }) => {
+    await page.goto("/diario/%3Cscript%3Esentinel-ref");
+
+    expect(await page.locator("#contenido").innerText()).not.toContain(
+      "sentinel-ref",
+    );
+    await expect(
+      page.getByRole("heading", { name: "Plan y anotación" }),
+    ).toHaveCount(0);
+  });
+
   test("el callback falla cerrado con una referencia y sin el código", async ({
     request,
   }) => {

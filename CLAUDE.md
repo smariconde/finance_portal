@@ -1479,6 +1479,27 @@ per-position figures read by `readOpenPnl` in two `GET`s when the journal opens,
 never polled. The calendar is the accessible table itself; narrow cells show
 whole dollars.
 
+Since `F11-07` (ADR 0076 amendment, trading migrations `0003` and `0004`)
+every trade has `/diario/<instrumentId>-<fillId>`: setup (`trading-setups-1.0.0`,
+a declared base for `F11-10`'s lessons plus the owner's `own-*`), plan, adherence
+rule by rule, emotional and review status and plain-text notes
+(`trade-annotation-1.0.0`), stored as append-only revisions in
+`trade_annotations` and saved by `saveTradeAnnotation` against the revision being
+edited. The planned stop feeds `trade-r-multiple-1.0.0`, so the calendar and the
+table show R where there is a plan; `trade-plan-1.0.0` adds planned
+reward/risk and each level's distance in R. Measured for the trade chart:
+Schwab's 1-minute candles reach ~47 days back and 5–30 minute ones ~8.5 months
+(none of the owner's day trades but two), daily years; at most 40,000 candles
+per response. The trade chart (`trade-chart-1.0.0`, `schwab-price-history-1.0.0`)
+asks `loadTradeChart` for those candles when the trade opens —one `GET`, two if
+the minutes come back empty— and never stores them. Schwab adjusts its history
+backwards (a TSLQ reverse split, a PAGS dividend), so a fill outside its candle
+is counted and named, never moved. The session routine
+(`trading-routine-1.0.0`, trading migration `0004`) is the owner's checklist
+before the open and at the close plus a note, as append-only revisions per New
+York session —next Monday on a weekend, never a future one—, optional and
+marked on the calendar.
+
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 
 Node `>=22.11.0 <27`, pnpm `10.33.2` via corepack. Arch Linux dev host — use POSIX shell syntax for env-var examples in docs, matching the `ubuntu-latest` runners CI validates on.

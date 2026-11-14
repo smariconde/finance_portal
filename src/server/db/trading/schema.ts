@@ -29,7 +29,9 @@ import {
  *
  * `F11-02` creó la base y el rol de runtime (migración `0000`); `F11-03` suma la
  * conexión con Schwab y el presupuesto de sus fuentes; `F11-05`, la cuenta, sus
- * transacciones y la sincronización (migración `0002`).
+ * transacciones y la sincronización (migración `0002`); `F11-07`, las
+ * anotaciones del diario y los setups propios (migración `0003`) y la rutina
+ * de cada sesión (migración `0004`).
  */
 
 function instant(name: string) {
@@ -391,6 +393,181 @@ export const schwabTransactionSync = pgTable(
     check(
       "schwab_transaction_sync_window_check",
       sql`(${table.historyFrom} is null) = (${table.checkedThrough} is null) and (${table.checkedThrough} is null or ${table.checkedThrough} >= ${table.historyFrom})`,
+    ),
+  ],
+);
+
+/**
+ * Setups propios del owner (`trading-setups-1.0.0`, `F11-07`). Los declarados
+ * viven en el código; acá sólo los `own-*`, que nunca pisan uno declarado.
+ */
+export const tradingSetups = pgTable(
+  "trading_setups",
+  {
+    code: varchar("code", { length: 48 }).primaryKey(),
+    label: varchar("label", { length: 40 }).notNull(),
+    createdAt: instant("created_at").notNull(),
+  },
+  (table) => [
+    check(
+      "trading_setups_code_check",
+      sql`${table.code} ~ '^own-[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$'`,
+    ),
+    check(
+      "trading_setups_label_check",
+      sql`char_length(${table.label}) between 2 and 40`,
+    ),
+  ],
+);
+
+export const tradeAdherenceMark = pgEnum("trade_adherence_mark", [
+  "kept",
+  "broken",
+]);
+
+export const tradeReviewStatus = pgEnum("trade_review_status", [
+  "pending",
+  "reviewed",
+]);
+
+/**
+ * Anotaciones del diario por trade (`trade-annotation-1.0.0`, `F11-07`), como
+ * revisiones append-only: sólo se escribe `superseded_at` de la que se
+ * reemplaza. El trade es su clave estable de Schwab (`schwab:<instrumentId>:
+ * <fillId>`), nunca un ticker. Las notas son texto plano (`TM-12`).
+ */
+export const tradeAnnotations = pgTable(
+  "trade_annotations",
+  {
+    revisionId: uuid("revision_id").primaryKey(),
+    accountKey: bytes("account_key").notNull(),
+    tradeKey: varchar("trade_key", { length: 80 }).notNull(),
+    revision: integer("revision").notNull(),
+    version: varchar("version", { length: 64 }).notNull(),
+    setupCode: varchar("setup_code", { length: 48 }),
+    planEntry: numeric("plan_entry", { mode: "string" }),
+    planStop: numeric("plan_stop", { mode: "string" }),
+    planTarget: numeric("plan_target", { mode: "string" }),
+    planQuantity: numeric("plan_quantity", { mode: "string" }),
+    adherenceEntry: tradeAdherenceMark("adherence_entry"),
+    adherenceStop: tradeAdherenceMark("adherence_stop"),
+    adherenceTarget: tradeAdherenceMark("adherence_target"),
+    adherenceSize: tradeAdherenceMark("adherence_size"),
+    emotion: varchar("emotion", { length: 16 }),
+    review: tradeReviewStatus("review").notNull(),
+    notes: text("notes").notNull(),
+    recordedAt: instant("recorded_at").notNull(),
+    supersededAt: instant("superseded_at"),
+  },
+  (table) => [
+    foreignKey({
+      name: "trade_annotations_account_fk",
+      columns: [table.accountKey],
+      foreignColumns: [schwabAccounts.accountKey],
+    }),
+    uniqueIndex("trade_annotations_revision_uidx").on(
+      table.accountKey,
+      table.tradeKey,
+      table.revision,
+    ),
+    uniqueIndex("trade_annotations_current_uidx")
+      .on(table.accountKey, table.tradeKey)
+      .where(sql`${table.supersededAt} is null`),
+    check("trade_annotations_revision_check", sql`${table.revision} >= 1`),
+    check(
+      "trade_annotations_trade_key_check",
+      sql`${table.tradeKey} ~ '^schwab:[0-9]{1,32}:[0-9]{1,32}(:before)?$'`,
+    ),
+    check(
+      "trade_annotations_setup_check",
+      sql`${table.setupCode} is null or ${table.setupCode} ~ '^([a-z][a-z0-9_]{1,40}|own-[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?)$'`,
+    ),
+    check(
+      "trade_annotations_plan_check",
+      sql`(${table.planEntry} is null or ${table.planEntry} > 0) and (${table.planStop} is null or ${table.planStop} > 0) and (${table.planTarget} is null or ${table.planTarget} > 0) and (${table.planQuantity} is null or ${table.planQuantity} > 0)`,
+    ),
+    check(
+      "trade_annotations_emotion_check",
+      sql`${table.emotion} is null or ${table.emotion} in ('calm', 'focused', 'confident', 'anxious', 'fomo', 'revenge', 'tired', 'bored')`,
+    ),
+    check(
+      "trade_annotations_notes_check",
+      sql`char_length(${table.notes}) <= 4000`,
+    ),
+    check(
+      "trade_annotations_superseded_check",
+      sql`${table.supersededAt} is null or ${table.supersededAt} >= ${table.recordedAt}`,
+    ),
+  ],
+);
+
+export const routinePhase = pgEnum("routine_phase", ["pre_open", "close"]);
+
+/**
+ * Los ítems de la rutina que escribe el owner (`trading-routine-1.0.0`,
+ * `F11-07`). Retirar uno sólo escribe `retired_at`: las sesiones que lo
+ * tildaron lo siguen nombrando.
+ */
+export const routineItems = pgTable(
+  "routine_items",
+  {
+    itemId: uuid("item_id").primaryKey(),
+    phase: routinePhase("phase").notNull(),
+    label: varchar("label", { length: 80 }).notNull(),
+    createdAt: instant("created_at").notNull(),
+    retiredAt: instant("retired_at"),
+  },
+  (table) => [
+    index("routine_items_created_idx").on(table.createdAt),
+    check(
+      "routine_items_label_check",
+      sql`char_length(${table.label}) between 2 and 80`,
+    ),
+    check(
+      "routine_items_retired_check",
+      sql`${table.retiredAt} is null or ${table.retiredAt} >= ${table.createdAt}`,
+    ),
+  ],
+);
+
+/**
+ * La rutina de una sesión y fase como revisiones append-only: lo tildado (IDs
+ * de `routine_items`) y una nota de texto plano (`TM-12`).
+ */
+export const sessionRoutines = pgTable(
+  "session_routines",
+  {
+    revisionId: uuid("revision_id").primaryKey(),
+    session: date("session", { mode: "string" }).notNull(),
+    phase: routinePhase("phase").notNull(),
+    revision: integer("revision").notNull(),
+    version: varchar("version", { length: 64 }).notNull(),
+    checked: uuid("checked").array().notNull(),
+    note: text("note").notNull(),
+    recordedAt: instant("recorded_at").notNull(),
+    supersededAt: instant("superseded_at"),
+  },
+  (table) => [
+    uniqueIndex("session_routines_revision_uidx").on(
+      table.session,
+      table.phase,
+      table.revision,
+    ),
+    uniqueIndex("session_routines_current_uidx")
+      .on(table.session, table.phase)
+      .where(sql`${table.supersededAt} is null`),
+    check("session_routines_revision_check", sql`${table.revision} >= 1`),
+    check(
+      "session_routines_checked_check",
+      sql`cardinality(${table.checked}) <= 12`,
+    ),
+    check(
+      "session_routines_note_check",
+      sql`char_length(${table.note}) <= 2000`,
+    ),
+    check(
+      "session_routines_superseded_check",
+      sql`${table.supersededAt} is null or ${table.supersededAt} >= ${table.recordedAt}`,
     ),
   ],
 );

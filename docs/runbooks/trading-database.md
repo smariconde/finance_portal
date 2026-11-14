@@ -131,7 +131,8 @@ su propio slot.
   la base estaba vacía y sólo cambiaban privilegios.
 - El primero, `f11-02-runtime-role-2026-11-13`, se tomó inmediatamente después.
 - Cada uno reemplaza al anterior: `f11-03-before-0001-2026-11-13` y después
-  `f11-05-before-0002-2026-11-14`. Con el slot ocupado, la API responde
+  `f11-05-before-0002-2026-11-14` y `f11-07-before-0003-2026-11-14`, tomado
+  antes de aplicar `0003` y `0004` juntas. Con el slot ocupado, la API responde
   «snapshots limit exceeded»: se borra el viejo
   (`neon api -X DELETE /projects/wispy-term-56128846/snapshots/<id>`) y se toma
   el nuevo.
