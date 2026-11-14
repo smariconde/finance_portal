@@ -4,8 +4,10 @@ import {
   check,
   customType,
   date,
+  foreignKey,
   index,
   integer,
+  numeric,
   pgEnum,
   pgTable,
   primaryKey,
@@ -26,7 +28,8 @@ import {
  * aplicación.
  *
  * `F11-02` creó la base y el rol de runtime (migración `0000`); `F11-03` suma la
- * conexión con Schwab y el presupuesto de sus fuentes.
+ * conexión con Schwab y el presupuesto de sus fuentes; `F11-05`, la cuenta, sus
+ * transacciones y la sincronización (migración `0002`).
  */
 
 function instant(name: string) {
@@ -212,6 +215,182 @@ export const schwabConnectionEvents = pgTable(
     check(
       "schwab_connection_events_detail_check",
       sql`${table.detail} is null or length(${table.detail}) <= 512`,
+    ),
+  ],
+);
+
+/**
+ * Una cuenta Schwab por su HMAC (`schwab-account-key-1.0.0`): el número completo
+ * nunca se guarda, sólo sus últimos cuatro dígitos para mostrarla.
+ */
+export const schwabAccounts = pgTable(
+  "schwab_accounts",
+  {
+    accountKey: bytes("account_key").primaryKey(),
+    lastFour: varchar("last_four", { length: 4 }).notNull(),
+    firstSeenAt: instant("first_seen_at").notNull(),
+    lastSeenAt: instant("last_seen_at").notNull(),
+  },
+  (table) => [
+    check(
+      "schwab_accounts_key_check",
+      sql`octet_length(${table.accountKey}) = 32`,
+    ),
+    check(
+      "schwab_accounts_last_four_check",
+      sql`${table.lastFour} ~ '^[0-9]{4}$'`,
+    ),
+    check(
+      "schwab_accounts_seen_check",
+      sql`${table.lastSeenAt} >= ${table.firstSeenAt}`,
+    ),
+  ],
+);
+
+export const schwabTransactionState = pgEnum("schwab_transaction_state", [
+  "recorded",
+  "withdrawn",
+]);
+
+/**
+ * Transacciones de Schwab normalizadas (`schwab-transactions-1.0.0`), como
+ * cadena de revisiones append-only: una corrección es una revisión nueva y una
+ * transacción que deja de venir queda `withdrawn`. Sólo se escribe
+ * `superseded_at` de la revisión que se reemplaza. Sin payload crudo (`TM-15`).
+ */
+export const schwabTransactions = pgTable(
+  "schwab_transactions",
+  {
+    revisionId: uuid("revision_id").primaryKey(),
+    accountKey: bytes("account_key")
+      .notNull()
+      .references(() => schwabAccounts.accountKey),
+    activityId: varchar("activity_id", { length: 32 }).notNull(),
+    revision: integer("revision").notNull(),
+    state: schwabTransactionState("state").notNull(),
+    type: varchar("type", { length: 32 }).notNull(),
+    status: varchar("status", { length: 32 }).notNull(),
+    executedAt: instant("executed_at").notNull(),
+    settledAt: instant("settled_at"),
+    description: varchar("description", { length: 256 }),
+    orderId: varchar("order_id", { length: 32 }),
+    positionId: varchar("position_id", { length: 32 }),
+    netAmount: numeric("net_amount", { mode: "string" }).notNull(),
+    fees: numeric("fees", { mode: "string" }),
+    instrumentId: varchar("instrument_id", { length: 32 }),
+    symbol: varchar("symbol", { length: 64 }),
+    assetType: varchar("asset_type", { length: 32 }),
+    instrumentType: varchar("instrument_type", { length: 64 }),
+    instrumentDescription: varchar("instrument_description", { length: 256 }),
+    quantity: numeric("quantity", { mode: "string" }),
+    price: numeric("price", { mode: "string" }),
+    positionEffect: varchar("position_effect", { length: 16 }),
+    contentHash: varchar("content_hash", { length: 64 }).notNull(),
+    recordedAt: instant("recorded_at").notNull(),
+    supersededAt: instant("superseded_at"),
+  },
+  (table) => [
+    uniqueIndex("schwab_transactions_revision_uidx").on(
+      table.accountKey,
+      table.activityId,
+      table.revision,
+    ),
+    uniqueIndex("schwab_transactions_current_uidx")
+      .on(table.accountKey, table.activityId)
+      .where(sql`${table.supersededAt} is null`),
+    index("schwab_transactions_executed_idx").on(
+      table.accountKey,
+      table.executedAt,
+    ),
+    check("schwab_transactions_revision_check", sql`${table.revision} >= 1`),
+    check(
+      "schwab_transactions_activity_check",
+      sql`${table.activityId} ~ '^[0-9]{1,32}$'`,
+    ),
+    check(
+      "schwab_transactions_hash_check",
+      sql`${table.contentHash} ~ '^[0-9a-f]{64}$'`,
+    ),
+    // Un TRADE lleva su instrumento entero; un movimiento de caja, ninguno.
+    check(
+      "schwab_transactions_instrument_check",
+      sql`(${table.type} = 'TRADE') = (${table.instrumentId} is not null and ${table.symbol} is not null and ${table.assetType} is not null and ${table.quantity} is not null and ${table.fees} is not null)`,
+    ),
+    check(
+      "schwab_transactions_superseded_check",
+      sql`${table.supersededAt} is null or ${table.supersededAt} >= ${table.recordedAt}`,
+    ),
+  ],
+);
+
+export const schwabTransactionRunStatus = pgEnum(
+  "schwab_transaction_run_status",
+  ["succeeded", "failed", "quarantined"],
+);
+
+/** Log append-only de cada sincronización (`TM-16`): ventana, pedidos y conteos. */
+export const schwabTransactionRuns = pgTable(
+  "schwab_transaction_runs",
+  {
+    runId: uuid("run_id").primaryKey(),
+    accountKey: bytes("account_key"),
+    startedAt: instant("started_at").notNull(),
+    finishedAt: instant("finished_at").notNull(),
+    windowFrom: instant("window_from"),
+    windowTo: instant("window_to"),
+    requests: integer("requests").notNull(),
+    status: schwabTransactionRunStatus("status").notNull(),
+    code: varchar("code", { length: 64 }),
+    inserted: integer("inserted").notNull(),
+    revised: integer("revised").notNull(),
+    withdrawn: integer("withdrawn").notNull(),
+    unchanged: integer("unchanged").notNull(),
+    parserVersion: varchar("parser_version", { length: 64 }).notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: "schwab_transaction_runs_account_fk",
+      columns: [table.accountKey],
+      foreignColumns: [schwabAccounts.accountKey],
+    }),
+    index("schwab_transaction_runs_finished_idx").on(table.finishedAt),
+    check(
+      "schwab_transaction_runs_counts_check",
+      sql`${table.requests} >= 0 and ${table.inserted} >= 0 and ${table.revised} >= 0 and ${table.withdrawn} >= 0 and ${table.unchanged} >= 0`,
+    ),
+    check(
+      "schwab_transaction_runs_code_check",
+      sql`(${table.status} = 'succeeded') = (${table.code} is null) and (${table.code} is null or ${table.code} ~ '^[a-z0-9_:.-]{1,64}$')`,
+    ),
+    check(
+      "schwab_transaction_runs_timeline_check",
+      sql`${table.finishedAt} >= ${table.startedAt}`,
+    ),
+  ],
+);
+
+/**
+ * Hasta dónde está verificada la historia de una cuenta y quién la está
+ * sincronizando: un reclamo con vencimiento, no un lock que retendría la única
+ * conexión del runtime mientras se llama a Schwab.
+ */
+export const schwabTransactionSync = pgTable(
+  "schwab_transaction_sync",
+  {
+    accountKey: bytes("account_key").primaryKey(),
+    historyFrom: instant("history_from"),
+    checkedThrough: instant("checked_through"),
+    claimedUntil: instant("claimed_until"),
+  },
+  (table) => [
+    foreignKey({
+      name: "schwab_transaction_sync_account_fk",
+      columns: [table.accountKey],
+      foreignColumns: [schwabAccounts.accountKey],
+    }),
+    check(
+      "schwab_transaction_sync_window_check",
+      sql`(${table.historyFrom} is null) = (${table.checkedThrough} is null) and (${table.checkedThrough} is null or ${table.checkedThrough} >= ${table.historyFrom})`,
     ),
   ],
 );

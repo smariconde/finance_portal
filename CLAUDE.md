@@ -1451,6 +1451,20 @@ the analysis database only, with an 8 s ceiling, and degrades with a reason.
 `pnpm trading:sources` is the kill switch over the trading database, and
 `/cuenta` logs the driver code next to the error type (`safeErrorSummary`).
 
+Since `F11-05` (in progress, ADR 0076 amendment, trading migration `0002`)
+the Schwab transactions are stored in the trading database as append-only
+revision chains (`schwab_transactions`, `withdrawn` when one stops coming; the
+account is its HMAC, `schwab-account-key-1.0.0`) under a closed parser that
+checks every row's `netAmount` (`schwab-transactions-1.0.0`: `cost` sums for a
+`TRADE`, `amount` sums for cash; one year per request at most). There is no
+durable job: `syncTransactions` runs `schwab-transaction-sync-1.0.0` inside the
+action under a row claim, logging every run, only when the account cadence
+passed. `/diario` builds trades from them (`trade-round-trip-fifo-1.0.0`: zero
+to zero per `instrumentId`, FIFO, cent-exact proration, `opened_before_history`)
+and shows them visually; the UI keeps explanations in `InfoTip`s, never in
+paragraphs (owner's request). Schwab allows one active login: connecting one
+environment invalidates the other, and `/cuenta` says `renewal_failed`.
+
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 
 Node `>=22.11.0 <27`, pnpm `10.33.2` via corepack. Arch Linux dev host — use POSIX shell syntax for env-var examples in docs, matching the `ubuntu-latest` runners CI validates on.

@@ -73,3 +73,32 @@ export function quotesBody(symbols: readonly string[], extra = ""): string {
 export function bytes(text: string): Uint8Array {
   return new TextEncoder().encode(text);
 }
+
+/** Un `TRADE` con la forma medida: el instrumento y cuatro tasas. */
+export function tradeTransaction(
+  activityId: number,
+  options: {
+    readonly time?: string;
+    readonly quantity?: string;
+    readonly netAmount?: string;
+    readonly accountNumber?: string;
+    readonly symbol?: string;
+    readonly positionEffect?: "OPENING" | "CLOSING";
+  } = {},
+): string {
+  const quantity = options.quantity ?? "10";
+  const selling = quantity.startsWith("-");
+  const net = options.netAmount ?? (selling ? "1004.98" : "-1005.02");
+  // Las cuatro tasas suman -0.02 y el instrumento lleva el resto.
+  const instrumentCost = (Number(net) + 0.02).toFixed(2);
+  const time = options.time ?? "2026-11-10T15:00:00+0000";
+  return `{"activityId":${activityId},"time":"${time}","accountNumber":"${options.accountNumber ?? SYNTHETIC_ACCOUNT_NUMBER}","type":"TRADE","status":"VALID","subAccount":"CASH","tradeDate":"${time}","positionId":9${activityId},"orderId":8${activityId},"netAmount":${net},"transferItems":[{"instrument":{"assetType":"EQUITY","status":"ACTIVE","symbol":"${options.symbol ?? "SYN"}","uniformSymbol":"${options.symbol ?? "SYN"}","description":"SYNTHETIC CO","instrumentId":77,"closingPrice":100.5,"type":"COMMON_STOCK"},"amount":${quantity},"cost":${instrumentCost},"price":100.5,"positionEffect":"${options.positionEffect ?? (selling ? "CLOSING" : "OPENING")}"},{"instrument":{"assetType":"CURRENCY","status":"ACTIVE","symbol":"CURRENCY_USD","description":"USD currency","instrumentId":1,"closingPrice":0},"amount":0,"cost":-0.01,"feeType":"COMMISSION"},{"instrument":{"assetType":"CURRENCY","status":"ACTIVE","symbol":"CURRENCY_USD","description":"USD currency","instrumentId":1,"closingPrice":0},"amount":0,"cost":-0.01,"feeType":"SEC_FEE"},{"instrument":{"assetType":"CURRENCY","status":"ACTIVE","symbol":"CURRENCY_USD","description":"USD currency","instrumentId":1,"closingPrice":0},"amount":0,"cost":0,"feeType":"OPT_REG_FEE"},{"instrument":{"assetType":"CURRENCY","status":"ACTIVE","symbol":"CURRENCY_USD","description":"USD currency","instrumentId":1,"closingPrice":0},"amount":0,"cost":0,"feeType":"TAF_FEE"}]}`;
+}
+
+/** Un dividendo: un solo ítem de moneda, con el neto en `amount`. */
+export function dividendTransaction(
+  activityId: number,
+  time = "2026-11-03T10:00:00+0000",
+): string {
+  return `{"activityId":${activityId},"time":"${time}","description":"ORDINARY DIVIDEND (SYN)","accountNumber":"${SYNTHETIC_ACCOUNT_NUMBER}","type":"DIVIDEND_OR_INTEREST","status":"VALID","subAccount":"CASH","tradeDate":"${time}","settlementDate":"${time}","netAmount":12.34,"qualifiedDividend":true,"transferItems":[{"instrument":{"assetType":"CURRENCY","status":"ACTIVE","symbol":"CURRENCY_USD","description":"USD currency","instrumentId":1,"closingPrice":0},"amount":12.34,"cost":0,"price":0}]}`;
+}

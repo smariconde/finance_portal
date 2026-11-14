@@ -1,5 +1,3 @@
-import { formatAmount } from "@/modules/valuation/domain/display-format";
-
 /**
  * Copia de la cuenta en vivo (`F11-04`): qué decirle al owner por cada código
  * cerrado que devuelve una lectura. Un código fuera del mapa se muestra como
@@ -70,36 +68,12 @@ export function liveFailureCopy(code: string): LiveFailureCopy {
   };
 }
 
-/** Una cantidad con los decimales que trae, hasta cuatro: fracciones de acción. */
-export function formatQuantity(value: string): string {
-  const decimals = value.includes(".") ? value.split(".")[1]!.length : 0;
-  return formatAmount(value, { scale: Math.min(decimals, 4) });
-}
-
-export function formatMoney(value: string): string {
-  return formatAmount(value, { scale: 2 });
-}
-
-const TIME_ZONE = "America/Argentina/Buenos_Aires";
-
-export function formatClock(instant: string): string {
-  return new Date(instant).toLocaleTimeString("es-AR", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-    timeZone: TIME_ZONE,
-  });
-}
-
-export function formatDateTime(instant: string): string {
-  return new Date(instant).toLocaleString("es-AR", {
-    dateStyle: "short",
-    timeStyle: "short",
-    hourCycle: "h23",
-    timeZone: TIME_ZONE,
-  });
-}
+export {
+  formatClock,
+  formatDateTime,
+  formatMoney,
+  formatQuantity,
+} from "@/app/_components/trading-format";
 
 export const ORDER_STATUS_COPY: Record<string, string> = {
   WORKING: "Activa",

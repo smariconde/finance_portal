@@ -108,6 +108,7 @@ export const ROUTES = {
   sectorDivergences: "/sectores/communication-services/divergencias",
   argentina: "/argentina",
   account: "/cuenta",
+  journal: "/diario",
   missing: "/ruta-que-no-existe",
 } as const;
 

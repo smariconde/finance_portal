@@ -27,3 +27,40 @@ describe("schwabConnectionStatus", () => {
     });
   });
 });
+
+describe("schwabConnectionStatus 1.1.0", () => {
+  const connection = {
+    connectedAt: "2026-11-13T22:20:00.000Z",
+    refreshExpiresAt: "2026-11-20T22:20:00.000Z",
+  };
+
+  it("names a failed renewal instead of claiming the connection works", () => {
+    expect(
+      schwabConnectionStatus(
+        connection,
+        "2026-11-14T03:00:00.000Z",
+        "refresh_failed",
+      ).status,
+    ).toBe("renewal_failed");
+  });
+
+  it("goes back to connected after a later renewal or login", () => {
+    expect(
+      schwabConnectionStatus(
+        connection,
+        "2026-11-14T03:00:00.000Z",
+        "access_refreshed",
+      ).status,
+    ).toBe("connected");
+  });
+
+  it("still says expired once the login lapsed", () => {
+    expect(
+      schwabConnectionStatus(
+        connection,
+        "2026-11-21T00:00:00.000Z",
+        "refresh_failed",
+      ).status,
+    ).toBe("expired");
+  });
+});

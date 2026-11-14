@@ -408,7 +408,17 @@ async function renew(
 export async function readSchwabConnectionStatus(
   dependencies: Pick<SchwabConnectionDependencies, "store" | "now">,
 ): Promise<SchwabConnectionStatus> {
-  const connection = await dependencies.store.readConnection();
+  const [connection, events] = await Promise.all([
+    dependencies.store.readConnection(),
+    dependencies.store.listEvents(20),
+  ]);
+  const lastTokenEvent =
+    events.find(
+      (event) =>
+        event.kind === "connected" ||
+        event.kind === "access_refreshed" ||
+        event.kind === "refresh_failed",
+    )?.kind ?? null;
 
   return schwabConnectionStatus(
     connection === null
@@ -418,5 +428,7 @@ export async function readSchwabConnectionStatus(
           refreshExpiresAt: connection.refreshExpiresAt,
         },
     dependencies.now(),
+    lastTokenEvent as
+      "connected" | "access_refreshed" | "refresh_failed" | null,
   );
 }

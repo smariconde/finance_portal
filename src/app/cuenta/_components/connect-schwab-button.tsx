@@ -20,13 +20,22 @@ const FAILURE_COPY: Record<ConnectSchwabResult["state"], string> = {
  * Lleva al login de Schwab. La acción emite el `state` y redirige; si vuelve,
  * es con un código que se nombra acá mismo, sin abrir otra pantalla.
  */
-export function ConnectSchwabButton({ reconnect }: { reconnect: boolean }) {
+export function ConnectSchwabButton({
+  reconnect,
+  urgent = true,
+}: {
+  reconnect: boolean;
+  /** Sin urgencia (la conexión anda), el botón no compite con la cuenta. */
+  urgent?: boolean;
+}) {
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<ConnectSchwabResult | null>(null);
 
   return (
     <div className="flex flex-col items-start gap-2">
       <Button
+        variant={urgent ? "default" : "outline"}
+        size={urgent ? "default" : "sm"}
         disabled={pending}
         onClick={() =>
           startTransition(async () => {
@@ -46,10 +55,11 @@ export function ConnectSchwabButton({ reconnect }: { reconnect: boolean }) {
             ? "Reconectar con Schwab"
             : "Conectar con Schwab"}
       </Button>
-      <p className="text-sm text-muted-foreground" aria-live="polite">
-        {result === null ? (
-          "Te lleva al login de Schwab; la contraseña no pasa por el portal."
-        ) : (
+      <p
+        className="text-sm text-muted-foreground empty:hidden"
+        aria-live="polite"
+      >
+        {result === null ? null : (
           <>
             {FAILURE_COPY[result.state]}
             {result.state === "failed" ? (

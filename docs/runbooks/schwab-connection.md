@@ -1,6 +1,6 @@
 # Conexión con Schwab
 
-- Estado: procedimiento de `F11-03` y `F11-04`
+- Estado: procedimiento de `F11-03` a `F11-05`
 - Decisión: [ADR 0076](../architecture/adr/0076-schwab-read-only-account-trading-journal.md),
   secciones 2, 5, 6 y 7 y su enmienda del 2026-11-13
 - Relacionados: [base de trading](trading-database.md) y
@@ -56,6 +56,14 @@ Para cambiarla:
    siga en «Ready For Use». El síntoma es un loop en el login de Schwab que
    nunca vuelve al portal; el log del servidor no muestra ningún
    `GET /cuenta/schwab/callback`.
+
+## Un solo login activo
+
+Schwab mantiene **un** refresh token vigente por app y usuario. Conectar en un
+entorno invalida el del otro: el 2026-11-14, el login de Production hizo que la
+renovación local fallara diez minutos después (`refresh_failed`, `http_400`).
+Local y Production no pueden estar conectados a la vez; para medir en local hay
+que conectar en local y después reconectar Production.
 
 ## Conectar en local
 
@@ -160,6 +168,27 @@ Lo que puede mostrar en lugar de la cuenta:
 | «Cuenta de margen sin medir» | Schwab informa `MARGIN`. Medir sus saldos y declarar el parser antes de mostrarla.                  |
 | «Schwab cambió el formato»   | Un parser cerrado rechazó la respuesta. El log tiene el código; medir la forma nueva.               |
 | «Schwab no respondió»        | La puerta cortó (`egress_*`). La página reintenta en la próxima lectura.                            |
+
+## Transacciones y diario
+
+`/diario` lee las transacciones guardadas en la base de trading y arma los
+trades; al abrirse pide a Schwab sólo si pasó la cadencia de la cuenta (un
+minuto en sesión, cinco fuera):
+
+| Caso                 | Pedidos a `schwab-trader`                     |
+| -------------------- | --------------------------------------------- |
+| Primera carga        | 1 de `accountNumbers` y 1 por año hacia atrás |
+| Ponerse al día       | 2: `accountNumbers` y una ventana             |
+| Otro pedido en curso | ninguno: el reclamo se ve en la base          |
+
+- **Medido el 2026-11-14:** tres años, 195 transacciones, 5 pedidos en la
+  primera carga, 47 trades.
+- **«Sin actualizar» en el diario:** el ⓘ dice el código. `mass_change_guard`
+  significa que Schwab cambió o retiró más de un décimo de lo comparado y nada
+  se escribió; mirar `schwab_transaction_runs` antes de aceptarlo.
+- **Nada del payload** se guarda: sólo la transacción normalizada, con la cuenta
+  como HMAC (`schwab-account-key-1.0.0`). Otra `TRADING_SECRET_KEY` deja las
+  transacciones guardadas bajo una cuenta que ya no se reconoce.
 
 ## Cuota y kill switch
 

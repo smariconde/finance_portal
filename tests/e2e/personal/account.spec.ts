@@ -35,6 +35,25 @@ test.describe("cuenta Schwab sin base de trading", () => {
     ).toHaveCount(0);
   });
 
+  test("el diario dice que la base de trading no respondió, sin pedir nada", async ({
+    page,
+  }) => {
+    await page.goto(ROUTES.journal);
+
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Diario" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", {
+        level: 2,
+        name: "Base de trading no disponible",
+      }),
+    ).toBeVisible();
+    // Sin base no hay trades ni una sincronización que salga a Schwab.
+    await expect(page.getByText("Sincronizando")).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: /Trades/u })).toHaveCount(0);
+  });
+
   test("el callback falla cerrado con una referencia y sin el código", async ({
     request,
   }) => {

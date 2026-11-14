@@ -400,6 +400,47 @@ Las órdenes abiertas se leen en dos ventanas
 que es el rango que documenta Schwab. Una GTC ingresada antes no aparece, y la
 página lo dice.
 
+## Enmienda del 2026-11-14: transacciones y diario (`F11-05`)
+
+Antes de fijar el parser se midieron tres años de la cuenta real (195
+transacciones, 115 de ellas `TRADE`), imprimiendo sólo la estructura y conteos:
+
+1. **Rango por pedido: un año.** Con más, Schwab responde `400` («must not be
+   more than a year»). La historia llega a tres años.
+2. **Hora de ejecución: el `time` de la transacción.** Coincide al segundo con
+   `executionLegs[].time` de su orden en 8 de 8; `tradeDate` cae a veces 10 a 12
+   horas antes. Un `TRADE` no trae fecha de liquidación: queda `null`.
+3. **El dinero cuadra solo.** El `netAmount` de un `TRADE` es exactamente la
+   suma de los `cost` de sus ítems (instrumento y cuatro tasas), 115 de 115; en
+   los movimientos de caja, la de los `amount`, 80 de 80. El parser lo verifica
+   en cada fila. Precio por cantidad no siempre da el costo: el dinero sale de
+   `netAmount`.
+4. **Las órdenes reales traen claves que el schema publicado no tenía**
+   (`uniformSymbol`, `firmActionType`): el parser de `/cuenta` las suma, y doce
+   órdenes reales lo pasan.
+5. **Un solo login activo.** Conectar Production invalidó el refresh token
+   local (`http_400`). La conexión muestra `renewal_failed`
+   (`schwab-connection-status-1.1.0`) en vez de «Conectada».
+
+**El refresh no es un job durable.** La sección 8 pedía un job con lease y
+admisión. Medido, ponerse al día es un pedido de ~0,4 s y la primera carga,
+cinco. La sincronización (`schwab-transaction-sync-1.0.0`) corre en la acción
+que la pide, bajo un reclamo con vencimiento sobre la fila de la cuenta —como la
+renovación del token—, y cada corrida queda en un log append-only con ventana,
+pedidos y conteos (`TM-11`, `TM-16`). Un reclamo vigente se ve en la base antes
+de gastar un pedido. La primera carga baja ventanas de un año hacia atrás hasta
+una vacía; después se compara desde lo verificado menos 7 días. Una revisión es
+un hash distinto, una transacción que deja de venir queda `withdrawn`, y más de
+un décimo de cambios pone la corrida en cuarentena (`mass_change_guard`).
+
+**Trades** (`trade-round-trip-fifo-1.0.0`): un ciclo de posición de cero a cero
+por cuenta e instrumento (el `instrumentId` de Schwab, que sobrevive a un cambio
+de ticker), con FIFO para lo realizado de un trade abierto y prorrata al centavo
+cuando una ejecución cruza de largo a corto. Una salida sin entrada a la vista
+queda `opened_before_history`, nunca leída como un corto. Con los datos reales,
+los 47 trades cerrados suman exactamente sus `netAmount` y el realizado total es
+la suma de los 115 `netAmount` de `TRADE`.
+
 ## Controles del threat model
 
 | Control | Cómo se cierra en la Fase 11                                                                                                                                                      |
