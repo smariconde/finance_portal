@@ -14,6 +14,7 @@ import {
 } from "@/modules/ingestion/domain/source-budget";
 import { getAiSpendStore } from "@/server/persistence/get-ai-spend-store";
 import { getSourceBudgetStore } from "@/server/persistence/get-source-budget-store";
+import { getTradingSourceBudgetStore } from "@/server/persistence/trading/get-trading-source-budget-store";
 
 /**
  * Inspecciona y opera el presupuesto diario y el kill switch por fuente
@@ -25,6 +26,13 @@ import { getSourceBudgetStore } from "@/server/persistence/get-source-budget-sto
  *   pnpm ingestion:sources --source sec-edgar --enable --reason "…" --apply
  *   pnpm ingestion:sources --source sec-edgar --limit 200 --reason "…" --apply
  *   pnpm ingestion:sources --source openrouter --spend-limit 0.50 --reason "…" --apply
+ *   pnpm trading:sources                                            # las fuentes de Schwab
+ *   pnpm trading:sources --source schwab-trader --disable --reason "…" --apply
+ *
+ * `trading:sources` es este mismo comando con `--trading`: lee y escribe la
+ * cuota y el kill switch de la base de trading (ADR 0076), y sólo acepta
+ * fuentes `schwab-*`. Sin `--trading`, una fuente de Schwab se rechaza: un
+ * control en la base de análisis no la frenaría.
  *
  * Como el resto de los comandos controlados: dry run por defecto, `--reason`
  * obligatorio para escribir, y cada cambio queda en la historia con su actor.
@@ -44,8 +52,11 @@ const { values } = parseArgs({
     days: { type: "string", default: "7" },
     reason: { type: "string" },
     apply: { type: "boolean", default: false },
+    trading: { type: "boolean", default: false },
   },
 });
+
+const TRADING = values.trading;
 
 const DRY_RUN = !values.apply;
 
@@ -58,7 +69,7 @@ function fail(message: string): never {
   process.exit(2);
 }
 
-const store = getSourceBudgetStore();
+const store = TRADING ? getTradingSourceBudgetStore() : getSourceBudgetStore();
 const now = new Date().toISOString();
 const today = budgetDayOf(now);
 const days = Math.min(Math.max(Number(values.days) || 7, 1), 90);
@@ -69,6 +80,7 @@ const fromDay = new Date(
   .slice(0, 10);
 
 log("política", SOURCE_BUDGET_POLICY_VERSION);
+log("base", TRADING ? "trading" : "análisis");
 log("día UTC", today);
 
 const actions = [
@@ -82,9 +94,15 @@ const actions = [
 // control acá no las frenaría.
 const isTradingSource = (sourceId: string) => sourceId.startsWith("schwab-");
 
-if (values.source !== undefined && isTradingSource(values.source)) {
+if (values.source !== undefined && !TRADING && isTradingSource(values.source)) {
   fail(
-    `${values.source} cuenta su cuota en la base de trading; este comando no la ve ni la frena (ver docs/runbooks/schwab-connection.md).`,
+    `${values.source} cuenta su cuota en la base de trading: usá pnpm trading:sources (ver docs/runbooks/schwab-connection.md).`,
+  );
+}
+
+if (values.source !== undefined && TRADING && !isTradingSource(values.source)) {
+  fail(
+    `${values.source} cuenta su cuota en la base de análisis: usá pnpm ingestion:sources.`,
   );
 }
 
@@ -92,7 +110,7 @@ if (actions === 0) {
   const sourceIds =
     values.source === undefined
       ? Object.keys(SOURCE_DAILY_REQUEST_BUDGETS)
-          .filter((sourceId) => !isTradingSource(sourceId))
+          .filter((sourceId) => isTradingSource(sourceId) === TRADING)
           .sort()
       : [values.source];
 
@@ -115,7 +133,7 @@ if (actions === 0) {
           : `${state.used} / ${state.effectiveLimit}`,
     );
 
-    if (declaredSpendLimits(sourceId) !== null) {
+    if (!TRADING && declaredSpendLimits(sourceId) !== null) {
       const spend = await getAiSpendStore().readDay(sourceId, now);
 
       log(

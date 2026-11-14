@@ -61,8 +61,8 @@ describe("topes declarados", () => {
     expect(declaredDailyBudget("magyp-estimaciones")).toBe(20);
     expect(declaredDailyBudget("magyp-datos-abiertos")).toBe(20);
     expect(declaredDailyBudget("schwab-oauth")).toBe(100);
-    expect(declaredDailyBudget("schwab-trader")).toBe(1000);
-    expect(declaredDailyBudget("schwab-marketdata")).toBe(1000);
+    expect(declaredDailyBudget("schwab-trader")).toBe(3000);
+    expect(declaredDailyBudget("schwab-marketdata")).toBe(2000);
     expect(Object.keys(SOURCE_DAILY_REQUEST_BUDGETS).sort()).toEqual([
       "argentina-series-tiempo",
       "bcr-cac-pizarra",

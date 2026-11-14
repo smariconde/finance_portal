@@ -1431,6 +1431,26 @@ root `https://127.0.0.1:5000`, and the home page forwards `code`, `state` and
 or `session`. Measured with the real account: connected, a forced renewal kept
 the login expiry, and `accountNumbers` answered 200 through the provided bearer.
 
+Since `F11-04` (in progress, ADR 0076 amendment) `/cuenta` reads the account
+live and stores nothing of it: `readLiveAccount` is four `GET`s
+(`accountNumbers`, the account, all orders of 7 days and the `WORKING` ones of
+60, `schwab-open-orders-window-1.0.0`) under closed parsers that read every
+number from its source text (`schwab-account-1.0.0`, `schwab-quotes-1.0.0`).
+Measured first: the owner's account is `CASH` with no positions or orders, so
+overnight buying power is `cashAvailableForTrading`, intraday is Schwab's
+`currentIntradayBuyingPowerAmount` as given, a `MARGIN` account is refused as
+`account_type_not_measured`, and positions and orders follow the published
+schema until a real one is measured. The page re-reads every 60 s in the New
+York regular session and every 5 minutes outside it, only while visible
+(`schwab-live-cadence-1.0.0`; caps 3,000 trader and 2,000 marketdata), and is
+LIVE up to two periods (`live-reading-freshness-1.0.0`). Quotes go through a
+scope the server signs with the `quote-scope` HKDF subkey
+(`schwab-quote-scope-1.0.0`): the client never names a ticker. The cross with
+valuation, sector and CEDEAR (`position-context-1.0.0`) is its own action over
+the analysis database only, with an 8 s ceiling, and degrades with a reason.
+`pnpm trading:sources` is the kill switch over the trading database, and
+`/cuenta` logs the driver code next to the error type (`safeErrorSummary`).
+
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 
 Node `>=22.11.0 <27`, pnpm `10.33.2` via corepack. Arch Linux dev host — use POSIX shell syntax for env-var examples in docs, matching the `ubuntu-latest` runners CI validates on.

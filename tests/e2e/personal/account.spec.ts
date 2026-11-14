@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 import { ROUTES, SENTINEL_VALUES } from "../support/runtime";
 
 /**
- * La cuenta Schwab (`F11-03`) en el runtime personal del gate. La base de
+ * La cuenta Schwab (`F11-03`, `F11-04`) en el runtime personal del gate. La base de
  * trading apunta a un puerto cerrado y las credenciales son centinelas: lo que
  * se prueba es que, sin base, la página lo dice en vez de mostrar «sin
  * conectar», y que el callback se niega sin repetir lo que recibió. Nunca se
@@ -27,6 +27,11 @@ test.describe("cuenta Schwab sin base de trading", () => {
     );
     await expect(
       page.getByRole("button", { name: /Conectar con Schwab/u }),
+    ).toHaveCount(0);
+    // Sin conexión leída no hay cuenta en vivo (`F11-04`): ni saldos, ni
+    // posiciones, ni un pedido a Schwab.
+    await expect(
+      page.getByRole("heading", { level: 2, name: /Posiciones|Cuenta ·/u }),
     ).toHaveCount(0);
   });
 

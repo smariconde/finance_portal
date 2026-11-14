@@ -361,6 +361,45 @@ logs de la plataforma pueden conservar el query del callback. Es un riesgo
 residual acotado: el código es de un solo uso, se consume en el mismo request
 y no sirve sin el secret de la app.
 
+## Enmienda del 2026-11-13: la cuenta en vivo (`F11-04`)
+
+La cuenta se midió con la cuenta real antes de fijar los parsers, imprimiendo
+sólo la estructura: claves, tipos y valores enumerados, nunca montos ni el
+número de cuenta. Cinco puntos quedan decididos:
+
+1. **La cuenta es `CASH`.** Schwab no informa poder de compra de margen. El
+   overnight es `cashAvailableForTrading`, y el intradía es
+   `currentIntradayBuyingPowerAmount` tal cual, con el de la apertura y el
+   efectivo sin liquidar al lado. Una cuenta `MARGIN` se rechaza con nombre
+   hasta medir sus saldos (decisión del owner).
+2. **Posiciones y órdenes sin muestra.** La cuenta no tenía posiciones ni
+   órdenes en 60 días. Sus parsers siguen el schema publicado y también son
+   cerrados; el slice no se cierra hasta medir una posición y una orden reales
+   (decisión del owner).
+3. **Cadencia y topes** (`schwab-live-cadence-1.0.0`). Con la página visible,
+   la cuenta cada 60 s y las cotizaciones cada 15 s durante la sesión regular de
+   Nueva York; 5 minutos fuera de ella. Una lectura son cuatro pedidos
+   (`accountNumbers`, la cuenta y dos ventanas de órdenes), y con la página
+   abierta todo el día suman ~2.400 de `schwab-trader` y ~1.800 de
+   `schwab-marketdata`. Los topes pasan a 3.000 y 2.000 por día (decisión del
+   owner), lejos de los 120 por minuto de Schwab.
+4. **Las cotizaciones se piden por un alcance firmado**
+   (`schwab-quote-scope-1.0.0`). Cada lectura de la cuenta firma, con una
+   tercera subclave HKDF (`quote-scope`), los símbolos de las acciones y ETFs
+   abiertos, con 10 minutos de vida. La acción de cotizaciones verifica la firma
+   y cotiza esos símbolos y ningún otro: el cliente no elige un ticker, y
+   cotizar no vuelve a leer la cuenta.
+5. **El cruce va aparte.** Valuación, sector y CEDEAR se piden en otra acción
+   que sólo lee la base de análisis, con 8 s de techo y una vez por conjunto de
+   símbolos. La cuenta se dibuja sin esperarla, y si la base no responde la
+   tabla dice por qué. La identidad busca el ticker sólo entre listings activos
+   en dólares: un CEDEAR en BYMA puede compartirlo con su subyacente.
+
+Las órdenes abiertas se leen en dos ventanas
+(`schwab-open-orders-window-1.0.0`): todas las de 7 días y las `WORKING` de 60,
+que es el rango que documenta Schwab. Una GTC ingresada antes no aparece, y la
+página lo dice.
+
 ## Controles del threat model
 
 | Control | Cómo se cierra en la Fase 11                                                                                                                                                      |

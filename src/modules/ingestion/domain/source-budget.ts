@@ -78,11 +78,12 @@ export const SOURCE_DAILY_REQUEST_BUDGETS: Readonly<Record<string, number>> =
     "damodaran-current-data": 20,
     // Schwab (ADR 0076). No publica cuota diaria; fuentes secundarias reportan
     // 120 requests por minuto. El token se pide al conectar y cada 30 minutos
-    // de uso; la cuenta y el market data, al abrir sus páginas. Se revisa con
-    // las mediciones de `F11-04`.
+    // de uso. Medido en `F11-04`: una lectura de la cuenta son cuatro pedidos,
+    // y con la página abierta todo el día (`schwab-live-cadence-1.0.0`) son
+    // ~2.400 de cuenta y ~1.800 de cotizaciones (decisión del owner).
     "schwab-oauth": 100,
-    "schwab-trader": 1000,
-    "schwab-marketdata": 1000,
+    "schwab-trader": 3000,
+    "schwab-marketdata": 2000,
     // ADR 0033: las 16 ambiguas de la muestra del gate con los tres escalones
     // y una repetición con búsqueda son 96 llamadas en el peor caso. El gasto
     // en dólares tiene su propio tope (`ai-spend`), que suele mandar antes.
