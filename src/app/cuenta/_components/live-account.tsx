@@ -5,16 +5,11 @@ import Link from "next/link";
 import type { Route } from "next";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { InfoTip } from "@/app/_components/info-tip";
 import { StatusMark } from "@/app/_components/status-mark";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -23,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import type { LiveAccountReading } from "@/modules/trading/application/live-account-service";
 import {
   liveCadence,
@@ -255,15 +251,17 @@ export function LiveAccount({
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Alert>
-            <TriangleAlert aria-hidden="true" />
-            <AlertTitle>{copy.title}</AlertTitle>
-            <AlertDescription>
-              {copy.text} Código{" "}
-              <code className="font-mono text-xs">{failedCode}</code>.
-            </AlertDescription>
-          </Alert>
-          <RefreshButton refreshing={refreshing} onRefresh={refreshAccount} />
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="flex items-center gap-1.5 text-sm">
+              <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
+              {copy.title}
+              <InfoTip title={copy.title}>
+                <p>{copy.text}</p>
+                <p className="font-mono text-xs">{failedCode}</p>
+              </InfoTip>
+            </p>
+            <RefreshButton refreshing={refreshing} onRefresh={refreshAccount} />
+          </div>
         </CardContent>
       </Card>
     );
@@ -282,47 +280,51 @@ export function LiveAccount({
       <Card>
         <CardHeader className="border-b">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <CardTitle as="h2">
+            <CardTitle as="h2" className="flex items-center gap-1">
               Cuenta{" "}
               <span className="numeric">···{reading.account.lastFour}</span>
+              <InfoTip title="Cuenta en vivo">
+                <p>
+                  Leída de Schwab al momento y sin guardar. Con la página
+                  visible se relee cada minuto en la sesión de Nueva York y cada
+                  5 minutos fuera de ella.
+                </p>
+                <p>
+                  Cuenta{" "}
+                  {reading.account.accountType === "CASH"
+                    ? "cash: el buying power overnight es el efectivo liquidado"
+                    : reading.account.accountType}
+                  {reading.account.isClosingOnlyRestricted
+                    ? "; restringida a cerrar posiciones"
+                    : ""}
+                  .
+                </p>
+              </InfoTip>
             </CardTitle>
             <div className="flex flex-wrap items-center gap-2">
               <StatusMark
                 status={freshness.light === "live" ? "ready" : "degraded"}
                 label={freshness.light === "live" ? "LIVE" : "STALE"}
               />
+              <time
+                dateTime={reading.readAt}
+                className="numeric text-sm text-muted-foreground"
+                aria-live="polite"
+              >
+                {formatClock(reading.readAt)}
+              </time>
               <RefreshButton
                 refreshing={refreshing}
                 onRefresh={refreshAccount}
               />
             </div>
           </div>
-          <CardDescription aria-live="polite">
-            Leída a las{" "}
-            <time dateTime={reading.readAt} className="numeric">
-              {formatClock(reading.readAt)}
-            </time>{" "}
-            (Buenos Aires).{" "}
-            {cadence.session === "regular"
-              ? "Sesión de Nueva York abierta: se relee cada minuto con la página visible."
-              : "Fuera de la sesión de Nueva York: se relee cada 5 minutos con la página visible."}
-          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           {failedCode !== null ? (
             <StaleNotice code={failedCode} readAt={reading.readAt} />
           ) : null}
           <Balances reading={reading} />
-          <p className="text-xs text-muted-foreground">
-            Cuenta{" "}
-            {reading.account.accountType === "CASH"
-              ? "cash"
-              : reading.account.accountType}
-            {reading.account.isClosingOnlyRestricted
-              ? " · restringida a cerrar posiciones"
-              : ""}
-            . Fuente: Schwab Trader API, leída al momento y sin guardar.
-          </p>
         </CardContent>
       </Card>
 
@@ -368,11 +370,13 @@ function StaleNotice({
   return (
     <Alert>
       <TriangleAlert aria-hidden="true" />
-      <AlertTitle>{copy.title}</AlertTitle>
-      <AlertDescription>
-        {copy.text} Lo que sigue es la lectura de las {formatClock(readAt)}, no
-        la de ahora. Código <code className="font-mono text-xs">{code}</code>.
-      </AlertDescription>
+      <AlertTitle className="flex items-center gap-1">
+        {copy.title} · lectura de las {formatClock(readAt)}
+        <InfoTip title={copy.title}>
+          <p>{copy.text}</p>
+          <p className="font-mono text-xs">{code}</p>
+        </InfoTip>
+      </AlertTitle>
     </Alert>
   );
 }
@@ -410,25 +414,24 @@ function Balances({ reading }: { readonly reading: Reading }) {
         term="Liquidation value"
         gloss="valor de liquidación"
         value={formatMoney(b.liquidationValue)}
-        detail={`Al abrir: US$ ${formatMoney(b.liquidationValueAtOpen)}`}
+        detail={`Al abrir US$ ${formatMoney(b.liquidationValueAtOpen)}`}
       />
       <Figure
         term="Buying power overnight"
         gloss="disponible para operar"
         value={formatMoney(b.cashAvailableForTrading)}
-        detail="En una cuenta cash, el efectivo liquidado."
       />
       <Figure
         term="Buying power intradía"
-        gloss="tal cual lo informa Schwab"
+        gloss="según Schwab"
         value={formatMoney(b.currentIntradayBuyingPower)}
-        detail={`Al abrir: US$ ${formatMoney(b.intradayBuyingPowerAtOpen)}`}
+        detail={`Al abrir US$ ${formatMoney(b.intradayBuyingPowerAtOpen)}`}
       />
       <Figure
         term="Cash"
         gloss="efectivo total"
         value={formatMoney(b.totalCash)}
-        detail={`Sin liquidar: US$ ${formatMoney(b.unsettledCash)} · retirable: US$ ${formatMoney(b.cashAvailableForWithdrawal)}`}
+        detail={`Sin liquidar US$ ${formatMoney(b.unsettledCash)}`}
       />
     </dl>
   );
@@ -550,20 +553,39 @@ function PositionsCard({
   const positions = reading.positions;
   return (
     <Card>
-      <CardHeader className="border-b">
-        <CardTitle as="h2">Posiciones</CardTitle>
-        <CardDescription>
-          {positions.length === 0
-            ? "Las de Schwab a la hora de la lectura, con la última cotización y lo que el portal sabe de cada una."
-            : quotes === null || quotes.readAt === ""
-              ? "Las cotizaciones se piden cada 15 s en sesión, sólo de acciones y ETFs abiertos."
-              : `Cotizaciones de las ${formatClock(quotes.readAt)}${quotes.failedCode !== null ? ", no las de ahora: la última actualización falló" : ""}. Market value y P&L son los de Schwab a la hora de la cuenta.`}
-        </CardDescription>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 border-b">
+        <CardTitle as="h2" className="flex items-center gap-1">
+          Posiciones
+          <InfoTip title="Posiciones">
+            <p>
+              Market value y P&amp;L son los de Schwab a la hora de la cuenta.
+              La cotización se pide cada 15 s en sesión, sólo de acciones y ETFs
+              abiertos.
+            </p>
+            <p>
+              Valuación, sector y CEDEAR salen del portal: la última valuación
+              registrada, a su propia fecha.
+            </p>
+          </InfoTip>
+        </CardTitle>
+        {quotes === null || quotes.readAt === "" ? null : (
+          <span
+            className={cn(
+              "numeric text-sm",
+              quotes.failedCode === null
+                ? "text-muted-foreground"
+                : "text-amber-800 dark:text-amber-300",
+            )}
+          >
+            Cotización {formatClock(quotes.readAt)}
+            {quotes.failedCode === null ? "" : " · sin actualizar"}
+          </span>
+        )}
       </CardHeader>
       {positions.length === 0 ? (
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            Sin posiciones abiertas: no se pide ninguna cotización.
+            Sin posiciones abiertas.
           </p>
         </CardContent>
       ) : (
@@ -656,10 +678,6 @@ function PositionsCard({
               })}
             </TableBody>
           </Table>
-          <p className="px-4 text-xs text-muted-foreground">
-            Importes en dólares. La valuación es la última registrada en el
-            portal, a su propia fecha; nunca se pide una al abrir la cuenta.
-          </p>
         </CardContent>
       )}
     </Card>
@@ -672,13 +690,19 @@ function OrdersCard({ reading }: { readonly reading: Reading }) {
   return (
     <Card>
       <CardHeader className="border-b">
-        <CardTitle as="h2">Órdenes abiertas</CardTitle>
-        <CardDescription>
-          Sólo para verlas: el portal no envía, modifica ni cancela órdenes. Se
-          leen todas las de los últimos {ordersWindow.recentDays} días y las
-          activas de hasta {ordersWindow.workingDays} días; una GTC más vieja no
-          aparece.
-        </CardDescription>
+        <CardTitle as="h2" className="flex items-center gap-1">
+          Órdenes abiertas
+          <InfoTip title="Órdenes abiertas">
+            <p>
+              Sólo para verlas: el portal no envía, modifica ni cancela órdenes.
+            </p>
+            <p>
+              Todas las de los últimos {ordersWindow.recentDays} días y las
+              activas de hasta {ordersWindow.workingDays}; una GTC más vieja no
+              aparece.
+            </p>
+          </InfoTip>
+        </CardTitle>
       </CardHeader>
       {orders.length === 0 ? (
         <CardContent>

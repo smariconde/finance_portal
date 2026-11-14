@@ -6,6 +6,7 @@ import {
   ChartScatter,
   Database,
   Home,
+  NotebookPen,
   Landmark,
   Settings2,
   Wallet,
@@ -52,18 +53,24 @@ const activeItems = [
     badge: null,
   },
   {
-    href: "/cuenta",
-    label: "Cuenta",
-    icon: Wallet,
-    badge: null,
-  },
-  {
     href: "/configuracion",
     label: "Configuración",
     icon: Settings2,
     badge: null,
   },
 ] as const;
+
+/** La cuenta Schwab y lo que se arma con ella (Fase 11, ADR 0076). */
+const tradingItems = [
+  { href: "/cuenta", label: "Cuenta", icon: Wallet, badge: null },
+  { href: "/diario", label: "Diario", icon: NotebookPen, badge: null },
+] as const;
+
+type NavItem = (typeof activeItems)[number] | (typeof tradingItems)[number];
+
+function isActive(pathname: string, href: string): boolean {
+  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+}
 
 /**
  * Lo que el backlog tiene por delante: la ficha de la empresa (`F6-25`) y la
@@ -119,47 +126,18 @@ export function AppSidebar({ mode }: AppSidebarProps) {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {activeItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    className="max-md:h-11"
-                    isActive={
-                      item.href === "/"
-                        ? pathname === "/"
-                        : pathname.startsWith(item.href)
-                    }
-                    tooltip={item.label}
-                    render={
-                      <Link
-                        href={item.href}
-                        aria-current={
-                          (
-                            item.href === "/"
-                              ? pathname === "/"
-                              : pathname.startsWith(item.href)
-                          )
-                            ? "page"
-                            : undefined
-                        }
-                        onClick={closeMobileNavigation}
-                      />
-                    }
-                  >
-                    <item.icon />
-                    <span>{item.label}</span>
-                  </SidebarMenuButton>
-                  {item.badge === null ? null : (
-                    <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>
-                  )}
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        <NavGroup
+          label="Workspace"
+          items={activeItems}
+          pathname={pathname}
+          onNavigate={closeMobileNavigation}
+        />
+        <NavGroup
+          label="Trading"
+          items={tradingItems}
+          pathname={pathname}
+          onNavigate={closeMobileNavigation}
+        />
 
         <SidebarGroup>
           <SidebarGroupLabel>Herramientas</SidebarGroupLabel>
@@ -208,5 +186,52 @@ export function AppSidebar({ mode }: AppSidebarProps) {
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
+  );
+}
+
+function NavGroup({
+  label,
+  items,
+  pathname,
+  onNavigate,
+}: {
+  label: string;
+  items: readonly NavItem[];
+  pathname: string;
+  onNavigate: () => void;
+}) {
+  return (
+    <SidebarGroup>
+      <SidebarGroupLabel>{label}</SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          {items.map((item) => {
+            const active = isActive(pathname, item.href);
+            return (
+              <SidebarMenuItem key={item.href}>
+                <SidebarMenuButton
+                  className="max-md:h-11"
+                  isActive={active}
+                  tooltip={item.label}
+                  render={
+                    <Link
+                      href={item.href}
+                      aria-current={active ? "page" : undefined}
+                      onClick={onNavigate}
+                    />
+                  }
+                >
+                  <item.icon />
+                  <span>{item.label}</span>
+                </SidebarMenuButton>
+                {item.badge === null ? null : (
+                  <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>
+                )}
+              </SidebarMenuItem>
+            );
+          })}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
   );
 }

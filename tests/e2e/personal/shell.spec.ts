@@ -212,6 +212,11 @@ test.describe("shell del portal", () => {
       ROUTES.sectorDivergences,
     ]) {
       await page.goto(route);
+      // `goto` vuelve con la primera respuesta: en un runner lento todavía se
+      // ve el esqueleto de `loading.tsx`, que no es la página. Se espera a que
+      // llegue su `h1` (fallaba en CI en `/sectores` y en las divergencias).
+      await expect(page.locator("h1")).toHaveCount(1);
+      await page.waitForLoadState("networkidle");
 
       const levels = await page
         .locator("h1, h2, h3, h4, h5, h6")

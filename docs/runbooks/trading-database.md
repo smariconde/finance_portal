@@ -130,6 +130,11 @@ su propio slot.
 - La primera migración se aplicó sin snapshot previo, por decisión del owner:
   la base estaba vacía y sólo cambiaban privilegios.
 - El primero, `f11-02-runtime-role-2026-11-13`, se tomó inmediatamente después.
+- Cada uno reemplaza al anterior: `f11-03-before-0001-2026-11-13` y después
+  `f11-05-before-0002-2026-11-14`. Con el slot ocupado, la API responde
+  «snapshots limit exceeded»: se borra el viejo
+  (`neon api -X DELETE /projects/wispy-term-56128846/snapshots/<id>`) y se toma
+  el nuevo.
 - La CLI no tiene un comando de snapshots. Se toman con la API:
   `neon api -X POST /projects/wispy-term-56128846/branches/<branch>/snapshot -Q name=<nombre>`,
   y se verifican con `neon api /projects/wispy-term-56128846/snapshots`.

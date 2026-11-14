@@ -139,13 +139,16 @@ export const SCHWAB_ASSET_TYPES = [
 export type SchwabAssetType = (typeof SCHWAB_ASSET_TYPES)[number];
 
 /**
- * El instrumento de una posición o de una pata de orden. Las claves son la
- * unión de las variantes publicadas por tipo de activo; ninguna se midió todavía.
+ * El instrumento de una posición o de una pata de orden: la unión de las
+ * variantes publicadas por tipo de activo más lo que trajo el cable real. El
+ * 2026-11-14, doce órdenes reales trajeron `uniformSymbol`, que el schema
+ * publicado no tenía y que habría puesto en cuarentena la primera orden abierta.
  */
 const instrumentSchema = z
   .object({
     assetType: z.enum(SCHWAB_ASSET_TYPES),
     symbol: z.string().min(1).max(64),
+    uniformSymbol: z.string().max(64).optional(),
     cusip: z.string().max(16).optional(),
     description: z.string().max(256).optional(),
     instrumentId: exactIntegerSchema.optional(),
@@ -510,6 +513,7 @@ const orderSchema: z.ZodType<RawOrder, unknown> = z.lazy(() =>
       replacingOrderCollection: z.array(orderSchema).max(16).optional(),
       childOrderStrategies: z.array(orderSchema).max(16).optional(),
       statusDescription: z.string().max(512).optional(),
+      firmActionType: z.string().max(64).optional(),
     })
     .strict(),
 );
