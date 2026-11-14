@@ -7109,7 +7109,19 @@ La primera conexión en Production se prueba con el owner después del merge. **
 - **Render.** Desktop claro y mobile oscuro sin overflow. Axe no encontró nada fuera del `region` previo del sidebar. La primera ronda encontró rótulos pisados en la escalera, y por eso la leyenda pasó a ir debajo de la pista.
 - **Gates.** Unitarios 4.133, integración de trading 39 (el contrato de anotaciones sobre PostgreSQL) y E2E 288, con `/diario/[trade]` en los dos modos y un segmento hostil que da 404 sin repetirse.
 
-**Sigue:** el gráfico del trade con velas de Schwab y después la rutina. **Estado:** `in_progress`.
+**`F11-07`, 2026-11-14, segundo incremento.** El trade se dibuja con velas de Schwab que no se guardan ([enmienda de la ADR 0076](../architecture/adr/0076-schwab-read-only-account-trading-journal.md#enmienda-del-2026-11-14-el-diario-por-trade-f11-07)).
+
+- **Parser** `schwab-price-history-1.0.0`, cerrado: precios del texto fuente, orden estricto, vela coherente y la ventana recortada por el parser. **Regla** `trade-chart-1.0.0`: 1 minuto hasta 40 días, 5 minutos hasta 240 y diarias para el resto, con el motivo nombrado; horario extendido sólo si una ejecución cayó fuera del regular.
+- **Acción** `loadTradeChart`: el segmento del trade y nada más, uno o dos `GET` a `schwab-marketdata`.
+- **UI** (`financial-visualization-review`): velas con mecha y cuerpo, volumen, ejecuciones como triángulos, stop, target y entrada planeada punteados. La lectura OHLC se hace por puntero, toque o flechas en una franja fija, y el cursor va fuera de Recharts con el dibujo memoizado. Debajo van la fuente, la resolución, el horario y la hora de lectura. `linearTicks` pasó a `src/app/_components/chart-ticks.ts`.
+
+**Evidencia.**
+
+- **Los 47 trades reales, 47 pedidos:** 45 con velas diarias (15 day trades fuera del alcance de los minutos) y 2 con velas de 5 minutos. Las 115 ejecuciones encontraron su vela y 11 caen fuera de su rango: TSLQ por un reverse split y PAGS por un dividendo, porque Schwab ajusta las velas viejas. El gráfico las cuenta y lo dice.
+- **Render.** TSLA de 5 minutos en desktop claro y mobile oscuro, y TSLQ diario en desktop oscuro: sin overflow y sin hallazgos de axe fuera del sidebar. Mover el puntero cuesta ~16 ms por evento.
+- **Gates.** Unitarios 4.146, integración de trading 39 y E2E 288.
+
+**Sigue:** la rutina, si el owner la quiere después de usar el diario. **Estado:** `in_progress`.
 
 Insumos que el owner ya tiene, para los slices que los usan:
 

@@ -33,6 +33,7 @@ import {
 import { ExecutionsList } from "../_components/executions-list";
 import { AnnotationForm } from "./_components/annotation-form";
 import { PlanLadder } from "./_components/plan-ladder";
+import { TradeChart } from "./_components/trade-chart";
 import { TradeFigures } from "./_components/trade-figures";
 
 export const metadata: Metadata = {
@@ -182,6 +183,11 @@ export default async function TradePage({ params }: PageProps) {
         plan={reading.annotation?.plan ?? null}
         averageEntryPrice={reading.trade.averageEntryPrice}
         averageExitPrice={reading.trade.averageExitPrice}
+      />
+      <TradeChart
+        tradeRef={reading.ref}
+        symbol={reading.trade.symbol}
+        plan={reading.annotation?.plan ?? null}
       />
       <AnnotationForm
         key={reading.annotation?.revision ?? 0}

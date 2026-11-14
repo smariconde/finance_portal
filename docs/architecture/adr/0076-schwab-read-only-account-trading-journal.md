@@ -523,6 +523,22 @@ cuenta real, 2026-11-14):
 - Fuera del alcance de los minutos, el día de un day trade se dibuja con velas
   diarias y la resolución se nombra. Nunca se inventa una vela.
 
+**El gráfico** (`trade-chart-1.0.0`, `schwab-price-history-1.0.0`) pide las
+velas con `loadTradeChart` al abrir el trade, un `GET` a `schwab-marketdata`
+(dos si las de minutos vienen vacías), y no las guarda. Un day trade de los
+últimos 40 días va con velas de 1 minuto y uno de los últimos 240 con velas de
+5, con margen sobre lo medido; el resto, y todo swing, con velas diarias desde
+120 días antes de la entrada. Cada ejecución cae en la vela que contiene su hora.
+
+**Schwab ajusta su historia hacia atrás.** Medido sobre los 47 trades reales (47
+pedidos): las 115 ejecuciones encontraron su vela, pero 11 caen fuera de su
+rango. Nueve son de TSLQ, a un tercio del precio de su vela, por un reverse
+split posterior. Dos son de PAGS, ~5 % arriba de una vela anterior a un
+dividendo. Las velas vienen ajustadas y las ejecuciones conservan lo que se
+pagó. Des-ajustar exigiría los eventos, que este slice no lee, así que el
+gráfico cuenta y nombra las ejecuciones fuera de su vela en vez de mover
+precios.
+
 ## Controles del threat model
 
 | Control | Cómo se cierra en la Fase 11                                                                                                                                                      |

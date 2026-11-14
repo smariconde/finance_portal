@@ -218,6 +218,10 @@ estado al operar, revisión y notas.
   del lado equivocado.
 - **Setups propios:** se crean desde «Propio», hasta 40. No se renombran ni se
   borran todavía.
+- **Gráfico:** al abrir un trade sale 1 pedido a `schwab-marketdata` (2 si las
+  velas de minutos vienen vacías); nada se guarda. «N ejecuciones fuera de su
+  vela» significa que Schwab ajustó las velas por un split o un dividendo
+  posterior; las ejecuciones conservan el precio pagado.
 - **Antes de un rollback de `0003`:** exportar `trade_annotations` y
   `trading_setups`. Son lo único del diario que Schwab no puede devolver.
 

@@ -1490,7 +1490,11 @@ table show R where there is a plan; `trade-plan-1.0.0` adds planned
 reward/risk and each level's distance in R. Measured for the trade chart:
 Schwab's 1-minute candles reach ~47 days back and 5–30 minute ones ~8.5 months
 (none of the owner's day trades but two), daily years; at most 40,000 candles
-per response.
+per response. The trade chart (`trade-chart-1.0.0`, `schwab-price-history-1.0.0`)
+asks `loadTradeChart` for those candles when the trade opens —one `GET`, two if
+the minutes come back empty— and never stores them. Schwab adjusts its history
+backwards (a TSLQ reverse split, a PAGS dividend), so a fill outside its candle
+is counted and named, never moved.
 
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 

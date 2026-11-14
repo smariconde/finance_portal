@@ -8,6 +8,10 @@ import {
   type OpenDayPnlReading,
 } from "@/modules/trading/application/live-account-service";
 import {
+  readTradeChart,
+  type TradeChartReading,
+} from "@/modules/trading/application/trade-chart-service";
+import {
   syncSchwabTransactions,
   transactionsDue,
   type TransactionSyncResult,
@@ -235,6 +239,46 @@ export async function createOwnSetup(
     return { state: result, code, label: request.data.label };
   } catch (error) {
     console.error("own setup create failed", safeErrorSummary(error));
+    return { state: "unavailable" };
+  }
+}
+
+const chartRequestSchema = z.object({ ref: tradeRefSchema }).strict();
+
+export type TradeChartResult =
+  | TradeChartReading
+  | { readonly state: "not_found" }
+  | { readonly state: "unavailable" };
+
+/**
+ * Las velas del trade para su gráfico (`F11-07`, `trade-chart-1.0.0`): uno o dos
+ * `GET` a `schwab-marketdata` al abrir el trade. Se muestran y no se guardan; la
+ * respuesta son velas, marcas y la resolución, nunca la cuenta.
+ */
+export async function loadTradeChart(
+  input: unknown,
+): Promise<TradeChartResult> {
+  const health = await getRequestConfigHealth();
+  if (!servesSchwabConnection(health)) return { state: "unavailable" };
+  const request = chartRequestSchema.safeParse(input);
+  if (!request.success) return { state: "unavailable" };
+
+  try {
+    const tradeKey = tradeKeyFromRef(request.data.ref);
+    const state = await loadJournalState();
+    const trade =
+      tradeKey === null
+        ? undefined
+        : state.trades.find((candidate) => tradeKeyOf(candidate) === tradeKey);
+    if (trade === undefined) return { state: "not_found" };
+    const { egress, now } = getLiveAccountDependencies();
+    const reading = await readTradeChart({ egress, now }, trade);
+    if (reading.state === "failed") {
+      console.warn("schwab trade chart read failed", reading.code);
+    }
+    return reading;
+  } catch (error) {
+    console.error("schwab trade chart read failed", safeErrorSummary(error));
     return { state: "unavailable" };
   }
 }
