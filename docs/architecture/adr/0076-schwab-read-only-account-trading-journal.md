@@ -441,6 +441,38 @@ queda `opened_before_history`, nunca leída como un corto. Con los datos reales,
 los 47 trades cerrados suman exactamente sus `netAmount` y el realizado total es
 la suma de los 115 `netAmount` de `TRADE`.
 
+## Enmienda del 2026-11-14: P&L del día y calendario (`F11-06`)
+
+**Realizado por salida, no por trade.** Lo realizado de una sesión es lo que
+realizaron las salidas ejecutadas en ella. Una salida parcial de un swing cuenta
+el día en que se vendió, como en el reporte de ganancias de un broker. Medido
+sobre los 47 trades reales, cambia un solo trade frente a fechar todo en el
+cierre. Para que el calendario reconcilie con el diario,
+`trade-round-trip-fifo-1.1.0` le da a cada salida lo que realizó al centavo
+—su neto más el costo FIFO de lo que consumió— y la salida que cierra el ciclo
+se lleva el resto. Lo realizado de un trade abierto pasa a ser la suma de sus
+salidas.
+
+**Las fórmulas de la sección 9** que entran:
+
+- `trading-daily-pnl-1.0.0`: sesión de cada salida, semana de lunes a viernes
+  entera aunque cruce de mes y mes con sus días. Una salida sin entrada en la
+  historia se cuenta aparte y no suma. Un día sin salidas es `null`.
+- `trade-r-multiple-1.0.0`, como lo fija la sección 9, con dos precisiones. La
+  entrada y la cantidad son el promedio de entradas y todo lo que entró, porque
+  el riesgo es el de la posición entera. Un stop del lado equivocado o igual a la
+  entrada es `null` con motivo, no un R. El total de un período en R existe sólo
+  si todas sus salidas lo tienen. El stop llega con el plan de `F11-07`; hasta
+  entonces todo R es `null` con `no_planned_stop`.
+- `open-day-pnl-1.0.0`: lo abierto del día es la suma de lo que Schwab publica
+  por posición, sin recalcularlo con una cotización. Si a una posición le falta
+  la cifra, el total es `null`.
+
+**Lo abierto se lee al abrir el diario, sin cadencia.** Son dos `GET`
+(`accountNumbers` y la cuenta con posiciones). La lectura con cadencia sigue en
+`/cuenta`. Repetirla en el diario duplicaría el consumo de `schwab-trader` con
+las dos páginas abiertas, y el tope diario es de 3.000.
+
 ## Controles del threat model
 
 | Control | Cómo se cierra en la Fase 11                                                                                                                                                      |

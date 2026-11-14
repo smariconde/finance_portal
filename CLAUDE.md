@@ -1465,6 +1465,20 @@ and shows them visually; the UI keeps explanations in `InfoTip`s, never in
 paragraphs (owner's request). Schwab allows one active login: connecting one
 environment invalidates the other, and `/cuenta` says `renewal_failed`.
 
+Since `F11-06` (in progress in parallel with `F11-05`, an explicit exception
+the owner asked for) `/diario` opens with the day and a calendar by New York
+session. Realized P&L is attributed **per exit**, not per trade:
+`trade-round-trip-fifo-1.1.0` gives each exit its realized amount to the cent
+and the cycle's last exit takes the rest, so `trading-daily-pnl-1.0.0`'s days,
+weeks (Monday–Friday, whole across months) and months reconcile exactly with the
+journal (58 real exits). `trade-r-multiple-1.0.0` uses the average entry and the
+whole entry quantity; with no planned stop —which arrives with `F11-07`'s plan—
+R is `null` (`no_planned_stop`), and a period has an R total only when every
+exit has one. The open day is `open-day-pnl-1.0.0`, the sum of Schwab's own
+per-position figures read by `readOpenPnl` in two `GET`s when the journal opens,
+never polled. The calendar is the accessible table itself; narrow cells show
+whole dollars.
+
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 
 Node `>=22.11.0 <27`, pnpm `10.33.2` via corepack. Arch Linux dev host — use POSIX shell syntax for env-var examples in docs, matching the `ubuntu-latest` runners CI validates on.

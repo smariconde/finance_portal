@@ -19,6 +19,7 @@ import {
   liveFailureCode,
   readLiveAccount,
   readLiveQuotes,
+  readOpenDayPnl,
 } from "./live-account-service";
 
 const KEY = Buffer.alloc(32, 3);
@@ -230,5 +231,57 @@ describe("readLiveQuotes", () => {
         issueQuoteScope(KEY, ["SYN"], NOW),
       ),
     ).toEqual({ state: "failed", code: "quote_symbol_not_requested" });
+  });
+});
+
+describe("readOpenDayPnl", () => {
+  it("sums Schwab's day and open P&L in two GETs, without orders", async () => {
+    const double = account([
+      equityPosition("SYN"),
+      equityPosition("ETF", { assetType: "COLLECTIVE_INVESTMENT" }),
+    ]);
+    const reading = await readOpenDayPnl({ egress: double.egress });
+    expect(reading).toMatchObject({
+      state: "read",
+      readAt: NOW,
+      pnl: {
+        positions: 2,
+        day: { value: "-6.4", missing: 0 },
+        open: { value: "-5.76", missing: 0 },
+      },
+    });
+    expect(double.requests).toHaveLength(2);
+    expect(double.requests.some((r) => r.url.includes("/orders"))).toBe(false);
+    expect(JSON.stringify(reading)).not.toContain(SYNTHETIC_HASH);
+    expect(JSON.stringify(reading)).not.toContain("12345678");
+  });
+
+  it("is zero with no positions, not null", async () => {
+    const reading = await readOpenDayPnl({ egress: account().egress });
+    expect(reading).toMatchObject({
+      state: "read",
+      pnl: { positions: 0, day: { value: "0" }, open: { value: "0" } },
+    });
+  });
+
+  it("names a missing figure instead of summing the rest", async () => {
+    const withoutDay = equityPosition("SYN").replace(
+      '"currentDayProfitLoss":-3.2,"currentDayProfitLossPercentage":-0.31,',
+      "",
+    );
+    const reading = await readOpenDayPnl({
+      egress: account([withoutDay, equityPosition("ETF")]).egress,
+    });
+    expect(reading).toMatchObject({
+      pnl: { day: { value: null, missing: 1 }, open: { value: "-5.76" } },
+    });
+  });
+
+  it("returns a code on an HTTP failure", async () => {
+    const double = egressDouble(() => ({ status: 401, body: "{}" }));
+    expect(await readOpenDayPnl({ egress: double.egress })).toEqual({
+      state: "failed",
+      code: "http_401",
+    });
   });
 });
