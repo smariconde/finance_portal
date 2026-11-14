@@ -7,10 +7,17 @@ import {
 import type { TransactionRun } from "@/modules/trading/application/schwab-transaction-store";
 import type { TransactionSyncDependencies } from "@/modules/trading/application/transaction-sync-service";
 import {
+  calendarBook,
+  sessionExits,
+  type CalendarBook,
+} from "@/modules/trading/domain/daily-pnl";
+import {
   buildJournal,
   type JournalSummary,
 } from "@/modules/trading/domain/journal";
 import type { RoundTrip } from "@/modules/trading/domain/trade-round-trips";
+import { tradingSessionOf } from "@/modules/trading/domain/trading-session";
+import type { PlannedStop } from "@/modules/trading/domain/trade-r-multiple";
 import {
   deriveTradingSubkey,
   parseTradingSecretKey,
@@ -40,9 +47,14 @@ export type JournalReading = {
   readonly account: { readonly lastFour: string } | null;
   readonly trades: readonly RoundTrip[];
   readonly summary: JournalSummary;
+  /** P&L por sesión de Nueva York, de la primera salida a hoy (`F11-06`). */
+  readonly calendar: CalendarBook;
   readonly lastRun: TransactionRun | null;
   readonly historyFrom: string | null;
 };
+
+/** Los stops planeados llegan con el plan del trade (`F11-07`): hoy, ninguno. */
+const NO_PLANNED_STOPS: ReadonlyMap<string, PlannedStop> = new Map();
 
 /**
  * El diario leído de la base de trading: nunca habla con Schwab. Con una sola
@@ -63,10 +75,15 @@ export async function readJournal(): Promise<JournalReading> {
     account?.accountKey ?? "",
     transactions,
   );
+  const calendar = calendarBook(
+    sessionExits(trades, NO_PLANNED_STOPS),
+    tradingSessionOf(new Date().toISOString()),
+  );
   return {
     account: account === null ? null : { lastFour: account.lastFour },
     trades,
     summary,
+    calendar,
     lastRun: runs[0] ?? null,
     historyFrom: sync?.historyFrom ?? null,
   };
