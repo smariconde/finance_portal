@@ -7072,7 +7072,9 @@ La primera conexión en Production se prueba con el owner después del merge. **
 - **Render.** `/diario` y `/cuenta` sin overflow en desktop ni mobile; axe sólo con el `region` previo del sidebar.
 - **Gates.** Unitarios 4.058, E2E 272 (`/diario` en los dos modos), integración de trading 33 con el contrato de transacciones sobre PostgreSQL, y la de análisis 239. El rollback de `0002` corrió en la base de prueba y la cadena volvió a aplicarse.
 
-**Pendiente:** aplicar `0002` en el Neon de trading (snapshot antes) y medir una posición y una orden reales el lunes 2026-11-16. **Estado:** `in_progress`.
+- **Neon de trading.** Snapshot `f11-05-before-0002-2026-11-14`, que reemplaza al de `F11-03` (decisión del owner; Free tiene un solo lugar); `0002` aplicada, `db:trading:status:neon` 3 de 3 y `db:trading:audit:neon` 8 de 8 sobre 9 tablas.
+
+**Pendiente:** medir una posición y una orden reales el lunes 2026-11-16, y reconectar Production, que perdió el login cuando se conectó local. **Estado:** `in_progress`.
 
 Insumos que el owner ya tiene, para los slices que los usan:
 
