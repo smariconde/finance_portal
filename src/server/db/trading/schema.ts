@@ -30,7 +30,8 @@ import {
  * `F11-02` creó la base y el rol de runtime (migración `0000`); `F11-03` suma la
  * conexión con Schwab y el presupuesto de sus fuentes; `F11-05`, la cuenta, sus
  * transacciones y la sincronización (migración `0002`); `F11-07`, las
- * anotaciones del diario y los setups propios (migración `0003`).
+ * anotaciones del diario y los setups propios (migración `0003`) y la rutina
+ * de cada sesión (migración `0004`).
  */
 
 function instant(name: string) {
@@ -495,6 +496,77 @@ export const tradeAnnotations = pgTable(
     ),
     check(
       "trade_annotations_superseded_check",
+      sql`${table.supersededAt} is null or ${table.supersededAt} >= ${table.recordedAt}`,
+    ),
+  ],
+);
+
+export const routinePhase = pgEnum("routine_phase", ["pre_open", "close"]);
+
+/**
+ * Los ítems de la rutina que escribe el owner (`trading-routine-1.0.0`,
+ * `F11-07`). Retirar uno sólo escribe `retired_at`: las sesiones que lo
+ * tildaron lo siguen nombrando.
+ */
+export const routineItems = pgTable(
+  "routine_items",
+  {
+    itemId: uuid("item_id").primaryKey(),
+    phase: routinePhase("phase").notNull(),
+    label: varchar("label", { length: 80 }).notNull(),
+    createdAt: instant("created_at").notNull(),
+    retiredAt: instant("retired_at"),
+  },
+  (table) => [
+    index("routine_items_created_idx").on(table.createdAt),
+    check(
+      "routine_items_label_check",
+      sql`char_length(${table.label}) between 2 and 80`,
+    ),
+    check(
+      "routine_items_retired_check",
+      sql`${table.retiredAt} is null or ${table.retiredAt} >= ${table.createdAt}`,
+    ),
+  ],
+);
+
+/**
+ * La rutina de una sesión y fase como revisiones append-only: lo tildado (IDs
+ * de `routine_items`) y una nota de texto plano (`TM-12`).
+ */
+export const sessionRoutines = pgTable(
+  "session_routines",
+  {
+    revisionId: uuid("revision_id").primaryKey(),
+    session: date("session", { mode: "string" }).notNull(),
+    phase: routinePhase("phase").notNull(),
+    revision: integer("revision").notNull(),
+    version: varchar("version", { length: 64 }).notNull(),
+    checked: uuid("checked").array().notNull(),
+    note: text("note").notNull(),
+    recordedAt: instant("recorded_at").notNull(),
+    supersededAt: instant("superseded_at"),
+  },
+  (table) => [
+    uniqueIndex("session_routines_revision_uidx").on(
+      table.session,
+      table.phase,
+      table.revision,
+    ),
+    uniqueIndex("session_routines_current_uidx")
+      .on(table.session, table.phase)
+      .where(sql`${table.supersededAt} is null`),
+    check("session_routines_revision_check", sql`${table.revision} >= 1`),
+    check(
+      "session_routines_checked_check",
+      sql`cardinality(${table.checked}) <= 12`,
+    ),
+    check(
+      "session_routines_note_check",
+      sql`char_length(${table.note}) <= 2000`,
+    ),
+    check(
+      "session_routines_superseded_check",
       sql`${table.supersededAt} is null or ${table.supersededAt} >= ${table.recordedAt}`,
     ),
   ],

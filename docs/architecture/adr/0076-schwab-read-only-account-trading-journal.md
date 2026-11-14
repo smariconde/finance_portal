@@ -539,6 +539,16 @@ pagó. Des-ajustar exigiría los eventos, que este slice no lee, así que el
 gráfico cuenta y nombra las ejecuciones fuera de su vela en vez de mover
 precios.
 
+**La rutina** (`trading-routine-1.0.0`, migración de trading `0004`) entró en el
+slice a pedido del owner. Tiene dos fases, antes de la apertura y al cierre.
+Cada una lleva hasta 12 ítems que escribe el owner, y por sesión guarda lo
+tildado y una nota, como revisiones append-only (`session_routines`). Retirar un
+ítem sólo escribe `retired_at`: las sesiones que lo tildaron lo siguen nombrando
+tachado. La sesión es la fecha de Nueva York, y en un fin de semana es la del
+lunes siguiente, que es la que se prepara (`routine-session-1.0.0`). Nunca se
+guarda una sesión futura. La rutina es opcional: no bloquea ni avisa, y el
+calendario marca los días que la tienen.
+
 ## Controles del threat model
 
 | Control | Cómo se cierra en la Fase 11                                                                                                                                                      |

@@ -128,8 +128,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   100 | `F11-04`   | `done`        | Cuenta en vivo: posiciones, saldos, poder de compra intradía y overnight, órdenes abiertas y luz LIVE/STALE.                                                                                                              | `F11-03`           |
 |   101 | `F11-05`   | `in_progress` | Transacciones como hechos con revisiones y round trips FIFO en decimal que reconcilian al centavo con sus `netAmount`.                                                                                                    | `F11-04`           |
 |   102 | `F11-06`   | `in_progress` | P&L del día en dinero y en R, y calendario por sesión de Nueva York con totales semanales y mensuales.                                                                                                                    | `F11-05`           |
-|   103 | `F11-07`   | `in_progress` | Diario por trade y rutina: setup, notas, plan y gráfico del trade dibujado con velas de Schwab sin guardarlas.                                                                                                            | `F11-05`           |
-|   104 | `F11-08`   | `queued`      | Estadísticas en R: expectancy, profit factor y drawdown, con cortes por setup, hora, día, ticker y day o swing.                                                                                                           | `F11-07`           |
+|   103 | `F11-07`   | `done`        | Diario por trade y rutina: setup, notas, plan y gráfico del trade dibujado con velas de Schwab sin guardarlas.                                                                                                            | `F11-05`           |
+|   104 | `F11-08`   | `ready`       | Estadísticas en R: expectancy, profit factor y drawdown, con cortes por setup, hora, día, ticker y day o swing.                                                                                                           | `F11-07`           |
 |   105 | `F11-09`   | `queued`      | Planner 2 % / 6 %, barra de riesgo sobre posiciones reales y reglas propias como alertas que no bloquean.                                                                                                                 | `F11-04`           |
 |   106 | `F11-10`   | `queued`      | Lecciones de análisis técnico, cada setup atado a una etiqueta del diario.                                                                                                                                                | `F11-07`           |
 |   107 | `F11-11`   | `queued`      | MCP de solo lectura para la IA del owner, decidido en su propia ADR antes de cualquier código.                                                                                                                            | gate de la Fase 11 |
@@ -7121,7 +7121,22 @@ La primera conexión en Production se prueba con el owner después del merge. **
 - **Render.** TSLA de 5 minutos en desktop claro y mobile oscuro, y TSLQ diario en desktop oscuro: sin overflow y sin hallazgos de axe fuera del sidebar. Mover el puntero cuesta ~16 ms por evento.
 - **Gates.** Unitarios 4.146, integración de trading 39 y E2E 288.
 
-**Sigue:** la rutina, si el owner la quiere después de usar el diario. **Estado:** `in_progress`.
+**`F11-07`, 2026-11-14, cierre: la rutina.** El owner pidió hacerla antes del PR.
+
+- **Base de trading** (migración `0004`, con rollback): `routine_items` (ítems del owner por fase, retirables) y `session_routines` (lo tildado y una nota por sesión y fase, en revisiones).
+- **Regla** `trading-routine-1.0.0` / `routine-session-1.0.0`: hasta 12 ítems por fase, nota de hasta 2.000 caracteres en texto plano, la sesión de Nueva York y, en un fin de semana, el lunes siguiente. Nunca se guarda una sesión futura.
+- **Acciones:** `readSessionRoutine`, `saveSessionRoutine` (compara la revisión editada), `addRoutineItem` y `retireRoutineItem`.
+- **UI:** tarjeta «Rutina» bajo «Hoy», con las dos fases, flechas entre sesiones hábiles y la edición de ítems a demanda. El calendario marca con un ícono y texto los días con rutina.
+
+**Evidencia.**
+
+- **Réplica de la base de trading local:** la sesión del sábado abre en el lunes 16. Se agregaron cuatro ítems y se rechazó uno con markup. Se tildaron 2 de 3 (el contador lo dice) y se guardó una nota con `<script>`, que no se ejecutó. La navegación al viernes y de vuelta conserva lo guardado y no deja pasar de la sesión actual. Un ítem retirado sigue tachado donde se tildó. El calendario marcó el viernes 13 y el lunes 16.
+- **Render.** Desktop claro y mobile oscuro sin overflow y sin hallazgos de axe fuera del sidebar.
+- **Rollback.** `0004` y `0003` en la base de prueba volvieron a 9 tablas y 3 migraciones, y la cadena se volvió a aplicar.
+- **Neon de trading.** Snapshot `f11-07-before-0003-2026-11-14`, que reemplaza al de `F11-05` (decisión del owner); `0003` y `0004` aplicadas, `db:trading:status:neon` 5 de 5 y `db:trading:audit:neon` 8 de 8 sobre 13 tablas.
+- **Gates.** Unitarios 4.156, integración de trading 42 y E2E 288.
+
+**Estado:** `done`; `F11-08` queda `ready`. `F11-05` y `F11-06` siguen `in_progress` hasta la medición del lunes 2026-11-16.
 
 Insumos que el owner ya tiene, para los slices que los usan:
 

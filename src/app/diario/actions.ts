@@ -1,5 +1,7 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+
 import { z } from "zod";
 
 import { servesSchwabConnection } from "@/modules/configuration/domain/config-health";
@@ -29,6 +31,16 @@ import {
   tradeRefSchema,
 } from "@/modules/trading/domain/trade-annotation";
 import {
+  MAX_ROUTINE_ITEMS,
+  routineItemLabelSchema,
+  routineNoteSchema,
+  routinePhaseSchema,
+  routineSessionOf,
+  sessionSchema,
+  TRADING_ROUTINE_VERSION,
+  type RoutineReading,
+} from "@/modules/trading/domain/trading-routine";
+import {
   MAX_OWN_SETUPS,
   ownSetupCodeOf,
   ownSetupLabelSchema,
@@ -36,6 +48,8 @@ import {
 } from "@/modules/trading/domain/trading-setups";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
 import { getTradeAnnotationStore } from "@/server/persistence/trading/get-trade-annotation-store";
+import { getTradingRoutineStore } from "@/server/persistence/trading/get-trading-routine-store";
+import { readRoutine } from "@/server/trading/routine";
 import { getLiveAccountDependencies } from "@/server/trading/live-account";
 import { safeErrorSummary } from "@/server/trading/safe-error";
 import {
@@ -279,6 +293,148 @@ export async function loadTradeChart(
     return reading;
   } catch (error) {
     console.error("schwab trade chart read failed", safeErrorSummary(error));
+    return { state: "unavailable" };
+  }
+}
+
+const routineReadSchema = z.object({ session: sessionSchema }).strict();
+
+export type RoutineResult =
+  | { readonly state: "read"; readonly routine: RoutineReading }
+  | { readonly state: "unavailable" };
+
+/** La rutina de otra sesión, para navegar con las flechas; nunca una futura. */
+export async function readSessionRoutine(
+  input: unknown,
+): Promise<RoutineResult> {
+  const health = await getRequestConfigHealth();
+  if (!servesSchwabConnection(health)) return { state: "unavailable" };
+  const request = routineReadSchema.safeParse(input);
+  const now = new Date().toISOString();
+  if (!request.success || request.data.session > routineSessionOf(now)) {
+    return { state: "unavailable" };
+  }
+  try {
+    return {
+      state: "read",
+      routine: await readRoutine(request.data.session, now),
+    };
+  } catch (error) {
+    console.error("routine read failed", safeErrorSummary(error));
+    return { state: "unavailable" };
+  }
+}
+
+const routineSaveSchema = z
+  .object({
+    session: sessionSchema,
+    phase: routinePhaseSchema,
+    baseRevision: z.number().int().min(1).max(1_000_000).nullable(),
+    checked: z.array(z.uuid()).max(MAX_ROUTINE_ITEMS),
+    note: routineNoteSchema,
+  })
+  .strict();
+
+export type SaveRoutineResult =
+  | { readonly state: "saved" | "unchanged"; readonly routine: RoutineReading }
+  | { readonly state: "conflict" | "invalid" | "unavailable" };
+
+/**
+ * Guarda lo tildado y la nota de una fase de la rutina (`trading-routine-1.0.0`)
+ * como revisión nueva. Sólo la base de trading; nunca una sesión futura.
+ */
+export async function saveSessionRoutine(
+  input: unknown,
+): Promise<SaveRoutineResult> {
+  const health = await getRequestConfigHealth();
+  if (!servesSchwabConnection(health)) return { state: "unavailable" };
+  const request = routineSaveSchema.safeParse(input);
+  const now = new Date().toISOString();
+  if (!request.success || request.data.session > routineSessionOf(now)) {
+    return { state: "invalid" };
+  }
+
+  try {
+    const { session, phase, baseRevision, checked, note } = request.data;
+    const store = getTradingRoutineStore();
+    const items = await store.listItems();
+    const ofPhase = items.filter((item) => item.phase === phase);
+    // Sólo ítems de la fase, en el orden de la lista, sin repetir.
+    const ordered = ofPhase
+      .map((item) => item.itemId)
+      .filter((itemId) => checked.includes(itemId));
+    if (
+      ordered.length !== new Set(checked).size ||
+      ordered.length !== checked.length
+    ) {
+      return { state: "invalid" };
+    }
+    const result = await store.saveRoutine({
+      session,
+      phase,
+      baseRevision,
+      entry: { checked: ordered, note },
+      version: TRADING_ROUTINE_VERSION,
+      recordedAt: now,
+    });
+    if (result.state === "conflict") return { state: "conflict" };
+    return { state: result.state, routine: await readRoutine(session, now) };
+  } catch (error) {
+    console.error("routine save failed", safeErrorSummary(error));
+    return { state: "unavailable" };
+  }
+}
+
+const routineItemAddSchema = z
+  .object({ phase: routinePhaseSchema, label: routineItemLabelSchema })
+  .strict();
+const routineItemRetireSchema = z.object({ itemId: z.uuid() }).strict();
+
+export type RoutineItemResult =
+  | { readonly state: "done" }
+  | { readonly state: "limit_reached" | "invalid" | "unavailable" };
+
+/** Suma un ítem a una fase de la rutina, hasta 12 vigentes. */
+export async function addRoutineItem(
+  input: unknown,
+): Promise<RoutineItemResult> {
+  const health = await getRequestConfigHealth();
+  if (!servesSchwabConnection(health)) return { state: "unavailable" };
+  const request = routineItemAddSchema.safeParse(input);
+  if (!request.success) return { state: "invalid" };
+  try {
+    const result = await getTradingRoutineStore().addItem(
+      {
+        itemId: randomUUID(),
+        phase: request.data.phase,
+        label: request.data.label,
+        createdAt: new Date().toISOString(),
+      },
+      MAX_ROUTINE_ITEMS,
+    );
+    return result === "created" ? { state: "done" } : { state: result };
+  } catch (error) {
+    console.error("routine item add failed", safeErrorSummary(error));
+    return { state: "unavailable" };
+  }
+}
+
+/** Retira un ítem: deja de aparecer, pero las sesiones que lo tildaron lo nombran. */
+export async function retireRoutineItem(
+  input: unknown,
+): Promise<RoutineItemResult> {
+  const health = await getRequestConfigHealth();
+  if (!servesSchwabConnection(health)) return { state: "unavailable" };
+  const request = routineItemRetireSchema.safeParse(input);
+  if (!request.success) return { state: "invalid" };
+  try {
+    const retired = await getTradingRoutineStore().retireItem(
+      request.data.itemId,
+      new Date().toISOString(),
+    );
+    return retired ? { state: "done" } : { state: "invalid" };
+  } catch (error) {
+    console.error("routine item retire failed", safeErrorSummary(error));
     return { state: "unavailable" };
   }
 }

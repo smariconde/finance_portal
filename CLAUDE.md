@@ -1479,7 +1479,7 @@ per-position figures read by `readOpenPnl` in two `GET`s when the journal opens,
 never polled. The calendar is the accessible table itself; narrow cells show
 whole dollars.
 
-Since `F11-07` (in progress, ADR 0076 amendment, trading migration `0003`)
+Since `F11-07` (ADR 0076 amendment, trading migrations `0003` and `0004`)
 every trade has `/diario/<instrumentId>-<fillId>`: setup (`trading-setups-1.0.0`,
 a declared base for `F11-10`'s lessons plus the owner's `own-*`), plan, adherence
 rule by rule, emotional and review status and plain-text notes
@@ -1494,7 +1494,11 @@ per response. The trade chart (`trade-chart-1.0.0`, `schwab-price-history-1.0.0`
 asks `loadTradeChart` for those candles when the trade opens —one `GET`, two if
 the minutes come back empty— and never stores them. Schwab adjusts its history
 backwards (a TSLQ reverse split, a PAGS dividend), so a fill outside its candle
-is counted and named, never moved.
+is counted and named, never moved. The session routine
+(`trading-routine-1.0.0`, trading migration `0004`) is the owner's checklist
+before the open and at the close plus a note, as append-only revisions per New
+York session —next Monday on a weekend, never a future one—, optional and
+marked on the calendar.
 
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 

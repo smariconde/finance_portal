@@ -225,6 +225,18 @@ estado al operar, revisión y notas.
 - **Antes de un rollback de `0003`:** exportar `trade_annotations` y
   `trading_setups`. Son lo único del diario que Schwab no puede devolver.
 
+## La rutina
+
+La tarjeta «Rutina» de `/diario` tiene el checklist antes de la apertura y al
+cierre de cada sesión de Nueva York, con una nota (`F11-07`).
+
+- **«Ítems»** muestra la edición: agregar hasta 12 por fase y quitar. Quitar no
+  borra el ítem de las sesiones que lo tildaron, donde queda tachado.
+- **En un fin de semana** la tarjeta abre en el lunes siguiente. Las flechas van
+  a sesiones anteriores, nunca a una futura.
+- **No pide nada a Schwab** y no bloquea nada. Antes de un rollback de `0004`,
+  exportar `routine_items` y `session_routines`.
+
 ## Cuota y kill switch
 
 La cuota y el kill switch de las fuentes de Schwab viven en la base de

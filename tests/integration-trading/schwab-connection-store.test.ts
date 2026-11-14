@@ -6,17 +6,19 @@ import { describeSourceBudgetStoreContract } from "@/modules/ingestion/applicati
 import { describeSchwabConnectionStoreContract } from "@/modules/trading/application/schwab-connection-store.contract";
 import { describeSchwabTransactionStoreContract } from "@/modules/trading/application/schwab-transaction-store.contract";
 import { describeTradeAnnotationStoreContract } from "@/modules/trading/application/trade-annotation-store.contract";
+import { describeTradingRoutineStoreContract } from "@/modules/trading/application/trading-routine-store.contract";
 import { createPostgresSchwabConnectionStore } from "@/server/db/trading/postgres-schwab-connection-store";
 import { createPostgresSchwabTransactionStore } from "@/server/db/trading/postgres-schwab-transaction-store";
 import { createPostgresTradingSourceBudgetStore } from "@/server/db/trading/postgres-source-budget-store";
 import { createPostgresTradeAnnotationStore } from "@/server/db/trading/postgres-trade-annotation-store";
+import { createPostgresTradingRoutineStore } from "@/server/db/trading/postgres-trading-routine-store";
 import * as schema from "@/server/db/trading/schema";
 
 /**
  * Los almacenes de la base de trading pasan los mismos contratos que sus dobles
  * en memoria: el presupuesto, el mismo que el de la base de análisis
  * (ADR 0020), la conexión con Schwab, sus transacciones y las anotaciones del
- * diario (ADR 0076).
+ * diario con su rutina (ADR 0076).
  */
 const client: Sql = postgres(process.env.TRADING_DATABASE_TEST_URL!.trim(), {
   max: 4,
@@ -27,6 +29,8 @@ const client: Sql = postgres(process.env.TRADING_DATABASE_TEST_URL!.trim(), {
 const database = drizzle(client, { schema });
 
 beforeEach(async () => {
+  await client`delete from session_routines`;
+  await client`delete from routine_items`;
   await client`delete from trade_annotations`;
   await client`delete from trading_setups`;
   await client`delete from schwab_transactions`;
@@ -66,3 +70,7 @@ describeTradeAnnotationStoreContract("trading postgres", () => {
       ),
   };
 });
+
+describeTradingRoutineStoreContract("trading postgres", () =>
+  createPostgresTradingRoutineStore(database),
+);
