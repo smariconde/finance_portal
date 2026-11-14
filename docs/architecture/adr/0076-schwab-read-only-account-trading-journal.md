@@ -473,6 +473,56 @@ salidas.
 `/cuenta`. Repetirla en el diario duplicaría el consumo de `schwab-trader` con
 las dos páginas abiertas, y el tope diario es de 3.000.
 
+## Enmienda del 2026-11-14: el diario por trade (`F11-07`)
+
+**Lo que el owner decidió** antes de la migración:
+
+- **Setups:** una base declarada en el código (`trading-setups-1.0.0`, los que
+  enseñarán las lecciones de `F11-10`) más los suyos, `own-<slug>`, en la base
+  de trading. El prefijo hace imposible que uno propio pise uno declarado.
+- **Estado:** el emocional al operar (lista cerrada de ocho) **y** el de
+  revisión (`pending`/`reviewed`).
+- **Adherencia:** regla por regla —entrada, stop, target y tamaño—, cada una
+  cumplida, rota o sin marcar. La marca el owner: deducirla de las ejecuciones
+  confundiría un deslizamiento con una regla rota.
+- **Rutina:** checklist propio y nota por sesión, liviana y opcional. El owner
+  no sabe si la va a completar; va al final del slice y el slice puede cerrar
+  sin ella si después de usar el diario no la quiere.
+
+**La anotación** (`trade-annotation-1.0.0`, migración de trading `0003`) se
+guarda como revisiones append-only en `trade_annotations`, como las
+transacciones: corregir el stop deja visible el que se había planeado. La clave
+es la del trade sin la cuenta, `schwab:<instrumentId>:<fillId>`, que dan los
+IDs de Schwab y sobrevive a una sincronización; la URL es
+`/diario/<instrumentId>-<fillId>`, sin la cuenta. Guardar compara la revisión
+que el owner editaba: si otra pestaña guardó antes, no escribe y lo dice. Las
+notas son texto plano de hasta 4.000 caracteres, en NFC, sin controles ni
+marcas bidi, y se muestran escapadas (`TM-12`).
+
+**El stop planeado le da R al diario.** `trade-r-multiple-1.0.0` no cambia:
+recibe el stop de la anotación vigente, así que el calendario, la franja «Hoy»
+y la tabla muestran R donde hay plan. `trade-plan-1.0.0` agrega la relación
+beneficio/riesgo planeada (con la entrada planeada o, sin ella, la ejecutada, y
+nombra cuál) y la distancia de cada precio a la entrada en R. Un stop o un
+target del lado equivocado es `null` con motivo, nunca un número.
+
+**Velas de Schwab, medidas antes del gráfico** (`/marketdata/v1/pricehistory`,
+cuenta real, 2026-11-14):
+
+| Frecuencia            | Llega hasta                   | Alcanza a                  |
+| --------------------- | ----------------------------- | -------------------------- |
+| 1 minuto              | 2026-09-28 (~47 días)         | ningún day trade del owner |
+| 5, 10, 15 y 30 minuto | 2026-03-02 (~8,5 meses)       | 2 de 17 day trades         |
+| diaria                | años (2024 medido sin límite) | los 47 trades              |
+
+- Un pedido devuelve como mucho **40.000 velas** (~3,9 MB).
+- Los precios llegan con hasta seis decimales: se leen del texto fuente.
+- La vela diaria viene fechada a la medianoche de Chicago.
+- Sin horario extendido se respeta la ventana pedida; con horario extendido, el
+  `endDate` no se respetó, así que el parser recorta él mismo.
+- Fuera del alcance de los minutos, el día de un day trade se dibuja con velas
+  diarias y la resolución se nombra. Nunca se inventa una vela.
+
 ## Controles del threat model
 
 | Control | Cómo se cierra en la Fase 11                                                                                                                                                      |

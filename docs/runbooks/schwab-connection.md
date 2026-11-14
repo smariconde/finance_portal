@@ -204,6 +204,23 @@ minuto en sesión, cinco fuera):
 - **R en «—»:** el trade no tiene stop planeado. El ⓘ dice cuántas salidas no lo
   tienen.
 
+## El diario por trade
+
+Cada símbolo de la tabla de `/diario` abre `/diario/<instrumentId>-<fillId>`
+(`F11-07`): plan (entrada, stop, target, cantidad), setup, adherencia por regla,
+estado al operar, revisión y notas.
+
+- **Guardar no pide nada a Schwab:** escribe una revisión en
+  `trade_annotations`. Con Ctrl + Enter también guarda.
+- **«Hay un guardado más nuevo»:** otra pestaña o equipo guardó el mismo trade.
+  «Recargar» trae la última; lo que no se guardó se pierde.
+- **R en «—» con stop cargado:** el ⓘ dice el motivo; casi siempre es un stop
+  del lado equivocado.
+- **Setups propios:** se crean desde «Propio», hasta 40. No se renombran ni se
+  borran todavía.
+- **Antes de un rollback de `0003`:** exportar `trade_annotations` y
+  `trading_setups`. Son lo único del diario que Schwab no puede devolver.
+
 ## Cuota y kill switch
 
 La cuota y el kill switch de las fuentes de Schwab viven en la base de

@@ -4,7 +4,6 @@ import {
   signOf,
 } from "@/app/_components/trading-format";
 import { cn } from "@/lib/utils";
-import type { PeriodR } from "@/modules/trading/domain/daily-pnl";
 import { formatSignedAmount } from "@/modules/valuation/domain/display-format";
 
 /**
@@ -52,7 +51,7 @@ export function RValue({
   r,
   className,
 }: {
-  readonly r: PeriodR | null;
+  readonly r: { readonly value: string | null } | null;
   readonly className?: string;
 }) {
   if (r === null || r.value === null) {

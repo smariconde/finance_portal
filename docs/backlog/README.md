@@ -128,7 +128,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   100 | `F11-04`   | `done`        | Cuenta en vivo: posiciones, saldos, poder de compra intradía y overnight, órdenes abiertas y luz LIVE/STALE.                                                                                                              | `F11-03`           |
 |   101 | `F11-05`   | `in_progress` | Transacciones como hechos con revisiones y round trips FIFO en decimal que reconcilian al centavo con sus `netAmount`.                                                                                                    | `F11-04`           |
 |   102 | `F11-06`   | `in_progress` | P&L del día en dinero y en R, y calendario por sesión de Nueva York con totales semanales y mensuales.                                                                                                                    | `F11-05`           |
-|   103 | `F11-07`   | `queued`      | Diario por trade y rutina: setup, notas, plan y gráfico del trade dibujado con velas de Schwab sin guardarlas.                                                                                                            | `F11-05`           |
+|   103 | `F11-07`   | `in_progress` | Diario por trade y rutina: setup, notas, plan y gráfico del trade dibujado con velas de Schwab sin guardarlas.                                                                                                            | `F11-05`           |
 |   104 | `F11-08`   | `queued`      | Estadísticas en R: expectancy, profit factor y drawdown, con cortes por setup, hora, día, ticker y day o swing.                                                                                                           | `F11-07`           |
 |   105 | `F11-09`   | `queued`      | Planner 2 % / 6 %, barra de riesgo sobre posiciones reales y reglas propias como alertas que no bloquean.                                                                                                                 | `F11-04`           |
 |   106 | `F11-10`   | `queued`      | Lecciones de análisis técnico, cada setup atado a una etiqueta del diario.                                                                                                                                                | `F11-07`           |
@@ -7093,6 +7093,23 @@ La primera conexión en Production se prueba con el owner después del merge. **
 - **Gates.** Unitarios 4.103 y E2E 272 (`/diario` en los dos modos), con formato, lint, typecheck y build.
 
 **Pendiente:** corroborar lo abierto con la primera posición real el lunes 2026-11-16, junto con la medición de `F11-05`. **Estado:** `in_progress`.
+
+**`F11-07`, 2026-11-14, primer incremento.** Cada trade tiene su página `/diario/<instrumentId>-<fillId>` con plan, setup, adherencia, estados y notas, y el stop planeado le da R al diario ([enmienda de la ADR 0076](../architecture/adr/0076-schwab-read-only-account-trading-journal.md#enmienda-del-2026-11-14-el-diario-por-trade-f11-07), [runbook](../runbooks/schwab-connection.md#el-diario-por-trade)). Se abrió con `F11-05` y `F11-06` todavía `in_progress`, por pedido del owner: es la misma **excepción explícita** a «un solo `in_progress`», porque los tres esperan la medición del lunes y este no depende de ella.
+
+- **Decisiones del owner:** setups de una base declarada más los suyos; estado emocional y de revisión; adherencia regla por regla; rutina liviana y opcional al final del slice, que puede cerrar sin ella.
+- **Medido antes del gráfico** (velas de Schwab, cuenta real): 1 minuto hasta ~47 días, 5 a 30 minutos hasta ~8,5 meses, diarias por años; 40.000 velas por pedido como máximo. Sólo 2 de los 17 day trades tienen velas de minutos.
+- **Base de trading** (migración `0003`, con rollback): `trade_annotations` (revisiones append-only, vigente única por trade) y `trading_setups`.
+- **Fórmulas:** `trade-annotation-1.0.0` (entradas del owner con coma o punto, nulas si vacías, nunca cero), `trade-plan-1.0.0` (beneficio/riesgo planeado y distancia en R, `null` con motivo del lado equivocado), `trading-setups-1.0.0`.
+- **Acciones:** `saveTradeAnnotation` (schema cerrado, compara la revisión editada y devuelve `conflict` si otra pestaña guardó) y `createOwnSetup` (hasta 40).
+- **UI** (`impeccable`): franja de cifras (P&L, R, riesgo inicial, beneficio/riesgo, adherencia en cuatro casillas), escalera del plan con leyenda en orden de precio y en R, formulario en dos columnas, ejecuciones en dos líneas en el teléfono y revisiones plegadas. La tabla del diario enlaza cada trade y suma setup, R, la marca de revisión y el filtro «Sin revisar».
+
+**Evidencia.**
+
+- **Cuenta real, sobre una réplica descartable de la base de trading local:** un day trade de TSLA con entrada 372,80, stop 370,50 y target 378: R +0,10 (1,16 / 11,95) y beneficio/riesgo 2,26 : 1, iguales a la cuenta hecha a mano. Un stop del lado equivocado da `null` con motivo, y un precio inválido se marca en el campo. Las notas `<img onerror>` y `</textarea><script>` volvieron idénticas sin ejecutar nada, y quedaron tres revisiones.
+- **Render.** Desktop claro y mobile oscuro sin overflow. Axe no encontró nada fuera del `region` previo del sidebar. La primera ronda encontró rótulos pisados en la escalera, y por eso la leyenda pasó a ir debajo de la pista.
+- **Gates.** Unitarios 4.133, integración de trading 39 (el contrato de anotaciones sobre PostgreSQL) y E2E 288, con `/diario/[trade]` en los dos modos y un segmento hostil que da 404 sin repetirse.
+
+**Sigue:** el gráfico del trade con velas de Schwab y después la rutina. **Estado:** `in_progress`.
 
 Insumos que el owner ya tiene, para los slices que los usan:
 

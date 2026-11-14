@@ -1,6 +1,12 @@
 "use client";
 
-import { ChevronDown, ChevronRight } from "lucide-react";
+import {
+  CircleCheck,
+  CircleDashed,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
+import Link from "next/link";
 import { Fragment, useMemo, useState } from "react";
 import {
   Bar,
@@ -35,14 +41,20 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { CalendarBook } from "@/modules/trading/domain/daily-pnl";
-import type { JournalSummary } from "@/modules/trading/domain/journal";
+import type {
+  JournalEntry,
+  JournalSummary,
+} from "@/modules/trading/domain/journal";
 import type { RoundTrip } from "@/modules/trading/domain/trade-round-trips";
+import type { TradingSetup } from "@/modules/trading/domain/trading-setups";
 
-import { Money } from "./pnl-values";
+import { ExecutionsList } from "./executions-list";
+import { Money, RValue } from "./pnl-values";
 import { SessionCalendar } from "./session-calendar";
 import { TodayStrip } from "./today-strip";
 
-type Filter = "all" | "day" | "swing" | "winners" | "losers" | "open";
+type Filter =
+  "all" | "day" | "swing" | "winners" | "losers" | "open" | "pending";
 
 const FILTERS: readonly { value: Filter; label: string }[] = [
   { value: "all", label: "Todos" },
@@ -51,9 +63,14 @@ const FILTERS: readonly { value: Filter; label: string }[] = [
   { value: "winners", label: "Ganadores" },
   { value: "losers", label: "Perdedores" },
   { value: "open", label: "Abiertos" },
+  { value: "pending", label: "Sin revisar" },
 ];
 
-function matches(trade: RoundTrip, filter: Filter): boolean {
+function matches(
+  trade: RoundTrip,
+  entry: JournalEntry | undefined,
+  filter: Filter,
+): boolean {
   const sign = trade.realizedPnl === null ? 0 : signOf(trade.realizedPnl);
   switch (filter) {
     case "all":
@@ -68,6 +85,8 @@ function matches(trade: RoundTrip, filter: Filter): boolean {
       return trade.status === "closed" && sign < 0;
     case "open":
       return trade.status === "open";
+    case "pending":
+      return entry?.review !== "reviewed";
   }
 }
 
@@ -306,21 +325,33 @@ function PnlChart({ summary }: { readonly summary: JournalSummary }) {
   );
 }
 
-function TradesTable({ trades }: { readonly trades: readonly RoundTrip[] }) {
+function TradesTable({
+  trades,
+  entries,
+  setups,
+}: {
+  readonly trades: readonly RoundTrip[];
+  readonly entries: Readonly<Record<string, JournalEntry>>;
+  readonly setups: readonly TradingSetup[];
+}) {
+  const setupLabel = useMemo(
+    () => new Map(setups.map((setup) => [setup.code, setup.label])),
+    [setups],
+  );
   const [filter, setFilter] = useState<Filter>("all");
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const rows = useMemo(
     () =>
       trades
-        .filter((trade) => matches(trade, filter))
+        .filter((trade) => matches(trade, entries[trade.tradeId], filter))
         .sort(
           (a, b) =>
             Date.parse(b.closedAt ?? "9999-12-31") -
               Date.parse(a.closedAt ?? "9999-12-31") ||
             Date.parse(b.openedAt) - Date.parse(a.openedAt),
         ),
-    [trades, filter],
+    [trades, entries, filter],
   );
 
   return (
@@ -353,6 +384,7 @@ function TradesTable({ trades }: { readonly trades: readonly RoundTrip[] }) {
                 </TableHead>
                 <TableHead>Símbolo</TableHead>
                 <TableHead>Tipo</TableHead>
+                <TableHead>Setup</TableHead>
                 <TableHead>Entrada</TableHead>
                 <TableHead>Salida</TableHead>
                 <TableHead className="text-right">Días</TableHead>
@@ -360,6 +392,7 @@ function TradesTable({ trades }: { readonly trades: readonly RoundTrip[] }) {
                 <TableHead className="text-right">Precio entrada</TableHead>
                 <TableHead className="text-right">Precio salida</TableHead>
                 <TableHead className="text-right">P&amp;L</TableHead>
+                <TableHead className="text-right">R</TableHead>
                 <TableHead className="text-right">Fees</TableHead>
               </TableRow>
             </TableHeader>
@@ -367,6 +400,8 @@ function TradesTable({ trades }: { readonly trades: readonly RoundTrip[] }) {
               {rows.map((trade) => {
                 const open = expanded === trade.tradeId;
                 const days = daysHeld(trade);
+                const entry = entries[trade.tradeId];
+                const reviewed = entry?.review === "reviewed";
                 return (
                   <Fragment key={trade.tradeId}>
                     <TableRow data-state={open ? "selected" : undefined}>
@@ -393,8 +428,31 @@ function TradesTable({ trades }: { readonly trades: readonly RoundTrip[] }) {
                           )}
                         </button>
                       </TableCell>
-                      <TableCell className="font-medium">
-                        {trade.symbol}
+                      <TableCell className="font-medium whitespace-nowrap">
+                        {entry === undefined ? (
+                          trade.symbol
+                        ) : (
+                          <Link
+                            href={`/diario/${entry.ref}`}
+                            className="inline-flex items-center gap-1.5 rounded-sm underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+                          >
+                            {reviewed ? (
+                              <CircleCheck
+                                className="size-3.5 text-primary"
+                                aria-hidden="true"
+                              />
+                            ) : (
+                              <CircleDashed
+                                className="size-3.5 text-muted-foreground"
+                                aria-hidden="true"
+                              />
+                            )}
+                            {trade.symbol}
+                            <span className="sr-only">
+                              {reviewed ? ", revisado" : ", sin revisar"}
+                            </span>
+                          </Link>
+                        )}
                       </TableCell>
                       <TableCell>
                         {trade.status === "open" ? (
@@ -408,6 +466,12 @@ function TradesTable({ trades }: { readonly trades: readonly RoundTrip[] }) {
                             {trade.dayTrade ? "Day" : "Swing"}
                           </Badge>
                         )}
+                      </TableCell>
+                      <TableCell className="max-w-40 truncate text-muted-foreground">
+                        {entry?.setupCode == null
+                          ? "—"
+                          : (setupLabel.get(entry.setupCode) ??
+                            entry.setupCode)}
                       </TableCell>
                       <TableCell className="numeric whitespace-nowrap">
                         {trade.status === "opened_before_history"
@@ -438,6 +502,9 @@ function TradesTable({ trades }: { readonly trades: readonly RoundTrip[] }) {
                       <TableCell className="text-right font-medium">
                         <Money value={trade.realizedPnl} signed />
                       </TableCell>
+                      <TableCell className="text-right whitespace-nowrap">
+                        <RValue r={entry?.r ?? null} />
+                      </TableCell>
                       <TableCell className="text-right text-muted-foreground">
                         <Money value={trade.fees} />
                       </TableCell>
@@ -445,40 +512,8 @@ function TradesTable({ trades }: { readonly trades: readonly RoundTrip[] }) {
                     {open ? (
                       <TableRow className="bg-muted/40 hover:bg-muted/40">
                         <TableCell />
-                        <TableCell colSpan={10}>
-                          <ul className="grid gap-1 py-1 text-xs">
-                            {trade.portions.map((portion, index) => (
-                              <li
-                                key={`${portion.fillId}-${index}`}
-                                className="grid grid-cols-[5rem_8rem_4rem_6rem_1fr] items-baseline gap-3"
-                              >
-                                <span className="font-medium">
-                                  {portion.side === "buy" ? "Compra" : "Venta"}
-                                </span>
-                                <span className="numeric text-muted-foreground">
-                                  {new Date(portion.executedAt).toLocaleString(
-                                    "es-AR",
-                                    {
-                                      dateStyle: "short",
-                                      timeStyle: "short",
-                                      hourCycle: "h23",
-                                      timeZone: "America/New_York",
-                                    },
-                                  )}{" "}
-                                  NY
-                                </span>
-                                <span className="numeric text-right">
-                                  {formatQuantity(portion.quantity)}
-                                </span>
-                                <span className="numeric text-right">
-                                  @ {formatMoney(portion.price)}
-                                </span>
-                                <span className="text-right">
-                                  <Money value={portion.netAmount} signed />
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
+                        <TableCell colSpan={12}>
+                          <ExecutionsList portions={trade.portions} />
                         </TableCell>
                       </TableRow>
                     ) : null}
@@ -497,10 +532,14 @@ export function JournalView({
   trades,
   summary,
   calendar,
+  entries,
+  setups,
 }: {
   readonly trades: readonly RoundTrip[];
   readonly summary: JournalSummary;
   readonly calendar: CalendarBook;
+  readonly entries: Readonly<Record<string, JournalEntry>>;
+  readonly setups: readonly TradingSetup[];
 }) {
   return (
     <div className="flex flex-col gap-6">
@@ -511,7 +550,7 @@ export function JournalView({
       <SessionCalendar book={calendar} />
       <SummaryStrip summary={summary} />
       <PnlChart summary={summary} />
-      <TradesTable trades={trades} />
+      <TradesTable trades={trades} entries={entries} setups={setups} />
     </div>
   );
 }
