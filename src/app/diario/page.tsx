@@ -20,6 +20,7 @@ import {
   type JournalReading,
 } from "@/server/trading/transactions";
 
+import { JournalNav } from "./_components/journal-nav";
 import { JournalView } from "./_components/journal-view";
 import { TransactionSync } from "./_components/transaction-sync";
 
@@ -37,12 +38,15 @@ function Header({ children }: { readonly children?: React.ReactNode }) {
       className="flex flex-wrap items-end justify-between gap-3"
       aria-labelledby="diario-title"
     >
-      <h1
-        id="diario-title"
-        className="text-2xl font-semibold tracking-tight md:text-3xl"
-      >
-        Diario
-      </h1>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <h1
+          id="diario-title"
+          className="text-2xl font-semibold tracking-tight md:text-3xl"
+        >
+          Diario
+        </h1>
+        <JournalNav current="journal" />
+      </div>
       {children}
     </section>
   );

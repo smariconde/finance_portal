@@ -549,6 +549,43 @@ lunes siguiente, que es la que se prepara (`routine-session-1.0.0`). Nunca se
 guarda una sesión futura. La rutina es opcional: no bloquea ni avisa, y el
 calendario marca los días que la tienen.
 
+## Enmienda del 2026-11-15: estadísticas del diario (`F11-08`)
+
+**Medido antes de fijar las reglas** sobre los 47 trades reales: todos cerrados
+y largos, ninguno con stop planeado ni setup; las entradas caen entre las 9 y
+las 15 de Nueva York, sin pre ni post market; 34 tickers, sólo 4 con tres
+trades o más.
+
+**`trading-stats-1.0.0`**, como lo fija la sección 9, con estas precisiones:
+
+- **Muestra:** los trades cerrados. Un trade abierto o abierto antes de la
+  historia se cuenta aparte, nunca como cero.
+- **Win rate:** ganadores sobre todos los cerrados. Un trade en cero no gana y
+  cuenta en el denominador.
+- **Expectancy en dinero:** lo realizado sobre la cantidad de trades.
+- **Expectancy en R:** el R medio de los trades que lo tienen, con su `n` y
+  cuántos faltan. No sigue la regla del calendario de `F11-06` (un total en R
+  sólo con todas las salidas): un total parcial engaña, una media de la parte
+  con stop es una muestra. Los trades viejos nunca tendrán stop, porque el plan
+  no se puede rehacer, y exigirlo en todos dejaría la cifra en `null` para
+  siempre. Sin ningún trade con R es `null` con el motivo del primero.
+- **Profit factor:** ganancia bruta sobre pérdida bruta, `null` con `no_losses`
+  sin pérdidas y 0 sin ganancias.
+- **Drawdown:** sobre la curva de lo realizado salida por salida
+  (`trading-daily-pnl-1.0.0`), acumulada desde cero. La mayor caída desde un
+  máximo previo en dinero, con el máximo, el piso, la salida que lo recuperó y
+  dónde está hoy la curva contra su máximo. Sin capital de la cuenta no hay
+  porcentaje.
+- **Cortes:** setup vigente (sin setup es su grupo), hora de reloj y día de la
+  semana **de la entrada** en Nueva York, ticker y day o swing. Un grupo con
+  menos de 5 trades se marca como muestra chica.
+- **Moneda:** una sola; trades en dos dan `currency_mismatch` y no se suma nada.
+
+**La superficie** es `/diario/estadisticas`, hermana de `/diario` con el
+selector «Trades · Estadísticas». Lee la base de trading y nada más: no pide
+nada a Schwab ni a la base de análisis. Los cortes son una tabla con barras en
+sus celdas, así la tabla es también el equivalente accesible.
+
 ## Controles del threat model
 
 | Control | Cómo se cierra en la Fase 11                                                                                                                                                      |

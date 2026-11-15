@@ -109,6 +109,7 @@ export const ROUTES = {
   argentina: "/argentina",
   account: "/cuenta",
   journal: "/diario",
+  journalStats: "/diario/estadisticas",
   // Dos IDs de Schwab inventados: con la base cerrada nunca llega a buscarlo.
   journalTrade: "/diario/3001-41",
   missing: "/ruta-que-no-existe",

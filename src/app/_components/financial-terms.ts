@@ -136,6 +136,13 @@ export const FINANCIAL_TERMS = {
   priceToFcf: { en: "P/FCF", es: "precio sobre flujo de caja libre" },
   payoutRatio: { en: "Payout ratio", es: "dividendos sobre ganancia" },
   netDebtToEbitda: { en: "Net debt/EBITDA", es: "deuda neta sobre EBITDA" },
+  winRate: { en: "Win rate", es: "trades ganadores" },
+  expectancy: { en: "Expectancy", es: "resultado medio por trade" },
+  profitFactor: {
+    en: "Profit factor",
+    es: "ganancia bruta sobre pérdida bruta",
+  },
+  maxDrawdown: { en: "Max drawdown", es: "mayor caída desde un máximo" },
 } as const satisfies Record<string, FinancialTerm>;
 
 export type FinancialTermKey = keyof typeof FINANCIAL_TERMS;

@@ -34,6 +34,10 @@ import {
   type TradingSetup,
 } from "@/modules/trading/domain/trading-setups";
 import {
+  tradingStats,
+  type TradingStats,
+} from "@/modules/trading/domain/trading-stats";
+import {
   deriveTradingSubkey,
   parseTradingSecretKey,
 } from "@/modules/trading/domain/trading-secret-key";
@@ -189,5 +193,34 @@ export async function readJournal(): Promise<JournalReading> {
     routineSessions,
     lastRun: runs[0] ?? null,
     historyFrom: sync?.historyFrom ?? null,
+  };
+}
+
+export type TradingStatsReading = {
+  readonly account: { readonly lastFour: string } | null;
+  readonly stats: TradingStats;
+  readonly setups: readonly TradingSetup[];
+};
+
+/**
+ * Las estadísticas del diario (`F11-08`, `trading-stats-1.0.0`): los mismos
+ * trades, stops y salidas que lee el diario, de la base de trading y nada más.
+ */
+export async function readTradingStats(): Promise<TradingStatsReading> {
+  const state = await loadJournalState();
+  const stops = plannedStops(state);
+  const stats = tradingStats(
+    state.trades.map((trade) => ({
+      ...trade,
+      setupCode: state.annotations.get(tradeKeyOf(trade))?.setupCode ?? null,
+      r: rMultipleOf(trade, stops.get(trade.tradeId) ?? null),
+    })),
+    sessionExits(state.trades, stops),
+  );
+  return {
+    account:
+      state.account === null ? null : { lastFour: state.account.lastFour },
+    stats,
+    setups: state.setups,
   };
 }

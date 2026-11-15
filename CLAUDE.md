@@ -1500,6 +1500,18 @@ before the open and at the close plus a note, as append-only revisions per New
 York session —next Monday on a weekend, never a future one—, optional and
 marked on the calendar.
 
+Since `F11-08` (ADR 0076 amendment, no migration) `/diario/estadisticas`, a
+sibling of `/diario` behind a «Trades · Estadísticas» selector, reads
+`trading-stats-1.0.0` from the trading database only: closed trades, win rate
+with breakeven in the denominator, expectancy in dollars and in R —the mean of
+the trades that **have** R, with `n` and `missing`, unlike a calendar total,
+because old trades can never get a stop—, profit factor `null` with
+`no_losses`, and the max drawdown of the realized curve exit by exit from zero
+(peak, trough, recovery, current). Cuts by setup, New York hour and weekday of
+the **entry**, ticker and day or swing, marking groups under 5 trades; the cuts
+table carries its bars in its cells, so it is its own accessible equivalent.
+Measured: 47 closed trades, none with a stop or setup, all entries 9–15 h NY.
+
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 
 Node `>=22.11.0 <27`, pnpm `10.33.2` via corepack. Arch Linux dev host — use POSIX shell syntax for env-var examples in docs, matching the `ubuntu-latest` runners CI validates on.

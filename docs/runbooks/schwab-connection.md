@@ -237,6 +237,19 @@ cierre de cada sesión de Nueva York, con una nota (`F11-07`).
 - **No pide nada a Schwab** y no bloquea nada. Antes de un rollback de `0004`,
   exportar `routine_items` y `session_routines`.
 
+## Las estadísticas
+
+`/diario/estadisticas` (`F11-08`) muestra win rate, expectancy en dinero y en
+R, profit factor y max drawdown de los trades cerrados, la curva realizada con
+su drawdown y los cortes por setup, hora, día, ticker y day o swing.
+
+- **No pide nada a Schwab:** lee la base de trading. Los trades nuevos llegan
+  cuando `/diario` sincroniza.
+- **Expectancy en R en «—»:** ningún trade cerrado tiene stop planeado. Debajo
+  dice cuántos lo tienen; la media es sólo de esos.
+- **Profit factor en «—»:** no hubo pérdidas.
+- **Una cantidad subrayada** en los cortes es una muestra de menos de 5 trades.
+
 ## Cuota y kill switch
 
 La cuota y el kill switch de las fuentes de Schwab viven en la base de
