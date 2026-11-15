@@ -1,6 +1,9 @@
 import "server-only";
 
-import { companyLogoUrl } from "@/modules/configuration/domain/company-logo";
+import {
+  companyLogoPublishableKey,
+  companyLogoUrl,
+} from "@/modules/configuration/domain/company-logo";
 
 /**
  * La URL del logo de una empresa (ADR 0062), o `null` si este runtime no tiene
@@ -9,4 +12,9 @@ import { companyLogoUrl } from "@/modules/configuration/domain/company-logo";
  */
 export function requestCompanyLogoUrl(ticker: string): string | null {
   return companyLogoUrl(ticker, process.env.LOGO_DEV_PUBLISHABLE_KEY);
+}
+
+/** Para listas cliente cuyos tickers pueden cambiar después del primer render. */
+export function requestCompanyLogoPublishableKey(): string | null {
+  return companyLogoPublishableKey(process.env.LOGO_DEV_PUBLISHABLE_KEY);
 }

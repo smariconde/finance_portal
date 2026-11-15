@@ -7,6 +7,14 @@
  */
 const PUBLISHABLE_KEY = /^pk_[A-Za-z0-9_-]{8,128}$/u;
 
+/** Sólo la clave destinada al navegador; nunca se entrega una `sk_` por error. */
+export function companyLogoPublishableKey(
+  value: string | undefined,
+): string | null {
+  const key = value?.trim() ?? "";
+  return PUBLISHABLE_KEY.test(key) ? key : null;
+}
+
 /** Un símbolo de listing: letras, dígitos, punto y guion, como `BRK.B`. */
 const TICKER = /^[A-Z0-9][A-Z0-9.-]{0,15}$/u;
 
@@ -16,10 +24,10 @@ export function companyLogoUrl(
   ticker: string,
   publishableKey: string | undefined,
 ): string | null {
-  const key = publishableKey?.trim() ?? "";
+  const key = companyLogoPublishableKey(publishableKey);
   const symbol = ticker.trim().toUpperCase();
 
-  if (!PUBLISHABLE_KEY.test(key) || !TICKER.test(symbol)) return null;
+  if (key === null || !TICKER.test(symbol)) return null;
 
   const query = new URLSearchParams({
     token: key,

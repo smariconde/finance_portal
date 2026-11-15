@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { termShort } from "@/app/_components/financial-terms";
+import { CompanyMark } from "@/app/_components/company-mark";
 import { InfoTip } from "@/app/_components/info-tip";
 import { Segmented } from "@/app/_components/segmented";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { companyLogoUrl } from "@/modules/configuration/domain/company-logo";
 import type { TradingSetup } from "@/modules/trading/domain/trading-setups";
 import {
   SMALL_SAMPLE,
@@ -130,11 +132,13 @@ export function StatsCuts({
   cuts,
   setups,
   lessonSlugs,
+  logoKey,
 }: {
   readonly cuts: Readonly<Record<CutDimension, readonly CutGroup[]>>;
   readonly setups: readonly TradingSetup[];
   /** Por código de setup declarado, su lección (`F11-10`). */
   readonly lessonSlugs: Readonly<Record<string, string>>;
+  readonly logoKey: string | null;
 }) {
   const [dimension, setDimension] = useState<CutDimension>("setup");
   const setupLabels = useMemo(
@@ -213,21 +217,34 @@ export function StatsCuts({
                 const small = group.stats.smallSample;
                 return (
                   <TableRow key={group.key ?? "none"}>
-                    <TableCell className="max-w-48 truncate font-medium">
-                      {dimension === "setup" &&
-                      group.key !== null &&
-                      lessonSlugs[group.key] !== undefined ? (
-                        <Link
-                          href={`/lecciones/${lessonSlugs[group.key]}`}
-                          className="rounded-sm underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
-                        >
-                          {groupLabel(dimension, group.key, setupLabels)}
-                        </Link>
-                      ) : (
-                        <span>
-                          {groupLabel(dimension, group.key, setupLabels)}
-                        </span>
-                      )}
+                    <TableCell className="max-w-48 font-medium">
+                      <span className="flex items-center gap-2">
+                        {dimension === "ticker" && group.key !== null ? (
+                          <CompanyMark
+                            ticker={group.key}
+                            name={null}
+                            logoUrl={companyLogoUrl(
+                              group.key,
+                              logoKey ?? undefined,
+                            )}
+                            size="sm"
+                          />
+                        ) : null}
+                        {dimension === "setup" &&
+                        group.key !== null &&
+                        lessonSlugs[group.key] !== undefined ? (
+                          <Link
+                            href={`/lecciones/${lessonSlugs[group.key]}`}
+                            className="truncate rounded-sm underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+                          >
+                            {groupLabel(dimension, group.key, setupLabels)}
+                          </Link>
+                        ) : (
+                          <span className="truncate">
+                            {groupLabel(dimension, group.key, setupLabels)}
+                          </span>
+                        )}
+                      </span>
                     </TableCell>
                     <TableCell className="numeric text-right">
                       <span
