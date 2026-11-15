@@ -2,6 +2,7 @@ import { ArrowRight, DatabaseZap } from "lucide-react";
 import Link from "next/link";
 
 import { termShort } from "@/app/_components/financial-terms";
+import { CompanyMark } from "@/app/_components/company-mark";
 import { formatSession } from "@/app/_components/trading-format";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatPercent } from "@/modules/valuation/domain/display-format";
+import { requestCompanyLogoUrl } from "@/server/config/company-logo";
 import type { SetupHistory } from "@/server/trading/setup-history";
 
 import { Money, RValue } from "../../diario/_components/pnl-values";
@@ -146,6 +148,12 @@ function History({ history }: { readonly history: SetupHistory }) {
                     href={`/diario/${trade.ref}`}
                     className="inline-flex min-h-6 items-center gap-2 rounded-sm font-medium outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
                   >
+                    <CompanyMark
+                      ticker={trade.symbol}
+                      name={null}
+                      logoUrl={requestCompanyLogoUrl(trade.symbol)}
+                      size="sm"
+                    />
                     {trade.symbol}
                     <Badge variant="outline">
                       {trade.status === "open"

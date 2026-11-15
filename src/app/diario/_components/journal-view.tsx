@@ -21,6 +21,7 @@ import {
 } from "recharts";
 
 import { InfoTip } from "@/app/_components/info-tip";
+import { CompanyMark } from "@/app/_components/company-mark";
 import { Segmented } from "@/app/_components/segmented";
 import {
   formatMoney,
@@ -41,6 +42,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { CalendarBook } from "@/modules/trading/domain/daily-pnl";
+import { companyLogoUrl } from "@/modules/configuration/domain/company-logo";
 import type {
   JournalEntry,
   JournalSummary,
@@ -331,10 +333,12 @@ function TradesTable({
   trades,
   entries,
   setups,
+  logoKey,
 }: {
   readonly trades: readonly RoundTrip[];
   readonly entries: Readonly<Record<string, JournalEntry>>;
   readonly setups: readonly TradingSetup[];
+  readonly logoKey: string | null;
 }) {
   const setupLabel = useMemo(
     () => new Map(setups.map((setup) => [setup.code, setup.label])),
@@ -431,30 +435,41 @@ function TradesTable({
                         </button>
                       </TableCell>
                       <TableCell className="font-medium whitespace-nowrap">
-                        {entry === undefined ? (
-                          trade.symbol
-                        ) : (
-                          <Link
-                            href={`/diario/${entry.ref}`}
-                            className="inline-flex items-center gap-1.5 rounded-sm underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
-                          >
-                            {reviewed ? (
-                              <CircleCheck
-                                className="size-3.5 text-primary"
-                                aria-hidden="true"
-                              />
-                            ) : (
-                              <CircleDashed
-                                className="size-3.5 text-muted-foreground"
-                                aria-hidden="true"
-                              />
+                        <span className="inline-flex items-center gap-2">
+                          <CompanyMark
+                            ticker={trade.symbol}
+                            name={null}
+                            logoUrl={companyLogoUrl(
+                              trade.symbol,
+                              logoKey ?? undefined,
                             )}
-                            {trade.symbol}
-                            <span className="sr-only">
-                              {reviewed ? ", revisado" : ", sin revisar"}
-                            </span>
-                          </Link>
-                        )}
+                            size="sm"
+                          />
+                          {entry === undefined ? (
+                            trade.symbol
+                          ) : (
+                            <Link
+                              href={`/diario/${entry.ref}`}
+                              className="inline-flex items-center gap-1.5 rounded-sm underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+                            >
+                              {reviewed ? (
+                                <CircleCheck
+                                  className="size-3.5 text-primary"
+                                  aria-hidden="true"
+                                />
+                              ) : (
+                                <CircleDashed
+                                  className="size-3.5 text-muted-foreground"
+                                  aria-hidden="true"
+                                />
+                              )}
+                              {trade.symbol}
+                              <span className="sr-only">
+                                {reviewed ? ", revisado" : ", sin revisar"}
+                              </span>
+                            </Link>
+                          )}
+                        </span>
                       </TableCell>
                       <TableCell>
                         {trade.status === "open" ? (
@@ -538,6 +553,7 @@ export function JournalView({
   setups,
   routine,
   routineSessions,
+  logoKey,
 }: {
   readonly trades: readonly RoundTrip[];
   readonly summary: JournalSummary;
@@ -546,6 +562,7 @@ export function JournalView({
   readonly setups: readonly TradingSetup[];
   readonly routine: RoutineReading;
   readonly routineSessions: readonly string[];
+  readonly logoKey: string | null;
 }) {
   const routineDays = useMemo(
     () => new Set(routineSessions),
@@ -561,7 +578,12 @@ export function JournalView({
       <SessionCalendar book={calendar} routineDays={routineDays} />
       <SummaryStrip summary={summary} />
       <PnlChart summary={summary} />
-      <TradesTable trades={trades} entries={entries} setups={setups} />
+      <TradesTable
+        trades={trades}
+        entries={entries}
+        setups={setups}
+        logoKey={logoKey}
+      />
     </div>
   );
 }

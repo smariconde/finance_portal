@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { companyHue, companyInitials, companyLogoUrl } from "./company-logo";
+import {
+  companyHue,
+  companyInitials,
+  companyLogoPublishableKey,
+  companyLogoUrl,
+} from "./company-logo";
 
 const KEY = "pk_AbCdEf123456";
 
@@ -32,6 +37,12 @@ describe("companyLogoUrl", () => {
   it("never puts a secret key in a URL the browser will see", () => {
     expect(companyLogoUrl("AAPL", "sk_secretvalue1234")).toBeNull();
     expect(companyLogoUrl("AAPL", "pk_short")).toBeNull();
+  });
+
+  it("only exposes a valid publishable key to dynamic client lists", () => {
+    expect(companyLogoPublishableKey(` ${KEY} `)).toBe(KEY);
+    expect(companyLogoPublishableKey("sk_secretvalue1234")).toBeNull();
+    expect(companyLogoPublishableKey(undefined)).toBeNull();
   });
 
   it("rejects a ticker that could escape the path", () => {
