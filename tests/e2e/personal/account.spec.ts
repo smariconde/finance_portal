@@ -54,6 +54,26 @@ test.describe("cuenta Schwab sin base de trading", () => {
     await expect(page.getByRole("heading", { name: /Trades/u })).toHaveCount(0);
   });
 
+  test("las estadísticas dicen que la base no respondió", async ({ page }) => {
+    await page.goto(ROUTES.journalStats);
+
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Diario" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Estadísticas" }),
+    ).toHaveAttribute("aria-current", "page");
+    await expect(
+      page.getByRole("heading", {
+        level: 2,
+        name: "Base de trading no disponible",
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /Curva realizada|Cortes/u }),
+    ).toHaveCount(0);
+  });
+
   test("un trade del diario dice que la base no respondió, sin pedir nada", async ({
     page,
   }) => {

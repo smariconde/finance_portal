@@ -129,7 +129,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   101 | `F11-05`   | `in_progress` | Transacciones como hechos con revisiones y round trips FIFO en decimal que reconcilian al centavo con sus `netAmount`.                                                                                                    | `F11-04`           |
 |   102 | `F11-06`   | `in_progress` | P&L del día en dinero y en R, y calendario por sesión de Nueva York con totales semanales y mensuales.                                                                                                                    | `F11-05`           |
 |   103 | `F11-07`   | `done`        | Diario por trade y rutina: setup, notas, plan y gráfico del trade dibujado con velas de Schwab sin guardarlas.                                                                                                            | `F11-05`           |
-|   104 | `F11-08`   | `ready`       | Estadísticas en R: expectancy, profit factor y drawdown, con cortes por setup, hora, día, ticker y day o swing.                                                                                                           | `F11-07`           |
+|   104 | `F11-08`   | `in_progress` | Estadísticas en R: expectancy, profit factor y drawdown, con cortes por setup, hora, día, ticker y day o swing.                                                                                                           | `F11-07`           |
 |   105 | `F11-09`   | `queued`      | Planner 2 % / 6 %, barra de riesgo sobre posiciones reales y reglas propias como alertas que no bloquean.                                                                                                                 | `F11-04`           |
 |   106 | `F11-10`   | `queued`      | Lecciones de análisis técnico, cada setup atado a una etiqueta del diario.                                                                                                                                                | `F11-07`           |
 |   107 | `F11-11`   | `queued`      | MCP de solo lectura para la IA del owner, decidido en su propia ADR antes de cualquier código.                                                                                                                            | gate de la Fase 11 |
@@ -7137,6 +7137,21 @@ La primera conexión en Production se prueba con el owner después del merge. **
 - **Gates.** Unitarios 4.156, integración de trading 42 y E2E 288.
 
 **Estado:** `done`; `F11-08` queda `ready`. `F11-05` y `F11-06` siguen `in_progress` hasta la medición del lunes 2026-11-16.
+
+**`F11-08`, 2026-11-15.** Las estadísticas del diario viven en `/diario/estadisticas`, hermana de `/diario` ([enmienda de la ADR 0076](../architecture/adr/0076-schwab-read-only-account-trading-journal.md#enmienda-del-2026-11-15-estadísticas-del-diario-f11-08), [runbook](../runbooks/schwab-connection.md#las-estadísticas)). Se abrió con `F11-05` y `F11-06` todavía `in_progress`, por pedido del owner: la misma **excepción explícita** a «un solo `in_progress`».
+
+- **Medido antes de fijar las reglas** (los 47 trades reales): todos cerrados y largos, ninguno con stop ni setup, entradas entre las 9 y las 15 de Nueva York, 34 tickers y sólo 4 con tres trades o más.
+- **Fórmula** `trading-stats-1.0.0`: win rate con los trades en cero en el denominador; expectancy en dinero; expectancy en R como media de los trades que tienen R, con `n` y los que faltan (decisión del agente, anotada en la enmienda: exigir R en todos lo dejaría en `null` para siempre, porque los stops viejos no se pueden rehacer); profit factor `null` con `no_losses`; drawdown sobre la curva realizada salida por salida desde cero, con máximo, piso, recuperación y distancia actual; cortes por setup, hora y día de la entrada en Nueva York, ticker y day o swing, con muestra chica bajo 5 trades; `currency_mismatch` con dos monedas.
+- **UI** (`impeccable` y `financial-visualization-review`): selector «Trades · Estadísticas», franja de seis cifras con ⓘ, curva realizada y drawdown debajo con la franja del max drawdown sombreada, lectura fija por puntero, toque o flechas y cursor fuera de Recharts; cortes como tabla con barras en sus celdas (win rate contra el 50 % y expectancy contra cero), que es su propio equivalente accesible.
+
+**Evidencia.**
+
+- **Cuenta real, local:** 47 trades, win rate 63,8 % (30 · 17), expectancy +43,66 (ganancia media +161,24, pérdida media −163,84), profit factor 1,74 (4.837,11 / 2.785,23) y max drawdown −2.154,59 del 28/10/2025 al 03/03/2026, sin recuperar; la curva termina en el realizado del diario, +2.051,88. Expectancy en R `—` con 0 de 47 con stop. El corte por hora coincide con la medición previa (9–10 h: 14 trades, +1.364,56).
+- **Render.** Desktop claro y oscuro, mobile claro y oscuro: sin overflow y sin hallazgos de axe fuera del `region` previo del sidebar. La primera ronda encontró la franja del max drawdown gris, porque Recharts pisa el `fill` de una clase; se corrigió con `currentColor`. El teclado recorre la curva y la anuncia.
+- **No verificado con datos:** el render de R y de setups. Escribir anotaciones sintéticas, aun en una réplica descartable, no se permitió en la sesión; lo cubren los 22 tests del dominio y se verá con el primer trade con stop.
+- **Gates.** Unitarios 4.178 y E2E 301 (`/diario/estadisticas` en los dos modos), con formato, lint, typecheck y build.
+
+**Pendiente:** ver la página con un trade con stop y setup, desde el lunes 2026-11-16. **Estado:** `in_progress`.
 
 Insumos que el owner ya tiene, para los slices que los usan:
 
