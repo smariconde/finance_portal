@@ -132,7 +132,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   104 | `F11-08`   | `in_progress` | Estadísticas en R: expectancy, profit factor y drawdown, con cortes por setup, hora, día, ticker y day o swing.                                                                                                           | `F11-07`           |
 |   105 | `F11-09`   | `in_progress` | Planner 2 % / 6 %, barra de riesgo sobre posiciones reales y reglas propias como alertas que no bloquean.                                                                                                                 | `F11-04`           |
 |   106 | `F11-10`   | `in_progress` | Lecciones de análisis técnico, cada setup atado a una etiqueta del diario.                                                                                                                                                | `F11-07`           |
-|   107 | `F11-11`   | `queued`      | Logos de las empresas en la cuenta, el diario y las lecciones, cargados por el navegador desde logo.dev como en valuación.                                                                                                | `F11-04`           |
+|   107 | `F11-11`   | `done`        | Logos de las empresas en la cuenta, el diario y las lecciones, cargados por el navegador desde logo.dev como en valuación.                                                                                                | `F11-04`           |
 |   108 | `F11-12`   | `queued`      | Plan antes de la rueda: watchlist de ideas con stop y targets automáticos y manuales, tamaño calculado y unión al trade del diario.                                                                                       | `F11-09`           |
 |   109 | `F11-13`   | `queued`      | Armador de links al screener de Finviz con un desplegable por variable y estrategias guardadas; el portal no baja datos de Finviz.                                                                                        | `F11-01`           |
 |   110 | `F11-14`   | `queued`      | MCP de solo lectura para la IA del owner, decidido en su propia ADR antes de cualquier código.                                                                                                                            | gate de la Fase 11 |
@@ -7192,6 +7192,13 @@ La primera conexión en Production se prueba con el owner después del merge. **
 - **No verificado con datos:** el historial con trades etiquetados; hoy un solo trade tiene setup. Lo cubren el lector compartido con las estadísticas y los tests de `trading-stats-1.0.0`.
 
 **Pendiente:** que el owner revise el contenido de las lecciones (reglas, errores y niveles fueron escritos por el agente a partir de las fuentes citadas) y vea su historial con los primeros trades etiquetados. **Estado:** `in_progress`.
+
+**`F11-11`, 2026-11-15.** `CompanyMark` identifica posiciones, cada pata de una orden, trades del diario y su detalle, historial de las lecciones y el corte estadístico por ticker. El modo de interacción es `Operate`: marca de 24 px en tablas y 32 px en el título del trade, siempre junto al símbolo legible. Las listas cliente reciben sólo una clave `pk_` validada durante el request y forman la URL canónica de ADR 0062 para cada ticker; sin clave o con 404 se usa el monograma existente. No hay nueva fuente, imagen persistida, llamada del servidor ni cambio de CSP.
+
+- **Evidencia:** `company-logo.test.ts` cubre la clave publicable y el rechazo de una `sk_`; 4.250 unitarios, lint, tipos, build y E2E (345 aprobadas, 3 omitidas) pasan; detector Impeccable `[]`. En la base local, con POST y destinos externos bloqueados, la revisión a 1440 px claro y 390 px oscuro mostró marcas de 24 px en 47 trades, 34 cortes por ticker y un historial de lección etiquetado, sin desborde del body.
+- **Límite del gate visual:** el E2E usa una base de trading inaccesible a propósito. La cuenta local no tiene posiciones ni órdenes para capturar sus filas pobladas; la composición de esas dos tablas se revisó en el código y usa la misma marca y tabla que las vistas medidas. Confirmar su ajuste óptico con la primera posición y orden reales sigue pendiente de `F11-04`/`F11-05`.
+
+**Estado:** `done`; `F11-12` sigue `queued` mientras se completa la verificación pendiente de `F11-09`.
 
 Insumos que el owner ya tiene, para los slices que los usan:
 
