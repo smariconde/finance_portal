@@ -250,6 +250,26 @@ su drawdown y los cortes por setup, hora, día, ticker y day o swing.
 - **Profit factor en «—»:** no hubo pérdidas.
 - **Una cantidad subrayada** en los cortes es una muestra de menos de 5 trades.
 
+## El riesgo
+
+`/cuenta` (`F11-09`) muestra, entre la cuenta y las posiciones, la franja
+«Riesgo»: cuatro alertas, el planner y las reglas.
+
+- **Nada bloquea.** Las reglas son alertas: `Atención` cuando un paso más llega
+  al límite, `Cortar` al llegar. El portal no envía órdenes.
+- **El stop de cada posición** es el del plan del trade en `/diario/<trade>`;
+  sin plan, la orden stop viva de Schwab si cubre toda la cantidad. «Sin stop ·
+  planear» lleva al trade. Si el plan y la orden no coinciden, un ⓘ lo marca.
+- **Open risk en «Sin medir»:** alguna posición no tiene stop; debajo dice
+  cuál. Mientras tanto el planner no usa el tope del 6 %.
+- **Las reglas** se cambian con «Reglas» y se guardan como revisión en la base
+  de trading. Un campo vacío apaga su regla. Sin ninguna guardada rigen 2 %,
+  6 %, 4 %, 3 trades y 3 pérdidas («Reglas por defecto»).
+- **Trades y pérdidas del día** salen de las transacciones guardadas. La página
+  las pone al día al abrirse si pasó un minuto y cada vez que cambian las
+  posiciones; si la sincronización falla, lo dice y lee lo guardado.
+- **El planner no cotiza:** entrada, stop y target se escriben.
+
 ## Cuota y kill switch
 
 La cuota y el kill switch de las fuentes de Schwab viven en la base de

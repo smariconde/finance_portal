@@ -1512,6 +1512,25 @@ the **entry**, ticker and day or swing, marking groups under 5 trades; the cuts
 table carries its bars in its cells, so it is its own accessible equivalent.
 Measured: 47 closed trades, none with a stop or setup, all entries 9–15 h NY.
 
+Since `F11-09` (in progress, ADR 0076 amendment, trading migration `0005`)
+`/cuenta` carries a «Riesgo» card between the account and the positions.
+`position-size-risk-1.0.0` measures each open long's risk as `(price − stop) ×
+quantity` —the price is the quote or Schwab's market value over quantity, the
+stop the journal plan's or, without one, the live Schwab stop order only if it
+covers the whole quantity, flagged when they differ— and the 6 % open risk is
+`null` naming the symbols without a stop, never a partial sum; a price through
+the stop is `price_through_stop`, never zero. The planner takes typed prices
+(it never quotes) and sizes whole shares down by the minimum of 2 % of
+liquidation value, overnight buying power and what is left of the 6 %, naming
+the cap. `trading-rules-1.0.0` reads open risk, daily loss (realized in the NY
+session plus Schwab's open day P&L against liquidation value at the open),
+trades opened and the ending loss streak as `ok`/`warning`/`stop`/`off`/`unknown`
+alerts that block nothing. The rules are owner revisions in
+`trading_risk_settings`; without one the defaults measured on the 47 trades
+apply (2 %, 6 %, 4 %, 3 trades, 3 losses). `readAccountRisk({ force })` syncs
+transactions when due —always when positions or round trips changed— and
+reads plans, rules and the session's activity; the client computes the rest.
+
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 
 Node `>=22.11.0 <27`, pnpm `10.33.2` via corepack. Arch Linux dev host — use POSIX shell syntax for env-var examples in docs, matching the `ubuntu-latest` runners CI validates on.

@@ -15,13 +15,29 @@ import {
   type LiveQuotesReading,
 } from "@/modules/trading/application/live-account-service";
 import { startSchwabConnection } from "@/modules/trading/application/schwab-connection-service";
+import {
+  syncSchwabTransactions,
+  transactionsDue,
+} from "@/modules/trading/application/transaction-sync-service";
 import type { PositionContext } from "@/modules/trading/domain/position-context";
 import { verifyQuoteScope } from "@/modules/trading/domain/quote-scope";
+import {
+  riskSettingsFormSchema,
+  TRADING_RULES_VERSION,
+  type RiskSettings,
+} from "@/modules/trading/domain/trading-rules";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
 import { getLiveAccountDependencies } from "@/server/trading/live-account";
+import { getTradingRiskSettingsStore } from "@/server/persistence/trading/get-trading-risk-settings-store";
 import { loadPositionContext } from "@/server/trading/position-context";
+import {
+  readRiskContext,
+  settingsOf,
+  type RiskContext,
+} from "@/server/trading/risk";
 import { safeErrorSummary } from "@/server/trading/safe-error";
 import { getSchwabRuntime } from "@/server/trading/schwab-connection";
+import { getTransactionSyncDependencies } from "@/server/trading/transactions";
 
 import {
   SCHWAB_STATE_COOKIE,
@@ -224,5 +240,148 @@ export async function readPositionContext(
     return { state: "analysis_unavailable", reference };
   } finally {
     clearTimeout(timer);
+  }
+}
+
+/**
+ * Un booleano y nada más (`TM-03`): `force` pide las transacciones aunque no
+ * haya pasado la cadencia, porque la cuenta cambió de posiciones. Qué pedir lo
+ * decide el servidor.
+ */
+const riskContextRequestSchema = z.object({ force: z.boolean() }).strict();
+
+export type RiskContextResult =
+  | (RiskContext & {
+      readonly state: "read";
+      /** El código de la sincronización que falló; lo guardado se lee igual. */
+      readonly syncFailed: string | null;
+    })
+  | { readonly state: "failed"; readonly reference: string }
+  | { readonly state: "unavailable" };
+
+/**
+ * Lo que el riesgo de la cuenta lee de la base de trading (`F11-09`): reglas,
+ * plan de cada trade abierto y actividad de la sesión. Antes pone al día las
+ * transacciones si pasó la cadencia de la cuenta (dos `GET` en el caso común,
+ * `schwab-transactions-freshness-1.0.0`) o si las posiciones cambiaron. La
+ * respuesta son niveles, conteos y códigos: nunca transacciones ni la cuenta.
+ */
+export async function readAccountRisk(
+  input: unknown,
+): Promise<RiskContextResult> {
+  const health = await getRequestConfigHealth();
+  if (!servesSchwabConnection(health)) return { state: "unavailable" };
+  const request = riskContextRequestSchema.safeParse(input);
+  if (!request.success) return { state: "unavailable" };
+
+  let syncFailed: string | null = null;
+  try {
+    const dependencies = getTransactionSyncDependencies();
+    if (
+      request.data.force ||
+      (await transactionsDue(dependencies.store, dependencies.now()))
+    ) {
+      const result = await syncSchwabTransactions(dependencies);
+      if (result.state === "failed" || result.state === "quarantined") {
+        console.warn("schwab transactions sync", result.state, result.code);
+        syncFailed = result.code;
+      }
+    }
+  } catch (error) {
+    console.error("schwab transactions sync failed", safeErrorSummary(error));
+    syncFailed = "unavailable";
+  }
+
+  try {
+    const context = await readRiskContext(new Date().toISOString());
+    return { state: "read", ...context, syncFailed };
+  } catch (error) {
+    const reference = randomUUID();
+    console.error(
+      "account risk read failed",
+      reference,
+      safeErrorSummary(error),
+    );
+    return { state: "failed", reference };
+  }
+}
+
+const riskSettingsRequestSchema = z
+  .object({
+    baseRevision: z.number().int().min(1).max(1_000_000).nullable(),
+    fields: z
+      .object({
+        riskPerTradePercent: z.string(),
+        openRiskPercent: z.string(),
+        dailyLossPercent: z.string(),
+        maxTradesPerSession: z.string(),
+        maxConsecutiveLosses: z.string(),
+      })
+      .strict(),
+  })
+  .strict();
+
+export type SaveRiskSettingsResult =
+  | {
+      readonly state: "saved" | "unchanged";
+      readonly revision: number;
+      readonly settings: RiskSettings;
+    }
+  /** Otra pestaña guardó antes: lo vigente, para recargar el formulario. */
+  | {
+      readonly state: "conflict";
+      readonly revision: number | null;
+      readonly settings: RiskSettings;
+    }
+  /** El primer campo que no pasa y por qué; nunca el valor. */
+  | { readonly state: "invalid"; readonly field: string; readonly code: string }
+  | { readonly state: "unavailable" };
+
+/**
+ * Guarda las reglas propias (`trading-rules-1.0.0`) como revisión nueva contra
+ * la que el owner editaba. Sólo escribe en la base de trading.
+ */
+export async function saveRiskSettings(
+  input: unknown,
+): Promise<SaveRiskSettingsResult> {
+  const health = await getRequestConfigHealth();
+  if (!servesSchwabConnection(health)) return { state: "unavailable" };
+  const request = riskSettingsRequestSchema.safeParse(input);
+  if (!request.success) return { state: "unavailable" };
+  const settings = riskSettingsFormSchema.safeParse(request.data.fields);
+  if (!settings.success) {
+    const issue = settings.error.issues[0];
+    const field = String(issue?.path[0] ?? "");
+    return {
+      state: "invalid",
+      field: /^[a-zA-Z]{0,40}$/u.test(field) ? field : "",
+      code: /^[a-z_]{0,40}$/u.test(issue?.message ?? "")
+        ? issue!.message
+        : "invalid",
+    };
+  }
+
+  try {
+    const result = await getTradingRiskSettingsStore().save({
+      baseRevision: request.data.baseRevision,
+      settings: settings.data,
+      version: TRADING_RULES_VERSION,
+      recordedAt: new Date().toISOString(),
+    });
+    if (result.state === "conflict") {
+      return {
+        state: "conflict",
+        revision: result.current?.revision ?? null,
+        settings: settingsOf(result.current),
+      };
+    }
+    return {
+      state: result.state,
+      revision: result.settings.revision,
+      settings: settingsOf(result.settings),
+    };
+  } catch (error) {
+    console.error("risk settings save failed", safeErrorSummary(error));
+    return { state: "unavailable" };
   }
 }
