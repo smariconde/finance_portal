@@ -131,7 +131,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   103 | `F11-07`   | `done`        | Diario por trade y rutina: setup, notas, plan y gráfico del trade dibujado con velas de Schwab sin guardarlas.                                                                                                            | `F11-05`           |
 |   104 | `F11-08`   | `in_progress` | Estadísticas en R: expectancy, profit factor y drawdown, con cortes por setup, hora, día, ticker y day o swing.                                                                                                           | `F11-07`           |
 |   105 | `F11-09`   | `in_progress` | Planner 2 % / 6 %, barra de riesgo sobre posiciones reales y reglas propias como alertas que no bloquean.                                                                                                                 | `F11-04`           |
-|   106 | `F11-10`   | `queued`      | Lecciones de análisis técnico, cada setup atado a una etiqueta del diario.                                                                                                                                                | `F11-07`           |
+|   106 | `F11-10`   | `in_progress` | Lecciones de análisis técnico, cada setup atado a una etiqueta del diario.                                                                                                                                                | `F11-07`           |
 |   107 | `F11-11`   | `queued`      | MCP de solo lectura para la IA del owner, decidido en su propia ADR antes de cualquier código.                                                                                                                            | gate de la Fase 11 |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
@@ -7171,6 +7171,22 @@ La primera conexión en Production se prueba con el owner después del merge. **
 
 **Pendiente:** ver la barra y el open risk con la primera posición real desde el lunes 2026-11-16. **Estado:** `in_progress`.
 
+**`F11-10`, 2026-11-15.** Las lecciones viven en `/lecciones`: nueve setups con el historial propio y siete conceptos, cada uno un gráfico esquemático con reglas numeradas ([enmienda de la ADR 0076](../architecture/adr/0076-schwab-read-only-account-trading-journal.md#enmienda-del-2026-11-15-las-lecciones-f11-10), [runbook](../runbooks/schwab-connection.md#las-lecciones)). Se abrió con `F11-05`, `F11-06`, `F11-08` y `F11-09` todavía `in_progress`, por pedido del owner: la misma **excepción explícita** a «un solo `in_progress`». Adelanta la infraestructura de `EDU-01` en vez de esperarla.
+
+- **Decidido por el owner** antes de escribir código: la infraestructura de términos se hace ahora y la comparte `EDU-01`; cada lección es un gráfico y reglas de una línea, sin prosa; los ejemplos son un esquema declarado más sus propios trades etiquetados, no velas de Schwab con fecha fija (las de minutos caducan) ni un ticker elegido en la página (el cliente nombraría un ticker ante Schwab).
+- **Fórmulas y contenido:** `technical-indicators-1.0.0` (SMA, EMA, VWAP por sesión, RSI de Wilder, MACD 12/26/9), `glossary-1.0.0` con `trading-glossary-1.0.0` (33 términos, 11 fuentes citadas), `schematic-candles-1.0.0` y `technical-lessons-1.0.0` (16 lecciones, una por cada código de `trading-setups-1.0.0`).
+- **El dibujo dice lo que dice el texto:** un test por lección comprueba la geometría (forma de cada vela, ruptura con cierre y volumen, divergencia real del RSI, primer cruce del MACD, toque de la media) y, en cada setup, que la entrada cae en su vela, reward/risk ≥ 1,5 y el stop no se toca antes del target. El ejemplo de riesgo sale del planner de `F11-09`.
+- **UI** (`impeccable` y `financial-visualization-review`): el índice es una tabla de setups con trades, win rate y expectancy en R, y una lista de conceptos; la lección, el gráfico con medias, VWAP, niveles en leyenda, zona y marcas numeradas, paneles de RSI y MACD alineados, lectura vela por vela por puntero o flechas, reglas que llevan el cursor a su marca, términos con popover, errores plegados e historial. Las estadísticas y la página de un trade enlazan el setup con su lección.
+
+**Evidencia.**
+
+- **Dominio.** 8 tests de indicadores contra valores calculados aparte con fracciones exactas (la planilla de RSI de Wilder incluida), 3 del glosario y 19 de las lecciones.
+- **Render.** Siete rutas en desktop y mobile, claro y oscuro: sin overflow y axe sin hallazgos en las 28 combinaciones. La primera ronda encimaba los rótulos de niveles cercanos (pasaron a una leyenda con su trazo), pintaba el área 30–70 del RSI con el gris por defecto de Recharts y dejaba celdas vacías en dos grillas.
+- **Gates.** Unitarios 4.249 y E2E 345 (lecciones con la base de trading caída, trabado sin historial, 404 sin repetir el segmento), con formato, lint, typecheck y build.
+- **No verificado con datos:** el historial con trades etiquetados; hoy un solo trade tiene setup. Lo cubren el lector compartido con las estadísticas y los tests de `trading-stats-1.0.0`.
+
+**Pendiente:** que el owner revise el contenido de las lecciones (reglas, errores y niveles fueron escritos por el agente a partir de las fuentes citadas) y vea su historial con los primeros trades etiquetados. **Estado:** `in_progress`.
+
 Insumos que el owner ya tiene, para los slices que los usan:
 
 - **`F11-03`.** El `.env` local de su webapp Flask tiene la app key y el secret de su app de Schwab. Se copian a `.env.local` sin pasar por el transcript y nunca al repo. Para leer los términos de la Trader API y revisar _Order Limit_ y callbacks, el agente maneja un navegador (Brave u otro) y el owner se autentica en él.
@@ -7210,7 +7226,9 @@ probar el control; fases posteriores pueden volver a verificarlo.
 
 - Estado: `queued` (pedido del owner el 2026-10-20, durante `F4-05`). `F6-17`
   adelantó los conceptos en el lugar en `/valuacion/[ticker]` con `<details>`
-  nativos; faltan el glosario versionado, su página y el test de cobertura.
+  nativos. `F11-10` hizo la infraestructura (`glossary-1.0.0` y
+  `GlossaryTerm`, con popover por foco o click); faltan las entradas de
+  valuación, su página y el test de cobertura.
 - Fase y dependencia: transversal; empieza cuando una superficie de valuación
   lea corridas reales, y se extiende con cada concepto nuevo del motor.
 - Alcance incluido: un glosario versionado de los conceptos de Damodaran que

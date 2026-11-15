@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { ArrowLeft, DatabaseZap } from "lucide-react";
+import { ArrowLeft, DatabaseZap, GraduationCap } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -18,6 +18,7 @@ import {
   servesRealData,
   servesSchwabConnection,
 } from "@/modules/configuration/domain/config-health";
+import { lessonOfSetup } from "@/modules/education/domain/technical-lessons";
 import type { StoredAnnotation } from "@/modules/trading/application/trade-annotation-store";
 import {
   tradeRefSchema,
@@ -94,6 +95,7 @@ function statusBadge(trade: TradeEntryReading["trade"]) {
 
 function TradeHeader({ reading }: { readonly reading: TradeEntryReading }) {
   const { trade } = reading;
+  const lesson = lessonOfSetup(reading.annotation?.setupCode ?? null);
   const quantity =
     trade.status === "opened_before_history"
       ? trade.portions[0]!.quantity
@@ -129,8 +131,17 @@ function TradeHeader({ reading }: { readonly reading: TradeEntryReading }) {
             : " acciones"}
         </p>
       </div>
-      <span className="numeric text-sm text-muted-foreground">
-        ···{reading.lastFour}
+      <span className="flex items-center gap-3 text-sm text-muted-foreground">
+        {lesson === null ? null : (
+          <Link
+            href={`/lecciones/${lesson.slug}`}
+            className="inline-flex items-center gap-1 rounded-sm outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <GraduationCap className="size-4" aria-hidden="true" />
+            Lección · {lesson.title}
+          </Link>
+        )}
+        <span className="numeric">···{reading.lastFour}</span>
       </span>
     </section>
   );
