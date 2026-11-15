@@ -130,7 +130,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   102 | `F11-06`   | `in_progress` | P&L del día en dinero y en R, y calendario por sesión de Nueva York con totales semanales y mensuales.                                                                                                                    | `F11-05`           |
 |   103 | `F11-07`   | `done`        | Diario por trade y rutina: setup, notas, plan y gráfico del trade dibujado con velas de Schwab sin guardarlas.                                                                                                            | `F11-05`           |
 |   104 | `F11-08`   | `in_progress` | Estadísticas en R: expectancy, profit factor y drawdown, con cortes por setup, hora, día, ticker y day o swing.                                                                                                           | `F11-07`           |
-|   105 | `F11-09`   | `queued`      | Planner 2 % / 6 %, barra de riesgo sobre posiciones reales y reglas propias como alertas que no bloquean.                                                                                                                 | `F11-04`           |
+|   105 | `F11-09`   | `in_progress` | Planner 2 % / 6 %, barra de riesgo sobre posiciones reales y reglas propias como alertas que no bloquean.                                                                                                                 | `F11-04`           |
 |   106 | `F11-10`   | `queued`      | Lecciones de análisis técnico, cada setup atado a una etiqueta del diario.                                                                                                                                                | `F11-07`           |
 |   107 | `F11-11`   | `queued`      | MCP de solo lectura para la IA del owner, decidido en su propia ADR antes de cualquier código.                                                                                                                            | gate de la Fase 11 |
 
@@ -7152,6 +7152,24 @@ La primera conexión en Production se prueba con el owner después del merge. **
 - **Gates.** Unitarios 4.178 y E2E 301 (`/diario/estadisticas` en los dos modos), con formato, lint, typecheck y build.
 
 **Pendiente:** ver la página con un trade con stop y setup, desde el lunes 2026-11-16. **Estado:** `in_progress`.
+
+**`F11-09`, 2026-11-15.** El riesgo vive en `/cuenta`, entre la cuenta y las posiciones: cuatro alertas, el planner y las reglas ([enmienda de la ADR 0076](../architecture/adr/0076-schwab-read-only-account-trading-journal.md#enmienda-del-2026-11-15-planner-riesgo-abierto-y-reglas-f11-09), [runbook](../runbooks/schwab-connection.md#el-riesgo)). Se abrió con `F11-05`, `F11-06` y `F11-08` todavía `in_progress`, por pedido del owner: la misma **excepción explícita** a «un solo `in_progress`».
+
+- **Decidido por el owner** antes de escribir código: el 6 % es el riesgo abierto hoy, `Σ (precio − stop) × cantidad`; el stop es el del plan del diario y, sin plan, la orden stop viva de Schwab, marcada si difiere; las reglas se editan en el portal con valores por defecto que el agente propone; el planner va en `/cuenta` con precios tipeados, sin cotizar.
+- **Valores por defecto, medidos** sobre los 47 trades reales: 2 % y 6 % del Flask; pérdida diaria 4 % (dos stops completos; el peor día, −1.319,05 el 2025-11-20 con ASTS y AFRM, queda debajo); 3 trades por sesión (38 de 39 sesiones con una o dos entradas, máximo tres); corte tras 3 pérdidas seguidas (sólo la sesión del 2024-06-06 lo pasó, con seis pérdidas chicas de TSLA).
+- **Fórmulas** `position-size-risk-1.0.0` (riesgo por posición, total del 6 % `null` con los símbolos sin stop, planner con el mínimo entre el 2 %, el buying power y lo que queda del 6 %, acciones enteras hacia abajo y el tope nombrado) y `trading-rules-1.0.0` (`ok`, `warning`, `stop`, `off` y `unknown` con motivo; pérdida del día = realizado de la sesión más el P&L abierto del día de Schwab contra el valor al abrir).
+- **Reglas guardadas** como revisiones append-only en `trading_risk_settings` (migración de trading `0005` y su rollback), con el mismo contrato en memoria y en PostgreSQL. Dos acciones con schema cerrado: `readAccountRisk({ force })`, que sincroniza transacciones si toca y lee planes, reglas y actividad, y `saveRiskSettings`, que valida campo por campo y nombra el primero que falla.
+- **UI** (`impeccable` y `financial-visualization-review`): medidores con `role="meter"` y estado con ícono y palabra; planner en una fila; editor plegado detrás de «Reglas»; la barra stop–entrada–precio–target por posición con la gramática de `PlanLadder`, riesgo en dinero, precio en R, fuente del stop y «Sin stop · planear» hacia el trade.
+
+**Evidencia.**
+
+- **Cuenta real, local:** cuatro reglas en OK sin posiciones; con entrada 50, stop 48 y target 56 el planner da 154 acciones, riesgo US$ 308,00 (2,0 %), posición 49,8 %, R:R 3,00, tope «risk por trade». Un 7 % por trade contra 6 % de cartera no se guarda y nombra el campo.
+- **Render.** Desktop y mobile, claro y oscuro: sin overflow; axe sin hallazgos fuera del `region` previo del sidebar. La primera ronda apilaba los cuatro medidores en mobile; pasaron a dos columnas.
+- **No verificado con datos:** la barra por posición y el riesgo de una posición real; la cuenta no tiene posiciones. Lo cubren los 37 tests del dominio.
+- **Gates.** Unitarios 4.219, integración de trading 46 y E2E 301, con formato, lint, typecheck y build. Rollback de `0005` probado en la base de prueba: la tabla se va y la suite la vuelve a crear.
+- **Neon de trading.** Snapshot `f11-09-before-0005-2026-11-15`, que reemplaza al de `F11-07` (decisión del owner); `0005` aplicada, `db:trading:status:neon` 6 de 6 y `db:trading:audit:neon` 8 de 8 sobre 14 tablas.
+
+**Pendiente:** ver la barra y el open risk con la primera posición real desde el lunes 2026-11-16. **Estado:** `in_progress`.
 
 Insumos que el owner ya tiene, para los slices que los usan:
 

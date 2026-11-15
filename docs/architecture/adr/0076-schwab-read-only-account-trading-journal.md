@@ -586,6 +586,61 @@ selector «Trades · Estadísticas». Lee la base de trading y nada más: no pid
 nada a Schwab ni a la base de análisis. Los cortes son una tabla con barras en
 sus celdas, así la tabla es también el equivalente accesible.
 
+## Enmienda del 2026-11-15: planner, riesgo abierto y reglas (`F11-09`)
+
+**Lo que decidió el owner.** El planner del Flask no estaba en esta máquina, así
+que el 2026-11-15 se le preguntó qué mide cada regla:
+
+- **El 6 % es el riesgo abierto hoy:** `Σ (precio − stop) × cantidad` de las
+  posiciones abiertas contra el valor de liquidación de Schwab. Un stop ya
+  sobre la entrada sigue arriesgando lo que hay entre el precio y el stop. Ni
+  el riesgo inicial ni la variante mensual de Elder.
+- **El stop de una posición:** el del plan del trade abierto en el diario; sin
+  plan, la orden stop viva de Schwab, mostrada al lado y marcada si difiere.
+- **Las reglas se editan en el portal**, con valores por defecto que el agente
+  propone midiendo.
+- **El planner vive en `/cuenta` y no cotiza:** el owner escribe entrada, stop y
+  target. El cliente sigue sin nombrar un ticker ante Schwab.
+
+**Valores por defecto, medidos** sobre los 47 trades reales y la práctica
+publicada (2 % y 6 % de Elder, límites diarios del 2 al 5 % del capital, la
+regla de los tres strikes):
+
+| Regla             | Defecto | Por qué                                                                      |
+| ----------------- | ------- | ---------------------------------------------------------------------------- |
+| Riesgo por trade  | 2 %     | el planner del Flask                                                         |
+| Riesgo abierto    | 6 %     | el planner del Flask                                                         |
+| Pérdida diaria    | 4 %     | dos stops completos; el peor día medido (−1.319, dos swings) queda debajo    |
+| Trades por sesión | 3       | 38 de 39 sesiones con entradas tuvieron una o dos; el máximo fue tres        |
+| Pérdidas seguidas | 3       | sólo una sesión lo pasó: seis pérdidas chicas seguidas en TSLA el 2024-06-06 |
+
+**`position-size-risk-1.0.0`.** El precio de una posición es su cotización o,
+sin ella, market value sobre cantidad. Varias órdenes stop dan el precio más
+bajo y cubren la posición sólo si suman toda la cantidad
+(`stop_order_partial` si no). Un precio en o bajo el stop es
+`price_through_stop`, nunca riesgo cero. Sin stop es `no_stop`, y el total del
+6 % es `null` con los símbolos que faltan: un parcial mostraría menos riesgo del
+que hay. Como la cuenta es `CASH`, sólo se miden largos de acciones y ETFs; el
+resto se nombra. El planner da acciones enteras hacia abajo con el mínimo entre
+el 2 %, el buying power overnight y lo que le queda al 6 %, y nombra el tope que
+decidió. Sin riesgo abierto conocido, el tope del 6 % no se calcula.
+
+**`trading-rules-1.0.0`.** Tres estados y dos más: `stop` (no abrir otro trade),
+`warning` (un paso más llega a `stop`: otro stop completo al riesgo por trade
+ya no entra, o falta un trade o una pérdida), `ok`, `off` (regla apagada) y
+`unknown` con motivo, nunca `ok` por falta de dato. La pérdida del día es lo
+realizado en la sesión de Nueva York más el P&L abierto del día de Schwab
+(`open-day-pnl-1.0.0`), contra el valor de liquidación al abrir. Un trade cuenta
+en la racha al cerrar; uno en cero la corta. Las reglas se guardan como
+revisiones append-only (migración de trading `0005`, `trading_risk_settings`),
+con una sola vigente y `for update`, como la rutina.
+
+**Lo que lee la página.** Los planes, las reglas y la actividad del día salen de
+la base de trading en `readAccountRisk`, al abrir y cada vez que cambian las
+posiciones o los round trips de la cuenta. Antes sincroniza las transacciones si
+pasó la cadencia o, con ese cambio, siempre. El cálculo corre en el cliente con
+la lectura vigente. No hay pedidos nuevos a Schwab fuera de esa sincronización.
+
 ## Controles del threat model
 
 | Control | Cómo se cierra en la Fase 11                                                                                                                                                      |

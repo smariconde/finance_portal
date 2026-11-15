@@ -571,3 +571,46 @@ export const sessionRoutines = pgTable(
     ),
   ],
 );
+
+/**
+ * Las reglas propias del owner (`trading-rules-1.0.0`, `F11-09`) como
+ * revisiones append-only de una sola fila vigente: el planner 2 % / 6 % y las
+ * tres alertas del día. Un límite `null` apaga su regla; sin ninguna revisión
+ * rigen los valores por defecto del dominio.
+ */
+export const tradingRiskSettings = pgTable(
+  "trading_risk_settings",
+  {
+    revisionId: uuid("revision_id").primaryKey(),
+    revision: integer("revision").notNull(),
+    version: varchar("version", { length: 64 }).notNull(),
+    riskPerTradePercent: numeric("risk_per_trade_percent", {
+      mode: "string",
+    }).notNull(),
+    openRiskPercent: numeric("open_risk_percent", { mode: "string" }).notNull(),
+    dailyLossPercent: numeric("daily_loss_percent", { mode: "string" }),
+    maxTradesPerSession: integer("max_trades_per_session"),
+    maxConsecutiveLosses: integer("max_consecutive_losses"),
+    recordedAt: instant("recorded_at").notNull(),
+    supersededAt: instant("superseded_at"),
+  },
+  (table) => [
+    uniqueIndex("trading_risk_settings_revision_uidx").on(table.revision),
+    uniqueIndex("trading_risk_settings_current_uidx")
+      .on(sql`(true)`)
+      .where(sql`${table.supersededAt} is null`),
+    check("trading_risk_settings_revision_check", sql`${table.revision} >= 1`),
+    check(
+      "trading_risk_settings_percent_check",
+      sql`${table.riskPerTradePercent} > 0 and ${table.riskPerTradePercent} <= ${table.openRiskPercent} and ${table.openRiskPercent} <= 100 and (${table.dailyLossPercent} is null or (${table.dailyLossPercent} > 0 and ${table.dailyLossPercent} <= 100))`,
+    ),
+    check(
+      "trading_risk_settings_count_check",
+      sql`(${table.maxTradesPerSession} is null or ${table.maxTradesPerSession} between 1 and 20) and (${table.maxConsecutiveLosses} is null or ${table.maxConsecutiveLosses} between 1 and 20)`,
+    ),
+    check(
+      "trading_risk_settings_superseded_check",
+      sql`${table.supersededAt} is null or ${table.supersededAt} >= ${table.recordedAt}`,
+    ),
+  ],
+);

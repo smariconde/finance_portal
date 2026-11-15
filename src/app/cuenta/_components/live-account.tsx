@@ -3,7 +3,7 @@
 import { RefreshCw, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import type { Route } from "next";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { InfoTip } from "@/app/_components/info-tip";
 import { StatusMark } from "@/app/_components/status-mark";
@@ -24,7 +24,18 @@ import {
   liveCadence,
   liveFreshness,
 } from "@/modules/trading/domain/live-cadence";
+import { openDayPnl } from "@/modules/trading/domain/open-day-pnl";
 import type { PositionContext } from "@/modules/trading/domain/position-context";
+import {
+  markOf,
+  openRisk,
+  positionRisk,
+  type PositionRisk,
+} from "@/modules/trading/domain/position-size-risk";
+import {
+  evaluateTradingRules,
+  type RiskSettings,
+} from "@/modules/trading/domain/trading-rules";
 import type { SchwabQuote } from "@/modules/trading/domain/schwab-quotes";
 import {
   formatAmount,
@@ -33,12 +44,16 @@ import {
 } from "@/modules/valuation/domain/display-format";
 
 import {
+  readAccountRisk,
   readLiveAccount,
   readLiveQuotes,
   readPositionContext,
   type LiveAccountResult,
   type PositionContextResult,
+  type RiskContextResult,
 } from "../actions";
+
+import { PositionRiskCell, RiskCard, type RiskView } from "./account-risk";
 
 import {
   CEDEAR_ABSENCE_COPY,
@@ -107,6 +122,10 @@ export function LiveAccount({
     readonly key: string;
     readonly result: PositionContextResult;
   } | null>(null);
+
+  const [riskContext, setRiskContext] = useState<RiskContextResult | null>(
+    null,
+  );
 
   const scope = reading?.quoteScope ?? null;
   const symbolsKey = reading?.quotableSymbols.join(",") ?? "";
@@ -240,6 +259,45 @@ export function LiveAccount({
   // Un cruce de otro conjunto de símbolos no vale para este: se espera el nuevo.
   const context = contextEntry?.key === symbolsKey ? contextEntry.result : null;
 
+  // Planes, reglas y actividad del día, de la base de trading: al abrir y cada
+  // vez que la cuenta cambia de posiciones o de round trips, que es cuando hubo
+  // un trade; entonces se fuerzan las transacciones sin esperar la cadencia.
+  const activityKey =
+    reading === null
+      ? null
+      : `${reading.account.roundTrips}|${reading.positions
+          .map((p) => `${p.symbol}:${p.side}:${p.quantity}`)
+          .join(",")}`;
+  const seenActivity = useRef<string | null>(null);
+  useEffect(() => {
+    if (activityKey === null) return;
+    const force = seenActivity.current !== null;
+    seenActivity.current = activityKey;
+    let alive = true;
+    readAccountRisk({ force })
+      .catch(() => ({ state: "unavailable" as const }))
+      .then((result) => {
+        if (alive) setRiskContext(result);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [activityKey]);
+
+  const risk = useMemo(
+    () => computeRisk(reading, quotes, riskContext),
+    [reading, quotes, riskContext],
+  );
+  const onSettingsSaved = useCallback(
+    (settings: RiskSettings, revision: number) =>
+      setRiskContext((previous) =>
+        previous?.state === "read"
+          ? { ...previous, settings, settingsRevision: revision }
+          : previous,
+      ),
+    [],
+  );
+
   if (reading === null) {
     const copy = liveFailureCopy(failedCode ?? "unavailable");
     return (
@@ -328,10 +386,86 @@ export function LiveAccount({
         </CardContent>
       </Card>
 
-      <PositionsCard reading={reading} quotes={quotes} context={context} />
+      <RiskCard
+        view={risk.view}
+        liquidationValue={reading.balances.liquidationValue}
+        buyingPower={reading.balances.cashAvailableForTrading}
+        onSettingsSaved={onSettingsSaved}
+      />
+      <PositionsCard
+        reading={reading}
+        quotes={quotes}
+        context={context}
+        risks={risk.bySymbol}
+      />
       <OrdersCard reading={reading} />
     </div>
   );
+}
+
+/**
+ * El riesgo de la lectura vigente (`position-size-risk-1.0.0`,
+ * `trading-rules-1.0.0`): el precio de cada posición es su cotización si la hay
+ * y, si no, el de Schwab en la cuenta. Sin los planes de la base de trading no
+ * se calcula: una posición sin plan leído no es una posición sin stop.
+ */
+function computeRisk(
+  reading: Reading | null,
+  quotes: QuotesState | null,
+  riskContext: RiskContextResult | null,
+): {
+  readonly view: RiskView;
+  readonly bySymbol: ReadonlyMap<string, PositionRisk> | null;
+} {
+  if (reading === null || riskContext === null) {
+    return { view: { state: "loading" }, bySymbol: null };
+  }
+  if (riskContext.state !== "read") {
+    return {
+      view: {
+        state: "failed",
+        reference:
+          riskContext.state === "failed" ? riskContext.reference : null,
+      },
+      bySymbol: null,
+    };
+  }
+  const plans = new Map(riskContext.plans.map((plan) => [plan.symbol, plan]));
+  const risks = reading.positions
+    .filter((position) => position.side !== "flat")
+    .map((position) =>
+      positionRisk({
+        position,
+        price:
+          quotes?.bySymbol.get(position.symbol)?.lastPrice ?? markOf(position),
+        plan: plans.get(position.symbol) ?? null,
+        orders: reading.openOrders,
+      }),
+    );
+  const open = openRisk(
+    risks,
+    reading.balances.liquidationValue,
+    riskContext.settings.openRiskPercent,
+  );
+  const rules = evaluateTradingRules({
+    settings: riskContext.settings,
+    liquidationValue: reading.balances.liquidationValue,
+    liquidationValueAtOpen: reading.balances.liquidationValueAtOpen,
+    openRisk: open.value,
+    openDayPnl: openDayPnl(reading.positions).day.value,
+    activity: riskContext.activity,
+  });
+  return {
+    view: {
+      state: "read",
+      settings: riskContext.settings,
+      settingsRevision: riskContext.settingsRevision,
+      rules,
+      openRisk: open,
+      syncFailed: riskContext.syncFailed,
+    },
+    bySymbol: new Map(risks.map((risk) => [risk.symbol, risk])),
+  };
 }
 
 function RefreshButton({
@@ -545,10 +679,12 @@ function PositionsCard({
   reading,
   quotes,
   context,
+  risks,
 }: {
   readonly reading: Reading;
   readonly quotes: QuotesState | null;
   readonly context: PositionContextResult | null;
+  readonly risks: ReadonlyMap<string, PositionRisk> | null;
 }) {
   const positions = reading.positions;
   return (
@@ -608,6 +744,7 @@ function PositionsCard({
                 <TableHead className="text-right">Market value</TableHead>
                 <TableHead className="text-right">P&amp;L del día</TableHead>
                 <TableHead className="text-right">P&amp;L abierto</TableHead>
+                <TableHead>Stop · target</TableHead>
                 <TableHead>Valuación</TableHead>
                 <TableHead>Sector</TableHead>
                 <TableHead>CEDEAR</TableHead>
@@ -669,6 +806,15 @@ function PositionsCard({
                     </TableCell>
                     <TableCell className="text-right">
                       <Signed value={position.openProfitLoss} />
+                    </TableCell>
+                    <TableCell>
+                      {risks === null ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : risks.has(position.symbol) ? (
+                        <PositionRiskCell risk={risks.get(position.symbol)!} />
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <ContextCells
                       context={contextFor(context, position.symbol)}
