@@ -270,6 +270,20 @@ su drawdown y los cortes por setup, hora, día, ticker y day o swing.
   posiciones; si la sincronización falla, lo dice y lee lo guardado.
 - **El planner no cotiza:** entrada, stop y target se escriben.
 
+## Las lecciones
+
+`/lecciones` (`F11-10`) lista los nueve setups con tu historial y los siete
+conceptos; cada lección es un gráfico esquemático con reglas numeradas.
+
+- **Las velas son un esquema:** no son de ningún ticker y no gastan cuota de
+  Schwab. Los ejemplos reales son tus trades: etiquetá el setup en
+  `/diario/<trade>` y aparecen en «Tu historial».
+- **Una regla con número** lleva el cursor a su marca; las flechas recorren las
+  velas.
+- **«Base de trading no disponible»** en el historial: la lección se ve igual;
+  sólo faltan tus trades.
+- **Un setup propio** (`own-*`) no tiene lección.
+
 ## Cuota y kill switch
 
 La cuota y el kill switch de las fuentes de Schwab viven en la base de

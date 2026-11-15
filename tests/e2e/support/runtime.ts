@@ -112,6 +112,9 @@ export const ROUTES = {
   journalStats: "/diario/estadisticas",
   // Dos IDs de Schwab inventados: con la base cerrada nunca llega a buscarlo.
   journalTrade: "/diario/3001-41",
+  lessons: "/lecciones",
+  lessonSetup: "/lecciones/breakout",
+  lessonConcept: "/lecciones/rsi-y-macd",
   missing: "/ruta-que-no-existe",
 } as const;
 

@@ -1531,6 +1531,26 @@ apply (2 %, 6 %, 4 %, 3 trades, 3 losses). `readAccountRisk({ force })` syncs
 transactions when due —always when positions or round trips changed— and
 reads plans, rules and the session's activity; the client computes the rest.
 
+Since `F11-10` (in progress, ADR 0076 amendment, no migration) `/lecciones`
+teaches seven concepts and one lesson per code of `trading-setups-1.0.0`
+(`technical-lessons-1.0.0`; a declared setup without exactly one lesson breaks
+the test). Owner decisions: a lesson is an annotated chart plus one-line rules
+—no course prose—, and its candles are **schematic** (`schematic-candles-1.0.0`,
+declared legs with a seed), because Schwab's minute candles expire and a ticker
+chosen on the page would have the client name one; the real examples are the
+owner's own tagged trades. A test per lesson checks that the drawing shows what
+its rules say (the hammer's 2× wick, a breakout's close and volume, a real RSI
+divergence, and in every setup an entry inside its candle, reward/risk ≥ 1.5 and
+a stop untouched before the target). `technical-indicators-1.0.0` (SMA, EMA
+seeded with the SMA, session VWAP, Wilder RSI, MACD 12/26/9) works in `number`:
+drawing aids, never money. The term infrastructure is `EDU-01`'s, built here:
+`glossary-1.0.0` validates entries (definition, formula, why, cited sources) and
+`GlossaryTerm` opens them by focus or click; `trading-glossary-1.0.0` holds 33
+terms. Lesson content renders in any mode (it is repository code); the per-setup
+history (`readSetupHistory`, `trading-stats-1.0.0` over tagged trades) only in
+`personal` with the trading database. Stats and the trade page link a setup to
+its lesson.
+
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 
 Node `>=22.11.0 <27`, pnpm `10.33.2` via corepack. Arch Linux dev host — use POSIX shell syntax for env-var examples in docs, matching the `ubuntu-latest` runners CI validates on.

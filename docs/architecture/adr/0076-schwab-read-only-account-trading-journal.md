@@ -641,6 +641,56 @@ posiciones o los round trips de la cuenta. Antes sincroniza las transacciones si
 pasó la cadencia o, con ese cambio, siempre. El cálculo corre en el cliente con
 la lectura vigente. No hay pedidos nuevos a Schwab fuera de esa sincronización.
 
+## Enmienda del 2026-11-15: las lecciones (`F11-10`)
+
+**Lo que decidió el owner** antes de escribir código:
+
+- **La infraestructura de términos se hace ahora** y la comparten las lecciones
+  y `EDU-01`: un glosario versionado con definición, fórmula, por qué importa y
+  fuente (`glossary-1.0.0`), cargado sólo con términos de trading
+  (`trading-glossary-1.0.0`, 33 términos y 11 fuentes). `EDU-01` suma después
+  los de valuación sobre la misma estructura.
+- **Una lección es visual:** un gráfico anotado, de tres a seis reglas de una
+  línea, los errores comunes plegados y, en un setup, el historial propio del
+  diario. Nada de prosa de curso.
+- **Los ejemplos son un esquema más los trades propios.** El patrón se dibuja
+  con velas declaradas en el repo, que no caducan ni gastan cuota; los ejemplos
+  con velas de Schwab son los trades del owner etiquetados con el setup, que se
+  abren en `/diario/<trade>` con el gráfico de `F11-07`. Se descartó un ejemplo
+  fijo por ticker y fecha: Schwab sirve velas de 1 minuto de unos 47 días y de
+  5 minutos de unos 8 meses, así que un ejemplo intradía dejaría de dibujarse.
+  También un ticker elegido en la lección: el cliente nombraría un ticker ante
+  Schwab, lo que `F11-04` evitó a propósito.
+
+**`technical-lessons-1.0.0`.** Siete conceptos (velas, tendencia, soportes y
+resistencias, volumen y VWAP, medias, RSI y MACD, gestión de riesgo) y una
+lección por cada código de `trading-setups-1.0.0`; un setup declarado sin
+lección, o con dos, rompe el test. Las reglas numeran las marcas del gráfico y,
+al elegirlas, llevan el cursor a su vela. Las velas son
+`schematic-candles-1.0.0`: tramos con un cierre exacto al final, zigzag con
+semilla, techo y piso opcionales y velas declaradas enteras donde la forma
+enseña. **El test comprueba que el dibujo muestra lo que dice el texto:** que el
+martillo tiene la mecha de 2× el cuerpo, que la ruptura cierra fuera con 2× el
+volumen, que la divergencia del RSI existe, que el cruce del MACD es el primero
+después del máximo, y en cada setup que la entrada cae en su vela, que
+reward/risk es al menos 1,5 y que el stop no se toca antes del target. La
+lección de riesgo calcula su ejemplo con el planner de `F11-09` (cuenta 10.000,
+2 %, entrada 50, stop 48: 100 acciones).
+
+**`technical-indicators-1.0.0`.** SMA, EMA sembrada con la SMA, VWAP anclado
+por sesión sobre el precio típico, RSI con el suavizado de Wilder y MACD
+(12, 26, 9), en `number`: son ayudas de dibujo, no dinero. Sin historia
+suficiente es `null`; un precio no positivo o no finito rechaza la serie con
+motivo; un RSI sin subas ni bajas es `null`, no 50. Los valores se verificaron
+contra fracciones exactas calculadas aparte, incluida la planilla de Wilder.
+
+**El historial** (`readSetupHistory`, `readSetupSummaries`) lee los trades
+etiquetados de la base de trading con `trading-stats-1.0.0`, igual que
+`/diario/estadisticas`. El contenido de las lecciones se sirve en cualquier
+modo, porque es código del repo; el historial sólo en el runtime personal con
+la base de trading, y si la base no responde lo dice con una referencia. Las
+estadísticas y la página de un trade enlazan el setup con su lección.
+
 ## Controles del threat model
 
 | Control | Cómo se cierra en la Fase 11                                                                                                                                                      |

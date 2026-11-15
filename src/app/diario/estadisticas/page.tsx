@@ -12,6 +12,7 @@ import {
   servesRealData,
   servesSchwabConnection,
 } from "@/modules/configuration/domain/config-health";
+import { SETUP_LESSON_SLUGS } from "@/modules/education/domain/technical-lessons";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
 import { safeErrorSummary } from "@/server/trading/safe-error";
 import {
@@ -167,7 +168,11 @@ export default async function TradingStatsPage() {
     <Shell>
       <StatsFigures stats={stats} />
       <RealizedCurve drawdown={stats.drawdown} />
-      <StatsCuts cuts={stats.cuts} setups={reading.setups} />
+      <StatsCuts
+        cuts={stats.cuts}
+        setups={reading.setups}
+        lessonSlugs={SETUP_LESSON_SLUGS}
+      />
     </Shell>
   );
 }

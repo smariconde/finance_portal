@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { termShort } from "@/app/_components/financial-terms";
@@ -128,9 +129,12 @@ function ExpectancyCell({
 export function StatsCuts({
   cuts,
   setups,
+  lessonSlugs,
 }: {
   readonly cuts: Readonly<Record<CutDimension, readonly CutGroup[]>>;
   readonly setups: readonly TradingSetup[];
+  /** Por código de setup declarado, su lección (`F11-10`). */
+  readonly lessonSlugs: Readonly<Record<string, string>>;
 }) {
   const [dimension, setDimension] = useState<CutDimension>("setup");
   const setupLabels = useMemo(
@@ -210,9 +214,20 @@ export function StatsCuts({
                 return (
                   <TableRow key={group.key ?? "none"}>
                     <TableCell className="max-w-48 truncate font-medium">
-                      <span>
-                        {groupLabel(dimension, group.key, setupLabels)}
-                      </span>
+                      {dimension === "setup" &&
+                      group.key !== null &&
+                      lessonSlugs[group.key] !== undefined ? (
+                        <Link
+                          href={`/lecciones/${lessonSlugs[group.key]}`}
+                          className="rounded-sm underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+                        >
+                          {groupLabel(dimension, group.key, setupLabels)}
+                        </Link>
+                      ) : (
+                        <span>
+                          {groupLabel(dimension, group.key, setupLabels)}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="numeric text-right">
                       <span

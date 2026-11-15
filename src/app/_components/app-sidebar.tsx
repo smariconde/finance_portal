@@ -5,6 +5,7 @@ import {
   Calculator,
   ChartScatter,
   Database,
+  GraduationCap,
   Home,
   NotebookPen,
   Landmark,
@@ -64,6 +65,7 @@ const activeItems = [
 const tradingItems = [
   { href: "/cuenta", label: "Cuenta", icon: Wallet, badge: null },
   { href: "/diario", label: "Diario", icon: NotebookPen, badge: null },
+  { href: "/lecciones", label: "Lecciones", icon: GraduationCap, badge: null },
 ] as const;
 
 type NavItem = (typeof activeItems)[number] | (typeof tradingItems)[number];

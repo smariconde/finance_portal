@@ -106,6 +106,26 @@ test.describe("negativa del runtime trabado", () => {
     ).toBeVisible();
   });
 
+  test("sirve las lecciones, que son contenido, sin el historial del diario", async ({
+    page,
+  }) => {
+    await page.goto(ROUTES.lessonSetup);
+
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Breakout" }),
+    ).toBeVisible();
+    await expect(page.getByRole("list", { name: "Reglas" })).toBeVisible();
+    // El historial sale de la base de trading: trabado, ni se lo menciona.
+    await expect(
+      page.getByRole("heading", { name: "Tu historial" }),
+    ).toHaveCount(0);
+
+    await page.goto(ROUTES.lessons);
+    await expect(
+      page.getByRole("columnheader", { name: "Trades" }),
+    ).toHaveCount(0);
+  });
+
   test("mantiene el diagnóstico disponible, que es la salida del estado", async ({
     page,
   }) => {
