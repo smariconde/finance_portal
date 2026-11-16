@@ -7486,3 +7486,36 @@ plan de Neon.
     mayúscula inicial, conservando siglas y sufijos (6 unitarios); el dato
     guardado no cambia. Lo leen el encabezado de la valuación y las matrices.
   - DESIGN.md: page header, stat tiles, folds y la sombra del tile suelto.
+
+## Mejora transversal — Argentina (2026-11-16)
+
+- Estado: `done`.
+- Autorización: el mismo pedido del owner del 2026-11-16 (cuarto PR de la
+  revisión de Análisis), con su decisión de mostrar en las tarjetas la
+  variación contra la lectura anterior con color. Revierte para esas tarjetas
+  la regla del brief «sin flechas ni colores de bien o mal».
+- Alcance:
+  - `summary-change-1.0.0`: la variación de cada tarjeta contra su lectura
+    anterior —el mes, el año o el último día publicado antes—, en pp para tasas
+    y brechas y en US$ M para el saldo; `null` con motivo (`missing_current`,
+    `missing_previous`, `previous_not_adjacent`) y nunca una lectura más vieja.
+    Polaridad declarada en el dominio: actividad, primario, saldo comercial y
+    soja suben bien; inflación y brecha CCL/oficial bajan bien. 12 unitarios.
+    `argentina-dashboard-2.4.0` suma la variación desestacionalizada del mes
+    anterior.
+  - Tarjetas sin «Brecha» repetida («Dólar: brecha CCL / oficial», «Soja:
+    Rosario–Chicago») y el primario con fecha y texto que coinciden.
+  - Índice fijo de los ocho bloques bajo el header, con el actual marcado y
+    desplazable en un teléfono.
+  - Barras de los gráficos en una línea: los rangos a la vista; escala,
+    comparar y gobiernos/regímenes en «Opciones».
+  - Rótulos de los gráficos a 12 px (eran de 9 y 10); los eventos de la soja
+    que la escala no ubicaba dibujaban líneas en `NaN` y ahora se omiten.
+  - Mapa de sectores sin la letra ClaNAE en el rótulo; lecturas de los bloques
+    en una frase corta.
+- Evidencia: formato, lint, tipos, 4.354 unitarios y build; revisión renderizada
+  con la base personal y las Server Actions bloqueadas a 1440 claro y 390 oscuro:
+  0 violaciones axe serias (página y popover), 0 overflow, sin `NaN` ni
+  `undefined`, 54 rótulos de contexto sin superposición en Máx. Los bloques del
+  BCRA (dólar, banda, inflación, reservas) se vieron vacíos: la base local no
+  tiene esas series; los cubren los unitarios.
