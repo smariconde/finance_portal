@@ -1556,7 +1556,7 @@ pnpm finviz:catalog --file ~/Downloads/screener.html          # dry run: counts 
 pnpm finviz:catalog --file ~/Downloads/screener.html --write  # rewrites finviz-screener-filters.json
 ```
 
-Since `F11-13` (in progress, ADR 0076 amendment, trading migration `0007`)
+Since `F11-13` (ADR 0076 amendment, trading migration `0007`)
 `/plan/finviz`, a sibling of `/plan` behind an «Ideas · Finviz» selector,
 builds links to Finviz's screener; the server never talks to Finviz and nothing
 of it is embedded, only linked (`robots.txt` closes the screener and charts to
