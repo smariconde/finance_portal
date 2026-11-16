@@ -56,16 +56,29 @@ export function SectorHeatmap({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="overflow-x-auto rounded-md border">
+      {/* Fuera del scroll: dentro de la tabla el caption medía lo que la
+          tabla y se cortaba en un teléfono. */}
+      <p className="text-xs text-muted-foreground" aria-hidden="true">
+        Var. interanual en %, último mes primero · ordenado por{" "}
+        {latestIndex < 0
+          ? "el último mes"
+          : shortMonth(activity.sectorMonths[latestIndex]!)}
+      </p>
+      <div
+        role="region"
+        aria-label="Variación interanual por sector"
+        tabIndex={0}
+        className="overflow-x-auto rounded-md border focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+      >
         <Table className="text-xs">
-          <TableCaption className="mt-2 text-left text-xs">
-            Variación interanual del índice original de cada sector, en %, del
-            mes más reciente al más viejo. Ordenado por el último mes; el tinte
-            acompaña a la cifra y nunca la reemplaza.
+          <TableCaption className="sr-only">
+            Variación interanual del índice original de cada sector del EMAE, en
+            %, del mes más reciente al más viejo, ordenado por el último mes. El
+            tinte acompaña a la cifra y nunca la reemplaza.
           </TableCaption>
           <TableHeader>
             <TableRow>
-              <TableHead scope="col" className="min-w-48">
+              <TableHead scope="col" className="min-w-40">
                 Sector
               </TableHead>
               {months.map((on) => (
@@ -84,9 +97,10 @@ export function SectorHeatmap({
               <TableRow key={sector.id}>
                 <TableHead
                   scope="row"
-                  className="max-w-64 font-normal whitespace-normal"
+                  // La letra ClaNAE del INDEC queda como ayuda, no en el rótulo.
+                  title={`Letra ClaNAE ${sector.code}`}
+                  className="max-w-56 font-normal whitespace-normal"
                 >
-                  <span className="text-muted-foreground">{sector.code}</span>{" "}
                   {sector.label}
                 </TableHead>
                 {[...sector.cells].reverse().map((cell) => (

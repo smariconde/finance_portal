@@ -1,6 +1,15 @@
 "use client";
 
+import { Check, ChevronDown, SlidersHorizontal } from "lucide-react";
 import type { ReactNode } from "react";
+
+import {
+  Popover,
+  PopoverContent,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 import {
   amount,
@@ -344,5 +353,83 @@ export function ChartToolbar({ children }: { readonly children: ReactNode }) {
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
       {children}
     </div>
+  );
+}
+
+/**
+ * Las opciones secundarias de un gráfico —escala, comparar, marcas— detrás de
+ * un solo botón, para que la barra quede en una línea con los rangos. Es un
+ * popover de Base UI: se abre con click, toque, Enter o Espacio, atrapa el
+ * foco mientras está abierto y lo devuelve al botón al cerrarse.
+ */
+export function ChartOptions({
+  open,
+  onOpenChange,
+  changed,
+  children,
+}: {
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+  /** Alguna opción fuera de su valor inicial: el botón lo marca. */
+  readonly changed: boolean;
+  readonly children: ReactNode;
+}) {
+  return (
+    <Popover open={open} onOpenChange={(next) => onOpenChange(next)}>
+      <PopoverTrigger
+        className={cn(
+          "inline-flex min-h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-xs font-medium text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 data-popup-open:bg-muted data-popup-open:text-foreground motion-reduce:transition-none",
+          changed && "border-primary/50 text-foreground",
+        )}
+      >
+        <SlidersHorizontal aria-hidden="true" className="size-3.5" />
+        {/* En un teléfono el ícono solo deja los rangos en una línea. */}
+        <span className="sr-only sm:not-sr-only">Opciones</span>
+        {changed ? (
+          <span
+            aria-hidden="true"
+            className="size-1.5 rounded-full bg-primary"
+          />
+        ) : null}
+        <ChevronDown aria-hidden="true" className="size-3.5" />
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-64 gap-3">
+        <PopoverTitle className="text-xs text-muted-foreground">
+          Opciones del gráfico
+        </PopoverTitle>
+        {children}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** Una opción que se prende o se apaga: el estado va en `aria-pressed` y en la marca. */
+export function OptionToggle({
+  pressed,
+  onPress,
+  children,
+}: {
+  readonly pressed: boolean;
+  readonly onPress: () => void;
+  readonly children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={pressed}
+      onClick={onPress}
+      className="flex min-h-8 w-full items-center gap-2 rounded-md px-1.5 text-left text-sm outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          "flex size-4 shrink-0 items-center justify-center rounded-[4px] border",
+          pressed && "border-primary bg-primary text-primary-foreground",
+        )}
+      >
+        {pressed ? <Check className="size-3" /> : null}
+      </span>
+      {children}
+    </button>
   );
 }

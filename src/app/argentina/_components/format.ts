@@ -50,14 +50,18 @@ export function longMonth(periodOn: string): string {
 
 export const calendarDate = formatCalendarDate;
 
-/** Un valor ya en puntos porcentuales: `1.78` → `1,8 %`. */
+/**
+ * Un valor ya en puntos porcentuales: `1.78` → `1,8 %`. El espacio antes del
+ * `%` no separa: en una frase la cifra no queda sin su unidad al final de la
+ * línea.
+ */
 export function points(value: string, scale = 1): string {
-  return `${formatAmount(value, { scale })} %`;
+  return `${formatAmount(value, { scale })}\u00a0%`;
 }
 
 /** Igual, con signo: `-1.74` → `-1,7 %`, `0.07` → `+0,1 %`. */
 export function signedPoints(value: string, scale = 1): string {
-  return `${formatSignedAmount(value, { scale })} %`;
+  return `${formatSignedAmount(value, { scale })}\u00a0%`;
 }
 
 /** Una fracción en puntos con signo: `0.0523` → `+5,2 %`, en el motor decimal. */
@@ -122,6 +126,24 @@ export function compactMillions(value: string): string {
 /** `superávit` o `déficit` por el signo de un resultado. */
 export function resultWord(value: string): "superávit" | "déficit" {
   return value.startsWith("-") ? "déficit" : "superávit";
+}
+
+/**
+ * Un decimal redondeado a la escala que se muestra, para que la flecha y el
+ * color de un cambio digan lo mismo que la cifra escrita: `0.04` a un
+ * decimal es `0.0`, sin dirección.
+ */
+export function roundedTo(value: string, scale: number): string {
+  return decimal.toFixedScale(
+    decimal.parseDecimal(value, "rounded"),
+    scale,
+    "rounded",
+  );
+}
+
+/** `2026-11-13` → `13/11`. */
+export function dayMonth(on: string): string {
+  return `${on.slice(8, 10)}/${on.slice(5, 7)}`;
 }
 
 /** Reescala una cifra sólo para el dibujo: la unidad la dice el título. */

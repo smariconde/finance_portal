@@ -1,7 +1,7 @@
 import type { ArgentinaDashboard } from "@/modules/argentina-dashboard/application/load-argentina-dashboard";
 
 import { DashboardBlock } from "./block";
-import { calendarDate } from "./format";
+import { amount, calendarDate } from "./format";
 import { TimelineChart, type TimelineRow } from "./timeline-chart";
 
 export function ItcrmSection({
@@ -24,8 +24,8 @@ export function ItcrmSection({
       title="Competitividad cambiaria real (ITCRM)"
       reading={
         latest === null
-          ? "Todavía no hay ITCRM guardado. La serie se carga a mano desde el BCRA."
-          : `El ITCRM fue ${Number(latest.value).toLocaleString("es-AR", { maximumFractionDigits: 1 })} el ${calendarDate(latest.on)}. Su trayectoria permite comparar el nivel actual con su propia historia; el índice no define un valor justo del dólar.`
+          ? "Todavía no hay ITCRM guardado."
+          : `${calendarDate(latest.on)}: ITCRM ${amount(latest.value, 1)}, contra 100 el 17/12/2015.`
       }
       provenance={
         <>

@@ -1,20 +1,30 @@
-import { StatTile } from "@/app/_components/stat-tile";
+import { ChangeIndicator, StatTile } from "@/app/_components/stat-tile";
 import type { ArgentinaDashboard } from "@/modules/argentina-dashboard/application/load-argentina-dashboard";
+import {
+  SUMMARY_POLARITY,
+  summaryChanges,
+  type SummaryCadence,
+  type SummaryChange,
+  type SummaryMetric,
+} from "@/modules/argentina-dashboard/domain/summary-change";
 
 import {
   amount,
   calendarDate,
   compactMillions,
   comparisonText,
+  dayMonth,
   fractionAsPoints,
   points,
   resultWord,
+  roundedTo,
   shortMonth,
   signedAmount,
   signedPoints,
 } from "./format";
 
 type Summary = {
+  readonly metric: SummaryMetric;
   readonly href: string;
   readonly label: string;
   /** La cifra principal, o el motivo de su ausencia. */
@@ -22,18 +32,26 @@ type Summary = {
   readonly detail: string;
   /** Fecha del dato principal, como se la lee. */
   readonly asOf: string | null;
+  readonly cadence: SummaryCadence;
 };
+
+/** `ago 2026` → `ago`. */
+function monthAbbr(on: string): string {
+  return shortMonth(on).slice(0, 3);
+}
 
 function summariesOf(dashboard: ArgentinaDashboard): readonly Summary[] {
   const { activity, dollar, monetary, fiscal, external, soy } = dashboard;
   const inflation = monetary.monthlyInflation.at(-1);
   const fiscalYear = fiscal.years.at(-1);
+  const ytd = fiscal.yearToDate;
   const trade = external.months.at(-1);
 
   return [
     {
+      metric: "activity",
       href: "#actividad",
-      label: "Actividad, var. mensual",
+      label: "Actividad: var. mensual",
       value: activity.latest
         ? comparisonText(activity.latest.monthOverMonth)
         : "Sin dato",
@@ -41,19 +59,23 @@ function summariesOf(dashboard: ArgentinaDashboard): readonly Summary[] {
         ? `${comparisonText(activity.latest.yearOverYear)} interanual`
         : "EMAE del INDEC",
       asOf: activity.latest ? shortMonth(activity.latest.on) : null,
+      cadence: "monthly",
     },
     {
+      metric: "fxGap",
       href: "#dolar",
-      label: "Brecha CCL / oficial",
+      label: "Dólar: brecha CCL / oficial",
       value: dollar.latestGap
         ? fractionAsPoints(dollar.latestGap.gap)
         : "Sin dato",
       detail: dollar.latestOfficial?.value
-        ? `Oficial $ ${amount(dollar.latestOfficial.value, 2)}${dollar.latestCcl?.value ? ` · CCL $ ${amount(dollar.latestCcl.value, 2)}` : ""}`
+        ? `Oficial $ ${amount(dollar.latestOfficial.value)}${dollar.latestCcl?.value ? ` · CCL $ ${amount(dollar.latestCcl.value)}` : ""}`
         : "Mayorista y CCL implícito",
       asOf: dollar.latestGap ? calendarDate(dollar.latestGap.on) : null,
+      cadence: "daily",
     },
     {
+      metric: "inflation",
       href: "#monetario",
       label: "Inflación mensual",
       value: inflation?.value ? points(inflation.value) : "Sin dato",
@@ -61,17 +83,23 @@ function summariesOf(dashboard: ArgentinaDashboard): readonly Summary[] {
         ? `${points(monetary.annualInflation.value)} interanual`
         : "IPC, vía BCRA",
       asOf: inflation ? shortMonth(inflation.on) : null,
+      cadence: "monthly",
     },
     {
+      metric: "primaryBalance",
       href: "#fiscal",
-      label: "Primario, % del PIB",
+      label: "Primario: % del PIB",
       value: fiscalYear ? comparisonText(fiscalYear.primary) : "Sin dato",
-      detail: fiscal.yearToDate
-        ? `${fiscal.yearToDate.year} hasta ${shortMonth(fiscal.yearToDate.lastOn)}: ${resultWord(fiscal.yearToDate.primary)} de $ ${compactMillions(fiscal.yearToDate.primary)}`
+      // El año en curso todavía no tiene % del PIB: va en pesos y nombra sus
+      // meses, así no se confunde con el año del pie.
+      detail: ytd
+        ? `${ytd.months === 1 ? "Ene" : `Ene–${monthAbbr(ytd.lastOn)}`} ${ytd.year}: ${resultWord(ytd.primary)} $ ${compactMillions(ytd.primary)}`
         : "Sector Público Nacional",
-      asOf: fiscalYear ? String(fiscalYear.year) : null,
+      asOf: fiscalYear ? `Año ${fiscalYear.year}` : null,
+      cadence: "annual",
     },
     {
+      metric: "tradeBalance",
       href: "#externo",
       label: "Saldo comercial",
       value: trade
@@ -84,29 +112,94 @@ function summariesOf(dashboard: ArgentinaDashboard): readonly Summary[] {
         ? `12 meses: US$ ${signedAmount(external.lastTwelve.balance)} M`
         : "Bienes, ICA",
       asOf: trade ? shortMonth(trade.on) : null,
+      cadence: "monthly",
     },
     {
+      metric: "soyGap",
       href: "#soja",
-      label: "Brecha Rosario–Chicago",
+      label: "Soja: Rosario–Chicago",
       value: soy.latest ? signedPoints(soy.latest.basis) : "Sin dato",
       detail: soy.latest
-        ? `US$ ${amount(soy.latest.rosarioUsd!, 0)} contra US$ ${amount(soy.latest.chicagoUsd!, 0)} por t`
+        ? `US$ ${amount(soy.latest.rosarioUsd!, 0)} vs. US$ ${amount(soy.latest.chicagoUsd!, 0)} por t`
         : "Pizarra de Rosario y CBOT",
       asOf: soy.latest ? calendarDate(soy.latest.on) : null,
+      cadence: "daily",
     },
   ];
 }
 
+/** Contra qué lectura se compara, en lo mínimo que la nombra. */
+function previousLabel(
+  change: Extract<SummaryChange, { status: "computed" }>,
+  cadence: SummaryCadence,
+): string {
+  switch (cadence) {
+    case "daily":
+      return `vs. ${dayMonth(change.previousOn)}`;
+    case "monthly":
+      return change.previousOn.slice(0, 4) === change.currentOn.slice(0, 4)
+        ? `vs. ${monthAbbr(change.previousOn)}`
+        : `vs. ${shortMonth(change.previousOn)}`;
+    case "annual":
+      return `vs. ${change.previousOn.slice(0, 4)}`;
+  }
+}
+
+const MISSING_PREVIOUS: Readonly<Record<SummaryCadence, string>> = {
+  daily: "Sin dato anterior",
+  monthly: "Sin el mes anterior",
+  annual: "Sin el año anterior",
+};
+
+function Change({
+  change,
+  summary,
+}: {
+  readonly change: SummaryChange;
+  readonly summary: Summary;
+}) {
+  if (change.status === "unavailable") {
+    // Sin cifra principal no hay cambio que decir: el valor ya dice «Sin dato».
+    return change.reason === "missing_current" ? null : (
+      <span className="text-xs leading-4 text-muted-foreground">
+        {MISSING_PREVIOUS[summary.cadence]}
+      </span>
+    );
+  }
+  const scale = change.unit === "amount" ? 0 : 1;
+  // Redondeado antes de decidir la flecha: un cambio que se escribe «0,0 pp»
+  // no lleva dirección ni color.
+  const rounded = roundedTo(change.difference, scale);
+  return (
+    <ChangeIndicator
+      amount={rounded}
+      text={
+        change.unit === "amount"
+          ? `US$ ${signedAmount(rounded)} M`
+          : `${signedAmount(rounded, 1)}\u00a0pp`
+      }
+      polarity={SUMMARY_POLARITY[summary.metric]}
+      context={previousLabel(change, summary.cadence)}
+    />
+  );
+}
+
 /**
  * Lectura rápida: una cifra por bloque con su fecha, que enlaza a la sección.
- * No hay flechas ni colores de «bien» o «mal»: el signo va en la cifra y la
- * interpretación queda para quien lee.
+ * Debajo de la cifra, cuánto se movió contra su lectura anterior
+ * (`summary-change-1.0.0`) con flecha, signo y color. Decisión del owner del
+ * 2026-11-16: el color dice si el movimiento favorece según la métrica —que
+ * baje la inflación o la brecha cambiaria se pinta verde—, y reemplaza la
+ * regla anterior de «sin flechas ni colores de bien o mal». El signo escrito
+ * dice el sentido sin depender del color.
  */
 export function SummaryCards({
   dashboard,
 }: {
   readonly dashboard: ArgentinaDashboard;
 }) {
+  const changes = summaryChanges(dashboard);
+
   return (
     <nav aria-label="Lectura rápida">
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -118,6 +211,9 @@ export function SummaryCards({
               size="sm"
               label={summary.label}
               value={summary.value}
+              change={
+                <Change change={changes[summary.metric]} summary={summary} />
+              }
               detail={summary.detail}
               footer={summary.asOf === null ? "Sin fecha" : summary.asOf}
             />

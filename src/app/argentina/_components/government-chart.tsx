@@ -146,8 +146,8 @@ function EndLabels({
   for (let index = 1; index < placed.length; index += 1) {
     const previous = placed[index - 1]!;
     const current = placed[index]!;
-    if (Math.abs(current.x - previous.x) < 70 && current.y - previous.y < 12) {
-      current.y = previous.y + 12;
+    if (Math.abs(current.x - previous.x) < 90 && current.y - previous.y < 15) {
+      current.y = previous.y + 15;
     }
   }
   return (
@@ -162,8 +162,8 @@ function EndLabels({
           />
           <text
             x={line.x + 6}
-            y={line.y + 3.5}
-            className="text-[10px] font-medium"
+            y={line.y + 4}
+            className="text-xs font-medium"
             fill={line.color}
           >
             {line.label}
@@ -417,7 +417,7 @@ export function GovernmentChart({
         <LineChart
           accessibilityLayer={false}
           data={rows}
-          margin={{ top: 8, right: 92, bottom: 0, left: 0 }}
+          margin={{ top: 8, right: 104, bottom: 0, left: 0 }}
         >
           <CartesianGrid vertical={false} strokeDasharray="3 3" />
           <XAxis
