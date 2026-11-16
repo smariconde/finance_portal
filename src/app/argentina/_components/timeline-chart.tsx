@@ -46,7 +46,7 @@ import {
   type ChangeKind,
 } from "@/modules/argentina-dashboard/domain/chart-history";
 
-import { Fold } from "./block";
+import { Fold } from "@/app/_components/fold";
 import { HoverLayer, PlotAreaProbe, samePlot } from "./chart-hover";
 import {
   axisLabel,
@@ -1310,19 +1310,10 @@ export function TimelineChart({
       ) : null}
 
       {showTable ? (
-        <details
-          className="group border-t pt-3"
+        <Fold
+          summary={<>Ver los datos del período ({visible.length} filas)</>}
           onToggle={(event) => setTableOpen(event.currentTarget.open)}
         >
-          <summary className="flex cursor-pointer list-none items-center gap-1 text-sm font-medium text-primary [&::-webkit-details-marker]:hidden">
-            <span
-              aria-hidden="true"
-              className="inline-block transition-transform group-open:rotate-90 motion-reduce:transition-none"
-            >
-              ›
-            </span>
-            Ver los datos del período ({visible.length} filas)
-          </summary>
           {tableOpen ? (
             <div
               role="region"
@@ -1390,7 +1381,7 @@ export function TimelineChart({
               </Table>
             </div>
           ) : null}
-        </details>
+        </Fold>
       ) : null}
 
       {termsInRange.length + marksInRange === 0 ? null : (

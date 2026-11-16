@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 
 import { DataUnavailableNotice } from "@/app/_components/data-unavailable-notice";
+import { InfoTip } from "@/app/_components/info-tip";
+import { PageContainer, PageHeader } from "@/app/_components/page-frame";
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
 import {
   loadArgentinaDashboard,
@@ -101,48 +103,50 @@ export default async function ArgentinaPage() {
   }
 
   return (
-    <div id="contenido" className="flex-1">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 md:p-6 lg:p-8">
-        <section
-          className="flex flex-col gap-3"
-          aria-labelledby="argentina-title"
-        >
-          <h1
-            id="argentina-title"
-            className="text-2xl font-semibold tracking-tight md:text-3xl"
-          >
-            ¿Cómo viene la economía argentina?
-          </h1>
-          <p className="max-w-3xl text-sm text-muted-foreground md:text-base">
-            Lo último que publicaron el INDEC, el BCRA, la Secretaría de
-            Hacienda, la Bolsa de Comercio de Rosario y el Ministerio de
-            Agricultura. Al abrir la página se busca lo que pudo haberse
-            publicado desde la última revisión. Cada serie tiene su propia
-            fecha: la actividad sale con dos meses de rezago y el dólar es
-            diario. El REM muestra expectativas para los meses siguientes,
-            separadas del IPC observado. El tablero no explica causas ni emite
-            recomendaciones.
-          </p>
-        </section>
+    <PageContainer>
+      <PageHeader
+        id="argentina-title"
+        title="¿Cómo viene la economía argentina?"
+        lead={
+          <>
+            INDEC, BCRA, Hacienda, la Bolsa de Rosario y Agricultura; cada serie
+            con su fecha.
+            <InfoTip title="Qué muestra el tablero">
+              <p>
+                Lo último que publicaron el INDEC, el BCRA, la Secretaría de
+                Hacienda, la Bolsa de Comercio de Rosario y el Ministerio de
+                Agricultura. Al abrir la página se busca lo que pudo haberse
+                publicado desde la última revisión.
+              </p>
+              <p>
+                Cada serie tiene su propia fecha: la actividad sale con dos
+                meses de rezago y el dólar es diario. El REM muestra
+                expectativas para los meses siguientes, separadas del IPC
+                observado.
+              </p>
+              <p>El tablero no explica causas ni emite recomendaciones.</p>
+            </InfoTip>
+          </>
+        }
+      />
 
-        {readiness === null ? null : (
-          <ArgentinaRefresh
-            needsRefresh={readiness.needsRefresh}
-            failedSources={readiness.failedSources}
-          />
-        )}
+      {readiness === null ? null : (
+        <ArgentinaRefresh
+          needsRefresh={readiness.needsRefresh}
+          failedSources={readiness.failedSources}
+        />
+      )}
 
-        <SummaryCards dashboard={dashboard} />
+      <SummaryCards dashboard={dashboard} />
 
-        <ActivitySection activity={dashboard.activity} />
-        <DollarSection dollar={dashboard.dollar} />
-        <ItcrmSection itcrm={dashboard.itcrm} />
-        <MonetarySection monetary={dashboard.monetary} />
-        <RemInflationSection rows={remComparison} />
-        <FiscalSection fiscal={dashboard.fiscal} />
-        <ExternalSection external={dashboard.external} />
-        <SoySection soy={dashboard.soy} />
-      </div>
-    </div>
+      <ActivitySection activity={dashboard.activity} />
+      <DollarSection dollar={dashboard.dollar} />
+      <ItcrmSection itcrm={dashboard.itcrm} />
+      <MonetarySection monetary={dashboard.monetary} />
+      <RemInflationSection rows={remComparison} />
+      <FiscalSection fiscal={dashboard.fiscal} />
+      <ExternalSection external={dashboard.external} />
+      <SoySection soy={dashboard.soy} />
+    </PageContainer>
   );
 }

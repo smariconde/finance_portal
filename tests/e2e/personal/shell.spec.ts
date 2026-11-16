@@ -87,8 +87,12 @@ test.describe("shell del portal", () => {
         name: "Valuación por ticker",
       }),
     ).toBeVisible();
+    // La explicación larga vive en el ⓘ; la página dice una línea.
     await expect(
-      page.getByText("se lo pide a la IA, que cita el 10-K"),
+      page.getByText("abre su valuación con precio, valor y evidencia"),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Qué significa: Qué pasa al valuar" }),
     ).toBeVisible();
     await expect(
       page.getByRole("textbox", { name: "Ticker", exact: true }),

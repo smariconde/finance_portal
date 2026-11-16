@@ -1,6 +1,6 @@
-import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { Fold } from "@/app/_components/fold";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -55,27 +55,6 @@ export function DashboardBlock({
         </CardContent>
       </Card>
     </section>
-  );
-}
-
-export function Fold({
-  summary,
-  children,
-}: {
-  readonly summary: string;
-  readonly children: ReactNode;
-}) {
-  return (
-    <details className="group border-t pt-3">
-      <summary className="flex cursor-pointer list-none items-center gap-1 text-sm font-medium text-primary [&::-webkit-details-marker]:hidden">
-        <ChevronRight
-          aria-hidden="true"
-          className="size-4 transition-transform group-open:rotate-90 motion-reduce:transition-none"
-        />
-        {summary}
-      </summary>
-      <div className="pt-3">{children}</div>
-    </details>
   );
 }
 

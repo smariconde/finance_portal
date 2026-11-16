@@ -7456,3 +7456,33 @@ plan de Neon.
   0 overflow en los cuatro cortes. En un teléfono las rutas de tres niveles
   (sector › divergencias, valuación › corrida de referencia) cortan los dos
   pasos con elipsis; el selector y el `h1` de esas páginas los nombran enteros.
+
+## Mejora transversal — marco de Análisis (2026-11-16)
+
+- Estado: `done`.
+- Autorización: pedido del owner del 2026-11-16 tras la revisión página por
+  página de Valuación, Matrices y Argentina; eligió empezar por el marco común,
+  cards más prolijas y, en Argentina, la variación contra la lectura anterior
+  con color. Es el primero de cuatro PRs (marco, Valuación, Matrices,
+  Argentina).
+- Medido antes de tocar: 9 rutas a 1440 y 390 px, claro y oscuro, con la base
+  personal y las Server Actions bloqueadas. Sin violaciones axe ni overflow,
+  pero tres anchos de contenedor (el título arrancaba en 288, 304 o 368 px),
+  vínculos «volver» que repetían la ubicación del header, ocho estilos de
+  `<details>` y dos de cada tres nombres de la SEC en mayúsculas sostenidas
+  (333 de 504 en la base personal).
+- Alcance:
+  - `PageContainer` y `PageHeader` (`page-frame.tsx`): un solo ancho de
+    `80rem` en todas las páginas —también Inicio y Trading—, título, una línea
+    con su `InfoTip` y acciones a la derecha; sin «Valuación por ticker» ni
+    «Matrices por sector» como vínculo. Las introducciones de `/valuacion`,
+    `/sectores`, Argentina, divergencias y la corrida de referencia bajan a una
+    línea; el resto queda en el `InfoTip`.
+  - `Fold`: el plegable único; reemplaza los de Argentina y siete de la
+    valuación.
+  - `StatTile` y `ChangeIndicator` con `changeTone` (polaridad declarada por
+    métrica, 5 unitarios); las tarjetas de resumen de Argentina ya lo usan.
+  - `display-company-name-1.0.0`: un nombre en mayúsculas se muestra con
+    mayúscula inicial, conservando siglas y sufijos (6 unitarios); el dato
+    guardado no cambia. Lo leen el encabezado de la valuación y las matrices.
+  - DESIGN.md: page header, stat tiles, folds y la sombra del tile suelto.

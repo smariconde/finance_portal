@@ -55,7 +55,7 @@ function Header({ children }: { readonly children?: React.ReactNode }) {
 function Shell({ children }: { readonly children: React.ReactNode }) {
   return (
     <div id="contenido" className="flex-1">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 md:p-6 lg:p-8">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 md:p-6 lg:p-8">
         {children}
       </div>
     </div>

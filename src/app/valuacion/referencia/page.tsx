@@ -2,6 +2,8 @@ import { FlaskConical, Info } from "lucide-react";
 import type { Metadata } from "next";
 
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
+import { InfoTip } from "@/app/_components/info-tip";
+import { PageContainer, PageHeader } from "@/app/_components/page-frame";
 import { StatusMark } from "@/app/_components/status-mark";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -116,253 +118,248 @@ export default async function ValuationReferencePage() {
   ];
 
   return (
-    <div id="contenido" className="flex-1">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 md:p-6 lg:p-8">
-        <section
-          className="flex flex-col gap-3"
-          aria-labelledby="valuation-demo-title"
-        >
-          <div className="flex flex-wrap items-center gap-2">
-            <StatusMark status="ready" label="Motor verificado" />
-            <span className="text-xs text-muted-foreground">
-              Fase 1 · slice F1-06
-            </span>
-          </div>
-          <h1
-            id="valuation-demo-title"
-            className="text-2xl font-semibold tracking-tight md:text-3xl"
-          >
-            Corrida de referencia del motor
-          </h1>
-          <p className="max-w-3xl text-sm text-muted-foreground md:text-base">
-            Una corrida FCFF completa sobre un snapshot fijo, con la evidencia
-            que la sostiene y los supuestos que la explican. Sirve para dos
-            cosas: verificar que el motor reproduce el mismo hash en esta
-            instalación, y fijar cómo se muestra la evidencia de cualquier
-            valuación futura.
-          </p>
-        </section>
+    <PageContainer>
+      <PageHeader
+        id="valuation-demo-title"
+        title="Corrida de referencia del motor"
+        lead={
+          <>
+            Una corrida FCFF fija para verificar que el motor reproduce su hash.
+            <InfoTip title="Para qué sirve">
+              <p>
+                Es una corrida completa sobre un snapshot fijo, con la evidencia
+                que la sostiene y los supuestos que la explican.
+              </p>
+              <p>
+                Verifica que el motor reproduce el mismo hash en esta
+                instalación y fija cómo se muestra la evidencia de cualquier
+                valuación.
+              </p>
+            </InfoTip>
+          </>
+        }
+        actions={<StatusMark status="ready" label="Motor verificado" />}
+      />
 
-        <Alert className="border-amber-200 bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/30">
-          <FlaskConical aria-hidden="true" />
-          <AlertTitle>Empresa sintética, no una empresa real</AlertTitle>
+      <Alert className="border-amber-200 bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/30">
+        <FlaskConical aria-hidden="true" />
+        <AlertTitle>Empresa sintética, no una empresa real</AlertTitle>
+        <AlertDescription>
+          {entity?.legalName ?? "El sujeto de esta corrida"} no existe. Sus
+          datos son un snapshot determinista creado para verificar el motor; no
+          derivan de ningún proveedor ni de una captura de datos reales. El
+          resultado no es una recomendación ni un precio objetivo, y esta página
+          no se conecta a ninguna fuente.
+        </AlertDescription>
+      </Alert>
+
+      <Card size="sm">
+        <CardHeader>
+          <CardTitle as="h2">Identidad del sujeto valuado</CardTitle>
+          <CardDescription>
+            Entidad legal, instrumento, listing y programa depositario son
+            identidades distintas. El ticker es un valor de búsqueda con
+            vigencia, nunca la identidad.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <FieldList className="sm:grid-cols-2 lg:grid-cols-4">
+            <Field
+              term="Entidad legal"
+              hint={entity?.jurisdiction ?? undefined}
+            >
+              {entity?.legalName ?? "—"}
+            </Field>
+            <Field
+              term="Instrumento valuado"
+              hint={`Moneda económica ${run.currency}`}
+            >
+              Acción ordinaria clase A
+            </Field>
+            <Field
+              term="Listing primario"
+              hint={
+                listing === undefined
+                  ? undefined
+                  : `Cotiza en ${listing.quoteCurrency}`
+              }
+            >
+              {listing?.mic ?? "—"}
+            </Field>
+            <Field
+              term="Símbolo vigente"
+              hint="Valor de búsqueda con vigencia, no una clave estable"
+            >
+              <span className="numeric">{DEMO_CURRENT_SYMBOL.symbol}</span>
+            </Field>
+          </FieldList>
+          {run.subject.depositaryProgramId === null ? null : (
+            <p className="mt-4 text-sm text-muted-foreground">
+              El programa depositario que da acceso local a este instrumento
+              vincula dos securities mediante un ratio versionado; la valuación
+              corre sobre la subyacente y no sobre el CEDEAR.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <RunHeadline run={run} />
+
+      {reviewChecks.length === 0 ? null : (
+        <Alert>
+          <Info aria-hidden="true" />
+          <AlertTitle>La corrida quedó marcada para revisión</AlertTitle>
           <AlertDescription>
-            {entity?.legalName ?? "El sujeto de esta corrida"} no existe. Sus
-            datos son un snapshot determinista creado para verificar el motor;
-            no derivan de ningún proveedor ni de una captura de datos reales. El
-            resultado no es una recomendación ni un precio objetivo, y esta
-            página no se conecta a ninguna fuente.
+            {reviewChecks.length} control
+            {reviewChecks.length === 1 ? "" : "es"} en modo revisión no pasó. El
+            resultado se calculó igual, pero no debe leerse como cerrado hasta
+            resolverlos.
           </AlertDescription>
         </Alert>
+      )}
 
-        <Card size="sm">
-          <CardHeader>
-            <CardTitle as="h2">Identidad del sujeto valuado</CardTitle>
-            <CardDescription>
-              Entidad legal, instrumento, listing y programa depositario son
-              identidades distintas. El ticker es un valor de búsqueda con
-              vigencia, nunca la identidad.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <FieldList className="sm:grid-cols-2 lg:grid-cols-4">
-              <Field
-                term="Entidad legal"
-                hint={entity?.jurisdiction ?? undefined}
-              >
-                {entity?.legalName ?? "—"}
-              </Field>
-              <Field
-                term="Instrumento valuado"
-                hint={`Moneda económica ${run.currency}`}
-              >
-                Acción ordinaria clase A
-              </Field>
-              <Field
-                term="Listing primario"
-                hint={
-                  listing === undefined
-                    ? undefined
-                    : `Cotiza en ${listing.quoteCurrency}`
-                }
-              >
-                {listing?.mic ?? "—"}
-              </Field>
-              <Field
-                term="Símbolo vigente"
-                hint="Valor de búsqueda con vigencia, no una clave estable"
-              >
-                <span className="numeric">{DEMO_CURRENT_SYMBOL.symbol}</span>
-              </Field>
-            </FieldList>
-            {run.subject.depositaryProgramId === null ? null : (
-              <p className="mt-4 text-sm text-muted-foreground">
-                El programa depositario que da acceso local a este instrumento
-                vincula dos securities mediante un ratio versionado; la
-                valuación corre sobre la subyacente y no sobre el CEDEAR.
-              </p>
-            )}
-          </CardContent>
-        </Card>
+      <EvidenceTable
+        facts={facts}
+        absences={absences}
+        policyVersion={FRESHNESS_POLICY_VERSION}
+      />
 
-        <RunHeadline run={run} />
+      <AssumptionsTables run={run} />
 
-        {reviewChecks.length === 0 ? null : (
-          <Alert>
-            <Info aria-hidden="true" />
-            <AlertTitle>La corrida quedó marcada para revisión</AlertTitle>
-            <AlertDescription>
-              {reviewChecks.length} control
-              {reviewChecks.length === 1 ? "" : "es"} en modo revisión no pasó.
-              El resultado se calculó igual, pero no debe leerse como cerrado
-              hasta resolverlos.
-            </AlertDescription>
-          </Alert>
-        )}
+      <EquityBridgeTable run={run} />
 
-        <EvidenceTable
-          facts={facts}
-          absences={absences}
-          policyVersion={FRESHNESS_POLICY_VERSION}
-        />
-
-        <AssumptionsTables run={run} />
-
-        <EquityBridgeTable run={run} />
-
-        {scenarios === null ? (
-          <Card>
-            <CardHeader>
-              <CardTitle as="h2" id="scenarios-title">
-                Escenarios bear, base y bull
-              </CardTitle>
-              <CardDescription>
-                El snapshot tiene un único conjunto de supuestos, así que no se
-                muestra un rango.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        ) : (
-          <ScenariosTable reading={scenarios} currency={run.currency} />
-        )}
-
-        {sensitivity === null ? (
-          <Card>
-            <CardHeader>
-              <CardTitle as="h2">Sensibilidad</CardTitle>
-              <CardDescription>
-                El snapshot no declara una grilla de sensibilidad, así que no se
-                muestra ninguna.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        ) : (
-          <SensitivityMatrix sensitivity={sensitivity} />
-        )}
-
+      {scenarios === null ? (
         <Card>
-          <CardHeader className="border-b">
-            <CardTitle as="h2">
-              El mismo modelo bajo otro corte de conocimiento
+          <CardHeader>
+            <CardTitle as="h2" id="scenarios-title">
+              Escenarios bear, base y bull
             </CardTitle>
             <CardDescription>
-              La fuente reexpresó los ingresos FY2024. Leer el modelo antes y
-              después del anuncio produce dos corridas con dos hashes, no una
-              corrección de la primera.
+              El snapshot tiene un único conjunto de supuestos, así que no se
+              muestra un rango.
             </CardDescription>
           </CardHeader>
-          <CardContent className="px-0">
-            <Table containerLabel="Comparación de cortes de conocimiento, tabla desplazable">
-              <TableHeader>
-                <TableRow>
-                  <TableHead scope="col">Corte</TableHead>
-                  <TableHead scope="col">Conocido hasta</TableHead>
-                  <TableHead scope="col" className="text-right">
-                    Base-year revenue
-                  </TableHead>
-                  <TableHead scope="col" className="text-right">
-                    Value per share
-                  </TableHead>
-                  <TableHead scope="col">Hash del resultado</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {vintages.map((vintage) => (
-                  <TableRow key={vintage.run.valuationRunId}>
-                    <TableHead scope="row" className="font-medium">
-                      {vintage.label}
-                    </TableHead>
-                    <TableCell>
-                      {vintage.run.provenance.knowledge.knownAt === null ? (
-                        <span className="text-muted-foreground">
-                          Vista actual
-                        </span>
-                      ) : (
-                        <time
-                          className="numeric"
-                          dateTime={vintage.run.provenance.knowledge.knownAt}
-                        >
-                          {formatUtcTimestamp(
-                            vintage.run.provenance.knowledge.knownAt,
-                          )}
-                        </time>
-                      )}
-                    </TableCell>
-                    <TableCell className="numeric text-right">
-                      {formatAmount(vintage.run.input.baseRevenue.value)}{" "}
-                      <span className="text-xs text-muted-foreground">
-                        {vintage.run.input.baseRevenue.currency}
-                      </span>
-                    </TableCell>
-                    <TableCell className="numeric text-right font-medium">
-                      {vintage.run.result === null
-                        ? "—"
-                        : formatAmount(vintage.run.result.valuePerShare)}
-                    </TableCell>
-                    <TableCell>
-                      {vintage.run.resultHash === null ? (
-                        <span className="text-muted-foreground">—</span>
-                      ) : (
-                        <HashValue hash={vintage.run.resultHash} />
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
         </Card>
+      ) : (
+        <ScenariosTable reading={scenarios} currency={run.currency} />
+      )}
 
-        <RunChecks run={run} />
+      {sensitivity === null ? (
+        <Card>
+          <CardHeader>
+            <CardTitle as="h2">Sensibilidad</CardTitle>
+            <CardDescription>
+              El snapshot no declara una grilla de sensibilidad, así que no se
+              muestra ninguna.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      ) : (
+        <SensitivityMatrix sensitivity={sensitivity} />
+      )}
 
-        <section
-          className="rounded-xl border bg-muted/30 p-4"
-          aria-labelledby="limits-title"
-        >
-          <h2 id="limits-title" className="text-base font-medium">
-            Límites de esta superficie
-          </h2>
-          <ul className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
-            <li>
-              No usa proveedores, red ni datos guardados: la corrida se calcula
-              en el proceso desde un snapshot fijo. Las empresas reales se
-              valúan en su propia página, desde Valuación.
-            </li>
-            <li>
-              Renderizar esta página no abre PostgreSQL ni persiste una corrida,
-              en ningún modo.
-            </li>
-            <li>
-              No hay recomendación, precio objetivo, comparación con un precio
-              de mercado ni señal de compra o venta.
-            </li>
-            <li>
-              Los supuestos no son editables: son los del snapshot fijo, y lo
-              que el hash verifica es justamente que no cambien.
-            </li>
-          </ul>
-        </section>
-      </div>
-    </div>
+      <Card>
+        <CardHeader className="border-b">
+          <CardTitle as="h2">
+            El mismo modelo bajo otro corte de conocimiento
+          </CardTitle>
+          <CardDescription>
+            La fuente reexpresó los ingresos FY2024. Leer el modelo antes y
+            después del anuncio produce dos corridas con dos hashes, no una
+            corrección de la primera.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="px-0">
+          <Table containerLabel="Comparación de cortes de conocimiento, tabla desplazable">
+            <TableHeader>
+              <TableRow>
+                <TableHead scope="col">Corte</TableHead>
+                <TableHead scope="col">Conocido hasta</TableHead>
+                <TableHead scope="col" className="text-right">
+                  Base-year revenue
+                </TableHead>
+                <TableHead scope="col" className="text-right">
+                  Value per share
+                </TableHead>
+                <TableHead scope="col">Hash del resultado</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {vintages.map((vintage) => (
+                <TableRow key={vintage.run.valuationRunId}>
+                  <TableHead scope="row" className="font-medium">
+                    {vintage.label}
+                  </TableHead>
+                  <TableCell>
+                    {vintage.run.provenance.knowledge.knownAt === null ? (
+                      <span className="text-muted-foreground">
+                        Vista actual
+                      </span>
+                    ) : (
+                      <time
+                        className="numeric"
+                        dateTime={vintage.run.provenance.knowledge.knownAt}
+                      >
+                        {formatUtcTimestamp(
+                          vintage.run.provenance.knowledge.knownAt,
+                        )}
+                      </time>
+                    )}
+                  </TableCell>
+                  <TableCell className="numeric text-right">
+                    {formatAmount(vintage.run.input.baseRevenue.value)}{" "}
+                    <span className="text-xs text-muted-foreground">
+                      {vintage.run.input.baseRevenue.currency}
+                    </span>
+                  </TableCell>
+                  <TableCell className="numeric text-right font-medium">
+                    {vintage.run.result === null
+                      ? "—"
+                      : formatAmount(vintage.run.result.valuePerShare)}
+                  </TableCell>
+                  <TableCell>
+                    {vintage.run.resultHash === null ? (
+                      <span className="text-muted-foreground">—</span>
+                    ) : (
+                      <HashValue hash={vintage.run.resultHash} />
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <RunChecks run={run} />
+
+      <section
+        className="rounded-xl border bg-muted/30 p-4"
+        aria-labelledby="limits-title"
+      >
+        <h2 id="limits-title" className="text-base font-medium">
+          Límites de esta superficie
+        </h2>
+        <ul className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+          <li>
+            No usa proveedores, red ni datos guardados: la corrida se calcula en
+            el proceso desde un snapshot fijo. Las empresas reales se valúan en
+            su propia página, desde Valuación.
+          </li>
+          <li>
+            Renderizar esta página no abre PostgreSQL ni persiste una corrida,
+            en ningún modo.
+          </li>
+          <li>
+            No hay recomendación, precio objetivo, comparación con un precio de
+            mercado ni señal de compra o venta.
+          </li>
+          <li>
+            Los supuestos no son editables: son los del snapshot fijo, y lo que
+            el hash verifica es justamente que no cambien.
+          </li>
+        </ul>
+      </section>
+    </PageContainer>
   );
 }

@@ -5,6 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Fold } from "@/app/_components/fold";
 import {
   Table,
   TableBody,
@@ -222,11 +223,12 @@ export function CompanyProfile({
                     </div>
                   ))}
                 </dl>
-                <details className="mt-3">
-                  <summary className="cursor-pointer font-medium underline-offset-4 hover:underline">
-                    Ver ejercicios y ausencias
-                  </summary>
-                  <div className="mt-3 overflow-x-auto">
+                <Fold
+                  divided={false}
+                  className="mt-3"
+                  summary={<>Ver ejercicios y ausencias</>}
+                >
+                  <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -266,7 +268,7 @@ export function CompanyProfile({
                       </TableBody>
                     </Table>
                   </div>
-                </details>
+                </Fold>
               </>
             )}
           </div>

@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { DataUnavailableNotice } from "@/app/_components/data-unavailable-notice";
+import { InfoTip } from "@/app/_components/info-tip";
+import { PageContainer, PageHeader } from "@/app/_components/page-frame";
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -66,120 +68,121 @@ export default async function SectorsPage() {
   }
 
   return (
-    <div id="contenido" className="flex-1">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 md:p-6 lg:p-8">
-        <section
-          className="flex flex-col gap-3"
-          aria-labelledby="sectors-title"
-        >
-          <h1
-            id="sectors-title"
-            className="text-2xl font-semibold tracking-tight md:text-3xl"
-          >
-            Matrices de riesgo por sector
-          </h1>
-          <p className="max-w-3xl text-sm text-muted-foreground md:text-base">
-            Cada matriz compara el Sortino a 2 y a 5 años de las securities de
-            un sector contra el S&amp;P 500 Total Return, a hoy. Al abrir un
-            sector se descargan sólo los precios que le falten; lo ya guardado
-            no se vuelve a pedir.
-          </p>
-        </section>
+    <PageContainer>
+      <PageHeader
+        id="sectors-title"
+        title="Matrices por sector"
+        lead={
+          <>
+            Sortino a 2 y 5 años y divergencias de los once sectores del S&amp;P
+            500.
+            <InfoTip title="Qué hay en cada sector">
+              <p>
+                Cada matriz compara el Sortino a 2 y a 5 años de las securities
+                de un sector contra el S&amp;P 500 Total Return, a hoy.
+              </p>
+              <p>
+                Al abrir un sector se descargan sólo los precios que le falten;
+                lo ya guardado no se vuelve a pedir.
+              </p>
+            </InfoTip>
+          </>
+        }
+      />
 
-        {summary.referenceLatest === null ? (
-          <Alert>
-            <Info aria-hidden="true" />
-            <AlertTitle>Sin serie de referencia reciente</AlertTitle>
-            <AlertDescription>
-              No hay niveles del {summary.referenceLabel} en los últimos{" "}
-              {RECENT_CLOSE_DAYS} días. Se descargan al abrir cualquier sector.
-            </AlertDescription>
-          </Alert>
-        ) : null}
+      {summary.referenceLatest === null ? (
+        <Alert>
+          <Info aria-hidden="true" />
+          <AlertTitle>Sin serie de referencia reciente</AlertTitle>
+          <AlertDescription>
+            No hay niveles del {summary.referenceLabel} en los últimos{" "}
+            {RECENT_CLOSE_DAYS} días. Se descargan al abrir cualquier sector.
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
-        <Card>
-          <CardHeader>
-            <CardTitle as="h2">Sectores del S&amp;P 500</CardTitle>
-            <CardDescription>
-              Securities del índice a hoy y cuántas tienen un cierre en los
-              últimos {RECENT_CLOSE_DAYS} días.
-              {summary.referenceLatest === null ? null : (
-                <>
-                  {" "}
-                  Último nivel de la referencia:{" "}
-                  <time dateTime={summary.referenceLatest} className="numeric">
-                    {formatCalendarDate(summary.referenceLatest)}
-                  </time>
-                  .
-                </>
-              )}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ul className="divide-y">
-              {summary.sectors.map((sector) => {
-                const complete =
-                  sector.members > 0 &&
-                  sector.withRecentCloses === sector.members;
-                const empty = sector.withRecentCloses === 0;
+      <Card>
+        <CardHeader>
+          <CardTitle as="h2">Sectores del S&amp;P 500</CardTitle>
+          <CardDescription>
+            Securities del índice a hoy y cuántas tienen un cierre en los
+            últimos {RECENT_CLOSE_DAYS} días.
+            {summary.referenceLatest === null ? null : (
+              <>
+                {" "}
+                Último nivel de la referencia:{" "}
+                <time dateTime={summary.referenceLatest} className="numeric">
+                  {formatCalendarDate(summary.referenceLatest)}
+                </time>
+                .
+              </>
+            )}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ul className="divide-y">
+            {summary.sectors.map((sector) => {
+              const complete =
+                sector.members > 0 &&
+                sector.withRecentCloses === sector.members;
+              const empty = sector.withRecentCloses === 0;
 
-                return (
-                  <li key={sector.code}>
-                    <Link
-                      href={`/sectores/${sector.code}`}
-                      className="group flex items-center justify-between gap-4 rounded-md px-2 py-3 outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <span className="flex flex-col gap-0.5">
-                        <span className="font-medium">{sector.label}</span>
-                        <span className="text-sm text-muted-foreground">
-                          {empty
-                            ? "Sin precios: se descargan al abrirlo"
-                            : complete
-                              ? "Precios completos"
-                              : "Precios parciales"}
-                        </span>
+              return (
+                <li key={sector.code}>
+                  <Link
+                    href={`/sectores/${sector.code}`}
+                    className="group flex items-center justify-between gap-4 rounded-md px-2 py-3 outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span className="flex flex-col gap-0.5">
+                      <span className="font-medium">{sector.label}</span>
+                      <span className="text-sm text-muted-foreground">
+                        {empty
+                          ? "Sin precios: se descargan al abrirlo"
+                          : complete
+                            ? "Precios completos"
+                            : "Precios parciales"}
                       </span>
-                      <span className="flex items-center gap-3">
-                        {/*
-                         * La barra repite el conteo escrito al lado: es para
-                         * comparar los once sectores de un vistazo.
-                         */}
+                    </span>
+                    <span className="flex items-center gap-3">
+                      {/*
+                       * La barra repite el conteo escrito al lado: es para
+                       * comparar los once sectores de un vistazo.
+                       */}
+                      <span
+                        aria-hidden="true"
+                        className="hidden h-1.5 w-24 overflow-hidden rounded-full bg-muted sm:block"
+                      >
                         <span
-                          aria-hidden="true"
-                          className="hidden h-1.5 w-24 overflow-hidden rounded-full bg-muted sm:block"
-                        >
-                          <span
-                            className={
-                              complete
-                                ? "block h-full rounded-full bg-chart-1"
-                                : "block h-full rounded-full bg-chart-1/50"
-                            }
-                            style={{
-                              width: `${
-                                sector.members === 0
-                                  ? 0
-                                  : (sector.withRecentCloses / sector.members) *
-                                    100
-                              }%`,
-                            }}
-                          />
-                        </span>
-                        <span className="numeric w-16 text-right text-sm">
-                          {sector.withRecentCloses} de {sector.members}
-                        </span>
-                        <ChevronRight
-                          className="size-4 text-muted-foreground group-hover:text-foreground"
-                          aria-hidden="true"
+                          className={
+                            complete
+                              ? "block h-full rounded-full bg-chart-1"
+                              : "block h-full rounded-full bg-chart-1/50"
+                          }
+                          style={{
+                            width: `${
+                              sector.members === 0
+                                ? 0
+                                : (sector.withRecentCloses / sector.members) *
+                                  100
+                            }%`,
+                          }}
                         />
                       </span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+                      <span className="numeric w-16 text-right text-sm">
+                        {sector.withRecentCloses} de {sector.members}
+                      </span>
+                      <ChevronRight
+                        className="size-4 text-muted-foreground group-hover:text-foreground"
+                        aria-hidden="true"
+                      />
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </CardContent>
+      </Card>
+    </PageContainer>
   );
 }

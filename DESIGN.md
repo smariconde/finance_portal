@@ -212,7 +212,7 @@ Las tablas conservan semántica nativa y overflow horizontal. Los grids se apila
 
 ## Elevation & Depth
 
-El sistema es plano por defecto y separa niveles mediante color semántico, borde y ring. Las cards usan un ring de `1px` con el foreground al `10%`; no flotan. La sidebar se distingue por su propio neutral y borde. El drawer mobile es la excepción estructural: usa overlay tenue y `shadow-lg` para comunicar modalidad. El header sticky puede usar transparencia y blur leve para conservar legibilidad al desplazar contenido, nunca como vidrio decorativo.
+El sistema es plano por defecto y separa niveles mediante color semántico, borde y ring. Las cards usan un ring de `1px` con el foreground al `10%`; no flotan. La excepción es el stat tile suelto, que lleva `shadow-xs` para despegarse del fondo del workspace. La sidebar se distingue por su propio neutral y borde. El drawer mobile es la excepción estructural: usa overlay tenue y `shadow-lg` para comunicar modalidad. El header sticky puede usar transparencia y blur leve para conservar legibilidad al desplazar contenido, nunca como vidrio decorativo.
 
 **The Containment Before Elevation Rule.** Borde, ring y superficie resuelven la agrupación cotidiana; la sombra se reserva para overlays y paneles modales.
 
@@ -255,6 +255,22 @@ Las primitivas son componentes shadcn editables construidos sobre Base UI. Se re
 - **Boundary:** ring suave de `1px`; no sombra en reposo.
 - **Internal Padding:** `1rem` por defecto y `0.75rem` en cards pequeñas.
 - **Usage:** una decisión, resumen o bloque real por card; las filas internas usan divisores cuando comparten contexto.
+
+### Page header
+
+- **Estructura:** `PageHeader` (`src/app/_components/page-frame.tsx`): título, a lo sumo una línea que lo precisa —lo demás va en un `InfoTip` al final de esa línea— y las acciones a la derecha (el selector de rutas hermanas, «Volver a valuar»). Debajo, si hace falta, una línea de datos de la página (fecha, método).
+- **Sin «volver»:** el header del shell ya dice dónde está el owner; la página no repite el paso de arriba como vínculo.
+- **Ancho:** `PageContainer` y todas las páginas usan el mismo contenedor de `80rem`, así el título arranca en el mismo lugar en cada sección.
+
+### Stat tiles
+
+- **Uso:** una cifra con su rótulo para la lectura rápida (`StatTile`, `src/app/_components/stat-tile.tsx`). `card` va suelto en la página con ring y `shadow-xs` —la única sombra en reposo del sistema, para separarlo del fondo del workspace—; `inset` va dentro de una card con fondo `muted/50` y sin borde: nunca una card adentro de otra.
+- **Tamaños:** `sm` (`1.25rem`) en una grilla de seis, `default` (`1.5rem`) y `lg` (`1.875rem`) para la cifra que manda en la página. La cifra no se parte en dos líneas.
+- **Cambio:** `ChangeIndicator` escribe la variación contra la lectura anterior con flecha, signo y color. Qué sentido es verde lo declara la métrica (`higher_is_better`, `lower_is_better` o `neutral`, sin color); el color nunca es el único canal.
+
+### Folds
+
+- **Uso:** lo que se lee a demanda —la tabla equivalente, la metodología, las citas— va en `Fold` (`src/app/_components/fold.tsx`): `<details>` nativo, chevron que gira y resumen en `primary`. Es el único plegable de las superficies de análisis; la auditoría de una corrida conserva `AuditGroup` porque lleva título y resumen.
 
 ### Alerts
 

@@ -1,7 +1,7 @@
 import { Info } from "lucide-react";
 import { InfoTip } from "@/app/_components/info-tip";
+import { PageContainer, PageHeader } from "@/app/_components/page-frame";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { DataUnavailableNotice } from "@/app/_components/data-unavailable-notice";
@@ -142,29 +142,17 @@ export default async function SectorRiskMatrixPage({ params }: PageProps) {
     reading === "no_reference" ? null : formatCalendarDate(reading.matrix.asOf);
 
   return (
-    <div id="contenido" className="flex-1">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 md:p-6 lg:p-8">
-        <section
-          className="flex flex-col gap-3"
-          aria-labelledby="sector-matrix-title"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <Link
-              href="/sectores"
-              className="w-fit text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-            >
-              Matrices por sector
-            </Link>
-            <SectorMatrixNav sectorCode={sector.code} current="risk" />
-          </div>
-          <h1
-            id="sector-matrix-title"
-            className="max-w-4xl text-2xl font-semibold tracking-tight text-balance md:text-3xl"
-          >
+    <PageContainer>
+      <PageHeader
+        id="sector-matrix-title"
+        title={
+          <>
             ¿Qué empresas de {sector.label} compensaron mejor su riesgo a la
             baja a 2 y a 5 años?
-          </h1>
-          <p className="flex max-w-3xl items-center gap-0.5 text-sm text-muted-foreground md:text-base">
+          </>
+        }
+        lead={
+          <>
             Sortino a 2 y 5 años contra el S&amp;P 500 Total Return.
             <InfoTip title="Cómo se lee la matriz">
               <p>
@@ -177,39 +165,40 @@ export default async function SectorRiskMatrixPage({ params }: PageProps) {
                 no una recomendación.
               </p>
             </InfoTip>
-          </p>
-        </section>
+          </>
+        }
+        actions={<SectorMatrixNav sectorCode={sector.code} current="risk" />}
+      />
 
-        <SectorPriceRefresh
-          sectorCode={sector.code}
-          needsRefresh={readiness.needsRefresh}
-          failed={readiness.failed}
-          targetSessionLabel={
-            readiness.targetSession === null
-              ? null
-              : formatCalendarDate(readiness.targetSession)
-          }
+      <SectorPriceRefresh
+        sectorCode={sector.code}
+        needsRefresh={readiness.needsRefresh}
+        failed={readiness.failed}
+        targetSessionLabel={
+          readiness.targetSession === null
+            ? null
+            : formatCalendarDate(readiness.targetSession)
+        }
+      />
+
+      {reading === "no_reference" ? (
+        <Alert>
+          <Info aria-hidden="true" />
+          <AlertTitle>Todavía no hay serie de referencia</AlertTitle>
+          <AlertDescription>
+            No hay niveles recientes del S&amp;P 500 Total Return guardados, y
+            sin referencia no hay contra qué comparar. La matriz aparece cuando
+            termine de descargarse.
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <MatrixBody
+          reading={reading}
+          asOfLabel={asOfLabel!}
+          refreshing={readiness.needsRefresh}
         />
-
-        {reading === "no_reference" ? (
-          <Alert>
-            <Info aria-hidden="true" />
-            <AlertTitle>Todavía no hay serie de referencia</AlertTitle>
-            <AlertDescription>
-              No hay niveles recientes del S&amp;P 500 Total Return guardados, y
-              sin referencia no hay contra qué comparar. La matriz aparece
-              cuando termine de descargarse.
-            </AlertDescription>
-          </Alert>
-        ) : (
-          <MatrixBody
-            reading={reading}
-            asOfLabel={asOfLabel!}
-            refreshing={readiness.needsRefresh}
-          />
-        )}
-      </div>
-    </div>
+      )}
+    </PageContainer>
   );
 }
 

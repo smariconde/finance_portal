@@ -12,6 +12,7 @@ import {
 import Link from "next/link";
 import { useId, useMemo, useState } from "react";
 
+import { displayCompanyName } from "@/modules/companies/domain/display-company-name";
 import { CompanyMark } from "@/app/_components/company-mark";
 import { FinvizProfileLink } from "@/app/_components/finviz-profile-link";
 import {
@@ -273,7 +274,9 @@ function SelectedRow({
         <div className="min-w-0">
           <p className="text-base font-semibold">{rowLabel(row)}</p>
           <p className="text-sm text-muted-foreground">
-            {row.issuerName ?? "Emisor sin nombre registrado"}
+            {row.issuerName === null
+              ? "Emisor sin nombre registrado"
+              : displayCompanyName(row.issuerName)}
           </p>
           {data.earlierFiscalYearEnd === null ||
           data.latestFiscalYearEnd === null ? null : (

@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { DataUnavailableNotice } from "@/app/_components/data-unavailable-notice";
 import { InfoTip } from "@/app/_components/info-tip";
+import { PageContainer, PageHeader } from "@/app/_components/page-frame";
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
 import { listSectors } from "@/modules/classification/domain/sector-taxonomy";
 import { servesRealData } from "@/modules/configuration/domain/config-health";
@@ -106,31 +106,19 @@ export default async function SectorDivergencePage({ params }: PageProps) {
   const asOf = matrix.knownAt.slice(0, 10);
 
   return (
-    <div id="contenido" className="flex-1">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 md:p-6 lg:p-8">
-        <section
-          className="flex flex-col gap-3"
-          aria-labelledby="sector-divergence-title"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <Link
-              href="/sectores"
-              className="w-fit text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-            >
-              Matrices por sector
-            </Link>
-            <SectorMatrixNav sectorCode={sector.code} current="divergences" />
-          </div>
-          <h1
-            id="sector-divergence-title"
-            className="max-w-4xl text-2xl font-semibold tracking-tight text-balance md:text-3xl"
-          >
+    <PageContainer>
+      <PageHeader
+        id="sector-divergence-title"
+        title={
+          <>
             ¿Qué empresas de {sector.label} ganaron más de lo que subió su valor
             de mercado?
-          </h1>
-          <p className="flex max-w-3xl items-center gap-0.5 text-sm text-muted-foreground md:text-base">
-            Las recompras hacen parecer más barata a una empresa y la dilución,
-            más cara; el rombo marca cuando ese efecto supera{" "}
+          </>
+        }
+        lead={
+          <>
+            Crecimiento de las ganancias contra el del valor de mercado; el
+            rombo marca recompras o dilución de más de{" "}
             {SHARE_COUNT_BIAS_TOLERANCE_PP} pp por año.
             <InfoTip title="Cómo se lee la matriz">
               <p>
@@ -144,71 +132,78 @@ export default async function SectorDivergencePage({ params }: PageProps) {
                 muestra cuánto de su brecha es el cambio de acciones. Es una
                 herramienta de lectura, no una recomendación.
               </p>
+              <p>
+                Las recompras hacen parecer más barata a una empresa y la
+                dilución, más cara.
+              </p>
             </InfoTip>
-          </p>
-        </section>
+          </>
+        }
+        actions={
+          <SectorMatrixNav sectorCode={sector.code} current="divergences" />
+        }
+      />
 
-        <dl className="grid gap-x-8 gap-y-3 rounded-lg border bg-card p-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
-          <div>
-            <dt className="text-muted-foreground">Corte</dt>
-            <dd className="numeric font-medium">
-              <time dateTime={asOf}>{formatCalendarDate(asOf)}</time>
-              <span className="block text-xs font-normal text-muted-foreground">
-                Lo publicado y guardado hasta hoy
-              </span>
-            </dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Fundamentales</dt>
-            <dd>
-              SEC 10-K: EPS diluido, net income y acciones del ejercicio
-              <span className="block text-xs text-muted-foreground">
-                Último cierre fiscal y el comparable a 2 o 5 años
-              </span>
-            </dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Precio y market cap</dt>
-            <dd>
-              Cierre de Yahoo Finance hasta 7 días antes del cierre fiscal
-              <span className="block text-xs text-muted-foreground">
-                Crudo y llevado a la última base de splits confirmada por la SEC
-              </span>
-            </dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Fórmulas</dt>
-            <dd>
-              CAGR entre puntas positivas; días / 365,2425
-              <span className="block text-xs text-muted-foreground">
-                {DIVERGENCE_VIEWS_VERSION} · {DILUTION_BRIDGE_VERSION}
-              </span>
-            </dd>
-          </div>
-        </dl>
+      <dl className="grid gap-x-8 gap-y-3 rounded-lg border bg-card p-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <dt className="text-muted-foreground">Corte</dt>
+          <dd className="numeric font-medium">
+            <time dateTime={asOf}>{formatCalendarDate(asOf)}</time>
+            <span className="block text-xs font-normal text-muted-foreground">
+              Lo publicado y guardado hasta hoy
+            </span>
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Fundamentales</dt>
+          <dd>
+            SEC 10-K: EPS diluido, net income y acciones del ejercicio
+            <span className="block text-xs text-muted-foreground">
+              Último cierre fiscal y el comparable a 2 o 5 años
+            </span>
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Precio y market cap</dt>
+          <dd>
+            Cierre de Yahoo Finance hasta 7 días antes del cierre fiscal
+            <span className="block text-xs text-muted-foreground">
+              Crudo y llevado a la última base de splits confirmada por la SEC
+            </span>
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Fórmulas</dt>
+          <dd>
+            CAGR entre puntas positivas; días / 365,2425
+            <span className="block text-xs text-muted-foreground">
+              {DIVERGENCE_VIEWS_VERSION} · {DILUTION_BRIDGE_VERSION}
+            </span>
+          </dd>
+        </div>
+      </dl>
 
-        <DivergenceDownload
-          sectorCode={sector.code}
-          initial={download}
-          quota={quota}
-          issuers={{
-            total: matrix.coverage.issuers,
-            covered: matrix.coverage.issuersWithFiscalYear,
-          }}
+      <DivergenceDownload
+        sectorCode={sector.code}
+        initial={download}
+        quota={quota}
+        issuers={{
+          total: matrix.coverage.issuers,
+          covered: matrix.coverage.issuersWithFiscalYear,
+        }}
+      />
+
+      {matrix.coverage.issuersWithFiscalYear === 0 ? null : (
+        <DivergenceWorkspace
+          rows={matrix.rows}
+          logoUrls={Object.fromEntries(
+            matrix.rows.map((row) => [
+              row.securityId,
+              row.ticker === null ? null : requestCompanyLogoUrl(row.ticker),
+            ]),
+          )}
         />
-
-        {matrix.coverage.issuersWithFiscalYear === 0 ? null : (
-          <DivergenceWorkspace
-            rows={matrix.rows}
-            logoUrls={Object.fromEntries(
-              matrix.rows.map((row) => [
-                row.securityId,
-                row.ticker === null ? null : requestCompanyLogoUrl(row.ticker),
-              ]),
-            )}
-          />
-        )}
-      </div>
-    </div>
+      )}
+    </PageContainer>
   );
 }
