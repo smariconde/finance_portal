@@ -37,6 +37,7 @@ export const SOURCE_BUDGET_POLICY_VERSION = "source-budget-1.0.0";
  */
 export const SOURCE_DAILY_REQUEST_BUDGETS: Readonly<Record<string, number>> =
   Object.freeze({
+    "logo-dev": 600,
     "sec-edgar": 2000,
     "datahub-sp500-pddl": 10,
     // Una request por security para cinco años. El tope cubre el universo

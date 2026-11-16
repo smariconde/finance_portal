@@ -180,6 +180,8 @@ export const egressAllowlistEntrySchema = z
     method: egressMethodSchema.default("GET"),
     identification: egressIdentificationSchema.default("owner_contact"),
     credential: egressCredentialSchema.nullable().default(null),
+    /** Origen real de la aplicación para una clave CDN restringida por dominio. */
+    refererOriginVariable: credentialVariableSchema.optional(),
     /**
      * Techo del cuerpo **del pedido**. Cero para `GET`: no manda nada. En un
      * `POST` acota lo que se le puede mandar a la fuente, que es justamente lo

@@ -143,6 +143,43 @@ const sha256 = customType<{ data: string; driverData: Buffer }>({
   },
 });
 
+const imageBytes = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType: () => "bytea",
+});
+
+/** Activos visuales actuales. No son observaciones ni identidad financiera. */
+export const companyLogoAssets = pgTable(
+  "company_logo_assets",
+  {
+    assetId: uuid("asset_id").primaryKey(),
+    providerSymbol: varchar("provider_symbol", { length: 16 }).notNull(),
+    sourceId: varchar("source_id", { length: 64 }).notNull(),
+    parserVersion: varchar("parser_version", { length: 64 }).notNull(),
+    png: imageBytes("png"),
+    contentHash: sha256("content_hash"),
+    fetchedAt: timestamp("fetched_at", { withTimezone: true, mode: "date" }),
+    claimToken: uuid("claim_token"),
+    retryAt: timestamp("retry_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("company_logo_assets_source_symbol_uidx").on(
+      table.sourceId,
+      table.providerSymbol,
+    ),
+    check(
+      "company_logo_assets_symbol_check",
+      sql`${table.providerSymbol} ~ '^[A-Z0-9][A-Z0-9.-]{0,15}$'`,
+    ),
+    check(
+      "company_logo_assets_payload_check",
+      sql`(${table.png} is null and ${table.contentHash} is null and ${table.fetchedAt} is null) or (${table.png} is not null and octet_length(${table.png}) between 1 and 262144 and ${table.contentHash} is not null and octet_length(${table.contentHash}) = 32 and ${table.fetchedAt} is not null and ${table.claimToken} is null)`,
+    ),
+  ],
+);
+
 /**
  * Registro de fuentes. Cada derecho es una columna propia con default
  * `unknown`: omitir un derecho bloquea la ingesta en vez de habilitarla.

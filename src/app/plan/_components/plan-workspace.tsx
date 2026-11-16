@@ -1,5 +1,7 @@
 "use client";
 
+import { TickerMark } from "@/app/_components/ticker-mark";
+
 import { useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -674,10 +676,11 @@ export function PlanWorkspace({
                       >
                         <th scope="row" className="px-3 py-2 font-semibold">
                           <button
-                            className="text-left underline underline-offset-2 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                            className="inline-flex items-center gap-2 text-left underline underline-offset-2 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                             aria-label={`Editar idea ${idea.symbol}, entrada ${idea.entry}, revisión ${idea.revision}, identificador ${idea.ideaId.slice(0, 8)}`}
                             onClick={() => edit(idea)}
                           >
+                            <TickerMark ticker={idea.symbol} />
                             {idea.symbol}
                           </button>
                           {idea.status === "archived" ? (

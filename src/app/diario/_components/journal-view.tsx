@@ -21,7 +21,7 @@ import {
 } from "recharts";
 
 import { InfoTip } from "@/app/_components/info-tip";
-import { CompanyMark } from "@/app/_components/company-mark";
+import { TickerMark } from "@/app/_components/ticker-mark";
 import { Segmented } from "@/app/_components/segmented";
 import {
   formatMoney,
@@ -42,7 +42,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { CalendarBook } from "@/modules/trading/domain/daily-pnl";
-import { companyLogoUrl } from "@/modules/configuration/domain/company-logo";
 import type {
   JournalEntry,
   JournalSummary,
@@ -333,12 +332,10 @@ function TradesTable({
   trades,
   entries,
   setups,
-  logoKey,
 }: {
   readonly trades: readonly RoundTrip[];
   readonly entries: Readonly<Record<string, JournalEntry>>;
   readonly setups: readonly TradingSetup[];
-  readonly logoKey: string | null;
 }) {
   const setupLabel = useMemo(
     () => new Map(setups.map((setup) => [setup.code, setup.label])),
@@ -436,13 +433,9 @@ function TradesTable({
                       </TableCell>
                       <TableCell className="font-medium whitespace-nowrap">
                         <span className="inline-flex items-center gap-2">
-                          <CompanyMark
+                          <TickerMark
                             ticker={trade.symbol}
                             name={null}
-                            logoUrl={companyLogoUrl(
-                              trade.symbol,
-                              logoKey ?? undefined,
-                            )}
                             size="sm"
                           />
                           {entry === undefined ? (
@@ -553,7 +546,6 @@ export function JournalView({
   setups,
   routine,
   routineSessions,
-  logoKey,
 }: {
   readonly trades: readonly RoundTrip[];
   readonly summary: JournalSummary;
@@ -562,7 +554,6 @@ export function JournalView({
   readonly setups: readonly TradingSetup[];
   readonly routine: RoutineReading;
   readonly routineSessions: readonly string[];
-  readonly logoKey: string | null;
 }) {
   const routineDays = useMemo(
     () => new Set(routineSessions),
@@ -578,12 +569,7 @@ export function JournalView({
       <SessionCalendar book={calendar} routineDays={routineDays} />
       <SummaryStrip summary={summary} />
       <PnlChart summary={summary} />
-      <TradesTable
-        trades={trades}
-        entries={entries}
-        setups={setups}
-        logoKey={logoKey}
-      />
+      <TradesTable trades={trades} entries={entries} setups={setups} />
     </div>
   );
 }

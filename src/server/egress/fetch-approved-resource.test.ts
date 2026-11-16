@@ -97,6 +97,46 @@ async function expectBlocked(
 }
 
 describe("fetchApprovedResource", () => {
+  it("adds the configured application origin only to a source that declares it", async () => {
+    const { dependencies, transport } = harness([ok()]);
+    const entry = { ...ENTRY, refererOriginVariable: "LOGO_DEV_REFERER" };
+    await fetchApprovedResource(
+      { sourceId: ENTRY.sourceId, url: APPROVED_URL, userAgent: USER_AGENT },
+      {
+        ...dependencies,
+        findEntry: () => entry,
+        readCredential: () => "http://localhost:3000",
+      },
+    );
+    expect(transport.mock.calls[0]![0].headers.referer).toBe(
+      "http://localhost:3000/",
+    );
+  });
+
+  it.each([
+    "https://private.invalid/path",
+    "https://user:secret@private.invalid",
+    "https://private.invalid/?token=secret",
+    "bad\r\nheader",
+  ])("refuses a non-origin referrer before transport: %s", async (value) => {
+    const { dependencies, transport } = harness([ok()]);
+    await expectBlocked(
+      fetchApprovedResource(
+        { sourceId: ENTRY.sourceId, url: APPROVED_URL, userAgent: USER_AGENT },
+        {
+          ...dependencies,
+          findEntry: () => ({
+            ...ENTRY,
+            refererOriginVariable: "LOGO_DEV_REFERER",
+          }),
+          readCredential: () => value,
+        },
+      ),
+      "credential_invalid",
+    );
+    expect(transport).not.toHaveBeenCalled();
+  });
+
   it("fetches an approved resource and reports its provenance", async () => {
     const { dependencies, transport } = harness([ok('{"cik":320193}')]);
 

@@ -239,6 +239,35 @@ export async function fetchApprovedResource(
   const chain: string[] = [];
   let current = authorizeOrThrow(request.url, entry);
 
+  if (entry.refererOriginVariable !== undefined) {
+    const value = readCredential(entry.refererOriginVariable)?.trim();
+    if (value) {
+      let origin: URL;
+      try {
+        origin = new URL(value);
+      } catch {
+        throw new EgressBlockedError(
+          "credential_invalid",
+          entry.refererOriginVariable,
+        );
+      }
+      if (
+        !["http:", "https:"].includes(origin.protocol) ||
+        origin.username ||
+        origin.password ||
+        origin.pathname !== "/" ||
+        origin.search ||
+        origin.hash
+      ) {
+        throw new EgressBlockedError(
+          "credential_invalid",
+          entry.refererOriginVariable,
+        );
+      }
+      headers.referer = `${origin.origin}/`;
+    }
+  }
+
   // La credencial entra después de autorizar el destino, nunca antes: un pedido
   // a un host fuera de la lista no llega a leerla. El error nombra la variable,
   // jamás el valor (`TM-02`).

@@ -14,7 +14,6 @@ import {
   servesSchwabConnection,
 } from "@/modules/configuration/domain/config-health";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
-import { requestCompanyLogoPublishableKey } from "@/server/config/company-logo";
 import { safeErrorSummary } from "@/server/trading/safe-error";
 import {
   readJournal,
@@ -159,7 +158,6 @@ export default async function JournalPage() {
           setups={reading.setups}
           routine={reading.routine}
           routineSessions={reading.routineSessions}
-          logoKey={requestCompanyLogoPublishableKey()}
         />
       )}
     </Shell>

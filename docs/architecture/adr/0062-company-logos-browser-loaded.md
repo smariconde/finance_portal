@@ -1,6 +1,6 @@
 # ADR 0062: logos de empresas cargados por el navegador desde logo.dev
 
-- Estado: aceptado
+- Estado: sustituido en carga y persistencia por la [ADR 0077](0077-persisted-company-logos.md) el 2026-11-16; se conserva como registro histórico.
 - Fecha: 2026-10-28
 - Relacionadas: [ADR 0004](0004-personal-first-runtime.md),
   [ADR 0009](0009-egress-boundary.md),

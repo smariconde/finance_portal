@@ -22,6 +22,7 @@ export const LOCKED_BASE_URL = `http://127.0.0.1:${LOCKED_PORT}`;
  * credencial real: el repositorio es público y nunca recibe una.
  */
 export const SECRET_SENTINELS = {
+  LOGO_DEV_PUBLISHABLE_KEY: "pk_SentinelLogoKeyMustStayServer123",
   SEC_USER_AGENT: "sentinel-sec-user-agent-must-not-leak",
   ALPACA_API_KEY_ID: "sentinel-alpaca-key-id-must-not-leak",
   ALPACA_API_SECRET_KEY: "sentinel-alpaca-secret-must-not-leak",

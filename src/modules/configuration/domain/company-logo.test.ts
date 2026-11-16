@@ -2,12 +2,22 @@ import { describe, expect, it } from "vitest";
 
 import {
   companyHue,
+  companyLogoAssetUrl,
   companyInitials,
   companyLogoPublishableKey,
   companyLogoUrl,
 } from "./company-logo";
 
 const KEY = "pk_AbCdEf123456";
+
+describe("companyLogoAssetUrl", () => {
+  it("shares one local resource across tables and charts without a provider key", () => {
+    expect(companyLogoAssetUrl(" ko ")).toBe("/api/company-logos/KO");
+    expect(companyLogoAssetUrl("BRK.B")).toBe("/api/company-logos/BRK.B");
+    expect(companyLogoAssetUrl("../KO")).toBeNull();
+    expect(companyLogoAssetUrl("KO?token=bad")).toBeNull();
+  });
+});
 
 describe("companyLogoUrl", () => {
   it("builds the ticker URL with the declared parameters", () => {

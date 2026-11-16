@@ -6,7 +6,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { InfoTip } from "@/app/_components/info-tip";
-import { CompanyMark } from "@/app/_components/company-mark";
+import { TickerMark } from "@/app/_components/ticker-mark";
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
 import {
   formatMoney,
@@ -26,7 +26,6 @@ import {
   type TradeAnnotation,
 } from "@/modules/trading/domain/trade-annotation";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
-import { requestCompanyLogoUrl } from "@/server/config/company-logo";
 import { safeErrorSummary } from "@/server/trading/safe-error";
 import {
   readTradeEntry,
@@ -115,11 +114,7 @@ function TradeHeader({ reading }: { readonly reading: TradeEntryReading }) {
           id="trade-title"
           className="flex flex-wrap items-center gap-2 text-2xl font-semibold tracking-tight md:text-3xl"
         >
-          <CompanyMark
-            ticker={trade.symbol}
-            name={null}
-            logoUrl={requestCompanyLogoUrl(trade.symbol)}
-          />
+          <TickerMark ticker={trade.symbol} name={null} size="md" />
           {trade.symbol}
           <span className="text-base font-normal text-muted-foreground">
             {trade.direction === "long" ? "Largo" : "Corto"}
