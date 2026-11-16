@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  ChevronLeft,
-  ChevronRight,
-  CircleHelp,
-  ClipboardCheck,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, CircleHelp } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { InfoTip } from "@/app/_components/info-tip";
@@ -126,14 +121,11 @@ function DayCell({
   weekday,
   today,
   largest,
-  routine,
 }: {
   readonly day: CalendarDay;
   readonly weekday: number;
   readonly today: string;
   readonly largest: number;
-  /** El owner hizo la rutina de esta sesión (`F11-07`). */
-  readonly routine: boolean;
 }) {
   const isToday = day.session === today;
   const filled = day.pnl !== null && day.inMonth;
@@ -164,15 +156,6 @@ function DayCell({
         >
           <span aria-hidden="true">{dayNumber(day.session)}</span>
           <span className="sr-only">{label}</span>
-          {routine ? (
-            <>
-              <ClipboardCheck
-                aria-hidden="true"
-                className="ml-1 inline size-3 align-[-2px]"
-              />
-              <span className="sr-only">, con rutina</span>
-            </>
-          ) : null}
         </span>
         {day.pnl === null ? (
           day.session < today ? (
@@ -241,11 +224,9 @@ function TotalCell({ pnl }: { readonly pnl: PeriodPnl | null }) {
 function MonthGrid({
   calendar,
   today,
-  routineDays,
 }: {
   readonly calendar: TradingCalendar;
   readonly today: string;
-  readonly routineDays: ReadonlySet<string>;
 }) {
   const largest = useMemo(
     () =>
@@ -299,7 +280,6 @@ function MonthGrid({
                 weekday={index}
                 today={today}
                 largest={largest}
-                routine={routineDays.has(day.session)}
               />
             ))}
             <TotalCell pnl={week.total} />
@@ -386,13 +366,7 @@ function YearStrip({
  * el de cada mes. La tabla es el calendario mismo, con encabezados y texto, así
  * que no necesita un equivalente aparte.
  */
-export function SessionCalendar({
-  book,
-  routineDays,
-}: {
-  readonly book: CalendarBook;
-  readonly routineDays: ReadonlySet<string>;
-}) {
+export function SessionCalendar({ book }: { readonly book: CalendarBook }) {
   const [selected, setSelected] = useState(book.months.at(-1)!.month);
   const index = book.months.findIndex(
     (calendar) => calendar.month === selected,
@@ -471,11 +445,7 @@ export function SessionCalendar({
             </>
           )}
         </div>
-        <MonthGrid
-          calendar={calendar}
-          today={book.today.session}
-          routineDays={routineDays}
-        />
+        <MonthGrid calendar={calendar} today={book.today.session} />
         <YearStrip book={book} selected={selected} onSelect={setSelected} />
       </CardContent>
     </Card>

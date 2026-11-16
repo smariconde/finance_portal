@@ -435,3 +435,103 @@ export function planPosition(input: {
       open === null ? null : percentOf(open.plus(riskAmount)),
   };
 }
+
+/**
+ * El planner por monto (`position-size-amount-1.0.0`, pedido del owner del
+ * 2026-11-16): thinkorswim compra por cantidad de acciones, así que el owner
+ * escribe cuánto quiere poner y sale cuántas acciones son. Enteras, hacia abajo:
+ * nunca se pasa del monto. El stop es opcional; con él se mide el riesgo de esa
+ * cantidad contra el presupuesto por trade y se dice cuántas acciones permitía.
+ * Nada se recorta: pasarse del riesgo o del buying power se marca, no se corrige.
+ */
+export const POSITION_SIZE_AMOUNT_VERSION = "position-size-amount-1.0.0";
+
+export type AmountPlan =
+  | {
+      readonly state: "planned";
+      readonly shares: string;
+      readonly positionValue: string;
+      readonly positionPercent: string;
+      /** Lo que sobra del monto por redondear hacia abajo. */
+      readonly leftover: string;
+      readonly overBuyingPower: boolean;
+      /** `null` sin stop: no hay riesgo que medir. */
+      readonly risk: {
+        readonly amount: string;
+        readonly percent: string;
+        readonly budget: string;
+        /** Las acciones que el presupuesto por trade permitía. */
+        readonly maxShares: string;
+        readonly overBudget: boolean;
+      } | null;
+      readonly rewardRisk:
+        | { readonly value: string; readonly reason: null }
+        | {
+            readonly value: null;
+            readonly reason: "no_stop" | "no_target" | "target_on_wrong_side";
+          };
+    }
+  | { readonly state: "invalid"; readonly reason: PlannerInvalidReason };
+
+export function planByAmount(input: {
+  readonly liquidationValue: string;
+  readonly buyingPower: string;
+  readonly riskPerTradePercent: string;
+  readonly amount: string;
+  readonly entry: string;
+  readonly stop: string | null;
+  readonly target: string | null;
+}): AmountPlan {
+  const equity = parse(input.liquidationValue);
+  if (!equity.greaterThan(ZERO))
+    return { state: "invalid", reason: "no_equity" };
+  const entry = parse(input.entry);
+  const stop = input.stop === null ? null : parse(input.stop);
+  const perShare = stop === null ? null : entry.minus(stop);
+  if (perShare !== null && perShare.isZero())
+    return { state: "invalid", reason: "zero_risk" };
+  if (perShare !== null && perShare.lessThan(ZERO))
+    return { state: "invalid", reason: "stop_on_wrong_side" };
+
+  const amount = parse(input.amount);
+  const shares = wholeShares(amount, entry);
+  const positionValue = shares.times(entry);
+  const percentOf = (value: Dec) =>
+    format(divide(value.times(HUNDRED), equity, PATH));
+
+  let risk: Extract<AmountPlan, { state: "planned" }>["risk"] = null;
+  if (perShare !== null) {
+    const budget = equity.times(parse(input.riskPerTradePercent)).div(HUNDRED);
+    const riskAmount = shares.times(perShare);
+    risk = {
+      amount: format(riskAmount),
+      percent: percentOf(riskAmount),
+      budget: format(budget),
+      maxShares: format(wholeShares(budget, perShare)),
+      overBudget: riskAmount.greaterThan(budget),
+    };
+  }
+
+  let rewardRisk: Extract<AmountPlan, { state: "planned" }>["rewardRisk"];
+  if (perShare === null) {
+    rewardRisk = { value: null, reason: "no_stop" };
+  } else if (input.target === null) {
+    rewardRisk = { value: null, reason: "no_target" };
+  } else {
+    const reward = parse(input.target).minus(entry);
+    rewardRisk = reward.greaterThan(ZERO)
+      ? { value: format(divide(reward, perShare, PATH)), reason: null }
+      : { value: null, reason: "target_on_wrong_side" };
+  }
+
+  return {
+    state: "planned",
+    shares: format(shares),
+    positionValue: format(positionValue),
+    positionPercent: percentOf(positionValue),
+    leftover: format(amount.minus(positionValue)),
+    overBuyingPower: positionValue.greaterThan(parse(input.buyingPower)),
+    risk,
+    rewardRisk,
+  };
+}

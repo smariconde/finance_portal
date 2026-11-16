@@ -13,7 +13,7 @@ import type {
  * Sube de versión cada vez que el JSON cambia: el test fija el
  * `filtersVersion` que esta versión nombra.
  */
-export const FINVIZ_SCREENER_CATALOG_VERSION = "finviz-screener-catalog-1.0.0";
+export const FINVIZ_SCREENER_CATALOG_VERSION = "finviz-screener-catalog-1.1.0";
 
 /** El `screenerFiltersVersion` de la página medida el 2026-11-16. */
 export const FINVIZ_MEASURED_FILTERS_VERSION = "5b7ead1959261a5a";
@@ -55,7 +55,9 @@ export const FINVIZ_VIEWS = [
 
 export type FinvizViewCode = (typeof FINVIZ_VIEWS)[number]["code"];
 
-export const FINVIZ_DEFAULT_VIEW: FinvizViewCode = "111";
+/** Snapshot: la vista con gráfico y noticias por ticker (decisión del owner,
+ * 2026-11-16). Un link pegado sin `v` también la toma. */
+export const FINVIZ_DEFAULT_VIEW: FinvizViewCode = "341";
 
 /**
  * Las señales del menú «Signal». La página no las embebe: son las 33 del Flask,

@@ -52,3 +52,26 @@ export function signOf(value: string): -1 | 0 | 1 {
   if (/^-?0(?:\.0+)?$/u.test(value)) return 0;
   return value.startsWith("-") ? -1 : 1;
 }
+
+/**
+ * Verde y rojo del P&L; el signo escrito dice lo mismo sin el color. `strong` es
+ * para texto sobre un fondo teñido, donde el tono normal no llega a 4,5:1.
+ */
+export function pnlTone(
+  value: string | null,
+  strong = false,
+): string | undefined {
+  if (value === null) return undefined;
+  const sign = signOf(value);
+  if (sign > 0) {
+    return strong
+      ? "text-emerald-800 dark:text-emerald-300"
+      : "text-emerald-700 dark:text-emerald-400";
+  }
+  if (sign < 0) {
+    return strong
+      ? "text-red-800 dark:text-red-300"
+      : "text-red-700 dark:text-red-400";
+  }
+  return undefined;
+}

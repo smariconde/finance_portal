@@ -6,7 +6,9 @@ import type { Route } from "next";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { InfoTip } from "@/app/_components/info-tip";
+import { PercentChange } from "@/app/_components/price-change";
 import { TickerMark } from "@/app/_components/ticker-mark";
+import { pnlTone } from "@/app/_components/trading-format";
 import { StatusMark } from "@/app/_components/status-mark";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -21,6 +23,10 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import type { LiveAccountReading } from "@/modules/trading/application/live-account-service";
+import {
+  accountDayChange,
+  positionOpenReturn,
+} from "@/modules/trading/domain/live-account-figures";
 import {
   liveCadence,
   liveFreshness,
@@ -518,81 +524,94 @@ function StaleNotice({
 
 function Figure({
   term,
-  gloss,
   value,
   detail,
 }: {
   readonly term: string;
-  readonly gloss: string;
   readonly value: string;
   readonly detail?: string;
 }) {
   return (
-    <div className="space-y-1">
-      <dt>
-        <span className="block font-medium">{term}</span>
-        <span className="block text-xs text-muted-foreground">{gloss}</span>
-      </dt>
-      <dd className="numeric text-lg font-semibold">US$ {value}</dd>
+    <div className="flex flex-col gap-0.5">
+      <dt className="text-xs text-muted-foreground">{term}</dt>
+      <dd className="numeric text-base font-semibold">US$ {value}</dd>
       {detail !== undefined ? (
-        <dd className="text-xs text-muted-foreground">{detail}</dd>
+        <dd className="numeric text-xs text-muted-foreground">{detail}</dd>
       ) : null}
     </div>
   );
 }
 
-/** Una cuenta cash no tiene buying power intradía: Schwab manda 0 siempre, así
- * que no se muestra (pedido del owner, 2026-11-16). */
+/**
+ * El valor de liquidación manda; su cambio desde la apertura al lado, con signo
+ * y color. Una cuenta cash no tiene buying power intradía: Schwab manda 0
+ * siempre, así que no se muestra (pedido del owner, 2026-11-16).
+ */
 function Balances({ reading }: { readonly reading: Reading }) {
   const b = reading.balances;
   const cash = reading.account.accountType === "CASH";
+  const change = accountDayChange(b);
   return (
-    <dl
-      className={cn(
-        "grid gap-5 text-sm sm:grid-cols-2",
-        cash ? "lg:grid-cols-3" : "lg:grid-cols-4",
-      )}
-    >
-      <Figure
-        term="Liquidation value"
-        gloss="valor de liquidación"
-        value={formatMoney(b.liquidationValue)}
-        detail={`Al abrir US$ ${formatMoney(b.liquidationValueAtOpen)}`}
-      />
-      <Figure
-        term="Buying power overnight"
-        gloss="disponible para operar"
-        value={formatMoney(b.cashAvailableForTrading)}
-      />
-      {cash ? null : (
+    <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+      <div className="flex flex-col gap-1">
+        <span className="text-xs text-muted-foreground">Liquidation value</span>
+        <span className="numeric text-3xl leading-none font-semibold tracking-tight">
+          US$ {formatMoney(b.liquidationValue)}
+        </span>
+        <span className="flex flex-wrap items-center gap-x-1.5 text-sm">
+          <span className={cn("numeric font-medium", pnlTone(change.amount))}>
+            {formatSignedAmount(change.amount, { scale: 2 })}
+          </span>
+          <PercentChange value={change.percent} />
+          <span className="text-muted-foreground">
+            hoy · al abrir US$ {formatMoney(b.liquidationValueAtOpen)}
+          </span>
+        </span>
+      </div>
+      <dl
+        className={cn(
+          "grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-3",
+          !cash && "md:grid-cols-4",
+        )}
+      >
         <Figure
-          term="Buying power intradía"
-          gloss="según Schwab"
-          value={formatMoney(b.currentIntradayBuyingPower)}
-          detail={`Al abrir US$ ${formatMoney(b.intradayBuyingPowerAtOpen)}`}
+          term="Buying power"
+          value={formatMoney(b.cashAvailableForTrading)}
         />
-      )}
-      <Figure
-        term="Cash"
-        gloss="efectivo total"
-        value={formatMoney(b.totalCash)}
-        detail={`Sin liquidar US$ ${formatMoney(b.unsettledCash)}`}
-      />
-    </dl>
+        {cash ? null : (
+          <Figure
+            term="Buying power intradía"
+            value={formatMoney(b.currentIntradayBuyingPower)}
+            detail={`Al abrir US$ ${formatMoney(b.intradayBuyingPowerAtOpen)}`}
+          />
+        )}
+        <Figure term="Cash" value={formatMoney(b.totalCash)} />
+        <Figure term="Sin liquidar" value={formatMoney(b.unsettledCash)} />
+      </dl>
+    </div>
   );
 }
 
 function Signed({
   value,
-  scale = 2,
+  percent = null,
 }: {
   readonly value: string | null;
-  readonly scale?: number;
+  readonly percent?: string | null;
 }) {
   if (value === null)
     return <span className="text-muted-foreground">Sin dato</span>;
   return (
-    <span className="numeric">{formatSignedAmount(value, { scale })}</span>
+    <span className="flex flex-col items-end">
+      <span className={cn("numeric font-medium", pnlTone(value))}>
+        {formatSignedAmount(value, { scale: 2 })}
+      </span>
+      {percent === null ? null : (
+        <span className={cn("numeric text-xs", pnlTone(percent))}>
+          {formatSignedAmount(percent, { scale: 2 })} %
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -748,7 +767,6 @@ function PositionsCard({
             <TableHeader>
               <TableRow>
                 <TableHead>Símbolo</TableHead>
-                <TableHead>Lado</TableHead>
                 <TableHead className="text-right">Cantidad</TableHead>
                 <TableHead className="text-right">Precio medio</TableHead>
                 <TableHead className="text-right">Último</TableHead>
@@ -775,6 +793,13 @@ function PositionsCard({
                         />
                         <span className="min-w-0 font-medium">
                           {position.symbol}
+                          {position.side === "long" ? null : (
+                            <span className="ml-1.5 rounded-sm bg-muted px-1 py-px text-xs font-normal text-muted-foreground">
+                              {position.side === "short"
+                                ? "Corto"
+                                : "Cerrada hoy"}
+                            </span>
+                          )}
                           {position.description !== null ? (
                             <span className="block max-w-48 truncate text-xs font-normal text-muted-foreground">
                               {position.description}
@@ -782,13 +807,6 @@ function PositionsCard({
                           ) : null}
                         </span>
                       </span>
-                    </TableCell>
-                    <TableCell>
-                      {position.side === "long"
-                        ? "Largo"
-                        : position.side === "short"
-                          ? "Corto"
-                          : "Cerrada hoy"}
                     </TableCell>
                     <TableCell className="numeric text-right">
                       {formatQuantity(position.quantity)}
@@ -805,27 +823,29 @@ function PositionsCard({
                       {quote === null ? (
                         <span className="text-muted-foreground">—</span>
                       ) : (
-                        <>
+                        <span className="flex flex-col items-end">
                           {formatAmount(quote.lastPrice, { scale: 2 })}
-                          {quote.netPercentChange !== null ? (
-                            <span className="block text-xs text-muted-foreground">
-                              {formatSignedAmount(quote.netPercentChange, {
-                                scale: 2,
-                              })}{" "}
-                              %
-                            </span>
-                          ) : null}
-                        </>
+                          <PercentChange
+                            value={quote.netPercentChange}
+                            className="text-xs"
+                          />
+                        </span>
                       )}
                     </TableCell>
                     <TableCell className="numeric text-right">
                       {formatMoney(position.marketValue)}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Signed value={position.dayProfitLoss} />
+                      <Signed
+                        value={position.dayProfitLoss}
+                        percent={position.dayProfitLossPercent}
+                      />
                     </TableCell>
                     <TableCell className="text-right">
-                      <Signed value={position.openProfitLoss} />
+                      <Signed
+                        value={position.openProfitLoss}
+                        percent={positionOpenReturn(position)}
+                      />
                     </TableCell>
                     <TableCell>
                       {risks === null ? (

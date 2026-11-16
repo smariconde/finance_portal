@@ -59,7 +59,7 @@ test.describe("cuenta Schwab sin base de trading", () => {
   }) => {
     await page.goto(ROUTES.plan);
     await expect(
-      page.getByRole("heading", { level: 1, name: "Plan antes de la rueda" }),
+      page.getByRole("heading", { level: 1, name: "Plan" }),
     ).toBeVisible();
     await expect(
       page.getByRole("heading", { level: 2, name: "Plan no disponible" }),
@@ -74,7 +74,7 @@ test.describe("cuenta Schwab sin base de trading", () => {
   }) => {
     await page.goto(ROUTES.finviz);
     await expect(
-      page.getByRole("heading", { level: 1, name: "Screener de Finviz" }),
+      page.getByRole("heading", { level: 1, name: "Plan" }),
     ).toBeVisible();
     await expect(
       page.getByRole("link", { name: "Finviz", exact: true }),
@@ -90,11 +90,11 @@ test.describe("cuenta Schwab sin base de trading", () => {
     const open = page.getByRole("link", { name: /Abrir en Finviz/u }).first();
     await expect(open).toHaveAttribute(
       "href",
-      "https://finviz.com/screener/stocks?v=111&f=exch_nasd,ta_rsi_os30",
+      "https://finviz.com/screener/stocks?v=341&f=exch_nasd,ta_rsi_os30",
     );
     await expect(open).toHaveAttribute("rel", "noopener noreferrer");
     await expect(page).toHaveURL(
-      /\/plan\/finviz\?v=111&f=exch_nasd,ta_rsi_os30$/u,
+      /\/plan\/finviz\?v=341&f=exch_nasd,ta_rsi_os30$/u,
     );
 
     // Un link viejo del Flask vuelve con la clave nueva y nombra lo Elite.

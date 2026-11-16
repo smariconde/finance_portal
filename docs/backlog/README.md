@@ -7345,6 +7345,43 @@ probar el control; fases posteriores pueden volver a verificarlo.
   bytes y hash. Vercel Production tiene `LOGO_DEV_REFERER` con su origen real;
   la protección de todos los despliegues sigue habilitada. `F11-13` no se inició.
 
+## Mejora transversal — pulido visual de Trading (2026-11-16)
+
+- Estado: `done`. El owner pidió mergearlo para verlo en Production con su
+  cuenta real (la lectura en vivo de Schwab no responde desde el entorno
+  local); los ajustes que pida van en otra sesión.
+- Autorización: pedido expreso del owner del 2026-11-16, antes de seguir con
+  otros slices. Diario y Estadísticas quedan como estaban, salvo la rutina.
+- Alcance:
+  - Selectores: `SectionNav` reemplaza las tres copias (diario, plan,
+    matrices); `Segmented` y las pestañas de Finviz comparten
+    `segment-styles.ts`; `NativeSelect` iguala el `select` nativo con `Input`.
+  - `/cuenta`: liquidation value como cifra principal con su cambio desde la
+    apertura; P&L del día y abierto en verde/rojo con su porcentaje; variación
+    de la cotización con flecha y signo; sin la columna «Lado» (sólo se marca un
+    corto o una cerrada hoy). `live-account-figures-1.0.0` con 5 unitarios.
+  - Position size «Por monto»: monto y entrada → shares enteras hacia abajo;
+    con stop, el riesgo contra el presupuesto por trade y cuántas permitía.
+    `position-size-amount-1.0.0` con 7 unitarios. «Por riesgo» sigue igual y
+    nombra el tope debajo de las shares.
+  - `/diario`: sin rutina (tarjeta, marca del calendario, acciones y lectura);
+    la tabla, el dominio y el store quedan, con lo guardado.
+  - `/plan`: título «Plan» sin subtítulo ni «Ir al diario»; stop y target con
+    selector y el nivel calculado a la vista; la compra al lado de las shares;
+    «Usar» toma las shares sugeridas; watchlist con archivadas ocultas tras un
+    botón, en gris, archivar/restaurar por fila; cotización con variación
+    coloreada.
+  - `/plan/finviz`: título «Plan»; vista Snapshot (`v=341`) por defecto,
+    también para un link pegado sin `v` y para la watchlist
+    (`finviz-screener-catalog-1.1.0`).
+- Decisión: las ideas no se borran. Son revisiones append-only con su capital
+  y sus niveles a la fecha; archivar y ocultar cubre «no las quiero ver».
+- Evidencia: formato, lint, tipos, build, 4.322 unitarios y 376 E2E con axe
+  (3 omitidos). Revisión renderizada en
+  `pnpm dev` a 1440 y 390 px, claro y oscuro, sin overflow del documento; axe
+  sin violaciones propias (las `region` de la sidebar son previas). La cuenta
+  se revisó con una lectura sintética en una ruta temporal ya borrada.
+
 ## Plantilla para nuevos issues
 
 ```md

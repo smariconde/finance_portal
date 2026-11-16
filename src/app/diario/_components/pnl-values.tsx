@@ -1,33 +1,12 @@
 import {
   formatMoney,
   formatSignedMoney,
-  signOf,
+  pnlTone,
 } from "@/app/_components/trading-format";
 import { cn } from "@/lib/utils";
 import { formatSignedAmount } from "@/modules/valuation/domain/display-format";
 
-/**
- * Verde y rojo del P&L; el signo escrito dice lo mismo sin el color. `strong` es
- * para texto sobre un fondo teñido, donde el tono normal no llega a 4,5:1.
- */
-export function pnlTone(
-  value: string | null,
-  strong = false,
-): string | undefined {
-  if (value === null) return undefined;
-  const sign = signOf(value);
-  if (sign > 0) {
-    return strong
-      ? "text-emerald-800 dark:text-emerald-300"
-      : "text-emerald-700 dark:text-emerald-400";
-  }
-  if (sign < 0) {
-    return strong
-      ? "text-red-800 dark:text-red-300"
-      : "text-red-700 dark:text-red-400";
-  }
-  return undefined;
-}
+export { pnlTone };
 
 export function Money({
   value,

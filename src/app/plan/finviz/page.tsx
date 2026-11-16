@@ -24,7 +24,7 @@ import {
 } from "./_components/finviz-builder";
 
 export const metadata: Metadata = {
-  title: "Screener de Finviz | Portal Financiero",
+  title: "Finviz · Plan | Portal Financiero",
   description:
     "Armador de links al screener de Finviz y estrategias guardadas.",
   robots: { index: false },
@@ -68,9 +68,9 @@ export default async function FinvizPage() {
       id="contenido"
       className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 md:p-6 lg:p-8"
     >
-      <header className="flex flex-col gap-3">
+      <header className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-          Screener de Finviz
+          Plan
         </h1>
         <PlanNav current="finviz" />
       </header>

@@ -20,10 +20,17 @@ import {
 } from "react";
 
 import { InfoTip } from "@/app/_components/info-tip";
+import {
+  segmentActiveClass,
+  segmentGroupClass,
+  segmentItemClass,
+} from "@/app/_components/segment-styles";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { cn } from "@/lib/utils";
 import {
+  FINVIZ_DEFAULT_VIEW,
   FINVIZ_FILTERS,
   FINVIZ_SIGNALS,
   FINVIZ_TAB_LABELS,
@@ -64,9 +71,8 @@ type Editing = {
   readonly name: string;
 };
 
-const selectClass =
-  "h-9 w-full min-w-0 rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
-const activeSelectClass = "border-primary bg-accent font-medium";
+const activeSelectClass =
+  "border-primary bg-accent font-medium dark:bg-accent/40";
 
 const DROPPED_REASONS: Readonly<Record<FinvizDroppedToken["reason"], string>> =
   {
@@ -75,7 +81,7 @@ const DROPPED_REASONS: Readonly<Record<FinvizDroppedToken["reason"], string>> =
     multiple_values: "varios valores juntos (Elite)",
     repeated_filter: "variable repetida",
     unknown_signal: "señal Elite o desconocida",
-    unknown_view: "vista desconocida; queda Overview",
+    unknown_view: `vista desconocida; queda ${FINVIZ_VIEWS.find((view) => view.code === FINVIZ_DEFAULT_VIEW)?.label ?? FINVIZ_DEFAULT_VIEW}`,
   };
 
 const SAVE_MESSAGES: Readonly<Record<string, string>> = {
@@ -155,13 +161,13 @@ function FilterField({
           </InfoTip>
         )}
       </div>
-      <select
+      <NativeSelect
         id={id}
         value={value ?? ""}
         onChange={(event) =>
           onChange(event.target.value === "" ? null : event.target.value)
         }
-        className={cn(selectClass, active && activeSelectClass)}
+        className={cn(active && activeSelectClass)}
       >
         <option value="">Any</option>
         {loose.map((option) => (
@@ -178,7 +184,7 @@ function FilterField({
             ))}
           </optgroup>
         ))}
-      </select>
+      </NativeSelect>
     </div>
   );
 }
@@ -480,9 +486,8 @@ export function FinvizBuilder({
             <label htmlFor="finviz-view" className="text-xs font-medium">
               Vista
             </label>
-            <select
+            <NativeSelect
               id="finviz-view"
-              className={selectClass}
               value={selection.view}
               onChange={(event) =>
                 change({ view: event.target.value as FinvizViewCode })
@@ -493,18 +498,15 @@ export function FinvizBuilder({
                   {view.label}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
           <div className="flex flex-col gap-1">
             <label htmlFor="finviz-signal" className="text-xs font-medium">
               Signal
             </label>
-            <select
+            <NativeSelect
               id="finviz-signal"
-              className={cn(
-                selectClass,
-                selection.signal !== null && activeSelectClass,
-              )}
+              className={cn(selection.signal !== null && activeSelectClass)}
               value={selection.signal ?? ""}
               onChange={(event) =>
                 change({
@@ -525,7 +527,7 @@ export function FinvizBuilder({
                   ))}
                 </optgroup>
               ))}
-            </select>
+            </NativeSelect>
           </div>
           <div className="flex flex-col gap-1 sm:col-span-2">
             <label htmlFor="finviz-search" className="text-xs font-medium">
@@ -557,7 +559,7 @@ export function FinvizBuilder({
             <div
               role="tablist"
               aria-label="Grupos de variables"
-              className="inline-flex max-w-full overflow-x-auto rounded-lg border bg-muted/40 p-0.5"
+              className={cn(segmentGroupClass, "overflow-x-auto")}
             >
               {FINVIZ_FILTER_TABS.map((key) => (
                 <button
@@ -574,8 +576,8 @@ export function FinvizBuilder({
                   onClick={() => setTab(key)}
                   onKeyDown={onTabKey}
                   className={cn(
-                    "inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-md px-3 text-sm font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
-                    tab === key && "bg-card text-foreground shadow-xs",
+                    segmentItemClass,
+                    tab === key && segmentActiveClass,
                   )}
                 >
                   {FINVIZ_TAB_LABELS[key]}

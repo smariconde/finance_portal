@@ -11,6 +11,7 @@ import {
 import { FINVIZ_SCREENER_PAGE_PARSER_VERSION } from "./finviz-screener-page";
 import {
   buildFinvizScreenerUrl,
+  EMPTY_FINVIZ_SELECTION,
   buildFinvizTickersUrl,
   finvizFilterQuery,
   parseFinvizFilterQuery,
@@ -20,7 +21,7 @@ import {
 describe("finviz screener catalog", () => {
   it("pins the measured page to the declared version", () => {
     expect(FINVIZ_SCREENER_CATALOG_VERSION).toBe(
-      "finviz-screener-catalog-1.0.0",
+      "finviz-screener-catalog-1.1.0",
     );
     expect(FINVIZ_FILTER_SOURCE).toMatchObject({
       parserVersion: FINVIZ_SCREENER_PAGE_PARSER_VERSION,
@@ -100,7 +101,7 @@ describe("finviz screener links", () => {
     expect(reading).toEqual({
       state: "read",
       selection: {
-        view: "111",
+        view: "341",
         signal: null,
         filters: {
           industry: "semiconductors",
@@ -117,6 +118,16 @@ describe("finviz screener links", () => {
         { token: "zz_x", reason: "unknown_filter" },
       ],
     });
+  });
+
+  it("opens on Snapshot unless a view is chosen", () => {
+    expect(EMPTY_FINVIZ_SELECTION.view).toBe("341");
+    expect(buildFinvizScreenerUrl(EMPTY_FINVIZ_SELECTION)).toBe(
+      "https://finviz.com/screener/stocks?v=341",
+    );
+    expect(
+      readFinvizScreenerLink("https://finviz.com/screener/stocks?f=fa_pe_u20"),
+    ).toMatchObject({ selection: { view: "341" } });
   });
 
   it("refuses what is not a Finviz screener", () => {
@@ -153,7 +164,7 @@ describe("finviz screener links", () => {
   it("builds the watchlist link with Finviz class symbols", () => {
     expect(
       buildFinvizTickersUrl(["nvda", "BRK.B", "AAPL", "NVDA", "BF/B", "1BAD"]),
-    ).toBe("https://finviz.com/screener/stocks?v=111&t=AAPL,BF-B,BRK-B,NVDA");
+    ).toBe("https://finviz.com/screener/stocks?v=341&t=AAPL,BF-B,BRK-B,NVDA");
     expect(buildFinvizTickersUrl([])).toBeNull();
   });
 });
