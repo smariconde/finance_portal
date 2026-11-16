@@ -510,7 +510,17 @@ function TradesTable({
                         <Money value={trade.averageExitPrice} />
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        <Money value={trade.realizedPnl} signed />
+                        {/* Abierto y sin salidas, el realizado no existe
+                            todavía: un 0,00 se leía como resultado. */}
+                        {trade.status === "open" &&
+                        trade.averageExitPrice === null ? (
+                          <>
+                            <Money value={null} />
+                            <span className="sr-only">sin salidas</span>
+                          </>
+                        ) : (
+                          <Money value={trade.realizedPnl} signed />
+                        )}
                       </TableCell>
                       <TableCell className="text-right whitespace-nowrap">
                         <RValue r={entry?.r ?? null} />

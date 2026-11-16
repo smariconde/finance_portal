@@ -147,8 +147,8 @@ relee desde el navegador, sólo con la página visible:
 | Cotizaciones                | cada 15 s               | cada 5 min      | 1 de `schwab-marketdata` |
 
 - **Qué se lee.** Saldos, poder de compra overnight (disponible para operar)
-  e intradía (tal cual lo informa Schwab), posiciones y órdenes abiertas. Nada
-  de eso se guarda.
+  e intradía (tal cual lo informa Schwab; en una cuenta cash vale siempre 0 y
+  no se muestra), posiciones y órdenes abiertas. Nada de eso se guarda.
 - **Cotizaciones.** Sólo de acciones y ETFs abiertos, por un alcance que firma
   el servidor. Sin posiciones no se pide ninguna.
 - **LIVE/STALE.** LIVE hasta dos períodos de la cadencia. Si una lectura
