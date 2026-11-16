@@ -1,5 +1,15 @@
 # Threat model
 
+- Revisado el 2026-11-16 (`F11-16`, ADR 0077): `GET /api/company-logos/[ticker]`
+  verifica modo antes de storage (`TM-01`, `TM-03`), acepta sólo un símbolo sin
+  query y nunca una URL (`TM-08`). El egress de `logo-dev` limita host/path,
+  método, bytes, plazo y redirects; cuota y kill switch preceden al socket
+  (`TM-10`). Firma PNG, dimensiones y decodificación/recodificación rechazan
+  contenido activo (`TM-12`). Se guardan hash binario, fuente, fecha y parser;
+  lease y token cercan publicaciones concurrentes (`TM-05`, `TM-16`). La clave
+  deja de viajar al browser y la CSP vuelve a imágenes propias (`TM-02`). La
+  persistencia es `owner_accepted` por pedido expreso, sólo privada (`TM-15`).
+
 - Estado: baseline aceptada para Fase 0B.6
 - Fecha: 2026-08-21
 - Tracker de mitigaciones: [`../backlog/README.md`](../backlog/README.md#cobertura-de-deuda-transversal)

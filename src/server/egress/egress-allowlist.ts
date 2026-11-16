@@ -17,9 +17,18 @@ import {
  * `www.sec.gov` no sirven los mismos recursos, y acotar el path evita que un bug
  * de construcción de URL termine paseando por el sitio entero de la SEC.
  */
-export const EGRESS_ALLOWLIST_VERSION = "egress-allowlist-1.4.0";
+export const EGRESS_ALLOWLIST_VERSION = "egress-allowlist-1.5.0";
 
 const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
+  egressAllowlistEntrySchema.parse({
+    sourceId: "logo-dev",
+    refererOriginVariable: "LOGO_DEV_REFERER",
+    origins: [{ host: "img.logo.dev", pathPrefixes: ["/ticker/"] }],
+    identification: "project",
+    maxResponseBytes: 256 * 1024,
+    deadlineMs: 8_000,
+    maxRedirects: 0,
+  }),
   egressAllowlistEntrySchema.parse({
     sourceId: "sec-edgar",
     origins: [

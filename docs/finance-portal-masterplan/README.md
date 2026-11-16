@@ -48,6 +48,9 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 
 ## Documentos derivados
 
+- [`../architecture/adr/0077-persisted-company-logos.md`](../architecture/adr/0077-persisted-company-logos.md): logos PNG guardados en PostgreSQL por pedido del owner y cuadrados redondeados en trading, conservando círculos en matrices y gráficos.
+- [`../runbooks/company-logos.md`](../runbooks/company-logos.md): descarga inicial, entorno, migración y recuperación de los logos.
+
 - [`../architecture/adr/0076-schwab-read-only-account-trading-journal.md`](../architecture/adr/0076-schwab-read-only-account-trading-journal.md): cuenta Schwab de solo lectura y diario de trading, en una base Neon aparte; las órdenes quedan inalcanzables por construcción.
 - [`../architecture/adr/0075-bcra-rem-release-forecasts.md`](../architecture/adr/0075-bcra-rem-release-forecasts.md): ronda y mes objetivo del REM, fecha de publicación, comparación con IPC observado y límites del libro histórico.
 - [`../architecture/adr/0074-bcra-itcrm-history.md`](../architecture/adr/0074-bcra-itcrm-history.md): fuente oficial del ITCRM, lectura de la planilla, revisiones observadas y límites de interpretación.

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { termShort } from "@/app/_components/financial-terms";
-import { CompanyMark } from "@/app/_components/company-mark";
+import { TickerMark } from "@/app/_components/ticker-mark";
 import { InfoTip } from "@/app/_components/info-tip";
 import { Segmented } from "@/app/_components/segmented";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +17,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { companyLogoUrl } from "@/modules/configuration/domain/company-logo";
 import type { TradingSetup } from "@/modules/trading/domain/trading-setups";
 import {
   SMALL_SAMPLE,
@@ -132,13 +131,11 @@ export function StatsCuts({
   cuts,
   setups,
   lessonSlugs,
-  logoKey,
 }: {
   readonly cuts: Readonly<Record<CutDimension, readonly CutGroup[]>>;
   readonly setups: readonly TradingSetup[];
   /** Por código de setup declarado, su lección (`F11-10`). */
   readonly lessonSlugs: Readonly<Record<string, string>>;
-  readonly logoKey: string | null;
 }) {
   const [dimension, setDimension] = useState<CutDimension>("setup");
   const setupLabels = useMemo(
@@ -220,13 +217,9 @@ export function StatsCuts({
                     <TableCell className="max-w-48 font-medium">
                       <span className="flex items-center gap-2">
                         {dimension === "ticker" && group.key !== null ? (
-                          <CompanyMark
+                          <TickerMark
                             ticker={group.key}
                             name={null}
-                            logoUrl={companyLogoUrl(
-                              group.key,
-                              logoKey ?? undefined,
-                            )}
                             size="sm"
                           />
                         ) : null}

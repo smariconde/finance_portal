@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { TickerMark } from "@/app/_components/ticker-mark";
 import type { IdeaCandidate } from "@/server/trading/trade-entry";
 
 import { linkPreMarketIdea } from "@/app/plan/actions";
@@ -35,7 +36,8 @@ export function PreMarketLink({
               key={idea.ideaId}
               className="flex flex-col gap-2 rounded-lg border p-3"
             >
-              <p className="text-sm font-semibold">
+              <p className="flex items-center gap-2 text-sm font-semibold">
+                <TickerMark ticker={idea.symbol} />
                 {idea.symbol} · {idea.setupCode ?? "Sin setup"}
               </p>
               <p className="numeric text-xs text-muted-foreground">

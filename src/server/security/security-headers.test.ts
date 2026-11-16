@@ -29,7 +29,7 @@ describe("createSecurityHeaders", () => {
     expect(developmentCsp).toContain("'unsafe-eval'");
   });
 
-  it("opens the logo host for images only (ADR 0062)", () => {
+  it("serves images from the portal only (ADR 0077)", () => {
     const directives = Object.fromEntries(
       (
         createSecurityHeaders().find(
@@ -43,11 +43,7 @@ describe("createSecurityHeaders", () => {
         }),
     );
 
-    expect(directives["img-src"]).toEqual([
-      "'self'",
-      "data:",
-      "https://img.logo.dev",
-    ]);
+    expect(directives["img-src"]).toEqual(["'self'", "data:"]);
     for (const name of ["default-src", "script-src", "connect-src"]) {
       expect(directives[name]?.join(" ")).not.toContain("logo.dev");
     }

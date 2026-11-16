@@ -1,13 +1,13 @@
 /**
- * Logos de empresas cargados por el navegador desde logo.dev (ADR 0062).
+ * Localizador del proveedor y recurso propio de logos (ADR 0077).
  *
- * La clave publicable (`pk_…`) está pensada para el cliente: termina en el
- * HTML. Una clave con otra forma —una secreta `sk_…` pegada por error, o un
- * valor vacío— se ignora y la app muestra el monograma, en vez de exponerla.
+ * El proveedor requiere una clave publicable `pk_…`; la app la usa sólo desde
+ * el servidor. Una clave secreta `sk_…` pegada por error o un valor vacío se
+ * ignora. Las imágenes ya guardadas no necesitan esa clave.
  */
 const PUBLISHABLE_KEY = /^pk_[A-Za-z0-9_-]{8,128}$/u;
 
-/** Sólo la clave destinada al navegador; nunca se entrega una `sk_` por error. */
+/** Sólo la clase de clave admitida por el CDN. */
 export function companyLogoPublishableKey(
   value: string | undefined,
 ): string | null {
@@ -17,6 +17,19 @@ export function companyLogoPublishableKey(
 
 /** Un símbolo de listing: letras, dígitos, punto y guion, como `BRK.B`. */
 const TICKER = /^[A-Z0-9][A-Z0-9.-]{0,15}$/u;
+
+export function companyLogoSymbol(ticker: string): string | null {
+  const symbol = ticker.trim().toUpperCase();
+  return TICKER.test(symbol) ? symbol : null;
+}
+
+/** La imagen durable funciona incluso después de quitar la clave del proveedor. */
+export function companyLogoAssetUrl(ticker: string): string | null {
+  const symbol = companyLogoSymbol(ticker);
+  return symbol === null
+    ? null
+    : `/api/company-logos/${encodeURIComponent(symbol)}`;
+}
 
 export const COMPANY_LOGO_HOST = "https://img.logo.dev";
 

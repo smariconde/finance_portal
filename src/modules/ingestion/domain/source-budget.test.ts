@@ -76,6 +76,7 @@ describe("topes declarados", () => {
       "damodaran-current-data",
       "datahub-sp500-pddl",
       "indec-api",
+      "logo-dev",
       "magyp-datos-abiertos",
       "magyp-estimaciones",
       "openrouter",

@@ -137,6 +137,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   109 | `F11-13`   | `ready`       | Armador de links al screener de Finviz con un desplegable por variable y estrategias guardadas; el portal no baja datos de Finviz.                                                                                        | `F11-01`           |
 |   110 | `F11-14`   | `queued`      | MCP de solo lectura para la IA del owner, decidido en su propia ADR antes de cualquier código.                                                                                                                            | gate de la Fase 11 |
 |   111 | `F11-15`   | `queued`      | El riesgo y el diario sobreviven a una tabla de trading ausente o atrasada: sin vínculos de pre-market leen planes y reglas y nombran lo que falta, en vez de caer con una referencia.                                    | `F11-12`           |
+|   112 | `F11-16`   | `done`        | Logos PNG guardados en PostgreSQL y servidos desde el portal; cuadrados redondeados junto a los tickers de trading, conservando círculos en matrices y gráficos.                                                          | Pedido del owner   |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -7284,6 +7285,53 @@ probar el control; fases posteriores pueden volver a verificarlo.
   contra el glosario; axe y teclado sobre los popovers en el gate E2E.
 - Evidencia esperada: módulo del glosario, componente de término, página de
   referencia y su revisión renderizada.
+
+## `F11-16` — logos durables y marcas de trading
+
+- Estado: `done`; implementación, carga local y Neon verificadas. Formato,
+  lint, tipos, build, 4.289 unitarios sin red, 244 de integración y 363 E2E con
+  axe aprobados (3 omitidos). Quality y E2E del [PR #134](https://github.com/smariconde/finance_portal/pull/134)
+  aprobaron la implementación `52fb534`; el cierre documental conserva ese código.
+- Autorización: pedido expreso del owner del 2026-11-16 antes de retomar
+  `F11-13`. Excepción explícita al orden mientras `F11-09` espera la primera
+  posición real. Decisión: [ADR 0077](../architecture/adr/0077-persisted-company-logos.md).
+- Alcance: PNG binario, hash binario, fuente, parser y fecha en la base de
+  análisis; lease y fencing para faltantes, cooldown para 404 y fallos,
+  egress medido y endpoint propio con guard personal. `TickerMark` cuadrado
+  redondeado en posiciones, órdenes, diario, estadísticas por ticker,
+  lecciones y plan; círculos de matrices y gráficos conservados.
+- Controles: `TM-01`, `TM-02`, `TM-03`, `TM-05`, `TM-08`, `TM-10`,
+  `TM-12`, `TM-15`, `TM-16` y `UI-02`. El owner aceptó la persistencia
+  (`owner_accepted`); no se conceden exhibición pública, export ni IA.
+- Aceptación: un logo guardado funciona sin clave ni proveedor; sólo un
+  proceso descarga un faltante y un escritor vencido no lo pisa; error y 404
+  no son imágenes; el endpoint trabado no construye storage; la clave no llega
+  al navegador y la CSP vuelve a imágenes propias; logo completo, monograma
+  con el mismo contorno y ticker legible en escritorio/móvil, en ambos temas.
+- Evidencia local: migración `0051_futuristic_the_fallen` aplicada; 502 de
+  503 empresas del universo con PNG guardado (3.940.354 bytes). DUK devolvió
+  ausencia y conserva monograma/cooldown. El contrato sintético y el loader
+  tienen pruebas sin red; integración verifica binarios, concurrencia,
+  fencing, cooldown y rollback/reaplicación en la base descartable.
+- Revisión visual: `/plan` con dos tickers reales a 1440 y 390 px y en tema
+  oscuro, logos propios de 24 px cargados, radio del 20 % y sin overflow del
+  documento; capturas privadas en `.impeccable/review/company-logos-*-plan.png`.
+  El detector encontró sólo el tamaño preexistente de 10 px del monograma
+  decorativo, conservado como excepción acotada y registrado en `DESIGN.md`.
+  Verificado además con KO real: sin clave se leen los mismos 1.496 bytes
+  guardados y el contador del proveedor no aumenta.
+- Operación: [runbook](../runbooks/company-logos.md), `pnpm logos:ingest`
+  y variante `:neon`; dry run sin red ni escrituras. La clave restringida exige
+  el origen real `LOGO_DEV_REFERER`, ya configurado en el perfil local.
+- Paso remoto (autorizado por el owner el 2026-11-16): reemplazado el snapshot
+  del 13/11 por `f11-16-before-0051-2026-11-16`
+  (`snap-dry-sea-b7zx3g8p`, `production`, 13:46:03 UTC). `0051` aplicada y
+  `pnpm db:status:neon` informa 52 de 52. Se copiaron 528 PNG locales con hashes
+  verificados, sin sobrescribir imágenes existentes: 4.100.599 bytes enviados
+  y ninguna nueva descarga de esos logos. La única consulta de faltante fue
+  DUK, que conserva monograma. KO se leyó desde Neon sin clave: mismos 1.496
+  bytes y hash. Vercel Production tiene `LOGO_DEV_REFERER` con su origen real;
+  la protección de todos los despliegues sigue habilitada. `F11-13` no se inició.
 
 ## Plantilla para nuevos issues
 

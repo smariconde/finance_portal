@@ -14,6 +14,7 @@ describe("egress allowlist", () => {
     // alcanzable que ningún test ejercita.
     expect(listEgressAllowlistEntries().map((entry) => entry.sourceId)).toEqual(
       [
+        "logo-dev",
         "sec-edgar",
         "datahub-sp500-pddl",
         "yahoo-finance",
@@ -488,6 +489,7 @@ describe("egress allowlist", () => {
         "maxResponseBytes",
         "method",
         "origins",
+        ...(entry.sourceId === "logo-dev" ? ["refererOriginVariable"] : []),
         "sourceId",
       ]);
     }

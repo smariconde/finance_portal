@@ -14,7 +14,6 @@ import {
 } from "@/modules/configuration/domain/config-health";
 import { SETUP_LESSON_SLUGS } from "@/modules/education/domain/technical-lessons";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
-import { requestCompanyLogoPublishableKey } from "@/server/config/company-logo";
 import { safeErrorSummary } from "@/server/trading/safe-error";
 import {
   readTradingStats,
@@ -173,7 +172,6 @@ export default async function TradingStatsPage() {
         cuts={stats.cuts}
         setups={reading.setups}
         lessonSlugs={SETUP_LESSON_SLUGS}
-        logoKey={requestCompanyLogoPublishableKey()}
       />
     </Shell>
   );

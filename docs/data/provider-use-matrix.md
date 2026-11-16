@@ -204,6 +204,26 @@ puede bajar un tope o frenar una fuente con `pnpm ingestion:sources`; subirlo es
 cambio de código. Cambiar una cifra de esta tabla obliga a cambiar la constante en el
 mismo diff.
 
+## Logos guardados (`F11-16`, 2026-11-16)
+
+`logo-dev` es una fuente personal de imágenes por decisión expresa del owner
+([ADR 0077](../architecture/adr/0077-persisted-company-logos.md)). Uso personal,
+automatización, raw y almacenamiento normalizado son `owner_accepted`;
+derivados, exhibición pública, export e IA son `restricted`. La imagen validada
+se conserva en la base privada, sin vencimiento automático. No se publica en Git.
+
+El techo interno es 600 requests por día UTC, compartido por endpoint y CLI,
+con kill switch; una request por faltante, sin redirects, 8 segundos y 256 KiB.
+La respuesta debe ser un PNG de 128 × 128 px, decodificado y recodificado. Un
+404 se recuerda un día y una falla transitoria cinco minutos. El render de la
+página sigue sin llamar proveedores; su petición separada de imagen puede
+descargar ese faltante. Una imagen guardada no vuelve a llamar a logo.dev.
+
+El navegador recibe sólo el recurso propio. La clave y el origen configurado
+permanecen en el servidor. El proveedor ve el símbolo pedido y el origen real
+de la aplicación cuando la clave restringe dominios. No recibe cuenta, trades,
+tesis, saldos ni datos financieros. Ver el [runbook](../runbooks/company-logos.md).
+
 ## Servicios que reciben datos del portal
 
 ### OpenRouter

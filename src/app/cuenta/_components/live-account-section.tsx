@@ -1,7 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { readLiveAccount } from "@/modules/trading/application/live-account-service";
-import { requestCompanyLogoPublishableKey } from "@/server/config/company-logo";
 import { getLiveAccountDependencies } from "@/server/trading/live-account";
 import { safeErrorSummary } from "@/server/trading/safe-error";
 
@@ -24,12 +23,7 @@ export async function LiveAccountSection() {
     console.error("schwab account read failed", safeErrorSummary(error));
     initial = { state: "unavailable" };
   }
-  return (
-    <LiveAccount
-      initial={initial}
-      logoKey={requestCompanyLogoPublishableKey()}
-    />
-  );
+  return <LiveAccount initial={initial} />;
 }
 
 export function LiveAccountSkeleton() {

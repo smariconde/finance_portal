@@ -355,6 +355,20 @@ No se conserva HTML ni XLSX, ni se exporta. Una nueva ronda requiere comprobar s
 planilla y forma antes de ampliar la allowlist. Fuente y decisión:
 [ADR 0075](../architecture/adr/0075-bcra-rem-release-forecasts.md).
 
+## Logos persistidos (`F11-16`, 2026-11-16)
+
+La fuente `logo-dev` y el dataset `logo-dev.company-logo` se integran por pedido
+expreso del owner, que sustituye la decisión de no guardar de ADR 0062 con la
+[ADR 0077](../architecture/adr/0077-persisted-company-logos.md). Sus derechos
+de uso personal, automatización y almacenamiento llevan `owner_accepted`.
+Exhibición pública, export, derivados e IA permanecen `restricted`.
+
+Se conserva un PNG validado, hash, fuente, fecha y parser en una tabla propia
+de activos visuales. No es una observación ni participa de snapshots financieros.
+El símbolo es un localizador del proveedor, no una FK de identidad. La fuente
+se sincroniza en el registro antes de la primera descarga medida. Endpoint,
+cuota, límites y recuperación están en el [runbook](../runbooks/company-logos.md).
+
 ## Decisiones abiertas
 
 - Alpaca IEX versus SIP demorado para el job EOD y los derechos del plan concreto.

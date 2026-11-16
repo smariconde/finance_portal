@@ -6,7 +6,7 @@ import type { Route } from "next";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { InfoTip } from "@/app/_components/info-tip";
-import { CompanyMark } from "@/app/_components/company-mark";
+import { TickerMark } from "@/app/_components/ticker-mark";
 import { StatusMark } from "@/app/_components/status-mark";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import type { LiveAccountReading } from "@/modules/trading/application/live-account-service";
-import { companyLogoUrl } from "@/modules/configuration/domain/company-logo";
 import {
   liveCadence,
   liveFreshness,
@@ -103,10 +102,8 @@ function isVisible(): boolean {
  */
 export function LiveAccount({
   initial,
-  logoKey,
 }: {
   readonly initial: LiveAccountResult;
-  readonly logoKey: string | null;
 }) {
   const [reading, setReading] = useState<Reading | null>(
     initial.state === "read" ? initial : null,
@@ -401,9 +398,8 @@ export function LiveAccount({
         quotes={quotes}
         context={context}
         risks={risk.bySymbol}
-        logoKey={logoKey}
       />
-      <OrdersCard reading={reading} logoKey={logoKey} />
+      <OrdersCard reading={reading} />
     </div>
   );
 }
@@ -685,13 +681,11 @@ function PositionsCard({
   quotes,
   context,
   risks,
-  logoKey,
 }: {
   readonly reading: Reading;
   readonly quotes: QuotesState | null;
   readonly context: PositionContextResult | null;
   readonly risks: ReadonlyMap<string, PositionRisk> | null;
-  readonly logoKey: string | null;
 }) {
   const positions = reading.positions;
   return (
@@ -764,13 +758,9 @@ function PositionsCard({
                   <TableRow key={`${position.symbol}-${position.side}`}>
                     <TableCell>
                       <span className="flex items-center gap-2">
-                        <CompanyMark
+                        <TickerMark
                           ticker={position.symbol}
                           name={position.description}
-                          logoUrl={companyLogoUrl(
-                            position.symbol,
-                            logoKey ?? undefined,
-                          )}
                           size="sm"
                         />
                         <span className="min-w-0 font-medium">
@@ -850,13 +840,7 @@ function PositionsCard({
   );
 }
 
-function OrdersCard({
-  reading,
-  logoKey,
-}: {
-  readonly reading: Reading;
-  readonly logoKey: string | null;
-}) {
+function OrdersCard({ reading }: { readonly reading: Reading }) {
   const orders = reading.openOrders;
   const ordersWindow = reading.ordersWindow;
   return (
@@ -915,13 +899,9 @@ function OrdersCard({
                             key={`${leg.symbol}-${index}`}
                             className="flex items-center gap-2 font-medium whitespace-nowrap"
                           >
-                            <CompanyMark
+                            <TickerMark
                               ticker={leg.symbol}
                               name={null}
-                              logoUrl={companyLogoUrl(
-                                leg.symbol,
-                                logoKey ?? undefined,
-                              )}
                               size="sm"
                             />
                             {leg.symbol}

@@ -32,7 +32,7 @@ import {
   type PlotPoint,
 } from "./matrix-layout";
 
-/** Lo que una marca necesita para su logo: la URL de logo.dev y el monograma. */
+/** Lo que una marca necesita: el recurso propio del logo y el monograma. */
 export type MatrixLogo = {
   readonly url: string | null;
   readonly name: string | null;
@@ -167,8 +167,8 @@ function LogoMark({
         <>
           <circle cx={cx} cy={cy} r={r} className="fill-white" />
           {/*
-           * Un `<image>` SVG lo carga el navegador directo de logo.dev, con la
-           * misma URL que `CompanyMark`: comparte su caché de 24 h (ADR 0062).
+           * El `<image>` SVG comparte con `CompanyMark` el recurso propio y
+           * su caché privada. El recorte circular se conserva (ADR 0077).
            */}
           <image
             href={url}
