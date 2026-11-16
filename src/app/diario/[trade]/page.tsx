@@ -36,6 +36,7 @@ import {
 import { ExecutionsList } from "../_components/executions-list";
 import { AnnotationForm } from "./_components/annotation-form";
 import { PlanLadder } from "./_components/plan-ladder";
+import { PreMarketLink } from "./_components/pre-market-link";
 import { TradeChart } from "./_components/trade-chart";
 import { TradeFigures } from "./_components/trade-figures";
 
@@ -97,7 +98,9 @@ function statusBadge(trade: TradeEntryReading["trade"]) {
 
 function TradeHeader({ reading }: { readonly reading: TradeEntryReading }) {
   const { trade } = reading;
-  const lesson = lessonOfSetup(reading.annotation?.setupCode ?? null);
+  const lesson = lessonOfSetup(
+    reading.annotation?.setupCode ?? reading.linkedPlan?.idea.setupCode ?? null,
+  );
   const quantity =
     trade.status === "opened_before_history"
       ? trade.portions[0]!.quantity
@@ -192,20 +195,88 @@ export default async function TradePage({ params }: PageProps) {
   }
   if (reading === null) notFound();
 
+  const effectivePlan =
+    reading.annotation === null && reading.linkedPlan === null
+      ? null
+      : {
+          entry:
+            reading.annotation?.plan.entry ??
+            reading.linkedPlan?.idea.entry ??
+            null,
+          stop:
+            reading.annotation?.plan.stop ?? reading.linkedPlan?.stop ?? null,
+          target:
+            reading.annotation?.plan.target ??
+            reading.linkedPlan?.target ??
+            null,
+          quantity:
+            reading.annotation?.plan.quantity ??
+            reading.linkedPlan?.idea.quantity ??
+            null,
+        };
+
   return (
     <Shell>
       <TradeHeader reading={reading} />
+      <Card>
+        <CardHeader>
+          <CardTitle as="h2">Plan antes de la entrada</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {reading.linkedPlan === null ? (
+            <PreMarketLink
+              tradeRef={reading.ref}
+              candidates={reading.ideaCandidates}
+            />
+          ) : (
+            <div className="flex flex-col gap-2 text-sm">
+              <p>
+                Idea <strong>{reading.linkedPlan.idea.symbol}</strong> ·
+                revisión {reading.linkedPlan.idea.revision} ·{" "}
+                <time dateTime={reading.linkedPlan.idea.recordedAt}>
+                  {new Date(reading.linkedPlan.idea.recordedAt).toLocaleString(
+                    "es-AR",
+                    { dateStyle: "medium", timeStyle: "short" },
+                  )}
+                </time>
+              </p>
+              <p className="numeric text-muted-foreground">
+                Entrada US$ {reading.linkedPlan.idea.entry} · stop US${" "}
+                {reading.linkedPlan.stop} · target US${" "}
+                {reading.linkedPlan.target} · {reading.linkedPlan.idea.quantity}{" "}
+                acciones
+              </p>
+              {reading.linkedPlan.idea.notes ? (
+                <p className="whitespace-pre-wrap">
+                  {reading.linkedPlan.idea.notes}
+                </p>
+              ) : null}
+              <p className="text-xs text-muted-foreground">
+                Primera ejecución{" "}
+                <time dateTime={reading.linkedPlan.link.openedAt}>
+                  {new Date(reading.linkedPlan.link.openedAt).toLocaleString(
+                    "es-AR",
+                    { dateStyle: "medium", timeStyle: "short" },
+                  )}
+                </time>
+                . El plan original conserva su fecha aunque después se edite la
+                idea.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
       <TradeFigures reading={reading} />
       <PlanLadder
         direction={reading.trade.direction}
-        plan={reading.annotation?.plan ?? null}
+        plan={effectivePlan}
         averageEntryPrice={reading.trade.averageEntryPrice}
         averageExitPrice={reading.trade.averageExitPrice}
       />
       <TradeChart
         tradeRef={reading.ref}
         symbol={reading.trade.symbol}
-        plan={reading.annotation?.plan ?? null}
+        plan={effectivePlan}
       />
       <AnnotationForm
         key={reading.annotation?.revision ?? 0}

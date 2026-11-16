@@ -108,6 +108,7 @@ export const ROUTES = {
   sectorDivergences: "/sectores/communication-services/divergencias",
   argentina: "/argentina",
   account: "/cuenta",
+  plan: "/plan",
   journal: "/diario",
   journalStats: "/diario/estadisticas",
   // Dos IDs de Schwab inventados: con la base cerrada nunca llega a buscarlo.

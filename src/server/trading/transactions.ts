@@ -6,6 +6,10 @@ import {
 } from "@/modules/configuration/domain/config-health";
 import type { TransactionRun } from "@/modules/trading/application/schwab-transaction-store";
 import type { StoredAnnotation } from "@/modules/trading/application/trade-annotation-store";
+import type {
+  IdeaLink,
+  StoredIdea,
+} from "@/modules/trading/application/pre-market-store";
 import type { TransactionSyncDependencies } from "@/modules/trading/application/transaction-sync-service";
 import {
   calendarBook,
@@ -44,6 +48,8 @@ import {
 import { getTradingEgressFetch } from "@/server/egress/get-trading-egress-fetch";
 import { getSchwabTransactionStore } from "@/server/persistence/trading/get-schwab-transaction-store";
 import { getTradeAnnotationStore } from "@/server/persistence/trading/get-trade-annotation-store";
+import { getPreMarketStore } from "@/server/persistence/trading/get-pre-market-store";
+import { ideaLevels } from "@/modules/trading/domain/pre-market-plan";
 
 import {
   readRoutine,
@@ -94,6 +100,10 @@ export type JournalState = {
   readonly summary: JournalSummary;
   /** Por clave de trade (`schwab:<instrumentId>:<fillId>`). */
   readonly annotations: ReadonlyMap<string, StoredAnnotation>;
+  readonly linkedPlans: ReadonlyMap<
+    string,
+    { readonly link: IdeaLink; readonly idea: StoredIdea }
+  >;
   readonly setups: readonly TradingSetup[];
 };
 
@@ -109,12 +119,13 @@ export async function loadJournalState(): Promise<JournalState> {
     annotationStore.listOwnSetups(),
   ]);
   const account = accounts[0] ?? null;
-  const [transactions, annotations] =
+  const [transactions, annotations, linkedPlans] =
     account === null
-      ? [[], []]
+      ? [[], [], new Map()]
       : await Promise.all([
           store.listCurrent(account.accountKey),
           annotationStore.listCurrentAnnotations(account.accountKey),
+          getPreMarketStore().listLinks(account.accountKey),
         ]);
   const { trades, summary } = buildJournal(
     account?.accountKey ?? "",
@@ -127,20 +138,27 @@ export async function loadJournalState(): Promise<JournalState> {
     annotations: new Map(
       annotations.map((stored) => [stored.tradeKey, stored]),
     ),
+    linkedPlans,
     setups: setupCatalog(ownSetups),
   };
 }
 
 /** El stop planeado de cada trade, por `tradeId`, como lo pide R. */
 export function plannedStops(
-  state: Pick<JournalState, "trades" | "annotations">,
+  state: Pick<JournalState, "trades" | "annotations" | "linkedPlans">,
 ): Map<string, PlannedStop> {
   const stops = new Map<string, PlannedStop>();
   for (const trade of state.trades) {
-    const stop = plannedStopOf(
+    let stop = plannedStopOf(
       state.annotations.get(tradeKeyOf(trade)) ?? null,
       trade.currency,
     );
+    if (stop === null) {
+      const linked = state.linkedPlans.get(tradeKeyOf(trade));
+      const levels = linked === undefined ? null : ideaLevels(linked.idea);
+      if (levels?.state === "valid" && trade.currency === "USD")
+        stop = { price: levels.stop, currency: "USD" };
+    }
     if (stop !== null) stops.set(trade.tradeId, stop);
   }
   return stops;
@@ -176,7 +194,10 @@ export async function readJournal(): Promise<JournalReading> {
     const annotation = state.annotations.get(tradeKey) ?? null;
     entries[trade.tradeId] = {
       ref: tradeRefOf(tradeKey),
-      setupCode: annotation?.setupCode ?? null,
+      setupCode:
+        annotation?.setupCode ??
+        state.linkedPlans.get(tradeKey)?.idea.setupCode ??
+        null,
       review: annotation?.review ?? "pending",
       r: rMultipleOf(trade, stops.get(trade.tradeId) ?? null),
     };
@@ -212,7 +233,10 @@ export async function readTradingStats(): Promise<TradingStatsReading> {
   const stats = tradingStats(
     state.trades.map((trade) => ({
       ...trade,
-      setupCode: state.annotations.get(tradeKeyOf(trade))?.setupCode ?? null,
+      setupCode:
+        state.annotations.get(tradeKeyOf(trade))?.setupCode ??
+        state.linkedPlans.get(tradeKeyOf(trade))?.idea.setupCode ??
+        null,
       r: rMultipleOf(trade, stops.get(trade.tradeId) ?? null),
     })),
     sessionExits(state.trades, stops),
