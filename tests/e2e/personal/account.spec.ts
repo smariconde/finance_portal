@@ -54,6 +54,21 @@ test.describe("cuenta Schwab sin base de trading", () => {
     await expect(page.getByRole("heading", { name: /Trades/u })).toHaveCount(0);
   });
 
+  test("el plan no muestra ideas si la base de trading no responde", async ({
+    page,
+  }) => {
+    await page.goto(ROUTES.plan);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Plan antes de la rueda" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 2, name: "Plan no disponible" }),
+    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Watchlist" })).toHaveCount(
+      0,
+    );
+  });
+
   test("las estadísticas dicen que la base no respondió", async ({ page }) => {
     await page.goto(ROUTES.journalStats);
 

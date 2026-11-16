@@ -28,6 +28,7 @@ import {
 } from "@/modules/trading/domain/trading-rules";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
 import { getLiveAccountDependencies } from "@/server/trading/live-account";
+import { reconcilePreMarketTrades } from "@/server/trading/pre-market";
 import { getTradingRiskSettingsStore } from "@/server/persistence/trading/get-trading-risk-settings-store";
 import { loadPositionContext } from "@/server/trading/position-context";
 import {
@@ -282,6 +283,7 @@ export async function readAccountRisk(
       (await transactionsDue(dependencies.store, dependencies.now()))
     ) {
       const result = await syncSchwabTransactions(dependencies);
+      if (result.state === "synced") await reconcilePreMarketTrades();
       if (result.state === "failed" || result.state === "quarantined") {
         console.warn("schwab transactions sync", result.state, result.code);
         syncFailed = result.code;

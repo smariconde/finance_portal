@@ -8,6 +8,7 @@ import {
   GraduationCap,
   Home,
   NotebookPen,
+  ListChecks,
   Landmark,
   Settings2,
   Wallet,
@@ -64,6 +65,7 @@ const activeItems = [
 /** La cuenta Schwab y lo que se arma con ella (Fase 11, ADR 0076). */
 const tradingItems = [
   { href: "/cuenta", label: "Cuenta", icon: Wallet, badge: null },
+  { href: "/plan", label: "Plan", icon: ListChecks, badge: null },
   { href: "/diario", label: "Diario", icon: NotebookPen, badge: null },
   { href: "/lecciones", label: "Lecciones", icon: GraduationCap, badge: null },
 ] as const;

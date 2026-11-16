@@ -51,6 +51,7 @@ import { getTradeAnnotationStore } from "@/server/persistence/trading/get-trade-
 import { getTradingRoutineStore } from "@/server/persistence/trading/get-trading-routine-store";
 import { readRoutine } from "@/server/trading/routine";
 import { getLiveAccountDependencies } from "@/server/trading/live-account";
+import { reconcilePreMarketTrades } from "@/server/trading/pre-market";
 import { safeErrorSummary } from "@/server/trading/safe-error";
 import {
   getTransactionSyncDependencies,
@@ -90,6 +91,7 @@ export async function syncTransactions(
       return { state: "fresh" };
     }
     const result = await syncSchwabTransactions(dependencies);
+    if (result.state === "synced") await reconcilePreMarketTrades();
     if (result.state === "failed" || result.state === "quarantined") {
       console.warn("schwab transactions sync", result.state, result.code);
     }

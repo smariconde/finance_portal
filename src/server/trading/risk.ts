@@ -13,6 +13,7 @@ import {
   type SessionActivity,
 } from "@/modules/trading/domain/trading-rules";
 import { getTradingRiskSettingsStore } from "@/server/persistence/trading/get-trading-risk-settings-store";
+import { ideaLevels } from "@/modules/trading/domain/pre-market-plan";
 
 import { loadJournalState } from "./transactions";
 
@@ -52,10 +53,13 @@ export async function readRiskContext(now: string): Promise<RiskContext> {
     .map((trade) => {
       const tradeKey = tradeKeyOf(trade);
       const plan = state.annotations.get(tradeKey)?.plan ?? null;
+      const linked = state.linkedPlans.get(tradeKey);
+      const levels = linked === undefined ? null : ideaLevels(linked.idea);
       return {
         symbol: trade.symbol,
-        stop: plan?.stop ?? null,
-        target: plan?.target ?? null,
+        stop: plan?.stop ?? (levels?.state === "valid" ? levels.stop : null),
+        target:
+          plan?.target ?? (levels?.state === "valid" ? levels.target : null),
         tradeRef: tradeRefOf(tradeKey),
       };
     });
