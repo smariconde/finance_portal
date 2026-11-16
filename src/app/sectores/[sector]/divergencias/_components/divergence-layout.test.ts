@@ -12,6 +12,8 @@ import { FISCAL_SPLIT_BASIS_VERSION } from "@/modules/divergences/domain/fiscal-
 
 import {
   describeDivergencePoint,
+  hasHorizonData,
+  withoutIsolatedExtremes,
   filterDivergenceRows,
   filtersActive,
   NO_FILTERS,
@@ -157,6 +159,14 @@ describe("divergence layout", () => {
     expect(text).toContain("con CEDEAR");
   });
 
+  it("keeps a row in the table only if this horizon has something to show", () => {
+    expect(hasHorizonData(rows[0]!, "twoYears")).toBe(true);
+    // Pérdida en una punta: la categoría se muestra en la tabla.
+    expect(hasHorizonData(rows[2]!, "twoYears")).toBe(true);
+    const empty = row("ZZZ", null, null);
+    expect(hasHorizonData(empty, "twoYears")).toBe(false);
+  });
+
   it("formats percentage points with an explicit sign", () => {
     expect(formatPp("10.15")).toBe("+10,2");
     expect(formatPp("-3.26")).toBe("-3,3");
@@ -263,5 +273,74 @@ describe("divergence filters", () => {
         }),
       ),
     ).toEqual(["AAA"]);
+  });
+});
+
+describe("withoutIsolatedExtremes", () => {
+  it("drops a lone extreme that a robust domain cannot cut with four points", () => {
+    // MU a +900 % y otros tres entre 20 y 50: el IQR se estira hasta el extremo.
+    expect(withoutIsolatedExtremes([900, 20, 30, 50], [0])).toEqual([
+      20, 30, 50,
+    ]);
+  });
+
+  it("drops a lone extreme below zero too", () => {
+    expect(withoutIsolatedExtremes([-500, 10, 20, 30], [0])).toEqual([
+      10, 20, 30,
+    ]);
+  });
+
+  it("keeps a spread without isolated extremes", () => {
+    expect(withoutIsolatedExtremes([-10, 5, 20, 40, 60], [0])).toEqual([
+      -10, 5, 20, 40, 60,
+    ]);
+  });
+
+  it("measures the gap against what the domain always includes", () => {
+    // 80 está a 70 del 10; con el cero adentro el resto mide 10: sale.
+    expect(withoutIsolatedExtremes([8, 10, 9, 80], [0])).toEqual([8, 9, 10]);
+    // 25 está a 15 del 10 y el resto, con el cero, mide 10: también sale.
+    expect(withoutIsolatedExtremes([8, 10, 9, 25], [0])).toEqual([8, 9, 10]);
+    // 18 está a 8 del 10 y el resto mide 10: se queda.
+    expect(withoutIsolatedExtremes([8, 10, 9, 18], [0])).toEqual([
+      8, 9, 10, 18,
+    ]);
+  });
+
+  it("never drops more than one point in four, nor with fewer than three", () => {
+    expect(withoutIsolatedExtremes([1, 1000], [0])).toEqual([1, 1000]);
+    expect(withoutIsolatedExtremes([1, 2, 1000], [0])).toEqual([1, 2]);
+    expect(
+      withoutIsolatedExtremes([1, 2, 3, 4, 5, 6, 7, 8, 500, 5000], [0]),
+    ).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+  });
+
+  it("does not trim when every rest span is zero or the input is not finite", () => {
+    expect(withoutIsolatedExtremes([5, 5, 5])).toEqual([5, 5, 5]);
+    expect(withoutIsolatedExtremes([Number.NaN, 1, 2, 3], [0])).toEqual([
+      1, 2, 3,
+    ]);
+    expect(withoutIsolatedExtremes([])).toEqual([]);
+  });
+
+  it("clips the outlier to the edge of a domain with round ticks", () => {
+    const outlier = row(
+      "MU",
+      point("2023-12-31", "10", "0.1", "100"),
+      point("2025-12-31", "100", "10", "100"),
+    );
+    const layout = layoutDivergence(
+      [...rows.slice(0, 2), outlier],
+      "twoYears",
+      "fundamental",
+    );
+    const mu = layout.points.find((p) => p.id === "MU")!;
+
+    expect(Number(mu.rawY)).toBeGreaterThan(800);
+    expect(mu.clipY).toBe(1);
+    expect(mu.y).toBe(layout.domainY[1]);
+    expect(layout.domainY[1]).toBeLessThan(200);
+    const step = layout.ticksY[1]! - layout.ticksY[0]!;
+    expect([1, 2, 5, 10, 20, 25, 50, 100]).toContain(step);
   });
 });

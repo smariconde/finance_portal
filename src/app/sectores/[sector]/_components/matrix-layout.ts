@@ -1,3 +1,4 @@
+import { displayCompanyName } from "@/modules/companies/domain/display-company-name";
 import type {
   CedearMark,
   ReferenceQuadrant,
@@ -712,6 +713,29 @@ export function groupLabels(
   }));
 }
 
+const AXIS_STEPS = [0.1, 0.2, 0.25, 0.5, 1, 2, 5, 10, 20, 25, 50, 100];
+
+/**
+ * El paso más fino que deja a lo sumo ocho marcas. Más allá de 100 sigue la
+ * misma serie por potencia de diez —200, 250, 500, 1.000—: un CAGR de +900 %
+ * marcaba de 133 en 133.
+ */
+function axisStep(span: number): number {
+  const small = AXIS_STEPS.find((candidate) => span / candidate <= 8);
+
+  if (small !== undefined) {
+    return small;
+  }
+
+  for (let power = 100; ; power *= 10) {
+    for (const multiple of [2, 2.5, 5, 10]) {
+      if (span / (multiple * power) <= 8) {
+        return multiple * power;
+      }
+    }
+  }
+}
+
 /**
  * Dominio redondeado a un paso limpio y sus ticks: `-2 · -1 · 0 · 1 · 2 · 3`
  * y no `-2,0 · 0,0 · 2,0 · 3,2`. El paso sale del rango, para que haya entre
@@ -722,10 +746,13 @@ export function niceAxis(domain: readonly [number, number]): {
   readonly ticks: readonly number[];
 } {
   const span = domain[1] - domain[0];
-  const step =
-    [0.1, 0.2, 0.25, 0.5, 1, 2, 5, 10, 20, 25, 50, 100].find(
-      (candidate) => span / candidate <= 8,
-    ) ?? Math.ceil(span / 8);
+
+  // Un dominio no finito no se puede marcar: se cae al de un eje vacío.
+  if (!Number.isFinite(span)) {
+    return { domain: [-1, 1], ticks: [-1, 0, 1] };
+  }
+
+  const step = axisStep(span);
   const low = Math.floor(domain[0] / step) * step;
   const high = Math.ceil(domain[1] / step) * step;
   const ticks: number[] = [];
@@ -759,6 +786,31 @@ export function formatSortino(result: SortinoResult): string {
     : (NULL_REASON_LABELS[result.reason] ?? result.reason);
 }
 
+/**
+ * Por qué una security no se dibuja, en un motivo que agrupa: el mismo en las
+ * dos ventanas se dice una vez («Historia insuficiente»); si no, cada ventana
+ * que falta con el suyo («5 años: Historia insuficiente»).
+ */
+export function notDrawnReason(entry: NotDrawn): string {
+  const label = (result: SortinoResult) =>
+    result.status === "computed"
+      ? null
+      : (NULL_REASON_LABELS[result.reason] ?? result.reason);
+  const twoYears = label(entry.window2y);
+  const fiveYears = label(entry.window5y);
+
+  if (twoYears !== null && twoYears === fiveYears) {
+    return twoYears;
+  }
+
+  return [
+    twoYears === null ? null : `2 años: ${twoYears}`,
+    fiveYears === null ? null : `5 años: ${fiveYears}`,
+  ]
+    .filter((part) => part !== null)
+    .join(" · ");
+}
+
 /** Un ratio es exacto: se muestra con los decimales que tiene, sin redondear. */
 function exactDecimal(value: string): string {
   return value.replace(".", ",");
@@ -784,7 +836,7 @@ export function describeCedear(mark: CedearMark): string {
 /** Nombre accesible de un punto: todo lo que el tooltip diría, en una frase. */
 export function describePoint(point: SectorRiskPoint): string {
   const parts = [
-    `${pointLabel(point)}${point.issuerName === null ? "" : `, ${point.issuerName}`}`,
+    `${pointLabel(point)}${point.issuerName === null ? "" : `, ${displayCompanyName(point.issuerName)}`}`,
     `Sortino 2 años ${formatSortino(point.sortino2y)}`,
     `5 años ${formatSortino(point.sortino5y)}`,
     describeCedear(point.cedear),

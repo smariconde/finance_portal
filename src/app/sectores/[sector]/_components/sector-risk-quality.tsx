@@ -1,105 +1,115 @@
-import { CircleAlert, CircleCheck } from "lucide-react";
+"use client";
 
-import { InfoTip } from "@/app/_components/info-tip";
+import { ChevronDown, CircleAlert, CircleCheck } from "lucide-react";
+
+import {
+  Popover,
+  PopoverContent,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import type { SectorRiskQuality as Quality } from "@/modules/metrics/domain/sector-risk-quality";
 
+import { qualityVerdict } from "./quality-verdict";
+
 function percent(value: number | null): string {
-  return value === null ? "No evaluable" : `${value} %`;
+  return value === null ? "—" : `${value} %`;
 }
 
+/**
+ * La calidad de la matriz en una línea: la nota y lo que la degrada, en una
+ * palabra. Los componentes, sus pesos y la regla van en el panel que abre el
+ * botón (click, toque, Enter o Espacio; nunca sólo por hover).
+ */
 export function SectorRiskQuality({ quality }: { readonly quality: Quality }) {
-  const complete = quality.status === "ready";
-  const Icon = complete ? CircleCheck : CircleAlert;
+  const verdict = qualityVerdict(quality);
+  const ready = verdict.state === "ready";
+  const Icon = ready ? CircleCheck : CircleAlert;
+  const summary = ready ? "Completa" : verdict.reasons[0];
+  const components: [string, string, string][] = [
+    [
+      "Completitud",
+      percent(quality.components.completeness),
+      `${quality.computed2y + quality.computed5y} de ${quality.population * 2} Sortino · 40 %`,
+    ],
+    [
+      "Frescura",
+      percent(quality.components.freshness),
+      `Cierre de hace ${quality.daysSinceClose} ${quality.daysSinceClose === 1 ? "día" : "días"} · 20 %`,
+    ],
+    [
+      "Comparabilidad",
+      percent(quality.components.comparability),
+      `${quality.comparable} de ${quality.population} con las dos ventanas · 20 %`,
+    ],
+    [
+      "Validación",
+      `${quality.components.validation} %`,
+      "Reconciliación interna aprobada · 20 %",
+    ],
+    ["Acuerdo entre fuentes", "—", "Una sola fuente: no suma ni resta"],
+  ];
 
   return (
-    <section
-      aria-labelledby="sector-quality-title"
-      className="rounded-lg border bg-card p-4"
-    >
-      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
-        <h2 id="sector-quality-title" className="text-base font-semibold">
+    <Popover>
+      <PopoverTrigger
+        className={cn(
+          "inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium text-foreground transition-colors outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 data-popup-open:bg-muted",
+        )}
+      >
+        <Icon
+          aria-hidden="true"
+          className={cn(
+            "size-3.5 shrink-0",
+            ready ? "text-muted-foreground" : "text-foreground",
+          )}
+        />
+        <span className="text-muted-foreground">Calidad</span>
+        {verdict.score === null ? null : (
+          <span className="numeric">{verdict.score}</span>
+        )}
+        <span aria-hidden="true" className="text-muted-foreground">
+          ·
+        </span>
+        <span>{summary}</span>
+        <ChevronDown
+          aria-hidden="true"
+          className="size-3.5 shrink-0 text-muted-foreground"
+        />
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-80">
+        <PopoverTitle>
           Calidad de esta matriz
-        </h2>
-        <p className="inline-flex items-center gap-1.5 text-sm font-medium">
-          <Icon aria-hidden="true" className="size-4 shrink-0" />
-          {quality.score === null
-            ? "Sin nota: sector vacío"
-            : `${quality.score}/100 · ${complete ? "Completa" : "Degradada"}`}
+          {verdict.score === null ? null : (
+            <span className="numeric ml-1.5 text-muted-foreground">
+              {verdict.score}
+            </span>
+          )}
+        </PopoverTitle>
+        {verdict.reasons.length > 1 ? (
+          <p className="text-xs text-muted-foreground">
+            {verdict.reasons.join(" · ")}
+          </p>
+        ) : null}
+        <dl className="flex flex-col divide-y text-xs">
+          {components.map(([term, value, detail]) => (
+            <div
+              key={term}
+              className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 py-1.5"
+            >
+              <dt className="font-medium text-foreground">{term}</dt>
+              <dd className="numeric text-right font-medium">{value}</dd>
+              <dd className="col-span-2 text-muted-foreground">{detail}</dd>
+            </div>
+          ))}
+        </dl>
+        <p className="text-xs text-muted-foreground">
+          Frescura: 100 hasta 4 días, 50 de 5 a 7, sin feriados. Comprueba el
+          cálculo interno, no los precios de Yahoo Finance.{" "}
+          <span className="font-mono">{quality.ruleVersion}</span>
         </p>
-      </div>
-      <p className="mt-2 text-sm text-muted-foreground">
-        {quality.comparable} de {quality.population} securities tienen Sortino
-        en ambas ventanas.
-        {quality.seriesWithoutRows > 0
-          ? ` ${quality.seriesWithoutRows} no tienen ninguna rueda guardada.`
-          : ""}
-      </p>
-      <dl className="mt-4 grid gap-x-8 gap-y-3 border-t pt-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
-        <div>
-          <dt className="text-muted-foreground">Completitud</dt>
-          <dd className="numeric font-medium">
-            {percent(quality.components.completeness)}
-
-            <span className="block text-xs font-normal text-muted-foreground">
-              {quality.computed2y + quality.computed5y} de{" "}
-              {quality.population * 2} valores calculados
-            </span>
-          </dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground">Frescura</dt>
-          <dd className="numeric font-medium">
-            {percent(quality.components.freshness)}
-
-            <span className="block text-xs font-normal text-muted-foreground">
-              Último cierre hace {quality.daysSinceClose}{" "}
-              {quality.daysSinceClose === 1 ? "día" : "días"} calendario
-            </span>
-          </dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground">Comparabilidad</dt>
-          <dd className="numeric font-medium">
-            {percent(quality.components.comparability)}
-
-            <span className="block text-xs font-normal text-muted-foreground">
-              Ambas ventanas y referencia calculadas
-            </span>
-          </dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground">Validación</dt>
-          <dd className="font-medium">
-            Reconciliación interna aprobada
-            <span className="block text-xs font-normal text-muted-foreground">
-              Población, ajuste, cuadrantes y distancias
-            </span>
-          </dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground">Acuerdo entre fuentes</dt>
-          <dd className="font-medium">
-            No evaluable
-            <span className="block text-xs font-normal text-muted-foreground">
-              Hay una sola fuente de precios; no suma ni resta puntos
-            </span>
-          </dd>
-        </div>
-      </dl>
-      <p className="mt-2 flex items-center gap-0.5 text-xs text-muted-foreground">
-        Regla {quality.ruleVersion}
-        <InfoTip title="Cómo se calcula la nota">
-          <p>
-            40 % completitud, 20 % frescura, 20 % comparabilidad y 20 %
-            validación. Frescura: 100 hasta 4 días, 50 de 5 a 7, 0 después, sin
-            calendario de feriados.
-          </p>
-          <p>
-            La reconciliación comprueba el cálculo interno; no verifica
-            independientemente los precios publicados por Yahoo Finance.
-          </p>
-        </InfoTip>
-      </p>
-    </section>
+      </PopoverContent>
+    </Popover>
   );
 }

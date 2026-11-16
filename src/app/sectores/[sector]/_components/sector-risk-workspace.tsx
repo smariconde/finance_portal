@@ -6,11 +6,13 @@ import { useId, useMemo, useState } from "react";
 import { displayCompanyName } from "@/modules/companies/domain/display-company-name";
 import { CompanyMark } from "@/app/_components/company-mark";
 import { FinvizProfileLink } from "@/app/_components/finviz-profile-link";
+import { InfoTip } from "@/app/_components/info-tip";
 import type { BusinessExcerpt } from "@/modules/companies/domain/sec-business-excerpt";
 
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -40,12 +42,20 @@ import { MatrixChart, type MatrixLogo } from "./matrix-chart";
 import {
   describeCedear,
   describePoint,
-  formatSortino,
   layoutMatrix,
+  notDrawnReason,
   NULL_REASON_LABELS,
   pointLabel,
   QUADRANT_LABELS,
 } from "./matrix-layout";
+import { MissingByReason } from "./missing-by-reason";
+import {
+  CedearLegend,
+  ClippedLegend,
+  NoCedearLegend,
+  PickPointHint,
+} from "./matrix-parts";
+import { groupByReason } from "./missing-groups";
 
 type SortKey =
   "ticker" | "sortino2y" | "sortino5y" | "distance2y" | "distance5y";
@@ -144,22 +154,15 @@ function CedearBadge({ point }: { readonly point: SectorRiskPoint }) {
 
 function SelectedPoint({
   point,
-  matrix,
   businessExcerpt,
   logoUrl,
 }: {
   readonly point: SectorRiskPoint | null;
-  readonly matrix: SectorRiskMatrix;
   readonly businessExcerpt: BusinessExcerpt | null;
   readonly logoUrl: string | null;
 }) {
   if (point === null) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Elegí un punto con Tab, un click o desde la tabla para ver sus valores
-        exactos. El rombo es la referencia: {matrix.reference.label}.
-      </p>
-    );
+    return <PickPointHint />;
   }
 
   const rows: [string, React.ReactNode][] = [
@@ -202,9 +205,7 @@ function SelectedPoint({
         </div>
       </div>
       {businessExcerpt === null ? (
-        <p className="text-sm text-muted-foreground">
-          Todavía no hay un extracto del 10-K para esta empresa.
-        </p>
+        <p className="text-xs text-muted-foreground">Sin extracto del 10-K</p>
       ) : (
         <figure className="space-y-1 text-sm">
           <blockquote lang="en" className="text-foreground">
@@ -238,7 +239,7 @@ function SelectedPoint({
       </dl>
       <p className="text-sm">
         {point.quadrant === null
-          ? "Sin ubicación respecto de la referencia: falta una de las dos ventanas."
+          ? "Sin cuadrante: falta una ventana"
           : QUADRANT_LABELS[point.quadrant]}
       </p>
     </div>
@@ -314,13 +315,32 @@ export function SectorRiskWorkspace({
         <Card>
           <CardHeader>
             <CardTitle as="h2" id={titleId}>
-              Sortino a 2 años contra Sortino a 5 años
+              Sortino 2 años contra Sortino 5 años
             </CardTitle>
             <CardDescription id={descriptionId}>
-              {layout.points.length} de {matrix.points.length} dibujadas; el
-              resto, en «Sin valor». Arriba a la derecha de las punteadas:
-              superó a la referencia en las dos ventanas.
+              <span className="numeric">
+                {layout.points.length} de {matrix.points.length}
+              </span>{" "}
+              dibujadas · arriba a la derecha del rombo: mejor que la referencia
+              en las dos
             </CardDescription>
+            <CardAction>
+              <InfoTip title="Cómo se lee el gráfico">
+                <p>
+                  Cada punto es una security; las punteadas cruzan en el{" "}
+                  {matrix.reference.label}, con la misma base y ventanas.
+                </p>
+                <p>
+                  La recta es el ajuste lineal del sector, no un valor justo.
+                  Donde los logos se tapan, la marca queda como punto y muestra
+                  su logo al elegirla.
+                </p>
+                <p>
+                  Un punto con chevron está fuera de escala: su valor exacto
+                  está en la tabla.
+                </p>
+              </InfoTip>
+            </CardAction>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <MatrixChart
@@ -334,66 +354,11 @@ export function SectorRiskWorkspace({
               asOfLabel={asOfLabel}
             />
             <ul
-              aria-label="Cómo leer el gráfico"
+              aria-label="Leyenda"
               className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground"
             >
-              <li className="flex items-center gap-1.5">
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 34 16"
-                  className="h-4 w-[2.125rem]"
-                >
-                  <circle
-                    cx="8"
-                    cy="8"
-                    r="7"
-                    className="fill-muted stroke-foreground/25"
-                    strokeWidth="1"
-                  />
-                  <circle
-                    cx="27"
-                    cy="8"
-                    r="4.5"
-                    className="fill-background stroke-muted-foreground"
-                    strokeWidth="1.75"
-                  />
-                </svg>
-                Sin CEDEAR: borde fino o punto hueco
-              </li>
-              <li className="flex items-center gap-1.5">
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 34 16"
-                  className="h-4 w-[2.125rem]"
-                >
-                  <circle
-                    cx="8"
-                    cy="8"
-                    r="6.5"
-                    className="fill-muted stroke-[var(--chart-1)]"
-                    strokeWidth="2.5"
-                  />
-                  <rect
-                    x="10"
-                    y="10"
-                    width="5.5"
-                    height="5.5"
-                    rx="1"
-                    className="fill-[var(--chart-1)] stroke-background"
-                    strokeWidth="1"
-                  />
-                  <rect
-                    x="22.5"
-                    y="3.5"
-                    width="9"
-                    height="9"
-                    rx="1.5"
-                    className="fill-[var(--chart-1)]"
-                  />
-                </svg>
-                Con CEDEAR vigente ({cedearCount}): anillo grueso con insignia,
-                o cuadrado
-              </li>
+              <NoCedearLegend />
+              <CedearLegend count={cedearCount} />
               <li className="flex items-center gap-1.5">
                 <svg aria-hidden="true" viewBox="0 0 28 20" className="h-5 w-7">
                   <path
@@ -409,7 +374,7 @@ export function SectorRiskWorkspace({
                     className="fill-foreground"
                   />
                 </svg>
-                {matrix.reference.label}: rombo hueco, misma base y ventanas
+                {matrix.reference.label}
               </li>
               <li className="flex items-center gap-1.5">
                 <svg aria-hidden="true" viewBox="0 0 16 12" className="h-3 w-4">
@@ -423,20 +388,15 @@ export function SectorRiskWorkspace({
                   />
                 </svg>
                 {matrix.fit.status === "computed"
-                  ? `Ajuste lineal del sector (n = ${matrix.fit.n}), no un valor justo`
-                  : `Sin recta de ajuste: ${matrix.fit.reason === "too_few_points" ? `hacen falta 3 puntos y hay ${matrix.fit.n}` : "los puntos no varían en 2 años"}`}
-              </li>
-              <li>
-                Donde los logos se tapan, la marca queda como punto y muestra su
-                logo al elegirla.
+                  ? `Ajuste lineal (n = ${matrix.fit.n})`
+                  : matrix.fit.reason === "too_few_points"
+                    ? `Sin ajuste: ${matrix.fit.n} de 3 puntos`
+                    : "Sin ajuste: sin variación a 2 años"}
               </li>
               {layout.points.some(
                 (point) => point.clipX !== 0 || point.clipY !== 0,
               ) ? (
-                <li>
-                  Un punto con flecha está fuera de escala: su valor exacto está
-                  en la tabla.
-                </li>
+                <ClippedLegend />
               ) : null}
             </ul>
           </CardContent>
@@ -449,7 +409,6 @@ export function SectorRiskWorkspace({
           <CardContent aria-live="polite">
             <SelectedPoint
               point={selected}
-              matrix={matrix}
               businessExcerpt={
                 selected === null
                   ? null
@@ -466,29 +425,35 @@ export function SectorRiskWorkspace({
       </div>
 
       {layout.notDrawn.length === 0 ? null : (
-        <Card size="sm">
+        <Card size="sm" className="lg:max-w-xl">
           <CardHeader>
-            <CardTitle as="h2">Sin valor en alguna ventana</CardTitle>
-            <CardDescription>
-              No se dibujan ni cuentan para la recta: un valor faltante no es un
-              cero.
-            </CardDescription>
+            <CardTitle as="h2">
+              Sin valor{" "}
+              <span className="numeric font-normal text-muted-foreground">
+                {layout.notDrawn.length}
+              </span>
+            </CardTitle>
+            <CardAction>
+              <InfoTip title="Sin valor">
+                <p>
+                  No se dibujan ni cuentan para la recta: un valor faltante no
+                  es un cero. La tabla da el motivo de cada ventana.
+                </p>
+              </InfoTip>
+            </CardAction>
           </CardHeader>
           <CardContent>
-            <ul className="divide-y text-sm">
-              {layout.notDrawn.map((entry) => (
-                <li
-                  key={entry.id}
-                  className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-2"
-                >
-                  <span className="font-medium">{entry.label}</span>
-                  <span className="text-muted-foreground">
-                    2 años: {formatSortino(entry.window2y)} · 5 años:{" "}
-                    {formatSortino(entry.window5y)}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <MissingByReason
+              groups={groupByReason(
+                layout.notDrawn.map((entry) => ({
+                  id: entry.id,
+                  label: entry.label,
+                  reason: notDrawnReason(entry),
+                })),
+                (entry) => entry.reason,
+              )}
+              empty="Todas tienen las dos ventanas."
+            />
           </CardContent>
         </Card>
       )}
@@ -496,10 +461,14 @@ export function SectorRiskWorkspace({
       <Card>
         <CardHeader>
           <CardTitle as="h2">Tabla de la matriz</CardTitle>
-          <CardDescription>
-            Los mismos valores que el gráfico, sin recorte de escala. Elegir un
-            ticker lo resalta en el gráfico.
-          </CardDescription>
+          <CardAction>
+            <InfoTip title="Tabla de la matriz">
+              <p>
+                Los mismos valores que el gráfico, sin recorte de escala. Elegir
+                un ticker lo resalta en el gráfico.
+              </p>
+            </InfoTip>
+          </CardAction>
         </CardHeader>
         <CardContent>
           <Table>

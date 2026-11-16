@@ -12,7 +12,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { InfoTip } from "@/app/_components/info-tip";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -306,27 +306,35 @@ function PendingNotice({
   // Sólo precios: la SEC ya está y lo que falta es la historia larga.
   if (status.filers === 0) {
     return (
-      <Alert>
-        <Info aria-hidden="true" />
-        <AlertTitle>
-          {status.priceHistories === 1
-            ? "A una security le falta el precio de un cierre fiscal"
-            : `A ${integer.format(status.priceHistories)} securities les falta el precio de un cierre fiscal`}
-        </AlertTitle>
-        <AlertDescription className="flex flex-col gap-3">
-          <span>
-            La matriz de riesgo guarda cinco años de precios y el cierre de hace
-            cinco ejercicios queda antes. Bajar siete años cuesta un pedido a
-            Yahoo Finance por security.
-          </span>
-          <span>
-            <ActionButton primary onClick={onStart}>
-              <Download aria-hidden="true" />
-              Bajar 7 años de precios
-            </ActionButton>
-          </span>
-        </AlertDescription>
-      </Alert>
+      <CompactNotice
+        count={integer.format(status.priceHistories)}
+        label={
+          status.priceHistories === 1
+            ? "security sin precio de un cierre fiscal"
+            : "securities sin precio de un cierre fiscal"
+        }
+        tip={
+          <InfoTip title="Qué baja y cuánto cuesta">
+            <p>
+              La matriz de riesgo guarda cinco años de precios y el cierre de
+              hace cinco ejercicios queda antes.
+            </p>
+            <p>
+              Bajar siete años cuesta un pedido a Yahoo Finance por security:{" "}
+              <strong className="numeric">
+                {integer.format(status.priceHistories)}
+              </strong>
+              .
+            </p>
+          </InfoTip>
+        }
+        action={
+          <ActionButton primary onClick={onStart}>
+            <Download aria-hidden="true" />
+            Bajar 7 años de precios
+          </ActionButton>
+        }
+      />
     );
   }
 
@@ -343,43 +351,98 @@ function PendingNotice({
     left >= quota.perIssuerCeiling;
   const fitsAll = startsToday && left >= ceiling;
 
+  // Por qué el botón no se puede usar hoy, en dos o tres palabras.
+  const blocked =
+    quota === null || quota.disabled
+      ? "SEC frenada"
+      : left === null
+        ? "SEC sin cuota declarada"
+        : startsToday
+          ? null
+          : "Sin cuota SEC hoy";
+
   return (
-    <Alert>
-      <Info aria-hidden="true" />
-      <AlertTitle>
-        {issuers.covered === 0
-          ? `Todavía no hay fundamentales SEC de este sector: 0 de ${integer.format(issuers.total)} emisores`
-          : `${integer.format(missing)} de ${integer.format(issuers.total)} emisores sin fundamentales SEC`}
-      </AlertTitle>
-      <AlertDescription className="flex flex-col gap-3">
-        <span>
-          Bajar{" "}
-          {status.filers === 1
-            ? "su filer"
-            : `sus ${integer.format(status.filers)} filers`}{" "}
-          cuesta hasta {integer.format(ceiling)} pedidos SEC (
-          {quota?.perIssuerCeiling ?? "—"} por filer como máximo; suele ser
-          mucho menos).{" "}
-          {quota === null || quota.disabled
-            ? "La fuente está frenada por el owner."
-            : left === null
-              ? "La SEC no tiene presupuesto declarado."
-              : `Hoy quedan ${integer.format(left)} de ${integer.format(quota.limit!)}${fitsAll ? "." : startsToday ? ": si no alcanza, frena sin perder lo bajado y sigue cuando se reponga." : ": no alcanza para empezar."}`}{" "}
-          Después baja siete años de precios donde falte un cierre fiscal.
-        </span>
-        <span className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <ActionButton primary disabled={!startsToday} onClick={onStart}>
-            <Download aria-hidden="true" />
-            Bajar lo que falta
-          </ActionButton>
-          {status.failedFilers.length === 0 ? null : (
-            <span className="text-xs text-muted-foreground">
-              Ya se intentó sin éxito: {listTickers(status.failedFilers)}.
-            </span>
-          )}
-        </span>
-      </AlertDescription>
-    </Alert>
+    <CompactNotice
+      count={`${integer.format(missing)} de ${integer.format(issuers.total)}`}
+      label="emisores sin fundamentales SEC"
+      tip={
+        <InfoTip title="Qué baja y cuánto cuesta">
+          <p>
+            {status.filers === 1
+              ? "Su filer cuesta"
+              : `Sus ${integer.format(status.filers)} filers cuestan`}{" "}
+            hasta <strong className="numeric">{integer.format(ceiling)}</strong>{" "}
+            pedidos SEC ({quota?.perIssuerCeiling ?? "—"} por filer como máximo;
+            suele ser mucho menos).
+          </p>
+          <p>
+            {quota === null || quota.disabled
+              ? "La fuente está frenada por el owner."
+              : left === null
+                ? "La SEC no tiene presupuesto declarado."
+                : `Hoy quedan ${integer.format(left)} de ${integer.format(quota.limit!)}${fitsAll ? "." : startsToday ? ": si no alcanza, frena sin perder lo bajado y sigue cuando se reponga." : ": no alcanza para empezar."}`}
+          </p>
+          <p>
+            Después baja siete años de precios donde falte un cierre fiscal.
+          </p>
+        </InfoTip>
+      }
+      aside={
+        status.failedFilers.length === 0
+          ? blocked
+          : [blocked, `Falló: ${listTickers(status.failedFilers)}`]
+              .filter((part) => part !== null)
+              .join(" · ")
+      }
+      action={
+        <ActionButton primary disabled={!startsToday} onClick={onStart}>
+          <Download aria-hidden="true" />
+          Bajar lo que falta
+        </ActionButton>
+      }
+    />
+  );
+}
+
+/**
+ * Lo que le falta a la matriz en una línea: el conteo, qué es, el costo en el
+ * ⓘ y el botón. La explicación larga no empuja el gráfico hacia abajo.
+ */
+function CompactNotice({
+  count,
+  label,
+  tip,
+  aside,
+  action,
+}: {
+  readonly count: string;
+  readonly label: string;
+  readonly tip: React.ReactNode;
+  /** Por qué no se puede, o qué falló antes: unas pocas palabras. */
+  readonly aside?: string | null;
+  readonly action: React.ReactNode;
+}) {
+  return (
+    <section
+      aria-label="Datos que faltan en la matriz"
+      className="flex flex-col gap-2 rounded-lg border bg-card px-4 py-2.5 text-sm sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
+        <Info
+          aria-hidden="true"
+          className="size-4 shrink-0 text-muted-foreground"
+        />
+        <span className="numeric font-semibold">{count}</span>
+        <span className="text-muted-foreground">{label}</span>
+        {tip}
+      </div>
+      <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        {aside === undefined || aside === null || aside === "" ? null : (
+          <span className="text-xs text-muted-foreground">{aside}</span>
+        )}
+        {action}
+      </span>
+    </section>
   );
 }
 

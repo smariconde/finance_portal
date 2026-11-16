@@ -168,7 +168,11 @@ export default async function SectorRiskMatrixPage({ params }: PageProps) {
           </>
         }
         actions={<SectorMatrixNav sectorCode={sector.code} current="risk" />}
-      />
+      >
+        {reading === "no_reference" ? null : (
+          <MatrixMeta reading={reading} asOfLabel={asOfLabel!} />
+        )}
+      </PageHeader>
 
       <SectorPriceRefresh
         sectorCode={sector.code}
@@ -184,19 +188,14 @@ export default async function SectorRiskMatrixPage({ params }: PageProps) {
       {reading === "no_reference" ? (
         <Alert>
           <Info aria-hidden="true" />
-          <AlertTitle>Todavía no hay serie de referencia</AlertTitle>
+          <AlertTitle>Sin serie de referencia todavía</AlertTitle>
           <AlertDescription>
-            No hay niveles recientes del S&amp;P 500 Total Return guardados, y
-            sin referencia no hay contra qué comparar. La matriz aparece cuando
-            termine de descargarse.
+            La matriz aparece cuando termine de bajar el S&amp;P 500 Total
+            Return.
           </AlertDescription>
         </Alert>
       ) : (
-        <MatrixBody
-          reading={reading}
-          asOfLabel={asOfLabel!}
-          refreshing={readiness.needsRefresh}
-        />
+        <MatrixBody reading={reading} asOfLabel={asOfLabel!} />
       )}
     </PageContainer>
   );
@@ -205,12 +204,9 @@ export default async function SectorRiskMatrixPage({ params }: PageProps) {
 async function MatrixBody({
   reading,
   asOfLabel,
-  refreshing,
 }: {
   readonly reading: SectorRiskMatrixReading;
   readonly asOfLabel: string;
-  /** Hay una descarga por delante: el aviso de faltantes sería prematuro. */
-  readonly refreshing: boolean;
 }) {
   const { matrix } = reading;
   const businessExcerpts =
@@ -221,62 +217,6 @@ async function MatrixBody({
 
   return (
     <>
-      <SectorRiskExport sectorCode={matrix.sector.code} />
-      <dl className="grid gap-x-8 gap-y-3 rounded-lg border bg-card p-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
-        <div>
-          <dt className="text-muted-foreground">Cierre de las dos ventanas</dt>
-          <dd className="numeric font-medium">
-            <time dateTime={matrix.asOf}>{asOfLabel}</time>
-            <span className="block text-xs font-normal text-muted-foreground">
-              Último cierre guardado de la referencia
-            </span>
-          </dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground">Fórmula</dt>
-          <dd>
-            Sortino diario, retorno mínimo 0, anualizado con k ={" "}
-            {SORTINO_PARAMETERS.periodsPerYear}
-            <span className="block text-xs text-muted-foreground">
-              {matrix.formulaVersion} · ventanas de calendario
-            </span>
-          </dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground">Base de retorno</dt>
-          <dd>
-            Total return: dividendos reinvertidos en el ex-date
-            <span className="block text-xs text-muted-foreground">
-              Referencia: {matrix.reference.label} (^SP500TR)
-            </span>
-          </dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground">Fuente y población</dt>
-          <dd>
-            Precios diarios de Yahoo Finance, sin concesión contractual
-            <span className="block text-xs text-muted-foreground">
-              Miembros del S&amp;P 500 al cierre: quien salió antes no aparece
-            </span>
-          </dd>
-        </div>
-      </dl>
-
-      <SectorRiskQuality quality={reading.quality} />
-
-      {reading.seriesWithoutRows > 0 && !refreshing ? (
-        <Alert>
-          <Info aria-hidden="true" />
-          <AlertTitle>
-            {reading.seriesWithoutRows} de {matrix.points.length} securities sin
-            precios guardados
-          </AlertTitle>
-          <AlertDescription>
-            Aparecen en «Sin valor» como «Sin cierre en la fecha».
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
       {matrix.points.length === 0 ? (
         <Alert>
           <Info aria-hidden="true" />
@@ -302,5 +242,58 @@ async function MatrixBody({
         />
       )}
     </>
+  );
+}
+
+/**
+ * La provenance en una línea, debajo del título: el cierre de las dos
+ * ventanas, la fuente, la nota de calidad y el CSV. Fórmula, base de retorno,
+ * referencia, población y versiones van en el ⓘ.
+ */
+function MatrixMeta({
+  reading,
+  asOfLabel,
+}: {
+  readonly reading: SectorRiskMatrixReading;
+  readonly asOfLabel: string;
+}) {
+  const { matrix } = reading;
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-muted-foreground">
+      <span className="inline-flex items-center gap-x-1.5">
+        Al
+        <time
+          dateTime={matrix.asOf}
+          className="numeric font-medium text-foreground"
+        >
+          {asOfLabel}
+        </time>
+        <span aria-hidden="true">·</span>
+        Yahoo Finance, total return
+        <InfoTip title="Método y fuente">
+          <p>
+            <strong>Sortino</strong> diario con retorno mínimo 0, anualizado con
+            k = {SORTINO_PARAMETERS.periodsPerYear}, en ventanas de calendario
+            que cierran el último día guardado de la referencia.
+          </p>
+          <p>
+            <strong>Total return:</strong> dividendos reinvertidos en el
+            ex-date. Referencia: {matrix.reference.label} (^SP500TR), con la
+            misma base.
+          </p>
+          <p>
+            <strong>Población:</strong> miembros del S&amp;P 500 en el sector al
+            cierre; quien salió antes no aparece. Precios diarios de Yahoo
+            Finance, sin concesión contractual.
+          </p>
+          <p className="font-mono text-xs">{matrix.formulaVersion}</p>
+        </InfoTip>
+      </span>
+      <SectorRiskQuality quality={reading.quality} />
+      <span className="sm:ml-auto">
+        <SectorRiskExport sectorCode={matrix.sector.code} />
+      </span>
+    </div>
   );
 }

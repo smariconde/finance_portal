@@ -8,7 +8,11 @@ import { Spinner } from "@/components/ui/spinner";
 
 type ExportState = "idle" | "loading" | "unavailable" | "failed";
 
-/** Una descarga fallida se explica en la matriz, sin navegar fuera del análisis. */
+/**
+ * El CSV de la matriz: valores exactos, motivos de ausencia y fuentes. Una
+ * descarga fallida se dice al lado del botón, sin navegar fuera del análisis,
+ * y el mismo botón reintenta.
+ */
 export function SectorRiskExport({
   sectorCode,
 }: {
@@ -55,35 +59,35 @@ export function SectorRiskExport({
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-      <div className="text-xs text-muted-foreground">
-        <p>El CSV incluye valores exactos, motivos de ausencia y fuentes.</p>
-        {state === "unavailable" ? (
-          <p role="status" className="mt-1 text-foreground">
-            El export personal no está habilitado en este entorno o sus fuentes.
-            Revisá la configuración y volvé a intentar.
-          </p>
-        ) : state === "failed" ? (
-          <p role="status" className="mt-1 text-foreground">
-            No se pudo preparar el CSV. Revisá la base personal y volvé a
-            intentar.
-          </p>
-        ) : null}
-      </div>
+    <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+      {state === "unavailable" ? (
+        <span role="status" className="text-xs text-foreground">
+          CSV no habilitado aquí
+        </span>
+      ) : state === "failed" ? (
+        <span role="status" className="text-xs text-foreground">
+          No se pudo preparar el CSV
+        </span>
+      ) : null}
       <Button
         type="button"
         variant="outline"
         size="sm"
         onClick={() => void download()}
         disabled={state === "loading"}
+        title="Valores exactos, motivos de ausencia, fórmulas y fuentes"
       >
         {state === "loading" ? (
           <Spinner className="size-3.5" />
         ) : (
           <Download aria-hidden="true" className="size-3.5" />
         )}
-        {state === "loading" ? "Preparando CSV…" : "Descargar CSV"}
+        {state === "loading"
+          ? "Preparando CSV…"
+          : state === "idle"
+            ? "Descargar CSV"
+            : "Reintentar CSV"}
       </Button>
-    </div>
+    </span>
   );
 }
