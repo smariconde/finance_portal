@@ -9,22 +9,20 @@ import {
   type LiveAccountResult,
   type RiskContextResult,
 } from "@/app/cuenta/actions";
-import { formatMoney } from "@/app/_components/trading-format";
+import { formatDateTime, formatMoney } from "@/app/_components/trading-format";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { StoredIdea } from "@/modules/trading/application/pre-market-store";
 import {
   ideaLevels,
-  PRE_MARKET_PLAN_VERSION,
-  STOP_LOSS_CALC_VERSION,
+  purchaseTotal,
 } from "@/modules/trading/domain/pre-market-plan";
 import {
   markOf,
   openRisk,
   planPosition,
   positionRisk,
-  POSITION_SIZE_RISK_VERSION,
 } from "@/modules/trading/domain/position-size-risk";
 import {
   priceInputSchema,
@@ -34,6 +32,7 @@ import type { TradingSetup } from "@/modules/trading/domain/trading-setups";
 import { formatAmount } from "@/modules/valuation/domain/display-format";
 
 import { readPlanQuotes, savePreMarketIdea } from "../actions";
+import { IdeaRiskSheet } from "./idea-risk-sheet";
 
 type PublicIdea = Omit<StoredIdea, "accountKey">;
 type Draft = {
@@ -318,6 +317,7 @@ export function PlanWorkspace({
       ? quotes.quotes.map((quote) => [quote.symbol, quote])
       : [],
   );
+  const activeIdeas = ideas.filter((idea) => idea.status === "active");
 
   async function save() {
     setBusy(true);
@@ -402,8 +402,7 @@ export function PlanWorkspace({
   return (
     <div className="flex flex-col gap-6">
       <p className="text-xs text-muted-foreground">
-        Cuenta ···{lastFour} · Largos de acciones y ETF ·{" "}
-        {PRE_MARKET_PLAN_VERSION}
+        Cuenta ···{lastFour} · Largos de acciones y ETF
       </p>
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
         <Card id="plan-editor">
@@ -564,119 +563,18 @@ export function PlanWorkspace({
           </CardContent>
         </Card>
         <div className="flex min-w-0 flex-col gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle as="h2">Riesgo de esta idea</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3 text-sm">
-              {live === null || risk === null ? (
-                <p className="text-muted-foreground">
-                  Leyendo cuenta y reglas…
-                </p>
-              ) : live.state !== "read" || risk.state !== "read" ? (
-                <p className="text-amber-800 dark:text-amber-300">
-                  Sin lectura actual de cuenta y riesgo. No se calcula tamaño.
-                </p>
-              ) : (
-                <p className="text-muted-foreground">
-                  Capital US$ {formatMoney(live.balances.liquidationValue)} ·
-                  riesgo por trade {fmt(risk.settings.riskPerTradePercent)} % ·
-                  riesgo abierto{" "}
-                  {open?.value === null
-                    ? "desconocido"
-                    : `US$ ${formatMoney(open?.value ?? "0")}`}
-                </p>
-              )}
-              {levels === null ? (
-                <p className="text-muted-foreground">
-                  Completá entrada, cantidad y el nivel manual que corresponda.
-                </p>
-              ) : levels.state === "invalid" ? (
-                <p className="text-amber-800 dark:text-amber-300">
-                  {levels.reason === "auto_stop_non_positive"
-                    ? "La pérdida permitida lleva el stop a cero o menos; elegí otra cantidad o un stop manual."
-                    : levels.reason === "non_positive_input"
-                      ? "Entrada, cantidad, stop y target deben ser positivos."
-                      : "Revisá que el stop quede bajo la entrada y el target, arriba."}
-                </p>
-              ) : (
-                <>
-                  <dl className="grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-4">
-                    <div>
-                      <dt className="text-xs text-muted-foreground">
-                        Stop elegido
-                      </dt>
-                      <dd className="numeric font-semibold">
-                        US$ {fmt(levels.stop)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs text-muted-foreground">
-                        Target elegido
-                      </dt>
-                      <dd className="numeric font-semibold">
-                        US$ {fmt(levels.target)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs text-muted-foreground">TP 1:2</dt>
-                      <dd className="numeric">US$ {fmt(levels.targetTwo)}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs text-muted-foreground">TP 1:3</dt>
-                      <dd className="numeric">US$ {fmt(levels.targetThree)}</dd>
-                    </div>
-                  </dl>
-                  {levels.autoStop !== null ? (
-                    <p className="text-xs text-muted-foreground">
-                      Stop Loss Calc. US$ {fmt(levels.autoStop)} ·{" "}
-                      {STOP_LOSS_CALC_VERSION} · capital observado al guardar.
-                    </p>
-                  ) : null}
-                  <p className="numeric border-t pt-3">
-                    Riesgo con {quantity.data} acciones elegidas{" "}
-                    <strong>US$ {formatMoney(levels.chosenRisk)}</strong>.
-                  </p>
-                  {size?.state === "planned" ? (
-                    <p className="numeric">
-                      Tamaño sugerido <strong>{size.shares} acciones</strong> ·
-                      riesgo a ese tamaño US$ {formatMoney(size.riskAmount)} ·
-                      tope:{" "}
-                      {size.binding === "risk_per_trade"
-                        ? "por trade"
-                        : size.binding === "open_risk"
-                          ? "riesgo abierto"
-                          : "poder de compra"}
-                      {open?.value === null
-                        ? " · sin tope de riesgo abierto medible"
-                        : ""}
-                    </p>
-                  ) : (
-                    <p className="text-amber-800 dark:text-amber-300">
-                      Tamaño no calculable con estos niveles.
-                    </p>
-                  )}
-                  {size?.state === "planned" &&
-                  wholeQuantity &&
-                  BigInt(quantity.data!) > BigInt(size.shares) ? (
-                    <p className="text-amber-800 dark:text-amber-300">
-                      Tu cantidad elegida supera el tamaño sugerido por{" "}
-                      {size.binding === "risk_per_trade"
-                        ? "el riesgo por trade"
-                        : size.binding === "open_risk"
-                          ? "el riesgo abierto"
-                          : "el poder de compra"}
-                      . Revisá la cantidad antes de guardar.
-                    </p>
-                  ) : null}
-                  <p className="text-xs text-muted-foreground">
-                    {POSITION_SIZE_RISK_VERSION}. El tamaño sugerido no cambia
-                    tu cantidad elegida ni envía órdenes.
-                  </p>
-                </>
-              )}
-            </CardContent>
-          </Card>
+          <IdeaRiskSheet
+            live={live}
+            risk={risk}
+            open={open}
+            levels={levels}
+            size={size}
+            quantity={quantity.success ? quantity.data : null}
+            wholeQuantity={wholeQuantity}
+            entry={entry.success ? entry.data : null}
+            stopMode={draft.stopMode}
+            targetMode={draft.targetMode}
+          />
           <div className="flex flex-col gap-2 lg:hidden">
             <div className="flex flex-wrap gap-2">
               <Button onClick={() => void save()} disabled={busy}>
@@ -696,140 +594,149 @@ export function PlanWorkspace({
               {message}
             </p>
           </div>
-          <section aria-labelledby="watchlist-title" className="min-w-0">
-            <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-              <div>
-                <h2 id="watchlist-title" className="text-lg font-semibold">
-                  Watchlist
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                  {ideas.filter((idea) => idea.status === "active").length}{" "}
-                  activas · cada guardado conserva la revisión anterior
-                </p>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => void readPlanQuotes({}).then(setQuotes)}
-              >
-                Actualizar cotizaciones
-              </Button>
-            </div>
-            {ideas.length === 0 ? (
-              <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
-                Todavía no hay ideas. Guardá la primera antes de la rueda.
-              </div>
-            ) : (
-              <div>
-                <p className="mb-2 text-xs text-muted-foreground md:hidden">
-                  Deslizá la tabla para ver niveles y fecha del plan.
-                </p>
-                <div className="overflow-x-auto rounded-xl border bg-card">
-                  <table className="w-full min-w-[640px] text-left text-sm">
-                    <thead className="border-b bg-muted/50 text-xs text-muted-foreground">
-                      <tr>
-                        <th scope="col" className="px-3 py-2">
-                          Ticker
-                        </th>
-                        <th scope="col" className="px-3 py-2">
-                          Setup
-                        </th>
-                        <th scope="col" className="px-3 py-2 text-right">
-                          Última
-                        </th>
-                        <th scope="col" className="px-3 py-2 text-right">
-                          Entrada
-                        </th>
-                        <th scope="col" className="px-3 py-2 text-right">
-                          Stop
-                        </th>
-                        <th scope="col" className="px-3 py-2 text-right">
-                          Target
-                        </th>
-                        <th scope="col" className="px-3 py-2 text-right">
-                          Cantidad
-                        </th>
-                        <th scope="col" className="px-3 py-2">
-                          Plan
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {ideas.map((idea) => {
-                        const result = ideaLevels(idea);
-                        const quote = bySymbol.get(idea.symbol);
-                        return (
-                          <tr
-                            key={idea.ideaId}
-                            className="border-b last:border-b-0"
-                          >
-                            <th scope="row" className="px-3 py-2 font-semibold">
-                              <button
-                                className="text-left underline underline-offset-2 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                                aria-label={`Editar idea ${idea.symbol}, entrada ${idea.entry}, revisión ${idea.revision}, identificador ${idea.ideaId.slice(0, 8)}`}
-                                onClick={() => edit(idea)}
-                              >
-                                {idea.symbol}
-                              </button>
-                              {idea.status === "archived" ? (
-                                <span className="ml-1 text-xs font-normal text-muted-foreground">
-                                  archivada
-                                </span>
-                              ) : null}
-                            </th>
-                            <td className="px-3 py-2">
-                              {setups.find(
-                                (setup) => setup.code === idea.setupCode,
-                              )?.label ?? "—"}
-                            </td>
-                            <td className="numeric px-3 py-2 text-right">
-                              {quote ? `US$ ${fmt(quote.lastPrice)}` : "—"}
-                            </td>
-                            <td className="numeric px-3 py-2 text-right">
-                              {fmt(idea.entry)}
-                            </td>
-                            <td className="numeric px-3 py-2 text-right">
-                              {result.state === "valid"
-                                ? fmt(result.stop)
-                                : "—"}
-                            </td>
-                            <td className="numeric px-3 py-2 text-right">
-                              {result.state === "valid"
-                                ? fmt(result.target)
-                                : "—"}
-                            </td>
-                            <td className="numeric px-3 py-2 text-right">
-                              {idea.quantity}
-                            </td>
-                            <td className="px-3 py-2 text-xs text-muted-foreground">
-                              <time dateTime={idea.recordedAt}>
-                                {new Date(idea.recordedAt).toLocaleString(
-                                  "es-AR",
-                                  { dateStyle: "short", timeStyle: "short" },
-                                )}
-                              </time>{" "}
-                              · v{idea.revision} · {idea.ideaId.slice(0, 8)}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-            <p role="status" className="mt-2 text-xs text-muted-foreground">
-              {quotes === null
-                ? "Cotizaciones pendientes."
-                : quotes.state === "read"
-                  ? `Schwab · ${new Date(quotes.readAt).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}${quotes.invalidSymbols.length ? ` · ${quotes.invalidSymbols.length} sin cotizar` : ""}`
-                  : quotes.state === "limit_reached"
-                    ? "Hay más de 50 símbolos activos. Archivá ideas para volver a cotizar toda la watchlist."
-                    : "Cotizaciones no disponibles; el plan guardado conserva sus niveles."}
-            </p>
-          </section>
         </div>
       </div>
+      <section aria-labelledby="watchlist-title" className="min-w-0">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h2 id="watchlist-title" className="text-lg font-semibold">
+              Watchlist
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              {activeIdeas.length} activas · compra{" "}
+              {activeIdeas.length === 0
+                ? "—"
+                : `US$ ${formatMoney(purchaseTotal(activeIdeas))}`}
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void readPlanQuotes({}).then(setQuotes)}
+          >
+            Actualizar cotizaciones
+          </Button>
+        </div>
+        {ideas.length === 0 ? (
+          <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
+            Todavía no hay ideas. Guardá la primera antes de la rueda.
+          </div>
+        ) : (
+          <div>
+            <p className="mb-2 text-xs text-muted-foreground md:hidden">
+              Deslizá la tabla para ver niveles y fecha del plan.
+            </p>
+            <div className="overflow-x-auto rounded-xl border bg-card">
+              <table className="w-full min-w-[780px] text-left text-sm">
+                <caption className="sr-only">
+                  Ideas de la watchlist. La compra es entrada por cantidad con
+                  el capital que la revisión observó al guardarse.
+                </caption>
+                <thead className="border-b bg-muted/50 text-xs text-muted-foreground">
+                  <tr>
+                    <th scope="col" className="px-3 py-2">
+                      Ticker
+                    </th>
+                    <th scope="col" className="px-3 py-2">
+                      Setup
+                    </th>
+                    <th scope="col" className="px-3 py-2 text-right">
+                      Última
+                    </th>
+                    <th scope="col" className="px-3 py-2 text-right">
+                      Entrada
+                    </th>
+                    <th scope="col" className="px-3 py-2 text-right">
+                      Stop
+                    </th>
+                    <th scope="col" className="px-3 py-2 text-right">
+                      Target
+                    </th>
+                    <th scope="col" className="px-3 py-2 text-right">
+                      Cantidad
+                    </th>
+                    <th scope="col" className="px-3 py-2 text-right">
+                      Compra
+                    </th>
+                    <th scope="col" className="px-3 py-2">
+                      Plan
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ideas.map((idea) => {
+                    const result = ideaLevels(idea);
+                    const quote = bySymbol.get(idea.symbol);
+                    return (
+                      <tr
+                        key={idea.ideaId}
+                        className="border-b last:border-b-0"
+                      >
+                        <th scope="row" className="px-3 py-2 font-semibold">
+                          <button
+                            className="text-left underline underline-offset-2 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                            aria-label={`Editar idea ${idea.symbol}, entrada ${idea.entry}, revisión ${idea.revision}, identificador ${idea.ideaId.slice(0, 8)}`}
+                            onClick={() => edit(idea)}
+                          >
+                            {idea.symbol}
+                          </button>
+                          {idea.status === "archived" ? (
+                            <span className="ml-1 text-xs font-normal text-muted-foreground">
+                              archivada
+                            </span>
+                          ) : null}
+                        </th>
+                        <td className="px-3 py-2">
+                          {setups.find((setup) => setup.code === idea.setupCode)
+                            ?.label ?? "—"}
+                        </td>
+                        <td className="numeric whitespace-nowrap px-3 py-2 text-right">
+                          {quote ? `US$ ${fmt(quote.lastPrice)}` : "—"}
+                        </td>
+                        <td className="numeric whitespace-nowrap px-3 py-2 text-right">
+                          {fmt(idea.entry)}
+                        </td>
+                        <td className="numeric whitespace-nowrap px-3 py-2 text-right">
+                          {result.state === "valid" ? fmt(result.stop) : "—"}
+                        </td>
+                        <td className="numeric whitespace-nowrap px-3 py-2 text-right">
+                          {result.state === "valid" ? fmt(result.target) : "—"}
+                        </td>
+                        <td className="numeric whitespace-nowrap px-3 py-2 text-right">
+                          {idea.quantity}
+                        </td>
+                        <td className="numeric whitespace-nowrap px-3 py-2 text-right font-semibold">
+                          {result.state === "valid"
+                            ? `US$ ${fmt(result.chosenValue)}`
+                            : "—"}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground">
+                          <time dateTime={idea.recordedAt}>
+                            {formatDateTime(idea.recordedAt)}
+                          </time>{" "}
+                          · v{idea.revision} · {idea.ideaId.slice(0, 8)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+        <p role="status" className="mt-2 text-xs text-muted-foreground">
+          {quotes === null
+            ? "Cotizaciones pendientes."
+            : quotes.state === "read"
+              ? `Schwab · ${new Date(quotes.readAt).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}${quotes.invalidSymbols.length ? ` · ${quotes.invalidSymbols.length} sin cotizar` : ""}`
+              : quotes.state === "limit_reached"
+                ? "Hay más de 50 símbolos activos. Archivá ideas para volver a cotizar toda la watchlist."
+                : "Cotizaciones no disponibles; el plan guardado conserva sus niveles."}
+          {ideas.length === 0 ? null : (
+            <> · cada guardado conserva la revisión anterior</>
+          )}
+        </p>
+      </section>
     </div>
   );
 }
