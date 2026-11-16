@@ -92,6 +92,15 @@ En `.env.local`:
 
 El rol es del servidor: lo comparten las dos bases de trading.
 
+**Una migración atrasada acá rompe la única superficie que se mira a ojo.** Un
+slice con migración no está cerrado porque Neon esté al día: mientras la base
+local quedó atrás, el portal de `pnpm dev` lee tablas que no existen y la
+tarjeta que dependa de ellas cae entera con «Base de trading no disponible» y
+una referencia. Pasó el 2026-11-15 con `0006`: Neon en 7 de 7 y el contenedor en
+6 de 7, con el riesgo de `/cuenta` caído porque `readRiskContext` lee
+`pre_market_trade_links` en cada lectura. Antes de cerrar el slice,
+`pnpm db:trading:status` local tiene que decir «Aplicadas N de N».
+
 ## Neon
 
 El proyecto `finance_portal_trading` (`wispy-term-56128846`, rama
@@ -150,7 +159,11 @@ su propio slot.
 3. Escribir `drizzle-trading/rollback/<tag>.down.sql`. Un test unitario exige el
    par para cada entrada del journal.
 4. Correr `pnpm test:integration:trading` contra la base de prueba.
-5. Antes del merge, con un snapshot reciente: `pnpm db:trading:migrate:neon`,
+5. Aplicarla en la base local: `pnpm db:trading:migrate`,
+   `pnpm db:trading:status` y `pnpm db:trading:audit`. Es el entorno donde se
+   revisa el slice, y una tabla ausente no se degrada: la lectura que la toque
+   falla completa. `status` tiene que decir «Aplicadas N de N».
+6. Antes del merge, con un snapshot reciente: `pnpm db:trading:migrate:neon`,
    `pnpm db:trading:status:neon` y `pnpm db:trading:audit:neon`.
 
 ## Rollback

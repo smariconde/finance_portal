@@ -5,8 +5,9 @@ import Link from "next/link";
 
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
 import type { StoredIdea } from "@/modules/trading/application/pre-market-store";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import {
   servesRealData,
   servesSchwabConnection,
@@ -45,9 +46,12 @@ export default async function PlanPage() {
             operar.
           </p>
         </div>
-        <Button variant="outline" size="sm" render={<Link href="/diario" />}>
+        <Link
+          href="/diario"
+          className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+        >
           Ir al diario
-        </Button>
+        </Link>
       </header>
       {!servesSchwabConnection(health) ? (
         <Card>
@@ -106,9 +110,12 @@ async function PlanContent() {
             Sincronizá las transacciones desde el Diario para asociar las ideas
             a tu cuenta.
           </p>
-          <Button variant="outline" size="sm" render={<Link href="/diario" />}>
+          <Link
+            href="/diario"
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+          >
             Abrir diario
-          </Button>
+          </Link>
         </CardContent>
       </Card>
     );

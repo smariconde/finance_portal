@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ideaFormSchema, ideaLevels } from "./pre-market-plan";
+import { ideaFormSchema, ideaLevels, purchaseTotal } from "./pre-market-plan";
 
 const base = {
   entry: "100",
@@ -23,6 +23,40 @@ describe("Stop Loss Calc. y targets", () => {
       autoStop: "96",
       targetTwo: "108",
       targetThree: "112",
+      riskPerShare: "4",
+      chosenValue: "5000",
+      chosenPercent: "50",
+      chosenRiskPercent: "2",
+      targetR: "2",
+    });
+  });
+
+  it("el monto de la compra y su peso no dependen del stop", () => {
+    // El stop manual cambia el riesgo y el target, no lo que se paga.
+    expect(
+      ideaLevels({ ...base, stopMode: "manual", targetMode: "manual" }),
+    ).toMatchObject({
+      chosenValue: "5000",
+      chosenPercent: "50",
+      riskPerShare: "5",
+      chosenRisk: "250",
+      chosenRiskPercent: "2.5",
+      targetR: "2",
+    });
+    // Un target manual mide su propia distancia en R.
+    expect(
+      ideaLevels({ ...base, targetMode: "manual", manualTarget: "120" }),
+    ).toMatchObject({ target: "120", targetR: "5" });
+  });
+
+  it("una cantidad mayor compra más y no cambia el porcentaje de riesgo automático", () => {
+    expect(ideaLevels({ ...base, quantity: "75" })).toMatchObject({
+      chosenValue: "7500",
+      chosenPercent: "75",
+      riskPerShare: "2.666666",
+      chosenRisk: "199.99995",
+      chosenRiskPercent: "1.9999995",
+      targetR: "2",
     });
   });
 
@@ -107,5 +141,22 @@ describe("Stop Loss Calc. y targets", () => {
         state: "invalid",
         reason: "non_positive_input",
       });
+  });
+});
+
+describe("monto de la compra de la watchlist", () => {
+  it("suma entrada por cantidad y no redondea a número", () => {
+    expect(purchaseTotal([])).toBe("0");
+    expect(
+      purchaseTotal([
+        { entry: "100", quantity: "50" },
+        { entry: "12.34", quantity: "3" },
+      ]),
+    ).toBe("5037.02");
+    expect(purchaseTotal([{ entry: "0.1", quantity: "3" }])).toBe("0.3");
+  });
+
+  it("falla ante una entrada que no es un decimal", () => {
+    expect(() => purchaseTotal([{ entry: "NaN", quantity: "3" }])).toThrow();
   });
 });

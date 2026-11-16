@@ -269,6 +269,18 @@ Las primitivas son componentes shadcn editables construidos sobre Base UI. Se re
 - **State:** divisores horizontales y hover muted al `50%`; filas seleccionadas usan muted.
 - **Financial data:** valores comparables usan `.numeric`; estado y provenance viajan en columnas explícitas.
 
+### Plan risk sheet
+
+Implementada en `src/app/plan/_components/idea-risk-sheet.tsx` (`F11-12`).
+
+- **Purpose:** responde una sola pregunta antes de la rueda —cuánto se compra y cuánto se arriesga— y ordena la lectura: primero el monto de la compra, después los niveles de precio y al final la cantidad elegida contra la sugerida. No repite la frase del plan: la tarjeta es la hoja de decisión.
+- **Context strip:** capital, riesgo por trade y riesgo abierto contra su tope, como lista de hechos sobre un divisor. Si la cuenta o las reglas no se leyeron, la franja se reemplaza por la condición y las cifras de la cantidad elegida siguen visibles.
+- **Comparison table:** tres filas fijas —Acciones, Compra, Riesgo— y dos columnas —«Tu cantidad» y «Sugerido · {tope vinculante}»—, para que las cifras se comparen sin releer. La compra va en `text-base font-semibold` porque es el monto que se pone; cada importe lleva su porcentaje del capital en una línea secundaria, nunca en la misma línea.
+- **Price axis:** stop en rojo, entrada como círculo `foreground`, TP 1:2 y 1:3 en esmeralda. Un TP de referencia se dibuja a media altura y con texto atenuado; el elegido queda a altura plena y dice «elegido». El dibujo es `aria-hidden` y la leyenda de abajo repite cada forma, ordenada por precio y no por rol, para que dos niveles cercanos no se pisen.
+- **R unit:** la leyenda mide cada nivel desde la entrada en `R` y cierra con «1 R = US$ X por acción». Sin esa unidad, «1:2» es una etiqueta que no se puede verificar.
+- **Over-size:** la cantidad que supera el tope se dice en ámbar con las dos cifras —la propia y la sugerida—; el aviso no reescribe la cantidad del owner.
+- **Provenance:** versiones de contrato, fórmula del stop automático y «no envía órdenes» viven en tres líneas `text-xs` al pie, no en el cuerpo.
+
 ### Data marks
 
 Implementadas en `src/app/valuacion/_components/run/data-marks.tsx`.
