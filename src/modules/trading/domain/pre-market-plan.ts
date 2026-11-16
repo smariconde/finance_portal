@@ -2,6 +2,8 @@ import { z } from "zod";
 
 import {
   createDecimalOperations,
+  HUNDRED,
+  sum,
   ZERO,
 } from "@/modules/numeric/domain/decimal-policy";
 
@@ -103,6 +105,15 @@ export type IdeaLevels =
       readonly autoStop: string | null;
       readonly targetTwo: string;
       readonly targetThree: string;
+      /** `entrada − stop`: lo que arriesga una acción, la unidad de `R`. */
+      readonly riskPerShare: string;
+      /** `entrada × cantidad`: el monto de la compra. */
+      readonly chosenValue: string;
+      /** Esa compra como porcentaje del capital observado al guardar. */
+      readonly chosenPercent: string;
+      readonly chosenRiskPercent: string;
+      /** El target elegido medido en `R` desde la entrada. */
+      readonly targetR: string;
     }
   | {
       readonly state: "invalid";
@@ -116,7 +127,10 @@ export type IdeaLevels =
 
 /** El stop automático limita la pérdida al porcentaje de la liquidación en la
  * cantidad elegida. Se redondea hacia arriba a 6 decimales: el riesgo no supera
- * el presupuesto por el redondeo. Los TP parten del stop elegido. Sólo largos. */
+ * el presupuesto por el redondeo. Los TP parten del stop elegido. Sólo largos.
+ * El monto de la compra (`chosenValue`) y su peso en el capital son una lectura
+ * de esas mismas entradas: agregarlos no mueve el stop, el target ni un valor
+ * guardado, así que la versión del contrato no cambia. */
 export function ideaLevels(
   input: Pick<
     IdeaFields,
@@ -171,13 +185,35 @@ export function ideaLevels(
     return { state: "invalid", reason: "non_positive_input" };
   if (!targetValue.greaterThan(entry))
     return { state: "invalid", reason: "target_on_wrong_side" };
+  const chosenValue = entry.times(quantity);
+  const chosenRisk = risk.times(quantity);
+  const percentOf = (amount: ReturnType<typeof parse>) =>
+    format(divide(amount.times(HUNDRED), equity, "pre-market-plan"));
   return {
     state: "valid",
     stop: format(stop),
     target,
-    chosenRisk: format(risk.times(quantity)),
+    chosenRisk: format(chosenRisk),
     autoStop,
     targetTwo,
     targetThree,
+    riskPerShare: format(risk),
+    chosenValue: format(chosenValue),
+    chosenPercent: percentOf(chosenValue),
+    chosenRiskPercent: percentOf(chosenRisk),
+    targetR: format(divide(targetValue.minus(entry), risk, "pre-market-plan")),
   };
+}
+
+/**
+ * El monto de la compra de varias ideas, sumado. Es aritmética exacta sobre lo
+ * que cada revisión guardó —entrada y cantidad—, no una lectura del capital de
+ * hoy: por eso no se suma el porcentaje, que depende del capital de cada guardado.
+ */
+export function purchaseTotal(
+  ideas: readonly Pick<IdeaFields, "entry" | "quantity">[],
+): string {
+  return format(
+    sum(ideas.map((idea) => parse(idea.entry).times(parse(idea.quantity)))),
+  );
 }
