@@ -1,4 +1,11 @@
-import { History, Info } from "lucide-react";
+import {
+  Calculator,
+  DatabaseZap,
+  History,
+  Info,
+  ShieldCheck,
+  type LucideIcon,
+} from "lucide-react";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
@@ -6,17 +13,13 @@ import type { ReactNode } from "react";
 import { DataUnavailableNotice } from "@/app/_components/data-unavailable-notice";
 import { CompanyMark } from "@/app/_components/company-mark";
 import { FinvizProfileLink } from "@/app/_components/finviz-profile-link";
+import { Fold } from "@/app/_components/fold";
 import { InfoTip } from "@/app/_components/info-tip";
 import { PageContainer, PageHeader } from "@/app/_components/page-frame";
+import { StatTile } from "@/app/_components/stat-tile";
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -36,6 +39,7 @@ import type {
 import {
   formatAmount,
   formatCalendarDate,
+  formatCompactAmount,
   formatPercent,
   formatUtcTimestamp,
 } from "@/modules/valuation/domain/display-format";
@@ -68,6 +72,7 @@ import {
   type EvidenceKind,
 } from "../_components/run/data-marks";
 import { EquityBridgeTable } from "../_components/run/equity-bridge-table";
+import { methodCopy } from "../_components/method-copy";
 import { EvidenceTable } from "../_components/run/evidence-table";
 import { checkLabel } from "../_components/run/labels";
 import { RunChecks } from "../_components/run/run-checks";
@@ -89,6 +94,7 @@ import { ValueWalkthrough } from "./_components/value-walkthrough";
 import { VerdictPanel } from "./_components/verdict-panel";
 import { QualitativeDecisions } from "./_components/qualitative-decisions";
 import { RigorPanel } from "./_components/rigor-panel";
+import { ResultIndex, type ResultSection } from "./_components/result-index";
 
 /** Ver [ADR 0005](../../../../docs/architecture/adr/0005-request-time-runtime-boundary.md). */
 export const instant = false;
@@ -214,49 +220,145 @@ function PageFrame({
 
 /** Las secciones de la página, en el orden en que se leen. */
 const SECTIONS = [
-  { id: "veredicto", label: "Precio contra valor" },
-  { id: "exigencias", label: "Qué tendría que pasar" },
-  { id: "pares", label: "Frente a sus pares" },
-  { id: "ficha", label: "Ficha de la empresa" },
-  { id: "historia", label: "Cómo viene la empresa" },
+  { id: "veredicto", label: "Precio y valor" },
+  { id: "exigencias", label: "Qué exige" },
+  { id: "pares", label: "Pares" },
+  { id: "ficha", label: "Ficha" },
+  { id: "historia", label: "Trayectoria" },
   { id: "valor", label: "Por qué vale eso" },
   { id: "escenarios", label: "Escenarios" },
   { id: "cedear", label: "CEDEAR" },
   { id: "auditoria", label: "Auditoría" },
   { id: "historial", label: "Historial" },
-] as const;
+] as const satisfies readonly ResultSection[];
 
-/** El método en palabras; el código queda en la auditoría. */
-const METHOD_COPY: Record<string, string> = {
-  fcff_base: "Flujo de caja descontado",
-  normalized_fcff: "Flujo de caja con margen de ciclo",
-};
+/** Las de un banco o una aseguradora: sin exigencias, pares ni escenarios. */
+const FINANCIAL_SECTIONS = [
+  { id: "veredicto", label: "Precio y valor" },
+  { id: "ficha", label: "Ficha" },
+  { id: "historia", label: "Trayectoria" },
+  { id: "valor", label: "Por qué vale eso" },
+  { id: "cedear", label: "CEDEAR" },
+  { id: "auditoria", label: "Auditoría" },
+  { id: "historial", label: "Historial" },
+] as const satisfies readonly ResultSection[];
 
-function ResultIndex() {
+/**
+ * Un grupo de la página con su ancla; el título lo pone cada tarjeta. El
+ * margen deja el título debajo del header y del índice pegados.
+ */
+function Anchor({ id, children }: { id: string; children: ReactNode }) {
   return (
-    <nav aria-label="Secciones del resultado" className="-mt-2">
-      <ul className="flex flex-wrap gap-x-4 gap-y-2 border-b pb-3 text-sm">
-        {SECTIONS.map((section) => (
-          <li key={section.id}>
-            <a
-              className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-              href={`#${section.id}`}
-            >
-              {section.label}
-            </a>
-          </li>
-        ))}
-      </ul>
-    </nav>
+    <div id={id} className="flex scroll-mt-28 flex-col gap-6">
+      {children}
+    </div>
   );
 }
 
-/** Un grupo de la página con su ancla; el título lo pone cada tarjeta. */
-function Anchor({ id, children }: { id: string; children: ReactNode }) {
+/** La línea de datos debajo del título: fecha, método y lo que la califica. */
+function RunFacts({
+  asOf,
+  method,
+  children,
+}: {
+  asOf: string;
+  method: string;
+  children?: ReactNode;
+}) {
   return (
-    <div id={id} className="flex scroll-mt-20 flex-col gap-6">
+    <dl className="-mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+      <div className="flex gap-1.5">
+        <dt className="text-muted-foreground">Valuada al</dt>
+        <dd>
+          <time className="numeric" dateTime={asOf}>
+            {formatCalendarDate(asOf)}
+          </time>
+        </dd>
+      </div>
+      <div className="flex gap-1.5">
+        <dt className="text-muted-foreground">Método</dt>
+        <dd>{methodCopy(method)}</dd>
+      </div>
       {children}
-    </div>
+    </dl>
+  );
+}
+
+/** El aviso de revisión: los controles por nombre, una vez cada uno. */
+function ReviewAlert({ labels }: { labels: readonly string[] }) {
+  if (labels.length === 0) return null;
+
+  return (
+    <Alert>
+      <Info aria-hidden="true" />
+      <AlertTitle>La corrida quedó marcada para revisión</AlertTitle>
+      <AlertDescription>
+        {labels.length} control{labels.length === 1 ? "" : "es"} en revisión:{" "}
+        {labels.join(", ")}. El valor se calculó igual; el detalle está en la
+        auditoría.
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+/** Lo que hace «Valuar», en tres pasos con su ícono. */
+const VALUATION_STEPS: readonly {
+  icon: LucideIcon;
+  title: string;
+  detail: string;
+}[] = [
+  {
+    icon: DatabaseZap,
+    title: "Datos",
+    detail: "Baja de la SEC lo que falte y el cierre del día",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Auditoría",
+    detail: "Audita la empresa y pide a la IA lo cualitativo que falte",
+  },
+  {
+    icon: Calculator,
+    title: "Valor",
+    detail: "Valúa al corte de hoy o dice qué faltó",
+  },
+];
+
+function ValuationSteps() {
+  return (
+    <ol
+      aria-label="Qué hace Valuar"
+      className="grid max-w-3xl gap-2 sm:grid-cols-3"
+    >
+      {VALUATION_STEPS.map((step, index) => {
+        const Icon = step.icon;
+
+        return (
+          <li
+            key={step.title}
+            className="flex items-start gap-3 rounded-lg bg-muted/50 p-3"
+          >
+            <span
+              aria-hidden="true"
+              className="flex size-8 shrink-0 items-center justify-center rounded-full bg-background text-primary ring-1 ring-foreground/10"
+            >
+              <Icon className="size-4" />
+            </span>
+            <span className="flex flex-col gap-0.5">
+              <span className="text-sm font-medium">
+                <span className="numeric text-muted-foreground">
+                  {index + 1}.
+                </span>{" "}
+                {step.title}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {step.detail}
+              </span>
+            </span>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -290,39 +392,63 @@ function WithoutRun({
 
   return (
     <PageFrame ticker={reading.ticker} title={reading.ticker} hasRun={false}>
-      <section className="flex max-w-prose flex-col gap-3">
-        <p className="text-sm">{message}</p>
-        <p className="text-sm text-muted-foreground">
-          {reitAffoRefusal ? (
-            <>
-              {
-                "Volver a valuar el mismo 10-K repetirá esta negativa mientras no haya una conciliación AFFO compatible con la receta del modelo."
-              }{" "}
-              El NAV también requiere NOI forward y una tasa de capitalización
-              comparable.
-              {reading.state === "no_run" &&
-              reading.latest.reitAffoAccessionNumber !== null ? (
-                <>
-                  {" "}
-                  Presentación SEC: {reading.latest.reitAffoAccessionNumber}.
-                </>
-              ) : null}
-            </>
-          ) : (
-            <>
-              Sin corrida no hay valor por acción, y esta página no lo estima.
-              Valuar baja lo que falte de la SEC y el cierre del día, audita la
-              empresa, pide a la IA lo cualitativo que falte y evalúa al corte
-              de hoy: si alcanza, la página se completa sola; si no, dice qué
-              falta.
-            </>
-          )}
-        </p>
+      <section className="flex flex-col gap-4">
+        <p className="max-w-prose text-sm">{message}</p>
+        {reitAffoRefusal ? (
+          <p className="max-w-prose text-sm text-muted-foreground">
+            {
+              "Volver a valuar el mismo 10-K repetirá esta negativa mientras no haya una conciliación AFFO compatible con la receta del modelo."
+            }{" "}
+            El NAV también requiere NOI forward y una tasa de capitalización
+            comparable.
+            {reading.state === "no_run" &&
+            reading.latest.reitAffoAccessionNumber !== null ? (
+              <> Presentación SEC: {reading.latest.reitAffoAccessionNumber}.</>
+            ) : null}
+          </p>
+        ) : (
+          <ValuationSteps />
+        )}
       </section>
     </PageFrame>
   );
 }
 
+/** Un monto grande en un tile: la cifra en palabras y la moneda aparte. */
+function compactTile(value: string, currency: string) {
+  const text = formatCompactAmount(value);
+  const space = text.indexOf(" ");
+
+  return space < 0
+    ? { value: text, unit: currency }
+    : {
+        value: text.slice(0, space),
+        unit: `${text.slice(space + 1)} ${currency}`,
+      };
+}
+
+const FINANCIAL_COMPARISON_COPY = {
+  missing_close: "sin cierre ese día",
+  currency_mismatch: "el cierre está en otra moneda",
+  split_after_share_basis: "split entre acciones y cierre",
+  non_positive_value: "valor no positivo",
+  non_positive_close: "cierre no positivo",
+} as const;
+
+/** Los controles de un banco o una aseguradora, en palabras. */
+function financialCheckCopy(check: { id: string }): string {
+  return check.id === "financial_country_risk_basis"
+    ? "El riesgo país por domicilio es una aproximación"
+    : check.id === "financial_model_experimental"
+      ? "Método de patrimonio financiero experimental"
+      : checkLabel(check.id);
+}
+
+/**
+ * Banco o aseguradora (`F6-20`, ADR 0061): la misma lectura que una corrida
+ * FCFF —precio y valor arriba, el aviso de revisión, el índice— con lo que
+ * esta corrida tiene: patrimonio y ROE, costo del equity y su proyección.
+ */
 function FinancialRunView({
   reading,
   history,
@@ -334,302 +460,408 @@ function FinancialRunView({
   const base = run.result?.base;
   const first = base?.periods[0];
   const risk = run.input.risk;
-  const reviewChecks =
-    run.result?.checks.filter(
-      (check) => check.mode === "require_review" && check.status === "failed",
-    ) ?? [];
+  const failedChecks =
+    run.result?.checks.filter((check) => check.status === "failed") ?? [];
+  const reviewLabels = [
+    ...new Set(
+      failedChecks
+        .filter((check) => check.mode === "require_review")
+        .map(financialCheckCopy),
+    ),
+  ];
+  const knownAt =
+    run.provenance.knowledge.knownAt ?? run.provenance.knowledge.effectiveAt;
+  const bookEquity =
+    run.input.commonBookEquity === null
+      ? null
+      : compactTile(run.input.commonBookEquity.value, run.currency);
+  const equityAsOf = run.input.commonBookEquity?.asOf;
+
   return (
     <PageFrame
       ticker={reading.ticker}
       title={reading.subject?.legalName ?? reading.ticker}
       hasRun
     >
-      <p className="-mt-3 text-sm text-muted-foreground">
-        Exceso de retorno sobre patrimonio común ·{" "}
-        {run.assetProfile === "bank" ? "Banco" : "Aseguradora"} ·{" "}
-        <time dateTime={run.asOf}>{formatCalendarDate(run.asOf)}</time> · Modelo
-        experimental
-      </p>
+      <RunFacts asOf={run.asOf} method={run.method}>
+        <div className="flex gap-1.5">
+          <dt className="text-muted-foreground">Perfil</dt>
+          <dd>{run.assetProfile === "bank" ? "Banco" : "Aseguradora"}</dd>
+        </div>
+      </RunFacts>
+
       {reading.newerGap === null ? null : (
         <NewerGapAlert gap={reading.newerGap} />
       )}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle>Value per share</CardTitle>
-            <CardDescription>
-              Equity común dividido por acciones y unidades
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="numeric text-3xl font-semibold">
-            {base === undefined
-              ? "Sin valor"
-              : `${run.currency} ${formatAmount(base.valuePerShare)}`}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Precio al corte</CardTitle>
-            <CardDescription>
-              Último cierre guardado de la misma security
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="numeric text-3xl font-semibold">
-            {market.close === null
-              ? "Sin cierre"
-              : `${market.close.currency} ${formatAmount(market.close.close)}`}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {market.priceToValue === null ? "Estado" : "Price / value"}
-            </CardTitle>
-            <CardDescription>
-              {market.priceToValue === null
-                ? "Resultado del motor y controles"
-                : "Cierre ÷ valor por acción; misma fecha, moneda y base"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-lg font-medium">
-            {market.priceToValue === null ? (
-              run.status === "rejected" ? (
-                "Rechazada"
-              ) : (
-                "Requiere revisión"
-              )
-            ) : (
-              <span className="numeric text-3xl font-semibold">
-                {formatAmount(market.priceToValue)}×
-              </span>
-            )}
-            <p className="mt-1 text-sm font-normal text-muted-foreground">
-              {run.status === "rejected"
-                ? run.failure?.code
-                : `${reviewChecks.length} controles piden revisión`}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-      {!market.comparable && market.reason !== null ? (
+      {run.status === "rejected" ? (
         <Alert>
           <Info aria-hidden="true" />
-          <AlertTitle>Precio y valor no comparables</AlertTitle>
+          <AlertTitle>La corrida fue rechazada</AlertTitle>
           <AlertDescription>
-            {market.reason === "missing_close"
-              ? "Falta el cierre de la fecha de valuación."
-              : market.reason === "currency_mismatch"
-                ? "El cierre usa otra moneda."
-                : market.reason === "split_after_share_basis"
-                  ? "Hubo un split entre la fecha de las acciones y el cierre."
-                  : "El precio o el valor no es positivo."}
+            {run.failure?.message ?? "Sin motivo registrado."}
           </AlertDescription>
         </Alert>
-      ) : null}
-      <div id="ficha" className="scroll-mt-20">
-        <CompanyProfile profile={reading.profile} />
-      </div>
-      <CompanyHistory
-        trajectory={reading.trajectory}
-        knownAt={
-          run.provenance.knowledge.knownAt ??
-          run.provenance.knowledge.effectiveAt
-        }
-        focus="financial"
-      />
-      <Card>
-        <CardHeader>
-          <CardTitle>Por qué vale eso</CardTitle>
-          <CardDescription>
-            El patrimonio común observado gana sobre su costo de equity durante
-            la transición; en el terminal converge a ese costo.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <dl className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <dt className="text-muted-foreground">Common book equity</dt>
-              <dd className="numeric font-medium">
-                {run.input.commonBookEquity === null
-                  ? "Falta"
-                  : `${run.currency} ${formatAmount(run.input.commonBookEquity.value)}`}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Derived ROE</dt>
-              <dd className="numeric font-medium">
-                {run.input.derivedFinancial === undefined
-                  ? "Falta"
-                  : formatPercent(run.input.derivedFinancial.roe)}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Cost of equity, year 1</dt>
-              <dd className="numeric font-medium">
-                {first === undefined
-                  ? "Sin cálculo"
-                  : formatPercent(first.costOfEquity)}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Distribución reportada</dt>
-              <dd className="numeric font-medium">
-                {formatPercent(run.input.assumptions.periods[0]!.payout)}
-              </dd>
-            </div>
-          </dl>
-          {base === undefined ? null : (
-            <p className="mt-4 text-sm text-muted-foreground">
-              Patrimonio inicial {run.currency} {formatAmount(base.bookEquity)}{" "}
-              + valor presente de retornos excedentes {run.currency}{" "}
-              {formatAmount(base.presentValueOfExcessReturns)}. Opciones de
-              empleados: {run.currency} {formatAmount(base.employeeOptionValue)}
-              .
-            </p>
-          )}
-        </CardContent>
-      </Card>
-      {base === undefined ? null : (
+      ) : (
+        <ReviewAlert labels={reviewLabels} />
+      )}
+
+      <ResultIndex sections={FINANCIAL_SECTIONS} />
+
+      <Anchor id="veredicto">
         <Card>
-          <CardHeader>
-            <CardTitle>Proyección de patrimonio</CardTitle>
-            <CardDescription>
-              Diez años explícitos; ROE y beta convergen por regla. Cifras en{" "}
-              {run.currency}.
-            </CardDescription>
+          <CardHeader className="border-b">
+            <div className="flex items-center gap-1">
+              <CardTitle as="h2">Precio contra valor</CardTitle>
+              <InfoTip title="Cómo leer esta comparación">
+                <p>
+                  El cierre guardado del día de la valuación al lado del valor
+                  por acción del modelo: patrimonio común más el valor presente
+                  de lo que gana sobre su costo de equity. Es una lectura para
+                  aprender, no una recomendación.
+                </p>
+                <p>
+                  El modelo de bancos y aseguradoras es experimental: toda
+                  corrida queda en revisión.
+                </p>
+              </InfoTip>
+            </div>
           </CardHeader>
-          <CardContent className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead scope="col">Año</TableHead>
-                  <TableHead scope="col" className="text-right">
-                    ROE
-                  </TableHead>
-                  <TableHead scope="col" className="text-right">
-                    Cost of equity
-                  </TableHead>
-                  <TableHead scope="col" className="text-right">
-                    Ending book equity
-                  </TableHead>
-                  <TableHead scope="col" className="text-right">
-                    Excess return
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {base.periods.map((period) => (
-                  <TableRow key={period.periodIndex}>
-                    <TableCell>{period.periodIndex}</TableCell>
-                    <TableCell className="numeric text-right">
-                      {formatPercent(
-                        run.input.assumptions.periods[period.periodIndex - 1]!
-                          .roe,
-                      )}
-                    </TableCell>
-                    <TableCell className="numeric text-right">
-                      {formatPercent(period.costOfEquity)}
-                    </TableCell>
-                    <TableCell className="numeric text-right">
-                      {formatAmount(period.endingBookEquity)}
-                    </TableCell>
-                    <TableCell className="numeric text-right">
-                      {formatAmount(period.excessReturn)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-2 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]">
+              <StatTile
+                variant="inset"
+                size="lg"
+                label="Valor del modelo"
+                value={
+                  base === undefined ? "—" : formatAmount(base.valuePerShare)
+                }
+                unit={base === undefined ? undefined : run.currency}
+                detail={base === undefined ? "corrida rechazada" : "por acción"}
+              />
+              <StatTile
+                variant="inset"
+                size="lg"
+                label="Precio"
+                value={
+                  market.close === null ? "—" : formatAmount(market.close.close)
+                }
+                unit={market.close?.currency}
+                detail={
+                  market.close === null ? (
+                    "sin cierre guardado"
+                  ) : (
+                    <>
+                      Cierre del{" "}
+                      <time dateTime={market.close.marketDate}>
+                        {formatCalendarDate(market.close.marketDate)}
+                      </time>
+                    </>
+                  )
+                }
+              />
+              <StatTile
+                variant="inset"
+                size="sm"
+                label="Price / value"
+                value={
+                  market.priceToValue === null
+                    ? "—"
+                    : `${formatAmount(market.priceToValue, { scale: 2 })}×`
+                }
+                detail={
+                  market.reason === null
+                    ? undefined
+                    : FINANCIAL_COMPARISON_COPY[market.reason]
+                }
+              />
+              <StatTile
+                variant="inset"
+                size="sm"
+                label="Rigor"
+                value={RIGOR_COPY[run.result?.rigor ?? "screening"]}
+                detail="Modelo experimental"
+              />
+            </div>
           </CardContent>
         </Card>
-      )}
-      <CedearAccess cedear={reading.cedear} />
-      <Card>
-        <CardHeader>
-          <CardTitle>Auditoría</CardTitle>
-          <CardDescription>
-            Hechos, fecha y controles de esta corrida.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4 text-sm">
-          <p>
-            Patrimonio común (
-            {run.input.commonBookEquity?.sourceId === "sec-edgar"
-              ? "SEC"
-              : "sin fuente"}
-            ):{" "}
-            <time dateTime={run.input.commonBookEquity?.asOf}>
-              {run.input.commonBookEquity?.asOf ?? "sin fecha"}
-            </time>
-            ; utilidad común, patrimonio anterior y distribución provienen de
-            tablas conciliadas del mismo 10-K. Los diagnósticos anteriores son
-            automáticos; las releases de Damodaran se leen al corte{" "}
-            <time
-              dateTime={
-                run.provenance.knowledge.knownAt ??
-                run.provenance.knowledge.effectiveAt
-              }
-            >
-              {formatUtcTimestamp(
-                run.provenance.knowledge.knownAt ??
-                  run.provenance.knowledge.effectiveAt,
-              )}
-            </time>
-            .
-          </p>
-          <p>
-            Libre de riesgo{" "}
-            {risk.riskFree === null
-              ? "faltante"
-              : formatPercent(risk.riskFree.value)}{" "}
-            · ERP{" "}
-            {risk.matureErp === null
-              ? "faltante"
-              : formatPercent(risk.matureErp.value)}{" "}
-            · CRP por domicilio{" "}
-            {risk.countryRiskPremium === null
-              ? "faltante"
-              : formatPercent(risk.countryRiskPremium.value)}
-            .
-          </p>
-          <dl className="space-y-3">
-            <div>
-              <dt className="font-medium">Capital regulatorio · 10-K</dt>
-              <dd>
-                {run.input.financialReview.regulatoryCapital ?? "Sin revisión"}
-              </dd>
+      </Anchor>
+
+      <Anchor id="ficha">
+        <CompanyProfile profile={reading.profile} />
+      </Anchor>
+
+      <Anchor id="historia">
+        <CompanyHistory
+          trajectory={reading.trajectory}
+          knownAt={knownAt}
+          focus="financial"
+        />
+      </Anchor>
+
+      <Anchor id="valor">
+        <Card>
+          <CardHeader className="border-b">
+            <div className="flex items-center gap-1">
+              <CardTitle as="h2">Por qué vale eso</CardTitle>
+              <InfoTip title="Exceso de retorno">
+                <p>
+                  El patrimonio común gana su ROE sobre el costo del equity
+                  durante diez años; ROE y beta convergen por regla y en el
+                  terminal el retorno iguala al costo.
+                </p>
+              </InfoTip>
             </div>
-            <div>
-              <dt className="font-medium">Calidad de activos · 10-K</dt>
-              <dd>
-                {run.input.financialReview.assetQuality ?? "Sin revisión"}
-              </dd>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+              <StatTile
+                variant="inset"
+                size="sm"
+                label="Common book equity"
+                value={bookEquity?.value ?? "Falta"}
+                unit={bookEquity?.unit}
+              />
+              <StatTile
+                variant="inset"
+                size="sm"
+                label="ROE"
+                value={
+                  run.input.derivedFinancial === undefined
+                    ? "Falta"
+                    : formatPercent(run.input.derivedFinancial.roe)
+                }
+                detail="derivado del 10-K"
+              />
+              <StatTile
+                variant="inset"
+                size="sm"
+                label="Cost of equity"
+                value={
+                  first === undefined ? "—" : formatPercent(first.costOfEquity)
+                }
+                detail="año 1"
+              />
+              <StatTile
+                variant="inset"
+                size="sm"
+                label="Payout"
+                value={formatPercent(run.input.assumptions.periods[0]!.payout)}
+                detail="distribución reportada"
+              />
             </div>
-            <div>
-              <dt className="font-medium">Cambios del patrimonio · 10-K</dt>
-              <dd>
-                {run.input.financialReview.cleanSurplus ?? "Sin revisión"}
-              </dd>
-            </div>
-          </dl>
-          {reviewChecks.length > 0 || run.failure !== null ? (
-            <ul className="list-disc space-y-1 pl-5">
-              {run.result?.checks
-                .filter((check) => check.status === "failed")
-                .map((check) => (
-                  <li key={check.id}>
-                    {check.id === "financial_country_risk_basis"
-                      ? "El riesgo país por domicilio es una aproximación explícita."
-                      : check.id === "financial_model_experimental"
-                        ? "Este método de patrimonio financiero es experimental y requiere revisión."
-                        : check.message}
-                  </li>
-                )) ?? <li>{run.failure?.message}</li>}
-            </ul>
-          ) : null}
-        </CardContent>
-      </Card>
-      <ValuationHistory view={history} />
+            {base === undefined ? null : (
+              <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-3">
+                {(
+                  [
+                    ["Patrimonio inicial", base.bookEquity, ""],
+                    [
+                      "Valor presente de retornos excedentes",
+                      base.presentValueOfExcessReturns,
+                      "+",
+                    ],
+                    ["Opciones de empleados", base.employeeOptionValue, "−"],
+                  ] as const
+                ).map(([label, value, sign]) => (
+                  <div
+                    key={label}
+                    className="flex items-baseline justify-between gap-2 border-b py-1.5 sm:flex-col sm:items-start sm:border-b-0"
+                  >
+                    <dt className="text-muted-foreground">{label}</dt>
+                    <dd className="numeric font-medium whitespace-nowrap">
+                      {sign === "" ? null : (
+                        <span className="text-muted-foreground">{sign} </span>
+                      )}
+                      {formatCompactAmount(value)} {run.currency}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+            {base === undefined ? null : (
+              <Fold summary="Proyección del patrimonio año por año">
+                <Table containerLabel="Proyección del patrimonio, tabla desplazable">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead scope="col">Año</TableHead>
+                      <TableHead scope="col" className="text-right">
+                        ROE
+                      </TableHead>
+                      <TableHead scope="col" className="text-right">
+                        Cost of equity
+                      </TableHead>
+                      <TableHead scope="col" className="text-right">
+                        Ending book equity
+                      </TableHead>
+                      <TableHead scope="col" className="text-right">
+                        Excess return
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {base.periods.map((period) => (
+                      <TableRow key={period.periodIndex}>
+                        <TableCell>{period.periodIndex}</TableCell>
+                        <TableCell className="numeric text-right">
+                          {formatPercent(
+                            run.input.assumptions.periods[
+                              period.periodIndex - 1
+                            ]!.roe,
+                          )}
+                        </TableCell>
+                        <TableCell className="numeric text-right">
+                          {formatPercent(period.costOfEquity)}
+                        </TableCell>
+                        <TableCell className="numeric text-right">
+                          {formatAmount(period.endingBookEquity)}
+                        </TableCell>
+                        <TableCell className="numeric text-right">
+                          {formatAmount(period.excessReturn)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Cifras en {run.currency}.
+                </p>
+              </Fold>
+            )}
+          </CardContent>
+        </Card>
+      </Anchor>
+
+      <Anchor id="cedear">
+        <CedearAccess cedear={reading.cedear} />
+      </Anchor>
+
+      <section
+        id="auditoria"
+        aria-labelledby="audit-title"
+        className="flex scroll-mt-28 flex-col gap-2"
+      >
+        <h2 id="audit-title" className="text-lg font-semibold">
+          Auditoría de la corrida
+        </h2>
+        <div className="border-t">
+          <AuditGroup
+            id="auditoria-fuentes"
+            title="Fuentes y costo del equity"
+            summary="De dónde sale el patrimonio y cada parámetro de la tasa."
+          >
+            <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <dt className="text-muted-foreground">Patrimonio común</dt>
+                <dd>
+                  {run.input.commonBookEquity?.sourceId === "sec-edgar"
+                    ? "SEC"
+                    : "sin fuente"}
+                  {" · "}
+                  {equityAsOf === undefined ? (
+                    "sin fecha"
+                  ) : (
+                    <time className="numeric" dateTime={equityAsOf}>
+                      {formatCalendarDate(equityAsOf)}
+                    </time>
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Risk-free</dt>
+                <dd className="numeric">
+                  {risk.riskFree === null
+                    ? "faltante"
+                    : formatPercent(risk.riskFree.value)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">ERP</dt>
+                <dd className="numeric">
+                  {risk.matureErp === null
+                    ? "faltante"
+                    : formatPercent(risk.matureErp.value)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">CRP por domicilio</dt>
+                <dd className="numeric">
+                  {risk.countryRiskPremium === null
+                    ? "faltante"
+                    : formatPercent(risk.countryRiskPremium.value)}
+                </dd>
+              </div>
+            </dl>
+            <p className="text-xs text-muted-foreground">
+              Utilidad común, patrimonio anterior y distribución salen de tablas
+              conciliadas del mismo 10-K; las releases de Damodaran se leen al
+              corte{" "}
+              <time dateTime={knownAt}>{formatUtcTimestamp(knownAt)}</time>.
+            </p>
+          </AuditGroup>
+          <AuditGroup
+            id="auditoria-revisiones"
+            title="Revisiones del 10-K"
+            summary="Capital regulatorio, calidad de activos y cambios del patrimonio."
+          >
+            <dl className="space-y-3 text-sm">
+              {(
+                [
+                  [
+                    "Capital regulatorio",
+                    run.input.financialReview.regulatoryCapital,
+                  ],
+                  [
+                    "Calidad de activos",
+                    run.input.financialReview.assetQuality,
+                  ],
+                  [
+                    "Cambios del patrimonio",
+                    run.input.financialReview.cleanSurplus,
+                  ],
+                ] as const
+              ).map(([label, value]) => (
+                <div key={label}>
+                  <dt className="font-medium">{label}</dt>
+                  <dd className="text-muted-foreground">
+                    {value ?? "Sin revisión"}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </AuditGroup>
+          <AuditGroup
+            id="auditoria-controles"
+            title="Controles"
+            summary={
+              failedChecks.length === 0
+                ? "Todos los controles pasaron."
+                : `${failedChecks.length} control${failedChecks.length === 1 ? "" : "es"} sin pasar.`
+            }
+            defaultOpen={run.status === "rejected"}
+          >
+            {failedChecks.length === 0 && run.failure === null ? (
+              <p className="text-sm text-muted-foreground">
+                Todos los controles pasaron.
+              </p>
+            ) : (
+              <ul className="list-disc space-y-1 pl-5 text-sm">
+                {failedChecks.map((check) => (
+                  <li key={check.id}>{financialCheckCopy(check)}</li>
+                ))}
+                {run.failure === null ? null : <li>{run.failure.message}</li>}
+              </ul>
+            )}
+          </AuditGroup>
+        </div>
+      </section>
+
+      <Anchor id="historial">
+        <ValuationHistory view={history} />
+      </Anchor>
+
+      <p className="text-sm text-muted-foreground">
+        Lectura educativa de un modelo, no una recomendación ni un precio
+        objetivo.
+      </p>
     </PageFrame>
   );
 }
@@ -730,40 +962,22 @@ export default async function ValuationResultPage({ params }: PageProps) {
       title={subject?.legalName ?? reading.ticker}
       hasRun
     >
-      <dl className="-mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm">
-        <div className="flex gap-1.5">
-          <dt className="text-muted-foreground">Valuada al</dt>
-          <dd>
-            <time className="numeric" dateTime={run.asOf}>
-              {formatCalendarDate(run.asOf)}
-            </time>
-          </dd>
-        </div>
-        <div className="flex gap-1.5">
-          <dt className="text-muted-foreground">Método</dt>
-          <dd>{METHOD_COPY[run.method] ?? run.method}</dd>
-        </div>
-      </dl>
+      <RunFacts asOf={run.asOf} method={run.method} />
 
       {reading.newerGap === null ? null : (
         <NewerGapAlert gap={reading.newerGap} />
       )}
 
-      {reviewChecks.length === 0 ? null : (
-        <Alert>
-          <Info aria-hidden="true" />
-          <AlertTitle>La corrida quedó marcada para revisión</AlertTitle>
-          <AlertDescription>
-            {reviewLabels.length} control
-            {reviewLabels.length === 1 ? "" : "es"} en modo revisión no pasó (
-            {reviewLabels.join(", ")}). El valor se calculó igual, pero no debe
-            leerse como cerrado hasta resolverlos; el detalle está en la
-            auditoría.
-          </AlertDescription>
-        </Alert>
-      )}
+      <ReviewAlert labels={reviewLabels} />
 
-      <ResultIndex />
+      <ResultIndex
+        sections={SECTIONS.filter(
+          (section) =>
+            section.id !== "escenarios" ||
+            scenarios !== null ||
+            sensitivity !== null,
+        )}
+      />
 
       <Anchor id="veredicto">
         <VerdictPanel
@@ -771,7 +985,6 @@ export default async function ValuationResultPage({ params }: PageProps) {
           verdict={verdict}
           market={reading.market}
           attribution={attributionOf(PRICES_SOURCE_ID)}
-          multiples={reading.peers.company}
           rigorLabel={RIGOR_COPY[run.input.assessment.rigor.level]}
         />
       </Anchor>
@@ -819,17 +1032,11 @@ export default async function ValuationResultPage({ params }: PageProps) {
       <section
         id="auditoria"
         aria-labelledby="audit-title"
-        className="flex scroll-mt-20 flex-col gap-2"
+        className="flex scroll-mt-28 flex-col gap-2"
       >
-        <div className="flex flex-col gap-1">
-          <h2 id="audit-title" className="text-lg font-semibold">
-            Auditoría de la corrida
-          </h2>
-          <p className="max-w-prose text-sm text-muted-foreground">
-            Supuestos, hechos con su documento, controles del motor y contrato
-            point-in-time.
-          </p>
-        </div>
+        <h2 id="audit-title" className="text-lg font-semibold">
+          Auditoría de la corrida
+        </h2>
 
         <div className="border-t">
           <AuditGroup

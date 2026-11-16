@@ -124,16 +124,22 @@ export default async function ValuationReferencePage() {
         title="Corrida de referencia del motor"
         lead={
           <>
-            Una corrida FCFF fija para verificar que el motor reproduce su hash.
+            Una valuación fija que prueba que el motor da siempre el mismo
+            resultado.
             <InfoTip title="Para qué sirve">
               <p>
-                Es una corrida completa sobre un snapshot fijo, con la evidencia
-                que la sostiene y los supuestos que la explican.
+                Es una corrida FCFF completa sobre un snapshot fijo, con la
+                evidencia que la sostiene y los supuestos que la explican.
               </p>
               <p>
                 Verifica que el motor reproduce el mismo hash en esta
                 instalación y fija cómo se muestra la evidencia de cualquier
                 valuación.
+              </p>
+              <p>
+                No usa proveedores, red ni la base: se calcula en el proceso, y
+                los supuestos no se editan, porque lo que el hash verifica es
+                justamente que no cambien.
               </p>
             </InfoTip>
           </>
@@ -145,22 +151,31 @@ export default async function ValuationReferencePage() {
         <FlaskConical aria-hidden="true" />
         <AlertTitle>Empresa sintética, no una empresa real</AlertTitle>
         <AlertDescription>
-          {entity?.legalName ?? "El sujeto de esta corrida"} no existe. Sus
-          datos son un snapshot determinista creado para verificar el motor; no
-          derivan de ningún proveedor ni de una captura de datos reales. El
-          resultado no es una recomendación ni un precio objetivo, y esta página
-          no se conecta a ninguna fuente.
+          {entity?.legalName ?? "El sujeto de esta corrida"} no existe: sus
+          datos son fijos y no salen de ninguna fuente. No es una recomendación
+          ni un precio objetivo.
         </AlertDescription>
       </Alert>
 
       <Card size="sm">
         <CardHeader>
-          <CardTitle as="h2">Identidad del sujeto valuado</CardTitle>
-          <CardDescription>
-            Entidad legal, instrumento, listing y programa depositario son
-            identidades distintas. El ticker es un valor de búsqueda con
-            vigencia, nunca la identidad.
-          </CardDescription>
+          <div className="flex items-center gap-0.5">
+            <CardTitle as="h2">Identidad del sujeto valuado</CardTitle>
+            <InfoTip title="Cuatro identidades">
+              <p>
+                Entidad legal, instrumento, listing y programa depositario son
+                identidades distintas. El ticker es un valor de búsqueda con
+                vigencia, nunca la identidad.
+              </p>
+              {run.subject.depositaryProgramId === null ? null : (
+                <p>
+                  El programa depositario vincula dos securities con un ratio
+                  versionado; la valuación corre sobre la subyacente, no sobre
+                  el CEDEAR.
+                </p>
+              )}
+            </InfoTip>
+          </div>
         </CardHeader>
         <CardContent>
           <FieldList className="sm:grid-cols-2 lg:grid-cols-4">
@@ -186,20 +201,10 @@ export default async function ValuationReferencePage() {
             >
               {listing?.mic ?? "—"}
             </Field>
-            <Field
-              term="Símbolo vigente"
-              hint="Valor de búsqueda con vigencia, no una clave estable"
-            >
+            <Field term="Símbolo vigente">
               <span className="numeric">{DEMO_CURRENT_SYMBOL.symbol}</span>
             </Field>
           </FieldList>
-          {run.subject.depositaryProgramId === null ? null : (
-            <p className="mt-4 text-sm text-muted-foreground">
-              El programa depositario que da acceso local a este instrumento
-              vincula dos securities mediante un ratio versionado; la valuación
-              corre sobre la subyacente y no sobre el CEDEAR.
-            </p>
-          )}
         </CardContent>
       </Card>
 
@@ -211,9 +216,8 @@ export default async function ValuationReferencePage() {
           <AlertTitle>La corrida quedó marcada para revisión</AlertTitle>
           <AlertDescription>
             {reviewChecks.length} control
-            {reviewChecks.length === 1 ? "" : "es"} en modo revisión no pasó. El
-            resultado se calculó igual, pero no debe leerse como cerrado hasta
-            resolverlos.
+            {reviewChecks.length === 1 ? "" : "es"} en revisión. El resultado se
+            calculó igual.
           </AlertDescription>
         </Alert>
       )}
@@ -263,10 +267,14 @@ export default async function ValuationReferencePage() {
           <CardTitle as="h2">
             El mismo modelo bajo otro corte de conocimiento
           </CardTitle>
-          <CardDescription>
-            La fuente reexpresó los ingresos FY2024. Leer el modelo antes y
-            después del anuncio produce dos corridas con dos hashes, no una
-            corrección de la primera.
+          <CardDescription className="flex items-center gap-0.5">
+            Ingresos FY2024 reexpresados: dos cortes, dos corridas.
+            <InfoTip title="Otro corte de conocimiento">
+              <p>
+                Leer el modelo antes y después del anuncio produce dos corridas
+                con dos hashes, no una corrección de la primera.
+              </p>
+            </InfoTip>
           </CardDescription>
         </CardHeader>
         <CardContent className="px-0">
@@ -333,33 +341,9 @@ export default async function ValuationReferencePage() {
 
       <RunChecks run={run} />
 
-      <section
-        className="rounded-xl border bg-muted/30 p-4"
-        aria-labelledby="limits-title"
-      >
-        <h2 id="limits-title" className="text-base font-medium">
-          Límites de esta superficie
-        </h2>
-        <ul className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
-          <li>
-            No usa proveedores, red ni datos guardados: la corrida se calcula en
-            el proceso desde un snapshot fijo. Las empresas reales se valúan en
-            su propia página, desde Valuación.
-          </li>
-          <li>
-            Renderizar esta página no abre PostgreSQL ni persiste una corrida,
-            en ningún modo.
-          </li>
-          <li>
-            No hay recomendación, precio objetivo, comparación con un precio de
-            mercado ni señal de compra o venta.
-          </li>
-          <li>
-            Los supuestos no son editables: son los del snapshot fijo, y lo que
-            el hash verifica es justamente que no cambien.
-          </li>
-        </ul>
-      </section>
+      <p className="text-sm text-muted-foreground">
+        Sin precio de mercado, recomendación ni señal de compra o venta.
+      </p>
     </PageContainer>
   );
 }

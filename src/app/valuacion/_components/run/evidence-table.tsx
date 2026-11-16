@@ -71,9 +71,7 @@ export function EvidenceTable({
       <CardHeader className="border-b">
         <CardTitle as="h2">Evidencia que sostiene el resultado</CardTitle>
         <CardDescription>
-          Cada hecho conserva fuente, documento, fecha de cierre, disponibilidad
-          pública y banderas de calidad. Sin esa fila, el número no es
-          auditable.
+          Fuente, documento, cierre, disponibilidad y calidad de cada hecho.
         </CardDescription>
       </CardHeader>
 

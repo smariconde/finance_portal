@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 import { Fold } from "@/app/_components/fold";
 import { InfoTip } from "@/app/_components/info-tip";
 import { EvidenceKindMark } from "@/app/valuacion/_components/run/data-marks";
-import { CodeValue } from "@/app/valuacion/_components/run/field";
 import { BRIDGE_LABELS } from "@/app/valuacion/_components/run/labels";
 import {
   Card,
@@ -154,7 +153,11 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
             </p>
             <p>
               Todos los supuestos salen de una regla aplicada a lo que la
-              empresa ya reportó; ninguno lo escribió una persona.
+              empresa ya reportó; ninguno lo escribió una persona. Las tablas
+              exactas de cada paso están en la auditoría.
+            </p>
+            <p>
+              Regla <code className="font-mono">{chain.version}</code>.
             </p>
           </InfoTip>
         </CardDescription>
@@ -503,11 +506,6 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
             </p>
           </Step>
         </ol>
-
-        <p className="text-xs text-muted-foreground xl:col-span-2">
-          Las tablas exactas de cada paso están en la auditoría.{" "}
-          <CodeValue>{chain.version}</CodeValue>
-        </p>
       </CardContent>
     </Card>
   );

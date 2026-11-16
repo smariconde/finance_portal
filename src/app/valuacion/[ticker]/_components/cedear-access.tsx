@@ -5,13 +5,7 @@ import {
   Field,
   FieldList,
 } from "@/app/valuacion/_components/run/field";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { ValuationResultCedear } from "@/modules/valuation/application/read-valuation-result";
 import {
@@ -69,16 +63,20 @@ export function CedearAccess({ cedear }: { cedear: ValuationResultCedear }) {
   return (
     <Card>
       <CardHeader className="border-b">
-        <CardTitle as="h2">Acceso por CEDEAR</CardTitle>
-        <CardDescription className="flex items-center gap-0.5">
-          Registro de Comafi y Caja de Valores al corte de la corrida.
+        <div className="flex items-center gap-0.5">
+          <CardTitle as="h2">Acceso por CEDEAR</CardTitle>
           <InfoTip title="CEDEAR y acción">
             <p>
-              El CEDEAR y la acción son instrumentos distintos; acá sólo se
-              convierte el valor de la acción por el ratio del programa vigente.
+              El CEDEAR y la acción son instrumentos distintos: acá sólo se
+              convierte el valor de la acción por el ratio del programa vigente
+              al corte de la corrida, según el registro de Banco Comafi y Caja
+              de Valores.
+            </p>
+            <p>
+              Regla <code className="font-mono">{cedear.rule}</code>.
             </p>
           </InfoTip>
-        </CardDescription>
+        </div>
       </CardHeader>
 
       {cedear.status === "none_known" ? (
@@ -88,9 +86,6 @@ export function CedearAccess({ cedear }: { cedear: ValuationResultCedear }) {
             {cedear.reason === "no_program_recorded"
               ? "Ni Banco Comafi ni Caja de Valores listan un programa sobre esta acción."
               : "Hay programas registrados para esta acción, pero ninguno vigente al corte: o el corte es anterior a la primera vez que se lo vio, o el programa se retiró. No es lo mismo que «sin CEDEAR»."}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            <CodeValue>{cedear.rule}</CodeValue>
           </p>
         </CardContent>
       ) : (
@@ -179,7 +174,22 @@ export function CedearAccess({ cedear }: { cedear: ValuationResultCedear }) {
 
             <div className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-4">
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-sm font-medium">Valor por CEDEAR</h3>
+                <h3 className="flex items-center gap-0.5 text-sm font-medium">
+                  Valor por CEDEAR
+                  <InfoTip title="Valor por CEDEAR">
+                    <p>
+                      Valor por acción × acciones por CEDEAR. Es el mismo
+                      resultado en otra unidad; no es un precio de mercado.
+                    </p>
+                    <p>
+                      Regla{" "}
+                      <code className="font-mono">
+                        {program.equivalent.version}
+                      </code>
+                      .
+                    </p>
+                  </InfoTip>
+                </h3>
                 <EvidenceKindMark kind="derived_by_rule" />
               </div>
               {program.equivalent.status === "computed" ? (
@@ -192,10 +202,6 @@ export function CedearAccess({ cedear }: { cedear: ValuationResultCedear }) {
                       {program.equivalent.currency}
                     </span>
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    Valor por acción × acciones por CEDEAR. Es el mismo
-                    resultado en otra unidad; no es un precio de mercado.
-                  </p>
                 </>
               ) : (
                 <p className="text-sm text-muted-foreground">
@@ -205,11 +211,36 @@ export function CedearAccess({ cedear }: { cedear: ValuationResultCedear }) {
               <div className="mt-3 border-t pt-3">
                 {program.pesos.status === "computed" ? (
                   <>
-                    <p className="mb-3 text-xs text-muted-foreground">
+                    <div className="mb-3 flex items-center gap-0.5 text-xs text-muted-foreground">
                       Cierres del{" "}
-                      {formatCalendarDate(program.pesos.price.marketDate)} ·
-                      Yahoo Finance
-                    </p>
+                      {formatCalendarDate(program.pesos.price.marketDate)}
+                      <InfoTip title="Fuente y método" label="Fuente">
+                        <p>
+                          Cierres diarios guardados de Yahoo Finance, uso
+                          personal aceptado por el owner, sin concesión
+                          contractual. Acción:{" "}
+                          {formatAmount(program.pesos.underlyingPrice.close)}{" "}
+                          USD.
+                        </p>
+                        <p>
+                          CCL = precio CEDEAR × CEDEAR por acción ÷ precio de la
+                          acción. Valor en pesos = valor en USD × CCL.
+                        </p>
+                        <p>
+                          Dos cierres del mismo día, que pueden no ser
+                          simultáneos: no es un tipo de cambio ejecutable. La
+                          conversión conserva la relación valor/precio de la
+                          acción.
+                        </p>
+                        <p>
+                          Regla{" "}
+                          <code className="font-mono">
+                            {program.pesos.version}
+                          </code>
+                          .
+                        </p>
+                      </InfoTip>
+                    </div>
                     <FieldList>
                       <Field
                         term="Precio CEDEAR en BYMA"
@@ -236,15 +267,6 @@ export function CedearAccess({ cedear }: { cedear: ValuationResultCedear }) {
                         </span>
                       </Field>
                     </FieldList>
-                    <p className="mt-3 text-xs text-muted-foreground">
-                      Acción:{" "}
-                      {formatAmount(program.pesos.underlyingPrice.close)} USD.
-                      CCL = precio CEDEAR × CEDEAR por acción ÷ precio de la
-                      acción. Valor en pesos = valor en USD × CCL. Dos cierres
-                      del mismo día, que pueden no ser simultáneos; no es un
-                      tipo de cambio ejecutable. La conversión conserva la
-                      relación valor/precio de la acción.
-                    </p>
                   </>
                 ) : (
                   <p className="text-sm text-muted-foreground">
@@ -252,16 +274,7 @@ export function CedearAccess({ cedear }: { cedear: ValuationResultCedear }) {
                     {UNAVAILABLE_LABELS[program.pesos.reason]}
                   </p>
                 )}
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Fuente de precios: Yahoo Finance, uso personal aceptado por el
-                  owner, sin concesión contractual. Sólo cierres diarios
-                  guardados. <CodeValue>{program.pesos.version}</CodeValue>
-                </p>
               </div>
-              <p className="text-xs text-muted-foreground">
-                <CodeValue>{program.equivalent.version}</CodeValue>{" "}
-                <CodeValue>{cedear.rule}</CodeValue>
-              </p>
             </div>
           </CardContent>
         ))

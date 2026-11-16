@@ -94,7 +94,36 @@ export function SensitivityMatrix({
 }: {
   sensitivity: AnnotatedSensitivity;
 }) {
-  const cells = sensitivity.rows.flatMap((row) => row.cells);
+  // Una columna entera fuera del modelo —un crecimiento terminal por encima
+  // de la tasa libre de riesgo— no se dibuja: se nombra una vez abajo.
+  const droppedColumns = sensitivity.terminalGrowthValues
+    .map((growth, index) => ({ growth, index }))
+    .filter(
+      ({ index }) =>
+        sensitivity.rows.length > 0 &&
+        sensitivity.rows.every(
+          (row) => row.cells[index]?.status === "rejected",
+        ),
+    );
+  const dropped = new Set(droppedColumns.map(({ index }) => index));
+  const growthValues = sensitivity.terminalGrowthValues.filter(
+    (_, index) => !dropped.has(index),
+  );
+  const rows = sensitivity.rows.map((row) => ({
+    ...row,
+    cells: row.cells.filter((_, index) => !dropped.has(index)),
+  }));
+  const droppedReasons = [
+    ...new Set(
+      droppedColumns.flatMap(({ index }) =>
+        sensitivity.rows.flatMap((row) => {
+          const cell = row.cells[index];
+          return cell?.status === "rejected" ? [cell.reason] : [];
+        }),
+      ),
+    ),
+  ].sort();
+  const cells = rows.flatMap((row) => row.cells);
   const ramp = heatRamp(cells);
   const rejected = cells.filter((cell) => cell.status === "rejected");
   const rejectionReasons = [
@@ -109,12 +138,22 @@ export function SensitivityMatrix({
           crecimiento?
         </CardTitle>
         <CardDescription className="flex items-center gap-0.5">
-          Valor por acción en {sensitivity.currency}, todo lo demás fijo.
-          <InfoTip title="Cómo se lee la sensibilidad">
+          Value per share en {sensitivity.currency}, todo lo demás fijo.
+          <InfoTip title="Cómo se lee la grilla">
             <p>
               Cada celda vuelve a valuar con ese WACC y ese crecimiento
               terminal. El eje de WACC reemplaza el costo de capital de todos
               los períodos y del terminal, no de uno solo.
+            </p>
+            <p>
+              El valor de cada celda está escrito; el tinte sólo ordena de menor
+              a mayor. Cada celda es un escenario mecánico, no un resultado más
+              probable que otro.
+            </p>
+            <p>
+              {sensitivity.baseIsComparable
+                ? "La celda marcada como caso base reproduce exactamente el resultado principal; las demás son diferencias contra ella."
+                : "El costo de capital del snapshot no es plano, así que ninguna celda reproduce el caso base y no se marca ninguna."}
             </p>
           </InfoTip>
         </CardDescription>
@@ -122,7 +161,7 @@ export function SensitivityMatrix({
 
       <CardContent className="px-0">
         <Table containerLabel="Sensibilidad WACC por crecimiento terminal, tabla desplazable">
-          <TableCaption className="px-(--card-spacing) text-left">
+          <TableCaption className="sr-only">
             Unidad: valor por acción en {sensitivity.currency}. Eje vertical:
             WACC de {formatPercent(sensitivity.waccValues[0])} a{" "}
             {formatPercent(sensitivity.waccValues.at(-1) ?? "0")}. Eje
@@ -134,10 +173,10 @@ export function SensitivityMatrix({
           </TableCaption>
           <TableHeader>
             <TableRow>
-              <TableHead scope="col" className="text-left">
+              <TableHead scope="col" className="w-40 text-left">
                 WACC \ Terminal growth
               </TableHead>
-              {sensitivity.terminalGrowthValues.map((growth) => (
+              {growthValues.map((growth) => (
                 <TableHead
                   key={growth}
                   scope="col"
@@ -149,7 +188,7 @@ export function SensitivityMatrix({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sensitivity.rows.map((row) => (
+            {rows.map((row) => (
               <TableRow key={row.wacc}>
                 <TableHead scope="row" className="numeric font-medium">
                   {formatPercent(row.wacc)}
@@ -225,44 +264,38 @@ export function SensitivityMatrix({
         </Table>
       </CardContent>
 
-      <CardContent className="border-t pt-(--card-spacing)">
-        <h3 className="text-sm font-medium">Cómo leer la grilla</h3>
-        <ul className="mt-2 grid gap-2 text-sm text-muted-foreground lg:grid-cols-3">
-          <li className="rounded-lg border bg-muted/30 p-3">
-            El valor de cada celda está escrito. El tinte ordena las celdas de
-            menor a mayor valor y no comunica nada por sí solo; el importe
-            exacto no depende de él.
-          </li>
-          <li className="rounded-lg border bg-muted/30 p-3">
-            {sensitivity.baseIsComparable ? (
-              <>
-                La celda marcada como caso base reproduce exactamente el
-                resultado principal; las demás son diferencias contra ella.
-              </>
-            ) : (
-              <>
-                El costo de capital del snapshot no es plano, así que ninguna
-                celda reproduce el caso base y no se marca ninguna.
-              </>
+      {droppedColumns.length === 0 && rejectionReasons.length === 0 ? null : (
+        <CardContent className="border-t pt-(--card-spacing)">
+          <ul className="space-y-1 text-xs text-muted-foreground">
+            {droppedColumns.length === 0 ? null : (
+              <li className="flex items-start gap-1.5">
+                <Ban aria-hidden="true" className="mt-px size-3 shrink-0" />
+                <span>
+                  <span className="font-medium">
+                    Terminal growth{" "}
+                    <span className="numeric">
+                      {droppedColumns
+                        .map(({ growth }) => formatPercent(growth))
+                        .join(", ")}
+                    </span>{" "}
+                    sin valor:
+                  </span>{" "}
+                  {droppedReasons.map(sensitivityRejectionLabel).join(" ")}
+                </span>
+              </li>
             )}
-          </li>
-          <li className="rounded-lg border bg-muted/30 p-3">
-            {rejected.length === 0
-              ? "Todas las celdas de este rango están definidas."
-              : `${rejected.length} celdas quedan fuera del modelo y lo declaran en vez de vaciarse.`}
-          </li>
-        </ul>
-        {rejectionReasons.length === 0 ? null : (
-          <dl className="mt-3 space-y-1 text-xs text-muted-foreground">
             {rejectionReasons.map((reason) => (
-              <div key={reason} className="flex flex-wrap gap-1">
-                <dt className="font-medium">No definido:</dt>
-                <dd>{sensitivityRejectionLabel(reason)}</dd>
-              </div>
+              <li key={reason} className="flex items-start gap-1.5">
+                <Ban aria-hidden="true" className="mt-px size-3 shrink-0" />
+                <span>
+                  <span className="font-medium">No definido:</span>{" "}
+                  {sensitivityRejectionLabel(reason)}
+                </span>
+              </li>
             ))}
-          </dl>
-        )}
-      </CardContent>
+          </ul>
+        </CardContent>
+      )}
     </Card>
   );
 }

@@ -3,13 +3,7 @@ import Link from "next/link";
 import { Fold } from "@/app/_components/fold";
 import { CompanyMark } from "@/app/_components/company-mark";
 import { EvidenceKindMark } from "@/app/valuacion/_components/run/data-marks";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -198,9 +192,20 @@ export function PeerContext({ context }: { context: PeerContextReading }) {
       ? `La mediana de ${label} queda ${signedPercent(context.sectorVsModel.value)} frente a la de todo lo valuado.`
       : null;
 
+  // Con menos pares que el mínimo en todas las cifras del sector, la tabla
+  // sería una grilla de «insuficientes»: se dice en una línea con su `n`.
+  const sectorReadable =
+    sector.status === "classified" &&
+    label !== null &&
+    METRICS.some(({ key }) => sector.summaries[key].status !== "insufficient");
+  const sectorCount =
+    sector.status === "classified"
+      ? Math.max(...METRICS.map(({ key }) => sector.summaries[key].n))
+      : null;
+
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className={sectorReadable ? "border-b" : undefined}>
         <div className="flex items-center gap-0.5">
           <CardTitle as="h2">Frente a lo demás que se valuó</CardTitle>
           <EvidenceKindMark kind="derived_by_rule" className="ml-1.5" />
@@ -216,117 +221,123 @@ export function PeerContext({ context }: { context: PeerContextReading }) {
               valúan más tickers.
             </p>
             <p>
-              Mediana exacta con {context.minimum} pares como mínimo; cada una
-              con el cierre del día de su propia corrida. Regla{" "}
+              Corridas del {formatCalendarDate(context.windowFrom)} al{" "}
+              {formatCalendarDate(context.asOf)}; mediana exacta con{" "}
+              {context.minimum} pares como mínimo, cada una con el cierre del
+              día de su propia corrida. Regla{" "}
               <code className="font-mono">{context.version}</code>.
             </p>
           </InfoTip>
         </div>
-        <CardDescription>
-          Valuadas del{" "}
-          <time dateTime={context.windowFrom}>
-            {formatCalendarDate(context.windowFrom)}
-          </time>{" "}
-          al{" "}
-          <time dateTime={context.asOf}>
-            {formatCalendarDate(context.asOf)}
-          </time>
-          .
-        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <div className="flex max-w-prose flex-col gap-2 text-sm">
-          <p>{modelSentence(context.model)}</p>
+        <ul className="flex flex-col gap-1.5 text-sm">
+          <li>{modelSentence(context.model)}</li>
           {sector.status === "unclassified" ? (
-            <p className="text-muted-foreground">
-              La empresa no tiene sector al corte de la corrida (
+            <li className="text-muted-foreground">
+              Sin sector al corte (
               {sector.reason === "never_classified"
                 ? "nunca se clasificó"
-                : "su clasificación no estaba vigente"}
-              ), así que no hay comparación por sector.
-            </p>
-          ) : null}
-          {sectorVsModel === null ? null : <p>{sectorVsModel}</p>}
-          {companyLine === null ? null : <p>{companyLine}</p>}
-        </div>
+                : "clasificación no vigente"}
+              ).
+            </li>
+          ) : sectorReadable ? null : (
+            <li className="text-muted-foreground">
+              {label ?? "Sector"}: pares insuficientes{" "}
+              <span className="numeric">
+                (n = {sectorCount} de {context.minimum})
+              </span>
+              .
+            </li>
+          )}
+          {sectorVsModel === null || !sectorReadable ? null : (
+            <li>{sectorVsModel}</li>
+          )}
+          {companyLine === null || !sectorReadable ? null : (
+            <li>{companyLine}</li>
+          )}
+        </ul>
 
         {sector.status !== "classified" || label === null ? null : (
           <>
-            <div className="overflow-x-auto">
-              <Table>
-                <caption className="sr-only">
-                  La empresa frente a la mediana de {label} y de todo lo valuado
-                </caption>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead scope="col">Cifra</TableHead>
-                    <TableHead scope="col" className="text-right">
-                      Esta empresa
-                    </TableHead>
-                    <TableHead scope="col" className="text-right">
-                      Mediana de{" "}
-                      <Link
-                        className="underline underline-offset-4"
-                        href={`/sectores/${sector.code}`}
-                      >
-                        {label}
-                      </Link>
-                    </TableHead>
-                    <TableHead scope="col" className="text-right">
-                      Frente al sector
-                    </TableHead>
-                    <TableHead scope="col" className="text-right">
-                      Todo lo valuado
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {METRICS.map(({ key, label: metricLabel, definition }) => {
-                    const excluded = exclusions(sector.summaries[key]);
+            {!sectorReadable ? null : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <caption className="sr-only">
+                    La empresa frente a la mediana de {label} y de todo lo
+                    valuado
+                  </caption>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead scope="col">Cifra</TableHead>
+                      <TableHead scope="col" className="text-right">
+                        Esta empresa
+                      </TableHead>
+                      <TableHead scope="col" className="text-right">
+                        Mediana de{" "}
+                        <Link
+                          className="underline underline-offset-4"
+                          href={`/sectores/${sector.code}`}
+                        >
+                          {label}
+                        </Link>
+                      </TableHead>
+                      <TableHead scope="col" className="text-right">
+                        Frente al sector
+                      </TableHead>
+                      <TableHead scope="col" className="text-right">
+                        Todo lo valuado
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {METRICS.map(({ key, label: metricLabel, definition }) => {
+                      const excluded = exclusions(sector.summaries[key]);
 
-                    return (
-                      <TableRow key={key}>
-                        <TableHead scope="row" className="font-normal">
-                          <span className="flex flex-col">
-                            <span className="flex items-center gap-0.5">
-                              {metricLabel}
-                              <InfoTip title={metricLabel}>
-                                <p>{definition}</p>
-                              </InfoTip>
+                      return (
+                        <TableRow key={key}>
+                          <TableHead scope="row" className="font-normal">
+                            <span className="flex flex-col">
+                              <span className="flex items-center gap-0.5">
+                                {metricLabel}
+                                <InfoTip title={metricLabel}>
+                                  <p>{definition}</p>
+                                </InfoTip>
+                              </span>
+                              {excluded === null ? null : (
+                                <span className="text-xs text-muted-foreground">
+                                  Sin dato en el sector: {excluded}
+                                </span>
+                              )}
                             </span>
-                            {excluded === null ? null : (
-                              <span className="text-xs text-muted-foreground">
-                                Sin dato en el sector: {excluded}
+                          </TableHead>
+                          <TableCell className="text-right">
+                            <MetricCell metric={context.company[key]} />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <SummaryCell summary={sector.summaries[key]} />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <RelativeCell
+                              relative={sector.companyVsSector[key]}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {key === "priceToValue" ? (
+                              <SummaryCell summary={context.model} />
+                            ) : (
+                              <span className="text-muted-foreground">
+                                sólo precio sobre valor
                               </span>
                             )}
-                          </span>
-                        </TableHead>
-                        <TableCell className="text-right">
-                          <MetricCell metric={context.company[key]} />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <SummaryCell summary={sector.summaries[key]} />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <RelativeCell
-                            relative={sector.companyVsSector[key]}
-                          />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {key === "priceToValue" ? (
-                            <SummaryCell summary={context.model} />
-                          ) : (
-                            <span className="text-muted-foreground">
-                              sólo precio sobre valor
-                            </span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
 
             {sector.peers.length === 0 ? null : (
               <Fold

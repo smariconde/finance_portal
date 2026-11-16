@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { InfoTip } from "@/app/_components/info-tip";
 import { PageContainer, PageHeader } from "@/app/_components/page-frame";
@@ -8,6 +9,10 @@ import { servesRealData } from "@/modules/configuration/domain/config-health";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
 
 import { ValuationRequestForm } from "./_components/valuation-request-form";
+import {
+  ValuedCompanies,
+  ValuedCompaniesSkeleton,
+} from "./_components/valued-companies";
 
 export const metadata: Metadata = {
   title: "Valuación por ticker | Portal Financiero",
@@ -19,9 +24,13 @@ export const metadata: Metadata = {
 export const instant = false;
 
 /**
- * Entrada de la valuación por ticker (`F6-01`, `F6-12`). El render no lee ni
- * escribe: el formulario encola con la acción y lleva a la página del ticker,
- * que sigue el pedido y muestra el resultado en el mismo lugar.
+ * Entrada de la valuación por ticker (`F6-01`, `F6-12`). El formulario encola
+ * con la acción y lleva a la página del ticker, que sigue el pedido y muestra
+ * el resultado en el mismo lugar.
+ *
+ * Debajo, lo ya valuado (decisión del owner del 2026-11-16): la última corrida
+ * de cada empresa, leída de la base sin red ni encolado. Va en su propio
+ * `Suspense`, así que el formulario se ve aunque la base tarde o no responda.
  */
 export default async function ValuationPage() {
   const health = await getRequestConfigHealth();
@@ -58,14 +67,17 @@ export default async function ValuationPage() {
         }
       />
       <ValuationRequestForm />
+      <Suspense fallback={<ValuedCompaniesSkeleton />}>
+        <ValuedCompanies />
+      </Suspense>
       <p className="text-sm text-muted-foreground">
         <Link
           className="text-foreground underline underline-offset-4"
           href="/valuacion/referencia"
         >
-          La corrida de referencia
+          Corrida de referencia
         </Link>{" "}
-        sigue verificando el motor sobre un snapshot fijo.
+        · el motor sobre un snapshot fijo
       </p>
     </PageContainer>
   );

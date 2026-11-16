@@ -1,4 +1,5 @@
 import { InfoTip } from "@/app/_components/info-tip";
+import { StatTile } from "@/app/_components/stat-tile";
 import { EvidenceKindMark } from "@/app/valuacion/_components/run/data-marks";
 import { CodeValue } from "@/app/valuacion/_components/run/field";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,10 +8,6 @@ import {
   formatAmount,
   formatCalendarDate,
 } from "@/modules/valuation/domain/display-format";
-import type {
-  PeerMetric,
-  PeerMetrics,
-} from "@/modules/valuation/domain/peer-context";
 import type { ValuationRun } from "@/modules/valuation/domain/valuation-run";
 import type {
   PriceZone,
@@ -18,7 +15,6 @@ import type {
 } from "@/modules/valuation/domain/valuation-verdict";
 
 import { COMPARISON_GAP_COPY } from "./market-expectations";
-import { PEER_NULL_COPY } from "./peer-context";
 
 /** Qué significa cada ubicación. Describe, no recomienda. */
 const ZONE_COPY: Record<PriceZone, { place: string; meaning: string }> = {
@@ -117,69 +113,29 @@ function RangeBar({
   );
 }
 
-/** Un indicador de la cabecera: rótulo, cifra grande y una línea de apoyo. */
-function Figure({
-  label,
-  value,
-  note,
-  info,
-}: {
-  label: string;
-  value: React.ReactNode;
-  note?: React.ReactNode;
-  info?: React.ReactNode;
-}) {
-  return (
-    <div className="flex min-w-0 flex-col gap-0.5 rounded-lg border bg-muted/30 px-3 py-2.5">
-      <dt className="flex items-center gap-0.5 text-xs text-muted-foreground">
-        {label}
-        {info === undefined ? null : <InfoTip title={label}>{info}</InfoTip>}
-      </dt>
-      <dd className="numeric text-xl font-semibold tracking-tight">{value}</dd>
-      {note === undefined ? null : (
-        <dd className="text-xs text-muted-foreground">{note}</dd>
-      )}
-    </div>
-  );
-}
-
-function multipleFigure(metric: PeerMetric | null): {
-  value: string;
-  note?: string;
-} {
-  if (metric === null) return { value: "—", note: "sin dato" };
-  return metric.status === "value"
-    ? { value: `${formatAmount(metric.value, { scale: 1 })}×` }
-    : { value: "—", note: PEER_NULL_COPY[metric.reason] };
-}
-
 /**
  * El veredicto (`F6-17`): dónde queda el precio respecto de lo que vale la
- * empresa según el modelo. Desde `F6-28` se lee en indicadores —precio,
- * valor, precio sobre valor, P/E, EV/EBIT y rigor—, la barra y una línea; lo
- * didáctico queda detrás de ⓘ. Describe, no recomienda.
+ * empresa según el modelo. Manda el par valor del modelo y precio; precio
+ * sobre valor y rigor van al lado, más chicos. P/E y EV/EBIT viven en la ficha
+ * y en los pares, no se repiten acá. Lo didáctico queda detrás de ⓘ.
+ * Describe, no recomienda.
  */
 export function VerdictPanel({
   run,
   verdict,
   market,
   attribution,
-  multiples,
   rigorLabel,
 }: {
   run: ValuationRun;
   verdict: ValuationVerdict;
   market: ValuationResultMarket;
   attribution: string | null;
-  /** Los múltiplos de la propia corrida (`F6-19`); `null` sin contexto. */
-  multiples: PeerMetrics | null;
   rigorLabel: string;
 }) {
   const result = run.result;
   const currency = run.currency;
   const placed = verdict.status === "placed" ? verdict : null;
-  const pe = multipleFigure(multiples?.priceToEarnings ?? null);
-  const evEbit = multipleFigure(multiples?.enterpriseValueToEbit ?? null);
 
   return (
     <Card>
@@ -232,16 +188,44 @@ export function VerdictPanel({
       </CardHeader>
 
       <CardContent className="flex flex-col gap-5">
-        <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-          <Figure
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]">
+          <StatTile
+            variant="inset"
+            size="lg"
+            label="Valor del modelo"
+            labelAside={
+              <InfoTip title="Valor del modelo">
+                <p>
+                  Valor por acción del caso central. Debajo, el rango entre el
+                  escenario pesimista y el optimista, que mueven crecimiento,
+                  margen y reinversión juntos.
+                </p>
+              </InfoTip>
+            }
+            value={result === null ? "—" : formatAmount(result.valuePerShare)}
+            unit={result === null ? undefined : currency}
+            detail={
+              result === null
+                ? "corrida rechazada"
+                : placed !== null &&
+                    placed.bear !== null &&
+                    placed.bull !== null
+                  ? `Bear–bull ${formatAmount(placed.bear)}–${formatAmount(placed.bull)}`
+                  : "por acción"
+            }
+          />
+          <StatTile
+            variant="inset"
+            size="lg"
             label="Precio"
             value={placed === null ? "—" : formatAmount(placed.price)}
-            note={
+            unit={placed === null ? undefined : currency}
+            detail={
               placed === null ? (
                 "sin cierre comparable"
               ) : (
                 <>
-                  {currency} al{" "}
+                  Cierre del{" "}
                   <time dateTime={placed.marketDate}>
                     {formatCalendarDate(placed.marketDate)}
                   </time>
@@ -249,87 +233,50 @@ export function VerdictPanel({
               )
             }
           />
-          <Figure
-            label="Valor del modelo"
-            value={result === null ? "—" : formatAmount(result.valuePerShare)}
-            note={
-              placed !== null && placed.bear !== null && placed.bull !== null
-                ? `${formatAmount(placed.bear)}–${formatAmount(placed.bull)} ${currency}`
-                : result === null
-                  ? "corrida rechazada"
-                  : `${currency} por acción`
-            }
-            info={
-              <p>
-                Valor por acción del caso central. Debajo, el rango entre el
-                escenario pesimista y el optimista, que mueven crecimiento,
-                margen y reinversión juntos.
-              </p>
-            }
-          />
-          <Figure
+          <StatTile
+            variant="inset"
+            size="sm"
             label="Price / value"
+            labelAside={
+              <InfoTip title="Price / value">
+                <p>
+                  Precio dividido valor. 1× es precio igual al valor; 2× es
+                  pagar el doble de lo que el modelo justifica.
+                </p>
+              </InfoTip>
+            }
             value={
               placed === null
                 ? "—"
                 : `${formatAmount(placed.priceToValue, { scale: 2 })}×`
             }
-            note={
-              placed === null
-                ? undefined
-                : placed.zone === null
-                  ? RELATION_COPY[placed.relation]
-                  : undefined
-            }
-            info={
-              <p>
-                Precio dividido valor. 1× es precio igual al valor; 2× es pagar
-                el doble de lo que el modelo justifica.
-              </p>
+            detail={
+              placed === null ? undefined : RELATION_COPY[placed.relation]
             }
           />
-          <Figure
-            label="P/E"
-            value={pe.value}
-            note={pe.note}
-            info={
-              <p>
-                Capitalización sobre la ganancia neta reportada del año base de
-                la corrida: cuántos años de ganancia actual paga el precio.
-              </p>
-            }
-          />
-          <Figure
-            label="Adjusted EV/EBIT"
-            value={evEbit.value}
-            note={evEbit.note}
-            info={
-              <p>
-                Valor de la empresa (capitalización + deuda + arrendamientos −
-                caja) sobre el EBIT ajustado del modelo. No depende de cuánta
-                deuda tenga.
-              </p>
-            }
-          />
-          <Figure
+          <StatTile
+            variant="inset"
+            size="sm"
             label="Rigor"
-            value={
+            labelAside={
+              <InfoTip title="Rigor">
+                <p>
+                  Qué tan completos están los datos de la corrida. Un rigor más
+                  bajo pide leer el valor con más cuidado.
+                </p>
+              </InfoTip>
+            }
+            value={rigorLabel}
+            detail={
               <a
-                className="text-base underline underline-offset-4"
+                className="text-primary underline-offset-4 hover:underline"
                 href="#auditoria-rigor"
               >
-                {rigorLabel}
+                Ver detalle
               </a>
             }
-            info={
-              <p>
-                Qué tan completos están los datos de la corrida. Un rigor más
-                bajo pide leer el valor con más cuidado; el detalle está en la
-                auditoría.
-              </p>
-            }
           />
-        </dl>
+        </div>
 
         {result === null ? (
           <p className="text-sm text-muted-foreground">
