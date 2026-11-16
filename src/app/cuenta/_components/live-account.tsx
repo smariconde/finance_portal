@@ -470,6 +470,7 @@ function computeRisk(
       rules,
       openRisk: open,
       syncFailed: riskContext.syncFailed,
+      unread: riskContext.unread,
     },
     bySymbol: new Map(risks.map((risk) => [risk.symbol, risk])),
   };

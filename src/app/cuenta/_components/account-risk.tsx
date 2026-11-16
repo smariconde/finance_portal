@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useId, useState, type ReactNode } from "react";
 
 import { InfoTip } from "@/app/_components/info-tip";
+import { UnreadTradingParts } from "@/app/_components/unread-trading-parts";
 import { Segmented } from "@/app/_components/segmented";
 import { formatMoney } from "@/app/_components/trading-format";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,7 @@ import {
   type TradingRule,
 } from "@/modules/trading/domain/trading-rules";
 import { formatAmount } from "@/modules/valuation/domain/display-format";
+import type { TradingPart } from "@/server/trading/trading-parts";
 
 import { saveRiskSettings, type SaveRiskSettingsResult } from "../actions";
 
@@ -136,6 +138,7 @@ export type RiskView =
       readonly rules: readonly RuleReading[];
       readonly openRisk: OpenRisk;
       readonly syncFailed: string | null;
+      readonly unread: readonly TradingPart[];
     };
 
 function StateBadge({ state }: { readonly state: RuleState }) {
@@ -855,17 +858,19 @@ export function RiskCard({
                 Reglas por defecto
               </span>
             ) : null}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              aria-expanded={editing}
-              aria-controls={editorId}
-              onClick={() => setEditing((open) => !open)}
-            >
-              <Settings2 data-icon="inline-start" aria-hidden="true" />
-              Reglas
-            </Button>
+            {view.unread.includes("risk_settings") ? null : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-expanded={editing}
+                aria-controls={editorId}
+                onClick={() => setEditing((open) => !open)}
+              >
+                <Settings2 data-icon="inline-start" aria-hidden="true" />
+                Reglas
+              </Button>
+            )}
           </div>
         ) : null}
       </CardHeader>
@@ -885,7 +890,8 @@ export function RiskCard({
           </p>
         ) : (
           <>
-            {editing ? (
+            <UnreadTradingParts parts={view.unread} />
+            {editing && !view.unread.includes("risk_settings") ? (
               <div id={editorId}>
                 <SettingsEditor
                   settings={view.settings}

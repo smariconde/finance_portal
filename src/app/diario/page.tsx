@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
+import { UnreadTradingParts } from "@/app/_components/unread-trading-parts";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -147,6 +148,7 @@ export default async function JournalPage() {
           <TransactionSync lastSyncAt={reading.lastRun?.finishedAt ?? null} />
         </div>
       </Header>
+      <UnreadTradingParts parts={reading.unread} />
       {reading.account === null ? (
         <FirstLoad />
       ) : (

@@ -8,6 +8,7 @@ import { notFound } from "next/navigation";
 import { InfoTip } from "@/app/_components/info-tip";
 import { TickerMark } from "@/app/_components/ticker-mark";
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
+import { UnreadTradingParts } from "@/app/_components/unread-trading-parts";
 import {
   formatMoney,
   formatQuantity,
@@ -213,6 +214,7 @@ export default async function TradePage({ params }: PageProps) {
   return (
     <Shell>
       <TradeHeader reading={reading} />
+      <UnreadTradingParts parts={reading.unread} />
       <Card>
         <CardHeader>
           <CardTitle as="h2">Plan antes de la entrada</CardTitle>

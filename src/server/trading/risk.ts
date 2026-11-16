@@ -1,6 +1,9 @@
 import "server-only";
 
-import type { StoredRiskSettings } from "@/modules/trading/application/trading-risk-settings-store";
+import type {
+  StoredRiskSettings,
+  TradingRiskSettingsStore,
+} from "@/modules/trading/application/trading-risk-settings-store";
 import type { PlanLevels } from "@/modules/trading/domain/position-size-risk";
 import {
   tradeKeyOf,
@@ -15,7 +18,8 @@ import {
 import { getTradingRiskSettingsStore } from "@/server/persistence/trading/get-trading-risk-settings-store";
 import { ideaLevels } from "@/modules/trading/domain/pre-market-plan";
 
-import { loadJournalState } from "./transactions";
+import { loadJournalState, type JournalStores } from "./transactions";
+import { readPart, unreadParts, type TradingPart } from "./trading-parts";
 
 export type RiskContext = {
   readonly settings: RiskSettings;
@@ -24,6 +28,17 @@ export type RiskContext = {
   /** Lo planeado para cada trade abierto, por símbolo. */
   readonly plans: readonly (PlanLevels & { readonly symbol: string })[];
   readonly activity: SessionActivity;
+  /**
+   * Las partes que la base de trading todavía no tiene (`F11-15`): sin reglas
+   * rigen las por defecto, sin planes no hay stop planeado.
+   */
+  readonly unread: readonly TradingPart[];
+};
+
+export type RiskStores = {
+  readonly settings: Pick<TradingRiskSettingsStore, "readCurrent">;
+  /** Los del diario; por defecto, los de la base de trading del runtime. */
+  readonly journal?: JournalStores;
 };
 
 export function settingsOf(stored: StoredRiskSettings | null): RiskSettings {
@@ -43,11 +58,21 @@ export function settingsOf(stored: StoredRiskSettings | null): RiskSettings {
  * Nueva York. Nunca habla con Schwab: las posiciones y el capital llegan de la
  * lectura de la cuenta.
  */
-export async function readRiskContext(now: string): Promise<RiskContext> {
+export async function readRiskContext(
+  now: string,
+  stores: RiskStores = { settings: getTradingRiskSettingsStore() },
+): Promise<RiskContext> {
+  const unread = new Set<TradingPart>();
   const [stored, state] = await Promise.all([
-    getTradingRiskSettingsStore().readCurrent(),
-    loadJournalState(),
+    readPart(
+      "risk_settings",
+      unread,
+      () => stores.settings.readCurrent(),
+      null,
+    ),
+    loadJournalState(stores.journal),
   ]);
+  for (const part of state.unread) unread.add(part);
   const plans = state.trades
     .filter((trade) => trade.status === "open")
     .map((trade) => {
@@ -68,5 +93,6 @@ export async function readRiskContext(now: string): Promise<RiskContext> {
     settingsRevision: stored?.revision ?? null,
     plans,
     activity: sessionActivity(state.trades, now),
+    unread: unreadParts(unread),
   };
 }

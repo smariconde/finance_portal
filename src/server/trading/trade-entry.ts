@@ -25,6 +25,7 @@ import { getTradeAnnotationStore } from "@/server/persistence/trading/get-trade-
 import { getPreMarketStore } from "@/server/persistence/trading/get-pre-market-store";
 
 import { loadJournalState } from "./transactions";
+import { readPart, unreadParts, type TradingPart } from "./trading-parts";
 
 export type AnnotationRevisionSummary = {
   readonly revision: number;
@@ -67,6 +68,8 @@ export type TradeEntryReading = {
     | { readonly value: null; readonly reason: string };
   readonly r: RMultiple;
   readonly rewardRisk: PlannedRewardRisk;
+  /** Lo que la base de trading todavía no tiene (`F11-15`). */
+  readonly unread: readonly TradingPart[];
 };
 
 /**
@@ -84,6 +87,7 @@ export async function readTradeEntry(
     (candidate) => tradeKeyOf(candidate) === tradeKey,
   );
   if (trade === undefined) return null;
+  const unread = new Set(state.unread);
 
   const annotation = state.annotations.get(tradeKey) ?? null;
   const linked = state.linkedPlans.get(tradeKey) ?? null;
@@ -120,7 +124,12 @@ export async function readTradeEntry(
     ["EQUITY", "COLLECTIVE_INVESTMENT"].includes(trade.assetType)
   ) {
     const accountKey = state.account.accountKey;
-    const current = await store.listCurrent(accountKey);
+    const current = await readPart(
+      "pre_market",
+      unread,
+      () => store.listCurrent(accountKey),
+      [],
+    );
     const possible = await Promise.all(
       current.map(async (idea) => {
         const revisions = await store.listRevisions(accountKey, idea.ideaId);
@@ -156,12 +165,19 @@ export async function readTradeEntry(
       ),
     );
   }
+  const accountKey = state.account.accountKey;
   const revisions =
     annotation === null
       ? []
-      : await getTradeAnnotationStore().listAnnotationRevisions(
-          state.account.accountKey,
-          tradeKey,
+      : await readPart(
+          "annotations",
+          unread,
+          () =>
+            getTradeAnnotationStore().listAnnotationRevisions(
+              accountKey,
+              tradeKey,
+            ),
+          [],
         );
   const stop =
     plannedStopOf(annotation, trade.currency) ??
@@ -196,5 +212,6 @@ export async function readTradeEntry(
             effectivePlan,
             trade.averageEntryPrice,
           ),
+    unread: unreadParts(unread),
   };
 }

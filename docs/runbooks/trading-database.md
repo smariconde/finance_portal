@@ -193,3 +193,9 @@ migrar, revertir y migrar de nuevo hasta los mismos privilegios.
   `DATABASE_DIRECT_URL`.** `db:trading:migrate` termina antes de conectarse.
 - **Falta `TRADING_DATABASE_TEST_URL`, o nombra otra base del proyecto.** La
   suite de trading falla y no se marca como aprobada.
+- **Una migración posterior a las transacciones sin aplicar** (`F11-15`). Si
+  falta la tabla de anotaciones (`0003`), reglas (`0005`) o plan antes de la
+  rueda (`0006`), el riesgo de `/cuenta` y el diario se leen sin esa parte y
+  dicen «Sin leer: …»; la salida es `pnpm db:trading:migrate`. Sólo el
+  SQLSTATE `42P01` se tolera: conexión, permisos o una columna ausente siguen
+  mostrando «Base de trading no disponible» con una referencia.
