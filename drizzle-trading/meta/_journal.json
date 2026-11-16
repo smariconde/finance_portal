@@ -43,6 +43,13 @@
       "when": 1794762335794,
       "tag": "0005_trading_risk_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794789598750,
+      "tag": "0006_pre_market_ideas",
+      "breakpoints": true
     }
   ]
 }

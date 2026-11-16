@@ -614,3 +614,112 @@ export const tradingRiskSettings = pgTable(
     ),
   ],
 );
+
+/** Una idea por ID opaco y cuenta. Cada edición es una revisión; el símbolo es
+ * el que el owner planeó entonces, nunca la identidad del instrumento. */
+export const preMarketIdeas = pgTable(
+  "pre_market_ideas",
+  {
+    revisionId: uuid("revision_id").primaryKey(),
+    ideaId: uuid("idea_id").notNull(),
+    accountKey: bytes("account_key")
+      .notNull()
+      .references(() => schwabAccounts.accountKey),
+    revision: integer("revision").notNull(),
+    version: varchar("version", { length: 64 }).notNull(),
+    formulaVersion: varchar("formula_version", { length: 64 }).notNull(),
+    symbol: varchar("symbol", { length: 16 }).notNull(),
+    setupCode: varchar("setup_code", { length: 48 }),
+    entry: numeric("entry", { mode: "string" }).notNull(),
+    quantity: numeric("quantity", { mode: "string" }).notNull(),
+    manualStop: numeric("manual_stop", { mode: "string" }),
+    manualTarget: numeric("manual_target", { mode: "string" }),
+    stopMode: varchar("stop_mode", { length: 16 }).notNull(),
+    targetMode: varchar("target_mode", { length: 16 }).notNull(),
+    liquidationValue: numeric("liquidation_value", {
+      mode: "string",
+    }).notNull(),
+    riskPercent: numeric("risk_percent", { mode: "string" }).notNull(),
+    notes: text("notes").notNull(),
+    status: varchar("status", { length: 16 }).notNull(),
+    recordedAt: instant("recorded_at").notNull(),
+    supersededAt: instant("superseded_at"),
+  },
+  (table) => [
+    uniqueIndex("pre_market_ideas_revision_uidx").on(
+      table.accountKey,
+      table.ideaId,
+      table.revision,
+    ),
+    uniqueIndex("pre_market_ideas_current_uidx")
+      .on(table.accountKey, table.ideaId)
+      .where(sql`${table.supersededAt} is null`),
+    index("pre_market_ideas_symbol_idx").on(
+      table.accountKey,
+      table.symbol,
+      table.recordedAt,
+    ),
+    check("pre_market_ideas_revision_check", sql`${table.revision} >= 1`),
+    check(
+      "pre_market_ideas_symbol_check",
+      sql`${table.symbol} ~ '^[A-Z][A-Z0-9./-]{0,15}$'`,
+    ),
+    check(
+      "pre_market_ideas_values_check",
+      sql`${table.entry} > 0 and ${table.quantity} > 0 and ${table.liquidationValue} > 0 and ${table.riskPercent} > 0 and ${table.riskPercent} <= 100`,
+    ),
+    check(
+      "pre_market_ideas_modes_check",
+      sql`${table.stopMode} in ('manual', 'automatic') and ${table.targetMode} in ('manual', 'one_to_two', 'one_to_three') and ${table.status} in ('active', 'archived')`,
+    ),
+    check(
+      "pre_market_ideas_manual_check",
+      sql`(${table.manualStop} is null or ${table.manualStop} > 0) and (${table.manualTarget} is null or ${table.manualTarget} > 0) and (${table.stopMode} <> 'manual' or ${table.manualStop} > 0) and (${table.targetMode} <> 'manual' or ${table.manualTarget} > 0)`,
+    ),
+    check(
+      "pre_market_ideas_notes_check",
+      sql`char_length(${table.notes}) <= 4000`,
+    ),
+    check(
+      "pre_market_ideas_superseded_check",
+      sql`${table.supersededAt} is null or ${table.supersededAt} >= ${table.recordedAt}`,
+    ),
+  ],
+);
+
+/** El vínculo nombra la revisión del plan anterior a la primera ejecución.
+ * No mueve la fecha del plan ni copia el plan al diario. */
+export const preMarketTradeLinks = pgTable(
+  "pre_market_trade_links",
+  {
+    linkId: uuid("link_id").primaryKey(),
+    accountKey: bytes("account_key")
+      .notNull()
+      .references(() => schwabAccounts.accountKey),
+    ideaId: uuid("idea_id").notNull(),
+    planRevisionId: uuid("plan_revision_id")
+      .notNull()
+      .references(() => preMarketIdeas.revisionId),
+    tradeKey: varchar("trade_key", { length: 80 }).notNull(),
+    openedAt: instant("opened_at").notNull(),
+    linkedAt: instant("linked_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("pre_market_trade_links_idea_uidx").on(
+      table.accountKey,
+      table.ideaId,
+    ),
+    uniqueIndex("pre_market_trade_links_trade_uidx").on(
+      table.accountKey,
+      table.tradeKey,
+    ),
+    check(
+      "pre_market_trade_links_trade_key_check",
+      sql`${table.tradeKey} ~ '^schwab:[0-9]{1,32}:[0-9]{1,32}(:before)?$'`,
+    ),
+    check(
+      "pre_market_trade_links_timeline_check",
+      sql`${table.linkedAt} >= ${table.openedAt}`,
+    ),
+  ],
+);
