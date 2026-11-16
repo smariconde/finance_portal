@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { AppSidebar } from "@/app/_components/app-sidebar";
+import { PageLocation } from "@/app/_components/page-location";
 import { StatusMark } from "@/app/_components/status-mark";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
 import {
@@ -27,7 +28,7 @@ export function PortalShell({ children, health }: PortalShellProps) {
         <a className="skip-link" href="#contenido">
           Saltar al contenido
         </a>
-        <AppSidebar mode={health.mode} />
+        <AppSidebar />
         {/*
           `min-w-0`: la columna es un ítem flex junto a la barra lateral, y sin
           él hereda el ancho mínimo de su contenido —una tabla con un
@@ -41,15 +42,8 @@ export function PortalShell({ children, health }: PortalShellProps) {
                 className="size-11 md:size-7"
                 aria-label="Abrir o cerrar navegación"
               />
-              <div className="h-4 w-px bg-border" aria-hidden="true" />
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">
-                  Portal Financiero
-                </p>
-                <p className="hidden truncate text-xs text-muted-foreground sm:block">
-                  Investigación reproducible y trazable
-                </p>
-              </div>
+              <div className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
+              <PageLocation />
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <StatusMark
@@ -61,9 +55,17 @@ export function PortalShell({ children, health }: PortalShellProps) {
                     : "disabled"
                 }
                 label={
-                  health.mode === "personal"
-                    ? `Personal${needsAttention ? " · atención" : " · estable"}`
-                    : "Trabado"
+                  health.mode === "personal" ? (
+                    <>
+                      Personal
+                      {/* En un teléfono el ícono ya dice el estado y la ubicación necesita el ancho. */}
+                      <span className="max-sm:sr-only">
+                        {needsAttention ? " · atención" : " · estable"}
+                      </span>
+                    </>
+                  ) : (
+                    "Trabado"
+                  )
                 }
               />
               <ThemeToggle />

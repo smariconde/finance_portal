@@ -7417,3 +7417,42 @@ creados se conservan privados e inertes; no se borraron. Antes de una migración
 de Production se verifica un snapshot reciente en Neon y se detiene el cambio
 si ese punto de recuperación no está disponible. No se modificó la base ni el
 plan de Neon.
+
+## Mejora transversal — marco de la app (2026-11-16)
+
+- Estado: `done`.
+- Autorización: pedido expreso del owner del 2026-11-16 («el sidebar se ve medio
+  raro»), con tres decisiones suyas: ubicación en el header, filas de 40 px en
+  el drawer e Inicio como lanzador de las dos secciones.
+- Medido antes de tocar: revisión renderizada de 12 rutas a 1440 y 390 px, claro
+  y oscuro, con datos reales y las descargas al abrir bloqueadas. Sin overflow;
+  axe marcaba sólo `region` (16 ítems de la sidebar fuera de un landmark). El
+  inicio y la sidebar anunciaban como planificadas la ficha (`F6-25`), las
+  divergencias, Argentina y la soja, ya hechas; la etiqueta «Plan» de
+  «Empresas» y «Agro» chocaba con Trading → Plan, y la nota de que las empresas
+  en pérdida o de alto crecimiento sólo se valúan por línea de comandos dejó de
+  ser cierta con `F6-18`–`F6-21`.
+- Alcance:
+  - `navigation.ts`: el mapa (Inicio; «Análisis»: Valuación, Matrices,
+    Argentina; «Trading»: Cuenta, Plan, Diario, Lecciones; Configuración) y
+    `breadcrumbsFor`, con 9 unitarios. La sidebar y el header lo leen.
+  - Sidebar: sin «Herramientas»; todo dentro de `<nav aria-label="Principal">`;
+    Configuración en el pie y el modo sólo en el header; marca en texto sin el
+    tile «PF» (la sigla queda, sin fondo, en la sidebar colapsada); 40 px en el
+    drawer; el link de la marca cierra el drawer, que antes quedaba abierto, y
+    deja lugar a su botón de cerrar.
+  - Header: `PageLocation` («Trading › Plan», la página actual en
+    `aria-current`, las de arriba como vínculo; en un teléfono los dos últimos
+    pasos y el estado sólo como «Personal»).
+  - Inicio: una card por sección con una fila por página, el formulario de
+    valuación arriba de Análisis, verificación y contrato de evidencia; sin
+    roadmap ni párrafos y sin leer la base ni Schwab.
+  - PRODUCT.md (la conexión de sólo lectura con Schwab, las dos secciones, el
+    estado real), la navegación y el shell de DESIGN.md y el brief del inicio.
+- Evidencia: formato, lint, tipos, build, 4.331 unitarios y 382 E2E con axe (3
+  omitidos); dos tests nuevos (la sidebar no tiene ítems deshabilitados, el
+  header ubica y vuelve) y uno del inicio a las páginas de trading. Revisión
+  renderizada repetida sobre 11 rutas, la 404 y el drawer: 0 violaciones axe y
+  0 overflow en los cuatro cortes. En un teléfono las rutas de tres niveles
+  (sector › divergencias, valuación › corrida de referencia) cortan los dos
+  pasos con elipsis; el selector y el `h1` de esas páginas los nombran enteros.

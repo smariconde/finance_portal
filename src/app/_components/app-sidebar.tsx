@@ -1,22 +1,28 @@
 "use client";
 
 import {
-  Building2,
   Calculator,
   ChartScatter,
-  Database,
   GraduationCap,
   Home,
-  NotebookPen,
-  ListChecks,
   Landmark,
+  ListChecks,
+  NotebookPen,
   Settings2,
   Wallet,
-  Wheat,
+  type LucideIcon,
 } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import {
+  HOME_ITEM,
+  isWithin,
+  NAV_SECTIONS,
+  SETTINGS_ITEM,
+  type NavItem,
+} from "@/app/_components/navigation";
 import {
   Sidebar,
   SidebarContent,
@@ -26,72 +32,31 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
-import type { AppMode } from "@/modules/configuration/domain/config-health";
 
-const activeItems = [
-  { href: "/", label: "Inicio", icon: Home, badge: null },
-  {
-    href: "/valuacion",
-    label: "Valuación",
-    icon: Calculator,
-    badge: null,
-  },
-  {
-    href: "/sectores",
-    label: "Matrices",
-    icon: ChartScatter,
-    badge: null,
-  },
-  {
-    href: "/argentina",
-    label: "Argentina",
-    icon: Landmark,
-    badge: null,
-  },
-  {
-    href: "/configuracion",
-    label: "Configuración",
-    icon: Settings2,
-    badge: null,
-  },
-] as const;
-
-/** La cuenta Schwab y lo que se arma con ella (Fase 11, ADR 0076). */
-const tradingItems = [
-  { href: "/cuenta", label: "Cuenta", icon: Wallet, badge: null },
-  { href: "/plan", label: "Plan", icon: ListChecks, badge: null },
-  { href: "/diario", label: "Diario", icon: NotebookPen, badge: null },
-  { href: "/lecciones", label: "Lecciones", icon: GraduationCap, badge: null },
-] as const;
-
-type NavItem = (typeof activeItems)[number] | (typeof tradingItems)[number];
-
-function isActive(pathname: string, href: string): boolean {
-  return href === "/" ? pathname === "/" : pathname.startsWith(href);
-}
-
-/**
- * Lo que el backlog tiene por delante: la ficha de la empresa (`F6-25`) y la
- * soja (`F9-05`); Argentina ya enlaza (`F9-06`). Las divergencias (Fase 8) viven en «Matrices»,
- * junto al riesgo de cada sector. No hay screener: el filtrado amplio se hace
- * afuera (ADR 0016).
- */
-const plannedItems = [
-  { label: "Empresas", icon: Building2 },
-  { label: "Agro", icon: Wheat },
-] as const;
-
-type AppSidebarProps = {
-  mode: AppMode;
+const ICONS: Readonly<Record<string, LucideIcon>> = {
+  "/": Home,
+  "/valuacion": Calculator,
+  "/sectores": ChartScatter,
+  "/argentina": Landmark,
+  "/cuenta": Wallet,
+  "/plan": ListChecks,
+  "/diario": NotebookPen,
+  "/lecciones": GraduationCap,
+  "/configuracion": Settings2,
 };
 
-export function AppSidebar({ mode }: AppSidebarProps) {
+/**
+ * Sólo lo que existe: la ficha de la empresa vive en `/valuacion/[ticker]` y la
+ * soja en `/argentina`, así que no quedan herramientas «planificadas» que
+ * anunciar. El modo lo dice el header; la configuración va al pie, separada de
+ * las páginas de trabajo.
+ */
+export function AppSidebar() {
   const pathname = usePathname();
   const { isMobile, setOpenMobile } = useSidebar();
   const closeMobileNavigation = () => {
@@ -100,142 +65,119 @@ export function AppSidebar({ mode }: AppSidebarProps) {
 
   return (
     <Sidebar collapsible="icon">
-      {/*
-       * `h-14` y sin padding vertical: el mismo alto que el header de la
-       * columna, así que los dos bordes inferiores forman una sola línea.
-       */}
-      <SidebarHeader className="h-14 justify-center border-b border-sidebar-border py-0">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              size="lg"
-              className="h-11"
-              tooltip="Portal Financiero"
-              render={<Link href="/" aria-label="Portal Financiero, inicio" />}
-            >
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-xs font-bold tracking-tight text-sidebar-primary-foreground">
-                PF
-              </span>
-              <span className="grid flex-1 text-left leading-tight">
-                <span className="truncate font-semibold">
+      {/* La marca y la configuración también navegan: todo vive en el landmark. */}
+      <nav aria-label="Principal" className="flex min-h-0 flex-1 flex-col">
+        {/*
+         * `h-14` y sin padding vertical: el mismo alto que el header de la
+         * columna, así que los dos bordes inferiores forman una sola línea. En el
+         * drawer, `pr-12` deja lugar a su botón de cerrar.
+         */}
+        <SidebarHeader className="h-14 justify-center border-b border-sidebar-border py-0 max-md:pr-12">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                className="h-10"
+                tooltip="Portal Financiero"
+                render={
+                  <Link
+                    href="/"
+                    aria-label="Portal Financiero, inicio"
+                    onClick={closeMobileNavigation}
+                  />
+                }
+              >
+                {/* Colapsada, la sidebar mide 3rem: el nombre no entra y queda su sigla, sin fondo. */}
+                <span
+                  aria-hidden="true"
+                  className="hidden w-full justify-center text-xs font-bold tracking-tight text-sidebar-primary group-data-[collapsible=icon]:flex"
+                >
+                  PF
+                </span>
+                <span className="text-base font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
                   Portal Financiero
                 </span>
-                <span className="truncate text-xs text-muted-foreground">
-                  Workspace personal
-                </span>
-              </span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarHeader>
 
-      <SidebarContent>
-        <NavGroup
-          label="Workspace"
-          items={activeItems}
-          pathname={pathname}
-          onNavigate={closeMobileNavigation}
-        />
-        <NavGroup
-          label="Trading"
-          items={tradingItems}
-          pathname={pathname}
-          onNavigate={closeMobileNavigation}
-        />
+        <SidebarContent>
+          <SidebarGroup className="pb-0">
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <NavLink
+                  item={HOME_ITEM}
+                  pathname={pathname}
+                  onNavigate={closeMobileNavigation}
+                />
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Herramientas</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {plannedItems.map((item) => (
-                <SidebarMenuItem key={item.label}>
-                  {/*
-                   * `aria-disabled` y no `disabled`: cuando hay tooltip, el
-                   * `TooltipTrigger` de Base UI consume la prop `disabled` como
-                   * propia y no la reenvía al botón, así que el control
-                   * terminaba anunciándose como accionable y además perdía su
-                   * tooltip —que con la sidebar colapsada es su única etiqueta—.
-                   * Lo detectó el gate de `F1-07`. La clase
-                   * `aria-disabled:pointer-events-none` ya corta la interacción.
-                   */}
-                  <SidebarMenuButton
-                    className="max-md:h-11"
-                    aria-disabled="true"
-                    tooltip={`${item.label}: planificado`}
-                  >
-                    <item.icon />
-                    <span>{item.label}</span>
-                  </SidebarMenuButton>
-                  <SidebarMenuBadge className="top-1/2! -translate-y-1/2 border border-sidebar-border font-normal text-muted-foreground">
-                    Plan
-                  </SidebarMenuBadge>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
+          {NAV_SECTIONS.map((section) => (
+            <SidebarGroup key={section.label} className="pb-0">
+              <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {section.items.map((item) => (
+                    <NavLink
+                      key={item.href}
+                      item={item}
+                      pathname={pathname}
+                      onNavigate={closeMobileNavigation}
+                    />
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ))}
+        </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <div className="flex h-11 items-center gap-2 rounded-md px-2 text-sm text-sidebar-foreground group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-2">
-              <Database className="size-4 shrink-0" aria-hidden="true" />
-              <span className="group-data-[collapsible=icon]:hidden">
-                {mode === "personal" ? "Modo personal" : "Runtime trabado"}
-              </span>
-            </div>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
+        <SidebarFooter className="border-t border-sidebar-border">
+          <SidebarMenu>
+            <NavLink
+              item={SETTINGS_ITEM}
+              pathname={pathname}
+              onNavigate={closeMobileNavigation}
+            />
+          </SidebarMenu>
+        </SidebarFooter>
+      </nav>
       <SidebarRail />
     </Sidebar>
   );
 }
 
-function NavGroup({
-  label,
-  items,
+function NavLink({
+  item,
   pathname,
   onNavigate,
 }: {
-  label: string;
-  items: readonly NavItem[];
+  item: NavItem;
   pathname: string;
   onNavigate: () => void;
 }) {
+  const active = isWithin(pathname, item.href);
+  const Icon = ICONS[item.href];
+
   return (
-    <SidebarGroup>
-      <SidebarGroupLabel>{label}</SidebarGroupLabel>
-      <SidebarGroupContent>
-        <SidebarMenu>
-          {items.map((item) => {
-            const active = isActive(pathname, item.href);
-            return (
-              <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton
-                  className="max-md:h-11"
-                  isActive={active}
-                  tooltip={item.label}
-                  render={
-                    <Link
-                      href={item.href}
-                      aria-current={active ? "page" : undefined}
-                      onClick={onNavigate}
-                    />
-                  }
-                >
-                  <item.icon />
-                  <span>{item.label}</span>
-                </SidebarMenuButton>
-                {item.badge === null ? null : (
-                  <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>
-                )}
-              </SidebarMenuItem>
-            );
-          })}
-        </SidebarMenu>
-      </SidebarGroupContent>
-    </SidebarGroup>
+    <SidebarMenuItem>
+      {/* 40 px en el drawer: holgado para el dedo sin que la lista parezca suelta. */}
+      <SidebarMenuButton
+        className="max-md:h-10"
+        isActive={active}
+        tooltip={item.label}
+        render={
+          <Link
+            href={item.href as Route}
+            aria-current={active ? "page" : undefined}
+            onClick={onNavigate}
+          />
+        }
+      >
+        {Icon === undefined ? null : <Icon />}
+        <span>{item.label}</span>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
   );
 }

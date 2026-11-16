@@ -1566,6 +1566,13 @@ shows the computed level; the suggested size has «Usar»; the watchlist hides
 archived ideas behind a toggle, greys them, and archives or restores per row
 (a new revision, never a delete).
 
+The shell reads one map, `src/app/_components/navigation.ts`: Inicio,
+«Análisis» (Valuación, Matrices, Argentina), «Trading» (Cuenta, Plan, Diario,
+Lecciones) and Configuración at the sidebar's foot. The header shows where the
+owner is (`PageLocation`, built by `breadcrumbsFor`), not the brand again, and
+the home page is one card per section with a row per page. Nothing planned is
+listed: a page enters the map only once it exists.
+
 ```bash
 pnpm finviz:catalog --file ~/Downloads/screener.html          # dry run: counts and diffs against the stored catalog
 pnpm finviz:catalog --file ~/Downloads/screener.html --write  # rewrites finviz-screener-filters.json

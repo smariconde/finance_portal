@@ -200,11 +200,11 @@ La clase utilitaria `.numeric` aplica numerales tabulares y alineados a valores 
 
 ## Layout
 
-El shell ocupa el viewport completo. En escritorio, la sidebar mide `16rem` expandida y `3rem` colapsada; desde `md` (`48rem`) permanece lateral. En mobile se convierte en un drawer de `18rem`. El header sticky mide `3.5rem` y mantiene trigger, identidad compacta y estado operativo en la primera línea.
+El shell ocupa el viewport completo. En escritorio, la sidebar mide `16rem` expandida y `3rem` colapsada; desde `md` (`48rem`) permanece lateral. En mobile se convierte en un drawer de `18rem`. El header sticky mide `3.5rem` y mantiene trigger, ubicación y estado operativo en la primera línea.
 
 El contenido se centra en un máximo de `80rem`, con padding de `1rem`, `1.5rem` desde `md` y `2rem` desde `lg` (`64rem`). Las páginas usan una columna principal con gaps de `1.5rem`; los resúmenes pasan a tres columnas desde `md`, y las composiciones asimétricas sólo entran cuando el ancho `xl` (`80rem`) las sostiene. El footer es discreto y se apila en mobile.
 
-Las tablas conservan semántica nativa y overflow horizontal. Los grids se apilan; no se comprimen valores, estados o provenance hasta volverlos ilegibles. Los targets principales del menú mobile y el trigger llegan a `2.75rem`.
+Las tablas conservan semántica nativa y overflow horizontal. Los grids se apilan; no se comprimen valores, estados o provenance hasta volverlos ilegibles. Los ítems del drawer mobile miden `2.5rem` y el trigger `2.75rem`.
 
 **The Familiar First Rule.** Sidebar, header, cards, tablas y formularios siguen convenciones shadcn/Base UI antes de crear un patrón propio.
 
@@ -367,12 +367,13 @@ Implementados en `src/app/argentina/_components/` (`F9-06`).
 
 - **Desktop:** sidebar de `16rem`, colapsable a iconos de `3rem`; shortcut `Ctrl/Cmd+B` y tooltips cuando está colapsada. El rail de arrastre queda fuera del árbol de accesibilidad: duplicaba el nombre del trigger sin agregar ninguna capacidad para teclado o lector de pantalla.
 - **Mobile:** drawer lateral de `18rem`; al elegir una ruta se cierra, y `Escape` lo cierra. Los tooltips **no** existen en este ancho: son una afordancia de puntero, y su trigger capturaba `Escape` antes de que llegara al drawer.
-- **Items:** altura base de `2rem`, radio `md`, icono de `1rem`; activo y hover usan sidebar-accent. Un ítem no disponible usa `aria-disabled`, no `disabled`, para conservar su tooltip —única etiqueta cuando la sidebar está colapsada— y seguir anunciándose como no accionable.
-- **Information architecture:** Inicio, Valuación, Matrices, Argentina y Configuración enlazan. Valuación abre `/valuacion`: encola la evaluación de un ticker sobre lo ya guardado y nombra el hueco, sin un valor por acción. La corrida de referencia, sobre un snapshot fijo, sigue en `/valuacion/referencia`. Las herramientas sin datos aparecen deshabilitadas con la etiqueta `Plan`.
+- **Items:** altura base de `2rem` (`2.5rem` en el drawer, decisión del owner del 2026-11-16: los `2.75rem` dejaban la lista suelta), radio `md`, icono de `1rem`; activo y hover usan sidebar-accent y el activo sube a `font-medium`. La lista vive en `<nav aria-label="Principal">`.
+- **Brand:** el nombre en texto, sin tile; colapsada, su sigla «PF» en `sidebar-primary`, sin fondo.
+- **Information architecture:** Inicio arriba, sin grupo; «Análisis» (Valuación, Matrices, Argentina) y «Trading» (Cuenta, Plan, Diario, Lecciones); Configuración en el pie. El mapa vive en `src/app/_components/navigation.ts` y lo leen la sidebar y la ubicación del header. La ficha de la empresa está en `/valuacion/[ticker]` y la soja en `/argentina`: no quedan ítems «planificados», y uno nuevo entra recién cuando su página existe.
 
 ### Shell
 
-- **Header:** sticky, compacto y separado por borde; contiene trigger, nombre, descriptor y estado del modo.
+- **Header:** sticky, compacto y separado por borde; contiene trigger, ubicación y estado del modo. La ubicación (`PageLocation`) es `sección › página › detalle` con la página actual en `aria-current` y las de arriba como vínculo; en un teléfono quedan los dos últimos pasos. Una ruta que el mapa no conoce muestra el nombre del portal.
 - **Skip link:** oculto fuera de foco y visible al navegar por teclado.
 - **Footer:** advertencia educativa y descripción del modo sin competir con el contenido.
 - **Motion:** sidebar y drawer usan transiciones cortas; `prefers-reduced-motion` reduce sus duraciones a `0.01ms` y desactiva smooth scroll.

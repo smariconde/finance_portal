@@ -111,7 +111,11 @@ test.describe("shell del portal", () => {
     await page.goto(ROUTES.home);
     await openNavigation(page);
 
-    await page.getByRole("link", { name: "Matrices" }).click();
+    // El inicio también enlaza a la página: se usa el vínculo de la sidebar.
+    await page
+      .getByRole("navigation", { name: "Principal" })
+      .getByRole("link", { name: "Matrices" })
+      .click();
     await expect(page).toHaveURL(/\/sectores$/u);
   });
 
@@ -119,22 +123,59 @@ test.describe("shell del portal", () => {
     await page.goto(ROUTES.home);
     await openNavigation(page);
 
-    await page.getByRole("link", { name: "Argentina" }).click();
+    // El inicio también enlaza a la página: se usa el vínculo de la sidebar.
+    await page
+      .getByRole("navigation", { name: "Principal" })
+      .getByRole("link", { name: "Argentina" })
+      .click();
     await expect(page).toHaveURL(/\/argentina$/u);
   });
 
-  test("las herramientas planificadas se anuncian como no disponibles", async ({
-    page,
-  }) => {
+  test("la sidebar sólo enlaza lo que existe", async ({ page }) => {
     await page.goto(ROUTES.home);
     await openNavigation(page);
 
-    for (const label of ["Empresas", "Agro"]) {
-      const item = page.getByRole("button", { name: new RegExp(label) });
-      // El estado se anuncia con `aria-disabled` para conservar el tooltip que
-      // etiqueta el control cuando la sidebar está colapsada.
-      await expect(item).toHaveAttribute("aria-disabled", "true");
-      await expect(item).toHaveCSS("pointer-events", "none");
+    // La ficha y la soja ya tienen página: un ítem deshabilitado que las
+    // anunciara como planificadas sería falso.
+    const sidebar = page.locator("[data-slot='sidebar']").first();
+    await expect(sidebar.locator("[aria-disabled='true']")).toHaveCount(0);
+    await expect(
+      sidebar.getByRole("navigation", { name: "Principal" }),
+    ).toBeVisible();
+  });
+
+  test("el header dice dónde está y vuelve a la página de arriba", async ({
+    page,
+  }) => {
+    await page.goto(ROUTES.reference);
+
+    const location = page.getByRole("navigation", { name: "Ubicación" });
+    await expect(
+      location.getByText("Corrida de referencia", { exact: true }),
+    ).toHaveAttribute("aria-current", "page");
+
+    await location.getByRole("link", { name: "Valuación" }).click();
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Valuación por ticker" }),
+    ).toBeVisible();
+    await expect(
+      location.getByText("Valuación", { exact: true }),
+    ).toHaveAttribute("aria-current", "page");
+  });
+
+  test("el inicio lleva a las páginas de trading", async ({ page }) => {
+    await page.goto(ROUTES.home);
+
+    const trading = page.getByRole("region", { name: "Trading" });
+    for (const [label, href] of [
+      ["Cuenta", "/cuenta"],
+      ["Plan", "/plan"],
+      ["Diario", "/diario"],
+      ["Lecciones", "/lecciones"],
+    ] as const) {
+      await expect(
+        trading.getByRole("link", { name: new RegExp(`^${label} `, "u") }),
+      ).toHaveAttribute("href", href);
     }
   });
 
