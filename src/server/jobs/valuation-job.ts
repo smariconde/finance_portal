@@ -32,6 +32,10 @@ import {
 } from "@/modules/valuation/application/request-valuation-job";
 import { readOperationsMix } from "@/modules/valuation/application/read-operations-mix";
 import {
+  readValuedCompanies,
+  type ValuedCompaniesReading,
+} from "@/modules/valuation/application/read-valued-companies";
+import {
   assembleValuationSnapshot,
   type ValuationSnapshotResult,
 } from "@/modules/valuation/application/assemble-valuation-snapshot";
@@ -188,6 +192,21 @@ export async function readValuationResultForRequest(
       prices: getPriceRepository(),
       expectations: getMarketExpectationsRepository(),
       fundamentals: createFundamentalReaders,
+    },
+  );
+}
+
+/**
+ * La lista de lo valuado para `/valuacion`: la última corrida de cada empresa
+ * y su cierre al día de esa corrida. Sólo lee corridas, el grafo y precios.
+ */
+export async function readValuedCompaniesForRequest(): Promise<ValuedCompaniesReading> {
+  return readValuedCompanies(
+    { today: new Date().toISOString().slice(0, 10) },
+    {
+      runs: getValuationRunRepository(),
+      universe: getUniverseRepository(),
+      prices: getPriceRepository(),
     },
   );
 }

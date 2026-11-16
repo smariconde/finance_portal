@@ -54,8 +54,7 @@ export function AssumptionsTables({
       <CardHeader className="border-b">
         <CardTitle as="h2">Supuestos y proyección</CardTitle>
         <CardDescription>
-          Los supuestos son decisiones del modelo, no hechos reportados. La
-          proyección se deriva de ellos con las fórmulas versionadas del motor.
+          Decisiones del modelo, no hechos reportados.
         </CardDescription>
       </CardHeader>
 

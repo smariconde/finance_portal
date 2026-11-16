@@ -9,7 +9,6 @@ import {
   valuationReplayKeySchema,
   valuationRunListQuerySchema,
   valuationRunWindowQuerySchema,
-  VALUED_RUN_STATUSES,
   ValuationRunWindowLimitError,
   type ValuationReplayKey,
   type ValuationRunRepository,
@@ -205,7 +204,7 @@ export function createPostgresValuationRunRepository(
             gte(table.asOf, parsedQuery.from),
             lte(table.asOf, parsedQuery.to),
             inArray(table.method, parsedQuery.methods),
-            inArray(table.status, [...VALUED_RUN_STATUSES]),
+            inArray(table.status, parsedQuery.statuses),
           ),
         )
         .orderBy(table.legalEntityId, desc(table.asOf), desc(table.recordedAt))

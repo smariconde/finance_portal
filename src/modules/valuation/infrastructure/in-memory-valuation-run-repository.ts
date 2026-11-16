@@ -3,7 +3,6 @@ import {
   valuationReplayKeySchema,
   valuationRunListQuerySchema,
   valuationRunWindowQuerySchema,
-  VALUED_RUN_STATUSES,
   ValuationRunWindowLimitError,
   type ValuationReplayKey,
   type ValuationRunRepository,
@@ -81,7 +80,7 @@ export function createInMemoryValuationRunRepository(
           run.asOf < parsedQuery.from ||
           run.asOf > parsedQuery.to ||
           !parsedQuery.methods.includes(run.method) ||
-          !(VALUED_RUN_STATUSES as readonly string[]).includes(run.status)
+          !parsedQuery.statuses.includes(run.status)
         ) {
           continue;
         }

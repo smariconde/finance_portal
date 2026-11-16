@@ -33,8 +33,7 @@ export function RunChecks({ run }: { run: ValuationRun }) {
       <CardHeader className="border-b">
         <CardTitle as="h2">Transformaciones y controles</CardTitle>
         <CardDescription>
-          Las fórmulas aplicadas por esta corrida y los controles que el motor
-          ejecutó sobre ella.
+          Fórmulas aplicadas y controles del motor.
         </CardDescription>
       </CardHeader>
 

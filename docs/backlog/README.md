@@ -7547,3 +7547,38 @@ plan de Neon.
   382 E2E con axe; revisión renderizada a 1440 claro y 390 oscuro con 0 axe, 0
   overflow y 0 choques de rótulos; el gráfico de riesgo arranca en 331 px (era
   ≈870). Pendiente fuera de alcance: `formatCompactAmount` escribe «1 billones».
+
+## Mejora transversal — Valuación (2026-11-16)
+
+- Estado: `done`.
+- Autorización: el mismo pedido del owner del 2026-11-16 (segundo PR de la
+  revisión de Análisis), con su decisión de listar en `/valuacion` todas las
+  empresas valuadas.
+- Medido antes de tocar: `/valuacion` era un formulario sobre una página vacía
+  con 16 corridas guardadas; `/valuacion/AAPL` medía 7.424 px en escritorio y
+  11.652 en un teléfono, con seis tiles iguales dentro de una card, un índice de
+  10 vínculos que no quedaba fijo, una tabla de pares con n = 0, una columna de
+  sensibilidad toda «No definido» y códigos de versión en el cuerpo; la vista
+  de bancos y aseguradoras no tenía barra de rango, índice ni aviso de revisión.
+- Alcance:
+  - `/valuacion`: tabla «Empresas valuadas» con la última corrida de cada
+    empresa (`valued-companies-1.0.0`): precio ÷ valor, valor por acción,
+    cierre, estado, método y fecha, ordenable; se carga aparte y, si la base no
+    responde, el formulario sigue. `listLatestInWindow` acepta `statuses` (por
+    omisión, igual que antes; un test de integración nuevo).
+  - Resultado: valor del modelo y precio como cifras grandes; índice fijo que
+    marca la sección actual; pares insuficientes en una línea; crecimiento de
+    bear, base y bull en un gráfico con sus cifras plegadas; la columna de
+    sensibilidad indefinida se nombra en una línea; códigos, fuente y fórmula
+    del CEDEAR, la ficha y el historial en `InfoTip`; sin corrida, tres pasos
+    con íconos.
+  - Bancos y aseguradoras: la misma estructura que el FCFF (línea de datos,
+    aviso de revisión con los controles, índice, tiles), con la proyección y la
+    auditoría plegadas.
+  - Corrida de referencia: introducción y avisos de una línea.
+  - `formatCompactAmount` escribe «1 billón» y «1 millón» con cualquier escala
+    y signo.
+- Evidencia: formato, lint, tipos, unitarios, build, 245 de integración y E2E;
+  revisión renderizada a 1440 claro y 390 oscuro de `/valuacion`, AAPL, AMZN,
+  JPM, MSFT y la referencia con 0 axe y 0 overflow; AAPL pasa de 2.593 a 2.083
+  palabras y JPM de 897 a 644.

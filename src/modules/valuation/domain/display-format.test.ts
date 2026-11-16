@@ -109,6 +109,19 @@ describe("es-AR display formatting", () => {
     );
   });
 
+  it("uses the singular for exactly one at any scale", () => {
+    expect(formatCompactAmount("1000000000000", { scale: 0 })).toBe("1 billón");
+    expect(formatCompactAmount("1200000000000", { scale: 0 })).toBe("1 billón");
+    expect(formatCompactAmount("1000000", { scale: 0 })).toBe("1 millón");
+    expect(formatCompactAmount("1000000")).toBe("1,00 millón");
+    expect(formatCompactAmount("-1000000000000", { scale: 0 })).toBe(
+      "-1 billón",
+    );
+    expect(formatCompactAmount("1000000000", { scale: 0 })).toBe(
+      "1 mil millones",
+    );
+  });
+
   it("picks one magnitude per series from its largest absolute value", () => {
     const magnitude = displayMagnitude(["274515000000", "-416161000000"]);
 

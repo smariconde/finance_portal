@@ -1,3 +1,4 @@
+import { InfoTip } from "@/app/_components/info-tip";
 import {
   Table,
   TableBody,
@@ -139,18 +140,23 @@ export function ValuationHistory({
       aria-labelledby="valuation-history-title"
       className="flex flex-col gap-3"
     >
-      <div className="flex max-w-prose flex-col gap-1">
+      <div className="flex items-center gap-0.5">
         <h2
           id="valuation-history-title"
           className="text-base font-semibold tracking-tight"
         >
           Corridas de <span className="font-mono">{view.ticker}</span>
         </h2>
-        <p className="text-sm text-muted-foreground">
-          Las últimas {view.limit}, la más nueva primero. Volver a encolar
-          refresca: una corrida nueva nunca reemplaza a la anterior. Comparación{" "}
-          <span className="font-mono">{view.comparisonVersion}</span>.
-        </p>
+        <InfoTip title="El historial">
+          <p>
+            Las últimas {view.limit}, la más nueva primero. Volver a valuar
+            refresca: una corrida nueva nunca reemplaza a la anterior.
+          </p>
+          <p>
+            Comparación{" "}
+            <code className="font-mono">{view.comparisonVersion}</code>.
+          </p>
+        </InfoTip>
       </div>
       {view.entries.length === 0 ? (
         <p className="max-w-prose text-sm text-muted-foreground">

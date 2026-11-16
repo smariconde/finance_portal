@@ -1,5 +1,5 @@
 ---
-version: 3
+version: 4
 slug: "src-app-valuacion-referencia-page-tsx"
 primary_target: "src/app/valuacion/referencia/page.tsx"
 related_targets:
@@ -25,4 +25,5 @@ related_targets:
 - Memorable moment: la fila del corte de conocimiento alternativo, donde el mismo modelo con otro `known_at` produce otro valor y otro hash en vez de corregir el anterior.
 - Constraints: `FixtureCo` es sintética y se declara como tal; sin recomendación ni precio objetivo; sin datos live, red ni persistencia personal; el render es determinista (reloj e ID inyectados); WCAG 2.2 AA, teclado y reflow mobile; cada celda rechazada de la sensibilidad conserva su motivo.
 - Scenarios (`F4-04`): bear/base/bull como tabla semántica de valor por acción con barra anclada en cero redundante con el número, diferencia contra la base, EV, peso del terminal y controles en revisión; debajo, la tesis y los drivers de cada escenario contra el valor de la base, con su motivo. Sin probabilidades.
+- Pulido (2026-11-16, preferencia del owner): el encabezado dice en una línea qué prueba la página («una valuación fija que prueba que el motor da siempre el mismo resultado»); FCFF, snapshot, hash y que no usa red ni base pasan al ⓘ. El aviso de empresa sintética es una frase; la identidad lleva su explicación en un ⓘ; las descripciones de las cards compartidas de la corrida son una línea; los cuatro límites se reducen a una línea al pie (sin precio de mercado, recomendación ni señal). Escenarios y sensibilidad heredan el camino año por año y la lectura de la grilla en el ⓘ.
 - Unresolved: workbench editable y selector de método pertenecen a Fase 4; la superficie sólo los nombra como planificados.

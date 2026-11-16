@@ -313,6 +313,7 @@ Implementadas en `src/app/valuacion/_components/run/data-marks.tsx`.
 Implementada en `src/app/valuacion/[ticker]/_components/verdict-panel.tsx` (`F6-17`).
 
 - **Purpose:** ubicar el precio respecto del rango del modelo. Es un dibujo `aria-hidden`: la misma información está escrita en la frase de arriba y en la leyenda de abajo.
+- **Header (2026-11-16):** encima de la barra, cuatro `StatTile` `inset` dentro de la card: valor del modelo y precio en `lg` —el par que manda—, price/value y rigor en `sm`. P/E y EV/EBIT no se repiten: viven en la ficha y en los pares.
 - **Marks:** pista `muted`; rango pesimista–optimista en `--chart-1` al 35 %; valor central como trazo vertical `--chart-1`; precio como círculo `foreground` con anillo. La forma distingue cada marca, y la leyenda repite la forma al lado de su cifra.
 - **Labels:** sólo el precio se rotula sobre la barra y, cerca de un borde, se alinea hacia adentro. El resto vive en la leyenda, para que dos marcas cercanas no se pisen a 390 px.
 
@@ -336,8 +337,24 @@ Implementada en `src/app/valuacion/_components/run/sensitivity-matrix.tsx`.
 - **Structure:** tabla semántica con `th scope="col"` por parámetro horizontal y `th scope="row"` por parámetro vertical; `caption` declara unidad, moneda, rango y paso de ambos ejes.
 - **Encoding:** el importe se escribe en la celda. El tinte —`color-mix(in oklab, var(--chart-1) N%, var(--card))`— ordena las celdas de menor a mayor y no comunica nada por sí solo.
 - **Ramp:** intensidades `0 / 6 / 11 / 16 / 22 %`, asignadas por **posición en el orden** y no por rango lineal, para que un escenario extremo no aplaste al resto. El tope de `22 %` es un valor medido: más tinte baja el texto de delta por debajo de 4.5:1 en tema claro. Cambiarlo obliga a volver a medir.
-- **Undefined cells:** una celda fuera del modelo declara `No definido` con su motivo; no queda vacía, no cae a cero y no hereda el valor vecino.
+- **Undefined cells:** una celda fuera del modelo declara `No definido` con su motivo; no queda vacía, no cae a cero y no hereda el valor vecino. Una **columna entera** fuera del modelo con el mismo motivo —un crecimiento terminal por encima de la libre de riesgo— no se dibuja: una línea debajo la nombra con su valor y su motivo (2026-11-16). El `caption` es `sr-only` y la lectura de la grilla vive en el ⓘ del encabezado.
 - **Base case:** la celda que reproduce el caso base se marca con `ring` y etiqueta. Cuando el snapshot no la contiene, no se marca ninguna y la página lo explica.
+
+### Result index
+
+Implementado en `src/app/valuacion/[ticker]/_components/result-index.tsx` (2026-11-16).
+
+- **Position:** pegado debajo del header del shell (`top-14`), con el mismo fondo traslúcido y borde inferior; las anclas usan `scroll-mt-28` para que el título no quede tapado.
+- **Current section:** un `IntersectionObserver` marca la primera sección que cruza el tercio superior debajo del índice, con `aria-current="location"` y un subrayado `primary` de 2 px. Sin JavaScript sigue siendo una lista de anclas.
+- **Mobile:** una sola línea que se desplaza de costado; la marcada se trae a la vista moviendo sólo el `scrollLeft` del índice, sin desplazamiento suave con `prefers-reduced-motion`. Targets de `2.75rem`.
+
+### Scenario paths
+
+Implementado en `src/app/valuacion/_components/run/scenario-path-chart.tsx` (2026-11-16).
+
+- **Purpose:** un driver que cambia año por año (revenue growth) se dibuja en vez de escribirse como diez cifras por fila. La tabla de drivers dice de dónde a dónde va (`6,6 % → 4,0 %`) y la tabla plegada da cada año.
+- **Encoding:** bear con guiones `--chart-5`, base sólida y más gruesa `--chart-1`, bull punteada `--chart-2`; el trazo distingue cada escenario y la leyenda lo repite. Sin animación, sin puntos.
+- **Reading:** franja fija arriba con las tres cifras del año activo, por mouse, toque o flechas, como la proyección.
 
 ### Risk scatter
 

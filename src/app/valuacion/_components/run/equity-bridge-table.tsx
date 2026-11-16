@@ -44,8 +44,7 @@ export function EquityBridgeTable({ run }: { run: ValuationRun }) {
       <CardHeader className="border-b">
         <CardTitle as="h2">Puente de valor</CardTitle>
         <CardDescription>
-          Del enterprise value al valor por acción, con el signo y el estado de
-          cada claim. Valores en {run.currency}.
+          Del enterprise value al valor por acción, en {run.currency}.
         </CardDescription>
       </CardHeader>
 

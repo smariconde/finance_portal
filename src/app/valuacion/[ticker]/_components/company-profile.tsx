@@ -6,6 +6,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Fold } from "@/app/_components/fold";
+import { InfoTip } from "@/app/_components/info-tip";
+import { StatTile } from "@/app/_components/stat-tile";
 import {
   Table,
   TableBody,
@@ -84,13 +86,22 @@ function MetricName({
   metric: CompanyProfileReading["metrics"][number];
 }) {
   const term = METRIC_TERMS[metric.key];
-  if (term === undefined) return <>{metric.label}</>;
+  const name = term === undefined ? metric.label : termName(term);
+
   return (
     <>
-      <span className="block">{termName(term)}</span>
-      <span className="block text-xs font-normal text-muted-foreground">
-        {termSpanish(term)}
+      <span className="flex items-center gap-0.5">
+        {name}
+        {/* La fórmula, a demanda: la tabla lee nombre y cifra. */}
+        <InfoTip title={name}>
+          <p>{metric.formula}</p>
+        </InfoTip>
       </span>
+      {term === undefined ? null : (
+        <span className="block text-xs font-normal text-muted-foreground">
+          {termSpanish(term)}
+        </span>
+      )}
     </>
   );
 }
@@ -105,7 +116,7 @@ function metricValue(metric: CompanyProfileReading["metrics"][number]): string {
       : `${formatAmount(value, { scale: 2 })}×`;
 }
 
-/** Lectura compacta; las fórmulas quedan visibles en una tabla semántica. */
+/** Lectura compacta: nombre y cifra; la fórmula de cada una en su ⓘ. */
 export function CompanyProfile({
   profile,
   peBand = null,
@@ -119,13 +130,25 @@ export function CompanyProfile({
   return (
     <Card>
       <CardHeader>
-        <CardTitle as="h2">Ficha de la empresa</CardTitle>
-        <CardDescription>
-          {PROFILE_COPY[profile.assetProfile]} · ejercicio cerrado el{" "}
+        <div className="flex items-center gap-0.5">
+          <CardTitle as="h2">Ficha de la empresa</CardTitle>
+          <InfoTip title="De dónde sale la ficha">
+            <p>
+              Partidas reportadas a la SEC del último ejercicio y el cierre
+              guardado del día de la valuación. Una cifra que falta dice por
+              qué; nunca es un cero.
+            </p>
+            <p>
+              Regla <code className="font-mono">{profile.version}</code>.
+            </p>
+          </InfoTip>
+        </div>
+        <CardDescription className="numeric">
+          {PROFILE_COPY[profile.assetProfile]} · ejercicio al{" "}
           <time dateTime={profile.fiscalYearEnd}>
             {formatCalendarDate(profile.fiscalYearEnd)}
-          </time>
-          . Precio al{" "}
+          </time>{" "}
+          · precio al{" "}
           {profile.priceDate === null ? (
             "corte no comparable"
           ) : (
@@ -133,7 +156,6 @@ export function CompanyProfile({
               {formatCalendarDate(profile.priceDate)}
             </time>
           )}
-          . SEC y cierre guardado; regla {profile.version}.
         </CardDescription>
       </CardHeader>
       <CardContent className="overflow-x-auto">
@@ -149,9 +171,6 @@ export function CompanyProfile({
                 <TableHead scope="col" className="text-right">
                   Valor
                 </TableHead>
-                <TableHead scope="col" className="hidden sm:table-cell">
-                  Cálculo
-                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -159,10 +178,6 @@ export function CompanyProfile({
                 <TableRow key={metric.key}>
                   <TableCell className="font-medium whitespace-normal">
                     <MetricName metric={metric} />
-                    {/* En móvil la fórmula va bajo el nombre: el valor no se desplaza fuera de vista. */}
-                    <span className="mt-1 block text-xs font-normal text-muted-foreground sm:hidden">
-                      {metric.formula}
-                    </span>
                   </TableCell>
                   <TableCell
                     className={
@@ -173,9 +188,6 @@ export function CompanyProfile({
                   >
                     {metricValue(metric)}
                   </TableCell>
-                  <TableCell className="hidden whitespace-normal text-muted-foreground sm:table-cell">
-                    {metric.formula}
-                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -183,29 +195,37 @@ export function CompanyProfile({
         )}
         {peBand === null ? null : (
           <div className="mt-5 border-t pt-4 text-sm">
-            <h3 className="font-medium">P/E frente a su historia fiscal</h3>
+            <div className="flex items-center gap-0.5">
+              <h3 className="font-medium">P/E frente a su historia fiscal</h3>
+              <InfoTip title="La banda de P/E">
+                <p>
+                  Mínimo, mediana y máximo de hasta cinco cierres fiscales
+                  guardados: precio crudo y acciones del mismo ejercicio, sin
+                  años con split no conciliado. El actual usa el precio de la
+                  valuación y la utilidad del ejercicio base.
+                </p>
+                <p>
+                  Regla <code className="font-mono">{peBand.version}</code>.
+                </p>
+              </InfoTip>
+            </div>
             {peBand.unavailableReason === "multiple_share_classes" ? (
               <p className="mt-1 text-muted-foreground">
-                Sin banda: el emisor tiene varias clases de acciones y el total
-                de acciones no corresponde sólo a esta cotización.
+                Sin banda: varias clases de acciones.
               </p>
             ) : (
               <>
-                <p className="mt-1 text-muted-foreground">
-                  Mínimo, mediana y máximo de hasta cinco cierres fiscales
-                  guardados; precio crudo y acciones del mismo ejercicio, sin
-                  años con split no conciliado. {peBand.n} de{" "}
-                  {peBand.points.length} ejercicios comparables ·{" "}
-                  {peBand.version}.
-                </p>
-                {currentPe == null ? null : (
-                  <p className="mt-2 font-medium">
-                    P/E actual: {formatAmount(currentPe, { scale: 2 })}× ·
-                    precio al {formatCalendarDate(profile.priceDate!)} y
-                    utilidad del ejercicio base.
-                  </p>
-                )}
-                <dl className="mt-3 grid grid-cols-3 gap-4 border-y py-3">
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <StatTile
+                    variant="inset"
+                    size="sm"
+                    label="Actual"
+                    value={
+                      currentPe == null
+                        ? "—"
+                        : `${formatAmount(currentPe, { scale: 2 })}×`
+                    }
+                  />
                   {(
                     [
                       ["Mínimo", peBand.minimum],
@@ -213,16 +233,22 @@ export function CompanyProfile({
                       ["Máximo", peBand.maximum],
                     ] as const
                   ).map(([label, value]) => (
-                    <div key={label}>
-                      <dt className="text-xs text-muted-foreground">{label}</dt>
-                      <dd className="numeric mt-1 font-semibold">
-                        {value === null
+                    <StatTile
+                      key={label}
+                      variant="inset"
+                      size="sm"
+                      label={label}
+                      value={
+                        value === null
                           ? "Sin dato"
-                          : `${formatAmount(value, { scale: 2 })}×`}
-                      </dd>
-                    </div>
+                          : `${formatAmount(value, { scale: 2 })}×`
+                      }
+                    />
                   ))}
-                </dl>
+                </div>
+                <p className="numeric mt-2 text-xs text-muted-foreground">
+                  {peBand.n} de {peBand.points.length} ejercicios comparables
+                </p>
                 <Fold
                   divided={false}
                   className="mt-3"

@@ -1,10 +1,12 @@
 ---
-version: 2
+version: 3
 slug: "src-app-valuacion-page-tsx"
 primary_target: "src/app/valuacion/page.tsx"
 related_targets:
   [
     "src/app/valuacion/_components/valuation-request-form.tsx",
+    "src/app/valuacion/_components/valued-companies.tsx",
+    "src/app/valuacion/_components/valued-companies-table.tsx",
     "src/app/valuacion/actions.ts",
     "src/app/_components/app-sidebar.tsx",
   ]
@@ -12,13 +14,11 @@ related_targets:
 
 # Valuación por ticker
 
-- Since `F6-12`: es sólo la entrada. Encola y lleva a `/valuacion/[ticker]`, que sigue el pedido en el lugar y muestra el resultado; esta página ya no muestra estados, historial ni enlaces intermedios. Un pedido que no se pudo hacer se dice acá, sin navegar.
-- Scope (hasta `F6-11`): encolar la evaluación de un ticker y leer su estado. No es la superficie del valor.
+- Scope: la entrada de la valuación. Encola y lleva a `/valuacion/[ticker]`, que sigue el pedido en el lugar y muestra el resultado; un pedido que no se pudo hacer se dice acá, sin navegar (`F6-12`).
 - Visitor mode: Operate.
-- Audience: el owner, pidiendo una empresa del universo constituido.
-- Job: escribir un símbolo, encolar, y ver el código con el que terminó —identidad, hueco, perfil, método y rigor— sin un número inventado.
-- Content: el formulario, el estado en cola o en curso, el resultado con su corte de conocimiento y la regla, y el enlace a la corrida de referencia.
-- Direction: el mismo workspace que `/sectores`. Una columna, un formulario, una lista de definición. Sin tarjetas ni hero.
-- Constraints: el render no abre la base ni la red; un runtime trabado niega la página; el ticker inválido no se repite en el error; no hay valor por acción, precio objetivo ni recomendación.
-- Since `F6-07`: el resultado puede ser una corrida registrada; la página dice su estado (calculada, pide revisión, rechazada) o el motivo por el que el snapshot no se armó, nunca el valor.
-- Unresolved: el valor, el historial y la descarga de fundamentals son slices posteriores. La página los nombra como ausencia, no como controles.
+- Audience: el owner, pidiendo una empresa del universo constituido o volviendo a una que ya valuó.
+- Job: escribir un símbolo y valuar, o abrir lo ya valuado sabiendo de un vistazo cuánto paga el mercado frente al modelo.
+- Content (2026-11-16, decisión del owner): encabezado con una línea y su ⓘ, el formulario, la lista de **empresas valuadas** y el enlace a la corrida de referencia. La lista es la última corrida de cada empresa (`valued-companies-1.0.0`, cualquier estado): marca, nombre (`displayCompanyName`) y ticker con enlace, price/value, value per share, precio al `as_of` de esa corrida (`market-price-comparison-1.0.0`, la misma regla que el ticker; un banco usa la regla financiera de `F6-20`), estado como data mark (Calculada, Requiere revisión, Rechazada), método en palabras y fecha. Ordenable por empresa, price/value y fecha (`aria-sort`); lo que no tiene la cifra va al final y dice por qué en dos palabras, nunca cero.
+- Direction: el mismo workspace que `/sectores`. Una columna: formulario arriba, tabla debajo. Sin tarjetas ni hero. Price/value primero entre las cifras, porque es lo que se compara.
+- Constraints: la lista lee la base en su propio `Suspense` —corridas, grafo y precios guardados—, sin red, sin encolar y sin recalcular; si la base no responde, el formulario sigue en pie y la lista dice «Lista no disponible» (el gate E2E apunta a un puerto cerrado y espera el campo «Ticker»). Un runtime trabado niega la página; el ticker inválido no se repite en el error; no hay precio objetivo ni recomendación; sin IDs internos en el HTML ni en el payload.
+- Unresolved: la lista no filtra ni pagina; crece con lo que el owner valúa (no hay valuación por lote).

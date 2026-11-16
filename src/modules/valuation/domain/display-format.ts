@@ -177,6 +177,11 @@ const COMPACT_STEPS: readonly {
   { exponent: 6, word: "millones" },
 ];
 
+const SINGULAR: Readonly<Record<string, string>> = {
+  billones: "billón",
+  millones: "millón",
+};
+
 /**
  * Monto grande en palabras para leerlo de un vistazo: `2644451815199.54` es
  * `2,64 billones`. Usa la escala larga —un billón es un millón de millones—,
@@ -203,12 +208,13 @@ export function formatCompactAmount(
     options.scale ?? MONETARY_DISPLAY_SCALE,
     path,
   );
-  // `1,00 billones` se lee mal: el singular sólo para exactamente uno.
+  // `1,00 billones` y `1 billones` se leen mal: el singular sólo para
+  // exactamente uno, con cualquier cantidad de decimales.
+  const scale = options.scale ?? MONETARY_DISPLAY_SCALE;
+  const one = scale === 0 ? "1" : `1${DECIMAL_SEPARATOR}${"0".repeat(scale)}`;
   const word =
-    scaled ===
-      `1${DECIMAL_SEPARATOR}${"0".repeat(options.scale ?? MONETARY_DISPLAY_SCALE)}` &&
-    step.word === "billones"
-      ? "billón"
+    scaled === one || scaled === `-${one}`
+      ? (SINGULAR[step.word] ?? step.word)
       : step.word;
 
   return `${scaled} ${word}`;
