@@ -58,6 +58,7 @@ test.describe("negativa del runtime trabado", () => {
       [ROUTES.argentina, "El tablero argentino"],
       [ROUTES.account, "La cuenta"],
       [ROUTES.plan, "El plan"],
+      [ROUTES.finviz, "El screener"],
       [ROUTES.journal, "El diario"],
       [ROUTES.journalStats, "Las estadísticas del diario"],
       [ROUTES.journalTrade, "El diario"],

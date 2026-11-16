@@ -17,6 +17,7 @@ import { getPreMarketStore } from "@/server/persistence/trading/get-pre-market-s
 import { safeErrorSummary } from "@/server/trading/safe-error";
 import { loadJournalState } from "@/server/trading/transactions";
 
+import { PlanNav } from "./_components/plan-nav";
 import { PlanWorkspace } from "./_components/plan-workspace";
 
 export const metadata: Metadata = {
@@ -32,19 +33,22 @@ export default async function PlanPage() {
   if (!servesRealData(health))
     return <RuntimeLockedNotice health={health} surface="El plan" />;
   return (
-    <main
+    <div
       id="contenido"
       className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-4 md:p-6 lg:p-8"
     >
       <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-            Plan antes de la rueda
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Ideas fechadas, riesgo calculado y niveles para revisar antes de
-            operar.
-          </p>
+        <div className="flex flex-col gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+              Plan antes de la rueda
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Ideas fechadas, riesgo calculado y niveles para revisar antes de
+              operar.
+            </p>
+          </div>
+          <PlanNav current="ideas" />
         </div>
         <Link
           href="/diario"
@@ -65,7 +69,7 @@ export default async function PlanPage() {
       ) : (
         <PlanContent />
       )}
-    </main>
+    </div>
   );
 }
 

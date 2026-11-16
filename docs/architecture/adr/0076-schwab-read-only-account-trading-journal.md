@@ -691,6 +691,34 @@ modo, porque es código del repo; el historial sólo en el runtime personal con
 la base de trading, y si la base no responde lo dice con una referencia. Las
 estadísticas y la página de un trade enlazan el setup con su lección.
 
+## Enmienda del 2026-11-16: el screener de Finviz (`F11-13`)
+
+**Lo que decidió el owner:** el armador tiene que ser lo más útil posible, el
+JSON del Flask es viejo y no es la referencia, y lo que Finviz marca Elite no
+aparece como opción. El screener amplio sigue siendo Finviz (ADR 0016): el
+portal arma un link y el navegador del owner lo abre.
+
+**Medido.** Finviz no publica términos encontrables; su `robots.txt` cierra
+`/screener?*`, `/chart` e `/image` a robots. El portal no baja nada de Finviz y
+no embebe sus gráficos ni imágenes: sólo enlaza. El catálogo sale de una página
+que el owner guardó con su navegador, cuyo JSON embebido trae cada filtro con
+sus opciones, sus grupos y la marca `isEliteOnly`, y un `screenerFiltersVersion`
+que cambia cuando Finviz cambia filtros. El link de prueba volvió reescrito de
+`ind_` a `industry_`: el prefijo de un filtro es su clave más `_`.
+
+**`finviz-screener-page-1.0.0`** es un parser cerrado de esa página; una clave
+desconocida la rechaza por nombre, porque puede ser una marca de Elite.
+`pnpm finviz:catalog` regenera el JSON del catálogo y
+**`finviz-screener-catalog-1.0.0`** fija por test el `filtersVersion` que nombra:
+78 variables, 2.317 opciones; vistas y señales declaradas en el código con su
+evidencia.
+
+**`finviz-screener-url-1.0.0`** arma `screener/stocks?v=&f=&s=` en el orden del
+catálogo, un valor por variable, y lee un link pegado nombrando lo que no
+reconoce. **`finviz-screener-strategy-1.0.0`** guarda la consulta con nombre como
+revisiones en la base de trading (migración `0007`), sin la cuenta Schwab, y la
+vuelve a validar al leerla. Las acciones reciben la selección, nunca una URL.
+
 ## Controles del threat model
 
 | Control | Cómo se cierra en la Fase 11                                                                                                                                                      |

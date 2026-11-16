@@ -284,6 +284,23 @@ conceptos; cada lección es un gráfico esquemático con reglas numeradas.
   sólo faltan tus trades.
 - **Un setup propio** (`own-*`) no tiene lección.
 
+## El screener de Finviz
+
+`/plan/finviz` (`F11-13`) arma el link al screener de Finviz; «Abrir en Finviz»
+lo abre en otra pestaña. El portal no baja nada de Finviz.
+
+- **Un valor por variable.** Lo que Finviz marca Elite no aparece.
+- **Importar** acepta un link del screener de Finviz o del Flask y nombra lo
+  que quedó afuera (una opción Elite, `a|b`, una variable repetida).
+- **Estrategias:** nombre, vista, señal y filtros, en la base de trading. Sin
+  la base, el armador funciona igual y sólo falta guardarlas.
+- **La watchlist** de `/plan` abre sus ideas activas en Finviz con «Ver en
+  Finviz».
+- **Actualizar el catálogo** cuando Finviz cambie sus filtros: guardá desde el
+  navegador la pestaña «All» del screener (`…/screener/stocks?ft=4`) y corré
+  `pnpm finviz:catalog --file <página>` (en seco) y después con `--write`. El
+  test pide subir `FINVIZ_SCREENER_CATALOG_VERSION`. La página no va al repo.
+
 ## Cuota y kill switch
 
 La cuota y el kill switch de las fuentes de Schwab viven en la base de

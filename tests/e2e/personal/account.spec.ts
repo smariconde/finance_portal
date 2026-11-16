@@ -69,6 +69,51 @@ test.describe("cuenta Schwab sin base de trading", () => {
     );
   });
 
+  test("el armador de Finviz arma links aunque la base de trading no responda", async ({
+    page,
+  }) => {
+    await page.goto(ROUTES.finviz);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Screener de Finviz" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Finviz", exact: true }),
+    ).toHaveAttribute("aria-current", "page");
+    // El catálogo es código: sin base sólo faltan las estrategias.
+    await expect(
+      page.getByText(/La base de trading no respondió\. Referencia/u),
+    ).toBeVisible();
+
+    await page.getByLabel("Exchange", { exact: true }).selectOption("nasd");
+    await page.getByRole("tab", { name: /Technical/u }).click();
+    await page.getByLabel("RSI (14)", { exact: true }).selectOption("os30");
+    const open = page.getByRole("link", { name: /Abrir en Finviz/u }).first();
+    await expect(open).toHaveAttribute(
+      "href",
+      "https://finviz.com/screener/stocks?v=111&f=exch_nasd,ta_rsi_os30",
+    );
+    await expect(open).toHaveAttribute("rel", "noopener noreferrer");
+    await expect(page).toHaveURL(
+      /\/plan\/finviz\?v=111&f=exch_nasd,ta_rsi_os30$/u,
+    );
+
+    // Un link viejo del Flask vuelve con la clave nueva y nombra lo Elite.
+    await page
+      .getByLabel("Link del screener de Finviz")
+      .fill(
+        "https://finviz.com/screener.ashx?v=111&f=ind_semiconductors,exch_nasd|nyse",
+      );
+    await page.getByRole("button", { name: "Importar link" }).click();
+    await expect(open).toHaveAttribute(
+      "href",
+      "https://finviz.com/screener/stocks?v=111&f=industry_semiconductors",
+    );
+    await expect(page.getByText("exch_nasd|nyse")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Guardar estrategia" }),
+    ).toHaveCount(0);
+  });
+
   test("las estadísticas dicen que la base no respondió", async ({ page }) => {
     await page.goto(ROUTES.journalStats);
 

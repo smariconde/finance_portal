@@ -110,6 +110,7 @@ export const ROUTES = {
   argentina: "/argentina",
   account: "/cuenta",
   plan: "/plan",
+  finviz: "/plan/finviz",
   journal: "/diario",
   journalStats: "/diario/estadisticas",
   // Dos IDs de Schwab inventados: con la base cerrada nunca llega a buscarlo.
