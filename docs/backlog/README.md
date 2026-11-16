@@ -137,7 +137,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   109 | `F11-13`   | `ready`       | Armador de links al screener de Finviz con un desplegable por variable y estrategias guardadas; el portal no baja datos de Finviz.                                                                                        | `F11-01`           |
 |   110 | `F11-14`   | `queued`      | MCP de solo lectura para la IA del owner, decidido en su propia ADR antes de cualquier código.                                                                                                                            | gate de la Fase 11 |
 |   111 | `F11-15`   | `queued`      | El riesgo y el diario sobreviven a una tabla de trading ausente o atrasada: sin vínculos de pre-market leen planes y reglas y nombran lo que falta, en vez de caer con una referencia.                                    | `F11-12`           |
-|   112 | `F11-16`   | `in_progress` | Logos PNG guardados en PostgreSQL y servidos desde el portal; cuadrados redondeados junto a los tickers de trading, conservando círculos en matrices y gráficos.                                                          | Pedido del owner   |
+|   112 | `F11-16`   | `done`        | Logos PNG guardados en PostgreSQL y servidos desde el portal; cuadrados redondeados junto a los tickers de trading, conservando círculos en matrices y gráficos.                                                          | Pedido del owner   |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -7288,10 +7288,10 @@ probar el control; fases posteriores pueden volver a verificarlo.
 
 ## `F11-16` — logos durables y marcas de trading
 
-- Estado: `in_progress`; implementación y descarga local listas. Pendientes
-  CI del PR y paso remoto con snapshot revisado antes de Neon. El gate local
-  está cerrado: formato, lint, tipos, build, 4.289 unitarios sin red, 244 de
-  integración y 363 E2E con axe aprobados (3 omitidos).
+- Estado: `done`; implementación, carga local y Neon verificadas. Formato,
+  lint, tipos, build, 4.289 unitarios sin red, 244 de integración y 363 E2E con
+  axe aprobados (3 omitidos). Quality y E2E del [PR #134](https://github.com/smariconde/finance_portal/pull/134)
+  aprobaron la implementación `52fb534`; el cierre documental conserva ese código.
 - Autorización: pedido expreso del owner del 2026-11-16 antes de retomar
   `F11-13`. Excepción explícita al orden mientras `F11-09` espera la primera
   posición real. Decisión: [ADR 0077](../architecture/adr/0077-persisted-company-logos.md).
@@ -7323,10 +7323,15 @@ probar el control; fases posteriores pueden volver a verificarlo.
 - Operación: [runbook](../runbooks/company-logos.md), `pnpm logos:ingest`
   y variante `:neon`; dry run sin red ni escrituras. La clave restringida exige
   el origen real `LOGO_DEV_REFERER`, ya configurado en el perfil local.
-- Paso remoto: no se aplicó `0051` ni se modificó Production. Neon conserva
-  `pre-f9-18-0050-2026-11-13`; ADR 0073 exige revisar el punto de recuperación
-  y deja al owner la decisión de reemplazar ese snapshot antes de migrar.
-  CI y merge siguen el procedimiento habitual de PR; `F11-13` no se inició.
+- Paso remoto (autorizado por el owner el 2026-11-16): reemplazado el snapshot
+  del 13/11 por `f11-16-before-0051-2026-11-16`
+  (`snap-dry-sea-b7zx3g8p`, `production`, 13:46:03 UTC). `0051` aplicada y
+  `pnpm db:status:neon` informa 52 de 52. Se copiaron 528 PNG locales con hashes
+  verificados, sin sobrescribir imágenes existentes: 4.100.599 bytes enviados
+  y ninguna nueva descarga de esos logos. La única consulta de faltante fue
+  DUK, que conserva monograma. KO se leyó desde Neon sin clave: mismos 1.496
+  bytes y hash. Vercel Production tiene `LOGO_DEV_REFERER` con su origen real;
+  la protección de todos los despliegues sigue habilitada. `F11-13` no se inició.
 
 ## Plantilla para nuevos issues
 

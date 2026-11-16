@@ -69,3 +69,18 @@ La fixture `src/server/company-logos/fixtures/company-logo.png` es una placa
 sintética RGBA de 128 × 128 px. No contiene una marca real ni una captura del
 proveedor. Unit y contrato del proveedor se ejecutan sin red; integración
 verifica binarios, reservas concurrentes, fencing y cooldown sobre PostgreSQL.
+
+## Verificación en Neon del 2026-11-16
+
+El owner autorizó reemplazar el snapshot anterior y aplicar antes del merge del
+PR #134. Snapshot `f11-16-before-0051-2026-11-16`
+(`snap-dry-sea-b7zx3g8p`, rama `production`, 13:46:03 UTC), migración `0051`
+aplicada y journal 52 de 52. Se copiaron 528 PNG locales en una transacción,
+con hash verificado y `ON CONFLICT DO NOTHING`, conservando fuente, parser y
+fecha original: 4.100.599 bytes subidos, sin redescargar esas imágenes. La
+consulta del faltante DUK devolvió ausencia; conserva monograma.
+
+KO se leyó desde Neon con la clave del proveedor vacía: 1.496 bytes y el mismo
+SHA-256. Vercel Production tiene configurado el origen real `LOGO_DEV_REFERER`;
+la protección All Deployments sigue habilitada. No se guardaron payloads,
+imágenes de empresas ni credenciales en el repositorio.
