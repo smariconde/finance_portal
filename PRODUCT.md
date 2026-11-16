@@ -10,9 +10,11 @@ web
 
 El usuario principal es el owner del portal: un inversor argentino que investiga
 empresas globales accesibles mediante CEDEAR, compara fundamentales, construye
-valuaciones y sigue el régimen macroeconómico local. Usa el producto como una
-herramienta recurrente de investigación y decisión, no para operar con velocidad
-ni para publicar recomendaciones.
+valuaciones y sigue el régimen macroeconómico local. Desde la Fase 11 también
+opera su cuenta de Schwab (day trade y swing) y lleva acá el plan, el diario y
+el riesgo de esos trades. Usa el producto como una herramienta recurrente de
+investigación y decisión, nunca para enviar órdenes ni para publicar
+recomendaciones.
 
 ## Product Purpose
 
@@ -41,12 +43,13 @@ financiera.
   escritorio.
 - La instancia personal con datos reales se ejecuta en localhost o detrás de
   protección de plataforma.
-- Una eventual URL pública funciona únicamente en modo demo con fixtures
-  deterministas y sin credenciales.
-- El flujo previsto abarca búsqueda, matrices sectoriales de riesgo, ficha de
-  empresa, divergencias fundamentales, valuación por escenarios, tablero
-  argentino, metodología y salud de las fuentes. No incluye un screener general:
-  el filtrado amplio se hace con Finviz.
+- No hay demo pública: fuera de un runtime personal la app se traba y no sirve
+  datos ([ADR 0004](docs/architecture/adr/0004-personal-first-runtime.md)).
+- La navegación tiene dos secciones. **Análisis**: valuación por ticker con su
+  ficha, matrices de riesgo y divergencias por sector, y el tablero argentino
+  con la soja. **Trading**: cuenta Schwab en vivo, plan antes de la rueda,
+  diario con estadísticas y lecciones. No incluye un screener general: el
+  filtrado amplio se hace con Finviz, al que el plan arma links.
 - El repositorio público funciona también como portfolio técnico, sin exponer
   claves, base de datos ni payloads licenciados.
 
@@ -65,9 +68,11 @@ financiera.
   identidades distintas.
 - La demo no presenta datos simulados como reales ni capacidades futuras como
   disponibles.
-- Quedan fuera de alcance la ejecución de órdenes, conexión a brokers, custodia,
-  recomendaciones personalizadas, tiempo real, cuentas, roles, multi-tenancy,
-  BYOK y una app móvil nativa.
+- Quedan fuera de alcance la ejecución de órdenes —la conexión con Schwab es
+  de sólo lectura y la app de Schwab tiene _Order Limit_ 0
+  ([ADR 0076](docs/architecture/adr/0076-schwab-read-only-account-trading-journal.md))—,
+  custodia, recomendaciones personalizadas, cuentas, roles, multi-tenancy, BYOK
+  y una app móvil nativa.
 - No se agregan analytics de terceros por defecto y los secretos permanecen
   server-only.
 
@@ -97,9 +102,10 @@ financiera.
   están documentados en `docs/finance-portal-masterplan/`.
 - `README.md` presenta públicamente la propuesta, el estado real y el contrato de
   ejecución del proyecto.
-- La aplicación actual incluye el bootstrap técnico y una portada provisional;
-  todavía no contiene datasets financieros, valuaciones, análisis persistidos ni
-  funciones de IA.
+- La aplicación sirve datos reales del owner: fundamentales de la SEC, precios,
+  CEDEAR, valuaciones con su snapshot, series del BCRA y del INDEC, la cuenta
+  Schwab y sus transacciones. El estado de cada slice está en
+  `docs/backlog/README.md`.
 - No hay aún logos, testimonios, clientes, benchmarks públicos, licencia de
   software, URL de producción ni claims de rendimiento que puedan usarse como
   prueba. El diseño no debe inventarlos.

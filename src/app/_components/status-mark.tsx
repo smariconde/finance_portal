@@ -1,4 +1,5 @@
 import { Ban, CheckCircle2, CircleDashed, TriangleAlert } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -35,7 +36,8 @@ const statusConfig = {
 
 type StatusMarkProps = {
   status: AvailabilityStatus;
-  label?: string;
+  /** Un nodo, para que un ancho angosto pueda ocultar parte del rótulo. */
+  label?: ReactNode;
 };
 
 export function StatusMark({ status, label }: StatusMarkProps) {
