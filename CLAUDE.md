@@ -1535,6 +1535,16 @@ down: annotations, rules and pre-market plans are parts (`trading-parts.ts`)
 read empty or as the defaults **only** on SQLSTATE `42P01`, and named by
 `UnreadTradingParts`; connection or permission failures keep the reference.
 
+[ADR 0078](docs/architecture/adr/0078-owner-read-only-mcp.md) (`F11-14`,
+accepted; built in `F11-17`) decides a read-only MCP for the owner's own
+assistant: `POST /mcp` in Production, stateless `createMcpHandler` from
+`@modelcontextprotocol/server`, behind a dedicated Vercel bypass secret
+**and** `MCP_ACCESS_TOKEN` (a machine credential for one route, not app
+auth). Tools wrap the pages' own loaders over stored data only —no egress,
+no writes, never the live account, credentials or the account HMAC— and a
+new `ownerAssistant` rights dimension, separate from `aiTransfer`, gates
+each source.
+
 Since `F11-10` (in progress, ADR 0076 amendment, no migration) `/lecciones`
 teaches seven concepts and one lesson per code of `trading-setups-1.0.0`
 (`technical-lessons-1.0.0`; a declared setup without exactly one lesson breaks

@@ -78,7 +78,9 @@ Queda fuera:
 - la automatización;
 - el streaming y los datos tick-by-tick;
 - transferir datos de la cuenta a una IA, incluido un MCP de solo lectura.
-  Eso pide una ADR propia.
+  Eso pide una ADR propia. La [ADR 0078](0078-owner-read-only-mcp.md) la
+  abre para lo guardado (diario, estadísticas y plan) y la mantiene cerrada
+  para la cuenta en vivo y las credenciales.
 
 `01_PRODUCT_AND_SCOPE.md` cambia en consecuencia: la conexión de lectura entra
 y la ejecución de órdenes, la custodia y el tiempo real siguen fuera.
