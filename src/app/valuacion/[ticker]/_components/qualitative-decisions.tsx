@@ -2,6 +2,7 @@ import {
   EvidenceKindMark,
   type EvidenceKind,
 } from "@/app/valuacion/_components/run/data-marks";
+import { Fold } from "@/app/_components/fold";
 import {
   CodeValue,
   Field,
@@ -244,11 +245,15 @@ function OperationsMixDecision({ run }: { run: ValuationRun }) {
         </TableBody>
       </Table>
       {decision.source === "ai_proposal" ? (
-        <details className="text-sm">
-          <summary className="cursor-pointer font-medium">
-            Líneas transcriptas, como se imprimieron ({decision.lines.length})
-          </summary>
-          <ol className="mt-2 flex flex-col gap-2">
+        <Fold
+          divided={false}
+          summary={
+            <>
+              Líneas transcriptas, como se imprimieron ({decision.lines.length})
+            </>
+          }
+        >
+          <ol className="flex flex-col gap-2 text-sm">
             {decision.lines.map((line) => (
               <li key={line.ordinal} className="rounded-lg border p-2">
                 <p className="flex flex-wrap items-baseline justify-between gap-2">
@@ -261,7 +266,7 @@ function OperationsMixDecision({ run }: { run: ValuationRun }) {
               </li>
             ))}
           </ol>
-        </details>
+        </Fold>
       ) : null}
     </section>
   );

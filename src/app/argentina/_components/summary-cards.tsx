@@ -1,3 +1,4 @@
+import { StatTile } from "@/app/_components/stat-tile";
 import type { ArgentinaDashboard } from "@/modules/argentina-dashboard/application/load-argentina-dashboard";
 
 import {
@@ -111,23 +112,15 @@ export function SummaryCards({
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {summariesOf(dashboard).map((summary) => (
           <li key={summary.href} className="min-w-0">
-            <a
+            <StatTile
               href={summary.href}
-              className="flex h-full flex-col gap-1 rounded-xl bg-card p-3 ring-1 ring-foreground/10 transition-colors hover:bg-muted/50 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-            >
-              <span className="text-xs text-muted-foreground">
-                {summary.label}
-              </span>
-              <span className="numeric text-xl leading-tight font-semibold">
-                {summary.value}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {summary.detail}
-              </span>
-              <span className="mt-auto pt-1 text-xs text-muted-foreground">
-                {summary.asOf === null ? "Sin fecha" : summary.asOf}
-              </span>
-            </a>
+              className="h-full"
+              size="sm"
+              label={summary.label}
+              value={summary.value}
+              detail={summary.detail}
+              footer={summary.asOf === null ? "Sin fecha" : summary.asOf}
+            />
           </li>
         ))}
       </ul>

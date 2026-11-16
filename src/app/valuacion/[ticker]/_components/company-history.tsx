@@ -1,4 +1,5 @@
 import { EvidenceKindMark } from "@/app/valuacion/_components/run/data-marks";
+import { Fold } from "@/app/_components/fold";
 import { CodeValue } from "@/app/valuacion/_components/run/field";
 import {
   Card,
@@ -352,10 +353,10 @@ export function CompanyHistory({
         <HistoryCharts metrics={metrics} />
       </CardContent>
 
-      <details className="group border-t">
-        <summary className="cursor-pointer px-(--card-spacing) py-3 text-sm font-medium">
-          Ver las cifras en tabla
-        </summary>
+      <Fold
+        className="px-(--card-spacing)"
+        summary={<>Ver las cifras en tabla</>}
+      >
         <CardContent className="flex flex-col gap-2 px-0 pb-(--card-spacing)">
           <Table containerLabel="Historia de la empresa, tabla desplazable">
             <TableHeader>
@@ -409,7 +410,7 @@ export function CompanyHistory({
             <CodeValue>{trajectory.version}</CodeValue>
           </p>
         </CardContent>
-      </details>
+      </Fold>
     </Card>
   );
 }

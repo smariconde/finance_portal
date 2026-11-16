@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { Fold } from "@/app/_components/fold";
 import { CompanyMark } from "@/app/_components/company-mark";
 import { EvidenceKindMark } from "@/app/valuacion/_components/run/data-marks";
 import {
@@ -328,12 +329,16 @@ export function PeerContext({ context }: { context: PeerContextReading }) {
             </div>
 
             {sector.peers.length === 0 ? null : (
-              <details className="group">
-                <summary className="w-fit cursor-pointer text-sm text-primary underline-offset-4 hover:underline">
-                  Los {sector.peers.length}{" "}
-                  {sector.peers.length === 1 ? "par" : "pares"} de {label}
-                </summary>
-                <div className="mt-3 overflow-x-auto">
+              <Fold
+                divided={false}
+                summary={
+                  <>
+                    Los {sector.peers.length}{" "}
+                    {sector.peers.length === 1 ? "par" : "pares"} de {label}
+                  </>
+                }
+              >
+                <div className="overflow-x-auto">
                   <Table>
                     <caption className="sr-only">
                       Empresas de {label} valuadas en la ventana
@@ -404,7 +409,7 @@ export function PeerContext({ context }: { context: PeerContextReading }) {
                     </TableBody>
                   </Table>
                 </div>
-              </details>
+              </Fold>
             )}
           </>
         )}

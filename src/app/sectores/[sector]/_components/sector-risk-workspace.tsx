@@ -3,6 +3,7 @@
 import { ArrowDown, ArrowUp, ArrowUpDown, CircleSlash } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 
+import { displayCompanyName } from "@/modules/companies/domain/display-company-name";
 import { CompanyMark } from "@/app/_components/company-mark";
 import { FinvizProfileLink } from "@/app/_components/finviz-profile-link";
 import type { BusinessExcerpt } from "@/modules/companies/domain/sec-business-excerpt";
@@ -194,7 +195,9 @@ function SelectedPoint({
             )}
           </p>
           <p className="text-sm text-muted-foreground">
-            {point.issuerName ?? "Emisor sin nombre registrado"}
+            {point.issuerName === null
+              ? "Emisor sin nombre registrado"
+              : displayCompanyName(point.issuerName)}
           </p>
         </div>
       </div>
@@ -637,7 +640,9 @@ export function SectorRiskWorkspace({
                       <CedearBadge point={point} />
                     </TableCell>
                     <TableCell className="max-w-56 truncate">
-                      {point.issuerName ?? "—"}
+                      {point.issuerName === null
+                        ? "—"
+                        : displayCompanyName(point.issuerName)}
                     </TableCell>
                   </TableRow>
                 );

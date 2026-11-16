@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { Fold } from "@/app/_components/fold";
 import { InfoTip } from "@/app/_components/info-tip";
 import { EvidenceKindMark } from "@/app/valuacion/_components/run/data-marks";
 import { CodeValue } from "@/app/valuacion/_components/run/field";
@@ -214,10 +215,7 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
                 PV: ese flujo, valuado hoy
               </span>
             </div>
-            <details className="group text-sm">
-              <summary className="w-fit text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
-                Las cifras por año
-              </summary>
+            <Fold divided={false} summary={<>Las cifras por año</>}>
               <Table containerLabel="Proyección por año, tabla desplazable">
                 <TableHeader>
                   <TableRow>
@@ -255,7 +253,7 @@ export function ValueWalkthrough({ run }: { run: ValuationRun }) {
               <p className="mt-1 text-xs text-muted-foreground">
                 En {projectionUnit}.
               </p>
-            </details>
+            </Fold>
           </figure>
         </div>
 

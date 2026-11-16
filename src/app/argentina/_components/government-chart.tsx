@@ -37,7 +37,7 @@ import type {
   GovernmentPath,
 } from "@/modules/argentina-dashboard/domain/government-comparison";
 
-import { Fold } from "./block";
+import { Fold } from "@/app/_components/fold";
 import { HoverLayer, PlotAreaProbe, samePlot } from "./chart-hover";
 import {
   axisLabel,

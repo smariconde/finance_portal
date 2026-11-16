@@ -1,6 +1,5 @@
 import { History, Info } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
@@ -8,6 +7,7 @@ import { DataUnavailableNotice } from "@/app/_components/data-unavailable-notice
 import { CompanyMark } from "@/app/_components/company-mark";
 import { FinvizProfileLink } from "@/app/_components/finviz-profile-link";
 import { InfoTip } from "@/app/_components/info-tip";
+import { PageContainer, PageHeader } from "@/app/_components/page-frame";
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -25,6 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { displayCompanyName } from "@/modules/companies/domain/display-company-name";
 import { servesRealData } from "@/modules/configuration/domain/config-health";
 import { DEMO_SOURCE_REGISTRY } from "@/modules/ingestion/infrastructure/demo-source-registry";
 import type { ValuationHistoryView } from "@/modules/valuation/application/read-valuation-history";
@@ -178,48 +179,36 @@ function PageFrame({
   hasRun: boolean;
   children: ReactNode;
 }) {
+  const named = title !== ticker;
+  const name = named ? displayCompanyName(title) : ticker;
+
   return (
-    <div id="contenido" className="flex-1">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 md:p-6 lg:p-8">
-        <section
-          className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
-          aria-labelledby="result-title"
-        >
-          <div className="flex min-w-0 flex-col gap-3">
-            <Link
-              href="/valuacion"
-              className="w-fit text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-            >
-              Valuación por ticker
-            </Link>
-            <div className="flex min-w-0 items-center gap-4">
-              <CompanyMark
-                ticker={ticker}
-                name={title === ticker ? null : title}
-                logoUrl={requestCompanyLogoUrl(ticker)}
-                size="lg"
-              />
-              <div className="flex min-w-0 flex-col gap-1">
-                <h1
-                  id="result-title"
-                  className="max-w-4xl text-2xl font-semibold tracking-tight text-balance md:text-3xl"
-                >
-                  {title}
-                </h1>
-                {title === ticker ? null : (
-                  <p className="font-mono text-sm text-muted-foreground">
-                    {ticker}
-                  </p>
-                )}
-                <FinvizProfileLink ticker={ticker} />
-              </div>
-            </div>
-          </div>
-          <ValuationRunner ticker={ticker} hasRun={hasRun} />
-        </section>
-        {children}
-      </div>
-    </div>
+    <PageContainer>
+      <PageHeader
+        id="result-title"
+        title={name}
+        leading={
+          <CompanyMark
+            ticker={ticker}
+            name={named ? name : null}
+            logoUrl={requestCompanyLogoUrl(ticker)}
+            size="lg"
+          />
+        }
+        lead={
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            {named ? (
+              <span className="font-mono text-sm text-muted-foreground">
+                {ticker}
+              </span>
+            ) : null}
+            <FinvizProfileLink ticker={ticker} />
+          </span>
+        }
+        actions={<ValuationRunner ticker={ticker} hasRun={hasRun} />}
+      />
+      {children}
+    </PageContainer>
   );
 }
 
@@ -243,7 +232,7 @@ const METHOD_COPY: Record<string, string> = {
   normalized_fcff: "Flujo de caja con margen de ciclo",
 };
 
-function SectionNav() {
+function ResultIndex() {
   return (
     <nav aria-label="Secciones del resultado" className="-mt-2">
       <ul className="flex flex-wrap gap-x-4 gap-y-2 border-b pb-3 text-sm">
@@ -774,7 +763,7 @@ export default async function ValuationResultPage({ params }: PageProps) {
         </Alert>
       )}
 
-      <SectionNav />
+      <ResultIndex />
 
       <Anchor id="veredicto">
         <VerdictPanel

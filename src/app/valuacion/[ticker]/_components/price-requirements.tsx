@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { Fold } from "@/app/_components/fold";
 import { InfoTip } from "@/app/_components/info-tip";
 import { EvidenceKindMark } from "@/app/valuacion/_components/run/data-marks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -388,23 +389,17 @@ export function PriceRequirements({
           })}
         </ol>
 
-        <details className="group rounded-lg border">
-          <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
-            Ver la tabla técnica
-          </summary>
-          <div className="border-t p-3">
+        <Fold summary={<>Ver la tabla técnica</>}>
+          <div>
             <ImpliedTable run={run} market={market} />
           </div>
-        </details>
+        </Fold>
 
-        <details className="group rounded-lg border">
-          <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
-            Leer lo que dice el 10-K, con citas
-          </summary>
-          <div className="border-t p-3">
+        <Fold summary={<>Leer lo que dice el 10-K, con citas</>}>
+          <div>
             <AiReading reading={market.reading} run={run} />
           </div>
-        </details>
+        </Fold>
       </CardContent>
     </Card>
   );

@@ -89,7 +89,7 @@ export default async function LessonPage({ params }: PageProps) {
 
   return (
     <div id="contenido" className="flex-1">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 md:p-6 lg:p-8">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 md:p-6 lg:p-8">
         <Link
           href="/lecciones"
           className="inline-flex w-fit items-center gap-1 rounded-sm text-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"

@@ -115,7 +115,7 @@ export default async function HomePage({
 
   return (
     <div id="contenido" className="flex-1">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-4 md:p-6 lg:p-8">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 p-4 md:p-6 lg:p-8">
         <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
           Inicio
         </h1>
