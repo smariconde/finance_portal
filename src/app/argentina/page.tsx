@@ -22,6 +22,7 @@ import {
 } from "@/modules/macro-series/application/read-rem-inflation-comparison";
 
 import { ArgentinaRefresh } from "./_components/argentina-refresh";
+import { BlockIndex } from "./_components/block-index";
 import { ItcrmSection } from "./_components/itcrm-section";
 import { RemInflationSection } from "./_components/rem-inflation-section";
 import {
@@ -33,6 +34,18 @@ import {
   SoySection,
 } from "./_components/sections";
 import { SummaryCards } from "./_components/summary-cards";
+
+/** Los bloques en el orden de la página, con el nombre corto del índice. */
+const BLOCKS = [
+  { id: "actividad", label: "Actividad" },
+  { id: "dolar", label: "Dólar" },
+  { id: "itcrm", label: "ITCRM" },
+  { id: "monetario", label: "Inflación y reservas" },
+  { id: "rem-inflacion", label: "REM" },
+  { id: "fiscal", label: "Fiscal" },
+  { id: "externo", label: "Comercio" },
+  { id: "soja", label: "Soja" },
+] as const;
 
 export const metadata: Metadata = {
   title: "Argentina | Portal Financiero",
@@ -124,6 +137,12 @@ export default async function ArgentinaPage() {
                 expectativas para los meses siguientes, separadas del IPC
                 observado.
               </p>
+              <p>
+                Debajo de cada cifra de arriba, su cambio contra la lectura
+                anterior: verde si favorece según la métrica (que baje la
+                inflación o la brecha cambiaria, que suba la actividad), rojo si
+                no. El signo escrito dice el sentido sin el color.
+              </p>
               <p>El tablero no explica causas ni emite recomendaciones.</p>
             </InfoTip>
           </>
@@ -138,6 +157,7 @@ export default async function ArgentinaPage() {
       )}
 
       <SummaryCards dashboard={dashboard} />
+      <BlockIndex blocks={BLOCKS} />
 
       <ActivitySection activity={dashboard.activity} />
       <DollarSection dollar={dashboard.dollar} />

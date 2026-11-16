@@ -23,7 +23,6 @@ import {
   useYAxisScale,
 } from "recharts";
 
-import { InfoTip } from "@/app/_components/info-tip";
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
 import {
   Table,
@@ -34,7 +33,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
 import {
   PRESIDENTIAL_TERMS_SOURCE,
   regimesOverlapping,
@@ -51,12 +49,14 @@ import { HoverLayer, PlotAreaProbe, samePlot } from "./chart-hover";
 import {
   axisLabel,
   axisReading,
+  ChartOptions,
   ChartToolbar,
   dateOf,
   dayNumber,
   formatValue,
   linearTicks,
   logTicks,
+  OptionToggle,
   periodLabel,
   Segmented,
   Swatch,
@@ -332,7 +332,9 @@ function MarksLayer({
   for (const event of events) {
     if (event.on < fromOn || event.on > toOn) continue;
     const left = x(event.on);
-    const labelEnd = left + 3 + event.label.length * 5.6 + 6;
+    // Una fecha que la escala no ubica no se dibuja: una línea en NaN.
+    if (!Number.isFinite(left)) continue;
+    const labelEnd = left + 3 + event.label.length * 6.8 + 6;
     const labeled = left + 3 >= lastLabelEnd && labelEnd <= plot.x + plot.width;
     if (labeled) lastLabelEnd = labelEnd;
     placedEvents.push({ event, left, labeled });
@@ -345,7 +347,7 @@ function MarksLayer({
         const right = x(term.to ?? toOn);
         const width = right - left;
         if (!(width > 0)) return null;
-        const fits = width >= term.label.length * 6 + 10;
+        const fits = width >= term.label.length * 7 + 10;
         return (
           <g key={term.id}>
             {index % 2 === 0 ? null : (
@@ -362,7 +364,7 @@ function MarksLayer({
               <line
                 x1={left}
                 x2={left}
-                y1={plot.y - 14}
+                y1={plot.y - 18}
                 y2={plot.y + plot.height}
                 stroke="var(--muted-foreground)"
                 strokeOpacity={0.45}
@@ -372,8 +374,8 @@ function MarksLayer({
             {fits ? (
               <text
                 x={left + 4}
-                y={plot.y - 4}
-                className="fill-muted-foreground text-[10px]"
+                y={plot.y - 6}
+                className="fill-muted-foreground text-xs"
               >
                 {term.label}
               </text>
@@ -386,15 +388,15 @@ function MarksLayer({
         const right = x(span.to ?? toOn);
         const width = right - left;
         if (!(width > 1)) return null;
-        const y = plot.y - 36 + span.lane * 11;
-        const fits = width >= span.label.length * 5.6 + 8;
+        const y = plot.y - 52 + span.lane * 16;
+        const fits = width >= span.label.length * 6.8 + 8;
         return (
           <g key={span.id}>
             <rect
               x={left}
               y={y}
               width={width}
-              height={9}
+              height={14}
               rx={2}
               fill={span.color}
               fillOpacity={0.22}
@@ -402,8 +404,8 @@ function MarksLayer({
             {fits ? (
               <text
                 x={left + 3}
-                y={y + 7.5}
-                className="fill-foreground text-[9px]"
+                y={y + 10.5}
+                className="fill-foreground text-xs"
               >
                 {span.label}
               </text>
@@ -425,8 +427,8 @@ function MarksLayer({
           {labeled ? (
             <text
               x={left + 3}
-              y={plot.y + 10}
-              className="fill-muted-foreground text-[9px]"
+              y={plot.y + 13}
+              className="fill-muted-foreground text-xs"
             >
               {event.label}
             </text>
@@ -547,6 +549,7 @@ export function TimelineChart({
   const [logScale, setLogScale] = useState(false);
   const [showMarks, setShowMarks] = useState(true);
   const [comparing, setComparing] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const [pins, setPins] = useState<readonly string[]>([]);
   const [activeOn, setActiveOn] = useState<string | null>(null);
   /** La altura del puntero sobre el gráfico; `null` con el teclado. */
@@ -916,7 +919,7 @@ export function TimelineChart({
           accessibilityLayer={false}
           data={plotted.rows as PlotRow[]}
           margin={{
-            top: showMarks ? 40 : 8,
+            top: showMarks ? 54 : 8,
             right: PLOT_RIGHT,
             bottom: 0,
             left: 0,
@@ -1100,63 +1103,57 @@ export function TimelineChart({
             }}
           />
         ) : null}
-        {allowLog ? (
-          <span className="inline-flex items-center gap-0.5">
-            <Segmented
-              label="Escala"
-              options={[
-                { value: "linear", label: "Lineal" },
-                {
-                  value: "log",
-                  label: "Log",
-                  disabled: !logAvailable,
-                },
-              ]}
-              value={useLog ? "log" : "linear"}
-              onChange={(value) => setLogScale(value === "log")}
-            />
-            <InfoTip title="Escala logarítmica">
-              <p>
-                En escala logarítmica la misma distancia vertical es la misma
-                variación porcentual: pasar de 10 a 20 ocupa lo mismo que de
-                1.000 a 2.000. Sirve para comparar épocas cuando la serie se
-                multiplicó muchas veces.
+        <ChartOptions
+          open={optionsOpen}
+          onOpenChange={setOptionsOpen}
+          changed={useLog || comparing || !showMarks}
+        >
+          {allowLog ? (
+            <div className="flex flex-col gap-1.5">
+              <Segmented
+                label="Escala"
+                options={[
+                  { value: "linear", label: "Lineal" },
+                  {
+                    value: "log",
+                    label: "Log",
+                    disabled: !logAvailable,
+                  },
+                ]}
+                value={useLog ? "log" : "linear"}
+                onChange={(value) => setLogScale(value === "log")}
+              />
+              <p className="text-xs text-muted-foreground">
+                {logAvailable
+                  ? "Log: la misma altura es la misma variación %."
+                  : "Log no disponible: hay valores en cero o negativos."}
               </p>
-              {logAvailable ? null : (
-                <p>
-                  No está disponible en este rango porque la serie tiene valores
-                  en cero o negativos.
-                </p>
-              )}
-            </InfoTip>
-          </span>
-        ) : null}
-        <button
-          type="button"
-          aria-pressed={comparing}
-          onClick={() => {
-            setComparing((value) => !value);
-            setPins([]);
-          }}
-          className={cn(
-            "min-h-7 rounded-md border px-2 text-xs font-medium text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none",
-            comparing && "border-primary bg-primary/10 text-foreground",
-          )}
-        >
-          Comparar dos puntos
-        </button>
-        <button
-          type="button"
-          aria-pressed={showMarks}
-          onClick={() => setShowMarks((value) => !value)}
-          className={cn(
-            "min-h-7 rounded-md border px-2 text-xs font-medium text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none",
-            showMarks && "bg-muted text-foreground",
-          )}
-        >
-          {context?.toggleLabel ?? "Gobiernos y regímenes"}
-        </button>
-        <span className="text-xs text-muted-foreground">{resolutionText}</span>
+            </div>
+          ) : null}
+          <div className="flex flex-col">
+            <OptionToggle
+              pressed={comparing}
+              onPress={() => {
+                setComparing((value) => !value);
+                setPins([]);
+                // Cerrado, el próximo click en el gráfico ya fija el punto A.
+                setOptionsOpen(false);
+              }}
+            >
+              Comparar dos puntos
+            </OptionToggle>
+            <OptionToggle
+              pressed={showMarks}
+              onPress={() => setShowMarks((value) => !value)}
+            >
+              {context?.toggleLabel ?? "Gobiernos y regímenes"}
+            </OptionToggle>
+          </div>
+        </ChartOptions>
+        <span className="text-xs text-muted-foreground">
+          {resolutionText}
+          {useLog ? " · log" : ""}
+        </span>
       </ChartToolbar>
 
       <div

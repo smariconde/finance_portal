@@ -40,9 +40,11 @@ export type { DatedValue } from "./chart-history";
  * `2.1.0` (`F9-05`) adds the soy block (`soy-block.ts`); the other five read
  * as before. `2.2.0` (`F9-15`) adds the soy gap at the effective export
  * dollar, read with the same CCL as the dollar block. `2.3.0` (`F9-16`)
- * places the latest wholesale quote within its same-day BCRA band.
+ * places the latest wholesale quote within its same-day BCRA band. `2.4.0`
+ * adds the month before's seasonally adjusted change to the activity block,
+ * so the summary tile can say how it moved (`summary-change-1.0.0`).
  */
-export const ARGENTINA_DASHBOARD_VERSION = "argentina-dashboard-2.3.0";
+export const ARGENTINA_DASHBOARD_VERSION = "argentina-dashboard-2.4.0";
 
 export const SECTOR_WINDOW_MONTHS = 12;
 /** Calendar days a daily series goes out day by day: five years. */
@@ -68,6 +70,8 @@ export type ActivityBlock = {
     readonly on: string;
     readonly level: string | null;
     readonly monthOverMonth: Comparison;
+    /** The month before's own monthly change, for the summary tile. */
+    readonly previousMonthOverMonth: Comparison;
     readonly yearOverYear: Comparison;
   } | null;
   readonly sectorMonths: readonly string[];
@@ -209,8 +213,12 @@ export function buildActivityBlock(input: {
 }): ActivityBlock {
   const sa = input.seasonallyAdjusted.points;
   const last = sa.at(-1) ?? null;
+  const saByPeriod = byPeriod(sa);
   const previous = last
-    ? (byPeriod(sa).get(shiftMonth(last.periodOn, -1)) ?? null)
+    ? (saByPeriod.get(shiftMonth(last.periodOn, -1)) ?? null)
+    : null;
+  const twoBefore = last
+    ? (saByPeriod.get(shiftMonth(last.periodOn, -2)) ?? null)
     : null;
   const original = byPeriod(input.original.points);
   const latest =
@@ -223,6 +231,11 @@ export function buildActivityBlock(input: {
             indicator: input.seasonallyAdjusted.indicator,
             previous,
             current: last,
+          }),
+          previousMonthOverMonth: seasonallyAdjustedMonthlyChange({
+            indicator: input.seasonallyAdjusted.indicator,
+            previous: twoBefore,
+            current: previous,
           }),
           yearOverYear: yearOverYearChange({
             indicator: input.original.indicator,

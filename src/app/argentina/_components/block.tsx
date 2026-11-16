@@ -36,7 +36,7 @@ export function DashboardBlock({
   readonly methodology: ReactNode;
 }) {
   return (
-    <section id={id} className="scroll-mt-20" aria-labelledby={`${id}-title`}>
+    <section id={id} className="scroll-mt-32" aria-labelledby={`${id}-title`}>
       <Card>
         <CardHeader className="gap-2">
           <CardTitle as="h2" id={`${id}-title`} className="text-lg">

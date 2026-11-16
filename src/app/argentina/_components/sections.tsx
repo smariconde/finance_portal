@@ -55,10 +55,14 @@ const NO_DATA = "Sin dato";
 function Empty({ what }: { readonly what: string }) {
   return (
     <p className="text-sm text-muted-foreground">
-      Todavía no hay {what} guardados. Se cargan a mano con los comandos de la
-      fase 9; esta página no descarga nada.
+      Todavía no hay {what} guardados.
     </p>
   );
+}
+
+/** `agosto de 2026` → `Agosto de 2026`. */
+function capitalized(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function reversed<T>(items: readonly T[]): T[] {
@@ -113,7 +117,7 @@ export function ActivitySection({
   const reading =
     latest === null
       ? "Sin datos de actividad guardados."
-      : `En ${longMonth(latest.on)} la actividad desestacionalizada varió ${comparisonText(latest.monthOverMonth)} contra el mes anterior; la serie original quedó ${comparisonText(latest.yearOverYear)} contra el mismo mes de ${Number(latest.on.slice(0, 4)) - 1}.`;
+      : `${capitalized(longMonth(latest.on))}: ${comparisonText(latest.monthOverMonth)} contra el mes anterior (desestacionalizado) y ${comparisonText(latest.yearOverYear)} contra ${shortMonth(`${Number(latest.on.slice(0, 4)) - 1}${latest.on.slice(4)}`)}.`;
 
   return (
     <DashboardBlock
@@ -247,17 +251,15 @@ export function DollarSection({ dollar }: { readonly dollar: DollarBlock }) {
     latestOfficial === null || latestOfficial.value === null
       ? "Sin cotizaciones guardadas."
       : [
-          `El ${calendarDate(latestOfficial.on)} el mayorista oficial cerró en $ ${amount(latestOfficial.value, 2)}`,
+          `${calendarDate(latestOfficial.on)}: mayorista $ ${amount(latestOfficial.value, 2)}`,
           latestCcl?.value
-            ? ` y el CCL implícito del ${calendarDate(latestCcl.on)} en $ ${amount(latestCcl.value, 2)}`
+            ? `, CCL implícito $ ${amount(latestCcl.value, 2)}${latestCcl.on === latestOfficial.on ? "" : ` (${calendarDate(latestCcl.on)})`}`
             : "",
           latestGap
-            ? `; la brecha del ${calendarDate(latestGap.on)} fue de ${fractionAsPoints(latestGap.gap)}`
+            ? `, brecha ${fractionAsPoints(latestGap.gap)}${latestGap.on === latestOfficial.on ? "" : ` (${calendarDate(latestGap.on)})`}`
             : "",
+          bandReading === null ? "" : `; ${bandReading}${bandLimits}`,
           ".",
-          bandReading === null
-            ? ""
-            : ` El mayorista está ${bandReading}${bandLimits}.`,
         ].join("");
   const values = (day: (typeof dollar.days)[number]) => ({
     official: day.official,
@@ -289,9 +291,8 @@ export function DollarSection({ dollar }: { readonly dollar: DollarBlock }) {
       reading={reading}
       provenance={
         <>
-          BCRA (mayorista Com. A 3500 y bandas) y CCL implícito por diez pares
-          ADR · pesos por dólar · diario en los últimos cinco años, al cierre de
-          cada mes antes
+          BCRA (mayorista Com. A 3500 y bandas) · CCL implícito de diez pares
+          ADR · pesos por dólar
         </>
       }
       methodology={
@@ -495,14 +496,14 @@ export function MonetarySection({
     lastMonthly?.value == null
       ? "Sin datos de inflación guardados."
       : [
-          `La inflación de ${longMonth(lastMonthly.on)} fue ${points(lastMonthly.value)} mensual`,
+          `${capitalized(longMonth(lastMonthly.on))}: inflación ${points(lastMonthly.value)} mensual`,
           monetary.annualInflation?.value
-            ? ` y ${points(monetary.annualInflation.value)} interanual (${shortMonth(monetary.annualInflation.on)})`
+            ? ` y ${points(monetary.annualInflation.value)} interanual${monetary.annualInflation.on === lastMonthly.on ? "" : ` (${shortMonth(monetary.annualInflation.on)})`}`
+            : "",
+          lastReserve?.value
+            ? `; reservas brutas US$ ${amount(lastReserve.value)} M al ${calendarDate(lastReserve.on)}`
             : "",
           ".",
-          lastReserve?.value
-            ? ` Las reservas brutas del ${calendarDate(lastReserve.on)} eran US$ ${amount(lastReserve.value)} millones.`
-            : "",
         ].join("");
 
   return (
@@ -734,9 +735,9 @@ export function FiscalSection({ fiscal }: { readonly fiscal: FiscalBlock }) {
     lastYear === undefined
       ? "Sin resultados fiscales guardados."
       : [
-          `En ${lastYear.year} el resultado primario del Sector Público Nacional fue ${comparisonText(lastYear.primary)} del PIB y los intereses netos ${comparisonText(lastYear.interest, (value) => points(value))} del PIB.`,
+          `${lastYear.year}: primario ${comparisonText(lastYear.primary)} del PIB e intereses netos ${comparisonText(lastYear.interest, (value) => points(value))}.`,
           ytd
-            ? ` En ${ytd.year}, hasta ${longMonth(ytd.lastOn)}, el primario acumula un ${resultWord(ytd.primary)} de $ ${compactMillions(ytd.primary)}; el porcentaje del PIB del año se calcula cuando el año cierra.`
+            ? ` ${ytd.year} hasta ${longMonth(ytd.lastOn).replace(/ de \d{4}$/u, "")}: ${resultWord(ytd.primary)} primario de $ ${compactMillions(ytd.primary)}.`
             : "",
         ].join("");
 
@@ -841,10 +842,11 @@ export function ExternalSection({
     last === undefined
       ? "Sin datos de comercio exterior guardados."
       : [
-          `En ${longMonth(last.on)} se exportaron US$ ${last.exports === null ? NO_DATA : amount(last.exports)} millones y se importaron US$ ${last.imports === null ? NO_DATA : amount(last.imports)} millones: un saldo de US$ ${comparisonText(last.balance, (value) => signedAmount(value))} millones.`,
+          `${capitalized(longMonth(last.on))}: exportaciones US$ ${last.exports === null ? NO_DATA : amount(last.exports)} M, importaciones US$ ${last.imports === null ? NO_DATA : amount(last.imports)} M, saldo US$ ${comparisonText(last.balance, (value) => signedAmount(value))} M`,
           twelve
-            ? ` En los doce meses hasta ${longMonth(twelve.toOn)} el saldo acumula US$ ${signedAmount(twelve.balance)} millones.`
+            ? `; en doce meses, US$ ${signedAmount(twelve.balance)} M`
             : "",
+          ".",
         ].join("");
 
   return (
@@ -1022,17 +1024,14 @@ export function SoySection({ soy }: { readonly soy: SoyBlock }) {
     latest === null
       ? "Sin un día con pizarra, BNA y Chicago guardados a la vez."
       : [
-          `El ${calendarDate(latest.on)} la pizarra de Rosario fue de US$ ${amount(latest.rosarioUsd!, 2)} por tonelada ($ ${amount(latest.rosarioArs!)} al BNA comprador de $ ${amount(latest.fx!, 2)})`,
-          ` y Chicago, de US$ ${amount(latest.chicagoUsd!, 2)} (${latest.contract}): una brecha de ${signedPoints(latest.basis)}.`,
+          `${calendarDate(latest.on)}: Rosario US$ ${amount(latest.rosarioUsd!, 2)}/t y Chicago US$ ${amount(latest.chicagoUsd!, 2)}/t (${latest.contract}${latest.inDeliveryPeriod ? `, en entrega hasta el ${calendarDate(latest.lastTradeOn)}` : ""}), brecha ${signedPoints(latest.basis)}`,
           latest.fxRegimeId !== null && latest.fxRegimeId !== "official"
-            ? ` Al dólar que cobraba el exportador (${soyExportFxRegimeOn(latest.on)?.label}, $ ${amount(latest.effectiveFx!, 2)}), la brecha fue de ${latest.effectiveBasis === null ? "sin dato" : signedPoints(latest.effectiveBasis)}.`
+            ? `; ${latest.effectiveBasis === null ? "sin dato" : signedPoints(latest.effectiveBasis)} al dólar del exportador (${soyExportFxRegimeOn(latest.on)?.label})`
             : "",
           soyDutyOn(latest.on)
-            ? ` Retenciones al poroto: ${soyDutyOn(latest.on)!.ratePct.replace(".", ",")} %.`
+            ? `; retenciones ${soyDutyOn(latest.on)!.ratePct.replace(".", ",")} %`
             : "",
-          latest.inDeliveryPeriod
-            ? ` El ${latest.contract} estaba en su período de entrega, que termina el ${calendarDate(latest.lastTradeOn)}.`
-            : "",
+          ".",
         ].join("");
   const daily: TimelineRow[] = soy.days.map((day) => ({
     on: day.on,

@@ -157,7 +157,7 @@ export function HoverLayer({
       </svg>
       {focus?.y != null && focus.axisValue !== null ? (
         <span
-          className="numeric absolute -translate-y-1/2 rounded-sm border bg-popover px-1 text-[10px] leading-4 font-medium text-popover-foreground"
+          className="numeric absolute -translate-y-1/2 rounded-sm border bg-popover px-1 text-xs leading-4 font-medium text-popover-foreground"
           style={{
             right: `calc(100% - ${plot.x - 2}px)`,
             top: focus.y,
