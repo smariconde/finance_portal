@@ -142,46 +142,42 @@ export default async function SectorDivergencePage({ params }: PageProps) {
         actions={
           <SectorMatrixNav sectorCode={sector.code} current="divergences" />
         }
-      />
-
-      <dl className="grid gap-x-8 gap-y-3 rounded-lg border bg-card p-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
-        <div>
-          <dt className="text-muted-foreground">Corte</dt>
-          <dd className="numeric font-medium">
-            <time dateTime={asOf}>{formatCalendarDate(asOf)}</time>
-            <span className="block text-xs font-normal text-muted-foreground">
-              Lo publicado y guardado hasta hoy
-            </span>
-          </dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground">Fundamentales</dt>
-          <dd>
-            SEC 10-K: EPS diluido, net income y acciones del ejercicio
-            <span className="block text-xs text-muted-foreground">
-              Último cierre fiscal y el comparable a 2 o 5 años
-            </span>
-          </dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground">Precio y market cap</dt>
-          <dd>
-            Cierre de Yahoo Finance hasta 7 días antes del cierre fiscal
-            <span className="block text-xs text-muted-foreground">
-              Crudo y llevado a la última base de splits confirmada por la SEC
-            </span>
-          </dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground">Fórmulas</dt>
-          <dd>
-            CAGR entre puntas positivas; días / 365,2425
-            <span className="block text-xs text-muted-foreground">
+      >
+        {/*
+         * La provenance en una línea; qué se lee de cada fuente, las fórmulas
+         * y sus versiones van en el ⓘ.
+         */}
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-muted-foreground">
+          Corte
+          <time dateTime={asOf} className="numeric font-medium text-foreground">
+            {formatCalendarDate(asOf)}
+          </time>
+          <span aria-hidden="true">·</span>
+          SEC 10-K y Yahoo Finance
+          <InfoTip title="Método y fuente">
+            <p>
+              <strong>Corte:</strong> lo publicado y guardado hasta hoy.
+            </p>
+            <p>
+              <strong>Fundamentales:</strong> EPS diluido, net income y acciones
+              de cada 10-K; el último cierre fiscal y el comparable a 2 o 5
+              años.
+            </p>
+            <p>
+              <strong>Precio y market cap:</strong> cierre de Yahoo Finance
+              hasta 7 días antes del cierre fiscal, crudo y llevado a la última
+              base de splits confirmada por la SEC.
+            </p>
+            <p>
+              <strong>CAGR</strong> entre puntas estrictamente positivas, con
+              días / 365,2425.
+            </p>
+            <p className="font-mono text-xs">
               {DIVERGENCE_VIEWS_VERSION} · {DILUTION_BRIDGE_VERSION}
-            </span>
-          </dd>
+            </p>
+          </InfoTip>
         </div>
-      </dl>
+      </PageHeader>
 
       <DivergenceDownload
         sectorCode={sector.code}

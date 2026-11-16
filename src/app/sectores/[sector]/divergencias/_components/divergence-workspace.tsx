@@ -8,6 +8,7 @@ import {
   CircleCheck,
   CircleSlash,
   CircleX,
+  SlidersHorizontal,
 } from "lucide-react";
 import Link from "next/link";
 import { useId, useMemo, useState } from "react";
@@ -15,13 +16,24 @@ import { useId, useMemo, useState } from "react";
 import { displayCompanyName } from "@/modules/companies/domain/display-company-name";
 import { CompanyMark } from "@/app/_components/company-mark";
 import { FinvizProfileLink } from "@/app/_components/finviz-profile-link";
+import { InfoTip } from "@/app/_components/info-tip";
+import { Segmented } from "@/app/_components/segmented";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { NativeSelect } from "@/components/ui/native-select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Table,
   TableBody,
@@ -43,6 +55,14 @@ import {
 } from "@/modules/valuation/domain/display-format";
 
 import { MatrixChart, type MatrixLogo } from "../../_components/matrix-chart";
+import {
+  CedearLegend,
+  ClippedLegend,
+  NoCedearLegend,
+  PickPointHint,
+} from "../../_components/matrix-parts";
+import { MissingByReason } from "../../_components/missing-by-reason";
+import { groupByReason } from "../../_components/missing-groups";
 
 import {
   CATEGORY_LABELS,
@@ -51,6 +71,7 @@ import {
   filtersActive,
   formatPct,
   formatPp,
+  hasHorizonData,
   layoutDivergence,
   MARKET_CAP_FLOOR_LABELS,
   NO_FILTERS,
@@ -122,38 +143,109 @@ function sortValue(
   }
 }
 
-function Segmented<T extends string>({
-  label,
-  options,
-  value,
+/** Las opciones de un `Segmented` a partir de un registro de rótulos. */
+function optionsOf<T extends string>(labels: Record<T, string>) {
+  return (Object.keys(labels) as T[]).map((value) => ({
+    value,
+    label: labels[value],
+  }));
+}
+
+const VIEW_LABELS: Record<ViewKey, string> = {
+  fundamental: VIEWS.fundamental.label,
+  aggregate: VIEWS.aggregate.label,
+  perShare: VIEWS.perShare.label,
+};
+
+/**
+ * Los tres filtros en un panel: el botón dice cuántos hay activos, y la fila de
+ * la barra queda para horizonte y vista. Un filtro activo saca a quien no
+ * tiene el dato que lo decide.
+ */
+function FiltersPopover({
+  filters,
   onChange,
+  onClear,
 }: {
-  readonly label: string;
-  readonly options: Record<T, string>;
-  readonly value: T;
-  readonly onChange: (value: T) => void;
+  readonly filters: DivergenceFilters;
+  readonly onChange: <K extends keyof DivergenceFilters>(
+    key: K,
+    value: DivergenceFilters[K],
+  ) => void;
+  readonly onClear: () => void;
 }) {
+  const count =
+    Number(filters.cedearOnly) +
+    Number(filters.marketCapFloor !== "all") +
+    Number(filters.reconciledOnly);
+
   return (
-    <div
-      role="group"
-      aria-label={label}
-      className="inline-flex w-fit flex-wrap rounded-lg border bg-muted/40 p-0.5"
-    >
-      {(Object.keys(options) as T[]).map((key) => (
-        <button
-          key={key}
-          type="button"
-          aria-pressed={key === value}
-          onClick={() => onChange(key)}
-          className={cn(
-            "min-h-8 rounded-md px-3 text-sm font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
-            key === value && "bg-card text-foreground shadow-xs",
+    <Popover>
+      <PopoverTrigger
+        className={cn(
+          buttonVariants({ variant: "outline", size: "sm" }),
+          "data-popup-open:bg-muted",
+        )}
+      >
+        <SlidersHorizontal aria-hidden="true" />
+        Filtros
+        {count === 0 ? null : (
+          <span className="numeric inline-flex size-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
+            {count}
+            <span className="sr-only"> activos</span>
+          </span>
+        )}
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-auto max-w-[calc(100vw-2rem)]">
+        <PopoverTitle>Filtros</PopoverTitle>
+        <div className="flex flex-col gap-3">
+          <FilterGroup label="Acceso local">
+            <Segmented
+              label="Acceso local"
+              options={[
+                { value: "all", label: "Todas" },
+                { value: "cedear", label: "Con CEDEAR" },
+              ]}
+              value={filters.cedearOnly ? "cedear" : "all"}
+              onChange={(value) => onChange("cedearOnly", value === "cedear")}
+            />
+          </FilterGroup>
+          <FilterGroup label="Market cap al último cierre fiscal, US$">
+            <Segmented<MarketCapFloor>
+              label="Market cap al último cierre fiscal, US$"
+              options={optionsOf(MARKET_CAP_FLOOR_LABELS)}
+              value={filters.marketCapFloor}
+              onChange={(value) => onChange("marketCapFloor", value)}
+            />
+          </FilterGroup>
+          <FilterGroup label="Calidad del dato">
+            <Segmented
+              label="Calidad del dato"
+              options={[
+                { value: "all", label: "Todas" },
+                { value: "reconciled", label: "Puente conciliado" },
+              ]}
+              value={filters.reconciledOnly ? "reconciled" : "all"}
+              onChange={(value) =>
+                onChange("reconciledOnly", value === "reconciled")
+              }
+            />
+          </FilterGroup>
+          <p className="text-xs text-muted-foreground">
+            Un filtro activo saca a quien no tiene el dato que lo decide.
+          </p>
+          {count === 0 ? null : (
+            <button
+              type="button"
+              onClick={onClear}
+              className="w-fit rounded-sm text-sm font-medium text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Quitar filtros
+            </button>
           )}
-        >
-          {options[key]}
-        </button>
-      ))}
-    </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -202,12 +294,7 @@ function SelectedRow({
   readonly logoUrl: string | null;
 }) {
   if (row === null) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Elegí un punto con Tab, un click o desde la tabla para ver sus valores
-        exactos y de dónde sale la brecha.
-      </p>
-    );
+    return <PickPointHint />;
   }
 
   const data = row[horizon];
@@ -302,18 +389,24 @@ function SelectedRow({
         ))}
       </dl>
       {view === "fundamental" && fundamental.gapPp !== null ? (
-        <p className="text-sm">
-          De la brecha, {formatPp(fundamental.shareCountBiasPp)} pp vienen del
-          cambio de acciones y {formatPp(fundamental.perShareGapPp)} pp del EPS
-          contra el precio.
+        <p className="numeric text-xs text-muted-foreground">
+          Brecha {formatPp(fundamental.gapPp)} ={" "}
+          {formatPp(fundamental.perShareGapPp)} por acción{" "}
+          {formatPp(fundamental.shareCountBiasPp)} sesgo (pp)
         </p>
       ) : null}
       {bridge?.reconciled === false || earlierBridge?.reconciled === false ? (
-        <p className="text-sm text-muted-foreground">
-          El EPS diluido no cierra contra su numerador y las acciones diluidas
-          más allá del redondeo: puede ser EPS de operaciones continuas, dos
-          clases o preferidas.
-        </p>
+        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+          <CircleX aria-hidden="true" className="size-3.5 shrink-0" />
+          El EPS no cierra contra su numerador
+          <InfoTip title="Puente del EPS sin conciliar">
+            <p>
+              El EPS diluido no cierra contra su numerador y las acciones
+              diluidas más allá del redondeo: puede ser EPS de operaciones
+              continuas, dos clases o preferidas.
+            </p>
+          </InfoTip>
+        </div>
       ) : null}
       {row.ticker === null ? null : (
         <div className="flex flex-wrap gap-x-4 gap-y-2">
@@ -406,30 +499,45 @@ export function DivergenceWorkspace({
   );
   const categorized = useMemo(
     () =>
-      (Object.keys(CATEGORY_LABELS) as (keyof typeof CATEGORY_LABELS)[]).map(
-        (category) => ({
-          category,
-          rows: filtered.filter(
-            (row) => row[horizon].views[view].category === category,
-          ),
+      groupByReason(
+        filtered.flatMap((row) => {
+          const category = row[horizon].views[view].category;
+          return category === "comparable" || category === "unavailable"
+            ? []
+            : [
+                {
+                  id: row.securityId,
+                  label: rowLabel(row),
+                  reason: CATEGORY_LABELS[category],
+                },
+              ];
         }),
+        (entry) => entry.reason,
       ),
     [filtered, horizon, view],
+  );
+  const nonComparableCount = categorized.reduce(
+    (total, group) => total + group.items.length,
+    0,
   );
   const unavailable = filtered.filter(
     (row) => row[horizon].views[view].category === "unavailable",
   );
   const sorted = useMemo(() => {
     const sign = sort.direction === "ascending" ? 1 : -1;
-    return [...filtered].sort((left, right) => {
-      if (sort.key === "ticker")
-        return sign * rowLabel(left).localeCompare(rowLabel(right));
-      const a = sortValue(left[horizon], sort.key, view);
-      const b = sortValue(right[horizon], sort.key, view);
-      // Un `null` va siempre al final: no es el menor ni el mayor.
-      if (a === null || b === null) return a === b ? 0 : a === null ? 1 : -1;
-      return sign * (Number(a) - Number(b));
-    });
+    // Una fila sin nada que mostrar en este horizonte queda fuera: su motivo
+    // está en «Sin valor» y la tabla la cuenta al final.
+    return filtered
+      .filter((row) => hasHorizonData(row, horizon))
+      .sort((left, right) => {
+        if (sort.key === "ticker")
+          return sign * rowLabel(left).localeCompare(rowLabel(right));
+        const a = sortValue(left[horizon], sort.key, view);
+        const b = sortValue(right[horizon], sort.key, view);
+        // Un `null` va siempre al final: no es el menor ni el mayor.
+        if (a === null || b === null) return a === b ? 0 : a === null ? 1 : -1;
+        return sign * (Number(a) - Number(b));
+      });
   }, [filtered, horizon, sort, view]);
   // Un punto que un filtro saca deja de estar seleccionado.
   const selected =
@@ -457,72 +565,50 @@ export function DivergenceWorkspace({
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-3">
+      {/* Una sola barra: horizonte, vista y filtros, y cuántas quedan. */}
+      <div
+        role="toolbar"
+        aria-label="Horizonte, vista y filtros"
+        className="flex flex-wrap items-center gap-x-3 gap-y-2"
+      >
         <Segmented
           label="Horizonte"
-          options={HORIZONS}
+          options={optionsOf(HORIZONS)}
           value={horizon}
           onChange={setHorizon}
         />
-        <Segmented
-          label="Vista"
-          options={{
-            fundamental: VIEWS.fundamental.label,
-            aggregate: VIEWS.aggregate.label,
-            perShare: VIEWS.perShare.label,
-          }}
+        {/* En un teléfono las tres vistas no entran en una fila: un select. */}
+        <NativeSelect
+          aria-label="Vista"
           value={view}
-          onChange={setView}
-        />
-      </div>
-
-      <div
-        role="group"
-        aria-label="Filtros"
-        className="flex flex-wrap items-end gap-x-5 gap-y-3"
-      >
-        <FilterGroup label="Acceso local">
+          onChange={(event) => setView(event.target.value as ViewKey)}
+          wrapperClassName="w-auto sm:hidden"
+          className="h-7 text-sm"
+        >
+          {optionsOf(VIEW_LABELS).map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </NativeSelect>
+        <div className="hidden sm:block">
           <Segmented
-            label="Acceso local"
-            options={{ all: "Todas", cedear: "Con CEDEAR" }}
-            value={filters.cedearOnly ? "cedear" : "all"}
-            onChange={(value) => setFilter("cedearOnly", value === "cedear")}
+            label="Vista"
+            options={optionsOf(VIEW_LABELS)}
+            value={view}
+            onChange={setView}
           />
-        </FilterGroup>
-        <FilterGroup label="Market cap al último cierre fiscal, US$">
-          <Segmented<MarketCapFloor>
-            label="Market cap al último cierre fiscal, US$"
-            options={MARKET_CAP_FLOOR_LABELS}
-            value={filters.marketCapFloor}
-            onChange={(value) => setFilter("marketCapFloor", value)}
-          />
-        </FilterGroup>
-        <FilterGroup label="Calidad del dato">
-          <Segmented
-            label="Calidad del dato"
-            options={{ all: "Todas", reconciled: "Puente conciliado" }}
-            value={filters.reconciledOnly ? "reconciled" : "all"}
-            onChange={(value) =>
-              setFilter("reconciledOnly", value === "reconciled")
-            }
-          />
-        </FilterGroup>
-        <div className="flex min-h-8 items-center gap-3 text-sm text-muted-foreground">
-          <p role="status">
-            {active
-              ? `${filtered.length} de ${rows.length} securities pasan los filtros`
-              : `${rows.length} securities del sector`}
-          </p>
-          {active ? (
-            <button
-              type="button"
-              onClick={() => setFilters(NO_FILTERS)}
-              className="rounded-sm font-medium text-foreground underline underline-offset-4 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Quitar filtros
-            </button>
-          ) : null}
         </div>
+        <FiltersPopover
+          filters={filters}
+          onChange={setFilter}
+          onClear={() => setFilters(NO_FILTERS)}
+        />
+        <p role="status" className="numeric text-sm text-muted-foreground">
+          {active
+            ? `${filtered.length} de ${rows.length} pasan`
+            : `${rows.length} securities`}
+        </p>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
@@ -532,12 +618,30 @@ export function DivergenceWorkspace({
               {names.y} contra {names.x}, {HORIZONS[horizon]}
             </CardTitle>
             <CardDescription id={descriptionId}>
-              {layout.points.length} de {filtered.length} comparables
-              {active ? " con estos filtros" : ""}. Arriba de la diagonal,{" "}
-              {view === "perShare" ? "el EPS" : "las ganancias"} crecieron más
-              que {view === "perShare" ? "el precio" : "el valor de mercado"};
-              no indica que esté barata.
+              <span className="numeric">
+                {layout.points.length} de {filtered.length}
+              </span>{" "}
+              comparables{active ? " con estos filtros" : ""} · arriba de la
+              diagonal, {view === "perShare" ? "el EPS" : "las ganancias"}{" "}
+              crecieron más
             </CardDescription>
+            <CardAction>
+              <InfoTip title="Cómo se lee el gráfico">
+                <p>
+                  Cada punto compara dos CAGR entre los mismos cierres fiscales.
+                  Sobre la diagonal,{" "}
+                  {view === "perShare" ? "el EPS" : "las ganancias"} crecieron
+                  más que{" "}
+                  {view === "perShare" ? "el precio" : "el valor de mercado"};
+                  no indica que esté barata.
+                </p>
+                <p>
+                  Los dos ejes comparten escala para que la diagonal quede a
+                  45°. Un punto muy alejado del resto se dibuja en el borde con
+                  un chevron; su valor exacto está en la tabla.
+                </p>
+              </InfoTip>
+            </CardAction>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             {layout.points.length === 0 ? (
@@ -566,12 +670,11 @@ export function DivergenceWorkspace({
               />
             )}
             <ul
-              aria-label="Cómo leer el gráfico"
+              aria-label="Leyenda"
               className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground"
             >
-              <li>
-                Anillo grueso con insignia: con CEDEAR; borde fino: sin CEDEAR
-              </li>
+              <NoCedearLegend />
+              <CedearLegend />
               <li className="flex items-center gap-1.5">
                 <svg aria-hidden="true" viewBox="0 0 16 12" className="h-3 w-4">
                   <line
@@ -584,24 +687,15 @@ export function DivergenceWorkspace({
                     strokeDasharray="4 3"
                   />
                 </svg>
-                Diagonal: crecieron igual
+                Crecieron igual
               </li>
               {view === "fundamental" ? (
                 <li className="flex items-center gap-1.5">
                   <BiasGlyph />
-                  Recompras o dilución de más de {
-                    SHARE_COUNT_BIAS_TOLERANCE_PP
-                  }{" "}
-                  pp por año
+                  Sesgo &gt; {SHARE_COUNT_BIAS_TOLERANCE_PP} pp/año
                 </li>
               ) : null}
-              {clipped ? (
-                <li className="flex items-center gap-1.5">
-                  <ChevronsRight className="size-3.5" aria-hidden="true" />
-                  Un punto con flecha está fuera de escala: su valor exacto está
-                  en la tabla, con la misma marca.
-                </li>
-              ) : null}
+              {clipped ? <ClippedLegend /> : null}
             </ul>
           </CardContent>
         </Card>
@@ -625,66 +719,65 @@ export function DivergenceWorkspace({
         </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      {/* Cada card mide lo suyo: una vacía no se estira junto a una larga. */}
+      <div className="grid items-start gap-6 lg:grid-cols-2">
         <Card size="sm">
           <CardHeader>
-            <CardTitle as="h2">Sin tasa comparable</CardTitle>
-            <CardDescription>
-              Un beneficio no positivo en alguna punta no tiene tasa de
-              crecimiento: se nombra, no se dibuja.
-            </CardDescription>
+            <CardTitle as="h2">
+              Sin tasa comparable{" "}
+              <span className="numeric font-normal text-muted-foreground">
+                {nonComparableCount}
+              </span>
+            </CardTitle>
+            <CardAction>
+              <InfoTip title="Sin tasa comparable">
+                <p>
+                  Un beneficio no positivo en alguna punta no tiene tasa de
+                  crecimiento: se nombra, no se dibuja.
+                </p>
+              </InfoTip>
+            </CardAction>
           </CardHeader>
           <CardContent>
-            <ul className="divide-y text-sm">
-              {categorized.map(({ category, rows: members }) => (
-                <li
-                  key={category}
-                  className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-2"
-                >
-                  <span className="font-medium">
-                    {CATEGORY_LABELS[category]}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {members.length === 0
-                      ? "—"
-                      : members.map((row) => rowLabel(row)).join(", ")}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <MissingByReason
+              groups={categorized}
+              empty="Ninguna con pérdida en una punta."
+            />
           </CardContent>
         </Card>
 
         <Card size="sm">
           <CardHeader>
-            <CardTitle as="h2">Sin valor</CardTitle>
-            <CardDescription>
-              Falta un dato para esta vista: un valor faltante no es un cero.
-            </CardDescription>
+            <CardTitle as="h2">
+              Sin valor{" "}
+              <span className="numeric font-normal text-muted-foreground">
+                {unavailable.length}
+              </span>
+            </CardTitle>
+            <CardAction>
+              <InfoTip title="Sin valor">
+                <p>
+                  Falta un dato para esta vista: un valor faltante no es un
+                  cero.
+                </p>
+              </InfoTip>
+            </CardAction>
           </CardHeader>
           <CardContent>
-            {unavailable.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Todas tienen los datos de esta vista.
-              </p>
-            ) : (
-              <ul className="divide-y text-sm">
-                {unavailable.map((row) => (
-                  <li
-                    key={row.securityId}
-                    className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-2"
-                  >
-                    <span className="font-medium">{rowLabel(row)}</span>
-                    <span className="text-muted-foreground">
-                      {unavailableReason(
-                        row[horizon],
-                        row[horizon].views[view],
-                      )}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <MissingByReason
+              groups={groupByReason(
+                unavailable.map((row) => ({
+                  id: row.securityId,
+                  label: rowLabel(row),
+                  reason: unavailableReason(
+                    row[horizon],
+                    row[horizon].views[view],
+                  ),
+                })),
+                (entry) => entry.reason,
+              )}
+              empty="Todas tienen los datos de esta vista."
+            />
           </CardContent>
         </Card>
       </div>
@@ -692,12 +785,19 @@ export function DivergenceWorkspace({
       <Card>
         <CardHeader>
           <CardTitle as="h2">Tabla de la matriz</CardTitle>
-          <CardDescription>
-            Los dos ejes de la vista, el market cap, las tres brechas y el
-            puente de acciones a {HORIZONS[horizon]}, sin recorte de escala.
-            Tasas en % por año y brechas en puntos porcentuales; brecha = por
-            acción + sesgo.
-          </CardDescription>
+          <CardDescription>% por año · brechas en pp</CardDescription>
+          <CardAction>
+            <InfoTip title="Tabla de la matriz">
+              <p>
+                Los dos ejes de la vista, el market cap, las tres brechas y el
+                puente de acciones a {HORIZONS[horizon]}, sin recorte de escala.
+              </p>
+              <p>
+                Tasas en % por año y brechas en puntos porcentuales; brecha =
+                por acción + sesgo.
+              </p>
+            </InfoTip>
+          </CardAction>
         </CardHeader>
         <CardContent>
           <Table>
@@ -841,6 +941,19 @@ export function DivergenceWorkspace({
                   </TableRow>
                 );
               })}
+              {filtered.length === sorted.length ? null : (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell
+                    colSpan={10}
+                    className="text-sm text-muted-foreground"
+                  >
+                    <span className="numeric">
+                      {filtered.length - sorted.length}
+                    </span>{" "}
+                    sin datos a {HORIZONS[horizon]}: en «Sin valor»
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

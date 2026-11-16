@@ -7519,3 +7519,31 @@ plan de Neon.
   `undefined`, 54 rótulos de contexto sin superposición en Máx. Los bloques del
   BCRA (dólar, banda, inflación, reservas) se vieron vacíos: la base local no
   tiene esas series; los cubren los unitarios.
+
+## Mejora transversal — Matrices (2026-11-16)
+
+- Estado: `done`.
+- Autorización: el mismo pedido del owner del 2026-11-16 (tercer PR de la
+  revisión de Análisis).
+- Medido antes de tocar: en la matriz de riesgo de Information Technology el
+  gráfico arrancaba en y≈870 px de un viewport de 900, detrás de una lista de
+  procedencia en prosa y de la card de calidad; en divergencias, 69 filas
+  iguales de «Sin ejercicio fiscal guardado» y marcas de eje 133, 266, 1.064.
+- Alcance:
+  - Riesgo: encabezado, línea de estado, gráfico con su panel y tabla. La
+    procedencia es una línea («Al … · Yahoo Finance, total return» con su
+    `InfoTip`); la calidad, un botón que nombra qué la degrada («98/100 · 2 sin
+    Sortino») con los cinco componentes en un popover; el CSV en la misma
+    línea, sin oración.
+  - Divergencias: procedencia y cobertura SEC en una línea cada una; horizonte,
+    vista, un popover «Filtros» con su conteo y «n de m pasan» en una sola
+    barra (la vista es un select nativo bajo `sm`); faltantes agrupados por
+    motivo con los tickers plegados; marcas redondas y el extremo aislado
+    recortado con chevron (`withoutIsolatedExtremes`, `niceAxis` con pasos
+    hasta 1.000).
+  - `/sectores`: una grilla de `StatTile` por sector con su cobertura.
+  - `displayCompanyName` también en los nombres accesibles de los puntos.
+- Evidencia: formato, lint, tipos, 4.363 unitarios (81 de las matrices), build y
+  382 E2E con axe; revisión renderizada a 1440 claro y 390 oscuro con 0 axe, 0
+  overflow y 0 choques de rótulos; el gráfico de riesgo arranca en 331 px (era
+  ≈870). Pendiente fuera de alcance: `formatCompactAmount` escribe «1 billones».

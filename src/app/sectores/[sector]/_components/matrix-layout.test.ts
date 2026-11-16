@@ -15,6 +15,7 @@ import {
   layoutMatrix,
   LOGO_MARK_RADIUS,
   niceAxis,
+  notDrawnReason,
   placeLogoMarks,
   referenceCaptionBox,
   robustDomain,
@@ -136,6 +137,48 @@ describe("niceAxis", () => {
     });
     // 0,81 con paso 0,1 son 9 marcas: el paso es 0,2.
     expect(niceAxis([0.12, 0.93]).ticks).toEqual([0, 0.2, 0.4, 0.6, 0.8, 1]);
+  });
+
+  it("keeps round steps past 100 instead of dividing the span by eight", () => {
+    // Un CAGR de +900 % daba 1.064 · 931 · 798…; el paso es 200.
+    expect(niceAxis([-120, 1064])).toEqual({
+      domain: [-200, 1200],
+      ticks: [-200, 0, 200, 400, 600, 800, 1000, 1200],
+    });
+    expect(niceAxis([0, 1900]).ticks.at(1)).toBe(250);
+    expect(niceAxis([0, 30000]).ticks.at(1)).toBe(5000);
+  });
+
+  it("does not loop on a degenerate span", () => {
+    expect(niceAxis([0, 0]).ticks).toEqual([0]);
+    expect(niceAxis([0, Number.POSITIVE_INFINITY])).toEqual({
+      domain: [-1, 1],
+      ticks: [-1, 0, 1],
+    });
+    expect(niceAxis([Number.NaN, 1]).ticks).toEqual([-1, 0, 1]);
+  });
+});
+
+describe("notDrawnReason", () => {
+  it("says a shared reason once and otherwise names each missing window", () => {
+    const entry = (window2y: SortinoResult, window5y: SortinoResult) => ({
+      id: "x",
+      label: "X",
+      window2y,
+      window5y,
+    });
+
+    expect(
+      notDrawnReason(
+        entry(missing("insufficient_history"), missing("insufficient_history")),
+      ),
+    ).toBe("Historia insuficiente");
+    expect(
+      notDrawnReason(entry(value("1.2"), missing("insufficient_history"))),
+    ).toBe("5 años: Historia insuficiente");
+    expect(
+      notDrawnReason(entry(missing("insufficient_history"), value("1.2"))),
+    ).toBe("2 años: Historia insuficiente");
   });
 });
 

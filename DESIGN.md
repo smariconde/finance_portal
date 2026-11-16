@@ -352,9 +352,11 @@ Implementado en `src/app/sectores/[sector]/_components/` (`F7-05`). Es el primer
 - **Lines:** cruce punteado `muted-foreground` en la referencia; recta de ajuste `--chart-4` rotulada como ajuste, nunca como valor justo, con su `n` en la leyenda.
 - **Out of range:** el punto se dibuja en el borde con un chevron hacia afuera; el valor exacto queda en el panel y en la tabla.
 - **Labels:** `text-xs`, sin superponerse, medidos con `measureText`; los puntos que se tapan comparten una etiqueta («GOOG · GOOGL») y un grupo sin lugar se suma al vecino más cercano con `+n`.
-- **Axes:** dominio robusto redondeado a un paso limpio; las marcas se formatean con los decimales justos (`1`, `0,5`, `0,25`).
+- **Axes:** dominio robusto redondeado a un paso limpio; las marcas se formatean con los decimales justos (`1`, `0,5`, `0,25`). Más allá de 100 el paso sigue 200, 250, 500, 1.000. En divergencias, antes del dominio robusto se sacan los extremos aislados —el salto al vecino supera el rango del resto—, que se dibujan en el borde con chevron.
 - **Equivalent table:** mismas cifras sin recorte, ordenable por columna con `aria-sort`, números antes que texto para que el mobile lea la respuesta sin desplazar, y los `null` con su motivo e icono, nunca un cero.
-- **Quality reading:** un bloque previo al gráfico muestra nota operativa, cobertura, frescura, comparabilidad, validación interna y acuerdo no evaluable. La nota no absorbe ni oculta el panel de `null`; publica pesos, denominadores y el límite de una sola fuente.
+- **Quality reading:** un botón en la línea de provenance dice la nota y, en una palabra, lo que la degrada («98/100 · 2 sin Sortino»); su panel muestra completitud, frescura, comparabilidad, validación interna y acuerdo no evaluable con pesos y denominadores. La nota no absorbe ni oculta el panel de `null`.
+- **Provenance line:** debajo del título, una línea: fecha del corte, fuente y un ⓘ con fórmula, base, población y versiones; a la derecha la calidad y el CSV. Nada de grillas de prosa antes del gráfico.
+- **Missing by reason:** lo que no se dibuja se agrupa por motivo con su cuenta; más de doce tickers se pliegan. Dos paneles de faltantes lado a lado no se estiran a la misma altura.
 
 ### Sector heatmap
 

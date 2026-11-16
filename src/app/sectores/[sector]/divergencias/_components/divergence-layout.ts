@@ -1,3 +1,4 @@
+import { displayCompanyName } from "@/modules/companies/domain/display-company-name";
 import type {
   DivergenceHorizon,
   SectorDivergenceRow,
@@ -110,6 +111,66 @@ export function unavailableReason(
   return reason === null ? "Sin tasa comparable" : GROWTH_REASON_LABELS[reason];
 }
 
+/**
+ * Cuánto tiene que medir el salto de un extremo a su vecino, en rangos del
+ * resto, para que el extremo quede fuera del dominio.
+ */
+export const ISOLATED_GAP_RATIO = 1;
+
+/**
+ * Los valores sin sus extremos aislados. El dominio robusto (mediana ± 4 IQR)
+ * no recorta nada con cuatro o cinco puntos: con MU a +900 % y otros tres
+ * entre 0 y 50, el IQR mismo se estira hasta el extremo y el grueso queda en
+ * una esquina. Un extremo es aislado si el salto hasta el valor siguiente —o
+ * hasta lo que el dominio siempre incluye, como el cero— supera el rango de
+ * todo lo demás. Se saca a lo sumo uno de cada cuatro puntos (uno con tres o
+ * cuatro), primero el del salto relativo mayor; el punto se dibuja en el
+ * borde con su chevron y su valor exacto sigue en la tabla.
+ */
+export function withoutIsolatedExtremes(
+  values: readonly number[],
+  mustInclude: readonly number[] = [],
+): readonly number[] {
+  const sorted = values
+    .filter((value) => Number.isFinite(value))
+    .sort((left, right) => left - right);
+
+  if (sorted.length < 3) {
+    return sorted;
+  }
+
+  const allowed = Math.max(1, Math.floor(sorted.length / 4));
+  let low = 0;
+  let high = sorted.length - 1;
+
+  for (let trimmed = 0; trimmed < allowed; trimmed += 1) {
+    const rest = (from: number, to: number) => [
+      ...sorted.slice(from, to + 1),
+      ...mustInclude,
+    ];
+    const above = rest(low, high - 1);
+    const below = rest(low + 1, high);
+    const spanAbove = Math.max(...above) - Math.min(...above);
+    const spanBelow = Math.max(...below) - Math.min(...below);
+    const gapAbove = sorted[high]! - Math.max(...above);
+    const gapBelow = Math.min(...below) - sorted[low]!;
+    const ratioAbove = spanAbove > 0 ? gapAbove / spanAbove : 0;
+    const ratioBelow = spanBelow > 0 ? gapBelow / spanBelow : 0;
+
+    if (Math.max(ratioAbove, ratioBelow) <= ISOLATED_GAP_RATIO) {
+      break;
+    }
+
+    if (ratioAbove >= ratioBelow) {
+      high -= 1;
+    } else {
+      low += 1;
+    }
+  }
+
+  return sorted.slice(low, high + 1);
+}
+
 function clip(value: number, [low, high]: readonly [number, number]) {
   if (value < low) return { value: low, clip: -1 as const };
   return value > high
@@ -135,9 +196,10 @@ export function layoutDivergence(
   );
   const xs = drawable.map((row) => Number(row[horizon].views[view].x.value));
   const ys = drawable.map((row) => Number(row[horizon].views[view].y.value));
-  // Un solo dominio: el robusto de cada eje, unido, y siempre con el cero.
-  const domainX = robustDomain(xs, [0]);
-  const domainY = robustDomain(ys, [0]);
+  // Un solo dominio: el robusto de cada eje sin sus extremos aislados, unido, y
+  // siempre con el cero.
+  const domainX = robustDomain(withoutIsolatedExtremes(xs, [0]), [0]);
+  const domainY = robustDomain(withoutIsolatedExtremes(ys, [0]), [0]);
   const axis = niceAxis([
     Math.min(domainX[0], domainY[0]),
     Math.max(domainX[1], domainY[1]),
@@ -181,6 +243,29 @@ export function layoutDivergence(
   };
 }
 
+/**
+ * Si la fila tiene algo que la tabla pueda mostrar en este horizonte: un CAGR,
+ * un market cap, una categoría de beneficio no positivo o un puente evaluado.
+ * Una fila sin nada de eso sería un renglón de guiones; su motivo ya está en
+ * «Sin valor».
+ */
+export function hasHorizonData(
+  row: SectorDivergenceRow,
+  horizon: HorizonKey,
+): boolean {
+  const data = row[horizon];
+  const { views } = data;
+
+  return (
+    views.marketCap.latest !== null ||
+    Object.values(views.growth).some((growth) => growth.value !== null) ||
+    (["fundamental", "aggregate", "perShare"] as const).some(
+      (key) => views[key].category !== "unavailable",
+    ) ||
+    (data.bridge.latest?.reconciled ?? null) !== null
+  );
+}
+
 /** Nombre accesible de un punto: lo que el panel diría, en una frase. */
 export function describeDivergencePoint(
   row: SectorDivergenceRow,
@@ -190,7 +275,7 @@ export function describeDivergencePoint(
   const values = row[horizon].views[view];
   const names = VIEWS[view];
   const parts = [
-    `${rowLabel(row)}${row.issuerName === null ? "" : `, ${row.issuerName}`}`,
+    `${rowLabel(row)}${row.issuerName === null ? "" : `, ${displayCompanyName(row.issuerName)}`}`,
     `${names.y} ${formatPct(values.y.value)} por año`,
     `${names.x} ${formatPct(values.x.value)} por año`,
     `brecha ${formatPp(values.gapPp)} puntos`,
