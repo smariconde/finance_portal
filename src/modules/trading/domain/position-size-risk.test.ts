@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   markOf,
   openRisk,
+  planByAmount,
   planPosition,
   positionRisk,
   type RiskOrderInput,
@@ -333,5 +334,92 @@ describe("planPosition", () => {
     expect(
       planPosition({ ...base, liquidationValue: "50", buyingPower: "50" }),
     ).toMatchObject({ shares: "0", riskAmount: "0" });
+  });
+});
+
+describe("planByAmount", () => {
+  const base = {
+    liquidationValue: "10000",
+    buyingPower: "4000",
+    riskPerTradePercent: "2",
+    amount: "1000",
+    entry: "62.15",
+    stop: null,
+    target: null,
+  } as const;
+
+  it("turns an amount into whole shares, rounding down", () => {
+    const plan = planByAmount(base);
+    expect(plan).toMatchObject({
+      state: "planned",
+      shares: "16",
+      positionValue: "994.4",
+      positionPercent: "9.944",
+      leftover: "5.6",
+      overBuyingPower: false,
+      risk: null,
+      rewardRisk: { value: null, reason: "no_stop" },
+    });
+  });
+
+  it("measures the risk of that quantity against the per-trade budget", () => {
+    const plan = planByAmount({ ...base, amount: "3000", stop: "54.67" });
+    // 48 acciones × 7,48 = 359,04 contra 200 de presupuesto: 26 permitidas.
+    expect(plan).toMatchObject({
+      shares: "48",
+      risk: {
+        amount: "359.04",
+        percent: "3.5904",
+        budget: "200",
+        maxShares: "26",
+        overBudget: true,
+      },
+    });
+  });
+
+  it("keeps a risk inside the budget unflagged and reads reward/risk", () => {
+    const plan = planByAmount({ ...base, stop: "54.67", target: "80" });
+    expect(plan).toMatchObject({
+      shares: "16",
+      risk: { amount: "119.68", overBudget: false },
+      rewardRisk: { reason: null },
+    });
+    if (plan.state === "planned" && plan.rewardRisk.value !== null)
+      expect(Number(plan.rewardRisk.value)).toBeCloseTo(17.85 / 7.48, 10);
+  });
+
+  it("flags an amount above buying power without trimming it", () => {
+    expect(planByAmount({ ...base, amount: "5000" })).toMatchObject({
+      shares: "80",
+      overBuyingPower: true,
+    });
+  });
+
+  it("gives zero shares when the amount is below one share", () => {
+    expect(planByAmount({ ...base, amount: "50" })).toMatchObject({
+      shares: "0",
+      leftover: "50",
+    });
+  });
+
+  it("refuses a stop at or above the entry and an account without equity", () => {
+    expect(planByAmount({ ...base, stop: "62.15" })).toEqual({
+      state: "invalid",
+      reason: "zero_risk",
+    });
+    expect(planByAmount({ ...base, stop: "70" })).toEqual({
+      state: "invalid",
+      reason: "stop_on_wrong_side",
+    });
+    expect(planByAmount({ ...base, liquidationValue: "0" })).toEqual({
+      state: "invalid",
+      reason: "no_equity",
+    });
+  });
+
+  it("names a target on the wrong side", () => {
+    expect(
+      planByAmount({ ...base, stop: "54.67", target: "60" }),
+    ).toMatchObject({ rewardRisk: { reason: "target_on_wrong_side" } });
   });
 });

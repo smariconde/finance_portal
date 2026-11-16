@@ -2,6 +2,12 @@
 
 import { cn } from "@/lib/utils";
 
+import {
+  segmentActiveClass,
+  segmentGroupClass,
+  segmentItemClass,
+} from "./segment-styles";
+
 /**
  * Un grupo de botones excluyentes: rango, escala o vista. Cada botón dice si
  * está elegido con `aria-pressed`, así el estado no depende del color.
@@ -26,7 +32,7 @@ export function Segmented<T extends string>({
     <div
       role="group"
       aria-label={label}
-      className="inline-flex shrink-0 rounded-md border bg-muted/40 p-0.5"
+      className={cn(segmentGroupClass, "shrink-0")}
     >
       {options.map((option) => (
         <button
@@ -37,9 +43,9 @@ export function Segmented<T extends string>({
           title={option.title}
           onClick={() => onChange(option.value)}
           className={cn(
-            "min-h-7 min-w-8 rounded-[calc(var(--radius)-4px)] px-2 text-xs font-medium text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none",
-            option.value === value &&
-              "bg-card text-foreground shadow-sm ring-1 ring-border",
+            segmentItemClass,
+            "min-h-6 min-w-8 px-2 text-xs",
+            option.value === value && segmentActiveClass,
           )}
         >
           {option.label}

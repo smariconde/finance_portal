@@ -47,12 +47,10 @@ import type {
   JournalSummary,
 } from "@/modules/trading/domain/journal";
 import type { RoundTrip } from "@/modules/trading/domain/trade-round-trips";
-import type { RoutineReading } from "@/modules/trading/domain/trading-routine";
 import type { TradingSetup } from "@/modules/trading/domain/trading-setups";
 
 import { ExecutionsList } from "./executions-list";
 import { Money, RValue } from "./pnl-values";
-import { RoutineCard } from "./routine-card";
 import { SessionCalendar } from "./session-calendar";
 import { TodayStrip } from "./today-strip";
 
@@ -554,29 +552,20 @@ export function JournalView({
   calendar,
   entries,
   setups,
-  routine,
-  routineSessions,
 }: {
   readonly trades: readonly RoundTrip[];
   readonly summary: JournalSummary;
   readonly calendar: CalendarBook;
   readonly entries: Readonly<Record<string, JournalEntry>>;
   readonly setups: readonly TradingSetup[];
-  readonly routine: RoutineReading;
-  readonly routineSessions: readonly string[];
 }) {
-  const routineDays = useMemo(
-    () => new Set(routineSessions),
-    [routineSessions],
-  );
   return (
     <div className="flex flex-col gap-6">
       <TodayStrip
         session={calendar.today.session}
         realized={calendar.today.pnl}
       />
-      <RoutineCard initial={routine} />
-      <SessionCalendar book={calendar} routineDays={routineDays} />
+      <SessionCalendar book={calendar} />
       <SummaryStrip summary={summary} />
       <PnlChart summary={summary} />
       <TradesTable trades={trades} entries={entries} setups={setups} />

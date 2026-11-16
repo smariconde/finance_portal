@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useId, useState, type ReactNode } from "react";
 
 import { InfoTip } from "@/app/_components/info-tip";
+import { Segmented } from "@/app/_components/segmented";
 import { formatMoney } from "@/app/_components/trading-format";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,10 +21,14 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import {
+  planByAmount,
   planPosition,
+  POSITION_SIZE_AMOUNT_VERSION,
   POSITION_SIZE_RISK_VERSION,
+  type AmountPlan,
   type OpenRisk,
   type PlannerCap,
+  type PositionPlan,
   type PositionRisk,
   type PositionRiskReason,
 } from "@/modules/trading/domain/position-size-risk";
@@ -319,10 +324,20 @@ function Fact({
   );
 }
 
+type PlannerMode = "risk" | "amount";
+
+const PLANNER_MODES: readonly { value: PlannerMode; label: string }[] = [
+  { value: "risk", label: "Por riesgo" },
+  { value: "amount", label: "Por monto" },
+];
+
 /**
- * El planner: el owner escribe entrada, stop y target; sale cuántas acciones
- * comprar con el mínimo entre el 2 %, el buying power y lo que le queda al 6 %.
- * No cotiza nada: el cliente nunca nombra un ticker ante Schwab.
+ * El planner, en dos modos. Por riesgo: entrada, stop y target; sale cuántas
+ * acciones comprar con el mínimo entre el 2 %, el buying power y lo que le queda
+ * al 6 % (`position-size-risk-1.0.0`). Por monto: cuánto poner y la entrada;
+ * sale cuántas acciones son y, con stop, si el riesgo entra en el 2 %
+ * (`position-size-amount-1.0.0`). No cotiza nada: el cliente nunca nombra un
+ * ticker ante Schwab.
  */
 function Planner({
   settings,
@@ -336,52 +351,110 @@ function Planner({
   readonly openRisk: OpenRisk;
 }) {
   const ids = useId();
+  const [mode, setMode] = useState<PlannerMode>("risk");
+  const [amountText, setAmount] = useState("");
   const [entryText, setEntry] = useState("");
   const [stopText, setStop] = useState("");
   const [targetText, setTarget] = useState("");
+  const amount = readPrice(amountText);
   const entry = readPrice(entryText);
   const stop = readPrice(stopText);
   const target = readPrice(targetText);
 
-  const ready =
+  const byRisk =
+    mode === "risk" &&
     entry !== null &&
     entry !== "invalid" &&
     stop !== null &&
     stop !== "invalid" &&
-    target !== "invalid";
-  const plan = ready
-    ? planPosition({
-        liquidationValue,
-        buyingPower,
-        riskPerTradePercent: settings.riskPerTradePercent,
-        openRiskPercent: settings.openRiskPercent,
-        openRisk: openRisk.value,
-        entry,
-        stop,
-        target,
-      })
-    : null;
+    target !== "invalid"
+      ? planPosition({
+          liquidationValue,
+          buyingPower,
+          riskPerTradePercent: settings.riskPerTradePercent,
+          openRiskPercent: settings.openRiskPercent,
+          openRisk: openRisk.value,
+          entry,
+          stop,
+          target,
+        })
+      : null;
+  const byAmount =
+    mode === "amount" &&
+    amount !== null &&
+    amount !== "invalid" &&
+    entry !== null &&
+    entry !== "invalid" &&
+    stop !== "invalid" &&
+    target !== "invalid"
+      ? planByAmount({
+          liquidationValue,
+          buyingPower,
+          riskPerTradePercent: settings.riskPerTradePercent,
+          amount,
+          entry,
+          stop,
+          target,
+        })
+      : null;
+  const invalid =
+    byRisk?.state === "invalid"
+      ? byRisk.reason
+      : byAmount?.state === "invalid"
+        ? byAmount.reason
+        : null;
 
   return (
-    <section aria-labelledby={`${ids}-title`} className="flex flex-col gap-3">
-      <h3
-        id={`${ids}-title`}
-        className="flex items-center gap-0.5 text-sm font-medium"
-      >
-        Position size
-        <InfoTip title="Position size">
-          <p>
-            Acciones = el mínimo entre{" "}
-            {formatPercent(settings.riskPerTradePercent)} del valor de
-            liquidación sobre (entrada − stop), el buying power overnight y lo
-            que le queda al {formatPercent(settings.openRiskPercent)} de open
-            risk. Enteras, hacia abajo.
-          </p>
-          <p className="font-mono text-xs">{POSITION_SIZE_RISK_VERSION}</p>
-        </InfoTip>
-      </h3>
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
-        <div className="grid grid-cols-3 gap-2">
+    <section
+      aria-labelledby={`${ids}-title`}
+      className="flex flex-col gap-3 border-t pt-5"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3
+          id={`${ids}-title`}
+          className="flex items-center gap-0.5 text-sm font-medium"
+        >
+          Position size
+          <InfoTip title="Position size">
+            <p>
+              Por riesgo: shares = el mínimo entre{" "}
+              {formatPercent(settings.riskPerTradePercent)} del valor de
+              liquidación sobre (entrada − stop), el buying power y lo que le
+              queda al {formatPercent(settings.openRiskPercent)} de open risk.
+            </p>
+            <p>
+              Por monto: shares = monto ÷ entrada. Con stop, el riesgo de esas
+              shares contra el {formatPercent(settings.riskPerTradePercent)}.
+            </p>
+            <p>Enteras, hacia abajo.</p>
+            <p className="font-mono text-xs">
+              {POSITION_SIZE_RISK_VERSION} · {POSITION_SIZE_AMOUNT_VERSION}
+            </p>
+          </InfoTip>
+        </h3>
+        <Segmented
+          label="Modo del position size"
+          options={PLANNER_MODES}
+          value={mode}
+          onChange={setMode}
+        />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] lg:items-center">
+        <div
+          className={cn(
+            "grid gap-2",
+            mode === "amount" ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3",
+          )}
+        >
+          {mode === "amount" ? (
+            <PriceField
+              id={`${ids}-amount`}
+              label="Monto, US$"
+              value={amountText}
+              onChange={setAmount}
+              invalid={amount === "invalid"}
+            />
+          ) : null}
           <PriceField
             id={`${ids}-entry`}
             label="Entrada"
@@ -391,92 +464,192 @@ function Planner({
           />
           <PriceField
             id={`${ids}-stop`}
-            label="Stop"
+            label={mode === "amount" ? "Stop (opc.)" : "Stop"}
             value={stopText}
             onChange={setStop}
             invalid={stop === "invalid"}
           />
           <PriceField
             id={`${ids}-target`}
-            label="Target"
+            label="Target (opc.)"
             value={targetText}
             onChange={setTarget}
             invalid={target === "invalid"}
           />
         </div>
-        <div aria-live="polite" className="min-h-14">
-          {plan === null ? (
-            <p className="pt-5 text-sm text-muted-foreground">
-              Entrada y stop para calcular.
-            </p>
-          ) : plan.state === "invalid" ? (
-            <p className="flex items-center gap-1.5 pt-5 text-sm text-amber-800 dark:text-amber-300">
+        <div
+          aria-live="polite"
+          className="flex min-h-16 items-center rounded-lg bg-muted/50 px-4 py-3"
+        >
+          {invalid !== null ? (
+            <p className="flex items-center gap-1.5 text-sm text-amber-800 dark:text-amber-300">
               <TriangleAlert className="size-4" aria-hidden="true" />
-              {INVALID_COPY[plan.reason]}
+              {INVALID_COPY[invalid]}
             </p>
+          ) : byRisk?.state === "planned" ? (
+            <RiskResult plan={byRisk} />
+          ) : byAmount?.state === "planned" ? (
+            <AmountResult
+              plan={byAmount}
+              riskPerTradePercent={settings.riskPerTradePercent}
+            />
           ) : (
-            <dl className="flex flex-wrap items-end gap-x-6 gap-y-2">
-              <div className="flex flex-col">
-                <dt className="text-xs text-muted-foreground">Shares</dt>
-                <dd className="numeric text-2xl font-semibold leading-none">
-                  {formatAmount(plan.shares, { scale: 0 })}
-                </dd>
-              </div>
-              <Fact
-                term="Risk"
-                value={`US$ ${formatMoney(plan.riskAmount)}`}
-                detail={formatPercent(plan.riskPercent)}
-              />
-              <Fact
-                term="Posición"
-                value={`US$ ${formatMoney(plan.positionValue)}`}
-                detail={formatPercent(plan.positionPercent)}
-              />
-              <Fact
-                term="R:R"
-                value={
-                  plan.rewardRisk.value === null
-                    ? "—"
-                    : formatAmount(plan.rewardRisk.value, { scale: 2 })
-                }
-              />
-              <Fact
-                term="Open risk después"
-                value={
-                  plan.openRiskAfterPercent === null
-                    ? "—"
-                    : formatPercent(plan.openRiskAfterPercent)
-                }
-              />
-              <div className="flex flex-col">
-                <dt className="text-xs text-muted-foreground">Tope</dt>
-                <dd className="text-sm font-medium">
-                  {CAP_COPY[plan.binding]}
-                  <InfoTip title="Topes">
-                    <ul className="numeric space-y-1">
-                      <li>
-                        Risk por trade:{" "}
-                        {formatAmount(plan.caps.riskPerTrade, { scale: 0 })}
-                      </li>
-                      <li>
-                        Buying power:{" "}
-                        {formatAmount(plan.caps.buyingPower, { scale: 0 })}
-                      </li>
-                      <li>
-                        Open risk:{" "}
-                        {plan.caps.openRisk === null
-                          ? "sin medir (posiciones sin stop)"
-                          : formatAmount(plan.caps.openRisk, { scale: 0 })}
-                      </li>
-                    </ul>
-                  </InfoTip>
-                </dd>
-              </div>
-            </dl>
+            <p className="text-sm text-muted-foreground">
+              {mode === "risk" ? "Entrada y stop." : "Monto y entrada."}
+            </p>
           )}
         </div>
       </div>
     </section>
+  );
+}
+
+function SharesFigure({
+  shares,
+  children,
+}: {
+  readonly shares: string;
+  readonly children?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col">
+      <dt className="text-xs text-muted-foreground">Shares</dt>
+      <dd className="numeric text-3xl leading-none font-semibold">
+        {formatAmount(shares, { scale: 0 })}
+      </dd>
+      {children}
+    </div>
+  );
+}
+
+function rewardRiskText(value: string | null): string {
+  return value === null ? "—" : formatAmount(value, { scale: 2 });
+}
+
+function RiskResult({
+  plan,
+}: {
+  readonly plan: Extract<PositionPlan, { state: "planned" }>;
+}) {
+  return (
+    <dl className="flex flex-wrap items-end gap-x-6 gap-y-3">
+      <SharesFigure shares={plan.shares}>
+        <dd className="mt-1 flex items-center text-xs text-muted-foreground">
+          tope: {CAP_COPY[plan.binding]}
+          <InfoTip title="Topes">
+            <ul className="numeric space-y-1">
+              <li>
+                Risk por trade:{" "}
+                {formatAmount(plan.caps.riskPerTrade, { scale: 0 })}
+              </li>
+              <li>
+                Buying power:{" "}
+                {formatAmount(plan.caps.buyingPower, { scale: 0 })}
+              </li>
+              <li>
+                Open risk:{" "}
+                {plan.caps.openRisk === null
+                  ? "sin medir (posiciones sin stop)"
+                  : formatAmount(plan.caps.openRisk, { scale: 0 })}
+              </li>
+            </ul>
+          </InfoTip>
+        </dd>
+      </SharesFigure>
+      <Fact
+        term="Posición"
+        value={`US$ ${formatMoney(plan.positionValue)}`}
+        detail={formatPercent(plan.positionPercent)}
+      />
+      <Fact
+        term="Risk"
+        value={`US$ ${formatMoney(plan.riskAmount)}`}
+        detail={formatPercent(plan.riskPercent)}
+      />
+      <Fact term="R:R" value={rewardRiskText(plan.rewardRisk.value)} />
+      <Fact
+        term="Open risk luego"
+        value={
+          plan.openRiskAfterPercent === null
+            ? "—"
+            : formatPercent(plan.openRiskAfterPercent)
+        }
+      />
+    </dl>
+  );
+}
+
+function AmountResult({
+  plan,
+  riskPerTradePercent,
+}: {
+  readonly plan: Extract<AmountPlan, { state: "planned" }>;
+  readonly riskPerTradePercent: string;
+}) {
+  const warn = "text-amber-800 dark:text-amber-300";
+  return (
+    <dl className="flex flex-wrap items-end gap-x-6 gap-y-3">
+      <SharesFigure shares={plan.shares} />
+      <div className="flex flex-col">
+        <dt className="text-xs text-muted-foreground">Posición</dt>
+        <dd
+          className={cn(
+            "numeric text-sm font-semibold",
+            plan.overBuyingPower && warn,
+          )}
+        >
+          US$ {formatMoney(plan.positionValue)}
+          <span className="ml-1 font-normal text-muted-foreground">
+            {formatPercent(plan.positionPercent)}
+          </span>
+        </dd>
+        {plan.overBuyingPower ? (
+          <dd className={cn("flex items-center gap-1 text-xs", warn)}>
+            <TriangleAlert className="size-3" aria-hidden="true" />
+            Supera el buying power
+          </dd>
+        ) : (
+          <dd className="numeric text-xs text-muted-foreground">
+            sobra US$ {formatMoney(plan.leftover)}
+          </dd>
+        )}
+      </div>
+      {plan.risk === null ? null : (
+        <div className="flex flex-col">
+          <dt className="text-xs text-muted-foreground">Risk</dt>
+          <dd
+            className={cn(
+              "numeric text-sm font-semibold",
+              plan.risk.overBudget && warn,
+            )}
+          >
+            US$ {formatMoney(plan.risk.amount)}
+            <span
+              className={cn(
+                "ml-1 font-normal",
+                plan.risk.overBudget ? warn : "text-muted-foreground",
+              )}
+            >
+              {formatPercent(plan.risk.percent)}
+            </span>
+          </dd>
+          {plan.risk.overBudget ? (
+            <dd className={cn("numeric flex items-center gap-1 text-xs", warn)}>
+              <TriangleAlert className="size-3" aria-hidden="true" />
+              Más de {formatPercent(riskPerTradePercent)}: máx{" "}
+              {formatAmount(plan.risk.maxShares, { scale: 0 })} shares
+            </dd>
+          ) : (
+            <dd className="numeric text-xs text-muted-foreground">
+              de US$ {formatMoney(plan.risk.budget)}
+            </dd>
+          )}
+        </div>
+      )}
+      {plan.rewardRisk.reason === "no_stop" ? null : (
+        <Fact term="R:R" value={rewardRiskText(plan.rewardRisk.value)} />
+      )}
+    </dl>
   );
 }
 

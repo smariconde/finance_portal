@@ -37,25 +37,11 @@ export default async function PlanPage() {
       id="contenido"
       className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-4 md:p-6 lg:p-8"
     >
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div className="flex flex-col gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-              Plan antes de la rueda
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Ideas fechadas, riesgo calculado y niveles para revisar antes de
-              operar.
-            </p>
-          </div>
-          <PlanNav current="ideas" />
-        </div>
-        <Link
-          href="/diario"
-          className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-        >
-          Ir al diario
-        </Link>
+      <header className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+          Plan
+        </h1>
+        <PlanNav current="ideas" />
       </header>
       {!servesSchwabConnection(health) ? (
         <Card>
@@ -130,7 +116,6 @@ async function PlanContent() {
         return idea;
       })}
       setups={result.state.setups}
-      lastFour={result.state.account.lastFour}
     />
   );
 }

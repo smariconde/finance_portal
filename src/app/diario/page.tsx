@@ -156,8 +156,6 @@ export default async function JournalPage() {
           calendar={reading.calendar}
           entries={reading.entries}
           setups={reading.setups}
-          routine={reading.routine}
-          routineSessions={reading.routineSessions}
         />
       )}
     </Shell>

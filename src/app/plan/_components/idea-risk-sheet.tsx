@@ -6,7 +6,9 @@ import type {
   LiveAccountResult,
   RiskContextResult,
 } from "@/app/cuenta/actions";
+import { InfoTip } from "@/app/_components/info-tip";
 import { formatMoney, formatQuantity } from "@/app/_components/trading-format";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
@@ -188,11 +190,13 @@ function SizeComparison({
   size,
   quantity,
   wholeQuantity,
+  onUseSuggested,
 }: {
   readonly levels: ValidLevels;
   readonly size: PlannedSize | null;
   readonly quantity: string | null;
   readonly wholeQuantity: boolean;
+  readonly onUseSuggested: (shares: string) => void;
 }) {
   const exceeds =
     size !== null &&
@@ -231,13 +235,31 @@ function SizeComparison({
         <tbody>
           <tr className="border-t">
             <th scope="row" className={label}>
-              Acciones
+              Shares
             </th>
-            <td className={cn(cell, "numeric pr-3 font-semibold")}>
+            <td className={cn(cell, "numeric pr-3 text-base font-semibold")}>
               {quantity === null ? "—" : formatQuantity(quantity)}
             </td>
-            <td className={cn(cell, "numeric font-semibold")}>
-              {size === null ? "—" : formatQuantity(size.shares)}
+            <td className={cell}>
+              {size === null ? (
+                "—"
+              ) : (
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="numeric text-base font-semibold">
+                    {formatQuantity(size.shares)}
+                  </span>
+                  {size.shares === "0" || size.shares === quantity ? null : (
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="outline"
+                      onClick={() => onUseSuggested(size.shares)}
+                    >
+                      Usar
+                    </Button>
+                  )}
+                </span>
+              )}
             </td>
           </tr>
           <tr className="border-t">
@@ -315,6 +337,7 @@ export function IdeaRiskSheet({
   entry,
   stopMode,
   targetMode,
+  onUseSuggested,
 }: {
   readonly live: LiveAccountResult | null;
   readonly risk: RiskContextResult | null;
@@ -326,6 +349,7 @@ export function IdeaRiskSheet({
   readonly entry: string | null;
   readonly stopMode: "manual" | "automatic";
   readonly targetMode: "manual" | "one_to_two" | "one_to_three";
+  readonly onUseSuggested: (shares: string) => void;
 }) {
   const valid = levels?.state === "valid" ? levels : null;
   const planned = size?.state === "planned" ? size : null;
@@ -333,13 +357,32 @@ export function IdeaRiskSheet({
     valid === null || entry === null
       ? []
       : planMarkers(valid, entry, targetMode);
-  const stopIsAutomatic =
-    valid !== null && stopMode === "automatic" && valid.autoStop !== null;
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle as="h2">Riesgo de la idea</CardTitle>
+        <CardTitle as="h2" className="flex items-center gap-1">
+          Riesgo de la idea
+          <InfoTip title="Riesgo de la idea">
+            <p>
+              Stop automático: entrada − riesgo por trade ÷ shares. El sugerido
+              es el mínimo entre el riesgo por trade, el buying power y lo que
+              le queda al riesgo abierto; no cambia tu cantidad ni envía
+              órdenes.
+            </p>
+            {valid !== null &&
+            stopMode === "manual" &&
+            valid.autoStop !== null ? (
+              <p className="numeric">
+                Stop automático alternativo {money(valid.autoStop)}.
+              </p>
+            ) : null}
+            <p className="font-mono text-xs">
+              {PRE_MARKET_PLAN_VERSION} · {STOP_LOSS_CALC_VERSION} ·{" "}
+              {POSITION_SIZE_RISK_VERSION}
+            </p>
+          </InfoTip>
+        </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 text-sm">
         {live === null || risk === null ? (
@@ -353,8 +396,7 @@ export function IdeaRiskSheet({
               className="mt-0.5 size-4 shrink-0"
               aria-hidden="true"
             />
-            Sin lectura de cuenta y reglas no hay tamaño sugerido; la compra y
-            el riesgo de tu cantidad sí se calculan.
+            Sin cuenta: no hay tamaño sugerido
           </p>
         ) : (
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-b pb-4 sm:grid-cols-3">
@@ -382,10 +424,7 @@ export function IdeaRiskSheet({
         )}
 
         {levels === null ? (
-          <p className="text-muted-foreground">
-            Con entrada y cantidad ya se ve cuánto comprás; el stop y el target
-            completan el riesgo.
-          </p>
+          <p className="text-muted-foreground">Entrada y shares.</p>
         ) : levels.state === "invalid" ? (
           <p className="flex items-start gap-1.5 text-amber-800 dark:text-amber-300">
             <TriangleAlert
@@ -401,6 +440,7 @@ export function IdeaRiskSheet({
               size={planned}
               quantity={quantity}
               wholeQuantity={wholeQuantity}
+              onUseSuggested={onUseSuggested}
             />
             <div className="flex flex-col gap-3 border-t pt-4">
               <PriceAxis
@@ -448,25 +488,6 @@ export function IdeaRiskSheet({
               </p>
             </div>
           </>
-        )}
-
-        {valid === null ? null : (
-          <div className="flex flex-col gap-1 text-xs text-muted-foreground">
-            <p>
-              Niveles con {PRE_MARKET_PLAN_VERSION}
-              {valid.autoStop === null ? "" : ` y ${STOP_LOSS_CALC_VERSION}`} ·
-              tamaño con {POSITION_SIZE_RISK_VERSION}
-            </p>
-            {stopIsAutomatic ? (
-              <p>Stop automático: entrada − riesgo por trade ÷ cantidad.</p>
-            ) : valid.autoStop === null ? null : (
-              <p>
-                Stop automático alternativo {money(valid.autoStop)} ·{" "}
-                {STOP_LOSS_CALC_VERSION}
-              </p>
-            )}
-            <p>El sugerido no cambia tu cantidad ni envía órdenes.</p>
-          </div>
         )}
       </CardContent>
     </Card>

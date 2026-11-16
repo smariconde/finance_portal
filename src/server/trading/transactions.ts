@@ -32,7 +32,6 @@ import {
 } from "@/modules/trading/domain/trade-r-multiple";
 import type { RoundTrip } from "@/modules/trading/domain/trade-round-trips";
 import { tradingSessionOf } from "@/modules/trading/domain/trading-session";
-import type { RoutineReading } from "@/modules/trading/domain/trading-routine";
 import {
   setupCatalog,
   type TradingSetup,
@@ -51,11 +50,6 @@ import { getTradeAnnotationStore } from "@/server/persistence/trading/get-trade-
 import { getPreMarketStore } from "@/server/persistence/trading/get-pre-market-store";
 import { ideaLevels } from "@/modules/trading/domain/pre-market-plan";
 
-import {
-  readRoutine,
-  routineSessionOf,
-  routineSessionsBetween,
-} from "./routine";
 import { SchwabUnavailableError } from "./schwab-connection";
 
 /** Raíz de composición de la sincronización de transacciones (`F11-05`). */
@@ -83,10 +77,6 @@ export type JournalReading = {
   /** Por `tradeId`: la anotación vigente resumida, o el trade sin anotar. */
   readonly entries: Readonly<Record<string, JournalEntry>>;
   readonly setups: readonly TradingSetup[];
-  /** La rutina de la sesión que toca ahora (`F11-07`). */
-  readonly routine: RoutineReading;
-  /** Sesiones del calendario con rutina hecha. */
-  readonly routineSessions: readonly string[];
   readonly lastRun: TransactionRun | null;
   readonly historyFrom: string | null;
 };
@@ -180,14 +170,6 @@ export async function readJournal(): Promise<JournalReading> {
     sessionExits(state.trades, stops),
     tradingSessionOf(now),
   );
-  const routineSession = routineSessionOf(now);
-  const [routine, routineSessions] = await Promise.all([
-    readRoutine(routineSession, now),
-    routineSessionsBetween(
-      `${calendar.months[0]?.month ?? routineSession.slice(0, 7)}-01`,
-      routineSession,
-    ),
-  ]);
   const entries: Record<string, JournalEntry> = {};
   for (const trade of state.trades) {
     const tradeKey = tradeKeyOf(trade);
@@ -210,8 +192,6 @@ export async function readJournal(): Promise<JournalReading> {
     calendar,
     entries,
     setups: state.setups,
-    routine,
-    routineSessions,
     lastRun: runs[0] ?? null,
     historyFrom: sync?.historyFrom ?? null,
   };

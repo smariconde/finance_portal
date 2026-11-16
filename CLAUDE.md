@@ -1495,10 +1495,10 @@ asks `loadTradeChart` for those candles when the trade opens —one `GET`, two i
 the minutes come back empty— and never stores them. Schwab adjusts its history
 backwards (a TSLQ reverse split, a PAGS dividend), so a fill outside its candle
 is counted and named, never moved. The session routine
-(`trading-routine-1.0.0`, trading migration `0004`) is the owner's checklist
-before the open and at the close plus a note, as append-only revisions per New
-York session —next Monday on a weekend, never a future one—, optional and
-marked on the calendar.
+(`trading-routine-1.0.0`, trading migration `0004`) was the owner's checklist
+before the open and at the close; on 2026-11-16 the owner dropped it from
+`/diario` (card, calendar mark, actions and reader removed). Its table, domain
+and PostgreSQL store stay, so what was saved is kept.
 
 Since `F11-08` (ADR 0076 amendment, no migration) `/diario/estadisticas`, a
 sibling of `/diario` behind a «Trades · Estadísticas» selector, reads
@@ -1551,6 +1551,21 @@ history (`readSetupHistory`, `trading-stats-1.0.0` over tagged trades) only in
 `personal` with the trading database. Stats and the trade page link a setup to
 its lesson.
 
+The trading surfaces share one look since a 2026-11-16 polish pass: sibling
+routes use `SectionNav` and in-page choices `Segmented`, both styled by
+`segment-styles.ts` (shadcn's tab list); native selects are `NativeSelect`
+(`src/components/ui/`), the same height and border as `Input`. `/plan` and
+`/plan/finviz` are titled «Plan» with no subtitle. `/cuenta` leads with the
+liquidation value and its change since the open (`live-account-figures-1.0.0`,
+which also gives each position's open P&L over cost), colours P&L and quotes
+through `pnlTone` and `PercentChange`, and its position size has a «Por monto»
+mode (`position-size-amount-1.0.0`: amount ÷ entry in whole shares, the stop
+optional, a risk above the per-trade budget flagged with the shares it allowed,
+never trimmed). `/plan`'s editor chooses stop and target with `Segmented` and
+shows the computed level; the suggested size has «Usar»; the watchlist hides
+archived ideas behind a toggle, greys them, and archives or restores per row
+(a new revision, never a delete).
+
 ```bash
 pnpm finviz:catalog --file ~/Downloads/screener.html          # dry run: counts and diffs against the stored catalog
 pnpm finviz:catalog --file ~/Downloads/screener.html --write  # rewrites finviz-screener-filters.json
@@ -1562,7 +1577,7 @@ builds links to Finviz's screener; the server never talks to Finviz and nothing
 of it is embedded, only linked (`robots.txt` closes the screener and charts to
 robots and no terms are published). The catalog is the JSON the owner's saved
 screener page embeds, read by the closed `finviz-screener-page-1.0.0` and
-regenerated with `pnpm finviz:catalog`; `finviz-screener-catalog-1.0.0` pins its
+regenerated with `pnpm finviz:catalog`; `finviz-screener-catalog-1.1.0` (Snapshot, `v=341`, is the default view, owner's decision) pins its
 `filtersVersion` in a test: 78 variables, 2,317 options, and **nothing Elite**
 (five whole filters, every «Custom» and 84 options, owner's decision), so one
 value per variable. `finviz-screener-url-1.0.0` builds
