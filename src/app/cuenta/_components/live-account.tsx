@@ -351,7 +351,7 @@ export function LiveAccount({
                 <p>
                   Cuenta{" "}
                   {reading.account.accountType === "CASH"
-                    ? "cash: el buying power overnight es el efectivo liquidado"
+                    ? "cash: el buying power overnight es el efectivo liquidado y no hay buying power intradía"
                     : reading.account.accountType}
                   {reading.account.isClosingOnlyRestricted
                     ? "; restringida a cerrar posiciones"
@@ -541,10 +541,18 @@ function Figure({
   );
 }
 
+/** Una cuenta cash no tiene buying power intradía: Schwab manda 0 siempre, así
+ * que no se muestra (pedido del owner, 2026-11-16). */
 function Balances({ reading }: { readonly reading: Reading }) {
   const b = reading.balances;
+  const cash = reading.account.accountType === "CASH";
   return (
-    <dl className="grid gap-5 text-sm sm:grid-cols-2 lg:grid-cols-4">
+    <dl
+      className={cn(
+        "grid gap-5 text-sm sm:grid-cols-2",
+        cash ? "lg:grid-cols-3" : "lg:grid-cols-4",
+      )}
+    >
       <Figure
         term="Liquidation value"
         gloss="valor de liquidación"
@@ -556,12 +564,14 @@ function Balances({ reading }: { readonly reading: Reading }) {
         gloss="disponible para operar"
         value={formatMoney(b.cashAvailableForTrading)}
       />
-      <Figure
-        term="Buying power intradía"
-        gloss="según Schwab"
-        value={formatMoney(b.currentIntradayBuyingPower)}
-        detail={`Al abrir US$ ${formatMoney(b.intradayBuyingPowerAtOpen)}`}
-      />
+      {cash ? null : (
+        <Figure
+          term="Buying power intradía"
+          gloss="según Schwab"
+          value={formatMoney(b.currentIntradayBuyingPower)}
+          detail={`Al abrir US$ ${formatMoney(b.intradayBuyingPowerAtOpen)}`}
+        />
+      )}
       <Figure
         term="Cash"
         gloss="efectivo total"
