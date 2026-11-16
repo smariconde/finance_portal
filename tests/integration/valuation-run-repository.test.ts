@@ -195,6 +195,40 @@ describe("PostgreSQL valuation runs", () => {
     expect(rejected.input.assetProfile).toBe("bank");
   });
 
+  it("reads a rejected run in the window only when its status is asked for", async () => {
+    const repository = createPostgresValuationRunRepository(database);
+    const rejected = await repository.record(
+      valuation(
+        { ...DEMO_VALUATION_INPUT, assetProfile: "bank" },
+        { now: LATER_CLOCK },
+      ),
+    );
+    const ours = <T extends { subject: { legalEntityId: string } }>(
+      runs: readonly T[],
+    ) => runs.filter((run) => run.subject.legalEntityId === LEGAL_ENTITY_ID);
+    const window = {
+      from: rejected.asOf,
+      to: rejected.asOf,
+      methods: [rejected.method],
+    };
+
+    // Por omisión sólo cuentan las corridas con valor (`F6-19`).
+    expect(
+      ours(await repository.listLatestInWindow(window)).map(
+        (run) => run.status,
+      ),
+    ).not.toContain("rejected");
+    // Pedida por estado, la rechazada aparece: la lista de lo valuado la suma.
+    expect(
+      ours(
+        await repository.listLatestInWindow({
+          ...window,
+          statuses: ["rejected"],
+        }),
+      ).map((run) => run.valuationRunId),
+    ).toStrictEqual([rejected.valuationRunId]);
+  });
+
   it("refuses a rejected run that still carries a result", async () => {
     const [current] = await createPostgresValuationRunRepository(database).list(
       { legalEntityId: LEGAL_ENTITY_ID, limit: 1 },
