@@ -2,6 +2,7 @@
 
 import { TickerMark } from "@/app/_components/ticker-mark";
 
+import { ExternalLink } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -12,9 +13,10 @@ import {
   type RiskContextResult,
 } from "@/app/cuenta/actions";
 import { formatDateTime, formatMoney } from "@/app/_components/trading-format";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { buildFinvizTickersUrl } from "@/modules/finviz-screener/domain/finviz-screener-url";
 import type { StoredIdea } from "@/modules/trading/application/pre-market-store";
 import {
   ideaLevels,
@@ -320,6 +322,9 @@ export function PlanWorkspace({
       : [],
   );
   const activeIdeas = ideas.filter((idea) => idea.status === "active");
+  const finvizWatchlist = buildFinvizTickersUrl(
+    activeIdeas.map((idea) => idea.symbol),
+  );
 
   async function save() {
     setBusy(true);
@@ -611,13 +616,28 @@ export function PlanWorkspace({
                 : `US$ ${formatMoney(purchaseTotal(activeIdeas))}`}
             </p>
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => void readPlanQuotes({}).then(setQuotes)}
-          >
-            Actualizar cotizaciones
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {finvizWatchlist === null ? null : (
+              <a
+                href={finvizWatchlist}
+                target="_blank"
+                rel="noopener noreferrer"
+                referrerPolicy="no-referrer"
+                className={buttonVariants({ size: "sm", variant: "outline" })}
+              >
+                Ver en Finviz
+                <ExternalLink aria-hidden="true" className="size-3.5" />
+                <span className="sr-only"> (pestaña nueva)</span>
+              </a>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void readPlanQuotes({}).then(setQuotes)}
+            >
+              Actualizar cotizaciones
+            </Button>
+          </div>
         </div>
         {ideas.length === 0 ? (
           <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">

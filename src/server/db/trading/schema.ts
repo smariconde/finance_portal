@@ -31,7 +31,8 @@ import {
  * conexión con Schwab y el presupuesto de sus fuentes; `F11-05`, la cuenta, sus
  * transacciones y la sincronización (migración `0002`); `F11-07`, las
  * anotaciones del diario y los setups propios (migración `0003`) y la rutina
- * de cada sesión (migración `0004`).
+ * de cada sesión (migración `0004`); `F11-13`, las estrategias del screener
+ * de Finviz (migración `0007`).
  */
 
 function instant(name: string) {
@@ -720,6 +721,62 @@ export const preMarketTradeLinks = pgTable(
     check(
       "pre_market_trade_links_timeline_check",
       sql`${table.linkedAt} >= ${table.openedAt}`,
+    ),
+  ],
+);
+
+/**
+ * Las estrategias del screener de Finviz (`F11-13`) como revisiones
+ * append-only. Guarda la consulta del link —vista, señal y `f` canónico— con
+ * el catálogo que la validó; no hay URL ni datos de Finviz. No depende de la
+ * cuenta: el screener existe aunque Schwab esté desconectado.
+ */
+export const finvizScreenerStrategies = pgTable(
+  "finviz_screener_strategies",
+  {
+    revisionId: uuid("revision_id").primaryKey(),
+    strategyId: uuid("strategy_id").notNull(),
+    revision: integer("revision").notNull(),
+    version: varchar("version", { length: 64 }).notNull(),
+    catalogVersion: varchar("catalog_version", { length: 64 }).notNull(),
+    name: varchar("name", { length: 80 }).notNull(),
+    view: varchar("view", { length: 3 }).notNull(),
+    signal: varchar("signal", { length: 48 }),
+    filters: text("filters").notNull(),
+    status: varchar("status", { length: 16 }).notNull(),
+    recordedAt: instant("recorded_at").notNull(),
+    supersededAt: instant("superseded_at"),
+  },
+  (table) => [
+    uniqueIndex("finviz_screener_strategies_revision_uidx").on(
+      table.strategyId,
+      table.revision,
+    ),
+    uniqueIndex("finviz_screener_strategies_current_uidx")
+      .on(table.strategyId)
+      .where(sql`${table.supersededAt} is null`),
+    uniqueIndex("finviz_screener_strategies_name_uidx")
+      .on(sql`lower(${table.name})`)
+      .where(sql`${table.supersededAt} is null and ${table.status} = 'active'`),
+    check(
+      "finviz_screener_strategies_revision_check",
+      sql`${table.revision} >= 1`,
+    ),
+    check(
+      "finviz_screener_strategies_name_check",
+      sql`char_length(${table.name}) between 1 and 80 and ${table.name} = btrim(${table.name})`,
+    ),
+    check(
+      "finviz_screener_strategies_query_check",
+      sql`${table.view} ~ '^[0-9]{3}$' and (${table.signal} is null or ${table.signal} ~ '^[a-z][a-z0-9_]{1,47}$') and ${table.filters} ~ '^([a-z][a-z0-9_]*_[a-z0-9._-]+(,[a-z][a-z0-9_]*_[a-z0-9._-]+)*)?$' and char_length(${table.filters}) <= 4000`,
+    ),
+    check(
+      "finviz_screener_strategies_status_check",
+      sql`${table.status} in ('active', 'archived')`,
+    ),
+    check(
+      "finviz_screener_strategies_superseded_check",
+      sql`${table.supersededAt} is null or ${table.supersededAt} >= ${table.recordedAt}`,
     ),
   ],
 );

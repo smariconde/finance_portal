@@ -2,12 +2,14 @@ import postgres, { type Sql } from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
+import { describeFinvizStrategyStoreContract } from "@/modules/finviz-screener/application/finviz-strategy-store.contract";
 import { describeSourceBudgetStoreContract } from "@/modules/ingestion/application/source-budget-store.contract";
 import { describeSchwabConnectionStoreContract } from "@/modules/trading/application/schwab-connection-store.contract";
 import { describeSchwabTransactionStoreContract } from "@/modules/trading/application/schwab-transaction-store.contract";
 import { describeTradeAnnotationStoreContract } from "@/modules/trading/application/trade-annotation-store.contract";
 import { describeTradingRiskSettingsStoreContract } from "@/modules/trading/application/trading-risk-settings-store.contract";
 import { describeTradingRoutineStoreContract } from "@/modules/trading/application/trading-routine-store.contract";
+import { createPostgresFinvizStrategyStore } from "@/server/db/trading/postgres-finviz-strategy-store";
 import { createPostgresSchwabConnectionStore } from "@/server/db/trading/postgres-schwab-connection-store";
 import { createPostgresSchwabTransactionStore } from "@/server/db/trading/postgres-schwab-transaction-store";
 import { createPostgresTradingSourceBudgetStore } from "@/server/db/trading/postgres-source-budget-store";
@@ -22,7 +24,8 @@ import * as schema from "@/server/db/trading/schema";
  * Los almacenes de la base de trading pasan los mismos contratos que sus dobles
  * en memoria: el presupuesto, el mismo que el de la base de análisis
  * (ADR 0020), la conexión con Schwab, sus transacciones y las anotaciones del
- * diario con su rutina y las reglas propias (ADR 0076).
+ * diario con su rutina, las reglas propias (ADR 0076) y las estrategias del
+ * screener de Finviz (`F11-13`).
  */
 const client: Sql = postgres(process.env.TRADING_DATABASE_TEST_URL!.trim(), {
   max: 4,
@@ -33,6 +36,7 @@ const client: Sql = postgres(process.env.TRADING_DATABASE_TEST_URL!.trim(), {
 const database = drizzle(client, { schema });
 
 beforeEach(async () => {
+  await client`delete from finviz_screener_strategies`;
   await client`delete from pre_market_trade_links`;
   await client`delete from pre_market_ideas`;
   await client`delete from trading_risk_settings`;
@@ -84,6 +88,10 @@ describeTradingRoutineStoreContract("trading postgres", () =>
 
 describeTradingRiskSettingsStoreContract("trading postgres", () =>
   createPostgresTradingRiskSettingsStore(database),
+);
+
+describeFinvizStrategyStoreContract("trading postgres", () =>
+  createPostgresFinvizStrategyStore(database),
 );
 
 const accountKey = "a".repeat(64);

@@ -142,8 +142,8 @@ su propio slot.
 - Cada uno reemplaza al anterior: `f11-03-before-0001-2026-11-13` y después
   `f11-05-before-0002-2026-11-14`, `f11-07-before-0003-2026-11-14`, tomado
   antes de aplicar `0003` y `0004` juntas, `f11-09-before-0005-2026-11-15`
-  y `f11-12-before-0006-2026-11-15`, tomado antes de aplicar `0006` con
-  autorización del owner. Con el slot ocupado, la API responde
+  `f11-12-before-0006-2026-11-15`, tomado antes de aplicar `0006` con
+  autorización del owner, y `f11-13-before-0007-2026-11-16`, antes de `0007`. Con el slot ocupado, la API responde
   «snapshots limit exceeded»: se borra el viejo
   (`neon api -X DELETE /projects/wispy-term-56128846/snapshots/<id>`) y se toma
   el nuevo.

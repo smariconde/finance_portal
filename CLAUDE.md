@@ -1551,6 +1551,29 @@ history (`readSetupHistory`, `trading-stats-1.0.0` over tagged trades) only in
 `personal` with the trading database. Stats and the trade page link a setup to
 its lesson.
 
+```bash
+pnpm finviz:catalog --file ~/Downloads/screener.html          # dry run: counts and diffs against the stored catalog
+pnpm finviz:catalog --file ~/Downloads/screener.html --write  # rewrites finviz-screener-filters.json
+```
+
+Since `F11-13` (ADR 0076 amendment, trading migration `0007`)
+`/plan/finviz`, a sibling of `/plan` behind an «Ideas · Finviz» selector,
+builds links to Finviz's screener; the server never talks to Finviz and nothing
+of it is embedded, only linked (`robots.txt` closes the screener and charts to
+robots and no terms are published). The catalog is the JSON the owner's saved
+screener page embeds, read by the closed `finviz-screener-page-1.0.0` and
+regenerated with `pnpm finviz:catalog`; `finviz-screener-catalog-1.0.0` pins its
+`filtersVersion` in a test: 78 variables, 2,317 options, and **nothing Elite**
+(five whole filters, every «Custom» and 84 options, owner's decision), so one
+value per variable. `finviz-screener-url-1.0.0` builds
+`screener/stocks?v=&f=&s=` in catalog order —a filter's prefix is its key plus
+`_`: Finviz rewrote `ind_` to `industry_`— and reads a pasted Finviz or Flask
+link, naming what it drops. Strategies (`finviz-screener-strategy-1.0.0`) are
+append-only revisions in `finviz_screener_strategies`, not tied to the Schwab
+account, re-validated against the current catalog when read; the actions take
+the selection, never a URL. `/plan`'s watchlist opens its active ideas with
+`?t=`.
+
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 
 Node `>=22.11.0 <27`, pnpm `10.33.2` via corepack. Arch Linux dev host — use POSIX shell syntax for env-var examples in docs, matching the `ubuntu-latest` runners CI validates on.
