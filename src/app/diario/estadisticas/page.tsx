@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
+import { UnreadTradingParts } from "@/app/_components/unread-trading-parts";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -166,6 +167,7 @@ export default async function TradingStatsPage() {
 
   return (
     <Shell>
+      <UnreadTradingParts parts={reading.unread} />
       <StatsFigures stats={stats} />
       <RealizedCurve drawdown={stats.drawdown} />
       <StatsCuts

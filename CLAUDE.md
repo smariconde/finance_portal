@@ -1530,6 +1530,10 @@ alerts that block nothing. The rules are owner revisions in
 apply (2 %, 6 %, 4 %, 3 trades, 3 losses). `readAccountRisk({ force })` syncs
 transactions when due —always when positions or round trips changed— and
 reads plans, rules and the session's activity; the client computes the rest.
+Since `F11-15` a trading base that lags its migrations does not take the card
+down: annotations, rules and pre-market plans are parts (`trading-parts.ts`)
+read empty or as the defaults **only** on SQLSTATE `42P01`, and named by
+`UnreadTradingParts`; connection or permission failures keep the reference.
 
 Since `F11-10` (in progress, ADR 0076 amendment, no migration) `/lecciones`
 teaches seven concepts and one lesson per code of `trading-setups-1.0.0`
