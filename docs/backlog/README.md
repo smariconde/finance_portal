@@ -7671,7 +7671,7 @@ plan de Neon.
 
 ## Mejora transversal — marca torii y velas (2026-11-16)
 
-- Estado: `done` en la rama `feat/portal-brand-candles`, pendiente de PR y merge.
+- Estado: `done`; entrega de marca y velas autorizada para PR y merge por el owner el 2026-11-17.
 - Autorización: pedido del owner del 2026-11-16, después del cierre de
   `F11-17`. Aprobó el sello torii de velas, opción B, en bermellón, carbón y
   marfil, y velas de ambos sentidos rellenas como su referencia de Finviz.
@@ -7702,7 +7702,7 @@ plan de Neon.
 - Límite: la revisión de velas se hizo con los esquemas de Lecciones,
   sin consultar Schwab ni PostgreSQL; el Diario comparte forma, ventana y
   distribución de ejes, pero no se midió un trade real en esta sesión.
-- Bloqueos: ninguno. Próximo paso: revisión y PR; no se inició otra herramienta del MCP.
+- Bloqueos: ninguno. Próximo paso: revisión visual del owner con un trade real; no se inició otra herramienta del MCP.
 - Skill improvement candidate: al cambiar tokens globales, medir también los
   rótulos con opacidad sobre su fondo real. Los dos grupos de la sidebar
   quedaron en 4,14:1 aunque el color base era legible; la corrección llega a
@@ -7712,7 +7712,7 @@ plan de Neon.
 
 ### Ajuste de marca para oscuro (2026-11-17)
 
-- Estado: `done` en la misma rama; pedido posterior del owner: quitar el
+- Estado: `done`; pedido posterior del owner: quitar el
   círculo blanco en modo oscuro.
 - Misma silueta, disco carbón, remate marfil y torii bermellón. La sidebar
   sigue el tema efectivo con CSS, incluidos los overrides del owner; el
