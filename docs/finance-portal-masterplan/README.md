@@ -48,6 +48,8 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 
 ## Documentos derivados
 
+- [`../design/portal-brand.md`](../design/portal-brand.md): sello torii de velas aprobado por el owner, paleta bermellón/carbón/marfil, procedencia y regeneración del favicon.
+
 - [`../architecture/adr/0077-persisted-company-logos.md`](../architecture/adr/0077-persisted-company-logos.md): logos PNG guardados en PostgreSQL por pedido del owner y cuadrados redondeados en trading, conservando círculos en matrices y gráficos.
 - [`../runbooks/company-logos.md`](../runbooks/company-logos.md): descarga inicial, entorno, migración y recuperación de los logos.
 

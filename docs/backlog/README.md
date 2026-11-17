@@ -7668,3 +7668,44 @@ plan de Neon.
   PR; revisión renderizada a 1440 y 390 px de `/valuacion`, AAPL, KO, la
   matriz de Information Technology y `/diario` sin overflow; en la matriz, 38
   de 53 logos cubren el círculo y 15 quedan inscriptos.
+
+## Mejora transversal — marca torii y velas (2026-11-16)
+
+- Estado: `done` en la rama `feat/portal-brand-candles`, pendiente de PR y merge.
+- Autorización: pedido del owner del 2026-11-16, después del cierre de
+  `F11-17`. Aprobó el sello torii de velas, opción B, en bermellón, carbón y
+  marfil, y velas de ambos sentidos rellenas como su referencia de Finviz.
+- Alcance:
+  - SVG geométrico propio en la sidebar expandida y colapsada; favicon ICO
+    de 16/32/48 px y PNG de 180 px, derivados del mismo maestro con Sharp.
+    Procedencia y prompt en `docs/design/portal-brand.md`.
+  - Paleta del shell y acentos funcionales accesibles en ambos temas;
+    `PRODUCT.md`, `DESIGN.md` e interface foundations actualizados.
+  - Diario y Lecciones: precio y volumen con bandas X coincidentes y
+    separadas, cuerpos rellenos sin la reducción adicional al 70 %, doji
+    neutral, ticks legibles y dirección escrita junto al OHLC.
+  - Ventana local con paso mínimo de 10 px, controles sólo si no cabe toda
+    la serie, teclado y reglas de la lección sobre índices globales. Los
+    paneles y zonas siguen la ventana; los indicadores conservan su cálculo
+    sobre toda la historia. Sin cambiar proveedor, frecuencia o precios.
+- Evidencia: formato, lint, tipos, 4.441 unitarios y build con escaneo de
+  secretos aprobados; gate final con 390 E2E aprobadas y 3 omitidas. Revisión renderizada de inicio, Breakout y RSI/MACD
+  a 1440 claro y 390 oscuro: 0 hallazgos axe serios/críticos, 0 overflow,
+  cuerpos de 6–7 px y desalineación precio/volumen inferior a 0,001 px;
+  Inicio/Fin y reglas recorren la serie. Sello revisado a 16/24/32/48/128 px
+  sobre ambos fondos; colapsado a 24 px con desplazamiento de centro 0.
+  Las tres URLs de marca responden 200 y el drawer abierto tiene 0 axe. Capturas locales en
+  `.impeccable/review/portal-brand-*`.
+- Hallazgos cerrados: contraste de los dos rótulos de grupo de la sidebar
+  y ticks oscuros. Detector Impeccable: sólo el advisory de 11 px ya
+  existente en `MarkBadge`, ajeno a esta modificación.
+- Límite: la revisión de velas se hizo con los esquemas de Lecciones,
+  sin consultar Schwab ni PostgreSQL; el Diario comparte forma, ventana y
+  distribución de ejes, pero no se midió un trade real en esta sesión.
+- Bloqueos: ninguno. Próximo paso: revisión y PR; no se inició otra herramienta del MCP.
+- Skill improvement candidate: al cambiar tokens globales, medir también los
+  rótulos con opacidad sobre su fondo real. Los dos grupos de la sidebar
+  quedaron en 4,14:1 aunque el color base era legible; la corrección llega a
+  4,65:1. Alcance: texto de navegación con alpha. Contraejemplo: la opacidad
+  que sólo atenúa una marca decorativa, sin texto ni significado exclusivo.
+  Es candidato, no una modificación de las skills vendorizadas.

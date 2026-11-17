@@ -38,17 +38,17 @@ Un sidecar o screenshot ayuda a revisar, pero no reemplaza estos niveles de auto
 
 ## Baseline implementado
 
-| Área        | Decisión                                                                                                |
-| ----------- | ------------------------------------------------------------------------------------------------------- |
-| Componentes | shadcn CLI con primitivas Base UI editables en `src/components/ui/`                                     |
-| Navegación  | sidebar colapsable en escritorio y drawer en mobile; sólo Inicio y Configuración son rutas activas      |
-| Layout      | header de 3.5rem, contenido máximo de 80rem, gutters responsivos y footer discreto                      |
-| Superficies | fondo neutral, cards blancas con borde/ring suave, radio base de 0.75rem y sin glass/gradientes         |
-| Color       | azul funcional para interacción; verde, ámbar y neutral sólo para estados acompañados por icono y texto |
-| Tipografía  | Archivo Variable local; escala operativa fija y numerales tabulares para datos comparables              |
-| Estado      | `ready                                                                                                  | degraded | disabled | planned` mediante badge, icono y etiqueta; nunca sólo color |
-| Responsive  | grids apilan, sidebar pasa a drawer y las tablas anchas conservan scroll horizontal                     |
-| Movimiento  | transiciones propias de componentes; `prefers-reduced-motion` reduce animación y scroll                 |
+| Área        | Decisión                                                                                           |
+| ----------- | -------------------------------------------------------------------------------------------------- |
+| Componentes | shadcn CLI con primitivas Base UI editables en `src/components/ui/`                                |
+| Navegación  | sidebar colapsable en escritorio y drawer en mobile; sólo Inicio y Configuración son rutas activas |
+| Layout      | header de 3.5rem, contenido máximo de 80rem, gutters responsivos y footer discreto                 |
+| Superficies | fondo neutral, cards blancas con borde/ring suave, radio base de 0.75rem y sin glass/gradientes    |
+| Color       | bermellón funcional para interacción desde 2026-11-16; estados con icono y texto                   |
+| Tipografía  | Archivo Variable local; escala operativa fija y numerales tabulares para datos comparables         |
+| Estado      | `ready                                                                                             | degraded | disabled | planned` mediante badge, icono y etiqueta; nunca sólo color |
+| Responsive  | grids apilan, sidebar pasa a drawer y las tablas anchas conservan scroll horizontal                |
+| Movimiento  | transiciones propias de componentes; `prefers-reduced-motion` reduce animación y scroll            |
 
 ## Wireframe de referencia
 
@@ -182,3 +182,12 @@ calidad del copy ni si una tabla dice algo verdadero. El walkthrough del owner
    introducir gráficos.
 7. Convertir una corrección repetible en candidato de mejora del skill; nunca dejar
    que el skill se autoedite sin autorización y evidencia.
+
+## Marca y velas (2026-11-16)
+
+Por decisión del owner, el shell incorpora el sello torii de velas en bermellón,
+carbón y marfil. El sistema conserva su estructura shadcn y densidad; cambia la
+paleta de interacción y sus neutros. La geometría, derivados y prompt están en
+[portal-brand.md](portal-brand.md); las reglas de velas y ventana están en
+`DESIGN.md`. La revisión cubre claro/oscuro, sidebar expandida y colapsada,
+favicon y velas en escritorio y teléfono.

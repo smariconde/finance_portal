@@ -15,9 +15,9 @@ type ShapeProps = {
 };
 
 /**
- * Mecha de mínimo a máximo y cuerpo de apertura a cierre; hueco si cerró
- * arriba, lleno si cerró abajo, así que el color nunca es el único canal. Es la
- * forma de la barra `range` de un `ComposedChart` (diario y lecciones).
+ * Mecha de mínimo a máximo y cuerpo relleno de apertura a cierre. La dirección
+ * también se nombra en la franja OHLC. Precio y volumen tienen su propia banda
+ * X para que Recharts los centre sin repartir su ancho (diario y lecciones).
  */
 export function CandleShape({
   x = 0,
@@ -26,7 +26,7 @@ export function CandleShape({
   height = 0,
   payload,
 }: ShapeProps) {
-  if (payload === undefined) return null;
+  if (payload === undefined || width <= 0) return null;
   const [low, high] = payload.range;
   const span = high - low;
   const at = (value: number) =>
@@ -34,15 +34,19 @@ export function CandleShape({
   const up = payload.close >= payload.open;
   const top = at(Math.max(payload.open, payload.close));
   const bottom = at(Math.min(payload.open, payload.close));
-  const body = Math.max(width * 0.7, 1);
+  const body = Math.max(Math.floor(width), 1);
   const center = x + width / 2;
+  const doji = payload.close === payload.open;
   return (
     <g
-      className={
-        up
-          ? "text-emerald-600 dark:text-emerald-500"
-          : "text-red-600 dark:text-red-500"
-      }
+      data-candle-direction={doji ? "flat" : up ? "up" : "down"}
+      style={{
+        color: doji
+          ? "var(--muted-foreground)"
+          : up
+            ? "var(--candle-up)"
+            : "var(--candle-down)",
+      }}
     >
       <line
         x1={center}
@@ -52,15 +56,26 @@ export function CandleShape({
         stroke="currentColor"
         strokeWidth={1}
       />
-      <rect
-        x={center - body / 2}
-        y={top}
-        width={body}
-        height={Math.max(bottom - top, 1)}
-        stroke="currentColor"
-        strokeWidth={1}
-        fill={up ? "var(--card)" : "currentColor"}
-      />
+      {doji ? (
+        <line
+          x1={center - body / 2}
+          x2={center + body / 2}
+          y1={top}
+          y2={top}
+          stroke="currentColor"
+          strokeWidth={1.5}
+        />
+      ) : (
+        <rect
+          x={center - body / 2}
+          y={top}
+          width={body}
+          height={Math.max(bottom - top, 1)}
+          stroke="currentColor"
+          strokeWidth={1}
+          fill="currentColor"
+        />
+      )}
     </g>
   );
 }

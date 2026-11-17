@@ -76,7 +76,7 @@ export function AppSidebar() {
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton
-                className="h-10"
+                className="h-10 group-data-[collapsible=icon]:p-1!"
                 tooltip="Portal Financiero"
                 render={
                   <Link
@@ -86,13 +86,15 @@ export function AppSidebar() {
                   />
                 }
               >
-                {/* Colapsada, la sidebar mide 3rem: el nombre no entra y queda su sigla, sin fondo. */}
-                <span
-                  aria-hidden="true"
-                  className="hidden w-full justify-center text-xs font-bold tracking-tight text-sidebar-primary group-data-[collapsible=icon]:flex"
-                >
-                  PF
-                </span>
+                {/* El mismo sello se reconoce en la pestaña y en la sidebar colapsada. */}
+                {/* eslint-disable-next-line @next/next/no-img-element -- SVG local estático, sin optimización raster. */}
+                <img
+                  src="/brand/portal-mark.svg"
+                  alt=""
+                  width={28}
+                  height={28}
+                  className="size-7 shrink-0 group-data-[collapsible=icon]:size-6"
+                />
                 <span className="text-base font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
                   Portal Financiero
                 </span>

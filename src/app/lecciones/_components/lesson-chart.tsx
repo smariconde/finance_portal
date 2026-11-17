@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useMemo } from "react";
 import {
   Bar,
   ComposedChart,
@@ -13,6 +13,11 @@ import {
 } from "recharts";
 
 import { CandleShape } from "@/app/_components/candle-shape";
+import { CandleDirection } from "@/app/_components/candle-direction";
+import {
+  CandleWindowControls,
+  useCandleWindow,
+} from "@/app/_components/candle-window";
 import { linearTicks } from "@/app/_components/chart-ticks";
 import { InfoTip } from "@/app/_components/info-tip";
 import { Badge } from "@/components/ui/badge";
@@ -235,9 +240,11 @@ function PriceChart({
         accessibilityLayer={false}
         data={rows as Row[]}
         margin={MARGIN}
-        barCategoryGap="20%"
+        barCategoryGap="16%"
+        maxBarSize={14}
       >
         <XAxis
+          tick={{ fill: "var(--muted-foreground)" }}
           dataKey="index"
           hide={props.timeframe === "1d"}
           tickLine={false}
@@ -247,7 +254,9 @@ function PriceChart({
             props.rows[index]?.clock ?? String(index + 1)
           }
         />
+        <XAxis xAxisId="volume" dataKey="index" hide />
         <YAxis
+          tick={{ fill: "var(--muted-foreground)" }}
           yAxisId="price"
           width={Y_AXIS_WIDTH}
           tickLine={false}
@@ -259,26 +268,32 @@ function PriceChart({
           }
         />
         <YAxis yAxisId="volume" hide domain={[0, maxVolume * 5]} />
-        {props.zones.map((zone) => (
-          <ReferenceArea
-            key={zone.label}
-            yAxisId="price"
-            x1={zone.from}
-            x2={zone.to}
-            y1={zone.low}
-            y2={zone.high}
-            fill="var(--muted-foreground)"
-            fillOpacity={0.1}
-            stroke="none"
-            label={{
-              value: zone.label,
-              position: "insideTopLeft",
-              fontSize: 11,
-              className: "fill-muted-foreground",
-            }}
-          />
-        ))}
+        {props.zones
+          .filter(
+            (zone) =>
+              zone.to >= rows[0]!.index && zone.from <= rows.at(-1)!.index,
+          )
+          .map((zone) => (
+            <ReferenceArea
+              key={zone.label}
+              yAxisId="price"
+              x1={Math.max(zone.from, rows[0]!.index)}
+              x2={Math.min(zone.to, rows.at(-1)!.index)}
+              y1={zone.low}
+              y2={zone.high}
+              fill="var(--muted-foreground)"
+              fillOpacity={0.1}
+              stroke="none"
+              label={{
+                value: zone.label,
+                position: "insideTopLeft",
+                fontSize: 11,
+                className: "fill-muted-foreground",
+              }}
+            />
+          ))}
         <Bar
+          xAxisId="volume"
           yAxisId="volume"
           dataKey="volume"
           isAnimationActive={false}
@@ -347,6 +362,7 @@ function RsiPanel({ rows }: { readonly rows: readonly Row[] }) {
       >
         <XAxis dataKey="index" hide />
         <YAxis
+          tick={{ fill: "var(--muted-foreground)" }}
           width={Y_AXIS_WIDTH}
           tickLine={false}
           axisLine={false}
@@ -406,6 +422,7 @@ function MacdPanel({ rows }: { readonly rows: readonly Row[] }) {
       >
         <XAxis dataKey="index" hide />
         <YAxis
+          tick={{ fill: "var(--muted-foreground)" }}
           width={Y_AXIS_WIDTH}
           tickLine={false}
           axisLine={false}
@@ -507,6 +524,7 @@ function ReadingStrip({
       {value("H", row.candle.high)}
       {value("L", row.candle.low)}
       {value("C", row.candle.close)}
+      <CandleDirection open={row.candle.open} close={row.candle.close} />
       <span className="whitespace-nowrap">
         <span className="text-muted-foreground">Vol </span>
         <span className="numeric">
@@ -575,42 +593,39 @@ export function LessonChart(props: LessonChartProps) {
     [props.rows, props.marks],
   );
   const firstMark = props.marks.toSorted((a, b) => a.n - b.n)[0] ?? null;
-  const [index, setIndex] = useState(firstMark?.index ?? rows.length - 1);
-  const frame = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0);
-
-  useEffect(() => {
-    const element = frame.current;
-    if (element === null) return;
-    const observer = new ResizeObserver(([entry]) =>
-      setWidth(entry?.contentRect.width ?? 0),
-    );
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
+  const view = useCandleWindow(
+    rows.length,
+    firstMark?.index ?? rows.length - 1,
+    MARGIN.left + Y_AXIS_WIDTH + MARGIN.right,
+  );
+  const { index, frame, width, move } = view;
+  const visibleRows = useMemo(
+    () => rows.slice(view.start, view.end),
+    [rows, view.start, view.end],
+  );
 
   const selected = props.marks.find((mark) => mark.index === index)?.n ?? null;
 
   // El dibujo depende de la marca elegida, no del cursor: moverlo no repinta.
   const chart = useMemo(
-    () => <PriceChart rows={rows} props={props} selected={selected} />,
-    [rows, props, selected],
+    () => <PriceChart rows={visibleRows} props={props} selected={selected} />,
+    [visibleRows, props, selected],
   );
   const panels = useMemo(
     () => (
       <>
-        {props.panels.includes("rsi") ? <RsiPanel rows={rows} /> : null}
-        {props.panels.includes("macd") ? <MacdPanel rows={rows} /> : null}
+        {props.panels.includes("rsi") ? <RsiPanel rows={visibleRows} /> : null}
+        {props.panels.includes("macd") ? (
+          <MacdPanel rows={visibleRows} />
+        ) : null}
       </>
     ),
-    [rows, props.panels],
+    [visibleRows, props.panels],
   );
 
   const plotLeft = MARGIN.left + Y_AXIS_WIDTH;
   const plotWidth = Math.max(width - plotLeft - MARGIN.right, 1);
-  const band = plotWidth / Math.max(rows.length, 1);
-  const move = (next: number) =>
-    setIndex(Math.min(Math.max(next, 0), rows.length - 1));
+  const band = plotWidth / Math.max(visibleRows.length, 1);
   const panelsHeight = props.panels.length * PANEL_HEIGHT;
   const row = props.rows[index]!;
 
@@ -627,7 +642,16 @@ export function LessonChart(props: LessonChartProps) {
           className="relative touch-pan-y rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           onPointerMove={(event) => {
             const box = event.currentTarget.getBoundingClientRect();
-            move(Math.floor((event.clientX - box.left - plotLeft) / band));
+            move(
+              view.start +
+                Math.min(
+                  Math.max(
+                    Math.floor((event.clientX - box.left - plotLeft) / band),
+                    0,
+                  ),
+                  visibleRows.length - 1,
+                ),
+            );
           }}
           onKeyDown={(event) => {
             const step: Record<string, number> = {
@@ -655,7 +679,7 @@ export function LessonChart(props: LessonChartProps) {
               aria-hidden="true"
               className="pointer-events-none absolute w-px bg-foreground/30"
               style={{
-                left: plotLeft + band * (index + 0.5),
+                left: plotLeft + band * (index - view.start + 0.5),
                 top: MARGIN.top,
                 height:
                   HEIGHT -
@@ -666,6 +690,7 @@ export function LessonChart(props: LessonChartProps) {
             />
           )}
         </div>
+        <CandleWindowControls window={view} />
         {props.levels.length === 0 ? null : (
           <ul
             aria-label="Niveles"
@@ -759,7 +784,7 @@ export function LessonChart(props: LessonChartProps) {
                   type="button"
                   aria-pressed={mark.n === selected}
                   aria-label={`${RULE_LABELS[rule.kind]}: ${rule.text} Marca ${mark.n}, ${mark.label}.`}
-                  onClick={() => setIndex(mark.index)}
+                  onClick={() => move(mark.index)}
                   className={cn(
                     "flex w-full gap-2.5 rounded-md px-2 py-2 text-left outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50",
                     mark.n === selected && "bg-muted",
