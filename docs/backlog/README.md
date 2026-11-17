@@ -4398,6 +4398,21 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
   transcribir todas las líneas con cita, exigir que cierren contra el FFO y el
   AFFO impresos, separar por regla las partidas excluidas y declarar NOI forward
   y cap rate por CIK; Camden sería el primer caso.
+- Camino descartado, registrado el 2026-11-17. El PR #88
+  (`feat/f6-22-reit-positive-path`, commit `d2e5c78`) se abrió nueve horas
+  antes de este cierre y quedó abierto sin mergear: valuaba REIT desde el XBRL
+  del año base, con los componentes AFFO no etiquetados nombrados como «no
+  ajustados», base de propiedades medida (inmuebles netos ≥ 50 % del activo) y
+  NAV opcional. En una réplica midió O 52,39 contra 57,20 (P/V 1,09), PSA
+  326,06 contra 317,06 (0,97), EXR 112,06 contra 149,90 (1,34) y WELL 30,00
+  contra 233,17 (7,77, porque el capex que WELL etiqueta incluye
+  redesarrollo), todas `requires_review`. PLD y SPG se detenían en
+  `shares_outstanding_unavailable` (dos registrantes, `dei` con dimensiones), y
+  AVB y EQR no resolvían el ticker. Chocaba con `main` en la ADR 0064, la
+  migración `0046` y `annual-fundamentals-1.6.0`. Por decisión del owner se
+  cerró sin mergear y se borraron la rama y el worktree; el commit sigue
+  accesible desde el PR. Si REIT vuelve, se parte del camino medido de arriba,
+  no de este PR.
 
 #### `F6-01` — corrida por ticker encolada (cerrado el 2026-10-21)
 
