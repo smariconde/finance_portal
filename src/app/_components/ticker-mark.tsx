@@ -2,7 +2,7 @@ import { companyLogoAssetUrl } from "@/modules/configuration/domain/company-logo
 
 import { CompanyMark } from "./company-mark";
 
-/** Identidad compacta de trading: placa cuadrada, logo entero y ticker al lado. */
+/** La marca de trading: el logo guardado por ticker, sin pasar la URL. */
 export function TickerMark({
   ticker,
   name = null,
@@ -20,7 +20,6 @@ export function TickerMark({
       name={name}
       logoUrl={companyLogoAssetUrl(ticker)}
       size={size}
-      shape="rounded"
       className={className}
     />
   );
