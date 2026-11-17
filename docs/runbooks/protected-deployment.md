@@ -112,6 +112,19 @@ las 46 tablas y los conteos de `valuation_runs`, `valuation_jobs` y
 que el dump local siga programado. La ventana de recuperación actual y el
 límite de snapshot son los de la ADR 0073.
 
+### Si se agota la transferencia de Free
+
+El 2026-11-17 el proyecto de análisis llegó al límite de 5 GB y Neon suspendió el
+compute: toda conexión, incluido `pg_dump`, devolvía «Your account or project has
+exceeded the quota». El procedimiento está en la enmienda del 2026-11-17 de la
+[ADR 0073](../architecture/adr/0073-neon-free-network-transfer-recovery.md):
+subir la organización a **Launch** desde **Billing**, fijar **Spending limit**
+(sólo existe en planes pagos), verificar `db:status:neon` y una ruta, y volver a
+**Free** el mismo día, porque el cambio de plan reinicia la franquicia de Free.
+No crear otro proyecto para escapar del límite: sin compute no se puede leer el
+origen ni volcarlo. La suspensión es por proyecto, así que la base de trading
+sigue respondiendo con su propia cuota.
+
 `finance_portal_runtime` tiene los cuatro permisos DML sobre las 45 tablas
 públicas y permisos por defecto para las futuras tablas del owner. No puede
 crear tablas persistentes ni temporales, roles o bases. Se verificaron TLS y

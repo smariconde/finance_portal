@@ -1,6 +1,7 @@
 # ADR 0073: transferencia de Neon Free y recuperación sin dump periódico
 
-- Estado: aceptado por decisión del owner el 2026-11-09.
+- Estado: aceptado por decisión del owner el 2026-11-09; enmendado el
+  2026-11-17 con lo observado al agotarse la transferencia.
 - Relacionadas: [ADR 0057](0057-neon-hosted-postgres.md),
   [despliegue protegido](../../runbooks/protected-deployment.md).
 
@@ -56,8 +57,53 @@ de recuperación. No se presenta como una política de recuperación diaria.
   `pnpm db:migrate:neon` y `pnpm db:status:neon`. Sin snapshot disponible y
   revisado no se integra el PR que cambia el schema.
 
+## Enmienda 2026-11-17: qué ocurre al agotar la transferencia
+
+El 2026-11-09 se anotó el aviso de 100 % de transferencia, pero el
+comportamiento exacto del límite no se había observado hasta el 2026-11-17:
+ese día la conexión directa al proyecto de análisis falló con «Your account or
+project has exceeded the quota. Upgrade your plan to increase limits.», y Neon
+documenta el mismo rechazo —SQLSTATE 53000— para cualquier conexión, incluido
+`pg_dump`. El endpoint no aparece deshabilitado en la API; el bloqueo es de
+cuota y **también impide `pg_dump`**, que era la salida aparente para trasladar
+los datos. Queda corregido: crear otro proyecto u organización **no** es un
+camino de escape mientras la base de origen no se pueda leer.
+
+Lo medido entonces: proyecto `finance_portal` con 5.606.183.573 bytes de
+transferencia acumulada en el período 2026-11-01 a 2026-12-01, 310 MB lógicos y
+una rama. El proyecto de trading, con cuota propia, siguió respondiendo: la
+suspensión es por proyecto. Los snapshots manuales **no** consumen transferencia
+—viven dentro del proyecto—, así que la sospecha de que el snapshot fuera la
+causa no se sostiene; los nueve dumps completos de noviembre sí.
+
+Procedimiento aceptado para recuperar el acceso sin esperar al período
+siguiente, y único autorizado para cambiar de plan por este motivo:
+
+1. **Billing → Change plan → Launch** en la organización del proyecto. Launch no
+   tiene mínimo mensual y la franquicia de transferencia pasa a 500 GB por
+   proyecto.
+2. Fijar **Spending limit** en **Billing** (sólo existe en planes pagos) antes de
+   usar el proyecto. El valor acordado el 2026-11-17 es US$ 5,00.
+3. Verificar `pnpm db:status:neon`, `pnpm db:trading:status:neon` y una conexión
+   con `psql`; después, una ruta de la aplicación.
+4. **Change plan → Free** el mismo día. El cambio de plan reinicia las cuotas de
+   Free: el 2026-11-17 el contador volvió a cero y el período arrancó a las
+   19:46:17 UTC. Si el reinicio no ocurriera, quedarse en Launch hasta el
+   `consumption_period_end` y bajar después.
+
+El costo de ese ida y vuelta es de centavos: storage prorrateado por horas más
+unas pocas CU-horas de compute, con la transferencia dentro de la franquicia.
+Las facturas menores a US$ 0,50 no se cobran. Lo que no se hace es quedarse en
+Launch más allá del período: a partir del 2026-12-01 el uso se factura.
+
+Un dump completo puntual entra en los 500 GB incluidos de Launch, pero sigue
+siendo una decisión explícita y separada de esta ADR: la política de esta
+decisión continúa sin copia periódica.
+
 ## Fuentes
 
 - [Neon: transferencia y cómputo de egress](https://neon.com/docs/introduction/network-transfer).
 - [Neon: planes y límites](https://neon.com/docs/introduction/plans).
 - [Neon: snapshots y recuperación](https://neon.com/docs/guides/backup-restore).
+- [Neon: gestión de facturación](https://neon.com/docs/introduction/manage-billing),
+  revisado el 2026-11-17 para el cambio de plan.
