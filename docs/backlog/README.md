@@ -111,7 +111,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    83 | `F9-06`    | `done`        | Página Argentina: actividad con mapa de sectores, dólar con CCL y bandas, inflación y reservas, fiscal sobre PIB y comercio exterior, cada bloque con gráfico, tabla accesible, fuente, fecha y metodología.              |
 |    84 | `F9-08`    | `done`        | Perfiles y conciliación del INDEC ampliado; el catálogo visible se retiró después por falta de una pregunta de inversión.                                                                                                 |
 |    85 | `F9-16`    | `done`        | Posición del mayorista dentro de la banda del mismo día; conserva valores fuera del rango y ausencia con motivo.                                                                                                          | `F9-03`            |
-|    86 | `F9-17`    | `done`        | ITCRM diario del BCRA como índice real multilateral con historia, base, metodología y vintages observadas; lectura sin señal de inversión. Carga y comprobación en Production diferidas por el owner.                     | `F9-16`            |
+|    86 | `F9-17`    | `done`        | ITCRM diario del BCRA como índice real multilateral con historia, base, metodología y vintages observadas; lectura sin señal de inversión. Publicado y comprobado en Production el 2026-11-17.                            | `F9-16`            |
 |    87 | `F9-18`    | `done`        | REM mensual contra IPC observado: pronóstico fechado para el mes correcto, error en puntos porcentuales y corte anterior a la publicación del dato.                                                                       | `F9-17`, `F9-01`   |
 |    88 | `F9-19`    | `queued`      | Decidir la fuente, definición, procedencia y derechos del riesgo país en una ADR antes de autorizar ingesta o gráfico.                                                                                                    | `F9-18`            |
 |    89 | `F9-09`    | `queued`      | Composición del comercio exterior del INDEC por rubro, uso y destino, con las celdas suprimidas contadas y nunca rellenadas.                                                                                              |
@@ -6893,6 +6893,22 @@ están en el [runbook de cargas diferidas](../runbooks/deferred-production-loads
 `F9-19` queda `queued`: el owner priorizó una fase de cuenta Schwab de solo
 lectura y diario de trading, que entra con su propia ADR. **Estado:** `done`;
 datos Production diferidos.
+
+**Cargas de `F9-17` y `F9-18` en Production, 2026-11-17:** el proyecto de
+análisis agotó los 5 GB de transferencia y Neon suspendió el compute, así que ni
+`psql` ni `pg_dump` conectaban. El owner pasó la organización a **Launch**
+bajo el procedimiento que ahora documenta la enmienda de la
+[ADR 0073](../architecture/adr/0073-neon-free-network-transfer-recovery.md) y el
+agente fijó un `Spending limit` de US$ 5,00. Se publicó el ITCRM (10.913 puntos,
+1997-01-01 a 2026-11-17, corrida `b6719b05`) y el REM de octubre de 2026 (siete
+medianos, corrida `83ddc357`); `/argentina` pasó de 1.738.701 a 1.912.809 bytes
+con el bloque «ITCRM 79,7 contra 100 el 17/12/2015». Los siete meses del REM
+siguen en «Pendiente» porque la API del INDEC todavía termina en 2026-09-01: es
+el comportamiento correcto y no se fuerza otra fuente. Queda bajar la
+organización a Free para reiniciar la franquicia. **Estado de los dos slices:**
+`done`, datos Production comprobados
+([runbook](../runbooks/deferred-production-loads.md)).
+
 Antes de cada gráfico, registrar pregunta, decisión a la que ayuda, series
 mínimas, cálculo, límites de interpretación y fuente de cada pata. El IPC
 nacional ya disponible permite deflactar; regiones, divisiones, canastas,
