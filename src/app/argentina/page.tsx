@@ -9,13 +9,17 @@ import {
   type ArgentinaDashboard,
 } from "@/modules/argentina-dashboard/application/load-argentina-dashboard";
 import type { ArgentinaRefreshReadiness } from "@/modules/argentina-dashboard/application/argentina-refresh";
+import { readArgentinaNews } from "@/modules/argentina-dashboard/application/read-argentina-news";
+import type { ArgentinaNews } from "@/modules/argentina-dashboard/domain/argentina-news";
 import { servesRealData } from "@/modules/configuration/domain/config-health";
+import { visitBaseline } from "@/modules/surface-visits/domain/surface-visit";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
 import { readArgentinaRefreshReadinessForRender } from "@/server/jobs/argentina-refresh";
 import { getAdrPairRepository } from "@/server/persistence/get-adr-pair-repository";
 import { getArgentinaIndicatorRepository } from "@/server/persistence/get-argentina-indicator-repository";
 import { getMacroSeriesRepository } from "@/server/persistence/get-macro-series-repository";
 import { getRemForecastRepository } from "@/server/persistence/get-rem-forecast-repository";
+import { getSurfaceVisitRepository } from "@/server/persistence/get-surface-visit-repository";
 import {
   readRemInflationComparison,
   type RemInflationComparisonRow,
@@ -24,6 +28,7 @@ import {
 import { ArgentinaRefresh } from "./_components/argentina-refresh";
 import { BlockIndex } from "./_components/block-index";
 import { ItcrmSection } from "./_components/itcrm-section";
+import { markedBlocks, NewsStrip } from "./_components/news-mark";
 import { RemInflationSection } from "./_components/rem-inflation-section";
 import {
   ActivitySection,
@@ -34,6 +39,7 @@ import {
   SoySection,
 } from "./_components/sections";
 import { SummaryCards } from "./_components/summary-cards";
+import { VisitRecorder } from "./_components/visit-recorder";
 
 /** Los bloques en el orden de la página, con el nombre corto del índice. */
 const BLOCKS = [
@@ -85,12 +91,17 @@ export default async function ArgentinaPage() {
     );
   }
 
+  // One cutoff for the dashboard and for what arrived since the previous
+  // visit, read side by side: the news never delays nor breaks the page.
+  const readAt = new Date().toISOString();
+  const newsRead = readNewsSafely(readAt);
+
   try {
     dashboard = await loadArgentinaDashboard({
       indicators: getArgentinaIndicatorRepository(),
       macro: getMacroSeriesRepository(),
       adrPairs: getAdrPairRepository(),
-      now: () => new Date().toISOString(),
+      now: () => readAt,
     });
   } catch (error) {
     console.error(
@@ -114,6 +125,8 @@ export default async function ArgentinaPage() {
       error instanceof Error ? error.name : typeof error,
     );
   }
+
+  const news = await newsRead;
 
   return (
     <PageContainer>
@@ -156,8 +169,10 @@ export default async function ArgentinaPage() {
         />
       )}
 
-      <SummaryCards dashboard={dashboard} />
-      <BlockIndex blocks={BLOCKS} />
+      <VisitRecorder readAt={dashboard.readAt} />
+      <NewsStrip news={news} />
+      <SummaryCards dashboard={dashboard} news={news} />
+      <BlockIndex blocks={BLOCKS} marks={markedBlocks(news)} />
 
       <ActivitySection activity={dashboard.activity} />
       <DollarSection dollar={dashboard.dollar} />
@@ -169,4 +184,28 @@ export default async function ArgentinaPage() {
       <SoySection soy={dashboard.soy} />
     </PageContainer>
   );
+}
+
+/**
+ * What arrived since the previous session (ADR 0079). The render only reads
+ * the visit; `VisitRecorder` writes it after the page is shown. Any failure
+ * marks nothing.
+ */
+async function readNewsSafely(readAt: string): Promise<ArgentinaNews> {
+  try {
+    const visits = getSurfaceVisitRepository();
+    return await readArgentinaNews({
+      since: visitBaseline(await visits.read("argentina"), readAt),
+      now: readAt,
+      indicators: getArgentinaIndicatorRepository(),
+      macro: getMacroSeriesRepository(),
+      remForecasts: getRemForecastRepository(),
+    });
+  } catch (error) {
+    console.error(
+      "argentina news read failed",
+      error instanceof Error ? error.name : typeof error,
+    );
+    return { status: "no_baseline" };
+  }
 }

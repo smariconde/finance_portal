@@ -139,6 +139,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   111 | `F11-15`   | `done`        | El riesgo y el diario sobreviven a una tabla de trading ausente o atrasada: sin vínculos de pre-market leen planes y reglas y nombran lo que falta, en vez de caer con una referencia.                                    | `F11-12`           |
 |   112 | `F11-16`   | `done`        | Logos PNG guardados en PostgreSQL y servidos desde el portal; cuadrados redondeados junto a los tickers de trading, conservando círculos en matrices y gráficos.                                                          | Pedido del owner   |
 |   113 | `F11-17`   | `done`        | MCP de solo lectura en `/mcp` con dos secretos, catálogo `portal-mcp-tools-1.0.0` (valuaciones y diario primero) y `ownerAssistant` por fuente.                                                                           | ADR 0078           |
+|   114 | `F9-20`    | `in_progress` | `/argentina` marca lo nuevo desde la visita anterior: período nuevo o revisado de EMAE, IPC, REM, fiscal y comercio, leído por `system_recorded`, con la visita como sesión guardada en la base.                          | `F9-12`, `F9-18`   |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -6924,6 +6925,29 @@ La organización sigue en Launch y el regreso a Free queda a cargo del owner.
 **Estado de los dos slices:**
 `done`, datos Production comprobados
 ([runbook](../runbooks/deferred-production-loads.md)).
+
+#### `F9-20` — lo nuevo desde la visita anterior
+
+- Estado: `in_progress` desde el 2026-11-17, a pedido del owner: «que se avise
+  cuando hay un dato nuevo, no sé si por alguna notificación o que se remarque
+  alguna de las cards». [ADR 0079](../architecture/adr/0079-new-data-since-last-visit.md).
+- Medido antes en Neon Production, sólo lectura: en los siete días previos
+  llegaron el IPC de octubre (1,9 → 2,2), el fiscal y el comercio de
+  septiembre y la ronda de octubre del REM. El REM se fecha con su publicación
+  (2026-11-06) y entró a la base el 2026-11-17, así que la comparación se lee
+  por `system_recorded`; con `public_availability` una visita del 10 de
+  noviembre ya lo «tenía».
+- Sin notificación fuera de la página: no hay refresco programado y un dato
+  sólo entra cuando una visita lo pide (ADR 0070).
+- Decisiones del owner: la última visita vive en la base (teléfono y
+  computadora ven lo mismo); sin punto en la sidebar.
+- `argentina-news-1.0.0` (cinco métricas por período; nuevo, revisado o nada),
+  `surface-visit-1.0.0` (sesión de 30 minutos, base fija durante la sesión),
+  migración `0053` con su rollback, `recordArgentinaVisit` sin entrada.
+  Marca en las tarjetas, punto en el índice y una línea con vínculos a cada
+  bloque. `readArgentinaNews` contra Neon: 3,4 s desde este host, en paralelo
+  con el tablero.
+- Pendiente: revisión renderizada, CI, `0053` en Neon antes del merge.
 
 Antes de cada gráfico, registrar pregunta, decisión a la que ayuda, series
 mínimas, cálculo, límites de interpretación y fuente de cada pata. El IPC

@@ -1,5 +1,10 @@
 import { ChangeIndicator, StatTile } from "@/app/_components/stat-tile";
+import { cn } from "@/lib/utils";
 import type { ArgentinaDashboard } from "@/modules/argentina-dashboard/application/load-argentina-dashboard";
+import type {
+  ArgentinaNews,
+  NewsMetric,
+} from "@/modules/argentina-dashboard/domain/argentina-news";
 import {
   SUMMARY_POLARITY,
   summaryChanges,
@@ -22,6 +27,7 @@ import {
   signedAmount,
   signedPoints,
 } from "./format";
+import { NewsBadge } from "./news-mark";
 
 type Summary = {
   readonly metric: SummaryMetric;
@@ -195,30 +201,55 @@ function Change({
  */
 export function SummaryCards({
   dashboard,
+  news,
 }: {
   readonly dashboard: ArgentinaDashboard;
+  /** Lo que llegó desde la visita anterior (ADR 0079). */
+  readonly news: ArgentinaNews;
 }) {
   const changes = summaryChanges(dashboard);
+
+  function markOf(metric: SummaryMetric) {
+    if (news.status !== "compared" || !(metric in news.metrics)) return null;
+    const mark = news.metrics[metric as NewsMetric];
+    return mark.status === "unchanged" ? null : mark.status;
+  }
 
   return (
     <nav aria-label="Lectura rápida">
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {summariesOf(dashboard).map((summary) => (
-          <li key={summary.href} className="min-w-0">
-            <StatTile
-              href={summary.href}
-              className="h-full"
-              size="sm"
-              label={summary.label}
-              value={summary.value}
-              change={
-                <Change change={changes[summary.metric]} summary={summary} />
-              }
-              detail={summary.detail}
-              footer={summary.asOf === null ? "Sin fecha" : summary.asOf}
-            />
-          </li>
-        ))}
+        {summariesOf(dashboard).map((summary) => {
+          const mark = markOf(summary.metric);
+          const date = summary.asOf === null ? "Sin fecha" : summary.asOf;
+          return (
+            <li key={summary.href} className="min-w-0">
+              <StatTile
+                href={summary.href}
+                className={cn(
+                  "h-full",
+                  mark === "new_period" && "ring-blue-300 dark:ring-blue-800",
+                )}
+                size="sm"
+                label={summary.label}
+                value={summary.value}
+                change={
+                  <Change change={changes[summary.metric]} summary={summary} />
+                }
+                detail={summary.detail}
+                footer={
+                  mark === null ? (
+                    date
+                  ) : (
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      {date}
+                      <NewsBadge status={mark} />
+                    </span>
+                  )
+                }
+              />
+            </li>
+          );
+        })}
       </ul>
     </nav>
   );

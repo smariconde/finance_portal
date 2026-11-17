@@ -10,6 +10,7 @@ import {
   ensureArgentinaRefreshForRequest,
   startArgentinaRefreshWorker,
 } from "@/server/jobs/argentina-refresh";
+import { getSurfaceVisitRepository } from "@/server/persistence/get-surface-visit-repository";
 
 const refreshRequestSchema = z
   .object({
@@ -61,5 +62,37 @@ export async function refreshArgentinaData(
       error instanceof Error ? error.name : typeof error,
     );
     return { state: "unavailable" };
+  }
+}
+
+/**
+ * Records that the owner is looking at `/argentina` (`surface-visit-1.0.0`,
+ * [ADR 0079](../../../docs/architecture/adr/0079-new-data-since-last-visit.md)),
+ * so the next session marks only what arrived after this one.
+ *
+ * Treated as a public endpoint (`TM-03`): the mode is resolved in the
+ * request, it takes no input at all —the surface and the instant are the
+ * server's—, it writes one row under a lock and answers nothing but whether
+ * it did. A direct call can at most hide a «Nuevo» mark; it reads no data.
+ */
+export async function recordArgentinaVisit(
+  input?: unknown,
+): Promise<{ readonly recorded: boolean }> {
+  if (input !== undefined) return { recorded: false };
+  const health = await getRequestConfigHealth();
+  if (!servesRealData(health)) return { recorded: false };
+
+  try {
+    await getSurfaceVisitRepository().record(
+      "argentina",
+      new Date().toISOString(),
+    );
+    return { recorded: true };
+  } catch (error) {
+    console.error(
+      "argentina visit record failed",
+      error instanceof Error ? error.name : typeof error,
+    );
+    return { recorded: false };
   }
 }

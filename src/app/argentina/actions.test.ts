@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   ensure: vi.fn(),
   start: vi.fn(),
   after: vi.fn(),
+  record: vi.fn(),
 }));
 
 vi.mock("next/server", () => ({ after: mocks.after }));
@@ -16,7 +17,11 @@ vi.mock("@/server/jobs/argentina-refresh", () => ({
   startArgentinaRefreshWorker: mocks.start,
 }));
 
-import { refreshArgentinaData } from "./actions";
+vi.mock("@/server/persistence/get-surface-visit-repository", () => ({
+  getSurfaceVisitRepository: () => ({ record: mocks.record }),
+}));
+
+import { recordArgentinaVisit, refreshArgentinaData } from "./actions";
 
 /**
  * Tested as a public endpoint (`TM-03`): invoked without the UI, with what
@@ -81,5 +86,46 @@ describe("refreshArgentinaData", () => {
     });
     expect(JSON.stringify(spy.mock.calls)).not.toContain("10.0.0.1");
     spy.mockRestore();
+  });
+});
+
+describe("recordArgentinaVisit", () => {
+  beforeEach(() => {
+    mocks.mode = "personal";
+    mocks.record.mockReset();
+  });
+
+  it("records the view of /argentina at the server's instant", async () => {
+    mocks.record.mockResolvedValueOnce(undefined);
+    expect(await recordArgentinaVisit()).toEqual({ recorded: true });
+    expect(mocks.record).toHaveBeenCalledOnce();
+    const [surface, now] = mocks.record.mock.calls[0]!;
+    expect(surface).toBe("argentina");
+    expect(Number.isNaN(Date.parse(now as string))).toBe(false);
+  });
+
+  it("a locked runtime records nothing", async () => {
+    mocks.mode = "locked";
+    expect(await recordArgentinaVisit()).toEqual({ recorded: false });
+    expect(mocks.record).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["another surface", { surface: "sectores" }],
+    ["an instant of its own", { now: "2000-01-01T00:00:00Z" }],
+    ["a bare value", "argentina"],
+  ])("refuses %s without touching the database", async (_label, input) => {
+    expect(await recordArgentinaVisit(input)).toEqual({ recorded: false });
+    expect(mocks.record).not.toHaveBeenCalled();
+  });
+
+  it("names no detail when the database fails", async () => {
+    mocks.record.mockRejectedValueOnce(
+      new Error("connect ECONNREFUSED 10.0.0.1:5432"),
+    );
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await recordArgentinaVisit()).toEqual({ recorded: false });
+    expect(JSON.stringify(errors.mock.calls)).not.toContain("10.0.0.1");
+    errors.mockRestore();
   });
 });

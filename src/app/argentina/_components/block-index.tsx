@@ -9,6 +9,8 @@ import {
 } from "@/app/_components/segment-styles";
 import { cn } from "@/lib/utils";
 
+import { NewsDot } from "./news-mark";
+
 /**
  * El índice de los bloques de `/argentina`: una línea fija debajo del header
  * del shell, con el bloque que se está leyendo en `aria-current`. En un
@@ -17,8 +19,11 @@ import { cn } from "@/lib/utils";
  */
 export function BlockIndex({
   blocks,
+  marks = {},
 }: {
   readonly blocks: readonly { readonly id: string; readonly label: string }[];
+  /** Bloques con algo nuevo o revisado desde la visita anterior (ADR 0079). */
+  readonly marks?: Readonly<Record<string, "new_period" | "revised">>;
 }) {
   const [current, setCurrent] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
@@ -85,6 +90,9 @@ export function BlockIndex({
               )}
             >
               {block.label}
+              {marks[block.id] === undefined ? null : (
+                <NewsDot status={marks[block.id]!} />
+              )}
             </a>
           </li>
         ))}

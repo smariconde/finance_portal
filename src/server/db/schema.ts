@@ -3379,3 +3379,27 @@ export const legalEntityRelationships = pgTable(
     ),
   ],
 );
+
+/**
+ * La última vista de cada superficie (`surface-visit-1.0.0`, ADR 0079), para
+ * marcar lo que llegó desde la visita anterior. Una fila por superficie que se
+ * sobrescribe: es una ayuda de lectura, no evidencia, y no se versiona.
+ */
+export const surfaceVisits = pgTable(
+  "surface_visits",
+  {
+    surface: varchar("surface", { length: 32 }).primaryKey(),
+    baselineAt: instant("baseline_at"),
+    lastSeenAt: instant("last_seen_at").notNull(),
+  },
+  (table) => [
+    check(
+      "surface_visits_surface_check",
+      sql`${table.surface} in ('argentina')`,
+    ),
+    check(
+      "surface_visits_timeline_check",
+      sql`${table.baselineAt} is null or ${table.baselineAt} <= ${table.lastSeenAt}`,
+    ),
+  ],
+);
