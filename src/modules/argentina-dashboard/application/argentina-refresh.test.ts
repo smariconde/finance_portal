@@ -124,6 +124,18 @@ function setup() {
   };
 }
 
+describe("country risk in the refresh (ADR 0080)", () => {
+  it("is its own source with one subject, checked once per Buenos Aires day", () => {
+    expect(refreshSourceOf("ambito-riesgo-pais")).toMatchObject({
+      datasetId: "ambito.riesgo-pais",
+      recordedIn: ["ambito.riesgo-pais"],
+      parserVersion: "ambito-riesgo-pais-1.0.0",
+      cadence: "monthly",
+      subjects: ["ar_country_risk_embi"],
+    });
+  });
+});
+
 describe("ensureArgentinaRefresh", () => {
   it("plans one job per source with everything never checked", async () => {
     const { dependencies, jobs } = setup();

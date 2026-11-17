@@ -34,7 +34,10 @@ import {
   MAGYP_ESTIMACIONES_DATASET_ID,
   YAHOO_FUTURES_DATASET_ID,
 } from "@/modules/macro-series/application/live-soy-sources";
+import { COUNTRY_RISK_DATASET_ID } from "@/modules/macro-series/application/live-country-risk-source";
+import { AMBITO_COUNTRY_RISK_PARSER_VERSION } from "@/modules/macro-series/domain/ambito-country-risk-parser";
 import { BCR_CAC_PIZARRA_PARSER_VERSION } from "@/modules/macro-series/domain/bcr-cac-pizarra-parser";
+import { DECLARED_COUNTRY_RISK } from "@/modules/macro-series/domain/declared-country-risk";
 import { BNA_DIVISAS_PARSER_VERSION } from "@/modules/macro-series/domain/bna-divisas-parser";
 import { DECLARED_ARGENTINA_INDICATORS } from "@/modules/macro-series/domain/declared-argentina-indicators";
 import { DECLARED_SOY_INDICATORS } from "@/modules/macro-series/domain/declared-soy-indicators";
@@ -80,7 +83,8 @@ export type RefreshSourceId =
   | "argentina-series-tiempo"
   | "bcr-cac-pizarra"
   | "bna-fx"
-  | "magyp-estimaciones";
+  | "magyp-estimaciones"
+  | "ambito-riesgo-pais";
 
 export type RefreshSource = {
   readonly sourceId: RefreshSourceId;
@@ -175,6 +179,17 @@ export const ARGENTINA_REFRESH_SOURCES: readonly RefreshSource[] = [
     cadence: "monthly",
     label: "Estimaciones Agrícolas",
     subjects: soySubjectsOf("magyp-estimaciones"),
+  },
+  {
+    sourceId: "ambito-riesgo-pais",
+    datasetId: COUNTRY_RISK_DATASET_ID,
+    recordedIn: [COUNTRY_RISK_DATASET_ID],
+    parserVersion: AMBITO_COUNTRY_RISK_PARSER_VERSION,
+    // J.P. Morgan publishes the previous close once a day (ADR 0080): once
+    // per Buenos Aires day.
+    cadence: "monthly",
+    label: "riesgo país",
+    subjects: [DECLARED_COUNTRY_RISK.id],
   },
 ];
 

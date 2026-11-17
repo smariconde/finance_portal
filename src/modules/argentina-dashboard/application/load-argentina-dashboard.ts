@@ -19,6 +19,10 @@ import {
   DECLARED_SOY_INDICATORS,
   declaredSoyIndicator,
 } from "@/modules/macro-series/domain/declared-soy-indicators";
+import {
+  DECLARED_COUNTRY_RISK,
+  declaredCountryRisk,
+} from "@/modules/macro-series/domain/declared-country-risk";
 import { pointInTimeQuerySchema } from "@/modules/temporal/domain/point-in-time-query";
 
 import {
@@ -35,6 +39,10 @@ import {
   type IndicatorSeries,
   type MonetaryBlock,
 } from "../domain/argentina-dashboard";
+import {
+  buildCountryRiskBlock,
+  type CountryRiskBlock,
+} from "../domain/country-risk-block";
 import { buildSoyBlock, type SoyBlock } from "../domain/soy-block";
 
 /** The BCRA variables the page reads (`declared-bcra-series.ts`). */
@@ -58,6 +66,7 @@ export type ArgentinaDashboard = {
   readonly fiscal: FiscalBlock;
   readonly external: ExternalBlock;
   readonly soy: SoyBlock;
+  readonly countryRisk: CountryRiskBlock;
   readonly itcrm: {
     readonly days: readonly {
       readonly on: string;
@@ -108,19 +117,32 @@ export async function loadArgentinaDashboard(dependencies: {
     ...DECLARED_ARGENTINA_INDICATORS.map((item) => item.id),
     ...DECLARED_SOY_INDICATORS.map((item) => item.id),
   ]);
-  const itcrmStored = await dependencies.indicators.chartObservations({
-    indicatorId: DECLARED_ITCRM.id,
-    effectiveOn: today,
-    knownAt: readAt,
-    dailyFromOn: fiveYearsAgo,
-  });
+  // Long daily series read as charts: five years day by day plus every
+  // month's close (ADR 0080 for the country risk).
+  const [itcrmStored, countryRiskStored] = await Promise.all(
+    [DECLARED_ITCRM.id, DECLARED_COUNTRY_RISK.id].map((indicatorId) =>
+      dependencies.indicators.chartObservations({
+        indicatorId,
+        effectiveOn: today,
+        knownAt: readAt,
+        dailyFromOn: fiveYearsAgo,
+      }),
+    ),
+  );
 
   function indicator(id: string): IndicatorSeries {
-    const declared = declaredArgentinaIndicator(id) ?? declaredSoyIndicator(id);
+    const declared =
+      declaredArgentinaIndicator(id) ??
+      declaredSoyIndicator(id) ??
+      declaredCountryRisk(id);
     if (declared === null) throw new Error(`indicator_not_declared: ${id}`);
     const points = readIndicatorVintages(
       declared,
-      id === DECLARED_ITCRM.id ? itcrmStored : (stored.get(id) ?? []),
+      id === DECLARED_ITCRM.id
+        ? itcrmStored!
+        : id === DECLARED_COUNTRY_RISK.id
+          ? countryRiskStored!
+          : (stored.get(id) ?? []),
       {
         effectiveOn: today,
         knownAt: readAt,
@@ -226,6 +248,10 @@ export async function loadArgentinaDashboard(dependencies: {
       yieldKgHa: indicator("soy_yield"),
       ccl,
       knownAt: readAt,
+    }),
+    countryRisk: buildCountryRiskBlock({
+      points: indicator(DECLARED_COUNTRY_RISK.id).points,
+      dailyFromOn: fiveYearsAgo,
     }),
     itcrm: {
       days: itcrmValues.filter((point) => point.on >= fiveYearsAgo),

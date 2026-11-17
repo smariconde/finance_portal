@@ -13,6 +13,8 @@ import {
 const RECORDED_AT = "2026-08-23T00:00:00.000Z";
 const SOY_RIGHTS_REVIEWED_AT = "2026-11-04T00:00:00.000Z";
 const SOY_RIGHTS_REVIEW_DUE_AT = "2027-02-04T00:00:00.000Z";
+const COUNTRY_RISK_RIGHTS_REVIEWED_AT = "2026-11-17T00:00:00.000Z";
+const COUNTRY_RISK_RIGHTS_REVIEW_DUE_AT = "2027-02-17T00:00:00.000Z";
 
 /** Fecha en que el owner revisó y aprobó las rights rows de Fase 2. */
 const RIGHTS_REVIEWED_AT = "2026-09-05T00:00:00.000Z";
@@ -1153,6 +1155,64 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
      * proceder el 2026-11-04 porque el portal es personal; nada se muestra en
      * público ni se exporta, y el payload no se guarda.
      */
+    /**
+     * Riesgo país (ADR 0080): el spread de J.P. Morgan como lo publica Ámbito.
+     * Ámbito no publica condiciones y J.P. Morgan exige licencia para
+     * redistribuir el índice; el owner aceptó leerlo y guardar los cierres
+     * sólo para uso personal: ni público, ni export, ni IA, ni asistente.
+     */
+    sourceRegistryEntrySchema.parse({
+      sourceId: "ambito-riesgo-pais",
+      displayName: "Ámbito — riesgo país (J.P. Morgan EMBI)",
+      owner: "Nefir S.A. (Ámbito); índice de J.P. Morgan",
+      canonicalUrl: "https://www.ambito.com/contenidos/riesgo-pais.html",
+      documentationUrls: [
+        "https://www.ambito.com/contenidos/riesgo-pais.html",
+        "https://www.ambito.com/contenidos/aviso-legal.html",
+      ],
+      datasets: ["ambito.riesgo-pais"],
+      endpoints: [
+        "https://mercados.ambito.com/riesgopais/historico-general/{desde}/{hasta}",
+      ],
+      authentication: "none",
+      applicablePlan: null,
+      rateLimit: "sin cuota publicada; el tope diario es interno",
+      attribution: "J.P. Morgan (EMBI), vía Ámbito",
+      expectedCadence: "al abrir la página, una vez por día de Buenos Aires",
+      freshnessTarget: "cierre del día hábil anterior",
+      timezone: "America/Argentina/Buenos_Aires",
+      units: ["Puntos básicos"],
+      currencies: ["USD"],
+      parserVersion: "ambito-riesgo-pais-1.0.0",
+      fixturePolicy:
+        "Fixture sintética: sin términos que autoricen almacenar la respuesta, ningún payload capturado entra al repositorio.",
+      fallbackSourceIds: [],
+      rights: {
+        personalUse: "owner_accepted",
+        automatedAccess: "owner_accepted",
+        rawStorage: "restricted",
+        normalizedStorage: "owner_accepted",
+        derivedStorage: "owner_accepted",
+        publicDisplay: "restricted",
+        export: "restricted",
+        aiTransfer: "restricted",
+        ownerAssistant: "restricted",
+      },
+      technicalStatus: "integrated",
+      approvalStatus: "approved_personal",
+      reviewedAt: COUNTRY_RISK_RIGHTS_REVIEWED_AT,
+      rightsReviewedAt: COUNTRY_RISK_RIGHTS_REVIEWED_AT,
+      rightsReviewDueAt: COUNTRY_RISK_RIGHTS_REVIEW_DUE_AT,
+      reviewEvidence: [
+        "docs/architecture/adr/0080-argentina-country-risk-source.md",
+        "docs/data/provider-use-matrix.md#riesgo-pais",
+      ],
+      retentionClasses: ["R3"],
+      quotaPolicyId: null,
+      ownerNotes:
+        "Decisión del owner del 2026-11-17: Ámbito directo, porque ArgentinaDatos es una copia con decimales truncados, fines de semana rellenados y días faltantes. Ámbito dice «Todos los derechos reservados» y no enlaza sus condiciones; J.P. Morgan es dueño del índice.",
+      recordedAt: COUNTRY_RISK_RIGHTS_REVIEWED_AT,
+    }),
     sourceRegistryEntrySchema.parse({
       sourceId: "bcr-cac-pizarra",
       displayName:

@@ -67,6 +67,9 @@ export const SOURCE_DAILY_REQUEST_BUDGETS: Readonly<Record<string, number>> =
     // dicen). Sesenta cubren la primera carga de los servicios declarados y
     // varias vueltas; se revisa con el primer 429 (ADR 0069).
     "indec-api": 60,
+    // Riesgo país (ADR 0080): la historia entera en un pedido, una vez por día
+    // de Buenos Aires al abrir la página; diez dejan lugar a corridas a mano.
+    "ambito-riesgo-pais": 10,
     // Soja (ADR 0071): cada corrida pide la historia entera en una request por
     // serie —dos en el Ministerio, que concilia—. Veinte cubren la actualización
     // al abrir y varias corridas a mano el mismo día.

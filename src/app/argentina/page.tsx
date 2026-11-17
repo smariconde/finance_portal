@@ -27,6 +27,7 @@ import {
 
 import { ArgentinaRefresh } from "./_components/argentina-refresh";
 import { BlockIndex } from "./_components/block-index";
+import { CountryRiskSection } from "./_components/country-risk-section";
 import { ItcrmSection } from "./_components/itcrm-section";
 import { markedBlocks, NewsStrip } from "./_components/news-mark";
 import { RemInflationSection } from "./_components/rem-inflation-section";
@@ -46,6 +47,7 @@ const BLOCKS = [
   { id: "actividad", label: "Actividad" },
   { id: "dolar", label: "Dólar" },
   { id: "itcrm", label: "ITCRM" },
+  { id: "riesgo-pais", label: "Riesgo país" },
   { id: "monetario", label: "Inflación y reservas" },
   { id: "rem-inflacion", label: "REM" },
   { id: "fiscal", label: "Fiscal" },
@@ -177,6 +179,7 @@ export default async function ArgentinaPage() {
       <ActivitySection activity={dashboard.activity} />
       <DollarSection dollar={dashboard.dollar} />
       <ItcrmSection itcrm={dashboard.itcrm} />
+      <CountryRiskSection countryRisk={dashboard.countryRisk} />
       <MonetarySection monetary={dashboard.monetary} />
       <RemInflationSection rows={remComparison} />
       <FiscalSection fiscal={dashboard.fiscal} />

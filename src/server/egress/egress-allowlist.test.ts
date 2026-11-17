@@ -26,6 +26,7 @@ describe("egress allowlist", () => {
         "bcra-cambiarias-v1",
         "argentina-series-tiempo",
         "indec-api",
+        "ambito-riesgo-pais",
         "bcr-cac-pizarra",
         "bna-fx",
         "magyp-estimaciones",
@@ -393,6 +394,27 @@ describe("egress allowlist", () => {
       for (const url of refused) {
         expect(authorizeEgressUrl(url, entry).allowed).toBe(false);
       }
+    }
+  });
+
+  it("reaches only Ámbito's history of country risk closes", () => {
+    // ADR 0080: the day's value moves during the session and stays out.
+    const entry = findEgressAllowlistEntry("ambito-riesgo-pais")!;
+    expect(entry.identification).toBe("project");
+    expect(entry.method).toBe("GET");
+    expect(entry.credential).toBeNull();
+    expect(
+      authorizeEgressUrl(
+        "https://mercados.ambito.com/riesgopais/historico-general/1990-01-01/2026-11-17",
+        entry,
+      ).allowed,
+    ).toBe(true);
+    for (const refused of [
+      "https://mercados.ambito.com/riesgopais/variacion",
+      "https://mercados.ambito.com/dolar/oficial/historico-general/2026-01-01/2026-11-17",
+      "https://www.ambito.com/contenidos/riesgo-pais.html",
+    ]) {
+      expect(authorizeEgressUrl(refused, entry).allowed).toBe(false);
     }
   });
 

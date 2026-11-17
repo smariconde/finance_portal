@@ -17,7 +17,7 @@ import {
  * `www.sec.gov` no sirven los mismos recursos, y acotar el path evita que un bug
  * de construcción de URL termine paseando por el sitio entero de la SEC.
  */
-export const EGRESS_ALLOWLIST_VERSION = "egress-allowlist-1.5.0";
+export const EGRESS_ALLOWLIST_VERSION = "egress-allowlist-1.6.0";
 
 const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
   egressAllowlistEntrySchema.parse({
@@ -257,6 +257,22 @@ const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
       scheme: "Bearer",
     },
     // Una página son a lo sumo 1.000 filas de unas pocas columnas.
+    maxResponseBytes: 2 * 1024 * 1024,
+    deadlineMs: 30_000,
+    maxRedirects: 0,
+  }),
+  // Riesgo país (ADR 0080): sólo el histórico de cierres. El valor del día
+  // (`/riesgopais/variacion`) cambia durante la rueda y queda afuera.
+  egressAllowlistEntrySchema.parse({
+    sourceId: "ambito-riesgo-pais",
+    origins: [
+      {
+        host: "mercados.ambito.com",
+        pathPrefixes: ["/riesgopais/historico-general/"],
+      },
+    ],
+    identification: "project",
+    // 7.206 cierres desde 1998 pesaron 176 KB el 2026-11-17.
     maxResponseBytes: 2 * 1024 * 1024,
     deadlineMs: 30_000,
     maxRedirects: 0,
