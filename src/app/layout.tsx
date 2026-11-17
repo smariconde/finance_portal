@@ -11,11 +11,22 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Portal Financiero",
   description: "Análisis financiero personal, reproducible y trazable.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "16x16 32x32 48x48", type: "image/x-icon" },
+      { url: "/brand/portal-favicon.svg", sizes: "any", type: "image/svg+xml" },
+    ],
+    apple: {
+      url: "/apple-touch-icon.png",
+      sizes: "180x180",
+      type: "image/png",
+    },
+  },
 };
 
 const designContract = `
 THESIS: Un workspace financiero familiar reduce fricción y deja que evidencia, estado y datos sean protagonistas; rechaza la portada editorial como marco operativo.
-OWN-WORLD: Neutrales sobrios, azul funcional, radios moderados, bordes suaves, componentes shadcn/Base UI y numerales tabulares.
+OWN-WORLD: Carbón y neutros sobrios, marca torii bermellón y marfil, acentos bermellón accesibles, radios moderados, componentes shadcn/Base UI y numerales tabulares.
 STORY: El owner reconoce el modo, encuentra una pregunta disponible y entiende salud, alcance y provenance sin aprender una interfaz propia.
 FIRST VIEWPORT: Sidebar colapsable, header compacto y contenido en cards claras; la acción y el estado operativo aparecen antes del detalle.
 FORM: Category-standard financial dashboard elegido por el usuario; canon shadcn-finance-20260821.

@@ -2,32 +2,32 @@
 name: "Portal Financiero"
 description: "Workspace financiero familiar para investigación reproducible y trazable."
 colors:
-  background: "oklch(0.985 0.002 247.84)"
-  foreground: "oklch(0.205 0.012 258.34)"
+  background: "#faf9f7"
+  foreground: "#293638"
   card: "oklch(1 0 0)"
-  card-foreground: "oklch(0.205 0.012 258.34)"
+  card-foreground: "#293638"
   popover: "oklch(1 0 0)"
-  popover-foreground: "oklch(0.205 0.012 258.34)"
-  primary: "oklch(0.488 0.177 255.73)"
-  primary-foreground: "oklch(0.985 0 0)"
-  secondary: "oklch(0.961 0.006 247.86)"
-  secondary-foreground: "oklch(0.28 0.018 256.85)"
-  muted: "oklch(0.961 0.006 247.86)"
-  muted-foreground: "oklch(0.52 0.024 257.42)"
-  accent: "oklch(0.94 0.025 252.57)"
-  accent-foreground: "oklch(0.31 0.087 255.66)"
+  popover-foreground: "#293638"
+  primary: "#a32f18"
+  primary-foreground: "#fffdf8"
+  secondary: "#f1efec"
+  secondary-foreground: "#364143"
+  muted: "#f1efec"
+  muted-foreground: "#5f686a"
+  accent: "#fce9e2"
+  accent-foreground: "#832b1d"
   destructive: "oklch(0.577 0.245 27.325)"
-  border: "oklch(0.91 0.012 255.51)"
-  input: "oklch(0.91 0.012 255.51)"
-  ring: "oklch(0.58 0.145 255.66)"
-  sidebar: "oklch(0.972 0.004 252.89)"
-  sidebar-foreground: "oklch(0.27 0.018 256.85)"
-  sidebar-primary: "oklch(0.488 0.177 255.73)"
-  sidebar-primary-foreground: "oklch(0.985 0 0)"
-  sidebar-accent: "oklch(0.925 0.024 252.63)"
-  sidebar-accent-foreground: "oklch(0.31 0.087 255.66)"
-  sidebar-border: "oklch(0.91 0.012 255.51)"
-  sidebar-ring: "oklch(0.58 0.145 255.66)"
+  border: "#e5e2de"
+  input: "#e5e2de"
+  ring: "#bd4227"
+  sidebar: "#f4f2ef"
+  sidebar-foreground: "#293638"
+  sidebar-primary: "#a32f18"
+  sidebar-primary-foreground: "#fffdf8"
+  sidebar-accent: "#f9e3da"
+  sidebar-accent-foreground: "#832b1d"
+  sidebar-border: "#e5e2de"
+  sidebar-ring: "#bd4227"
 typography:
   headline:
     fontFamily: '"Archivo Variable", "Segoe UI", sans-serif'
@@ -136,24 +136,24 @@ components:
 
 Portal Financiero es un workspace operativo, sobrio y reconocible. La interfaz usa convenciones estándar de software financiero —sidebar, header compacto, cards, tablas, campos y estados explícitos— para que el owner pueda orientarse sin aprender una gramática propia. La personalidad aparece en el contenido financiero en español, la densidad numérica y la provenance visible, no en una composición experimental.
 
-El sistema trabaja con neutrales fríos, blanco para superficies contenidas y azul para interacción. La jerarquía es corta, los controles son compactos y los radios moderados. El modo claro y el oscuro conservan los mismos roles semánticos; el tema sigue al sistema y el owner puede fijarlo desde el header (`data-theme` en `<html>`, aplicado antes de pintar); la información importante nunca depende sólo del color.
+Desde la decisión del owner del 2026-11-16, el sistema trabaja con carbón y neutros cálidos, blanco para superficies contenidas y bermellón para interacción. El sello torii combina bermellón, carbón y marfil; su geometría y procedencia viven en [la especificación de marca](docs/design/portal-brand.md). La jerarquía es corta, los controles son compactos y los radios moderados. El modo claro y el oscuro conservan los mismos roles semánticos; el tema sigue al sistema y el owner puede fijarlo desde el header (`data-theme` en `<html>`, aplicado antes de pintar); la información importante nunca depende sólo del color.
 
 **Key Characteristics:**
 
 - Shell estándar con sidebar colapsable, drawer mobile y header compacto.
 - Cards, alertas y tablas convencionales con bordes o rings suaves.
-- Azul funcional sobre neutrales sobrios, con color de estado siempre acompañado por icono y texto.
+- Bermellón funcional sobre carbón y neutros cálidos, con color de estado siempre acompañado por icono y texto.
 - Archivo Variable en toda la interfaz y numerales tabulares para datos comparables.
 - Profundidad progresiva: respuesta, estado, provenance y detalle permanecen conectados.
 - Densidad legible en escritorio y reflow directo en mobile.
 
 ## Colors
 
-La paleta es semántica: fondos y superficies neutrales sostienen el trabajo; el azul identifica interacción y los colores de estado sólo califican información explícita.
+La paleta es semántica: fondos y superficies neutrales sostienen el trabajo; el bermellón identifica interacción y los colores de estado sólo califican información explícita.
 
 ### Primary
 
-- **Azul funcional** (`colors.primary`): acciones primarias, iconos de énfasis y señales interactivas. Su foreground garantiza contraste en controles rellenos.
+- **Bermellón funcional** (`colors.primary`): acciones primarias, iconos de énfasis y señales interactivas. Su foreground garantiza contraste en controles rellenos.
 
 ### Neutral
 
@@ -170,7 +170,7 @@ La paleta es semántica: fondos y superficies neutrales sostienen el trabajo; el
 - **Destructivo** (`colors.destructive`): errores o acciones destructivas; no se usa para variación financiera ordinaria.
 - **Estados de disponibilidad:** verde para `ready`, ámbar para `degraded`, neutral para `disabled` y azul para `planned`. Son tratamientos implementados en `StatusMark`, no nuevos tokens globales.
 
-**The Functional Blue Rule.** El azul señala acción, selección o información planificada; no se distribuye como decoración.
+**The Functional Accent Rule.** El bermellón funcional señala acción y selección; no se distribuye como decoración. El azul de información y las paletas categóricas conservan sus roles propios.
 
 **The State Is Never Color Alone Rule.** Cada estado combina color con icono y etiqueta legible.
 
@@ -231,7 +231,7 @@ Las primitivas son componentes shadcn editables construidos sobre Base UI. Se re
 ### Buttons
 
 - **Shape:** radio `lg`, texto `0.875rem` medium y altura base de `2rem`; las variantes compactas bajan a `1.75rem` o `1.5rem`.
-- **Primary:** fondo azul funcional, texto de contraste y hover por reducción de opacidad.
+- **Primary:** fondo bermellón funcional, texto de contraste y hover por reducción de opacidad. El claro usa un tono más oscuro que la marca para sostener también el contraste del hover.
 - **Outline:** fondo del workspace, borde semántico y hover sobre muted.
 - **Focus / Active:** borde ring más halo de `3px`; el estado activo desplaza `1px` vertical cuando no abre un popup.
 - **Disabled:** bloquea interacción y usa opacidad al `50%`.
@@ -276,7 +276,7 @@ Las primitivas son componentes shadcn editables construidos sobre Base UI. Se re
 
 - **Style:** grid compacto, borde, radio `lg` y padding de `0.5rem 0.625rem`.
 - **Meaning:** icono, título y descripción explican alcance o condición operativa.
-- **Color:** el fondo azul suave usado en la home es informativo y contextual, no una variante decorativa universal.
+- **Color:** un fondo de acento suave es informativo y contextual, no una variante decorativa universal.
 
 ### Tables
 
@@ -401,12 +401,19 @@ Implementados en `src/app/argentina/_components/` (`F9-06`).
 - **Series context (`F9-15`):** un gráfico puede traer sus propias fechas en lugar de los regímenes generales: tramos rotulados en el primer carril (el dólar del exportador de la soja, `--chart-3`), temporadas en el segundo (la cosecha, `--chart-2`) y fechas puntuales como líneas punteadas `--chart-5` sobre el dibujo (retenciones), rotuladas sólo si el nombre no pisa el anterior ni se sale del dibujo. Las presidencias siguen; la franja y la etiqueta dicen el tramo y la última fecha vigente; la lista plegada da cada una con su norma.
 - **By government:** el eje son los meses de mandato y 100 (o 0) es la base declarada. Botones `aria-pressed` eligen hasta seis gobiernos; cada línea lleva su nombre al final para no depender del color, y la del gobierno en curso es más gruesa. La tabla da la base, los meses 12, 24, 36 y 48 y el último, y nombra el motivo de cada gobierno que no se puede comparar.
 
+### Velas de Diario y Lecciones
+
+- **Forma (2026-11-16, decisión del owner):** cuerpo relleno verde o rojo entre apertura y cierre, mecha de mínimo a máximo de 1 px; doji como trazo horizontal neutral, sin inventar un cuerpo. La franja OHLC dice «Alcista», «Bajista» o «Sin cambio» además de los números. Los tonos de precio son independientes de la marca.
+- **Ancho:** precio y volumen tienen ejes X categóricos coincidentes pero separados, para que Recharts no los distribuya como dos barras vecinas. Separación lateral del 16 %, sin una segunda reducción del cuerpo; tope de 14 px. Volumen centrado bajo su vela, sin modificar OHLC ni frecuencia.
+- **Densidad:** ventana local con paso mínimo de 10 px por vela; conserva todas las filas disponibles. Botones, slider rotulado y lectura «Velas n–m de total» sólo cuando no cabe toda la serie. Flechas, Inicio/Fin y las reglas de una lección mueven la selección global y la ventana la sigue. El cursor, las marcas, los paneles de indicadores y las zonas comparten la ventana; los indicadores se calculan sobre la historia completa antes de recortar su dibujo.
+- **Ejes y estados:** ticks en `muted-foreground` explícito, en ambos temas. Se conservan fuente, resolución, fecha de lectura, ajustes de Schwab, ejecuciones, planes, negativas y faltantes. No se agrega una llamada ni persistencia.
+
 ### Navigation
 
 - **Desktop:** sidebar de `16rem`, colapsable a iconos de `3rem`; shortcut `Ctrl/Cmd+B` y tooltips cuando está colapsada. El rail de arrastre queda fuera del árbol de accesibilidad: duplicaba el nombre del trigger sin agregar ninguna capacidad para teclado o lector de pantalla.
 - **Mobile:** drawer lateral de `18rem`; al elegir una ruta se cierra, y `Escape` lo cierra. Los tooltips **no** existen en este ancho: son una afordancia de puntero, y su trigger capturaba `Escape` antes de que llegara al drawer.
 - **Items:** altura base de `2rem` (`2.5rem` en el drawer, decisión del owner del 2026-11-16: los `2.75rem` dejaban la lista suelta), radio `md`, icono de `1rem`; activo y hover usan sidebar-accent y el activo sube a `font-medium`. La lista vive en `<nav aria-label="Principal">`.
-- **Brand:** el nombre en texto, sin tile; colapsada, su sigla «PF» en `sidebar-primary`, sin fondo.
+- **Brand (2026-11-16):** sello torii de velas bermellón/carbón sobre disco marfil, 28 px junto al nombre y 24 px al colapsar. En oscuro se invierten disco y remate a carbón/marfil, conservando el bermellón. Las variantes y el favicon SVG adaptativo se derivan de la misma geometría; sin tile exterior ni efectos. El enlace conserva «Portal Financiero, inicio».
 - **Information architecture:** Inicio arriba, sin grupo; «Análisis» (Valuación, Matrices, Argentina) y «Trading» (Cuenta, Plan, Diario, Lecciones); Configuración en el pie. El mapa vive en `src/app/_components/navigation.ts` y lo leen la sidebar y la ubicación del header. La ficha de la empresa está en `/valuacion/[ticker]` y la soja en `/argentina`: no quedan ítems «planificados», y uno nuevo entra recién cuando su página existe.
 
 ### Shell
@@ -437,7 +444,7 @@ Dos superficies dicen que no: `RuntimeLockedNotice`, cuando el entorno no probó
 ### Do:
 
 - **Do** empezar con primitivas shadcn/Base UI existentes y sus variantes implementadas.
-- **Do** usar azul para interacción y mostrar estados con icono, texto y color.
+- **Do** usar bermellón para interacción y mostrar estados con icono, texto y color.
 - **Do** mantener numerales tabulares, fechas, unidades, moneda y provenance junto a los datos.
 - **Do** conservar el shell compacto, los gutters responsivos y el overflow horizontal de tablas.
 - **Do** usar cards para agrupaciones reales y divisores para filas relacionadas dentro de una misma card.

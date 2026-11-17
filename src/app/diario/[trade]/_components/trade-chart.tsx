@@ -2,7 +2,7 @@
 
 import { RefreshCw } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Bar,
   ComposedChart,
@@ -13,6 +13,11 @@ import {
 } from "recharts";
 
 import { CandleShape } from "@/app/_components/candle-shape";
+import { CandleDirection } from "@/app/_components/candle-direction";
+import {
+  CandleWindowControls,
+  useCandleWindow,
+} from "@/app/_components/candle-window";
 import { linearTicks } from "@/app/_components/chart-ticks";
 import { InfoTip } from "@/app/_components/info-tip";
 import {
@@ -139,9 +144,11 @@ function CandleChart({
         accessibilityLayer={false}
         data={rows as Row[]}
         margin={MARGIN}
-        barCategoryGap="20%"
+        barCategoryGap="16%"
+        maxBarSize={14}
       >
         <XAxis
+          tick={{ fill: "var(--muted-foreground)" }}
           dataKey="index"
           tickLine={false}
           axisLine={false}
@@ -154,7 +161,9 @@ function CandleChart({
               : NY_CLOCK.format(new Date(candle.time));
           }}
         />
+        <XAxis xAxisId="volume" dataKey="index" hide />
         <YAxis
+          tick={{ fill: "var(--muted-foreground)" }}
           yAxisId="price"
           width={Y_AXIS_WIDTH}
           orientation="left"
@@ -168,6 +177,7 @@ function CandleChart({
         />
         <YAxis yAxisId="volume" hide domain={[0, maxVolume * 5]} />
         <Bar
+          xAxisId="volume"
           yAxisId="volume"
           dataKey="volume"
           isAnimationActive={false}
@@ -273,6 +283,10 @@ function ReadingStrip({
       {value("H", candle.high)}
       {value("L", candle.low)}
       {value("C", candle.close)}
+      <CandleDirection
+        open={Number(candle.open)}
+        close={Number(candle.close)}
+      />
       <span className="whitespace-nowrap">
         <span className="text-muted-foreground">Vol </span>
         <span className="numeric">
@@ -324,31 +338,26 @@ function ChartBody({
   const firstFill =
     reading.markers.find((marker) => marker.candleIndex !== null)
       ?.candleIndex ?? rows.length - 1;
-  const [index, setIndex] = useState(firstFill);
-  const frame = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0);
-
-  useEffect(() => {
-    const element = frame.current;
-    if (element === null) return;
-    const observer = new ResizeObserver(([entry]) =>
-      setWidth(entry?.contentRect.width ?? 0),
-    );
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
+  const view = useCandleWindow(
+    rows.length,
+    firstFill,
+    MARGIN.left + Y_AXIS_WIDTH + MARGIN.right,
+  );
+  const { index, frame, width, move } = view;
+  const visibleRows = useMemo(
+    () => rows.slice(view.start, view.end),
+    [rows, view.start, view.end],
+  );
 
   // El dibujo no depende del cursor: moverlo no vuelve a pintar las velas.
   const chart = useMemo(
-    () => <CandleChart reading={reading} plan={plan} rows={rows} />,
-    [reading, plan, rows],
+    () => <CandleChart reading={reading} plan={plan} rows={visibleRows} />,
+    [reading, plan, visibleRows],
   );
 
   const plotLeft = MARGIN.left + Y_AXIS_WIDTH;
   const plotWidth = Math.max(width - plotLeft - MARGIN.right, 1);
-  const band = plotWidth / Math.max(rows.length, 1);
-  const move = (next: number) =>
-    setIndex(Math.min(Math.max(next, 0), rows.length - 1));
+  const band = plotWidth / Math.max(visibleRows.length, 1);
 
   const placed = reading.markers.filter((m) => m.candleIndex !== null);
   const outside = reading.markers.filter((m) => m.outsideCandle).length;
@@ -366,7 +375,16 @@ function ChartBody({
         className="relative touch-pan-y rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         onPointerMove={(event) => {
           const box = event.currentTarget.getBoundingClientRect();
-          move(Math.floor((event.clientX - box.left - plotLeft) / band));
+          move(
+            view.start +
+              Math.min(
+                Math.max(
+                  Math.floor((event.clientX - box.left - plotLeft) / band),
+                  0,
+                ),
+                visibleRows.length - 1,
+              ),
+          );
         }}
         onKeyDown={(event) => {
           const step: Record<string, number> = {
@@ -393,13 +411,14 @@ function ChartBody({
             aria-hidden="true"
             className="pointer-events-none absolute w-px bg-foreground/30"
             style={{
-              left: plotLeft + band * (index + 0.5),
+              left: plotLeft + band * (index - view.start + 0.5),
               top: MARGIN.top,
               height: HEIGHT - MARGIN.top - 30,
             }}
           />
         )}
       </div>
+      <CandleWindowControls window={view} />
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
         <span>
           Schwab · {resolutionLabel(reading)}

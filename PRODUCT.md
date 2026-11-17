@@ -86,7 +86,7 @@ financiera.
   `shadcn-first`: navegación, controles, cards, tablas y estados deben resultar
   familiares antes que novedosos.
 - El sistema usa Base UI, tokens semánticos, radios moderados, densidad numérica
-  legible y un azul funcional sobre neutrales. La personalidad vive en el
+  legible y bermellón funcional sobre carbón y neutros cálidos. La marca es un sello torii con velas japonesas, aprobado por el owner el 2026-11-16. La personalidad vive en el
   contenido financiero, el locale `es-AR` y la provenance, no en una composición
   experimental.
 - La identidad evita los clichés de interfaces generadas por IA y fintech: neón,
@@ -106,7 +106,7 @@ financiera.
   CEDEAR, valuaciones con su snapshot, series del BCRA y del INDEC, la cuenta
   Schwab y sus transacciones. El estado de cada slice está en
   `docs/backlog/README.md`.
-- No hay aún logos, testimonios, clientes, benchmarks públicos, licencia de
+- La marca propia está documentada en `docs/design/portal-brand.md`. No hay testimonios, clientes, benchmarks públicos, licencia de
   software, URL de producción ni claims de rendimiento que puedan usarse como
   prueba. El diseño no debe inventarlos.
 
