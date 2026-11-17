@@ -7397,9 +7397,9 @@ probar el control; fases posteriores pueden volver a verificarlo.
 
 ## `F11-17` — MCP de sólo lectura del owner
 
-- Estado: `in_progress`. Código, local y cliente verificados; falta el paso
-  remoto: `0052` en Neon (snapshot antes, ADR 0073), `MCP_ACCESS_TOKEN` en
-  Vercel Production y la primera conexión del owner desde Production.
+- Estado: `in_progress`. Código, local, cliente y Neon verificados; faltan
+  `MCP_ACCESS_TOKEN` en Vercel Production (lo genera el owner) y su primera
+  conexión desde Production.
 - Autorización: [ADR 0078](../architecture/adr/0078-owner-read-only-mcp.md),
   aceptada el 2026-11-16. El owner creó el mismo día el secreto de bypass
   «MCP de Santiago».
@@ -7437,6 +7437,12 @@ probar el control; fases posteriores pueden volver a verificarlo.
   personal `GET` da 405, sin token 401, con `Origin` 403 y con el token 503
   (su cuota vive en una base que el gate no tiene), sin centinelas en cuerpo ni
   headers; en el trabado, 404 aun con el token.
+- Paso remoto (autorizado por el owner el 2026-11-16): con el único lugar
+  ocupado, el owner eligió reemplazar `f11-16-before-0051-2026-11-16`; el
+  snapshot `f11-17-before-0052-2026-11-16` (`snap-bold-butterfly-b7lixzix`,
+  rama `production`, 2026-11-17 01:30:39 UTC, 310.222.848 bytes) quedó
+  verificado antes de migrar. `0052` aplicada y `pnpm db:status:neon` informa
+  53 de 53.
 - Operación: [runbook](../runbooks/owner-mcp.md).
 
 ## Plantilla para nuevos issues

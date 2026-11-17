@@ -1543,8 +1543,8 @@ assistant: `POST /mcp` in Production, stateless `createMcpHandler` from
 auth). Tools wrap the pages' own loaders over stored data only —no egress,
 no writes, never the live account, credentials or the account HMAC— and a
 new `ownerAssistant` rights dimension, separate from `aiTransfer`, gates
-each source. Since `F11-17` (in progress until the Production step, migration
-`0052`, [runbook](docs/runbooks/owner-mcp.md)) the route exists:
+each source. Since `F11-17` (in progress until the owner's token and first Production
+connection; migration `0052`, applied on Neon, [runbook](docs/runbooks/owner-mcp.md)) the route exists:
 `src/server/mcp/` answers `404` locked or without a valid `MCP_ACCESS_TOKEN`
 (health item «MCP del owner», `servesOwnerMcp`), `403` with an `Origin` or a
 `Host` outside the deployment's own domains, `401` unless the `Bearer`'s
