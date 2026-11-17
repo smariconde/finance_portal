@@ -910,6 +910,22 @@ reads it; `VisitRecorder` calls `recordArgentinaVisit` (no input) after the
 page shows and on each new cutoff. No notification outside the page: nothing
 arrives without a visit (ADR 0070).
 
+Country risk (`F9-19`/`F9-21`, [ADR 0080](docs/architecture/adr/0080-argentina-country-risk-source.md),
+no migration) is J.P. Morgan's sovereign spread read from Ámbito's history of
+closes (`ambito-riesgo-pais`, one request for everything since 1998), never
+from ArgentinaDatos —a copy with truncated decimals, filled weekends and
+missing days— and never the day's value, which moves during the session.
+Rights are `owner_accepted` and personal only: public display, export, AI and
+`ownerAssistant` are `restricted`. `ambito-riesgo-pais-1.0.0` closes the
+format (header, `dd-mm-aaaa`, `^\d+,\d{2}$`), joins an identical repeated day
+and leaves a day with two values out by name (`rejectedDays`, the run's
+`rows_rejected`). `ar_country_risk_embi` is one series in the indicator
+registry; `country-risk-index-1.0.0` dates the move from the EMBI+ to the EMBI
+Global Diversified on 2025-09-30, drawn as two spans plus a vertical line,
+never detected. `/argentina` refreshes it once per Buenos Aires day and reads
+it as a chart (`country-risk-block-1.0.0`, `argentina-dashboard-2.5.0`);
+`pnpm argentina:indicators --indicator ar_country_risk_embi` runs it by hand.
+
 Against Neon, the repo's commands need both env files, the last one winning —
 an exported `DATABASE_URL` does not beat `--env-file`:
 `node --env-file=.env.local --env-file=.env.neon.local --conditions=react-server --import tsx scripts/<command>.ts`.

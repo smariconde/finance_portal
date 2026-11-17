@@ -23,6 +23,12 @@ export type FetchedIndicatorPoints = {
   readonly bytes: number;
   /** Present for the expanded INDEC series whose published rate is checked. */
   readonly reconciliation?: IndecMonthlyReconciliation;
+  /**
+   * Days the source published in a way the parser refused by name (two
+   * values for one day, ADR 0080). They are not points; the run carries
+   * `rows_rejected`.
+   */
+  readonly rejectedDays?: readonly string[];
 };
 
 /**
@@ -109,6 +115,8 @@ export async function recordArgentinaIndicator(
     points: fetched.points,
   });
   const { status, counts } = indicatorRunVerdict(plan, fetched.points.length);
+  // A day refused by name never becomes a point; the flag says it happened.
+  const rejectedDays = fetched.rejectedDays?.length ?? 0;
   const run = await ingestionRuns.append(
     ingestionRunSchema.parse({
       runId,
@@ -138,6 +146,7 @@ export async function recordArgentinaIndicator(
       qualityFlags: [
         "availability_is_observation",
         ...(plan.guard.refused ? ["mass_change_guard"] : []),
+        ...(rejectedDays > 0 ? ["rows_rejected"] : []),
         ...(plan.definition !== null && !plan.guard.refused
           ? ["definition_recorded"]
           : []),

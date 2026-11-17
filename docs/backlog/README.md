@@ -140,7 +140,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   112 | `F11-16`   | `done`        | Logos PNG guardados en PostgreSQL y servidos desde el portal; cuadrados redondeados junto a los tickers de trading, conservando círculos en matrices y gráficos.                                                          | Pedido del owner   |
 |   113 | `F11-17`   | `done`        | MCP de solo lectura en `/mcp` con dos secretos, catálogo `portal-mcp-tools-1.0.0` (valuaciones y diario primero) y `ownerAssistant` por fuente.                                                                           | ADR 0078           |
 |   114 | `F9-20`    | `done`        | `/argentina` marca lo nuevo desde la visita anterior: período nuevo o revisado de EMAE, IPC, REM, fiscal y comercio, leído por `system_recorded`, con la visita como sesión guardada en la base.                          | `F9-12`, `F9-18`   |
-|   115 | `F9-21`    | `ready`       | Riesgo país en `/argentina` según la ADR 0080: ingesta de Ámbito con revisiones, actualización al abrir, bloque con gráfico, el cambio de índice marcado y fuente citada.                                                 | `F9-19`            |
+|   115 | `F9-21`    | `done`        | Riesgo país en `/argentina` según la ADR 0080: ingesta de Ámbito con revisiones, actualización al abrir, bloque con gráfico, el cambio de índice marcado y fuente citada.                                                 | `F9-19`            |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -6940,6 +6940,28 @@ La organización sigue en Launch y el regreso a Free queda a cargo del owner.
 - Decisiones del owner: Ámbito directo; derechos `owner_accepted` sólo para uso
   personal, sin export, IA ni asistente; seguir con la implementación en
   `F9-21`.
+
+#### `F9-21` — riesgo país en `/argentina`
+
+- Estado: `done` el 2026-11-17, según la
+  [ADR 0080](../architecture/adr/0080-argentina-country-risk-source.md).
+- Fuente `ambito-riesgo-pais` en el registro (derechos `owner_accepted` sólo
+  personales), la allowlist (`egress-allowlist-1.6.0`, sólo
+  `/riesgopais/historico-general/`) y la cuota diaria (10). Parser
+  `ambito-riesgo-pais-1.0.0`, indicador `ar_country_risk_embi` en el registro
+  de la ADR 0069, tramos `country-risk-index-1.0.0`, bloque
+  `country-risk-block-1.0.0` y `argentina-dashboard-2.5.0`. Se actualiza al
+  abrir una vez por día de Buenos Aires, como fuente propia.
+- Medido contra Ámbito por la puerta de egress: 7.205 puntos en un pedido de
+  175.978 bytes, 2021-02-22 rechazado por dos valores, último cierre
+  2026-11-16 = 855. La primera corrida quedó `succeeded`; la segunda,
+  `duplicate`.
+- Render local a 1440 px claro y 390 px oscuro: 0 px de desborde y 0
+  violaciones axe serias en el bloque. Los tramos EMBI+ y EMBI Global
+  Diversified son contiguos y no se distinguían en la franja: el cambio va
+  también como línea vertical.
+- Sin migración. En Production la serie se baja en la primera apertura de
+  `/argentina`, con un pedido.
 
 #### `F9-20` — lo nuevo desde la visita anterior
 

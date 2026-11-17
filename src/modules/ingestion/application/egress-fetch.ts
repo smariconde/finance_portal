@@ -128,6 +128,15 @@ export const SOY_REQUEST_PACING: RequestPacingPolicy = Object.freeze({
   maxRequests: 10,
 });
 
+/**
+ * Riesgo país de Ámbito (ADR 0080): la historia entera en una request por
+ * corrida. Sin cuota publicada; el tope diario manda.
+ */
+export const COUNTRY_RISK_REQUEST_PACING: RequestPacingPolicy = Object.freeze({
+  minIntervalMs: 2000,
+  maxRequests: 2,
+});
+
 export class RequestBudgetExhaustedError extends Error {
   readonly sourceId: string;
   readonly maxRequests: number;

@@ -3,6 +3,7 @@ import { parseArgs } from "node:util";
 
 import {
   ARGENTINA_SERIES_REQUEST_PACING,
+  COUNTRY_RISK_REQUEST_PACING,
   INDEC_REQUEST_PACING,
   SOY_REQUEST_PACING,
 } from "@/modules/ingestion/application/egress-fetch";
@@ -47,6 +48,11 @@ import {
   DECLARED_SOY_INDICATORS,
   declaredSoyIndicator,
 } from "@/modules/macro-series/domain/declared-soy-indicators";
+import {
+  CountryRiskSourceError,
+  createLiveCountryRiskSource,
+} from "@/modules/macro-series/application/live-country-risk-source";
+import { declaredCountryRisk } from "@/modules/macro-series/domain/declared-country-risk";
 import { getSourceEgressFetch } from "@/server/egress/get-source-egress-fetch";
 import { getArgentinaIndicatorRepository } from "@/server/persistence/get-argentina-indicator-repository";
 import { getIngestionRunRepository } from "@/server/persistence/get-ingestion-run-repository";
@@ -64,6 +70,7 @@ import { getSourceRegistryRepository } from "@/server/persistence/get-source-reg
  *   pnpm argentina:indicators --expanded --apply          # IPC, canastas, IPI, SIPM, ICC y salarios de F9-08
  *   pnpm argentina:indicators --soy --apply             # pizarra, BNA, Chicago y estimaciones
  *   pnpm argentina:indicators --indicator itcrm_daily    # BCRA XLSX, en seco
+ *   pnpm argentina:indicators --indicator ar_country_risk_embi --apply  # riesgo país, Ámbito (ADR 0080)
  *
  * Cada corrida lee la historia entera del indicador y la compara con la
  * guardada: lo nuevo, lo revisado y lo retirado salen de esa comparación.
@@ -105,7 +112,8 @@ const requested = values.declared
           const indicator =
             declaredArgentinaIndicator(id) ??
             declaredIndecExpandedIndicator(id) ??
-            declaredSoyIndicator(id);
+            declaredSoyIndicator(id) ??
+            declaredCountryRisk(id);
           if (indicator === null) {
             console.error(
               `${id}: no está en un set declarado. Agregarlo es un diff revisable.`,
@@ -123,6 +131,11 @@ const registry = getSourceRegistryRepository();
 await syncDeclaredSourceRegistry(DEMO_SOURCE_REGISTRY, registry);
 
 const sources: ArgentinaIndicatorSource[] = [
+  createLiveCountryRiskSource({
+    sourceRegistry: registry,
+    fetch: getSourceEgressFetch(COUNTRY_RISK_REQUEST_PACING),
+    now: () => new Date(),
+  }),
   createLiveBcraItcrmSource({
     sourceRegistry: registry,
     fetch: getSourceEgressFetch(SOY_REQUEST_PACING),
@@ -212,6 +225,12 @@ for (const indicator of requested) {
       "leído",
       `${fetched.points.length} puntos · ${fetched.requests} requests · ${fetched.bytes} bytes`,
     );
+    if (fetched.rejectedDays !== undefined && fetched.rejectedDays.length > 0) {
+      log(
+        "días rechazados",
+        `${fetched.rejectedDays.join(", ")} (dos valores el mismo día)`,
+      );
+    }
     if (fetched.reconciliation?.status === "matched") {
       log(
         "variación publicada",
@@ -244,7 +263,8 @@ for (const indicator of requested) {
       !(error instanceof ArgentinaSeriesSourceError) &&
       !(error instanceof BcraItcrmSourceError) &&
       !(error instanceof IndecSourceError) &&
-      !(error instanceof SoySourceError)
+      !(error instanceof SoySourceError) &&
+      !(error instanceof CountryRiskSourceError)
     ) {
       throw error;
     }

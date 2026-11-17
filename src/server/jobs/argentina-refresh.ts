@@ -30,6 +30,7 @@ import {
   createPacedEgressFetch,
   INDEC_REQUEST_PACING,
   PRICES_REQUEST_PACING,
+  COUNTRY_RISK_REQUEST_PACING,
   SOY_REQUEST_PACING,
   type RequestPacingPolicy,
 } from "@/modules/ingestion/application/egress-fetch";
@@ -51,6 +52,8 @@ import { recordArgentinaIndicator } from "@/modules/macro-series/application/rec
 import { recordBcraSeries } from "@/modules/macro-series/application/record-bcra-series";
 import { declaredArgentinaIndicator } from "@/modules/macro-series/domain/declared-argentina-indicators";
 import { declaredSoyIndicator } from "@/modules/macro-series/domain/declared-soy-indicators";
+import { declaredCountryRisk } from "@/modules/macro-series/domain/declared-country-risk";
+import { createLiveCountryRiskSource } from "@/modules/macro-series/application/live-country-risk-source";
 import { createLivePriceSource } from "@/modules/prices/application/live-price-source";
 import { getMeteredEgressFetch } from "@/server/egress/get-source-egress-fetch";
 import { credentialProblem } from "@/server/egress/fetch-approved-resource";
@@ -127,6 +130,7 @@ const PACING: Readonly<Record<RefreshSourceId, RequestPacingPolicy>> = {
   "bcr-cac-pizarra": SOY_REQUEST_PACING,
   "bna-fx": SOY_REQUEST_PACING,
   "magyp-estimaciones": SOY_REQUEST_PACING,
+  "ambito-riesgo-pais": COUNTRY_RISK_REQUEST_PACING,
 };
 
 /** Independent sources advance together; each keeps its own lease and pace. */
@@ -321,5 +325,25 @@ function recorderFor(
     case "magyp-estimaciones":
       // One adapter for the job: its four series share one download.
       return soyRecorder(createLiveMagypSource(soyAdapters));
+    case "ambito-riesgo-pais": {
+      const adapter = createLiveCountryRiskSource(soyAdapters);
+      return async (_job, subjectKey) => {
+        const indicator = declaredCountryRisk(subjectKey);
+        if (indicator === null) {
+          throw new RefreshSubjectRejectedError("not_declared");
+        }
+        const outcome = await recordArgentinaIndicator(indicator, {
+          sources: [adapter],
+          repository: getArgentinaIndicatorRepository(),
+          ingestionRuns,
+          now,
+          newId,
+        });
+        if (outcome.runId === null) {
+          throw new RefreshSubjectRejectedError("indicator_not_recorded");
+        }
+        return outcome.runId;
+      };
+    }
   }
 }

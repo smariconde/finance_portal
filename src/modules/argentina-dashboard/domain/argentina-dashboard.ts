@@ -42,9 +42,10 @@ export type { DatedValue } from "./chart-history";
  * dollar, read with the same CCL as the dollar block. `2.3.0` (`F9-16`)
  * places the latest wholesale quote within its same-day BCRA band. `2.4.0`
  * adds the month before's seasonally adjusted change to the activity block,
- * so the summary tile can say how it moved (`summary-change-1.0.0`).
+ * so the summary tile can say how it moved (`summary-change-1.0.0`). `2.5.0`
+ * (`F9-21`) adds the country risk block (`country-risk-block-1.0.0`, ADR 0080).
  */
-export const ARGENTINA_DASHBOARD_VERSION = "argentina-dashboard-2.4.0";
+export const ARGENTINA_DASHBOARD_VERSION = "argentina-dashboard-2.5.0";
 
 export const SECTOR_WINDOW_MONTHS = 12;
 /** Calendar days a daily series goes out day by day: five years. */

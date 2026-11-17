@@ -16,12 +16,12 @@ function withRight(sourceId: string, ownerAssistant: string) {
 }
 
 describe("ownerAssistant", () => {
-  it("el owner lo aceptó para todas las fuentes registradas (ADR 0078)", () => {
+  it("el owner lo aceptó para todas las fuentes registradas (ADR 0078) salvo el riesgo país (ADR 0080)", () => {
     expect(
       DEMO_SOURCE_REGISTRY.filter(
         (entry) => entry.rights.ownerAssistant !== "owner_accepted",
-      ).map((entry) => entry.sourceId),
-    ).toEqual([]);
+      ).map((entry) => [entry.sourceId, entry.rights.ownerAssistant]),
+    ).toEqual([["ambito-riesgo-pais", "restricted"]]);
   });
 
   it("no abre las tareas IA del portal: aiTransfer sigue por su cuenta", () => {
