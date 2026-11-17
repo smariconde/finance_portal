@@ -113,7 +113,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    85 | `F9-16`    | `done`        | Posición del mayorista dentro de la banda del mismo día; conserva valores fuera del rango y ausencia con motivo.                                                                                                          | `F9-03`            |
 |    86 | `F9-17`    | `done`        | ITCRM diario del BCRA como índice real multilateral con historia, base, metodología y vintages observadas; lectura sin señal de inversión. Publicado y comprobado en Production el 2026-11-17.                            | `F9-16`            |
 |    87 | `F9-18`    | `done`        | REM mensual contra IPC observado, con pronóstico anterior al dato y error en puntos porcentuales. La ronda de octubre se publicó y comprobó en Production el 2026-11-17.                                                  | `F9-17`, `F9-01`   |
-|    88 | `F9-19`    | `queued`      | Decidir la fuente, definición, procedencia y derechos del riesgo país en una ADR antes de autorizar ingesta o gráfico.                                                                                                    | `F9-18`            |
+|    88 | `F9-19`    | `done`        | Decidir la fuente, definición, procedencia y derechos del riesgo país en una ADR antes de autorizar ingesta o gráfico. ADR 0080: Ámbito directo, `owner_accepted` sólo personal, EMBI+ → EMBIGD fechado el 2025-09-30.    | `F9-18`            |
 |    89 | `F9-09`    | `queued`      | Composición del comercio exterior del INDEC por rubro, uso y destino, con las celdas suprimidas contadas y nunca rellenadas.                                                                                              |
 |    90 | `F9-10`    | `queued`      | Producción de petróleo y gas por pozo (Capítulo IV) agregada por empresa y cuenca, enlazada a las entidades del grafo.                                                                                                    |
 |    91 | `F9-11`    | `queued`      | Resultado financiero y ejecución presupuestaria con fuente vigente o identidad declarada, nunca una serie vacía leída como cero.                                                                                          | `F9-07`            |
@@ -140,6 +140,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   112 | `F11-16`   | `done`        | Logos PNG guardados en PostgreSQL y servidos desde el portal; cuadrados redondeados junto a los tickers de trading, conservando círculos en matrices y gráficos.                                                          | Pedido del owner   |
 |   113 | `F11-17`   | `done`        | MCP de solo lectura en `/mcp` con dos secretos, catálogo `portal-mcp-tools-1.0.0` (valuaciones y diario primero) y `ownerAssistant` por fuente.                                                                           | ADR 0078           |
 |   114 | `F9-20`    | `done`        | `/argentina` marca lo nuevo desde la visita anterior: período nuevo o revisado de EMAE, IPC, REM, fiscal y comercio, leído por `system_recorded`, con la visita como sesión guardada en la base.                          | `F9-12`, `F9-18`   |
+|   115 | `F9-21`    | `ready`       | Riesgo país en `/argentina` según la ADR 0080: ingesta de Ámbito con revisiones, actualización al abrir, bloque con gráfico, el cambio de índice marcado y fuente citada.                                                 | `F9-19`            |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -6925,6 +6926,20 @@ La organización sigue en Launch y el regreso a Free queda a cargo del owner.
 **Estado de los dos slices:**
 `done`, datos Production comprobados
 ([runbook](../runbooks/deferred-production-loads.md)).
+
+#### `F9-19` — fuente y derechos del riesgo país
+
+- Estado: `done` el 2026-11-17 con la
+  [ADR 0080](../architecture/adr/0080-argentina-country-risk-source.md).
+- Medido: ninguna serie oficial (catálogo BCRA de 1.610 series y Series de
+  Tiempo; el dataset de bonos del IAMC termina en 2020). Ámbito trae 7.206
+  cierres desde 1998-12-11 en un pedido de 176 kB. ArgentinaDatos es una copia
+  de Ámbito: 987 días con decimales truncados, 658 fines de semana y feriados
+  rellenados con el cierre anterior y 118 días faltantes. Desde el 2025-09-30
+  la cifra es el EMBI Global Diversified, no el EMBI+.
+- Decisiones del owner: Ámbito directo; derechos `owner_accepted` sólo para uso
+  personal, sin export, IA ni asistente; seguir con la implementación en
+  `F9-21`.
 
 #### `F9-20` — lo nuevo desde la visita anterior
 
