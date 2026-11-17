@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   getConfigHealth,
+  servesOwnerMcp,
   servesRealData,
   servesSchwabConnection,
   servesTradingData,
@@ -31,6 +32,11 @@ describe("getConfigHealth", () => {
       }),
       expect.objectContaining({
         id: "schwab",
+        status: "disabled",
+        missingVariables: [],
+      }),
+      expect.objectContaining({
+        id: "mcp",
         status: "disabled",
         missingVariables: [],
       }),
@@ -494,6 +500,69 @@ describe("getConfigHealth", () => {
       // lo es.
       expect(serialized).toContain("DATABASE_URL");
       expect(serialized).not.toContain("sentinel-alpaca-secret");
+    });
+  });
+
+  /** El MCP del owner (`F11-17`, ADR 0078): una ruta, su token y nada más. */
+  describe("MCP del owner", () => {
+    const TOKEN = Buffer.alloc(32, 7).toString("base64url");
+
+    function mcpItem(environment: Record<string, string>) {
+      return getConfigHealth(environment).items.find(
+        (item) => item.id === "mcp",
+      );
+    }
+
+    it("sin token está deshabilitado y nombra la variable, sin pedir atención", () => {
+      expect(mcpItem(PRIVATE_LOCAL)).toMatchObject({
+        status: "disabled",
+        missingVariables: ["MCP_ACCESS_TOKEN"],
+      });
+      expect(servesOwnerMcp(getConfigHealth(PRIVATE_LOCAL))).toBe(false);
+    });
+
+    it("con un token válido en un runtime personal abre la ruta", () => {
+      const health = getConfigHealth({
+        ...PRIVATE_LOCAL,
+        MCP_ACCESS_TOKEN: TOKEN,
+      });
+
+      expect(
+        mcpItem({ ...PRIVATE_LOCAL, MCP_ACCESS_TOKEN: TOKEN }),
+      ).toMatchObject({ status: "ready" });
+      expect(servesOwnerMcp(health)).toBe(true);
+    });
+
+    it("un token corto o elegido a mano es una configuración rota", () => {
+      for (const value of [
+        "password123",
+        Buffer.alloc(31).toString("base64url"),
+      ]) {
+        expect(
+          mcpItem({ ...PRIVATE_LOCAL, MCP_ACCESS_TOKEN: value }),
+        ).toMatchObject({ status: "degraded" });
+      }
+    });
+
+    it("un runtime trabado no abre la ruta aunque tenga token", () => {
+      const health = getConfigHealth({ MCP_ACCESS_TOKEN: TOKEN });
+
+      expect(servesOwnerMcp(health)).toBe(false);
+      expect(JSON.stringify(health)).not.toContain(TOKEN);
+    });
+
+    it("Preview ignora el token y lo marca (`TM-14`)", () => {
+      const preview = {
+        APP_MODE: "personal",
+        APP_RUNTIME_ACCESS: "protected",
+        DATABASE_URL: "postgres://pooled",
+        VERCEL: "1",
+        VERCEL_ENV: "preview",
+        MCP_ACCESS_TOKEN: TOKEN,
+      };
+
+      expect(mcpItem(preview)).toMatchObject({ status: "degraded" });
+      expect(servesOwnerMcp(getConfigHealth(preview))).toBe(false);
     });
   });
 });

@@ -1,0 +1,1 @@
+ALTER TABLE "source_registry" ADD COLUMN "owner_assistant_right" "source_rights_decision" DEFAULT 'unknown' NOT NULL;

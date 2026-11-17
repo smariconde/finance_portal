@@ -73,6 +73,7 @@ describe("sourceRightsSchema", () => {
       publicDisplay: "unknown",
       export: "unknown",
       aiTransfer: "unknown",
+      ownerAssistant: "unknown",
     });
   });
 });

@@ -63,6 +63,7 @@ describe("topes declarados", () => {
     expect(declaredDailyBudget("schwab-oauth")).toBe(100);
     expect(declaredDailyBudget("schwab-trader")).toBe(3000);
     expect(declaredDailyBudget("schwab-marketdata")).toBe(2000);
+    expect(declaredDailyBudget("portal-mcp")).toBe(500);
     expect(Object.keys(SOURCE_DAILY_REQUEST_BUDGETS).sort()).toEqual([
       "argentina-series-tiempo",
       "bcr-cac-pizarra",
@@ -80,6 +81,7 @@ describe("topes declarados", () => {
       "magyp-datos-abiertos",
       "magyp-estimaciones",
       "openrouter",
+      "portal-mcp",
       "schwab-marketdata",
       "schwab-oauth",
       "schwab-trader",

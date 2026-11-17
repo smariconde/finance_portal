@@ -1,6 +1,10 @@
 import { z } from "zod";
 
 import { schwabCallbackForm } from "@/modules/trading/domain/schwab-callback-url";
+import {
+  MCP_ACCESS_TOKEN_VARIABLE,
+  parseMcpAccessToken,
+} from "@/modules/owner-mcp/domain/mcp-access-token";
 import { parseTradingSecretKey } from "@/modules/trading/domain/trading-secret-key";
 
 import { parseDatabaseTarget, sameDatabaseTarget } from "./database-target";
@@ -69,7 +73,7 @@ export type AppRuntimeAccess = z.infer<typeof appRuntimeAccessSchema>;
 export type ConfigStatus = "ready" | "degraded" | "disabled";
 
 export type ConfigHealthItem = {
-  id: "core" | "database" | "liveIntegrations" | "trading" | "schwab";
+  id: "core" | "database" | "liveIntegrations" | "trading" | "schwab" | "mcp";
   label: string;
   status: ConfigStatus;
   message: string;
@@ -433,6 +437,77 @@ function inspectSchwab(
   };
 }
 
+/**
+ * El MCP del owner ([ADR 0078](../../../../docs/architecture/adr/0078-owner-read-only-mcp.md)).
+ * Como la base de trading, no forma parte de `personal`: sin su token la ruta
+ * no existe y el resto del portal no cambia, así que falta es `disabled`.
+ */
+function inspectMcp(
+  environment: Environment,
+  runtime: RuntimeResolution,
+): ConfigHealthItem {
+  const label = "MCP del owner";
+  const configured = hasValue(environment[MCP_ACCESS_TOKEN_VARIABLE]);
+
+  if (runtime.mode === "locked") {
+    return {
+      id: "mcp",
+      label,
+      status: "disabled",
+      message: configured
+        ? "Hay un token del MCP, pero un runtime trabado no abre la ruta."
+        : "Bloqueado mientras el runtime esté trabado.",
+      missingVariables: [],
+    };
+  }
+
+  // `TM-14`: el token vive sólo en local y en Production.
+  if (environment.VERCEL_ENV === "preview") {
+    return {
+      id: "mcp",
+      label,
+      status: configured ? "degraded" : "disabled",
+      message: configured
+        ? "Preview no debe recibir el token del MCP; se ignora."
+        : "Preview no ofrece el MCP.",
+      missingVariables: configured ? [MCP_ACCESS_TOKEN_VARIABLE] : [],
+    };
+  }
+
+  const token = parseMcpAccessToken(environment[MCP_ACCESS_TOKEN_VARIABLE]);
+
+  if (!token.ok && token.problem === "missing") {
+    return {
+      id: "mcp",
+      label,
+      status: "disabled",
+      message:
+        "Sin su token, la ruta /mcp no existe; el resto del portal no cambia.",
+      missingVariables: [MCP_ACCESS_TOKEN_VARIABLE],
+    };
+  }
+
+  if (!token.ok) {
+    return {
+      id: "mcp",
+      label,
+      status: "degraded",
+      message:
+        "El token tiene que ser base64url de al menos 32 bytes aleatorios.",
+      missingVariables: [MCP_ACCESS_TOKEN_VARIABLE],
+    };
+  }
+
+  return {
+    id: "mcp",
+    label,
+    status: "ready",
+    message:
+      "La ruta /mcp lee lo guardado con el token; nunca la cuenta en vivo ni la red.",
+    missingVariables: [],
+  };
+}
+
 export function getConfigHealth(environment: Environment): ConfigHealth {
   const runtime = resolveRuntime(environment);
   const trading = inspectTrading(environment, runtime);
@@ -446,6 +521,7 @@ export function getConfigHealth(environment: Environment): ConfigHealth {
       inspectLiveIntegrations(environment, runtime.mode),
       trading,
       inspectSchwab(environment, runtime, trading),
+      inspectMcp(environment, runtime),
     ],
   };
 }
@@ -477,5 +553,13 @@ export function servesTradingData(health: ConfigHealth): boolean {
     health.items.some(
       (item) => item.id === "trading" && item.status === "ready",
     )
+  );
+}
+
+/** Único predicado que abre la ruta `/mcp`: modo personal **y** su token (ADR 0078). */
+export function servesOwnerMcp(health: ConfigHealth): boolean {
+  return (
+    servesRealData(health) &&
+    health.items.some((item) => item.id === "mcp" && item.status === "ready")
   );
 }

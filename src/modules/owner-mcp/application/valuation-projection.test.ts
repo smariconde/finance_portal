@@ -1,0 +1,84 @@
+import { describe, expect, it } from "vitest";
+
+import { DEMO_SOURCE_REGISTRY } from "@/modules/ingestion/infrastructure/demo-source-registry";
+
+import { fixtureValuationReading } from "../infrastructure/fixture-valuation-reading";
+import { projectValuationResult } from "./valuation-projection";
+
+function restricting(sourceId: string) {
+  return DEMO_SOURCE_REGISTRY.map((entry) =>
+    entry.sourceId === sourceId
+      ? {
+          ...entry,
+          rights: { ...entry.rights, ownerAssistant: "restricted" as const },
+        }
+      : entry,
+  );
+}
+
+describe("projectValuationResult", () => {
+  it("una corrida FCFF lleva valor, escenarios, rigor y su corte", async () => {
+    const { reading } = await fixtureValuationReading("fcff");
+    if (reading.state !== "run") throw new Error("expected an FCFF run");
+    const { run } = reading;
+    const projected = projectValuationResult(reading, DEMO_SOURCE_REGISTRY);
+
+    expect(projected).toMatchObject({
+      catalogVersion: "portal-mcp-tools-1.0.0",
+      state: "run",
+      run: {
+        withheld: null,
+        method: "fcff_base",
+        asOf: run.asOf,
+        valuePerShare: run.result?.valuePerShare,
+        inputHash: run.inputHash,
+        scenarios: {
+          bearValuePerShare: run.result?.scenarios?.bear.valuePerShare,
+        },
+      },
+    });
+  });
+
+  it("una corrida financiera lee su valor de `result.base`", async () => {
+    const { reading, run } = await fixtureValuationReading("financial");
+    const projected = projectValuationResult(reading, DEMO_SOURCE_REGISTRY);
+
+    expect(reading.state).toBe("financial_run");
+    expect(run.result).not.toBeNull();
+    expect(projected).toMatchObject({
+      state: "financial_run",
+      run: {
+        withheld: null,
+        method: "excess_return",
+        rigor: "screening",
+        modelStatus: "experimental",
+      },
+    });
+    expect(
+      "run" in projected &&
+        projected.run.withheld === null &&
+        projected.run.valuePerShare,
+    ).toMatch(/^-?[0-9]+(\.[0-9]+)?$/u);
+  });
+
+  it("una fuente sin derecho saca sólo su sección, con el motivo", async () => {
+    const { reading } = await fixtureValuationReading("fcff");
+    const projected = projectValuationResult(
+      reading,
+      restricting("yahoo-finance"),
+    );
+
+    expect(projected).toMatchObject({
+      run: { withheld: null },
+      market: {
+        withheld: [
+          {
+            sourceId: "yahoo-finance",
+            reason: "rights.ownerAssistant:restricted",
+          },
+        ],
+      },
+      cedear: { withheld: null },
+    });
+  });
+});

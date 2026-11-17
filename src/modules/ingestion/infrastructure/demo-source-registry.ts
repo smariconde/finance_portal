@@ -78,6 +78,7 @@ function schwabSource(input: {
       publicDisplay: "restricted",
       export: "restricted",
       aiTransfer: "restricted",
+      ownerAssistant: OWNER_ASSISTANT,
     },
     technicalStatus: "spike_ready",
     approvalStatus: "approved_personal",
@@ -93,6 +94,16 @@ function schwabSource(input: {
     recordedAt: SCHWAB_RECORDED_AT,
   });
 }
+
+/**
+ * El asistente del owner ([ADR 0078](../../../../docs/architecture/adr/0078-owner-read-only-mcp.md),
+ * sección 6). El 2026-11-16 el owner aceptó que su asistente de IA lea por el
+ * MCP los datos de todas las fuentes registradas: «uso personal: el asistente
+ * del owner lee lo que el owner ya ve». Ninguna fuente lo concede, por eso
+ * `owner_accepted`; no abre ninguna superficie pública ni las tareas IA del
+ * portal, que siguen gobernadas por `aiTransfer`.
+ */
+const OWNER_ASSISTANT = "owner_accepted";
 
 /**
  * Registro de fuentes del modo demo.
@@ -146,6 +157,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         publicDisplay: "restricted",
         export: "restricted",
         aiTransfer: "restricted",
+        ownerAssistant: OWNER_ASSISTANT,
       },
       technicalStatus: "integrated",
       approvalStatus: "approved_personal",
@@ -188,6 +200,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         publicDisplay: "allowed",
         export: "allowed",
         aiTransfer: "restricted",
+        ownerAssistant: OWNER_ASSISTANT,
       },
       technicalStatus: "integrated",
       approvalStatus: "approved_public_demo",
@@ -257,6 +270,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         // Mandar un extracto a un modelo es copiarlo, y la SEC autoriza copiar
         // con cita. Se contestó cuando apareció el receptor (ADR 0033).
         aiTransfer: "allowed",
+        ownerAssistant: OWNER_ASSISTANT,
       },
       technicalStatus: "integrated",
       approvalStatus: "approved_personal",
@@ -312,6 +326,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         // El paquete publica PDDL 1.0: permite reutilización y exportación.
         export: "allowed",
         aiTransfer: "unknown",
+        ownerAssistant: OWNER_ASSISTANT,
       },
       technicalStatus: "spike_ready",
       approvalStatus: "approved_personal",
@@ -373,6 +388,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         publicDisplay: "restricted",
         export: "owner_accepted",
         aiTransfer: "restricted",
+        ownerAssistant: OWNER_ASSISTANT,
       },
       technicalStatus: "integrated",
       approvalStatus: "approved_personal",
@@ -425,6 +441,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         publicDisplay: "restricted",
         export: "owner_accepted",
         aiTransfer: "restricted",
+        ownerAssistant: OWNER_ASSISTANT,
       },
       technicalStatus: "integrated",
       approvalStatus: "approved_personal",
@@ -490,6 +507,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         publicDisplay: "restricted",
         export: "owner_accepted",
         aiTransfer: "restricted",
+        ownerAssistant: OWNER_ASSISTANT,
       },
       technicalStatus: "integrated",
       approvalStatus: "approved_personal",
@@ -530,7 +548,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
       fixturePolicy:
         "Sin fixture: no se conservan barras reales mientras la retención del plan no esté revisada.",
       fallbackSourceIds: [],
-      rights: {},
+      rights: { ownerAssistant: OWNER_ASSISTANT },
       technicalStatus: "technical_reviewed",
       approvalStatus: "rights_review_pending",
       reviewedAt: "2026-08-21T00:00:00.000Z",
@@ -644,6 +662,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         publicDisplay: "restricted",
         export: "allowed",
         aiTransfer: "restricted",
+        ownerAssistant: OWNER_ASSISTANT,
       },
       technicalStatus: "integrated",
       approvalStatus: "approved_personal",
@@ -703,6 +722,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         publicDisplay: "allowed",
         export: "allowed",
         aiTransfer: "restricted",
+        ownerAssistant: OWNER_ASSISTANT,
       },
       technicalStatus: "spike_ready",
       approvalStatus: "approved_personal",
@@ -755,6 +775,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         publicDisplay: "restricted",
         export: "allowed",
         aiTransfer: "restricted",
+        ownerAssistant: OWNER_ASSISTANT,
       },
       technicalStatus: "spike_ready",
       approvalStatus: "approved_personal",
@@ -808,6 +829,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         publicDisplay: "restricted",
         export: "restricted",
         aiTransfer: "restricted",
+        ownerAssistant: OWNER_ASSISTANT,
       },
       technicalStatus: "integrated",
       approvalStatus: "approved_personal",
@@ -861,6 +883,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         publicDisplay: "restricted",
         export: "restricted",
         aiTransfer: "restricted",
+        ownerAssistant: OWNER_ASSISTANT,
       },
       technicalStatus: "integrated",
       approvalStatus: "approved_personal",
@@ -925,6 +948,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         publicDisplay: "restricted",
         export: "allowed",
         aiTransfer: "restricted",
+        ownerAssistant: OWNER_ASSISTANT,
       },
       technicalStatus: "integrated",
       approvalStatus: "approved_personal",
@@ -985,6 +1009,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         publicDisplay: "restricted",
         export: "allowed",
         aiTransfer: "restricted",
+        ownerAssistant: OWNER_ASSISTANT,
       },
       technicalStatus: "integrated",
       approvalStatus: "approved_personal",
@@ -1044,6 +1069,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         publicDisplay: "unknown",
         export: "unknown",
         aiTransfer: "unknown",
+        ownerAssistant: OWNER_ASSISTANT,
       },
       technicalStatus: "integrated",
       approvalStatus: "approved_personal",
@@ -1102,6 +1128,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         publicDisplay: "unknown",
         export: "unknown",
         aiTransfer: "owner_accepted",
+        ownerAssistant: OWNER_ASSISTANT,
       },
       technicalStatus: "integrated",
       approvalStatus: "approved_personal",
@@ -1160,6 +1187,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         publicDisplay: "restricted",
         export: "restricted",
         aiTransfer: "restricted",
+        ownerAssistant: OWNER_ASSISTANT,
       },
       technicalStatus: "integrated",
       approvalStatus: "approved_personal",
@@ -1209,6 +1237,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         publicDisplay: "restricted",
         export: "restricted",
         aiTransfer: "restricted",
+        ownerAssistant: OWNER_ASSISTANT,
       },
       technicalStatus: "integrated",
       approvalStatus: "approved_personal",
@@ -1262,6 +1291,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         publicDisplay: "restricted",
         export: "restricted",
         aiTransfer: "restricted",
+        ownerAssistant: OWNER_ASSISTANT,
       },
       technicalStatus: "integrated",
       approvalStatus: "approved_personal",
@@ -1314,6 +1344,7 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
         publicDisplay: "restricted",
         export: "allowed",
         aiTransfer: "restricted",
+        ownerAssistant: OWNER_ASSISTANT,
       },
       technicalStatus: "integrated",
       approvalStatus: "approved_personal",

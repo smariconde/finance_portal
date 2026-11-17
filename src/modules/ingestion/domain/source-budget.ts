@@ -91,6 +91,11 @@ export const SOURCE_DAILY_REQUEST_BUDGETS: Readonly<Record<string, number>> =
     openrouter: 100,
     // Un tercio de lo que el plan gratuito da por día (1.000 por mes).
     tavily: 10,
+    // El MCP del owner (ADR 0078) no sale a la red: cuenta cada pedido a `/mcp`
+    // para que un loop del asistente no agote la Function ni la transferencia
+    // de Neon. Una sesión son unos pocos pedidos por pregunta; quinientos
+    // cubren un día de uso intenso. Se revisa con la medición del slice.
+    "portal-mcp": 500,
   });
 
 /** Tabla de topes declarados. Los tests inyectan la suya; el runtime usa la de arriba. */

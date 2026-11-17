@@ -45,6 +45,9 @@ export const SECRET_SENTINELS = {
   SCHWAB_APP_SECRET: "SentinelSchwabSecretNoLeak",
   // base64 de "sentinel-trading-secret-key-32b!"
   TRADING_SECRET_KEY: "c2VudGluZWwtdHJhZGluZy1zZWNyZXQta2V5LTMyYiE=",
+  // El token del MCP del owner (ADR 0078), con forma válida para que la ruta
+  // exista en el servidor personal. base64url de "sentinel-mcp-access-token-32by!!".
+  MCP_ACCESS_TOKEN: "c2VudGluZWwtbWNwLWFjY2Vzcy10b2tlbi0zMmJ5ISE",
 } as const;
 
 export const SENTINEL_VALUES = Object.values(SECRET_SENTINELS);

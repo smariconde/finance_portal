@@ -86,6 +86,7 @@ type SourceRegistryEntry = {
     publicDisplay: "unknown" | "allowed" | "restricted";
     export: "unknown" | "allowed" | "restricted";
     aiTransfer: "unknown" | "allowed" | "restricted";
+    ownerAssistant: "unknown" | "allowed" | "restricted";
   };
   technicalStatus: string;
   approvalStatus: string;
@@ -380,3 +381,16 @@ cuota, límites y recuperación están en el [runbook](../runbooks/company-logos
 - Fuente contractual para MEP/CCL.
 - Política de raw, cache y export por fuente argentina.
 - Datos exactos que podrían transferirse a OpenRouter o Tavily en Fase 7.
+
+## `ownerAssistant` (ADR 0078)
+
+Desde `F11-17` el registro tiene una dimensión más: si los datos de la fuente
+pueden llegar al asistente de IA que el owner usa por el MCP de sólo lectura
+([ADR 0078](../architecture/adr/0078-owner-read-only-mcp.md), sección 6). Es
+`owner_accepted` en todas las fuentes registradas por decisión del owner del
+2026-11-16 («uso personal: el asistente del owner lee lo que el owner ya ve»),
+y está separada de `aiTransfer`, que sigue gobernando las tareas IA propias del
+portal. Cada sección de una respuesta del MCP declara sus fuentes; si alguna
+dice `restricted` o `unknown`, o no tiene fila, la sección sale con el motivo
+(`owner-assistant-1.0.0`). El espejo en PostgreSQL es la columna
+`owner_assistant_right` (migración `0052`).

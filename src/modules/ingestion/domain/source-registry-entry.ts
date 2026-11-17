@@ -109,6 +109,12 @@ export const sourceRightsSchema = z.object({
   publicDisplay: rightsDecisionSchema.default("unknown"),
   export: rightsDecisionSchema.default("unknown"),
   aiTransfer: rightsDecisionSchema.default("unknown"),
+  /**
+   * Si los datos de la fuente pueden llegar al asistente de IA que el owner
+   * usa por el MCP ([ADR 0078](../../../../docs/architecture/adr/0078-owner-read-only-mcp.md)).
+   * Separado de `aiTransfer`, que gobierna las tareas IA propias del portal.
+   */
+  ownerAssistant: rightsDecisionSchema.default("unknown"),
 });
 
 export type SourceRights = z.infer<typeof sourceRightsSchema>;

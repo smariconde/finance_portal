@@ -245,6 +245,9 @@ export const sourceRegistry = pgTable(
     aiTransferRight: sourceRightsDecision("ai_transfer_right")
       .notNull()
       .default("unknown"),
+    ownerAssistantRight: sourceRightsDecision("owner_assistant_right")
+      .notNull()
+      .default("unknown"),
     technicalStatus: sourceTechnicalStatus("technical_status").notNull(),
     approvalStatus: sourceApprovalStatus("approval_status")
       .notNull()
