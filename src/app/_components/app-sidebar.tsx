@@ -93,7 +93,15 @@ export function AppSidebar() {
                   alt=""
                   width={28}
                   height={28}
-                  className="size-7 shrink-0 group-data-[collapsible=icon]:size-6"
+                  className="size-7 shrink-0 group-data-[collapsible=icon]:size-6 dark:hidden"
+                />
+                {/* eslint-disable-next-line @next/next/no-img-element -- Variante SVG local derivada del mismo maestro. */}
+                <img
+                  src="/brand/portal-mark-dark.svg"
+                  alt=""
+                  width={28}
+                  height={28}
+                  className="hidden size-7 shrink-0 group-data-[collapsible=icon]:size-6 dark:block"
                 />
                 <span className="text-base font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
                   Portal Financiero

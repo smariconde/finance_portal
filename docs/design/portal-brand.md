@@ -4,7 +4,9 @@
 - Modo: `Operate`; marca del shell, pestaña y acceso guardado.
 - Decisión: opción B, sello marfil con torii bermellón y remate carbón.
 - Maestro: `public/brand/portal-mark.svg`.
-- Derivados: `public/favicon.ico` (16, 32 y 48 px) y
+- Derivados: `public/brand/portal-mark-dark.svg` (inversa),
+  `public/brand/portal-favicon.svg` (adaptativo),
+  `public/favicon.ico` (16, 32 y 48 px) y
   `public/apple-touch-icon.png` (180 px).
 - Regeneración: `node scripts/build-brand-assets.mjs`, con Sharp ya instalado.
 
@@ -32,7 +34,11 @@ locales; el render y la regeneración no consultan un modelo ni una red.
 | Interacción en claro   | `#A32F18`, texto `#FFFDF8` |
 | Interacción en oscuro  | `#FF9A7D`, texto `#202A2B` |
 
-La marca usa el mismo disco y silueta en ambos temas. El shell hereda carbón y
+La silueta es la misma en ambos temas. Por pedido del owner, la versión oscura
+invierte carbón y marfil: disco carbón y remate marfil, con el torii bermellón
+intacto. La sidebar sigue el tema efectivo, incluso cuando el owner fuerza un
+tema distinto al sistema. El favicon SVG se adapta a la preferencia de color
+del navegador; el ICO de respaldo y el ícono de Apple mantienen la versión clara. El shell hereda carbón y
 neutros cálidos. El bermellón vivo se reserva para la imagen; el tono funcional
 es más oscuro en claro para que enlaces, botones y hover conserven contraste.
 Los colores de suba/baja, advertencia y error conservan su significado y texto.

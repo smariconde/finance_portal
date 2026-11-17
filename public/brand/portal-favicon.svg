@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <style>@media(prefers-color-scheme:dark){circle{fill:#293638}path[fill="#293638"]{fill:#FFF8EF}}</style>
+  <circle cx="64" cy="64" r="62" fill="#FFF8EF"/>
+  <g fill="#EA3B18">
+    <path d="M37 47h7v26h-7zm47 0h7v26h-7z"/>
+    <path d="M28 55h72l2 7H26z"/>
+    <path d="M34 70h13v34H34zm47 0h13v34H81z"/>
+    <path d="M38 102h5v9h-5zm47 0h5v9h-5z"/>
+    <path d="M58 80h12v20H58zm4-6h4v32h-4z"/>
+  </g>
+  <path d="M18 32q46 16 92 0l-5 12q-2 4-9 4H32q-7 0-9-4z" fill="#293638"/>
+</svg>

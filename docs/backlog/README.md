@@ -7709,3 +7709,17 @@ plan de Neon.
   4,65:1. Alcance: texto de navegación con alpha. Contraejemplo: la opacidad
   que sólo atenúa una marca decorativa, sin texto ni significado exclusivo.
   Es candidato, no una modificación de las skills vendorizadas.
+
+### Ajuste de marca para oscuro (2026-11-17)
+
+- Estado: `done` en la misma rama; pedido posterior del owner: quitar el
+  círculo blanco en modo oscuro.
+- Misma silueta, disco carbón, remate marfil y torii bermellón. La sidebar
+  sigue el tema efectivo con CSS, incluidos los overrides del owner; el
+  favicon SVG sigue la preferencia del navegador. Ambos SVG se derivan del
+  maestro al regenerar los assets. ICO y Apple conservan el respaldo claro.
+- Evidencia: lint, tipos, build con centinelas, formato y 8 E2E de tema y
+  accesibilidad del inicio aprobados. Revisión a 1440 y 390 px en claro y
+  oscuro: una sola variante visible y cargada, también al forzar claro u
+  oscuro contra la preferencia del sistema. SVG adaptativo servido con 200;
+  capturas `portal-brand-inverse-*`, detector Impeccable vacío.
