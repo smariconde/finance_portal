@@ -100,3 +100,28 @@ export function companyHue(ticker: string): number {
   }
   return hash;
 }
+
+/**
+ * Cómo entra un logo en un contorno circular (`company-logo-fit-1.0.0`).
+ *
+ * El proveedor entrega dos clases de imagen: una placa llena con el fondo de
+ * la marca hasta las esquinas (Amazon, NVIDIA, Uber) y un dibujo sobre
+ * transparente que toca los bordes (Apple, Airbnb, P&G). La placa llena cubre
+ * el círculo entero —el recorte sólo quita fondo—; el dibujo se achica al
+ * cuadrado inscripto, porque cubrirlo le cortaría las puntas.
+ *
+ * Decide la opacidad de las cuatro esquinas, de 0 a 255: todas opacas es
+ * `cover`. Sin las cuatro lecturas, `inset`, que nunca recorta.
+ */
+export type CompanyLogoFit = "cover" | "inset";
+
+const OPAQUE_CORNER = 250;
+
+export function companyLogoFit(
+  cornerAlphas: readonly number[],
+): CompanyLogoFit {
+  return cornerAlphas.length === 4 &&
+    cornerAlphas.every((alpha) => alpha >= OPAQUE_CORNER)
+    ? "cover"
+    : "inset";
+}

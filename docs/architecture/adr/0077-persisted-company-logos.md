@@ -58,6 +58,20 @@ gráficos. Esta mejora antecede a `F11-13`; no inicia ese slice.
   a cuenta, órdenes, diario, estadísticas por ticker, lecciones y plan. Las
   marcas circulares de matrices y gráficos conservan su geometría y tamaño.
 
+## Enmienda 2026-11-16: una sola placa fuera de los gráficos
+
+El owner pidió la placa de trading también en Análisis. `CompanyMark` deja de
+tener forma circular: ficha, pares, tablas y detalle del sector usan el
+cuadrado con radio del 20 % y el logo entero con `contain`, igual que
+`TickerMark`. Los gráficos de matrices conservan el círculo, porque ahí el
+cuadrado es el glifo CEDEAR de los puntos sin logo. Dentro del círculo,
+`company-logo-fit-1.0.0` lee la opacidad de las cuatro esquinas del PNG
+propio en el navegador: una placa opaca cubre el círculo (el recorte sólo
+quita fondo) y un dibujo sobre transparente queda en el cuadrado inscripto,
+sin recortarse. La misma lectura le da margen a un dibujo transparente en la
+placa cuadrada, que si no toca sus bordes. Nada se guarda: es una lectura de
+presentación.
+
 ## Operación y consecuencias
 
 `pnpm logos:ingest --universe` lista los símbolos de las membresías vigentes y

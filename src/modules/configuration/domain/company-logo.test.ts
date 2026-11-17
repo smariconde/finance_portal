@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  companyLogoFit,
   companyHue,
   companyLogoAssetUrl,
   companyInitials,
@@ -85,5 +86,22 @@ describe("companyHue", () => {
     expect(companyHue("AAPL")).not.toBe(companyHue("MSFT"));
     expect(companyHue("AAPL")).toBeGreaterThanOrEqual(0);
     expect(companyHue("AAPL")).toBeLessThan(360);
+  });
+});
+
+describe("companyLogoFit", () => {
+  it("cubre el círculo con una placa opaca hasta las esquinas", () => {
+    expect(companyLogoFit([255, 255, 250, 255])).toBe("cover");
+  });
+
+  it("achica un dibujo que deja alguna esquina transparente", () => {
+    expect(companyLogoFit([0, 0, 0, 0])).toBe("inset");
+    expect(companyLogoFit([255, 255, 255, 249])).toBe("inset");
+  });
+
+  it("no recorta sin las cuatro lecturas", () => {
+    expect(companyLogoFit([])).toBe("inset");
+    expect(companyLogoFit([255, 255, 255])).toBe("inset");
+    expect(companyLogoFit([255, 255, 255, Number.NaN])).toBe("inset");
   });
 });
