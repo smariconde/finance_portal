@@ -138,7 +138,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   110 | `F11-14`   | `done`        | MCP de solo lectura para la IA del owner, decidido en su propia ADR antes de cualquier código.                                                                                                                            | gate de la Fase 11 |
 |   111 | `F11-15`   | `done`        | El riesgo y el diario sobreviven a una tabla de trading ausente o atrasada: sin vínculos de pre-market leen planes y reglas y nombran lo que falta, en vez de caer con una referencia.                                    | `F11-12`           |
 |   112 | `F11-16`   | `done`        | Logos PNG guardados en PostgreSQL y servidos desde el portal; cuadrados redondeados junto a los tickers de trading, conservando círculos en matrices y gráficos.                                                          | Pedido del owner   |
-|   113 | `F11-17`   | `queued`      | MCP de solo lectura en `/mcp` con dos secretos, catálogo `portal-mcp-tools-1.0.0` (valuaciones y diario primero) y `ownerAssistant` por fuente.                                                                           | ADR 0078           |
+|   113 | `F11-17`   | `in_progress` | MCP de solo lectura en `/mcp` con dos secretos, catálogo `portal-mcp-tools-1.0.0` (valuaciones y diario primero) y `ownerAssistant` por fuente.                                                                           | ADR 0078           |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -7395,6 +7395,50 @@ probar el control; fases posteriores pueden volver a verificarlo.
   sin violaciones propias (las `region` de la sidebar son previas). La cuenta
   se revisó con una lectura sintética en una ruta temporal ya borrada.
 
+## `F11-17` — MCP de sólo lectura del owner
+
+- Estado: `in_progress`. Código, local y cliente verificados; falta el paso
+  remoto: `0052` en Neon (snapshot antes, ADR 0073), `MCP_ACCESS_TOKEN` en
+  Vercel Production y la primera conexión del owner desde Production.
+- Autorización: [ADR 0078](../architecture/adr/0078-owner-read-only-mcp.md),
+  aceptada el 2026-11-16. El owner creó el mismo día el secreto de bypass
+  «MCP de Santiago».
+- Alcance: `POST /mcp` (`src/app/mcp/route.ts`) sobre `createMcpHandler` de
+  `@modelcontextprotocol/server` 2.4.0 exacto, sin estado. Catálogo
+  `portal-mcp-tools-1.0.0`: `list_valuations`, `get_valuation`, `list_trades`
+  y `get_trade`, cada una sobre el loader de su página
+  (`readValuedCompaniesForRequest`, `readValuationResultForRequest`,
+  `readJournal`, `readTradeEntry`), todas `readOnlyHint`. Ítem «MCP del
+  owner» en el health (`servesOwnerMcp`); `ownerAssistant` en el registro,
+  `owner_accepted` en las 22 fuentes, con su espejo `owner_assistant_right`
+  (migración `0052`); `portal-mcp` con 500 pedidos por día y kill switch.
+- Controles: `TM-01`, `TM-02`, `TM-03`, `TM-04`, `TM-07`, `TM-08`, `TM-09`,
+  `TM-10`, `TM-13`, `TM-14`, `TM-15`, `TM-16`, `TM-17`.
+- Decisiones del slice: el tramo 2025 sin estado del SDK responde un frame SSE
+  aunque se pida JSON (Claude Code lo lee); el modo de respuesta queda el del
+  SDK porque `json` avisaba en cada pedido. Una sección cuya fuente no admite
+  `ownerAssistant` sale como `withheld` con el motivo, nunca vacía. El valor
+  de una corrida financiera sale de `result.base`, no de `result`: la medición
+  lo encontró en JPM y un test de proyección lo fija. El diario se ordena del
+  trade más reciente y filtra por la sesión de Nueva York de apertura.
+- Evidencia local: 36 unitarios nuevos (token, health, derechos, catálogo,
+  proyecciones de valuación y diario, handler con el SDK y centinelas sobre
+  las cuatro herramientas con secretos, HMAC de cuenta e IDs internos, y una base de cuota caída que da 503), 4.426
+  unitarios en total sin red y 245 de integración. Contra la base personal en
+  un build servido: `initialize` 402 B, `tools/list` 3.024 B, `list_valuations`
+  2.033 B en 0,31 s, `get_valuation` AAPL 3.668 B en 0,44–0,54 s (valor
+  151,76, P/V 2,30 y `above_bull`, como la página), JPM 2.220 B (171,10, igual
+  que la página), un ticker sin corrida nombra `unresolved_ticker`,
+  `list_trades` con los 47 trades 27.417 B en 0,07 s, `get_trade` 1.410 B; el
+  servidor trabado responde 404, sin token 401, con `Origin` 403 y `GET` 405;
+  `portal-mcp` contó 10 pedidos. Claude Code conectó con los dos `--header`
+  («✔ Connected») y la entrada de prueba se borró.
+- E2E: el gate suma `MCP_ACCESS_TOKEN` a sus centinelas. En el servidor
+  personal `GET` da 405, sin token 401, con `Origin` 403 y con el token 503
+  (su cuota vive en una base que el gate no tiene), sin centinelas en cuerpo ni
+  headers; en el trabado, 404 aun con el token.
+- Operación: [runbook](../runbooks/owner-mcp.md).
+
 ## Plantilla para nuevos issues
 
 ```md
@@ -7595,3 +7639,21 @@ plan de Neon.
   revisión renderizada a 1440 claro y 390 oscuro de `/valuacion`, AAPL, AMZN,
   JPM, MSFT y la referencia con 0 axe y 0 overflow; AAPL pasa de 2.593 a 2.083
   palabras y JPM de 897 a 644.
+
+## Mejora transversal — logos en Análisis (2026-11-16)
+
+- Estado: `done` ([PR #145](https://github.com/smariconde/finance_portal/pull/145)).
+- Autorización: pedido del owner del 2026-11-16, antes de `F11-17`: la placa
+  cuadrada con esquinas redondeadas de trading también en Análisis, y mejorar
+  cómo se ven los logos en los gráficos.
+- Alcance: `CompanyMark` deja el círculo; ficha, pares, tablas y detalle del
+  sector usan la placa del 20 % de `TickerMark`. Los gráficos de matrices
+  conservan el círculo (ahí el cuadrado es el glifo CEDEAR).
+  `company-logo-fit-1.0.0` lee la opacidad de las cuatro esquinas del PNG
+  propio en el navegador: una placa opaca cubre el círculo y un dibujo
+  transparente queda inscripto, sin recorte; en la placa cuadrada, con margen.
+  DESIGN.md y una enmienda a la ADR 0077.
+- Evidencia: formato, lint, tipos, 4.390 unitarios, build, quality y E2E del
+  PR; revisión renderizada a 1440 y 390 px de `/valuacion`, AAPL, KO, la
+  matriz de Information Technology y `/diario` sin overflow; en la matriz, 38
+  de 53 logos cubren el círculo y 15 quedan inscriptos.

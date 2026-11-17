@@ -109,6 +109,7 @@ const servers: readonly ServerSpec[] = [
       SCHWAB_APP_KEY: "",
       SCHWAB_APP_SECRET: "",
       TRADING_SECRET_KEY: "",
+      MCP_ACCESS_TOKEN: "",
       VERCEL: "",
       VERCEL_ENV: "",
     },

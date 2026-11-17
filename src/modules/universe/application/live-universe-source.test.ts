@@ -25,6 +25,7 @@ const UNREVIEWED_RIGHTS: SourceRights = {
   publicDisplay: "unknown",
   export: "unknown",
   aiTransfer: "unknown",
+  ownerAssistant: "unknown",
 };
 
 const APPROVED_RIGHTS: SourceRights = {
@@ -36,6 +37,7 @@ const APPROVED_RIGHTS: SourceRights = {
   publicDisplay: "unknown",
   export: "unknown",
   aiTransfer: "unknown",
+  ownerAssistant: "unknown",
 };
 
 function entry(

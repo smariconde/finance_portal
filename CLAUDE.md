@@ -1543,7 +1543,19 @@ assistant: `POST /mcp` in Production, stateless `createMcpHandler` from
 auth). Tools wrap the pages' own loaders over stored data only —no egress,
 no writes, never the live account, credentials or the account HMAC— and a
 new `ownerAssistant` rights dimension, separate from `aiTransfer`, gates
-each source.
+each source. Since `F11-17` (in progress until the Production step, migration
+`0052`, [runbook](docs/runbooks/owner-mcp.md)) the route exists:
+`src/server/mcp/` answers `404` locked or without a valid `MCP_ACCESS_TOKEN`
+(health item «MCP del owner», `servesOwnerMcp`), `403` with an `Origin` or a
+`Host` outside the deployment's own domains, `401` unless the `Bearer`'s
+SHA-256 matches in constant time, and counts every request in `portal-mcp`
+(500/day, kill switch through `pnpm ingestion:sources`).
+`portal-mcp-tools-1.0.0` holds `list_valuations`, `get_valuation`,
+`list_trades` and `get_trade` over the pages' own readers, projected in
+`src/modules/owner-mcp/` with no internal IDs and never the account HMAC; a
+section whose source denies `ownerAssistant` is `withheld` with its reason,
+and a response above 256 KB is refused, never cut. The SDK's stateless 2025
+leg answers in SSE, which Claude Code reads; it connected with both headers.
 
 Since `F11-10` (in progress, ADR 0076 amendment, no migration) `/lecciones`
 teaches seven concepts and one lesson per code of `trading-setups-1.0.0`

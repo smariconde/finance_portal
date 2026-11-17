@@ -135,6 +135,8 @@ describe("egress allowlist", () => {
           publicDisplay: "restricted",
           export: "restricted",
           aiTransfer: "restricted",
+          // ADR 0078: el asistente del owner lee sus transacciones guardadas.
+          ownerAssistant: "owner_accepted",
         });
       }
     });
