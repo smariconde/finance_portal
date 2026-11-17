@@ -16,12 +16,10 @@ import {
 import {
   amount,
   calendarDate,
-  compactMillions,
   comparisonText,
   dayMonth,
   fractionAsPoints,
   points,
-  resultWord,
   roundedTo,
   shortMonth,
   signedAmount,
@@ -47,10 +45,8 @@ function monthAbbr(on: string): string {
 }
 
 function summariesOf(dashboard: ArgentinaDashboard): readonly Summary[] {
-  const { activity, dollar, monetary, fiscal, external, soy } = dashboard;
+  const { activity, dollar, monetary, countryRisk, external, soy } = dashboard;
   const inflation = monetary.monthlyInflation.at(-1);
-  const fiscalYear = fiscal.years.at(-1);
-  const ytd = fiscal.yearToDate;
   const trade = external.months.at(-1);
 
   return [
@@ -92,17 +88,17 @@ function summariesOf(dashboard: ArgentinaDashboard): readonly Summary[] {
       cadence: "monthly",
     },
     {
-      metric: "primaryBalance",
-      href: "#fiscal",
-      label: "Primario: % del PIB",
-      value: fiscalYear ? comparisonText(fiscalYear.primary) : "Sin dato",
-      // El año en curso todavía no tiene % del PIB: va en pesos y nombra sus
-      // meses, así no se confunde con el año del pie.
-      detail: ytd
-        ? `${ytd.months === 1 ? "Ene" : `Ene–${monthAbbr(ytd.lastOn)}`} ${ytd.year}: ${resultWord(ytd.primary)} $ ${compactMillions(ytd.primary)}`
-        : "Sector Público Nacional",
-      asOf: fiscalYear ? `Año ${fiscalYear.year}` : null,
-      cadence: "annual",
+      metric: "countryRisk",
+      href: "#riesgo-pais",
+      label: "Riesgo país",
+      value: countryRisk.latest
+        ? `${amount(countryRisk.latest.value)} pb`
+        : "Sin dato",
+      detail: countryRisk.latest?.index
+        ? `J.P. Morgan, ${countryRisk.latest.index.label}`
+        : "J.P. Morgan, vía Ámbito",
+      asOf: countryRisk.latest ? calendarDate(countryRisk.latest.on) : null,
+      cadence: "daily",
     },
     {
       metric: "tradeBalance",
@@ -172,7 +168,7 @@ function Change({
       </span>
     );
   }
-  const scale = change.unit === "amount" ? 0 : 1;
+  const scale = change.unit === "pp" ? 1 : 0;
   // Redondeado antes de decidir la flecha: un cambio que se escribe «0,0 pp»
   // no lleva dirección ni color.
   const rounded = roundedTo(change.difference, scale);
@@ -182,7 +178,9 @@ function Change({
       text={
         change.unit === "amount"
           ? `US$ ${signedAmount(rounded)} M`
-          : `${signedAmount(rounded, 1)}\u00a0pp`
+          : change.unit === "bp"
+            ? `${signedAmount(rounded)}\u00a0pb`
+            : `${signedAmount(rounded, 1)}\u00a0pp`
       }
       polarity={SUMMARY_POLARITY[summary.metric]}
       context={previousLabel(change, summary.cadence)}

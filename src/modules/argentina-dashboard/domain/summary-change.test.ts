@@ -7,10 +7,10 @@ import {
   buildActivityBlock,
   buildDollarBlock,
   buildExternalBlock,
-  buildFiscalBlock,
   buildMonetaryBlock,
   type IndicatorSeries,
 } from "./argentina-dashboard";
+import { buildCountryRiskBlock } from "./country-risk-block";
 import type { SoyBlock } from "./soy-block";
 import {
   SUMMARY_CHANGE_VERSION,
@@ -18,6 +18,25 @@ import {
   summaryChange,
   summaryChanges,
 } from "./summary-change";
+
+function vintage(
+  indicatorId: string,
+  periodOn: string,
+  value: string,
+): ArgentinaIndicatorVintage {
+  return {
+    indicatorId,
+    periodOn,
+    value,
+    missingReason: null,
+    sourceNote: null,
+    availableAt: "2026-11-17T12:00:00.000Z",
+    recordedAt: "2026-11-17T12:00:01.000Z",
+    revision: 0,
+    segment: "embi-ar",
+    sourceRunId: "run",
+  };
+}
 
 function series(
   id: string,
@@ -210,7 +229,7 @@ describe(SUMMARY_CHANGE_VERSION, () => {
       activity: "higher_is_better",
       fxGap: "lower_is_better",
       inflation: "lower_is_better",
-      primaryBalance: "higher_is_better",
+      countryRisk: "lower_is_better",
       tradeBalance: "higher_is_better",
       soyGap: "higher_is_better",
     });
@@ -253,10 +272,12 @@ describe("summaryChanges", () => {
     realBaseUnit: null,
     realBaseOn: null,
   });
-  const fiscal = buildFiscalBlock({
-    primary: series("fiscal_primary_result", []),
-    interest: series("fiscal_net_interest", []),
-    gdp: series("gdp_nominal_annual", []),
+  const countryRisk = buildCountryRiskBlock({
+    points: [
+      vintage("ar_country_risk_embi", "2026-11-13", "830"),
+      vintage("ar_country_risk_embi", "2026-11-16", "855.5"),
+    ],
+    dailyFromOn: "2021-11-16",
   });
   const external = buildExternalBlock({
     exports: series(
@@ -274,7 +295,7 @@ describe("summaryChanges", () => {
       activity,
       dollar,
       monetary,
-      fiscal,
+      countryRisk,
       external,
       soy: EMPTY_SOY,
     });
@@ -301,9 +322,14 @@ describe("summaryChanges", () => {
       difference: "-1100",
       unit: "amount",
     });
-    expect(changes.primaryBalance).toEqual({
-      status: "unavailable",
-      reason: "missing_current",
+    // A spread changes in basis points, against the previous close.
+    expect(changes.countryRisk).toMatchObject({
+      status: "computed",
+      currentOn: "2026-11-16",
+      previousOn: "2026-11-13",
+      difference: "25.5",
+      unit: "bp",
+      version: "summary-change-1.1.0",
     });
     expect(changes.soyGap).toEqual({
       status: "unavailable",
@@ -328,7 +354,7 @@ describe("summaryChanges", () => {
         activity,
         dollar,
         monetary: withGap,
-        fiscal,
+        countryRisk,
         external,
         soy: EMPTY_SOY,
       }).inflation,
@@ -352,7 +378,7 @@ describe("summaryChanges", () => {
         realBaseUnit: null,
         realBaseOn: null,
       }),
-      fiscal,
+      countryRisk,
       external,
       soy: EMPTY_SOY,
     });
