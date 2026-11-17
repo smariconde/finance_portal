@@ -17,9 +17,9 @@ noviembre: al llegar al límite Neon suspendió el compute y toda conexión —i
 
 ## Registro del 2026-11-17
 
-El owner subió la organización a Launch para recuperar el acceso y fijó un
-`Spending limit` de US$ 5,00. Con el proyecto operativo se aplicaron las dos
-cargas pendientes, en este orden:
+El owner subió la organización a Launch para recuperar el acceso y se configuró
+un umbral de alertas de US$ 5,00. Con el proyecto operativo se aplicaron las dos
+cargas pendientes en este orden:
 
 | Carga                 | Comando                                                          | Resultado                                                                          |
 | --------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
@@ -48,10 +48,10 @@ ese crecimiento es la serie del ITCRM que antes no existía. El bloque muestra
 05/11/2026» con sus siete meses objetivo. No aparecieron `NaN`, `Infinity` ni
 «No disponible».
 
-Los siete meses del REM siguen mostrando **«Pendiente»**: la API del INDEC
-todavía termina en 2026-09-01, así que el IPC de octubre no existe y la
-comparación no se puede calcular. Es el comportamiento correcto; no se fuerza
-otra fuente.
+Al 2026-11-17 los siete meses del REM mostraban **«Pendiente»**. La API del
+INDEC aún entregaba datos hasta septiembre y la serie `ipc_nacional` de Neon
+también terminaba en `2026-09-01`. El informe de octubre salió el 12 de
+noviembre. [Informe del INDEC](https://www.indec.gob.ar/uploads/informesdeprensa/ipc_11_269335F5BA6B.pdf).
 
 ## Repetir la comprobación
 
@@ -62,7 +62,7 @@ los dos archivos de entorno; el último gana:
 NEON="node --env-file=.env.local --env-file=.env.neon.local --conditions=react-server --import tsx"
 ```
 
-En seco no escribe:
+En seco, los comandos consultan al BCRA bajo su cuota y no publican datos.
 
 ```sh
 $NEON scripts/record-argentina-indicators.ts --indicator itcrm_daily
@@ -74,7 +74,8 @@ actualización de lo que esté atrasado (ADR 0070), y eso también gasta
 transferencia. Anotar `data_transfer_bytes` del período antes y después; la cifra
 de Neon se agrega por hora y no atribuye el consumo a una consulta.
 
-Cuando el INDEC publique el IPC de octubre de 2026, repetir
-`--indicator ipc_nacional --apply` y volver a abrir `/argentina`: esos siete
-meses deberían pasar de «Pendiente» a la comparación con su error en puntos
-porcentuales.
+Primero comprobar en seco con `$NEON scripts/record-argentina-indicators.ts
+--indicator ipc_nacional`. Cuando la API incluya octubre de 2026, repetir con
+`--apply` y volver a abrir `/argentina`. La fila de octubre debe mostrar el IPC
+y el error en puntos porcentuales. Las siguientes siguen pendientes hasta
+que esté disponible el IPC de cada mes objetivo.

@@ -118,12 +118,12 @@ El 2026-11-17 el proyecto de análisis llegó al límite de 5 GB y Neon suspendi
 compute: toda conexión, incluido `pg_dump`, devolvía «Your account or project has
 exceeded the quota». El procedimiento está en la enmienda del 2026-11-17 de la
 [ADR 0073](../architecture/adr/0073-neon-free-network-transfer-recovery.md):
-subir la organización a **Launch** desde **Billing**, fijar **Spending limit**
-(sólo existe en planes pagos), verificar `db:status:neon` y una ruta, y volver a
-**Free** el mismo día, porque el cambio de plan reinicia la franquicia de Free.
-No crear otro proyecto para escapar del límite: sin compute no se puede leer el
-origen ni volcarlo. La suspensión es por proyecto, así que la base de trading
-sigue respondiendo con su propia cuota.
+subir la organización a **Launch** desde **Billing**, configurar las alertas de
+gasto y verificar `db:status:neon` y una ruta. Cuando el owner vuelva a **Free**
+desde **Billing**, verificar el plan, el consumo y la conexión. Un traslado de
+proyecto requiere recuperar primero la lectura de la base de origen. La
+suspensión es por proyecto y la base de trading sigue respondiendo con su propia
+cuota.
 
 `finance_portal_runtime` tiene los cuatro permisos DML sobre las 45 tablas
 públicas y permisos por defecto para las futuras tablas del owner. No puede
