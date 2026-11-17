@@ -895,6 +895,21 @@ draws them through `TimelineChart`'s `context` in place of the general
 regimes. Measured: the 2023-11-24 peak of +37.6 % reads about −29 % at the
 50/50 rate, and every regime's median falls between −23 % and −37 %.
 
+Since `F9-20` ([ADR 0079](docs/architecture/adr/0079-new-data-since-last-visit.md),
+migration `0053`) `/argentina` marks what arrived since the owner's previous
+visit: `argentina-news-1.0.0` compares the latest period of the EMAE, the CPI,
+the REM round, the monthly primary result and goods trade read with
+`system_recorded` now and at the baseline —never `public_availability`: the REM
+is dated at its publication and stored days later—, as «Nuevo» (later period)
+or «Revisado» (same period, another decimal); daily series are never marked.
+The visit lives in `surface_visits`, one overwritten row per surface
+(`surface-visit-1.0.0`): a session is views under 30 minutes apart and its
+baseline is the previous session's last view, so a reload or a post-refresh
+re-read keeps the marks and the first session marks nothing. The render only
+reads it; `VisitRecorder` calls `recordArgentinaVisit` (no input) after the
+page shows and on each new cutoff. No notification outside the page: nothing
+arrives without a visit (ADR 0070).
+
 Against Neon, the repo's commands need both env files, the last one winning —
 an exported `DATABASE_URL` does not beat `--env-file`:
 `node --env-file=.env.local --env-file=.env.neon.local --conditions=react-server --import tsx scripts/<command>.ts`.

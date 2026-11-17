@@ -372,6 +372,13 @@
       "when": 1794876844221,
       "tag": "0052_owner_assistant_right",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1794948237942,
+      "tag": "0053_surface_visits",
+      "breakpoints": true
     }
   ]
 }
