@@ -924,7 +924,10 @@ registry; `country-risk-index-1.0.0` dates the move from the EMBI+ to the EMBI
 Global Diversified on 2025-09-30, drawn as two spans plus a vertical line,
 never detected. `/argentina` refreshes it once per Buenos Aires day and reads
 it as a chart (`country-risk-block-1.0.0`, `argentina-dashboard-2.5.0`);
-`pnpm argentina:indicators --indicator ar_country_risk_embi` runs it by hand.
+`pnpm argentina:indicators --indicator ar_country_risk_embi` runs it by hand. Since
+`summary-change-1.1.0` (owner's request) its tile replaces the primary result
+over GDP, an annual figure; the change reads in basis points, red when it
+rises.
 
 Against Neon, the repo's commands need both env files, the last one winning —
 an exported `DATABASE_URL` does not beat `--env-file`:

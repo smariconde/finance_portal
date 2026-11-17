@@ -6,10 +6,10 @@ import type {
   ActivityBlock,
   DollarBlock,
   ExternalBlock,
-  FiscalBlock,
   MonetaryBlock,
 } from "./argentina-dashboard";
 import { shiftMonth } from "./chart-history";
+import type { CountryRiskBlock } from "./country-risk-block";
 import type { SoyBlock } from "./soy-block";
 
 /**
@@ -25,7 +25,12 @@ import type { SoyBlock } from "./soy-block";
  * series, the latest earlier day that published; a gap in the series is a
  * reason, never a jump to an older reading.
  */
-export const SUMMARY_CHANGE_VERSION = "summary-change-1.0.0";
+/**
+ * `1.1.0` (owner's request of 2026-11-17): the country risk tile replaces the
+ * primary result over GDP, an annual figure that changed once a year; its
+ * change reads in basis points (`basis_points`).
+ */
+export const SUMMARY_CHANGE_VERSION = "summary-change-1.1.0";
 
 /** How far back the previous reading may be. */
 export type SummaryCadence = "daily" | "monthly" | "annual";
@@ -33,9 +38,10 @@ export type SummaryCadence = "daily" | "monthly" | "annual";
 /**
  * What the headline is: `percent` is already in percent (`1.9` is 1,9 %),
  * `fraction` is a share (`0.071` is 7,1 %), `amount` is a level in its own
- * unit. A percent or a fraction changes in percentage points.
+ * unit and `basis_points` a spread in basis points. A percent or a fraction
+ * changes in percentage points; a spread, in basis points.
  */
-export type SummaryBasis = "percent" | "fraction" | "amount";
+export type SummaryBasis = "percent" | "fraction" | "amount" | "basis_points";
 
 /** A headline reading: its date and its value, `null` when not published. */
 export type SummaryReading = {
@@ -50,7 +56,7 @@ export type SummaryChange =
       readonly previousOn: string;
       /** `current − previous`, in `unit`. */
       readonly difference: string;
-      readonly unit: "pp" | "amount";
+      readonly unit: "pp" | "bp" | "amount";
       readonly version: typeof SUMMARY_CHANGE_VERSION;
     }
   | {
@@ -106,7 +112,8 @@ export function summaryChange(input: {
       basis === "fraction" ? difference.mul(100) : difference,
       "difference",
     ),
-    unit: basis === "amount" ? "amount" : "pp",
+    unit:
+      basis === "amount" ? "amount" : basis === "basis_points" ? "bp" : "pp",
     version: SUMMARY_CHANGE_VERSION,
   };
 }
@@ -122,7 +129,7 @@ export type SummaryMetric =
   | "activity"
   | "fxGap"
   | "inflation"
-  | "primaryBalance"
+  | "countryRisk"
   | "tradeBalance"
   | "soyGap";
 
@@ -137,7 +144,7 @@ export const SUMMARY_POLARITY: Readonly<
   activity: "higher_is_better",
   fxGap: "lower_is_better",
   inflation: "lower_is_better",
-  primaryBalance: "higher_is_better",
+  countryRisk: "lower_is_better",
   tradeBalance: "higher_is_better",
   soyGap: "higher_is_better",
 };
@@ -163,11 +170,11 @@ export function summaryChanges(blocks: {
   readonly activity: ActivityBlock;
   readonly dollar: DollarBlock;
   readonly monetary: MonetaryBlock;
-  readonly fiscal: FiscalBlock;
+  readonly countryRisk: CountryRiskBlock;
   readonly external: ExternalBlock;
   readonly soy: SoyBlock;
 }): Readonly<Record<SummaryMetric, SummaryChange>> {
-  const { activity, dollar, monetary, fiscal, external, soy } = blocks;
+  const { activity, dollar, monetary, countryRisk, external, soy } = blocks;
 
   const latest = activity.latest;
   const activityChange = summaryChange({
@@ -204,20 +211,11 @@ export function summaryChanges(blocks: {
     basis: "percent",
   });
 
-  const year = fiscal.years.at(-1);
-  const yearBefore = fiscal.years.at(-2);
-  const primaryBalance = summaryChange({
-    current: year
-      ? { on: `${year.year}-01-01`, value: computedValue(year.primary) }
-      : null,
-    previous: yearBefore
-      ? {
-          on: `${yearBefore.year}-01-01`,
-          value: computedValue(yearBefore.primary),
-        }
-      : null,
-    cadence: "annual",
-    basis: "percent",
+  const countryRiskChange = summaryChange({
+    current: countryRisk.latest,
+    previous: countryRisk.previous,
+    cadence: "daily",
+    basis: "basis_points",
   });
 
   const month = external.months.at(-1);
@@ -248,7 +246,7 @@ export function summaryChanges(blocks: {
     activity: activityChange,
     fxGap,
     inflation,
-    primaryBalance,
+    countryRisk: countryRiskChange,
     tradeBalance,
     soyGap,
   };
