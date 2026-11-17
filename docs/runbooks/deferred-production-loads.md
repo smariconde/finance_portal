@@ -1,86 +1,81 @@
 # Cargas diferidas a Production
 
 - Slices: `F9-17` (ITCRM) y `F9-18` (REM)
+- Estado: **cerrado el 2026-11-17**. Las dos cargas están publicadas en la rama
+  `production` de Neon y comprobadas contra el portal.
 - Decisiones: [ADR 0073](../architecture/adr/0073-neon-free-network-transfer-recovery.md),
   [ADR 0074](../architecture/adr/0074-bcra-itcrm-history.md) y
   [ADR 0075](../architecture/adr/0075-bcra-rem-release-forecasts.md)
 - Runtime: comandos locales contra la rama `production` de Neon
 
-Los dos slices están integrados: código en `main`, migración `0050` aplicada en
-Neon y carga probada en PostgreSQL local. Falta publicar sus datos en Neon y
-comprobarlos en el deployment protegido. Se difirió porque el proyecto agotó
-los 5 GB de transferencia de noviembre de 2026; la cuota se renueva el
-2026-12-01 a las 00:00 UTC. Que el código esté desplegado **no** prueba que los
-datos existan en Production.
+Los dos slices quedaron integrados en `main` a mediados de noviembre de 2026, con
+la migración `0050` aplicada en Neon y la carga probada en PostgreSQL local. La
+publicación se difirió porque el proyecto agotó los 5 GB de transferencia de
+noviembre: al llegar al límite Neon suspendió el compute y toda conexión —incluido
+`pg_dump`— devolvía «Your account or project has exceeded the quota»
+(ver la enmienda del 2026-11-17 en la ADR 0073).
 
-## Antes de empezar
+## Registro del 2026-11-17
 
-1. Leer `data_transfer_bytes` del período en la consola de Neon (Usage) o con
-   el MCP de Neon, y anotarlo. Al final se compara para medir lo que costó la
-   carga.
-2. `pnpm db:status:neon` tiene que salir sin pendientes (51 de 51 al
-   2026-11-13). Estas cargas no cambian el schema, así que no piden snapshot.
-3. Contra Neon, cada comando lleva los dos archivos de entorno; el último gana:
+El owner subió la organización a Launch para recuperar el acceso y se configuró
+un umbral de alertas de US$ 5,00. Con el proyecto operativo se aplicaron las dos
+cargas pendientes en este orden:
+
+| Carga                 | Comando                                                          | Resultado                                                                          |
+| --------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| ITCRM (`F9-17`)       | `record-argentina-indicators.ts --indicator itcrm_daily --apply` | 10.913 puntos, 1997-01-01 a 2026-11-17, 0 nulos, 1 request, 3.680.405 bytes leídos |
+| REM octubre (`F9-18`) | `record-rem-release.ts --round 2026-10 --apply`                  | 7 pronósticos, publicación 2026-11-05, 2 requests, 158.122 bytes, `accepted: 7`    |
+
+Corridas registradas: `b6719b05-9e95-45d1-a1a8-9470f7afc991` (ITCRM, `succeeded`)
+y `83ddc357-6fb1-4434-bea0-8d5c9a5672fd` (REM, `succeeded`). La definición de
+`itcrm_daily` quedó en revisión 0 con `available_at` del 2026-11-17; los siete
+pronósticos del REM conservan `published_on` 2026-11-05 y `available_at`
+2026-11-06T03:00Z.
+
+Medianos guardados del REM de octubre de 2026, en porcentaje mensual: octubre
+1,8 · noviembre 1,7 · diciembre 1,84 · enero 1,7 · febrero 1,6 · marzo 1,7 ·
+abril 1,66.
+
+Estado de los esquemas al empezar y al terminar: `pnpm db:status:neon` 53 de 53,
+`pnpm db:trading:status:neon` 8 de 8 y `pnpm db:trading:audit:neon` con las ocho
+comprobaciones sobre 17 tablas.
+
+## Comprobación en el portal
+
+`/argentina` respondió `200` contra Neon y pasó de 1.738.701 a 1.912.809 bytes:
+ese crecimiento es la serie del ITCRM que antes no existía. El bloque muestra
+«ITCRM 79,7, contra 100 el 17/12/2015» y el REM titula «REM oct 2026 · publicado
+05/11/2026» con sus siete meses objetivo. No aparecieron `NaN`, `Infinity` ni
+«No disponible».
+
+Al 2026-11-17 los siete meses del REM mostraban **«Pendiente»**. La API del
+INDEC aún entregaba datos hasta septiembre y la serie `ipc_nacional` de Neon
+también terminaba en `2026-09-01`. El informe de octubre salió el 12 de
+noviembre. [Informe del INDEC](https://www.indec.gob.ar/uploads/informesdeprensa/ipc_11_269335F5BA6B.pdf).
+
+## Repetir la comprobación
+
+`pnpm db:status:neon` no debe tener pendientes. Contra Neon, cada comando lleva
+los dos archivos de entorno; el último gana:
 
 ```sh
 NEON="node --env-file=.env.local --env-file=.env.neon.local --conditions=react-server --import tsx"
 ```
 
-## `F9-18`: REM de octubre de 2026
+En seco, los comandos consultan al BCRA bajo su cuota y no publican datos.
 
-1. En seco, que baja y no escribe (dos requests al BCRA):
+```sh
+$NEON scripts/record-argentina-indicators.ts --indicator itcrm_daily
+$NEON scripts/record-rem-release.ts --round 2026-10
+```
 
-   ```sh
-   $NEON scripts/record-rem-release.ts --round 2026-10
-   ```
+Abrir `/argentina` **una vez** en el deployment protegido: al abrirse planea la
+actualización de lo que esté atrasado (ADR 0070), y eso también gasta
+transferencia. Anotar `data_transfer_bytes` del período antes y después; la cifra
+de Neon se agrega por hora y no atribuye el consumo a una consulta.
 
-   Esperado: publicación del 2026-11-05 y siete meses objetivo, de octubre de
-   2026 a abril de 2027. En local bajó 158.118 bytes.
-
-2. Si coincide, publicar las siete medianas en una transacción:
-
-   ```sh
-   $NEON scripts/record-rem-release.ts --round 2026-10 --apply
-   ```
-
-3. La comparación necesita `ipc_nacional` con el dato de octubre. Al 2026-11-13
-   la API del INDEC todavía terminaba en septiembre. Necesita `INDEC_API_TOKEN`
-   ([runbook](indec-token.md)). Primero en seco:
-
-   ```sh
-   $NEON scripts/record-argentina-indicators.ts --indicator ipc_nacional
-   ```
-
-   Si trae octubre, repetir con `--apply`. Si no, la tabla muestra «Pendiente»:
-   es el comportamiento correcto y no se fuerza otra fuente.
-
-## `F9-17`: ITCRM diario
-
-1. En seco (una request al XLSX del BCRA):
-
-   ```sh
-   $NEON scripts/record-argentina-indicators.ts --indicator itcrm_daily
-   ```
-
-   En local publicó 10.907 puntos, del 1997-01-01 al 2026-11-11; en diciembre
-   habrá algunos más.
-
-2. Si el plan coincide, repetir con `--apply`.
-
-## Comprobar en el deployment protegido
-
-Abrir `/argentina` **una vez**. Al abrirse planea la actualización de lo que
-esté atrasado (ADR 0070), y eso también gasta transferencia.
-
-- Inflación: la ronda REM de octubre, sus siete meses, la publicación del
-  2026-11-05 y el error de octubre en puntos porcentuales, o «Pendiente» si
-  falta el IPC.
-- Dólar: el ITCRM con su base, la fecha observada y la metodología. El gráfico
-  lee los días de los últimos cinco años y un cierre por mes antes.
-
-## Al terminar
-
-1. Volver a leer `data_transfer_bytes` y anotar la diferencia.
-2. Registrar en el backlog, bajo cada slice: fecha, cantidades publicadas, lo
-   que mostró el tablero y los bytes. Hasta ese registro, ninguno de los dos
-   slices está comprobado en Production.
+Primero comprobar en seco con `$NEON scripts/record-argentina-indicators.ts
+--indicator ipc_nacional`. Cuando la API incluya octubre de 2026, repetir con
+`--apply` y volver a abrir `/argentina`. La fila de octubre debe mostrar el IPC
+y el error en puntos porcentuales. Las siguientes siguen pendientes hasta
+que esté disponible el IPC de cada mes objetivo.
