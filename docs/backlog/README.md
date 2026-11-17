@@ -138,7 +138,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   110 | `F11-14`   | `done`        | MCP de solo lectura para la IA del owner, decidido en su propia ADR antes de cualquier código.                                                                                                                            | gate de la Fase 11 |
 |   111 | `F11-15`   | `done`        | El riesgo y el diario sobreviven a una tabla de trading ausente o atrasada: sin vínculos de pre-market leen planes y reglas y nombran lo que falta, en vez de caer con una referencia.                                    | `F11-12`           |
 |   112 | `F11-16`   | `done`        | Logos PNG guardados en PostgreSQL y servidos desde el portal; cuadrados redondeados junto a los tickers de trading, conservando círculos en matrices y gráficos.                                                          | Pedido del owner   |
-|   113 | `F11-17`   | `in_progress` | MCP de solo lectura en `/mcp` con dos secretos, catálogo `portal-mcp-tools-1.0.0` (valuaciones y diario primero) y `ownerAssistant` por fuente.                                                                           | ADR 0078           |
+|   113 | `F11-17`   | `done`        | MCP de solo lectura en `/mcp` con dos secretos, catálogo `portal-mcp-tools-1.0.0` (valuaciones y diario primero) y `ownerAssistant` por fuente.                                                                           | ADR 0078           |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -7397,9 +7397,8 @@ probar el control; fases posteriores pueden volver a verificarlo.
 
 ## `F11-17` — MCP de sólo lectura del owner
 
-- Estado: `in_progress`. Código, local, cliente y Neon verificados; faltan
-  `MCP_ACCESS_TOKEN` en Vercel Production (lo genera el owner) y su primera
-  conexión desde Production.
+- Estado: `done`. Código, local, Neon y Production verificados; el owner
+  conectó Claude Code a Production el 2026-11-16.
 - Autorización: [ADR 0078](../architecture/adr/0078-owner-read-only-mcp.md),
   aceptada el 2026-11-16. El owner creó el mismo día el secreto de bypass
   «MCP de Santiago».
@@ -7443,6 +7442,12 @@ probar el control; fases posteriores pueden volver a verificarlo.
   rama `production`, 2026-11-17 01:30:39 UTC, 310.222.848 bytes) quedó
   verificado antes de migrar. `0052` aplicada y `pnpm db:status:neon` informa
   53 de 53.
+- Production: el owner cargó `MCP_ACCESS_TOKEN` en Vercel Production y
+  conectó Claude Code (`claude mcp get portal`: «✔ Connected») contra
+  `finance-portal-flame.vercel.app/mcp`. El primer intento dio el `401`
+  «Protected deployment» de Vercel: los dos headers se habían guardado vacíos
+  porque las variables no existían en el shell; el runbook ahora los pide con
+  `read -rs`. `portal-mcp` contó 3 pedidos en Neon (2026-11-17 UTC).
 - Operación: [runbook](../runbooks/owner-mcp.md).
 
 ## Plantilla para nuevos issues

@@ -53,14 +53,29 @@ Sin el token la ruta responde `404` y «MCP del owner» queda `disabled` en
 
 ## Conectar Claude Code
 
-Con los dos valores en el llavero (nunca en un archivo del repo):
+Cargar los dos valores en el shell sin mostrarlos ni dejarlos en el historial
+y recién entonces agregar el servidor:
 
 ```bash
-claude mcp add --scope user --transport http portal https://<dominio-de-production>/mcp \
+read -rsp "Token MCP: " MCP_ACCESS_TOKEN; echo
+read -rsp "Bypass Vercel: " MCP_VERCEL_BYPASS; echo
+claude mcp add --scope user --transport http portal https://finance-portal-flame.vercel.app/mcp \
   --header "Authorization: Bearer $MCP_ACCESS_TOKEN" \
   --header "x-vercel-protection-bypass: $MCP_VERCEL_BYPASS"
+unset MCP_ACCESS_TOKEN MCP_VERCEL_BYPASS
 claude mcp get portal          # «✔ Connected»
 ```
+
+Si las variables no existen, `claude mcp add` guarda los headers **vacíos** y
+Vercel responde `401` con `"Protected deployment"` (pasó el 2026-11-16). Cómo
+leer cada falla:
+
+| Respuesta de `claude mcp get`      | Qué pasa                                          |
+| ---------------------------------- | ------------------------------------------------- |
+| `401` con `"Protected deployment"` | Vercel no recibió un bypass válido.               |
+| `401` con `Unauthorized.`          | Pasó Vercel; el token no es el de Production.     |
+| `404 Not found.`                   | Production no tiene token: cargarlo y redeployar. |
+| `403 Forbidden.`                   | El dominio no está entre los del deployment.      |
 
 Claude Code acepta los dos `--header` a la vez: medido el 2026-11-16 contra el
 servidor local («✔ Connected»). claude.ai y el celular no mandan headers
