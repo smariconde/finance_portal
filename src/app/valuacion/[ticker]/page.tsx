@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import {
   Calculator,
   DatabaseZap,
@@ -89,6 +90,10 @@ import { GrowthDerivation } from "./_components/growth-derivation";
 import { AuditGroup } from "./_components/audit-group";
 import { CompanyHistory } from "./_components/company-history";
 import { CompanyProfile } from "./_components/company-profile";
+import {
+  ForwardPeSection,
+  ForwardPeSkeleton,
+} from "./_components/forward-pe-section";
 import { PeerContext } from "./_components/peer-context";
 import { PriceRequirements } from "./_components/price-requirements";
 import { ValueWalkthrough } from "./_components/value-walkthrough";
@@ -589,6 +594,13 @@ function FinancialRunView({
 
       <Anchor id="ficha">
         <CompanyProfile profile={reading.profile} />
+        <Suspense fallback={<ForwardPeSkeleton />}>
+          <ForwardPeSection
+            ticker={reading.ticker}
+            subject={run.subject}
+            trailingMedian={null}
+          />
+        </Suspense>
       </Anchor>
 
       <Anchor id="historia">
@@ -1002,6 +1014,13 @@ export default async function ValuationResultPage({ params }: PageProps) {
 
       <Anchor id="ficha">
         <CompanyProfile profile={reading.profile} peBand={reading.peBand} />
+        <Suspense fallback={<ForwardPeSkeleton />}>
+          <ForwardPeSection
+            ticker={reading.ticker}
+            subject={run.subject}
+            trailingMedian={reading.peBand?.median ?? null}
+          />
+        </Suspense>
       </Anchor>
 
       <Anchor id="historia">

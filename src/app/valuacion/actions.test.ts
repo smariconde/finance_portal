@@ -5,6 +5,10 @@ const mocks = vi.hoisted(() => ({
   request: vi.fn(),
   start: vi.fn(),
   after: vi.fn(),
+  security: vi.fn(),
+  declare: vi.fn(),
+  ensureConsensus: vi.fn(),
+  startConsensus: vi.fn(),
 }));
 
 vi.mock("next/server", () => ({ after: mocks.after }));
@@ -16,7 +20,18 @@ vi.mock("@/server/jobs/valuation-job", () => ({
   startValuationWorker: mocks.start,
 }));
 
-import { enqueueValuation } from "./actions";
+vi.mock("@/server/jobs/consensus-refresh", () => ({
+  subjectOfValuedTicker: mocks.security,
+  declareForwardPeThresholdForRequest: mocks.declare,
+  ensureConsensusForRequest: mocks.ensureConsensus,
+  startConsensusWorker: mocks.startConsensus,
+}));
+
+import {
+  declareForwardPeThreshold,
+  enqueueValuation,
+  refreshConsensus,
+} from "./actions";
 
 const QUEUED = {
   state: "queued" as const,
@@ -107,5 +122,137 @@ describe("enqueueValuation", () => {
     ).toEqual({ state: "unavailable" });
     expect(JSON.stringify(consoleError.mock.calls)).not.toContain("secret");
     consoleError.mockRestore();
+  });
+});
+
+/** The consensus capture on open (`F6-29`, `TM-03`), invoked without the UI. */
+describe("refreshConsensus", () => {
+  const SECURITY = "00000000-0000-4000-8000-000000000001";
+  const ENTITY = "00000000-0000-4000-8000-0000000000e1";
+
+  beforeEach(() => {
+    mocks.mode = "personal";
+    mocks.security.mockReset();
+    mocks.ensureConsensus.mockReset();
+    mocks.startConsensus.mockReset();
+    mocks.after.mockReset();
+  });
+
+  it("refuses in a locked runtime without composing anything", async () => {
+    mocks.mode = "locked";
+    expect(
+      await refreshConsensus({ ticker: "AAPL", retryFailures: false }),
+    ).toEqual({ state: "unavailable" });
+    expect(mocks.security).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["no body", undefined],
+    ["a URL", { ticker: "http://169.254.169.254", retryFailures: false }],
+    ["an extra field", { ticker: "AAPL", retryFailures: false, url: "x" }],
+    ["a missing boolean", { ticker: "AAPL" }],
+  ])("refuses %s", async (_label, input) => {
+    expect(await refreshConsensus(input)).toEqual({ state: "unavailable" });
+    expect(mocks.ensureConsensus).not.toHaveBeenCalled();
+  });
+
+  it("captures only a ticker with a recorded valuation run", async () => {
+    mocks.security.mockResolvedValue(null);
+    expect(
+      await refreshConsensus({ ticker: "ZZZZ", retryFailures: false }),
+    ).toEqual({ state: "unavailable" });
+    expect(mocks.ensureConsensus).not.toHaveBeenCalled();
+  });
+
+  it("starts the worker after answering and returns only the state", async () => {
+    mocks.security.mockResolvedValue({
+      securityId: SECURITY,
+      legalEntityId: ENTITY,
+    });
+    mocks.ensureConsensus.mockResolvedValue({
+      status: { state: "running", other: false, waitingUntil: null },
+      runJobId: "job-1",
+    });
+    expect(
+      await refreshConsensus({ ticker: "aapl", retryFailures: true }),
+    ).toEqual({ state: "running", other: false, waitingUntil: null });
+    expect(mocks.security).toHaveBeenCalledWith("AAPL");
+    expect(mocks.ensureConsensus).toHaveBeenCalledWith({
+      securityId: SECURITY,
+      retryFailures: true,
+    });
+    expect(mocks.after).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides a failure's message", async () => {
+    mocks.security.mockRejectedValue(
+      new Error("connect ECONNREFUSED 10.0.0.1"),
+    );
+    const result = await refreshConsensus({
+      ticker: "AAPL",
+      retryFailures: false,
+    });
+    expect(result).toEqual({ state: "unavailable" });
+    expect(JSON.stringify(result)).not.toContain("10.0.0.1");
+  });
+});
+
+/** The owner's threshold (`F6-29`, `TM-03`), invoked without the UI. */
+describe("declareForwardPeThreshold", () => {
+  const SUBJECT = {
+    securityId: "00000000-0000-4000-8000-000000000001",
+    legalEntityId: "00000000-0000-4000-8000-0000000000e1",
+  };
+
+  beforeEach(() => {
+    mocks.mode = "personal";
+    mocks.security.mockReset();
+    mocks.declare.mockReset();
+  });
+
+  it("refuses in a locked runtime", async () => {
+    mocks.mode = "locked";
+    expect(
+      await declareForwardPeThreshold({ ticker: "AAPL", value: "12" }),
+    ).toEqual({ state: "unavailable" });
+    expect(mocks.security).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["zero", "0"],
+    ["a negative", "-12"],
+    ["above a thousand", "1001"],
+    ["three decimals", "12.345"],
+    ["text", "doce"],
+    ["an exponent", "1e2"],
+  ])("refuses %s", async (_label, value) => {
+    expect(await declareForwardPeThreshold({ ticker: "AAPL", value })).toEqual({
+      state: "unavailable",
+    });
+    expect(mocks.declare).not.toHaveBeenCalled();
+  });
+
+  it("stores a comma decimal as a point, and null removes it", async () => {
+    mocks.security.mockResolvedValue(SUBJECT);
+    expect(
+      await declareForwardPeThreshold({ ticker: "AAPL", value: "12,5" }),
+    ).toEqual({ state: "saved" });
+    expect(mocks.declare).toHaveBeenCalledWith({
+      legalEntityId: SUBJECT.legalEntityId,
+      value: "12.5",
+    });
+    await declareForwardPeThreshold({ ticker: "AAPL", value: null });
+    expect(mocks.declare).toHaveBeenLastCalledWith({
+      legalEntityId: SUBJECT.legalEntityId,
+      value: null,
+    });
+  });
+
+  it("writes nothing for a ticker without a recorded run", async () => {
+    mocks.security.mockResolvedValue(null);
+    expect(
+      await declareForwardPeThreshold({ ticker: "ZZZZ", value: "12" }),
+    ).toEqual({ state: "unavailable" });
+    expect(mocks.declare).not.toHaveBeenCalled();
   });
 });

@@ -17,7 +17,7 @@ import {
  * `www.sec.gov` no sirven los mismos recursos, y acotar el path evita que un bug
  * de construcción de URL termine paseando por el sitio entero de la SEC.
  */
-export const EGRESS_ALLOWLIST_VERSION = "egress-allowlist-1.6.0";
+export const EGRESS_ALLOWLIST_VERSION = "egress-allowlist-1.7.0";
 
 const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
   egressAllowlistEntrySchema.parse({
@@ -258,6 +258,22 @@ const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
     },
     // Una página son a lo sumo 1.000 filas de unas pocas columnas.
     maxResponseBytes: 2 * 1024 * 1024,
+    deadlineMs: 30_000,
+    maxRedirects: 0,
+  }),
+  // Consenso de analistas (ADR 0083): sólo `/query`, y el adaptador pide sólo
+  // `function=EARNINGS_ESTIMATES`. La clave la agrega la puerta como `apikey`.
+  egressAllowlistEntrySchema.parse({
+    sourceId: "alpha-vantage",
+    origins: [{ host: "www.alphavantage.co", pathPrefixes: ["/query"] }],
+    identification: "project",
+    credential: {
+      kind: "env_query",
+      variable: "ALPHA_VANTAGE_API_KEY",
+      parameter: "apikey",
+    },
+    // 42 filas pesaron ~42 KB el 2026-11-18.
+    maxResponseBytes: 512 * 1024,
     deadlineMs: 30_000,
     maxRedirects: 0,
   }),

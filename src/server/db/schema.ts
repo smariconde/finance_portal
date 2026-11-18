@@ -428,6 +428,8 @@ export const ingestionJobKind = pgEnum("ingestion_job_kind", [
   "yahoo_prices_refresh",
   // Series de `/argentina` al abrir la página (ADR 0070): un job por fuente.
   "argentina_data_refresh",
+  // Consenso de analistas al abrir una valuación (ADR 0083): un item.
+  "alpha_vantage_consensus_refresh",
 ]);
 
 export const ingestionJobStatus = pgEnum("ingestion_job_status", [
@@ -3400,6 +3402,130 @@ export const surfaceVisits = pgTable(
     check(
       "surface_visits_timeline_check",
       sql`${table.baselineAt} is null or ${table.baselineAt} <= ${table.lastSeenAt}`,
+    ),
+  ],
+);
+
+/**
+ * Consenso de analistas por ejercicio (ADR 0083): una cadena de revisiones por
+ * security y fin de ejercicio, como `macro_series_observations`. La fuente no
+ * fecha nada, así que `available_at` es la captura; un ejercicio que deja de
+ * venir —porque la empresa lo reportó— es una revisión retirada, con todos los
+ * números nulos.
+ */
+export const consensusEstimates = pgTable(
+  "consensus_estimates",
+  {
+    securityId: uuid("security_id").notNull(),
+    periodEnd: date("period_end", { mode: "string" }).notNull(),
+    revision: smallint("revision").notNull(),
+    withdrawn: boolean("withdrawn").notNull(),
+    epsAverage: numeric("eps_average", { mode: "string" }),
+    epsHigh: numeric("eps_high", { mode: "string" }),
+    epsLow: numeric("eps_low", { mode: "string" }),
+    epsAnalystCount: integer("eps_analyst_count"),
+    epsAverage7DaysAgo: numeric("eps_average_7_days_ago", { mode: "string" }),
+    epsAverage30DaysAgo: numeric("eps_average_30_days_ago", { mode: "string" }),
+    epsAverage60DaysAgo: numeric("eps_average_60_days_ago", { mode: "string" }),
+    epsAverage90DaysAgo: numeric("eps_average_90_days_ago", { mode: "string" }),
+    epsRevisionsUp7Days: integer("eps_revisions_up_7_days"),
+    epsRevisionsDown7Days: integer("eps_revisions_down_7_days"),
+    epsRevisionsUp30Days: integer("eps_revisions_up_30_days"),
+    epsRevisionsDown30Days: integer("eps_revisions_down_30_days"),
+    revenueAverage: numeric("revenue_average", { mode: "string" }),
+    revenueHigh: numeric("revenue_high", { mode: "string" }),
+    revenueLow: numeric("revenue_low", { mode: "string" }),
+    revenueAnalystCount: integer("revenue_analyst_count"),
+    availableAt: timestamp("available_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+    supersededAt: timestamp("superseded_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    ingestionRunId: uuid("ingestion_run_id").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      name: "consensus_estimates_pkey",
+      columns: [table.securityId, table.periodEnd, table.revision],
+    }),
+    foreignKey({
+      name: "consensus_estimates_security_fk",
+      columns: [table.securityId],
+      foreignColumns: [securities.securityId],
+    }),
+    foreignKey({
+      name: "consensus_estimates_run_fk",
+      columns: [table.ingestionRunId],
+      foreignColumns: [ingestionRuns.runId],
+    }),
+    // A lo sumo una revisión vigente por ejercicio: dos capturas a la vez no
+    // duplican la cadena, la segunda aborta.
+    uniqueIndex("consensus_estimates_open_uidx")
+      .on(table.securityId, table.periodEnd)
+      .where(sql`${table.supersededAt} is null`),
+    check("consensus_estimates_revision_check", sql`${table.revision} >= 0`),
+    check(
+      "consensus_estimates_withdrawn_check",
+      sql`${table.withdrawn} = (${table.epsAverage} is null)`,
+    ),
+    check(
+      "consensus_estimates_withdrawn_values_check",
+      sql`not ${table.withdrawn} or (${table.epsHigh} is null and ${table.epsLow} is null and ${table.epsAnalystCount} is null and ${table.revenueAverage} is null)`,
+    ),
+    check(
+      "consensus_estimates_range_check",
+      sql`(${table.epsLow} is null or ${table.epsLow} <= ${table.epsAverage}) and (${table.epsHigh} is null or ${table.epsHigh} >= ${table.epsAverage})`,
+    ),
+    check(
+      "consensus_estimates_counts_check",
+      sql`coalesce(${table.epsAnalystCount}, 0) >= 0 and coalesce(${table.revenueAnalystCount}, 0) >= 0 and coalesce(${table.epsRevisionsUp7Days}, 0) >= 0 and coalesce(${table.epsRevisionsDown7Days}, 0) >= 0 and coalesce(${table.epsRevisionsUp30Days}, 0) >= 0 and coalesce(${table.epsRevisionsDown30Days}, 0) >= 0`,
+    ),
+    check(
+      "consensus_estimates_superseded_check",
+      sql`${table.supersededAt} is null or ${table.supersededAt} > ${table.availableAt}`,
+    ),
+  ],
+);
+
+/**
+ * Umbral de un múltiplo que declara el owner por empresa (ADR 0083): revisiones
+ * append-only con fecha y motivo. La vigente es la última; un valor nulo quita
+ * el umbral. Se dibuja como una línea, nunca califica a la empresa.
+ */
+export const ownerMultipleThresholds = pgTable(
+  "owner_multiple_thresholds",
+  {
+    thresholdId: uuid("threshold_id").primaryKey(),
+    legalEntityId: uuid("legal_entity_id").notNull(),
+    metric: varchar("metric", { length: 32 }).notNull(),
+    value: numeric("value", { mode: "string" }),
+    reason: varchar("reason", { length: 280 }),
+    declaredAt: timestamp("declared_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: "owner_multiple_thresholds_entity_fk",
+      columns: [table.legalEntityId],
+      foreignColumns: [legalEntities.legalEntityId],
+    }),
+    uniqueIndex("owner_multiple_thresholds_declared_uidx").on(
+      table.legalEntityId,
+      table.metric,
+      table.declaredAt,
+    ),
+    check(
+      "owner_multiple_thresholds_metric_check",
+      sql`${table.metric} in ('forward_pe')`,
+    ),
+    check(
+      "owner_multiple_thresholds_value_check",
+      sql`${table.value} is null or (${table.value} > 0 and ${table.value} <= 1000)`,
     ),
   ],
 );

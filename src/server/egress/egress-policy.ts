@@ -20,7 +20,7 @@ import { classifyIpAddress } from "./ip-address-policy";
  * controles a propósito —uno responde «¿a dónde se puede abrir un socket?» y el
  * otro «¿tenemos derecho a estos datos?»— y ninguno cubre al otro.
  */
-export const EGRESS_POLICY_VERSION = "egress-policy-1.2.0";
+export const EGRESS_POLICY_VERSION = "egress-policy-1.3.0";
 
 export const egressRejectionCodeSchema = z.enum([
   "source_not_allowlisted",
@@ -37,6 +37,7 @@ export const egressRejectionCodeSchema = z.enum([
   "request_body_too_large",
   "credential_missing",
   "credential_invalid",
+  "credential_in_url",
   "address_unresolvable",
   "address_not_publicly_routable",
   "redirect_without_location",
@@ -165,10 +166,23 @@ const providedBearerCredentialSchema = z.object({
   scheme: z.literal("Bearer"),
 });
 
+/**
+ * Una clave que la fuente sólo acepta como parámetro de la URL (Alpha Vantage,
+ * ADR 0083). La puerta la agrega a la URL ya autorizada, nunca el adaptador; una
+ * URL que ya trae el parámetro se rechaza, y en un log sólo aparecen origen y
+ * path. La fuente no puede seguir redirects.
+ */
+const envQueryCredentialSchema = z.object({
+  kind: z.literal("env_query"),
+  variable: credentialVariableSchema,
+  parameter: z.string().regex(/^[a-z][a-z0-9_]{1,31}$/u),
+});
+
 export const egressCredentialSchema = z.union([
   envBearerCredentialSchema,
   envBasicCredentialSchema,
   providedBearerCredentialSchema,
+  envQueryCredentialSchema,
 ]);
 
 export type EgressCredential = z.infer<typeof egressCredentialSchema>;
@@ -228,6 +242,16 @@ export const egressAllowlistEntrySchema = z
         code: "custom",
         path: ["maxRedirects"],
         message: "A POST source never follows redirects.",
+      });
+    }
+
+    // Una clave en la URL viajaría con el pedido al destino de un redirect si
+    // éste la repitiera; no hay redirect que seguir (ADR 0083).
+    if (entry.credential?.kind === "env_query" && entry.maxRedirects !== 0) {
+      context.addIssue({
+        code: "custom",
+        path: ["maxRedirects"],
+        message: "A source with a query credential never follows redirects.",
       });
     }
   });

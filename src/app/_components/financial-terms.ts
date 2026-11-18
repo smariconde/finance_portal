@@ -109,6 +109,15 @@ export const FINANCIAL_TERMS = {
   discountRate: { en: "Discount rate", es: "tasa de descuento" },
   priceToValue: { en: "Price / value", es: "precio sobre valor" },
   priceToEarnings: { en: "P/E", es: "precio sobre ganancia" },
+  forwardPe: {
+    en: "Forward P/E",
+    es: "precio sobre la ganancia esperada a doce meses",
+  },
+  peg: { en: "PEG", es: "P/E forward sobre el crecimiento esperado" },
+  consensusEps: {
+    en: "Consensus EPS",
+    es: "ganancia por acción que esperan los analistas",
+  },
   evToEbit: { en: "EV/EBIT", es: "valor de las operaciones sobre EBIT" },
   returnOnEquity: { en: "ROE", es: "retorno sobre el patrimonio" },
   commonBookEquity: { en: "Common book equity", es: "patrimonio común" },

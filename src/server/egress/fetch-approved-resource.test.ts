@@ -830,3 +830,112 @@ describe("fetchApprovedResource with Schwab credentials", () => {
     expect(transport).not.toHaveBeenCalled();
   });
 });
+
+describe("fetchApprovedResource with a query credential", () => {
+  const QUERY_ENTRY: EgressAllowlistEntry = egressAllowlistEntrySchema.parse({
+    sourceId: "alpha-vantage",
+    origins: [{ host: "www.alphavantage.co", pathPrefixes: ["/query"] }],
+    identification: "project",
+    credential: {
+      kind: "env_query",
+      variable: "ALPHA_VANTAGE_API_KEY",
+      parameter: "apikey",
+    },
+    maxResponseBytes: 512 * 1024,
+    deadlineMs: 30_000,
+    maxRedirects: 0,
+  });
+  const QUERY_URL =
+    "https://www.alphavantage.co/query?function=EARNINGS_ESTIMATES&symbol=AAPL";
+  const SECRET = "SYNTHETICKEY0001";
+
+  function queryHarness(
+    responses: readonly EgressHopResponse[],
+    credential: string | undefined = SECRET,
+  ) {
+    const base = harness(responses);
+    const readCredential = vi.fn((variable: string) =>
+      variable === "ALPHA_VANTAGE_API_KEY" ? credential : undefined,
+    );
+    return {
+      ...base,
+      readCredential,
+      dependencies: {
+        ...base.dependencies,
+        findEntry: (sourceId: string) =>
+          sourceId === QUERY_ENTRY.sourceId ? QUERY_ENTRY : null,
+        readCredential,
+      },
+    };
+  }
+
+  it("appends the key to the authorized URL and keeps it out of the chain", async () => {
+    const { dependencies, transport } = queryHarness([ok()]);
+
+    const response = await fetchApprovedResource(
+      { sourceId: "alpha-vantage", url: QUERY_URL },
+      dependencies,
+    );
+
+    const [hop] = transport.mock.calls[0];
+    expect(hop.url.searchParams.get("apikey")).toBe(SECRET);
+    expect(hop.url.searchParams.get("symbol")).toBe("AAPL");
+    expect(hop.headers.authorization).toBeUndefined();
+    expect(JSON.stringify(response.chain)).not.toContain(SECRET);
+    expect(response.chain).toEqual(["https://www.alphavantage.co/query"]);
+  });
+
+  it("refuses a URL that already carries the parameter, without reading the key", async () => {
+    const { dependencies, transport, readCredential } = queryHarness([ok()]);
+
+    await expectBlocked(
+      fetchApprovedResource(
+        { sourceId: "alpha-vantage", url: `${QUERY_URL}&apikey=other` },
+        dependencies,
+      ),
+      "credential_in_url",
+    );
+    expect(readCredential).not.toHaveBeenCalled();
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it("does not read the key for a destination it did not authorize", async () => {
+    const { dependencies, transport, readCredential } = queryHarness([ok()]);
+
+    await expectBlocked(
+      fetchApprovedResource(
+        {
+          sourceId: "alpha-vantage",
+          url: "https://attacker.example/query?function=EARNINGS_ESTIMATES",
+        },
+        dependencies,
+      ),
+      "host_not_allowlisted",
+    );
+    expect(readCredential).not.toHaveBeenCalled();
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it("refuses without a key and names the variable, never a value", async () => {
+    const { dependencies, transport } = queryHarness([ok()], "  ");
+    const operation = fetchApprovedResource(
+      { sourceId: "alpha-vantage", url: QUERY_URL },
+      dependencies,
+    );
+
+    await expectBlocked(operation, "credential_missing");
+    await operation.catch((error: unknown) => {
+      expect((error as Error).message).toContain("ALPHA_VANTAGE_API_KEY");
+    });
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it("does not let a query-credential source follow redirects", () => {
+    expect(() =>
+      egressAllowlistEntrySchema.parse({
+        ...QUERY_ENTRY,
+        maxRedirects: 1,
+      }),
+    ).toThrow(/query credential/u);
+  });
+});
