@@ -127,6 +127,12 @@ export const coverageEvidenceSchema = z.object({
        * la convención de Damodaran para quien no paga intereses.
        */
       "no_interest_expense",
+      /**
+       * El interés de la parte industrial de una empresa con financiera
+       * cautiva (`F6-23`, ADR 0082), con su propia base congelada en
+       * `normalization.facts.captiveFinance.industrialInterest`.
+       */
+      "captive_industrial",
     ])
     .optional(),
 });
@@ -139,6 +145,7 @@ export const COVERAGE_INTEREST_DECLARATION = {
   net_nonoperating: "coverage_interest_net_nonoperating",
   interest_paid: "coverage_interest_paid",
   no_interest_expense: "coverage_no_interest_expense",
+  captive_industrial: "coverage_interest_industrial_only",
 } as const satisfies Record<
   NonNullable<CoverageEvidence["interestBasis"]>,
   string
@@ -173,6 +180,7 @@ export const costOfCapitalDeclarationSchema = z.enum([
   "coverage_interest_net_nonoperating",
   "coverage_interest_paid",
   "coverage_no_interest_expense",
+  "coverage_interest_industrial_only",
   "terminal_beta_converges_to_one",
   "country_risk_by_operations",
   "regions_combined_by_gdp",

@@ -372,12 +372,13 @@ export function assembleValuationSnapshot(
     });
   const atBalance = atDate(balanceAsOf);
   const atLeases = atDate(leasesAsOf);
-  // La provenance de la deuda es la del primer componente que la receta sumó.
+  // La provenance de la deuda es la del primer componente que la receta sumó:
+  // con financiera cautiva, el del miembro industrial (ADR 0082).
+  const debtFacts =
+    normalization.facts.captiveFinance?.industrialDebt ?? balance.debt;
   const firstDebtFact = (
     normalization.debt.status === "resolved"
-      ? normalization.debt.included.map(
-          (entry) => balance.debt[entry.component],
-        )
+      ? normalization.debt.included.map((entry) => debtFacts[entry.component])
       : []
   ).find((fact): fact is NonNullable<typeof fact> => fact !== null);
   const leases = capitalization.leases.result;

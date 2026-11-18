@@ -25,7 +25,16 @@ import {
 } from "../domain/normalization";
 import { resolveReportedDebt } from "../domain/reported-debt";
 import {
+  captiveCoverage,
+  deriveCaptiveFinanceSplit,
+  type CaptiveFinanceAssessment,
+  type CaptiveFinanceFiling,
+  type CaptiveFinanceSplit,
+} from "../domain/captive-finance";
+import { declaredCaptiveFinance } from "../domain/declared-captive-finance";
+import {
   buildTtmBasePeriod,
+  TTM_BASE_PERIOD_VERSION,
   flowOf,
   ttmCapitalizationFacts,
   ttmFlowFact,
@@ -185,6 +194,12 @@ export type CompanyAssessmentRequest = {
   readonly industryDeclarations: readonly IndustryDeclaration[];
   /** País ISO del listing primario: aproxima el domicilio para el riesgo país. */
   readonly listingCountry: string | null;
+  /**
+   * El 10-K leído de una empresa con financiera cautiva declarada (`F6-23`,
+   * ADR 0082). Ausente o `null`, la apertura queda `filing_unavailable`: la
+   * evaluación no abre red.
+   */
+  readonly captiveFinanceFiling?: CaptiveFinanceFiling | null;
 };
 
 export type CompanyAssessment = {
@@ -245,6 +260,12 @@ export type CompanyAssessment = {
    * TTM—, o anual con su motivo. Ausente o `null` en otro método.
    */
   readonly basePeriod?: BasePeriod | null;
+  /**
+   * La financiera cautiva de un emisor declarado (`F6-23`, ADR 0082): la
+   * apertura que usa la normalización, o por qué no la hay. `null` si el CIK
+   * no está declarado; ausente en una evaluación armada a mano.
+   */
+  readonly captiveFinance?: CaptiveFinanceAssessment | null;
   /** Common book, common earnings and equity risk for a bank or insurer. */
   readonly financialEquity?: DerivedFinancialEquity | null;
   readonly financialRisk?: DerivedFinancialRisk | null;
@@ -426,6 +447,21 @@ export async function assessCompany(
         impliedErp: readings.impliedErp,
       })
     : null;
+  const captiveDeclaration = declaredCaptiveFinance(request.cik);
+  const baseYear = series?.fiscalYears[0];
+  const captiveFinance: CaptiveFinanceAssessment | null =
+    captiveDeclaration === null || baseYear === undefined
+      ? null
+      : deriveCaptiveFinanceSplit({
+          declaration: captiveDeclaration,
+          filing: request.captiveFinanceFiling ?? null,
+          baseYear,
+          sourceId: request.fundamentalsSourceId,
+        });
+  const captiveSplit =
+    captiveFinance?.status === "split" ? captiveFinance.split : null;
+  const baseOperatingIncome = baseYear?.items.operating_income;
+
   const zeroDebt =
     series === null
       ? null
@@ -437,7 +473,11 @@ export async function assessCompany(
             concept: item.concept,
           }),
         );
+  // Una financiera cautiva declarada nunca usa la evidencia de deuda cero: con
+  // la apertura la deuda es la industrial, y sin ella la consolidada que
+  // companyfacts no muestra no prueba que no haya deuda (PACCAR).
   const zeroDebtEvidence =
+    captiveFinance === null &&
     zeroDebt?.status === "met" &&
     needsZeroDebtEvidence(series, request.fundamentalsSourceId)
       ? zeroDebt.evidence
@@ -460,12 +500,14 @@ export async function assessCompany(
         listingCountry: request.listingCountry,
         ...readings,
         coverage:
-          zeroDebtEvidence !== null &&
-          !zeroDebtEvidenceHasInterest(zeroDebtEvidence)
-            ? noInterestCoverage(zeroDebtEvidence)
-            : series === null
-              ? null
-              : latestInterestCoverage(series),
+          captiveSplit !== null && baseOperatingIncome !== undefined
+            ? captiveCoverage(captiveSplit, baseOperatingIncome)
+            : zeroDebtEvidence !== null &&
+                !zeroDebtEvidenceHasInterest(zeroDebtEvidence)
+              ? noInterestCoverage(zeroDebtEvidence)
+              : series === null
+                ? null
+                : latestInterestCoverage(series),
         operationsMix,
       });
 
@@ -486,6 +528,7 @@ export async function assessCompany(
       ? marginalTaxRateOf(costOfCapital.costOfCapital)
       : null,
     zeroDebtEvidence,
+    captiveSplit,
   );
   const cycle =
     series === null ||
@@ -535,6 +578,7 @@ export async function assessCompany(
     capitalization,
     normalization,
     costOfCapital,
+    captiveSplit,
   });
 
   return {
@@ -575,6 +619,7 @@ export async function assessCompany(
     normalization: base.normalization,
     basePeriod: base.basePeriod,
     zeroDebt,
+    captiveFinance,
     cycle,
   };
 }
@@ -594,6 +639,7 @@ function assessBasePeriod(input: {
   readonly capitalization: Capitalization | null;
   readonly normalization: Normalization | null;
   readonly costOfCapital: CostOfCapitalResult;
+  readonly captiveSplit: CaptiveFinanceSplit | null;
 }): {
   readonly basePeriod: BasePeriod | null;
   readonly capitalization: Capitalization | null;
@@ -626,6 +672,21 @@ function assessBasePeriod(input: {
 
   if (candidate === null) {
     return annual;
+  }
+
+  // La apertura de la financiera es del 10-K: el balance del 10-Q no la tiene
+  // y la deuda no puede mezclar cierres (ADR 0082).
+  if (input.captiveSplit !== null) {
+    return {
+      ...annual,
+      basePeriod: {
+        version: TTM_BASE_PERIOD_VERSION,
+        basis: "annual",
+        fiscalYearEnd: input.captiveSplit.fiscalYearEnd,
+        reason: "captive_finance_split",
+        item: null,
+      },
+    };
   }
 
   if (candidate.status === "annual") {
@@ -737,6 +798,7 @@ function assessNormalization(
   capitalization: Capitalization | null,
   marginalTaxRate: string | null,
   zeroDebtEvidence: ZeroDebtEvidence | null,
+  captiveSplit: CaptiveFinanceSplit | null,
 ): Normalization | null {
   const revenue = series?.fiscalYears[0]?.items.revenue;
 
@@ -752,11 +814,16 @@ function assessNormalization(
 
   return facts === null
     ? null
-    : buildNormalization(facts, {
-        baseRevenue: revenue.value,
-        marginalTaxRate,
-        capitalization,
-      });
+    : buildNormalization(
+        captiveSplit === null
+          ? facts
+          : { ...facts, captiveFinance: captiveSplit },
+        {
+          baseRevenue: revenue.value,
+          marginalTaxRate,
+          capitalization,
+        },
+      );
 }
 
 /** Una partida de la serie como hecho con la provenance de su fuente. */

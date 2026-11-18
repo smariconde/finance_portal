@@ -27,7 +27,13 @@ import {
   type ChargeCategory,
 } from "./non-recurring-charges";
 import {
+  captiveDebtInput,
+  captiveFinanceSplitSchema,
+  listCaptiveFinanceFacts,
+} from "./captive-finance";
+import {
   DEBT_COMPONENT_KEYS,
+  DEBT_ITEMS,
   REPORTED_DEBT_EVIDENCE_VERSION,
   reportedDebtSchema,
   resolveReportedDebt,
@@ -122,6 +128,13 @@ export const normalizationFactsSchema = z.object({
       balanceAsOf: calendarDateSchema,
     })
     .optional(),
+  /**
+   * La apertura de una financiera cautiva (`F6-23`, ADR 0082): con ella, la
+   * deuda sale de los hechos del miembro industrial y no de `balance.debt`.
+   * Sólo viaja en una empresa declarada con la apertura leída: un snapshot
+   * anterior no la tiene y conserva su hash.
+   */
+  captiveFinance: captiveFinanceSplitSchema.optional(),
 });
 
 export type NormalizationFacts = z.infer<typeof normalizationFactsSchema>;
@@ -610,10 +623,17 @@ export function buildNormalization(
   facts: NormalizationFacts,
   context: NormalizationContext,
 ): Normalization {
-  const debt = resolveReportedDebt(
-    debtInputOf(facts.balance.debt),
-    facts.zeroDebtEvidence ?? null,
-  );
+  // Con financiera cautiva, la deuda es la industrial: la de la financiera ya
+  // está descontada en el EBIT (ADR 0082).
+  const debt =
+    facts.captiveFinance === undefined
+      ? resolveReportedDebt(
+          debtInputOf(facts.balance.debt),
+          facts.zeroDebtEvidence ?? null,
+        )
+      : resolveReportedDebt(
+          captiveDebtInput(facts.captiveFinance.industrialDebt),
+        );
   const excessCash = resolveExcessCash(facts.balance);
   const investedCapital = resolveInvestedCapital(
     facts.balance,
@@ -697,6 +717,14 @@ export function listNormalizationFacts(
           facts.zeroDebtEvidence,
           "normalization.facts.zeroDebtEvidence",
         )),
+    // La apertura se lee al cierre del 10-K: el balance y el interés del
+    // ejercicio llevan esa fecha.
+    ...(facts.captiveFinance === undefined
+      ? []
+      : listCaptiveFinanceFacts(
+          facts.captiveFinance,
+          "normalization.facts.captiveFinance",
+        ).map((entry) => ({ ...entry, asOf: base }))),
   ];
 }
 
@@ -769,6 +797,17 @@ export function normalizationMismatches(
     }
   }
 
+  // La apertura es del 10-K del ejercicio base y no convive con la evidencia
+  // de deuda cero ni con un balance trimestral.
+  if (
+    facts.captiveFinance !== undefined &&
+    (facts.captiveFinance.fiscalYearEnd !== facts.baseFiscalYearEnd ||
+      facts.basePeriod !== undefined ||
+      facts.zeroDebtEvidence !== undefined)
+  ) {
+    mismatches.push("normalization.facts.captiveFinance");
+  }
+
   const rebuilt = buildNormalization(facts, context);
 
   for (const key of [
@@ -801,16 +840,7 @@ const BALANCE_ITEMS: Readonly<
   marketableSecuritiesNoncurrent: "marketable_securities_noncurrent",
 };
 
-/** La partida de la serie anual que alimenta cada componente de la deuda. */
-export const DEBT_ITEMS: Readonly<Record<DebtComponentKey, LineItemId>> = {
-  longTermTotal: "debt_long_term_total",
-  longTermNoncurrent: "debt_long_term_noncurrent",
-  longTermCurrent: "debt_long_term_current",
-  currentTotal: "debt_current_total",
-  shortTermBorrowings: "debt_short_term_borrowings",
-  commercialPaper: "debt_commercial_paper",
-  financeLeases: "finance_lease_liability",
-};
+export { DEBT_ITEMS };
 
 /**
  * Los hechos de la normalización tal como la serie anual los ve al corte: el

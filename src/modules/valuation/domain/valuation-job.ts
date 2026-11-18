@@ -148,6 +148,12 @@ export const valuationSnapshotGapSchema = z.enum([
   "reit_affo_reconciliation_missing",
   "reit_affo_unaccepted",
   "reit_nav_inputs_unavailable",
+  // `F6-23` (ADR 0082): la financiera cautiva sin apertura.
+  "captive_finance_not_tagged",
+  "captive_finance_filing_unavailable",
+  "captive_finance_debt_unresolved",
+  "captive_finance_interest_missing",
+  "captive_finance_ebit_derived",
 ]);
 
 export type ValuationSnapshotGap = z.infer<typeof valuationSnapshotGapSchema>;

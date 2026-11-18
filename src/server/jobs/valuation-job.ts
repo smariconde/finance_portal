@@ -126,6 +126,8 @@ import { createFundamentalReaders } from "@/server/valuation/fundamental-readers
 
 import { createValuationDataDependencies } from "./valuation-data";
 import { runQualitativeStep } from "./valuation-qualitative";
+import type { CaptiveFinanceUnavailableReason } from "@/modules/valuation/domain/captive-finance";
+import { readCaptiveFinanceFiling } from "./captive-finance-filing";
 import { readFinancialFiling } from "./financial-filing";
 import { readGrowthTaxFiling } from "./growth-tax-filing";
 import { runReitAffoStep } from "./reit-affo-step";
@@ -414,37 +416,44 @@ export async function prepareValuationRun(
   }
 
   const cik = facts.cik;
+  const assessmentRequest = {
+    legalEntityId,
+    query,
+    fundamentalsSourceId: SEC_SOURCE_ID,
+    cik,
+    industryDeclarations: DECLARED_INDUSTRY_ASSIGNMENTS,
+    listingCountry: facts.listingCountry,
+  };
   let assessment = await assessCompany(
-    {
-      legalEntityId,
-      query,
-      fundamentalsSourceId: SEC_SOURCE_ID,
-      cik,
-      industryDeclarations: DECLARED_INDUSTRY_ASSIGNMENTS,
-      listingCountry: facts.listingCountry,
-    },
+    assessmentRequest,
     await assessmentReaders(cik, query, state.graph),
   );
   const financialProfile =
     assessment.selection.assetProfile === "bank" ||
     assessment.selection.assetProfile === "insurer";
-  let selected = assessment.selection.status === "selected";
-  let reading: ValuationAssessmentReading = {
-    legalEntityId,
-    securityId: resolution.securityId,
-    listingId: resolution.listingId,
-    cik,
-    hasAnnualFundamentals: assessment.fundamentals.series !== null,
-    methodStatus: assessment.selection.status,
-    assetProfile: assessment.selection.assetProfile,
-    method: selected
-      ? valuationJobMethodSchema.parse(assessment.selection.recommendedMethod)
-      : null,
-    rigor: selected ? assessment.rigor.level : null,
-    unsupportedReason: selected
-      ? null
-      : (assessment.selection.unsupportedReasons[0] ?? null),
+  const readingOf = (
+    evaluated: CompanyAssessment,
+  ): ValuationAssessmentReading => {
+    const isSelected = evaluated.selection.status === "selected";
+    return {
+      legalEntityId,
+      securityId: resolution.securityId,
+      listingId: resolution.listingId,
+      cik,
+      hasAnnualFundamentals: evaluated.fundamentals.series !== null,
+      methodStatus: evaluated.selection.status,
+      assetProfile: evaluated.selection.assetProfile,
+      method: isSelected
+        ? valuationJobMethodSchema.parse(evaluated.selection.recommendedMethod)
+        : null,
+      rigor: isSelected ? evaluated.rigor.level : null,
+      unsupportedReason: isSelected
+        ? null
+        : (evaluated.selection.unsupportedReasons[0] ?? null),
+    };
   };
+  let selected = assessment.selection.status === "selected";
+  let reading: ValuationAssessmentReading = readingOf(assessment);
 
   let dataStep: ValuationDataStep | null = null;
   const lineage = resolveReportingLineage(
@@ -514,6 +523,30 @@ export async function prepareValuationRun(
         outcome: outcomeForDataStep(subject, "data_ingested", dataStep),
       };
     }
+  }
+
+  // Una financiera cautiva declarada (`F6-23`, ADR 0082): la apertura sale del
+  // instance del 10-K del ejercicio base, y la evaluación se rehace con ella.
+  // Sin apertura etiquetada no hay nada que leer.
+  const captiveBase = assessment.fundamentals.series?.fiscalYears[0];
+  if (
+    assessment.captiveFinance != null &&
+    assessment.captiveFinance.declaration.segments !== null &&
+    captiveBase !== undefined
+  ) {
+    assessment = await assessCompany(
+      {
+        ...assessmentRequest,
+        captiveFinanceFiling: await readCaptiveFinanceFiling({
+          cik,
+          knownAt: job.knownAt,
+          fiscalYearEnd: captiveBase.fiscalYearEnd,
+        }),
+      },
+      await assessmentReaders(cik, query, state.graph),
+    );
+    selected = assessment.selection.status === "selected";
+    reading = readingOf(assessment);
   }
 
   if (
@@ -692,6 +725,19 @@ export async function prepareValuationRun(
   const employeeEquityRepository = getEmployeeEquityRepository();
   let qualitativeStep: ValuationQualitativeStep | null = null;
 
+  // Sin apertura, la deuda sería la consolidada o ninguna: se nombra antes de
+  // gastar en la IA.
+  const captiveGap = captiveFinanceGapOf(assessment);
+  if (selected && captiveGap !== null) {
+    return {
+      kind: "snapshot",
+      reading,
+      dataStep,
+      qualitativeStep,
+      snapshot: { status: "not_assembled", gap: captiveGap },
+    };
+  }
+
   if (
     options.askAi === true &&
     dataStep !== null &&
@@ -772,6 +818,17 @@ export async function prepareValuationRun(
     return {
       kind: "outcome",
       outcome: outcomeForAssessment(reading, undefined, dataStep),
+    };
+  }
+
+  const lateCaptiveGap = captiveFinanceGapOf(assessment);
+  if (lateCaptiveGap !== null) {
+    return {
+      kind: "snapshot",
+      reading,
+      dataStep,
+      qualitativeStep,
+      snapshot: { status: "not_assembled", gap: lateCaptiveGap },
     };
   }
 
@@ -938,6 +995,26 @@ export async function prepareValuationRun(
           })
         : assembleValuationSnapshot(snapshotRequest),
   };
+}
+
+const CAPTIVE_FINANCE_GAPS = {
+  split_not_tagged: "captive_finance_not_tagged",
+  filing_unavailable: "captive_finance_filing_unavailable",
+  industrial_debt_unresolved: "captive_finance_debt_unresolved",
+  industrial_interest_missing: "captive_finance_interest_missing",
+  ebit_derived_from_pretax: "captive_finance_ebit_derived",
+} as const satisfies Record<
+  CaptiveFinanceUnavailableReason,
+  ValuationSnapshotGap
+>;
+
+/** El gap de una financiera cautiva sin apertura, o `null` (`F6-23`). */
+function captiveFinanceGapOf(
+  assessment: CompanyAssessment,
+): ValuationSnapshotGap | null {
+  return assessment.captiveFinance?.status === "unavailable"
+    ? CAPTIVE_FINANCE_GAPS[assessment.captiveFinance.reason]
+    : null;
 }
 
 /**

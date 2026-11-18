@@ -48,7 +48,9 @@ import {
   RATINGS_DATASET,
 } from "@/modules/valuation/domain/cost-of-capital";
 import { DAMODARAN_INDUSTRY_TAXONOMY } from "@/modules/valuation/domain/industry-mapping";
+import { financeDebtOf } from "@/modules/valuation/domain/captive-finance";
 import { getSourceEgressFetch } from "@/server/egress/get-source-egress-fetch";
+import { readCaptiveFinanceFiling } from "@/server/jobs/captive-finance-filing";
 import { getClassificationRepository } from "@/server/persistence/get-classification-repository";
 import { getIndustryResolutionRepository } from "@/server/persistence/get-industry-resolution-repository";
 import { getOperationsMixRepository } from "@/server/persistence/get-operations-mix-repository";
@@ -289,76 +291,98 @@ for (const ticker of values.ticker) {
     }
   }
 
-  const assessment = await assessCompany(
-    {
-      legalEntityId,
-      query: queryAt(new Date().toISOString()),
-      fundamentalsSourceId: SEC_SOURCE_ID,
-      cik,
-      industryDeclarations: DECLARED_INDUSTRY_ASSIGNMENTS,
-      listingCountry: listingCountryOf(resolution.listingId),
-    },
-    {
-      loadSicAssertions: async () => assertions,
-      // Lo guardado por `valuation:resolve-industry`: leerlo no llama a un modelo.
-      loadIndustryResolutions: (subjectId) =>
-        industryResolutions.assertionsForSubject(subjectId),
-      loadIndustryResolution: (resolutionId) =>
-        industryResolutions.findResolution(resolutionId),
-      ...fundamentalReaders,
-      loadFailureRates: (pointInTime) =>
-        readReferenceDataset(
-          FAILURE_RATES_DATASET,
-          pointInTime,
-          referenceDatasets,
-        ),
-      costOfCapitalReadings: async (pointInTime) => {
-        const [betas, countryRisk, impliedErp, ratings, regions] =
-          await Promise.all(
-            [
-              BETAS_DATASET,
-              COUNTRY_RISK_DATASET,
-              IMPLIED_ERP_DATASET,
-              RATINGS_DATASET,
-              COUNTRY_RISK_REGIONS_DATASET,
-            ].map((datasetId) =>
-              readReferenceDataset(datasetId, pointInTime, referenceDatasets),
-            ),
-          );
-
-        return {
-          betas: betas ?? null,
-          countryRisk: countryRisk ?? null,
-          impliedErp: impliedErp ?? null,
-          ratings: ratings ?? null,
-          regions: regions ?? null,
-        };
-      },
-      // Lo guardado por `valuation:operations-mix` o declarado por el owner:
-      // leerlo no llama a un modelo.
-      loadOperationsMix: (subjectId, pointInTime) =>
-        readOperationsMix(
-          {
-            legalEntityId: subjectId,
-            cik,
-            query: pointInTime,
-            declarations: DECLARED_OPERATIONS_MIXES,
-          },
-          operationsMixes,
-        ),
-      industryRelease: async (pointInTime) => {
-        const reading = await readReferenceDataset(
-          DAMODARAN_INDUSTRY_TAXONOMY,
-          pointInTime,
-          referenceDatasets,
+  const assessmentRequest = {
+    legalEntityId,
+    query: queryAt(new Date().toISOString()),
+    fundamentalsSourceId: SEC_SOURCE_ID,
+    cik,
+    industryDeclarations: DECLARED_INDUSTRY_ASSIGNMENTS,
+    listingCountry: listingCountryOf(resolution.listingId),
+  };
+  const assessmentReaders: Parameters<typeof assessCompany>[1] = {
+    loadSicAssertions: async () => assertions,
+    // Lo guardado por `valuation:resolve-industry`: leerlo no llama a un modelo.
+    loadIndustryResolutions: (subjectId) =>
+      industryResolutions.assertionsForSubject(subjectId),
+    loadIndustryResolution: (resolutionId) =>
+      industryResolutions.findResolution(resolutionId),
+    ...fundamentalReaders,
+    loadFailureRates: (pointInTime) =>
+      readReferenceDataset(
+        FAILURE_RATES_DATASET,
+        pointInTime,
+        referenceDatasets,
+      ),
+    costOfCapitalReadings: async (pointInTime) => {
+      const [betas, countryRisk, impliedErp, ratings, regions] =
+        await Promise.all(
+          [
+            BETAS_DATASET,
+            COUNTRY_RISK_DATASET,
+            IMPLIED_ERP_DATASET,
+            RATINGS_DATASET,
+            COUNTRY_RISK_REGIONS_DATASET,
+          ].map((datasetId) =>
+            readReferenceDataset(datasetId, pointInTime, referenceDatasets),
+          ),
         );
 
-        return reading === null
-          ? null
-          : new Map(reading.rows.map((row) => [row.key, row.label]));
-      },
+      return {
+        betas: betas ?? null,
+        countryRisk: countryRisk ?? null,
+        impliedErp: impliedErp ?? null,
+        ratings: ratings ?? null,
+        regions: regions ?? null,
+      };
     },
-  );
+    // Lo guardado por `valuation:operations-mix` o declarado por el owner:
+    // leerlo no llama a un modelo.
+    loadOperationsMix: (subjectId, pointInTime) =>
+      readOperationsMix(
+        {
+          legalEntityId: subjectId,
+          cik,
+          query: pointInTime,
+          declarations: DECLARED_OPERATIONS_MIXES,
+        },
+        operationsMixes,
+      ),
+    industryRelease: async (pointInTime) => {
+      const reading = await readReferenceDataset(
+        DAMODARAN_INDUSTRY_TAXONOMY,
+        pointInTime,
+        referenceDatasets,
+      );
+
+      return reading === null
+        ? null
+        : new Map(reading.rows.map((row) => [row.key, row.label]));
+    },
+  };
+  let assessment = await assessCompany(assessmentRequest, assessmentReaders);
+
+  // Una financiera cautiva declarada (`F6-23`, ADR 0082): fuera de
+  // `--offline`, dos pedidos más leen la apertura del 10-K del ejercicio base.
+  const captiveBase = assessment.fundamentals.series?.fiscalYears[0];
+  if (
+    !values.offline &&
+    assessment.captiveFinance != null &&
+    assessment.captiveFinance.declaration.segments !== null &&
+    captiveBase !== undefined &&
+    cik !== null
+  ) {
+    assessment = await assessCompany(
+      {
+        ...assessmentRequest,
+        captiveFinanceFiling: await readCaptiveFinanceFiling({
+          cik,
+          knownAt: assessmentRequest.query.knownAt ?? NOW,
+          fiscalYearEnd: captiveBase.fiscalYearEnd,
+        }),
+      },
+      assessmentReaders,
+    );
+  }
 
   reports.push({ ticker, cik, sicObservation, assessment });
 }
@@ -546,6 +570,31 @@ for (const report of reports) {
         `${recovery.proceeds} · mitad del capital en libros ${capital.reported} · ${recovery.proceedsBasis}`,
       );
     } else log("recupero", "falta capital en libros resuelto");
+  }
+
+  const { captiveFinance } = assessment;
+  if (captiveFinance != null) {
+    if (captiveFinance.status === "split") {
+      const { split } = captiveFinance;
+      const finance = financeDebtOf(split);
+      log(
+        "financiera cautiva",
+        `${split.financeArm} · ${split.version} · ${split.accessionNumber} · deuda industrial de ${split.segments.industrialDebt.member}${
+          finance.status === "resolved"
+            ? ` · la de la financiera (${finance.total}) no se resta`
+            : ""
+        }`,
+      );
+    } else {
+      log(
+        "financiera cautiva",
+        `${captiveFinance.declaration.financeArm} · sin apertura: ${captiveFinance.reason}${
+          values.offline && captiveFinance.reason === "filing_unavailable"
+            ? " (--offline no lee el 10-K)"
+            : ""
+        }`,
+      );
+    }
   }
 
   const { normalization } = assessment;

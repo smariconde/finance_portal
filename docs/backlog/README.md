@@ -93,7 +93,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    65 | `F6-21`    | `done`        | Empresas en pérdidas o de alto crecimiento valuadas desde la app: el job deriva el snapshot de ventas a margen con supervivencia.                                                                                         | `F6-20`            |
 |    66 | `F6-22`    | `done`        | REIT desde la app con negativa trazable: el job selecciona `affo_nav`, verifica base y accession y nombra lo que falta; sin caso positivo (27 REIT medidos).                                                              | `F6-21`            |
 |    67 | `F8-02`    | `done`        | Vista principal market cap vs EPS con sesgo de recompras visible y vistas alternativas con puente de dilución.                                                                                                            | `F8-01`            |
-|    68 | `F6-23`    | `queued`      | Deuda de las empresas con brazo financiero cautivo (CAT, DE): medir sus conceptos y decidir cómo se trata la financiera antes de valuarlas.                                                                               | `F6-18`            |
+|    68 | `F6-23`    | `done`        | Financiera cautiva separada (ADR 0082): deuda e interés industriales leídos del instance XBRL del 10-K por miembro declarado; CAT y GM con corrida, DE, TXT y PCAR con motivo nombrado.                                   | `F6-18`            |
 |    69 | `F6-24`    | `done`        | Año base TTM al último 10-Q (`ttm-base-period-1.0.0`, ADR 0081): flujos con sus tres patas, balance por bloques y caída a anual con motivo.                                                                               | `F6-22`            |
 |    70 | `F6-25`    | `done`        | Ficha de la empresa: múltiplos elegidos por arquetipo y su historia reportada en barras, calculados con datos propios.                                                                                                    | `F6-19`            |
 |    71 | `F6-26`    | `done`        | Logo guardado medido y descartado (Wikidata + Hunter: 48 % útil contra 100 % de logo.dev); queda logo.dev en el navegador con su caché de 24 h y una URL por ticker, y monograma.                                         | `F6-25`            |
@@ -3940,14 +3940,53 @@ Evidencia:
 
 #### `F6-23` — deuda de empresas con brazo financiero cautivo
 
-- Estado: `queued` (decisión del owner del 2026-10-26).
+- Estado: `done` el 2026-11-18 (encolado el 2026-10-26; el owner lo eligió el
+  2026-11-18).
 - Contexto: CAT publica deuda no corriente y préstamos de corto plazo, sin
   vencimientos corrientes que la receta reconozca; DE publica deuda corriente
   y arrendamientos financieros. Ninguna receta de `reported-debt` cierra, así
   que la deuda queda sin resolver y no hay corrida.
-- Alcance: medir los conceptos de deuda que publican las dos (y otras con
-  financiera cautiva), y decidir con la tabla si se valúa con la deuda
-  consolidada y el motivo nombrado, o separando la financiera.
+- Medido antes de codificar, en el último 10-K de seis emisores (companyfacts
+  e instance XBRL): la deuda de GM, F, PCAR y TXT y el largo plazo de DE no
+  están en ningún concepto `us-gaap` sin dimensión; la apertura industrial /
+  financiera sí está etiquetada por miembro en CAT, GM, F y TXT, sólo la
+  financiera en PCAR y en ningún lado en DE. CAT: 43.330 M consolidados,
+  10.713 M industriales, 32.617 M de Cat Financial. El EBIT publicado de CAT,
+  GM y F ya descuenta el interés de la financiera. Con esa tabla el owner
+  eligió **separar la financiera** (criterio de Damodaran) y dejar a DE con
+  rechazo nombrado ([ADR 0082](../architecture/adr/0082-captive-finance-split.md)).
+- Qué se hizo: `sec-xbrl-instance-1.0.0`, lector cerrado del `_htm.xml` del
+  10-K (sin `DOCTYPE`, prefijos por namespace, contextos de un solo miembro
+  explícito, conceptos con dos valores descartados por nombre).
+  `captive-finance-declarations-1.0.0` declara por CIK el eje y el miembro de
+  la deuda industrial, el interés industrial y la deuda de la financiera (DE
+  sin apertura). `captive-finance-split-1.0.0` aplica las recetas de
+  `reported-debt-1.0.0` a los hechos del miembro industrial y
+  `interest-expense-1.0.0` al interés industrial, y exige el resultado
+  operativo publicado. La cobertura del rating es EBIT / interés industrial
+  (`coverage_interest_industrial_only`); la caja queda consolidada y nombrada;
+  la base queda anual (`captive_finance_split`); un emisor declarado nunca usa
+  la evidencia de deuda cero. La apertura se congela en
+  `normalization.facts.captiveFinance` (opcional) y
+  `captive_finance_split_consistent` la verifica. El job lee submissions y el
+  instance del 10-K al corte (dos pedidos) y, sin apertura, nombra uno de
+  cinco gaps antes del paso de IA (migración `0054`). La página dice que la
+  deuda es la industrial y cuánto debe la financiera.
+- Controles: `TM-05` (sin apertura no hay deuda consolidada ni cero), `TM-06`
+  (10-K visible al corte y del ejercicio base; hechos fechados en su
+  aceptación), `TM-16` (la apertura se recalcula del snapshot sin red).
+- Evidencia: réplica de la base personal con el job real (descarga + IA, USD
+  0,009): CAT `normalized_fcff` `requires_review` (sólo modelo de ciclo),
+  deuda 10.713 M, cobertura 22,2 → AAA, 393,45 por acción; GM deuda 16.247 M
+  (GM Financial 114.030 M fuera), cobertura 4,0 → A3/A−, 130,06 por acción;
+  F separa la deuda y frena después en `shares_outstanding_unavailable` (dos
+  clases en la carátula); DE `captive_finance_not_tagged`, TXT
+  `captive_finance_ebit_derived`, sin gasto de IA; PCAR no llega a la apertura
+  (sin EBIT ni caja publicados, `missing_required_input`). Las 18 corridas de
+  la réplica replayan sin red. Render de CAT 1440 claro, GM 390 oscuro y DE:
+  0 axe serias, 0 desborde. 4.545 unit, lint, tipos y build.
+- Pendiente anotado: la caja industrial, el EBIT derivado de TXT y PCAR, la
+  tabla complementaria de DE y las dos clases de acciones de F.
 
 #### `F6-19` — la brecha frente al sector y al mercado (cerrado el 2026-10-27)
 
