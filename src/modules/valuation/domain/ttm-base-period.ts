@@ -430,7 +430,14 @@ export function buildTtmBasePeriod(input: {
   const flows: TtmFlow[] = [];
 
   for (const item of requiredTtmItems(base)) {
-    const annualItem = base.items[item]!;
+    const annualItem = base.items[item];
+
+    // El ejercicio mismo puede no traer la partida (MCD, 2026-11-18): sin la
+    // pata anual no hay TTM, y se dice cuál falta en vez de leer `undefined`.
+    if (annualItem === undefined) {
+      return annual("ttm_leg_missing", item);
+    }
+
     const current = interim
       .filter(
         (row) => row.concept === annualItem.concept && row.asOf === periodEnd,
