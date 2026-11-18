@@ -32,6 +32,7 @@ import { employeeEquityClaimSchema } from "./employee-equity-claim";
 import { listNormalizationFacts, normalizationSchema } from "./normalization";
 import { qualitativeDecisionsSchema } from "./qualitative-decisions";
 import { scenarioSetSchema } from "./scenarios";
+import { basePeriodSchema } from "./ttm-base-period";
 import { valuationAssessmentSchema } from "./valuation-assessment";
 import { ValuationPolicyError } from "./valuation-error";
 import {
@@ -322,6 +323,13 @@ export const valuationInputSchema = z
      */
     derivedAssumptions: derivedAssumptionsSchema.optional(),
     /**
+     * La base del año base (`F6-24`, ADR 0081): los flujos TTM con sus tres
+     * patas y la fecha de cada bloque de balance, o por qué quedó anual.
+     * Ausente en una corrida anterior, que conserva su hash; presente, un
+     * policy check exige que el snapshot use exactamente estos hechos.
+     */
+    basePeriod: basePeriodSchema.optional(),
+    /**
      * Bear y bull como conjuntos de supuestos (`F4-04`): cada uno declara qué
      * drivers cambian respecto de esta base y por qué, y el motor lo valúa
      * entero. `null` es una corrida con un único conjunto de supuestos.
@@ -396,7 +404,31 @@ export function listMonetaryFacts(
     })),
   );
 
+  if (input.basePeriod?.basis === "ttm") {
+    input.basePeriod.flows.forEach((flow, index) => {
+      for (const leg of ["annual", "currentYtd", "priorYtd"] as const) {
+        facts.push({
+          path: `basePeriod.flows.${index}.${leg}`,
+          fact: flow[leg],
+        });
+      }
+    });
+  }
+
   return facts;
+}
+
+/**
+ * El cierre del último ejercicio anual de la corrida: el del 10-K desde el que
+ * rueda un año base TTM, o el del año base anual. Lo que se lee por ejercicio
+ * —la historia, las opciones, la ganancia neta del P/E— se lee en esta fecha.
+ */
+export function baseFiscalYearEndOf(
+  input: Pick<ValuationInput, "baseRevenue" | "basePeriod">,
+): string {
+  return input.basePeriod?.basis === "ttm"
+    ? input.basePeriod.fiscalYearEnd
+    : input.baseRevenue.asOf;
 }
 
 /**

@@ -1,3 +1,4 @@
+import { baseFiscalYearEndOf } from "../domain/valuation-input";
 import { securityTickersAt } from "@/modules/identity/domain/resolve-identity";
 import {
   cedearPesoValue,
@@ -294,7 +295,7 @@ export async function marketAt(
     prices.loadEvents({ securityId }),
     dependencies.expectations.acceptedForFiscalYear(
       run.subject.legalEntityId,
-      run.input.baseRevenue.asOf,
+      baseFiscalYearEndOf(run.input),
     ),
   ]);
   const readable = closes.map(({ marketDate, close, currency }) => ({

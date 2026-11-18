@@ -27,6 +27,16 @@ import {
   selectValuationMethod,
 } from "../domain/method-selection";
 import { deriveRigorLevel } from "../domain/rigor-level";
+import { buildCapitalization } from "../domain/capitalization-bridge";
+import type { LineItemValue } from "../domain/annual-fundamentals";
+import {
+  basePeriodSchema,
+  flowOf,
+  ttmCapitalizationFacts,
+  ttmFlowFact,
+  ttmNormalizationFacts,
+  type TtmBasePeriodCandidate,
+} from "../domain/ttm-base-period";
 
 const demo = DEMO_VALUATION_INPUT;
 const KNOWN_AT = "2025-06-01T00:00:00.000Z";
@@ -697,6 +707,272 @@ describe("valuation-snapshot-1.0.0", () => {
     ).toEqual({
       status: "not_assembled",
       gap: "shares_outstanding_unavailable",
+    });
+  });
+
+  describe("ttm-base-period-1.0.0", () => {
+    const FY = "2024-12-31";
+    const Q1 = "2025-03-31";
+    const Q1_AVAILABLE = "2025-04-25T21:00:00.000Z";
+    const Q1_PRIOR_AVAILABLE = "2024-04-25T21:00:00.000Z";
+    const base = {
+      currency: "USD",
+      unit: "monetary" as const,
+      sourceId: "sec-edgar",
+      observationId: null,
+      qualityFlags: [],
+    };
+    const annual = (concept: string, value: string) => ({
+      ...base,
+      concept: `us-gaap:${concept}`,
+      value,
+      asOf: FY,
+      availableAt: demo.baseRevenue.availableAt,
+      sourceDocumentId: demo.baseRevenue.sourceDocumentId,
+    });
+    const ytd = (concept: string, value: string, current: boolean) => ({
+      ...base,
+      concept: `us-gaap:${concept}`,
+      value,
+      asOf: current ? Q1 : "2024-03-31",
+      periodStart: current ? "2025-01-01" : "2024-01-01",
+      availableAt: current ? Q1_AVAILABLE : Q1_PRIOR_AVAILABLE,
+      sourceDocumentId: current ? "fixtureco-q1-2025" : "fixtureco-q1-2024",
+    });
+    const flowOfLegs = (
+      item: "revenue" | "operating_income" | "pretax_income" | "income_tax",
+      concept: string,
+      [fy, current, prior]: [string, string, string],
+    ) => ({
+      item,
+      annual: annual(concept, fy),
+      currentYtd: ytd(concept, current, true),
+      priorYtd: ytd(concept, prior, false),
+    });
+    const quarterItem = (
+      item: LineItemValue["item"],
+      concept: string,
+      value: string,
+    ): LineItemValue => ({
+      item,
+      concept: `us-gaap:${concept}`,
+      value,
+      unit: "USD",
+      currency: "USD",
+      asOf: Q1,
+      observationId: OBSERVATION,
+      availableAt: Q1_AVAILABLE,
+      recordedAt: Q1_AVAILABLE,
+      sourceDocumentId: "fixtureco-q1-2025",
+    });
+    const candidate: Extract<TtmBasePeriodCandidate, { status: "ttm" }> = {
+      status: "ttm",
+      basePeriod: basePeriodSchema.parse({
+        version: "ttm-base-period-1.0.0",
+        basis: "ttm",
+        fiscalYearEnd: FY,
+        periodEnd: Q1,
+        flows: [
+          flowOfLegs("revenue", "Revenues", [
+            demo.baseRevenue.value,
+            "27000000",
+            "24000000",
+          ]),
+          flowOfLegs("operating_income", "OperatingIncomeLoss", [
+            "17280000",
+            "4800000",
+            "4100000",
+          ]),
+          flowOfLegs(
+            "pretax_income",
+            "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
+            ["16000000", "4500000", "3900000"],
+          ),
+          flowOfLegs("income_tax", "IncomeTaxExpenseBenefit", [
+            "3360000",
+            "945000",
+            "819000",
+          ]),
+        ],
+        balance: {
+          core: { basis: "quarter" },
+          leases: {
+            basis: "fiscal_year",
+            reason: "lease_liability_not_at_quarter",
+          },
+        },
+      }) as Extract<TtmBasePeriodCandidate, { status: "ttm" }>["basePeriod"],
+      quarter: {
+        equity: quarterItem("equity", "StockholdersEquity", "72000000"),
+        cash: quarterItem(
+          "cash",
+          "CashAndCashEquivalentsAtCarryingValue",
+          "9000000",
+        ),
+        debt_long_term_total: quarterItem(
+          "debt_long_term_total",
+          "LongTermDebt",
+          "34000000",
+        ),
+      },
+    };
+    const toFact = (item: LineItemValue) => ({
+      ...seriesFact(item, "sec-edgar"),
+      concept: item.concept,
+    });
+    const flowFact = (item: "pretax_income" | "income_tax") =>
+      ttmFlowFact(flowOf(candidate.basePeriod, item)!, Q1);
+
+    function ttmAssessment(): CompanyAssessment {
+      const marginalTaxRate = marginalTaxRateOf(demo.costOfCapital);
+      const annualNormalization = buildNormalization(
+        {
+          ...demo.normalization.facts,
+          income: {
+            pretaxIncome: annual(
+              "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
+              "16000000",
+            ),
+            incomeTax: annual("IncomeTaxExpenseBenefit", "3360000"),
+            shareBasedCompensation: null,
+          },
+        },
+        {
+          baseRevenue: demo.baseRevenue.value,
+          marginalTaxRate,
+          capitalization: demo.capitalization,
+        },
+      );
+      const ttmRevenue = ttmFlowFact(
+        flowOf(candidate.basePeriod, "revenue")!,
+        Q1,
+      ).value;
+      const capitalization = buildCapitalization(
+        ttmCapitalizationFacts(demo.capitalization, candidate, toFact),
+        {
+          baseRevenue: ttmRevenue,
+          industryKey: demo.costOfCapital.industryKey,
+          preTaxCostOfDebt: demo.costOfCapital.derived.preTaxCostOfDebt,
+        },
+      );
+
+      return {
+        ...ASSESSMENT,
+        capitalization,
+        normalization: buildNormalization(
+          ttmNormalizationFacts(annualNormalization.facts, candidate, toFact),
+          { baseRevenue: ttmRevenue, marginalTaxRate, capitalization },
+        ),
+        basePeriod: candidate.basePeriod,
+      };
+    }
+
+    const value = (input: Parameters<typeof runValuation>[0]) =>
+      runValuation(input, {
+        now: () => "2026-11-17T00:00:00.000Z",
+        newValuationRunId: () => "00000000-0000-4000-8000-0000000000fb",
+      });
+    const checkStatus = (run: ReturnType<typeof value>, id: string) =>
+      run.result?.checks.find((check) => check.id === id)?.status ??
+      run.failure?.subjects;
+
+    it("values a TTM base with every check passing and the history still annual", () => {
+      const result = assembleValuationSnapshot(
+        request({ assessment: ttmAssessment() }),
+      );
+
+      expect(result.status).toBe("assembled");
+      if (result.status !== "assembled") return;
+
+      const { input } = result;
+
+      // 26 M de FY + 27 − 24 del primer trimestre.
+      expect(input.baseRevenue).toMatchObject({
+        value: String(Number(demo.baseRevenue.value) + 3000000),
+        asOf: Q1,
+        observationId: null,
+        qualityFlags: ["ttm"],
+      });
+      expect(input.basePeriod).toEqual(candidate.basePeriod);
+      expect(input.derivedAssumptions?.revenueHistory[0]?.fiscalYearEnd).toBe(
+        FY,
+      );
+      expect(input.periods[0]?.periodEnd).toBe("2026-03-31");
+      expect(input.bridge.debt.amount).toMatchObject({
+        value: "34000000",
+        asOf: Q1,
+      });
+      expect(input.normalization.facts.income.pretaxIncome).toEqual(
+        flowFact("pretax_income"),
+      );
+      expect(input.employeeEquity.decision.fiscalYearEnd).toBe(FY);
+
+      const run = value(input);
+
+      expect(run.failure).toBeNull();
+      for (const id of [
+        "base_period_recomputed",
+        "capitalization_recomputed",
+        "normalization_recomputed",
+        "assumptions_derived_recomputed",
+      ]) {
+        expect(checkStatus(run, id)).toBe("passed");
+      }
+    });
+
+    it("rejects a TTM base whose frozen facts are not what its legs derive", () => {
+      const result = assembleValuationSnapshot(
+        request({ assessment: ttmAssessment() }),
+      );
+      if (result.status !== "assembled") throw new Error("not assembled");
+
+      const tampered = structuredClone(result.input);
+      tampered.normalization.facts.income.incomeTax = {
+        ...flowFact("income_tax"),
+        value: "100",
+      };
+      const run = value(tampered);
+
+      expect(run.status).toBe("rejected");
+      expect(run.failure?.subjects).toEqual(
+        expect.arrayContaining(["normalization.facts.income.incomeTax"]),
+      );
+
+      const moved = structuredClone(result.input);
+      if (moved.basePeriod?.basis !== "ttm") throw new Error("not ttm");
+      moved.basePeriod.balance.core = {
+        basis: "fiscal_year",
+        reason: "debt_recipe_not_at_quarter",
+        item: null,
+      };
+
+      expect(value(moved).failure?.subjects).toEqual(
+        expect.arrayContaining(["normalization.facts.basePeriod"]),
+      );
+    });
+
+    it("names an annual base and refuses TTM block dates without a TTM base", () => {
+      const annualBase = {
+        version: "ttm-base-period-1.0.0" as const,
+        basis: "annual" as const,
+        fiscalYearEnd: FY,
+        reason: "no_interim_after_fiscal_year" as const,
+        item: null,
+      };
+      const result = assembleValuationSnapshot(
+        request({ assessment: { ...ASSESSMENT, basePeriod: annualBase } }),
+      );
+      if (result.status !== "assembled") throw new Error("not assembled");
+
+      expect(result.input.basePeriod).toEqual(annualBase);
+      expect(checkStatus(value(result.input), "base_period_recomputed")).toBe(
+        "passed",
+      );
+
+      const stray = structuredClone(result.input);
+      stray.capitalization.basePeriod = { fiscalYearEnd: FY, leasesAsOf: FY };
+
+      expect(value(stray).status).toBe("rejected");
     });
   });
 });

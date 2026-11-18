@@ -29,6 +29,8 @@ import {
 } from "@/modules/valuation/domain/display-format";
 import type { ValuationRun } from "@/modules/valuation/domain/valuation-run";
 
+import { BasePeriodLegs } from "./base-period";
+
 import {
   ADJUSTMENT_TARGET_LABELS,
   adjustmentLabel,
@@ -251,7 +253,9 @@ export function DerivationSummary({ run }: { run: ValuationRun }) {
                       </time>
                       {index === 0 ? (
                         <span className="ml-2 text-xs font-normal text-muted-foreground">
-                          año base
+                          {run.input.basePeriod?.basis === "ttm"
+                            ? "último 10-K"
+                            : "año base"}
                         </span>
                       ) : null}
                     </TableHead>
@@ -267,6 +271,10 @@ export function DerivationSummary({ run }: { run: ValuationRun }) {
       )}
 
       <CardContent className="border-t px-0 pt-(--card-spacing)">
+        <BasePeriodLegs
+          basePeriod={run.input.basePeriod}
+          currency={run.currency}
+        />
         <div className="flex flex-col gap-1 px-(--card-spacing) pb-3">
           <h3 className="text-sm font-medium">
             Libro de ajustes del ejercicio base

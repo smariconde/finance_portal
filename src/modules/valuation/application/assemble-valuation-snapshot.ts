@@ -39,6 +39,7 @@ import {
 } from "../domain/employee-equity-claim";
 import { employeeEquityDocumentId } from "../domain/employee-equity";
 import { deriveRigorLevel } from "../domain/rigor-level";
+import { flowOf, ttmFlowFact } from "../domain/ttm-base-period";
 import {
   ENGINE_VERSION,
   METHODOLOGY_VERSION,
@@ -111,6 +112,15 @@ export type ValuationSnapshotRequest = {
 export type ValuationSnapshotResult =
   | { readonly status: "assembled"; readonly input: ValuationInput }
   | { readonly status: "not_assembled"; readonly gap: SnapshotGap };
+
+/** Un hecho con concepto como hecho monetario: el puente no lo lleva. */
+function withoutConcept(
+  fact: MonetaryFact & { concept?: string },
+): MonetaryFact {
+  const { concept: _concept, ...rest } = fact;
+  void _concept;
+  return rest;
+}
 
 const notAssembled = (gap: SnapshotGap): ValuationSnapshotResult => ({
   status: "not_assembled",
@@ -223,8 +233,21 @@ export function assembleValuationSnapshot(
     return notAssembled("normalization_unavailable");
   }
 
-  const baseRevenue = seriesFact(revenueItem, request.fundamentalsSourceId);
+  // Año base TTM (`F6-24`, ADR 0081): las ventas son las del TTM y los
+  // períodos se cuentan desde el 10-Q; la historia, las opciones y lo que se
+  // lee por ejercicio siguen en el cierre del 10-K.
+  const basePeriod = assessment.basePeriod ?? null;
+  const ttm = basePeriod?.basis === "ttm" ? basePeriod : null;
+  const revenueFlow = ttm === null ? null : flowOf(ttm, "revenue");
+  const baseRevenue: MonetaryFact =
+    ttm === null || revenueFlow === null
+      ? seriesFact(revenueItem, request.fundamentalsSourceId)
+      : withoutConcept(ttmFlowFact(revenueFlow, ttm.periodEnd));
   const baseFiscalYearEnd = normalization.facts.baseFiscalYearEnd;
+  const lastFiscalYearEnd = ttm?.fiscalYearEnd ?? baseFiscalYearEnd;
+  const balanceAsOf =
+    normalization.facts.basePeriod?.balanceAsOf ?? baseFiscalYearEnd;
+  const leasesAsOf = capitalization.basePeriod?.leasesAsOf ?? baseFiscalYearEnd;
   const derivation = {
     version: DERIVED_ASSUMPTIONS_V2_VERSION,
     industryReturn: industryReturnAt(
@@ -242,12 +265,13 @@ export function assembleValuationSnapshot(
               },
             ],
       ),
-      baseFiscalYearEnd,
+      lastFiscalYearEnd,
     ),
   } as const;
   const assumptions = deriveAssumptions({
     derivation,
     baseFiscalYearEnd,
+    ...(ttm === null ? {} : { historyEnd: lastFiscalYearEnd }),
     normalization,
     costOfCapital,
   });
@@ -290,13 +314,13 @@ export function assembleValuationSnapshot(
           transcription: accepted.proposal.transcription!,
         }
       : (employeeOptionsXbrlAt(request.employeeOptionFacts ?? [], {
-          fiscalYearEnd: baseFiscalYearEnd,
+          fiscalYearEnd: lastFiscalYearEnd,
           knownAt,
           sourceId: request.fundamentalsSourceId,
         }) ?? {
           basis: "not_subtracted",
           version: EMPLOYEE_OPTIONS_NOT_SUBTRACTED_VERSION,
-          fiscalYearEnd: baseFiscalYearEnd,
+          fiscalYearEnd: lastFiscalYearEnd,
           reason: "no_transcription_or_xbrl",
         });
   const outstandingOptions =
@@ -338,11 +362,16 @@ export function assembleValuationSnapshot(
     riskFree: costOfCapital.derived.riskFree,
   });
   const balance = normalization.facts.balance;
-  const atBase = (value: string, provenance: MonetaryFact): MonetaryFact => ({
-    ...provenance,
-    value,
-    asOf: baseFiscalYearEnd,
-  });
+  // Cada claim del puente lleva la fecha de su bloque de balance.
+  const atDate =
+    (asOf: string) =>
+    (value: string, provenance: MonetaryFact): MonetaryFact => ({
+      ...withoutConcept(provenance),
+      value,
+      asOf,
+    });
+  const atBalance = atDate(balanceAsOf);
+  const atLeases = atDate(leasesAsOf);
   // La provenance de la deuda es la del primer componente que la receta sumó.
   const firstDebtFact = (
     normalization.debt.status === "resolved"
@@ -393,14 +422,14 @@ export function assembleValuationSnapshot(
     bridge: {
       excessCash:
         normalization.excessCash.status === "resolved" && balance.cash !== null
-          ? reported(atBase(normalization.excessCash.total, balance.cash))
+          ? reported(atBalance(normalization.excessCash.total, balance.cash))
           : missing,
       nonOperatingAssets: declaredAbsent(
         `${DERIVED_ASSUMPTIONS_V2_VERSION}: no recipe separates non-operating assets; valued at zero and named.`,
       ),
       debt:
         normalization.debt.status === "resolved" && firstDebtFact !== undefined
-          ? reported(atBase(normalization.debt.total, firstDebtFact))
+          ? reported(atBalance(normalization.debt.total, firstDebtFact))
           : normalization.debt.status === "zero_with_evidence"
             ? declaredAbsent(
                 `${ZERO_DEBT_EVIDENCE_VERSION}: no borrowing or scheduled debt maturity in the last ${ZERO_DEBT_FISCAL_YEARS} fiscal years, and interest is absent or within the top rating band; valued at zero and named.`,
@@ -408,7 +437,7 @@ export function assembleValuationSnapshot(
             : missing,
       leaseDebt:
         leases.status === "capitalized" && leaseFact !== null
-          ? reported(atBase(leases.leaseDebt, leaseFact))
+          ? reported(atLeases(leases.leaseDebt, leaseFact))
           : leases.status === "not_capitalized" &&
               leases.reason === "lease_liability_missing"
             ? declaredAbsent(
@@ -443,6 +472,7 @@ export function assembleValuationSnapshot(
     },
     sensitivity: assumptions.sensitivity,
     derivedAssumptions: derivation,
+    ...(basePeriod === null ? {} : { basePeriod }),
     scenarios: assumptions.scenarios,
   });
 

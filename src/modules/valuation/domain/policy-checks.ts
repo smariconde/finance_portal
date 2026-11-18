@@ -32,6 +32,14 @@ import {
 import { derivedAssumptionsMismatches } from "./derived-assumptions";
 import { applyDerivedCycle } from "./derived-cycle";
 import { zeroDebtEvidenceHasInterest } from "./zero-debt-evidence";
+import {
+  blockAsOf,
+  flowOf,
+  ttmBasePeriodMismatches,
+  ttmFlowFact,
+  type TtmBasePeriod,
+  type TtmFlowItem,
+} from "./ttm-base-period";
 
 /**
  * Policy checks del motor (`docs/valuation/methodology.md`, sección "Policy
@@ -243,7 +251,9 @@ function checkCapitalization(input: ValuationInput): PolicyCheck[] {
     leases.status === "capitalized"
       ? claim.status === "reported" &&
         claim.amount !== null &&
-        claim.amount.asOf === capitalization.baseFiscalYearEnd &&
+        claim.amount.asOf ===
+          (capitalization.basePeriod?.leasesAsOf ??
+            capitalization.baseFiscalYearEnd) &&
         parseDecimal(claim.amount.value, "bridge.leaseDebt").eq(
           parseDecimal(leases.leaseDebt, "capitalization.leases.leaseDebt"),
         )
@@ -279,6 +289,7 @@ function checkNormalization(input: ValuationInput): PolicyCheck[] {
     capitalization: input.capitalization,
   });
   const base = normalization.facts.baseFiscalYearEnd;
+  const balanceAsOf = normalization.facts.basePeriod?.balanceAsOf ?? base;
 
   if (input.baseRevenue.asOf !== base) {
     mismatches.push("normalization.facts.baseFiscalYearEnd");
@@ -299,7 +310,7 @@ function checkNormalization(input: ValuationInput): PolicyCheck[] {
       : derived.status === "resolved"
         ? claim.status === "reported" &&
           claim.amount !== null &&
-          claim.amount.asOf === base &&
+          claim.amount.asOf === balanceAsOf &&
           parseDecimal(claim.amount.value, path).eq(
             parseDecimal(derived.total, "normalization.total"),
           )
@@ -433,9 +444,21 @@ function checkDerivedAssumptions(input: ValuationInput): PolicyCheck[] {
   const cycleNormalization =
     input.method === "normalized_fcff" ? input.cycleNormalization : undefined;
   const cycle = cycleNormalization !== undefined;
+  const revenueFlow =
+    input.basePeriod?.basis === "ttm"
+      ? flowOf(input.basePeriod, "revenue")
+      : null;
   const mismatches = derivedAssumptionsMismatches({
     derivation: input.derivedAssumptions,
     baseRevenue: input.baseRevenue,
+    ...(revenueFlow === null
+      ? {}
+      : {
+          historyBase: {
+            value: revenueFlow.annual.value,
+            fiscalYearEnd: revenueFlow.annual.asOf,
+          },
+        }),
     normalization: input.normalization,
     costOfCapital: input.costOfCapital,
     periods: input.periods,
@@ -526,6 +549,207 @@ function checkZeroDebtEvidence(input: ValuationInput): PolicyCheck[] {
   ];
 }
 
+/** Mismo hecho, campo por campo: el monto como decimal, el resto exacto. */
+function sameFact(
+  frozen: { value: string } & Record<string, unknown>,
+  derived: { value: string; concept: string } & Record<string, unknown>,
+): boolean {
+  const rest = (fact: Record<string, unknown>) =>
+    computeContentHash(
+      Object.fromEntries(
+        Object.entries(fact).filter(
+          ([key]) => key !== "value" && key !== "concept",
+        ),
+      ),
+    );
+
+  // Un hecho con concepto (los de la normalización) tiene que nombrar el del
+  // flujo; uno sin concepto (el EBIT publicado) no lo lleva.
+  return (
+    parseDecimal(frozen.value, "fact").eq(
+      parseDecimal(derived.value, "fact"),
+    ) &&
+    (!("concept" in frozen) || frozen.concept === derived.concept) &&
+    rest(frozen) === rest(derived)
+  );
+}
+
+/**
+ * Lo que el snapshot congela del año base TTM tiene que ser exactamente lo
+ * que sus patas derivan: cada flujo usado en ventas, EBIT, impuestos y SBC,
+ * cada bloque de balance en la fecha que declara y ningún cargo revertido.
+ */
+function ttmBasePeriodUseMismatches(
+  input: ValuationInput,
+  basePeriod: TtmBasePeriod,
+): string[] {
+  const mismatches = ttmBasePeriodMismatches(basePeriod);
+  const { capitalization, normalization } = input;
+  const used = new Set<TtmFlowItem>();
+  const expect = (
+    path: string,
+    item: TtmFlowItem,
+    fact: ({ value: string } & Record<string, unknown>) | null,
+  ) => {
+    const flow = flowOf(basePeriod, item);
+
+    if (flow === null || fact === null) {
+      if (flow !== null || fact !== null) {
+        mismatches.push(path);
+      }
+      return;
+    }
+
+    used.add(item);
+    const derived = ttmFlowFact(flow, basePeriod.periodEnd);
+
+    if (!sameFact(fact, derived)) {
+      mismatches.push(path);
+    }
+  };
+
+  expect("baseRevenue", "revenue", input.baseRevenue);
+  expect(
+    "capitalization.reportedEbit",
+    "operating_income",
+    capitalization.reportedEbit,
+  );
+
+  const derivation = capitalization.ebitDerivation;
+
+  if (derivation !== undefined) {
+    expect(
+      "capitalization.ebitDerivation.pretaxIncome",
+      "pretax_income",
+      derivation.pretaxIncome,
+    );
+    derivation.interest.facts.forEach((fact, index) => {
+      const flow = basePeriod.flows.find(
+        (candidate) =>
+          candidate.annual.concept === fact.concept &&
+          candidate.item !== "pretax_income",
+      );
+
+      if (flow === undefined) {
+        mismatches.push(
+          `capitalization.ebitDerivation.interest.facts.${index}`,
+        );
+        return;
+      }
+
+      expect(
+        `capitalization.ebitDerivation.interest.facts.${index}`,
+        flow.item,
+        fact,
+      );
+    });
+  }
+
+  expect(
+    "normalization.facts.income.pretaxIncome",
+    "pretax_income",
+    normalization.facts.income.pretaxIncome,
+  );
+  expect(
+    "normalization.facts.income.incomeTax",
+    "income_tax",
+    normalization.facts.income.incomeTax,
+  );
+  expect(
+    "normalization.facts.income.shareBasedCompensation",
+    "share_based_compensation",
+    normalization.facts.income.shareBasedCompensation,
+  );
+
+  basePeriod.flows.forEach((flow, index) => {
+    if (!used.has(flow.item)) {
+      mismatches.push(`basePeriod.flows.${index}`);
+    }
+  });
+
+  if (
+    capitalization.baseFiscalYearEnd !== basePeriod.periodEnd ||
+    capitalization.basePeriod?.fiscalYearEnd !== basePeriod.fiscalYearEnd ||
+    capitalization.basePeriod.leasesAsOf !== blockAsOf(basePeriod, "leases")
+  ) {
+    mismatches.push("capitalization.basePeriod");
+  }
+
+  if (
+    normalization.facts.baseFiscalYearEnd !== basePeriod.periodEnd ||
+    normalization.facts.basePeriod?.fiscalYearEnd !==
+      basePeriod.fiscalYearEnd ||
+    normalization.facts.basePeriod.balanceAsOf !== blockAsOf(basePeriod, "core")
+  ) {
+    mismatches.push("normalization.facts.basePeriod");
+  }
+
+  // Un cargo revertido es de un ejercicio: su TTM no se arma igual.
+  if (
+    normalization.charges.restructuring.status === "applied" ||
+    normalization.charges.impairment.status === "applied"
+  ) {
+    mismatches.push("normalization.charges");
+  }
+
+  // La deuda cero se prueba en ejercicios: sólo con el balance del 10-K.
+  if (
+    normalization.facts.zeroDebtEvidence !== undefined &&
+    basePeriod.balance.core.basis === "quarter"
+  ) {
+    mismatches.push("normalization.facts.zeroDebtEvidence");
+  }
+
+  if (basePeriod.periodEnd > input.asOf) {
+    mismatches.push("basePeriod.periodEnd");
+  }
+
+  return mismatches;
+}
+
+/**
+ * El año base TTM (`F6-24`, ADR 0081) no es un input crudo: sus flujos se
+ * recalculan desde sus patas y el resto del snapshot tiene que usarlos. Un
+ * año base anual que nombra su motivo es del cierre de sus ventas, y sólo un
+ * TTM lleva fechas de bloque en la capitalización y la normalización.
+ */
+function checkBasePeriod(input: ValuationInput): PolicyCheck[] {
+  const { basePeriod } = input;
+  const blocksDeclared =
+    input.capitalization.basePeriod !== undefined ||
+    input.normalization.facts.basePeriod !== undefined;
+
+  if (basePeriod === undefined && !blocksDeclared) {
+    return [];
+  }
+
+  const mismatches =
+    basePeriod?.basis === "ttm"
+      ? ttmBasePeriodUseMismatches(input, basePeriod)
+      : [
+          ...(basePeriod !== undefined &&
+          basePeriod.fiscalYearEnd !== input.baseRevenue.asOf
+            ? ["basePeriod.fiscalYearEnd"]
+            : []),
+          ...(input.capitalization.basePeriod !== undefined
+            ? ["capitalization.basePeriod"]
+            : []),
+          ...(input.normalization.facts.basePeriod !== undefined
+            ? ["normalization.facts.basePeriod"]
+            : []),
+        ];
+
+  return [
+    check(
+      "base_period_recomputed",
+      "reject",
+      mismatches.length === 0,
+      "A TTM base year must be fiscal year plus current year-to-date minus the comparable one, with one concept per flow, and the snapshot must use exactly those flows and each balance block's own close.",
+      [...new Set(mismatches)].slice(0, 32),
+    ),
+  ];
+}
+
 /** Checks que dependen sólo del snapshot: corren antes de calcular. */
 export function checkValuationInput(input: ValuationInput): PolicyCheck[] {
   const checks: PolicyCheck[] = [
@@ -534,6 +758,7 @@ export function checkValuationInput(input: ValuationInput): PolicyCheck[] {
     ...checkQualitativeDecisions(input),
     ...checkCapitalization(input),
     ...checkNormalization(input),
+    ...checkBasePeriod(input),
     ...checkZeroDebtEvidence(input),
     ...checkEmployeeEquity(input),
     ...checkFailureRisk(input),

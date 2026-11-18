@@ -94,7 +94,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    66 | `F6-22`    | `done`        | REIT desde la app con negativa trazable: el job selecciona `affo_nav`, verifica base y accession y nombra lo que falta; sin caso positivo (27 REIT medidos).                                                              | `F6-21`            |
 |    67 | `F8-02`    | `done`        | Vista principal market cap vs EPS con sesgo de recompras visible y vistas alternativas con puente de dilución.                                                                                                            | `F8-01`            |
 |    68 | `F6-23`    | `queued`      | Deuda de las empresas con brazo financiero cautivo (CAT, DE): medir sus conceptos y decidir cómo se trata la financiera antes de valuarlas.                                                                               | `F6-18`            |
-|    69 | `F6-24`    | `queued`      | Año base TTM: el último 10-Q entra al año base (flujos TTM, balance al último cierre) y la corrida deja de quedar hasta un año atrás.                                                                                     | `F6-22`            |
+|    69 | `F6-24`    | `done`        | Año base TTM al último 10-Q (`ttm-base-period-1.0.0`, ADR 0081): flujos con sus tres patas, balance por bloques y caída a anual con motivo.                                                                               | `F6-22`            |
 |    70 | `F6-25`    | `done`        | Ficha de la empresa: múltiplos elegidos por arquetipo y su historia reportada en barras, calculados con datos propios.                                                                                                    | `F6-19`            |
 |    71 | `F6-26`    | `done`        | Logo guardado medido y descartado (Wikidata + Hunter: 48 % útil contra 100 % de logo.dev); queda logo.dev en el navegador con su caché de 24 h y una URL por ticker, y monograma.                                         | `F6-25`            |
 |    72 | `F6-27`    | `done`        | Matriz de riesgo con logos, CEDEAR diferenciado y referencia S&P 500 destacada; CI quality y E2E del PR #81 aprobados.                                                                                                    | `F6-26`            |
@@ -3994,20 +3994,41 @@ Evidencia:
 
 #### `F6-24` — año base TTM desde el 10-Q
 
-- Estado: `queued` (pedido del owner del 2026-10-27).
-- Contexto: la corrida descuenta desde el último 10-K. La ADR 0049 ya nombró
+- Estado: `done` el 2026-11-17 (pedido del owner del 2026-10-27; el owner lo
+  eligió ese día entre los tres slices de valuación en cola).
+- Contexto: la corrida descontaba desde el último 10-K. La ADR 0049 ya nombró
   el límite: con un `as_of` casi un año después, el valor queda un año atrás.
-  En KO al 2026-10-27, las ventas TTM son 50,57 B contra 48,39 B del FY2025
-  (+4,5 %) y el resultado operativo 16,1 B contra 15,2 B (+6 %).
-- Alcance: los flujos TTM salen de FY + acumulado del año en curso −
-  acumulado del mismo período del año anterior, y el flujo de fondos sólo
-  existe acumulado. El balance (deuda, caja, capital invertido) se toma del
-  último cierre trimestral. La ventana (ADR 0017) conserva los acumulados del
-  ejercicio en curso, y la normalización, la capitalización y los recómputos
-  leen la base declarada. Las opciones siguen saliendo del 10-K. Lleva ADR.
-- Aceptación: cada dato del año base nombra su base (`annual` o `ttm`) y sus
-  filings; sin el acumulado comparable, la corrida cae a la base anual
-  nombrando el motivo; todas las corridas guardadas replayan.
+- Medido antes de codificar sobre la base personal: 47 de 51 filers tienen un
+  10-Q posterior al 10-K; las tres patas cierran con el mismo concepto en
+  ventas 44/47, impuesto 46/47 y SBC 32/33, pero los deterioros sólo 8/28; el
+  arrendamiento operativo es usable al 10-Q en 23 de 46 y la receta de deuda
+  deja de cerrar en 5 de 26. Con esa tabla el owner eligió el balance por
+  bloques ([ADR 0081](../architecture/adr/0081-ttm-base-period.md)).
+- Qué se hizo: `ttm-base-period-1.0.0` arma los flujos del año base de una
+  corrida `fcff_base` —ventas, EBIT o pretax + intereses, pretax, impuesto y
+  SBC— como ejercicio + acumulado actual − comparable, con un concepto por
+  flujo y bordes a 10 días; sin una pata, la corrida entera queda anual con
+  `ttm_leg_missing` y la partida, y también con un cargo revertido o sin 10-Q.
+  Deuda, caja, patrimonio y minoritarios van al 10-Q si la receta cierra y
+  están todas las partidas; los arrendamientos, si el 10-Q publica el total o
+  sus dos partes. La historia de ventas, la I+D capitalizada, los cargos, la
+  deuda cero, la cobertura y las opciones siguen en ejercicios del 10-K.
+  `ValuationInput.basePeriod` (opcional) congela las patas y los bloques;
+  `base_period_recomputed` los recalcula y exige que el snapshot los use. Sin
+  migración ni cambio de versión del motor; la ventana no cambia. La página
+  dice «Año base: TTM al …» en la cabecera y muestra las patas y la fecha de
+  cada bloque en «De dónde salen los supuestos».
+- Evidencia: réplica de la base personal con el mismo corte contra `main`:
+  AAPL 151,76 → 176,23, JNJ 184,72 → 133,36 (el FY2025 incluía la reversión
+  del cargo por talco), AMZN 143,40 → 134,58 (deuda de largo plazo 68.836 →
+  132.995 M en el semestre), INCY 173,51 → 186,78, DUK 10,70 → 19,43; CRL queda
+  anual por el pretax. Las 16 corridas guardadas y las nuevas TTM replayan.
+  Render sobre el build a 1440 claro y 390 oscuro (AAPL, JNJ TTM; CRL anual):
+  0 axe serias, 0 desborde de página; la tabla TTM se desplaza en su
+  contenedor a 390 px. Detector `impeccable` sin hallazgos. 4.513 unit, 248
+  integration, lint, tipos, formato y build; 390 E2E con axe (3 omitidas).
+- Pendiente anotado: el filer CIK 1415404 no se puede leer (más de 1.000
+  revisiones en una lectura de linaje), anterior a este slice.
 
 #### `F6-25` — ficha de la empresa con múltiplos por arquetipo
 

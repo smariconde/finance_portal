@@ -11,7 +11,7 @@ import {
 } from "./decimal-policy";
 import { computeFcff, type FcffOverride } from "./fcff";
 import { ValuationPolicyError } from "./valuation-error";
-import type { ValuationInput } from "./valuation-input";
+import { baseFiscalYearEndOf, type ValuationInput } from "./valuation-input";
 import type { ValuationRun } from "./valuation-run";
 
 /**
@@ -91,7 +91,7 @@ export type MarketPriceComparison =
  */
 export function shareBasisDate(input: ValuationInput): string {
   const cover = input.employeeEquity.sharesOutstanding.asOf;
-  const base = input.baseRevenue.asOf;
+  const base = baseFiscalYearEndOf(input);
 
   return cover < base ? cover : base;
 }

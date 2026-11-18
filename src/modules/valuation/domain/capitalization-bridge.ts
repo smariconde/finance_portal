@@ -171,10 +171,22 @@ const capitalizationLedgerSchema = z.object({
   debtDelta: z.object({ leases: amount }),
 });
 
+/**
+ * Año base TTM (`F6-24`, ADR 0081): `baseFiscalYearEnd` es el cierre del
+ * 10-Q de los flujos, la I+D sigue en ejercicios desde el 10-K y los
+ * arrendamientos son del cierre de su bloque. Sólo viaja en una corrida TTM:
+ * una anual queda igual byte por byte.
+ */
+export const capitalizationBasePeriodSchema = z.object({
+  fiscalYearEnd: calendarDateSchema,
+  leasesAsOf: calendarDateSchema,
+});
+
 export const capitalizationSchema = z.object({
   version: z.literal(CAPITALIZATION_BRIDGE_VERSION),
   lifeTableVersion: z.literal(RD_AMORTIZABLE_LIFE_VERSION),
   baseFiscalYearEnd: calendarDateSchema,
+  basePeriod: capitalizationBasePeriodSchema.optional(),
   reportedEbit: monetaryFactSchema.nullable(),
   /** Sólo sin `reportedEbit`: de dónde sale el EBIT del puente. */
   ebitDerivation: ebitDerivationSchema.optional(),
@@ -202,7 +214,7 @@ export type Capitalization = z.infer<typeof capitalizationSchema>;
 
 export type CapitalizationFacts = Pick<
   Capitalization,
-  "baseFiscalYearEnd" | "reportedEbit" | "ebitDerivation"
+  "baseFiscalYearEnd" | "basePeriod" | "reportedEbit" | "ebitDerivation"
 > & {
   readonly leases: Pick<
     Capitalization["leases"],
@@ -333,6 +345,7 @@ export function buildCapitalization(
     version: CAPITALIZATION_BRIDGE_VERSION,
     lifeTableVersion: RD_AMORTIZABLE_LIFE_VERSION,
     baseFiscalYearEnd: facts.baseFiscalYearEnd,
+    ...(facts.basePeriod === undefined ? {} : { basePeriod: facts.basePeriod }),
     reportedEbit: facts.reportedEbit,
     ...(facts.ebitDerivation === undefined
       ? {}
@@ -356,32 +369,47 @@ export function capitalizationMismatches(
 ): string[] {
   const mismatches: string[] = [];
   const base = capitalization.baseFiscalYearEnd;
+  const leasesAsOf = capitalization.basePeriod?.leasesAsOf ?? base;
+  const rdBase = capitalization.basePeriod?.fiscalYearEnd ?? base;
 
   // Todo hecho del ejercicio base es de ese mismo cierre: un pasivo de otro
-  // balance no es la deuda de este EBIT.
-  const datedFacts: [string, MonetaryFact | null][] = [
-    ["capitalization.reportedEbit", capitalization.reportedEbit],
+  // balance no es la deuda de este EBIT. En un año base TTM, los
+  // arrendamientos son del cierre que su bloque declara.
+  const datedFacts: [string, MonetaryFact | null, string][] = [
+    ["capitalization.reportedEbit", capitalization.reportedEbit, base],
     [
       "capitalization.leases.totalLiability",
       capitalization.leases.totalLiability,
+      leasesAsOf,
     ],
     [
       "capitalization.leases.currentLiability",
       capitalization.leases.currentLiability,
+      leasesAsOf,
     ],
     [
       "capitalization.leases.noncurrentLiability",
       capitalization.leases.noncurrentLiability,
+      leasesAsOf,
     ],
+    ...ebitDerivationFacts(capitalization).map(
+      ([path, fact]): [string, MonetaryFact, string] => [path, fact, base],
+    ),
   ];
 
-  for (const [path, fact] of [
-    ...datedFacts,
-    ...ebitDerivationFacts(capitalization),
-  ]) {
-    if (fact !== null && fact.asOf !== base) {
+  for (const [path, fact, asOf] of datedFacts) {
+    if (fact !== null && fact.asOf !== asOf) {
       mismatches.push(path);
     }
+  }
+
+  if (
+    capitalization.basePeriod !== undefined &&
+    (capitalization.basePeriod.fiscalYearEnd >= base ||
+      (leasesAsOf !== base &&
+        leasesAsOf !== capitalization.basePeriod.fiscalYearEnd))
+  ) {
+    mismatches.push("capitalization.basePeriod");
   }
 
   // Un EBIT por puente: el derivado existe sólo donde no hay publicado.
@@ -402,7 +430,7 @@ export function capitalizationMismatches(
 
   if (
     capitalization.researchAndDevelopment.fiscalYears[0]?.fiscalYearEnd !==
-      base &&
+      rdBase &&
     capitalization.researchAndDevelopment.fiscalYears.length > 0
   ) {
     mismatches.push("capitalization.researchAndDevelopment.fiscalYears.0");

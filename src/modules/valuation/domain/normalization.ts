@@ -110,6 +110,18 @@ export const normalizationFactsSchema = z.object({
    * conserva su hash.
    */
   zeroDebtEvidence: zeroDebtEvidenceSchema.optional(),
+  /**
+   * Año base TTM (`F6-24`, ADR 0081): `baseFiscalYearEnd` es el cierre del
+   * 10-Q de los resultados, el balance es del cierre de su bloque y la
+   * historia de cargos y la evidencia de deuda cero siguen en ejercicios desde
+   * el 10-K. Sólo viaja en una corrida TTM.
+   */
+  basePeriod: z
+    .object({
+      fiscalYearEnd: calendarDateSchema,
+      balanceAsOf: calendarDateSchema,
+    })
+    .optional(),
 });
 
 export type NormalizationFacts = z.infer<typeof normalizationFactsSchema>;
@@ -640,6 +652,7 @@ export function listNormalizationFacts(
 ): readonly { path: string; fact: ConceptFact; asOf: string }[] {
   const { facts } = normalization;
   const base = facts.baseFiscalYearEnd;
+  const balanceAsOf = facts.basePeriod?.balanceAsOf ?? base;
   const entries: { path: string; fact: ConceptFact | null; asOf: string }[] = [
     ...Object.entries(facts.income).map(([key, value]) => ({
       path: `normalization.facts.income.${key}`,
@@ -657,12 +670,12 @@ export function listNormalizationFacts(
     ).map((key) => ({
       path: `normalization.facts.balance.${key}`,
       fact: facts.balance[key],
-      asOf: base,
+      asOf: balanceAsOf,
     })),
     ...DEBT_COMPONENT_KEYS.map((key) => ({
       path: `normalization.facts.balance.debt.${key}`,
       fact: facts.balance.debt[key],
-      asOf: base,
+      asOf: balanceAsOf,
     })),
     ...facts.chargeHistory.flatMap((year, index) =>
       (["revenue", "restructuring", "impairment"] as const).map((key) => ({
@@ -702,7 +715,21 @@ export function normalizationMismatches(
     mismatches.push("normalization.facts.baseFiscalYearEnd");
   }
 
-  if (facts.chargeHistory[0]?.fiscalYearEnd !== facts.baseFiscalYearEnd) {
+  // La historia de cargos y la deuda cero cuentan ejercicios desde el 10-K,
+  // también en un año base TTM.
+  const fiscalYearEnd =
+    facts.basePeriod?.fiscalYearEnd ?? facts.baseFiscalYearEnd;
+
+  if (
+    facts.basePeriod !== undefined &&
+    (facts.basePeriod.fiscalYearEnd >= facts.baseFiscalYearEnd ||
+      (facts.basePeriod.balanceAsOf !== facts.baseFiscalYearEnd &&
+        facts.basePeriod.balanceAsOf !== facts.basePeriod.fiscalYearEnd))
+  ) {
+    mismatches.push("normalization.facts.basePeriod");
+  }
+
+  if (facts.chargeHistory[0]?.fiscalYearEnd !== fiscalYearEnd) {
     mismatches.push("normalization.facts.chargeHistory.0");
   }
 
@@ -732,7 +759,7 @@ export function normalizationMismatches(
     mismatches.push(
       ...zeroDebtEvidenceMismatches(
         facts.zeroDebtEvidence,
-        facts.baseFiscalYearEnd,
+        fiscalYearEnd,
         "normalization.facts.zeroDebtEvidence",
       ),
     );

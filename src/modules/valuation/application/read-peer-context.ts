@@ -1,3 +1,4 @@
+import { baseFiscalYearEndOf } from "../domain/valuation-input";
 import type { ClassificationRepository } from "@/modules/classification/application/classification-repository";
 import { SP500_SECTOR_TAXONOMY_ID } from "@/modules/classification/domain/sector-taxonomy";
 import type { SubjectClassification } from "@/modules/classification/domain/subject-classification";
@@ -63,7 +64,7 @@ export function baseNetIncome(
   run: Pick<ValuationRun, "input">,
   series: AnnualFundamentals | null,
 ): BaseNetIncome | null {
-  const end = run.input.normalization.facts.baseFiscalYearEnd;
+  const end = baseFiscalYearEndOf(run.input);
   const item = series?.fiscalYears.find((year) => year.fiscalYearEnd === end)
     ?.items.net_income;
 
