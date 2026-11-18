@@ -11,9 +11,10 @@ import {
 import type { ConsensusRefreshStatus } from "@/modules/consensus/application/consensus-refresh";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
 import {
+  declareForwardPeThresholdForRequest,
   ensureConsensusForRequest,
-  securityOfValuedTicker,
   startConsensusWorker,
+  subjectOfValuedTicker,
 } from "@/server/jobs/consensus-refresh";
 import {
   requestValuationForRequest,
@@ -124,10 +125,10 @@ export async function refreshConsensus(
   }
 
   try {
-    const securityId = await securityOfValuedTicker(ticker.data);
-    if (securityId === null) return { state: "unavailable" };
+    const subject = await subjectOfValuedTicker(ticker.data);
+    if (subject === null) return { state: "unavailable" };
     const result = await ensureConsensusForRequest({
-      securityId,
+      securityId: subject.securityId,
       retryFailures: request.data.retryFailures,
     });
     if (result.runJobId !== null) {
@@ -139,6 +140,63 @@ export async function refreshConsensus(
     // Only the type: a message can carry a host, a port or SQL (`TM-02`).
     console.error(
       "consensus refresh failed",
+      error instanceof Error ? error.name : typeof error,
+    );
+    return { state: "unavailable" };
+  }
+}
+
+const thresholdRequestSchema = z
+  .object({
+    ticker: z.string().trim().min(1).max(32),
+    /** `null` removes it; otherwise a multiple with up to two decimals. */
+    value: z
+      .string()
+      .trim()
+      .regex(/^(?:[1-9]\d{0,2})(?:[.,]\d{1,2})?$/u)
+      .nullable(),
+  })
+  .strict();
+
+export type ForwardPeThresholdResult =
+  { readonly state: "saved" } | { readonly state: "unavailable" };
+
+/**
+ * The owner's forward P/E threshold for a valued company (`F6-29`, ADR 0083):
+ * an append-only revision, drawn as a line and never a buy label. Same guards
+ * as the other actions (`TM-03`): mode in the request, a closed schema with a
+ * bounded number, a ticker that must have a recorded run, no network.
+ */
+export async function declareForwardPeThreshold(
+  input: unknown,
+): Promise<ForwardPeThresholdResult> {
+  const health = await getRequestConfigHealth();
+  if (!servesRealData(health)) return { state: "unavailable" };
+
+  const request = thresholdRequestSchema.safeParse(input);
+  const ticker = request.success
+    ? valuationTickerSchema.safeParse(request.data.ticker)
+    : null;
+  if (!request.success || ticker === null || !ticker.success) {
+    return { state: "unavailable" };
+  }
+  const value =
+    request.data.value === null ? null : request.data.value.replace(",", ".");
+  if (value !== null && (Number(value) <= 0 || Number(value) > 1000)) {
+    return { state: "unavailable" };
+  }
+
+  try {
+    const subject = await subjectOfValuedTicker(ticker.data);
+    if (subject === null) return { state: "unavailable" };
+    await declareForwardPeThresholdForRequest({
+      legalEntityId: subject.legalEntityId,
+      value,
+    });
+    return { state: "saved" };
+  } catch (error) {
+    console.error(
+      "forward P/E threshold failed",
       error instanceof Error ? error.name : typeof error,
     );
     return { state: "unavailable" };

@@ -177,4 +177,30 @@ describe("loadForwardMultiples", () => {
       ).threshold,
     ).toBeNull();
   });
+
+  it("keeps showing today's consensus when the last close is weeks old", async () => {
+    const dependencies = await setup({
+      captures: ["2026-11-18T15:00:00.000Z"],
+      revisions: [
+        revision(estimate("2026-12-31", "5"), 0, "2026-11-18T15:00:00.000Z"),
+        revision(estimate("2027-12-31", "6"), 0, "2026-11-18T15:00:00.000Z"),
+      ],
+      closes: [["2026-09-30", "100"]],
+    });
+    const view = await loadForwardMultiples(
+      {
+        securityId: SECURITY,
+        legalEntityId: ENTITY,
+        now: "2026-11-18T23:00:00.000Z",
+      },
+      dependencies,
+    );
+    expect(view.current.closeDate).toBe("2026-09-30");
+    expect(view.current.forwardPeReason).toBe("stale_consensus");
+    expect(view.years.map((year) => year.periodEnd)).toEqual([
+      "2026-12-31",
+      "2027-12-31",
+    ]);
+    expect(view.history).toEqual([]);
+  });
 });

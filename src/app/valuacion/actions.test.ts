@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   start: vi.fn(),
   after: vi.fn(),
   security: vi.fn(),
+  declare: vi.fn(),
   ensureConsensus: vi.fn(),
   startConsensus: vi.fn(),
 }));
@@ -20,12 +21,17 @@ vi.mock("@/server/jobs/valuation-job", () => ({
 }));
 
 vi.mock("@/server/jobs/consensus-refresh", () => ({
-  securityOfValuedTicker: mocks.security,
+  subjectOfValuedTicker: mocks.security,
+  declareForwardPeThresholdForRequest: mocks.declare,
   ensureConsensusForRequest: mocks.ensureConsensus,
   startConsensusWorker: mocks.startConsensus,
 }));
 
-import { enqueueValuation, refreshConsensus } from "./actions";
+import {
+  declareForwardPeThreshold,
+  enqueueValuation,
+  refreshConsensus,
+} from "./actions";
 
 const QUEUED = {
   state: "queued" as const,
@@ -122,6 +128,7 @@ describe("enqueueValuation", () => {
 /** The consensus capture on open (`F6-29`, `TM-03`), invoked without the UI. */
 describe("refreshConsensus", () => {
   const SECURITY = "00000000-0000-4000-8000-000000000001";
+  const ENTITY = "00000000-0000-4000-8000-0000000000e1";
 
   beforeEach(() => {
     mocks.mode = "personal";
@@ -158,7 +165,10 @@ describe("refreshConsensus", () => {
   });
 
   it("starts the worker after answering and returns only the state", async () => {
-    mocks.security.mockResolvedValue(SECURITY);
+    mocks.security.mockResolvedValue({
+      securityId: SECURITY,
+      legalEntityId: ENTITY,
+    });
     mocks.ensureConsensus.mockResolvedValue({
       status: { state: "running", other: false, waitingUntil: null },
       runJobId: "job-1",
@@ -184,5 +194,65 @@ describe("refreshConsensus", () => {
     });
     expect(result).toEqual({ state: "unavailable" });
     expect(JSON.stringify(result)).not.toContain("10.0.0.1");
+  });
+});
+
+/** The owner's threshold (`F6-29`, `TM-03`), invoked without the UI. */
+describe("declareForwardPeThreshold", () => {
+  const SUBJECT = {
+    securityId: "00000000-0000-4000-8000-000000000001",
+    legalEntityId: "00000000-0000-4000-8000-0000000000e1",
+  };
+
+  beforeEach(() => {
+    mocks.mode = "personal";
+    mocks.security.mockReset();
+    mocks.declare.mockReset();
+  });
+
+  it("refuses in a locked runtime", async () => {
+    mocks.mode = "locked";
+    expect(
+      await declareForwardPeThreshold({ ticker: "AAPL", value: "12" }),
+    ).toEqual({ state: "unavailable" });
+    expect(mocks.security).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["zero", "0"],
+    ["a negative", "-12"],
+    ["above a thousand", "1001"],
+    ["three decimals", "12.345"],
+    ["text", "doce"],
+    ["an exponent", "1e2"],
+  ])("refuses %s", async (_label, value) => {
+    expect(await declareForwardPeThreshold({ ticker: "AAPL", value })).toEqual({
+      state: "unavailable",
+    });
+    expect(mocks.declare).not.toHaveBeenCalled();
+  });
+
+  it("stores a comma decimal as a point, and null removes it", async () => {
+    mocks.security.mockResolvedValue(SUBJECT);
+    expect(
+      await declareForwardPeThreshold({ ticker: "AAPL", value: "12,5" }),
+    ).toEqual({ state: "saved" });
+    expect(mocks.declare).toHaveBeenCalledWith({
+      legalEntityId: SUBJECT.legalEntityId,
+      value: "12.5",
+    });
+    await declareForwardPeThreshold({ ticker: "AAPL", value: null });
+    expect(mocks.declare).toHaveBeenLastCalledWith({
+      legalEntityId: SUBJECT.legalEntityId,
+      value: null,
+    });
+  });
+
+  it("writes nothing for a ticker without a recorded run", async () => {
+    mocks.security.mockResolvedValue(null);
+    expect(
+      await declareForwardPeThreshold({ ticker: "ZZZZ", value: "12" }),
+    ).toEqual({ state: "unavailable" });
+    expect(mocks.declare).not.toHaveBeenCalled();
   });
 });

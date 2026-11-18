@@ -16,6 +16,10 @@ import {
   type EnsureConsensusResult,
 } from "@/modules/consensus/application/consensus-refresh";
 import { createLiveConsensusSource } from "@/modules/consensus/application/live-consensus-source";
+import {
+  loadForwardMultiples,
+  type ForwardMultiplesView,
+} from "@/modules/consensus/application/load-forward-multiples";
 import { recordConsensus } from "@/modules/consensus/application/record-consensus";
 import { securityTickersAt } from "@/modules/identity/domain/resolve-identity";
 import {
@@ -33,6 +37,7 @@ import { getMeteredEgressFetch } from "@/server/egress/get-source-egress-fetch";
 import { getConsensusRepository } from "@/server/persistence/get-consensus-repository";
 import { getIngestionJobStore } from "@/server/persistence/get-ingestion-job-store";
 import { getIngestionRunRepository } from "@/server/persistence/get-ingestion-run-repository";
+import { getPriceRepository } from "@/server/persistence/get-price-repository";
 import { getSourceBudgetStore } from "@/server/persistence/get-source-budget-store";
 import { getSourceRegistryRepository } from "@/server/persistence/get-source-registry-repository";
 import { getUniverseRepository } from "@/server/persistence/get-universe-repository";
@@ -52,8 +57,13 @@ let activeWorker: Promise<void> | null = null;
 
 /** Every run engine the job records carries its subject's security. */
 const recordedSubjectSchema = z.object({
-  subject: z.object({ securityId: z.uuid() }),
+  subject: z.object({ securityId: z.uuid(), legalEntityId: z.uuid() }),
 });
+
+export type ValuedSubject = {
+  readonly securityId: string;
+  readonly legalEntityId: string;
+};
 
 const now = () => new Date().toISOString();
 
@@ -68,12 +78,13 @@ function dependencies() {
 }
 
 /**
- * The security of a ticker's latest recorded valuation run, or `null`. Only a
- * valued company is captured: an arbitrary symbol cannot spend the quota.
+ * The subject of a ticker's latest recorded valuation run, or `null`. Only a
+ * valued company is captured or gets a threshold: an arbitrary symbol cannot
+ * spend the quota or write a row.
  */
-export async function securityOfValuedTicker(
+export async function subjectOfValuedTicker(
   ticker: string,
-): Promise<string | null> {
+): Promise<ValuedSubject | null> {
   const jobs = await getValuationJobStore().listCompletedByTicker(ticker, 20);
   const recorded = jobs.find((job) => job.valuationRunId !== null);
   if (recorded === undefined) return null;
@@ -81,14 +92,42 @@ export async function securityOfValuedTicker(
     recorded.valuationRunId!,
   );
   const parsed = recordedSubjectSchema.safeParse(run);
-  return parsed.success ? parsed.data.subject.securityId : null;
+  return parsed.success ? parsed.data.subject : null;
 }
 
-/** The render's question, without writing anything. */
-export async function readConsensusReadinessForRender(
-  securityId: string,
-): Promise<{ readonly needsRefresh: boolean; readonly failed: boolean }> {
-  return readConsensusReadiness({ securityId }, dependencies());
+/** The forward P/E block and whether the page should ask for a capture. */
+export async function readForwardMultiplesForRender(
+  subject: ValuedSubject,
+): Promise<{
+  readonly view: ForwardMultiplesView;
+  readonly readiness: {
+    readonly needsRefresh: boolean;
+    readonly failed: boolean;
+  };
+}> {
+  const [view, readiness] = await Promise.all([
+    loadForwardMultiples(
+      { ...subject, now: now() },
+      { consensus: getConsensusRepository(), prices: getPriceRepository() },
+    ),
+    readConsensusReadiness({ securityId: subject.securityId }, dependencies()),
+  ]);
+  return { view, readiness };
+}
+
+/** One more append-only revision of the owner's forward P/E threshold. */
+export async function declareForwardPeThresholdForRequest(input: {
+  readonly legalEntityId: string;
+  readonly value: string | null;
+}): Promise<void> {
+  await getConsensusRepository().declareThreshold({
+    thresholdId: randomUUID(),
+    legalEntityId: input.legalEntityId,
+    metric: "forward_pe",
+    value: input.value,
+    reason: null,
+    declaredAt: now(),
+  });
 }
 
 export async function ensureConsensusForRequest(input: {
