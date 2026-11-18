@@ -590,6 +590,43 @@ optional `normalization.facts.captiveFinance` and checked by
 before asking the AI. Measured on a replica: CAT 43,330 → 10,713 M of debt, AAA,
 393.45; GM 16,247 M, A3/A−, 130.06; DE and TXT named; 18 stored runs replay.
 
+```bash
+pnpm consensus:ingest --ticker AAPL            # dry run: one Alpha Vantage request, plans the revisions
+pnpm consensus:ingest --ticker AAPL --apply    # records the run and the changed fiscal years
+```
+
+Analyst consensus and the forward P/E (`F6-29`,
+[ADR 0083](docs/architecture/adr/0083-consensus-estimates-forward-pe.md),
+migration `0055`). The source is Alpha Vantage's `EARNINGS_ESTIMATES` with the
+owner's free key (25 requests/day, `approved_personal`: its terms license
+private investment analysis). It only takes the key in the URL, so the door
+gained a fourth credential kind, `env_query`: the allowlist names the variable
+(`ALPHA_VANTAGE_API_KEY`) and the parameter (`apikey`), the door appends it
+after authorizing the destination, refuses a URL already carrying it
+(`credential_in_url`) and the source follows no redirects. A response is two
+fiscal years plus 40 undated quarters; `av-earnings-estimates-1.0.0` keeps the
+fiscal years, counts and drops the quarters, reads every number from its text
+and names the API's 200-status errors. Each fiscal year of each security is a
+revision chain in `consensus_estimates` (a revision only when a number moves,
+`available_at` = the capture, a year that stops coming is withdrawn); every
+capture records a run —`duplicate` when nothing moved— and the runs date the
+consensus a read uses, so there is no history before the first capture. The
+EPS is the street's, possibly adjusted, never compared silently with the GAAP
+P/E. `forward-pe-1.0.0` prices the close on the NTM EPS, FY1 and FY2 weighted
+by the days left in FY1 (FY1 is the first fiscal year ending after the close;
+an ended, unreported one is not FY1), and refuses a price and a consensus more
+than 7 days apart; `peg-1.0.0` divides by the FY1→FY2 consensus growth in
+points and is `null` with a non-positive one (both owner decisions). Opening a
+valuation captures it once per New York day (`consensus-freshness-1.0.0`) as an
+`alpha_vantage_consensus_refresh` one-item job; `refreshConsensus` and
+`declareForwardPeThreshold` take only a ticker with a recorded run. The page's
+«Forward P/E» card reads apart from the run (never the snapshot): today's
+multiples, the consensus per fiscal year, and one point per close since the
+first capture with the consensus as known when its session settled, drawn
+with the owner's threshold (`owner_multiple_thresholds`, append-only, a null
+value removes it) and the trailing GAAP median as labelled dashed lines.
+Measured: AAPL and AMZN captured, 48 kB.
+
 Company logos are loaded by the **browser** from logo.dev
 ([ADR 0062](docs/architecture/adr/0062-company-logos-browser-loaded.md)): the
 free plan forbids storing them, so the CSP opens `img-src` to

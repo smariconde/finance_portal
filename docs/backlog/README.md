@@ -100,7 +100,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |    72 | `F6-27`    | `done`        | Matriz de riesgo con logos, CEDEAR diferenciado y referencia S&P 500 destacada; CI quality y E2E del PR #81 aprobados.                                                                                                    | `F6-26`            |
 |    73 | `F7-09`    | `blocked`     | Extracto literal del Item 1 del 10-K en el punto seleccionado, con filing y fecha; publicación por cita elegida y comprobada contra el documento SEC.                                                                     | `F7-05`            |
 |    74 | `F6-28`    | `done`        | Lectura rápida: carga visible en cada acción lenta, cabecera de indicadores, una línea por sección con ⓘ, exigencias del precio dibujadas y referencia S&P 500 liviana.                                                   | `F6-27`            |
-|    75 | `F6-29`    | `queued`      | Estimaciones de consenso fechadas para P/E forward y PEG, con fuente y derechos en su ADR, y umbral de múltiplo declarado por el owner.                                                                                   | `F6-25`            |
+|    75 | `F6-29`    | `done`        | Consenso de Alpha Vantage como cadenas de revisiones (ADR 0083), P/E forward NTM y PEG a un año desde la primera captura, captura al abrir la valuación y umbral del owner como línea.                                    | `F6-25`            |
 |    76 | `F8-03`    | `done`        | Matriz de divergencias con filtros y detalle que conservan el valor crudo de los outliers, con su equivalente accesible.                                                                                                  | `F8-02`            |
 |    77 | `F8-04`    | `done`        | Golden y property tests de las divergencias: splits, restatements, negativos, outliers, tolerancias y look-ahead.                                                                                                         | `F8-03`            |
 |    78 | `F9-01`    | `done`        | Catálogo y vintages BCRA v4 con fallo seguro ante cambios de esquema, conservando release, unidad, frecuencia y revisión.                                                                                                 | Fase 8 `done`      |
@@ -4167,7 +4167,7 @@ Evidencia:
 
 #### `F6-29` — estimaciones de consenso y P/E forward
 
-- Estado: `queued` (pedido del owner del 2026-10-29: en tecnológicas
+- Estado: `done` el 2026-11-18 (pedido del owner del 2026-10-29: en tecnológicas
   disruptivas el P/E forward es la lectura habitual; «una FANG a 12× forward
   está atractiva» es la regla que citó).
 - Hoy no existe el dato: la SEC publica lo reportado y de Yahoo sólo se guardan
@@ -4178,6 +4178,40 @@ Evidencia:
 - El umbral del owner (por empresa o arquetipo) se dibuja como línea
   declarada «tu umbral: 12×» sobre la banda de `F6-25`, nunca como «barata» o
   «atractiva» (PRODUCT.md: sin señales de compra o venta).
+- Medido el 2026-11-18 antes de la ADR: `EARNINGS_ESTIMATES` de Alpha Vantage
+  (AAPL, MSFT, AMZN, JNJ, CAT; IBM con la clave `demo`) trae dos ejercicios y 40
+  trimestres hasta 2017 sin ninguna fecha de publicación, ~42 kB, números como
+  texto, fines de período en fin de mes calendario y EPS «de la calle» (JNJ
+  ajustado; AMZN con FY2027 debajo de FY2026). Decisiones del owner: Alpha
+  Vantage; P/E forward sobre el EPS NTM combinado FY1/FY2 por días (FactSet,
+  Bloomberg «1BF»); PEG con el crecimiento del consenso FY1→FY2.
+- Entregado: [ADR 0083](../architecture/adr/0083-consensus-estimates-forward-pe.md);
+  credencial `env_query` en la puerta (`egress-policy-1.3.0`,
+  `egress-client-1.3.0`, `egress-allowlist-1.7.0`: la clave como `apikey`
+  después de autorizar, `credential_in_url`, sin redirects); fuente
+  `alpha-vantage` `approved_personal` con 25 pedidos/día;
+  `av-earnings-estimates-1.0.0` cierra sobre y claves, lee del texto y nombra
+  los errores con 200; migración `0055` (`consensus_estimates` como cadenas por
+  ejercicio, `owner_multiple_thresholds` append-only y el kind
+  `alpha_vantage_consensus_refresh`, con rollback); `pnpm consensus:ingest`;
+  `consensus-freshness-1.0.0` captura al abrir la valuación una vez por día de
+  Nueva York con «Reintentar» para las fallas; `refreshConsensus` y
+  `declareForwardPeThreshold` aceptan sólo un ticker con corrida registrada
+  (`TM-03`); `forward-pe-1.0.0` y `peg-1.0.0` con nulos nombrados; la tarjeta
+  «Forward P/E» con NTM, FY1, FY2, PEG, consenso por ejercicio con rango y
+  cambio a 90 días, historia desde la primera captura (cada cierre lee el
+  consenso conocido al asentarse su rueda) con el umbral y la mediana trailing
+  GAAP como líneas rotuladas, y su tabla equivalente. Nada entra al snapshot ni
+  a sus hashes.
+- Evidencia: captura real de AAPL y AMZN en la base personal (dos ejercicios,
+  40 trimestres descartados, 48 kB la tabla); la segunda captura sin cambios
+  quedó `duplicate`. Revisión renderizada sobre una réplica con 20 capturas
+  sintéticas de AAPL y un umbral de 35× (marcadas `synthetic_review`, la
+  réplica se borró): 1440 claro, 1440 oscuro, 390 claro y oscuro, AAPL y AMZN,
+  0 violaciones axe graves y 0 desborde; la ronda encontró el motivo del nulo
+  desbordando la tile en móvil y el consenso oculto sin cierre comparable, ambos
+  corregidos. Detector Impeccable sin hallazgos. 4.614 unit, 251 integration,
+  lint, tipos, formato, build y 390 E2E con axe (3 omitidas).
 
 #### `F6-26` — logo de la empresa (cerrado el 2026-10-28)
 
