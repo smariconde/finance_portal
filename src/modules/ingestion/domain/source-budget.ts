@@ -70,6 +70,9 @@ export const SOURCE_DAILY_REQUEST_BUDGETS: Readonly<Record<string, number>> =
     // Riesgo país (ADR 0080): la historia entera en un pedido, una vez por día
     // de Buenos Aires al abrir la página; diez dejan lugar a corridas a mano.
     "ambito-riesgo-pais": 10,
+    // Consenso de analistas (ADR 0083): un pedido por ticker, al abrir su
+    // valuación una vez por día de Nueva York; es la cuota del plan gratis.
+    "alpha-vantage": 25,
     // Soja (ADR 0071): cada corrida pide la historia entera en una request por
     // serie —dos en el Ministerio, que concilia—. Veinte cubren la actualización
     // al abrir y varias corridas a mano el mismo día.

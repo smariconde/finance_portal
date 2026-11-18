@@ -18,7 +18,7 @@ import type { EgressTransport } from "./https-transport";
  * proveedor construye el path de su recurso y nada más; no elige a dónde va el
  * socket (`TM-08`).
  */
-export const APPROVED_RESOURCE_CLIENT_VERSION = "egress-client-1.2.0";
+export const APPROVED_RESOURCE_CLIENT_VERSION = "egress-client-1.3.0";
 
 /**
  * Nombre con el que se presenta el proyecto ante una fuente que no exige
@@ -114,9 +114,11 @@ function checkedCredential(
   return credential;
 }
 
+type HeaderCredential = Exclude<EgressCredential, { kind: "env_query" }>;
+
 async function credentialHeaderOf(
   sourceId: string,
-  credential: EgressCredential,
+  credential: HeaderCredential,
   readCredential: (variable: string) => string | undefined,
   provideCredential: (
     provider: EgressCredentialProvider,
@@ -271,7 +273,31 @@ export async function fetchApprovedResource(
   // La credencial entra después de autorizar el destino, nunca antes: un pedido
   // a un host fuera de la lista no llega a leerla. El error nombra la variable,
   // jamás el valor (`TM-02`).
-  if (entry.credential !== null) {
+  if (entry.credential?.kind === "env_query") {
+    // La clave va en la URL ya autorizada (ADR 0083). Si el adaptador puso el
+    // parámetro, la URL se rechaza: el valor tiene que venir de la puerta.
+    const parameter = entry.credential.parameter;
+    if (current.url.searchParams.has(parameter)) {
+      throw new EgressBlockedError(
+        "credential_in_url",
+        entry.sourceId,
+        parameter,
+      );
+    }
+    const url = new URL(current.url);
+    url.searchParams.append(
+      parameter,
+      checkedCredential(
+        readCredential(entry.credential.variable),
+        entry.sourceId,
+        entry.credential.variable,
+      ),
+    );
+    if (url.toString().length > MAX_EGRESS_URL_LENGTH) {
+      throw new EgressBlockedError("url_too_long", current.target);
+    }
+    current = { url, target: current.target };
+  } else if (entry.credential !== null) {
     headers[entry.credential.header] = await credentialHeaderOf(
       entry.sourceId,
       entry.credential,

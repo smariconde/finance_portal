@@ -15,6 +15,8 @@ const SOY_RIGHTS_REVIEWED_AT = "2026-11-04T00:00:00.000Z";
 const SOY_RIGHTS_REVIEW_DUE_AT = "2027-02-04T00:00:00.000Z";
 const COUNTRY_RISK_RIGHTS_REVIEWED_AT = "2026-11-17T00:00:00.000Z";
 const COUNTRY_RISK_RIGHTS_REVIEW_DUE_AT = "2027-02-17T00:00:00.000Z";
+const CONSENSUS_RIGHTS_REVIEWED_AT = "2026-11-18T00:00:00.000Z";
+const CONSENSUS_RIGHTS_REVIEW_DUE_AT = "2027-02-18T00:00:00.000Z";
 
 /** Fecha en que el owner revisó y aprobó las rights rows de Fase 2. */
 const RIGHTS_REVIEWED_AT = "2026-09-05T00:00:00.000Z";
@@ -1161,6 +1163,64 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
      * redistribuir el índice; el owner aceptó leerlo y guardar los cierres
      * sólo para uso personal: ni público, ni export, ni IA, ni asistente.
      */
+    /**
+     * Consenso de analistas (ADR 0083). Los términos de Alpha Vantage cubren de
+     * forma explícita el análisis de inversión privado e individual y no
+     * prohíben guardar; la licencia es personal, así que nada se muestra en
+     * público ni se exporta, y el payload no se guarda.
+     */
+    sourceRegistryEntrySchema.parse({
+      sourceId: "alpha-vantage",
+      displayName: "Alpha Vantage — earnings estimates",
+      owner: "Alpha Vantage Inc.",
+      canonicalUrl: "https://www.alphavantage.co/",
+      documentationUrls: [
+        "https://www.alphavantage.co/documentation/",
+        "https://www.alphavantage.co/terms_of_service/",
+      ],
+      datasets: ["alpha-vantage.earnings-estimates"],
+      endpoints: [
+        "https://www.alphavantage.co/query?function=EARNINGS_ESTIMATES&symbol={ticker}",
+      ],
+      authentication: "api_key",
+      applicablePlan: "free (25 requests/day)",
+      rateLimit: "25 requests/day en el plan gratis",
+      attribution: "Alpha Vantage",
+      expectedCadence: "al abrir la valuación, una vez por día de Nueva York",
+      freshnessTarget: "captura del día de Nueva York",
+      timezone: "America/New_York",
+      units: ["USD por acción", "USD"],
+      currencies: ["USD"],
+      parserVersion: "av-earnings-estimates-1.0.0",
+      fixturePolicy:
+        "Fixture sintética: el payload no se guarda (rawStorage restringido) y ninguna respuesta capturada entra al repositorio.",
+      fallbackSourceIds: [],
+      rights: {
+        personalUse: "allowed",
+        automatedAccess: "allowed",
+        rawStorage: "restricted",
+        normalizedStorage: "allowed",
+        derivedStorage: "allowed",
+        publicDisplay: "restricted",
+        export: "restricted",
+        aiTransfer: "restricted",
+        ownerAssistant: "owner_accepted",
+      },
+      technicalStatus: "integrated",
+      approvalStatus: "approved_personal",
+      reviewedAt: CONSENSUS_RIGHTS_REVIEWED_AT,
+      rightsReviewedAt: CONSENSUS_RIGHTS_REVIEWED_AT,
+      rightsReviewDueAt: CONSENSUS_RIGHTS_REVIEW_DUE_AT,
+      reviewEvidence: [
+        "docs/architecture/adr/0083-consensus-estimates-forward-pe.md",
+        "docs/data/provider-use-matrix.md#consenso-de-analistas",
+      ],
+      retentionClasses: ["R3"],
+      quotaPolicyId: null,
+      ownerNotes:
+        "Decisión del owner del 2026-11-18: Alpha Vantage, con la clave gratis del owner. Términos: «personal, non-commercial use… investment analysis, research, testing, monitoring, and any other activities that are private and individual in nature».",
+      recordedAt: CONSENSUS_RIGHTS_REVIEWED_AT,
+    }),
     sourceRegistryEntrySchema.parse({
       sourceId: "ambito-riesgo-pais",
       displayName: "Ámbito — riesgo país (J.P. Morgan EMBI)",

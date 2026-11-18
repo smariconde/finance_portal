@@ -26,6 +26,7 @@ describe("egress allowlist", () => {
         "bcra-cambiarias-v1",
         "argentina-series-tiempo",
         "indec-api",
+        "alpha-vantage",
         "ambito-riesgo-pais",
         "bcr-cac-pizarra",
         "bna-fx",
@@ -290,7 +291,7 @@ describe("egress allowlist", () => {
       expect(entry.method).toBe("POST");
       expect(entry.identification).toBe("project");
       expect(entry.maxRedirects).toBe(0);
-      expect(entry.credential?.header).toBe("authorization");
+      expect(entry.credential).toMatchObject({ header: "authorization" });
     }
 
     expect(openrouter.credential).toMatchObject({
@@ -351,6 +352,26 @@ describe("egress allowlist", () => {
           kind: "env_bearer",
           variable: "INDEC_API_TOKEN",
         });
+      } else if (entry.sourceId === "alpha-vantage") {
+        // ADR 0083: the key only travels as a query parameter the door adds.
+        expect(entry.credential).toEqual({
+          kind: "env_query",
+          variable: "ALPHA_VANTAGE_API_KEY",
+          parameter: "apikey",
+        });
+        expect(entry.maxRedirects).toBe(0);
+        expect(
+          authorizeEgressUrl(
+            "https://www.alphavantage.co/query?function=EARNINGS_ESTIMATES&symbol=AAPL",
+            entry,
+          ).allowed,
+        ).toBe(true);
+        expect(
+          authorizeEgressUrl(
+            "https://www.alphavantage.co/documentation/",
+            entry,
+          ).allowed,
+        ).toBe(false);
       } else {
         expect(entry.credential).toBeNull();
       }

@@ -137,6 +137,15 @@ export const COUNTRY_RISK_REQUEST_PACING: RequestPacingPolicy = Object.freeze({
   maxRequests: 2,
 });
 
+/**
+ * Consenso de Alpha Vantage (ADR 0083): un pedido por ticker. El plan gratis no
+ * publica un límite por minuto además del diario; un segundo entre pedidos.
+ */
+export const CONSENSUS_REQUEST_PACING: RequestPacingPolicy = Object.freeze({
+  minIntervalMs: 1500,
+  maxRequests: 25,
+});
+
 export class RequestBudgetExhaustedError extends Error {
   readonly sourceId: string;
   readonly maxRequests: number;

@@ -42,6 +42,7 @@ const liveConfigurationVariables = [
   "OPENROUTER_API_KEY",
   "TAVILY_API_KEY",
   "INDEC_API_TOKEN",
+  "ALPHA_VANTAGE_API_KEY",
   "SEC_USER_AGENT",
 ] as const;
 
