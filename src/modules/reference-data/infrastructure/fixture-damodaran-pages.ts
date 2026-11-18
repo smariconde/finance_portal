@@ -487,3 +487,44 @@ export function fixtureRatingsPage(): string {
     ]),
   );
 }
+
+export const FIXTURE_CAPEX_HEADERS = [
+  "Industry Name",
+  "Number of Firms",
+  "Capital Expenditures (US $ millions)",
+  "Depreciation & Amort ((US $ millions)",
+  "Cap Ex/Deprecn",
+  "Acquisitions (US $ millions)",
+  "Net R&D (US $ millions)",
+  "Net Cap Ex/Sales",
+  "Net Cap Ex/ EBIT (1-t)",
+  "Sales/ Invested Capital (LTM)",
+];
+
+/** Estructura sintética de la tabla de capex; no contiene cifras de NYU. */
+export function fixtureCapexPage(
+  options: { headers?: readonly string[]; totalSalesToCapital?: string } = {},
+): string {
+  const row = (label: string, salesToCapital: string) => [
+    label,
+    "12",
+    "$1,000.00",
+    "$800.00",
+    "125.00%",
+    "$50.00",
+    "$20.00",
+    "2.00%",
+    "15.00%",
+    salesToCapital,
+  ];
+  return page(
+    "<p>Date of Analysis: Data used is as of January 2026</p>",
+    table([
+      options.headers ?? FIXTURE_CAPEX_HEADERS,
+      ...Array.from({ length: 51 }, (_, index) =>
+        row(`Industry ${String(index + 1).padStart(2, "0")}`, "1.50"),
+      ),
+      row("Total Market", options.totalSalesToCapital ?? "0.82"),
+    ]),
+  );
+}

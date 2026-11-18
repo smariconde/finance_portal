@@ -6,6 +6,8 @@ import {
   fixtureBetasPage,
   FIXTURE_EVA_HEADERS,
   fixtureEvaPage,
+  FIXTURE_CAPEX_HEADERS,
+  fixtureCapexPage,
   FIXTURE_MARGIN_HEADERS,
   fixtureMarginPage,
   FIXTURE_BREAKDOWN_HEADERS,
@@ -79,6 +81,36 @@ describe("damodaran-html-1.1.0: industry operating margins", () => {
     expect(
       result.rows.find((row) => row.key === "total-market-without-financials")
         ?.values.pretax_lease_rd_adjusted_margin,
+    ).toBeNull();
+  });
+});
+
+describe("damodaran-html-1.1.0: industry sales to invested capital", () => {
+  it("keeps only the sales to invested capital ratio and its row count", () => {
+    const result = parse("damodaran.capex-us", fixtureCapexPage());
+    if (!result.ok) throw new Error(result.code);
+    expect(
+      result.rows.find((row) => row.key === "total-market")?.values,
+    ).toEqual({ firms: "12", sales_to_invested_capital: "0.82" });
+  });
+
+  it("rejects a shifted header before publishing a plausible wrong ratio", () => {
+    const headers = [...FIXTURE_CAPEX_HEADERS];
+    [headers[8], headers[9]] = [headers[9]!, headers[8]!];
+    expect(
+      parse("damodaran.capex-us", fixtureCapexPage({ headers })),
+    ).toMatchObject({ ok: false });
+  });
+
+  it("keeps a missing ratio as null, never zero", () => {
+    const result = parse(
+      "damodaran.capex-us",
+      fixtureCapexPage({ totalSalesToCapital: "NA" }),
+    );
+    if (!result.ok) throw new Error(result.code);
+    expect(
+      result.rows.find((row) => row.key === "total-market")?.values
+        .sales_to_invested_capital,
     ).toBeNull();
   });
 });

@@ -66,6 +66,14 @@ export const TERMINAL_RETURN_RULE_VERSION = "terminal-return-on-capital-1.0.0";
 /** ROC después de impuestos por industria, de la página EVA de Damodaran. */
 export const INDUSTRY_RETURNS_DATASET = "damodaran.eva-us";
 export const INDUSTRY_RETURN_FIELD = "roc";
+/**
+ * `F6-31`: la ventas sobre capital de la industria, la que usa Damodaran cuando
+ * la propia no sirve —capital invertido ajustado no positivo porque la caja
+ * supera al patrimonio más la deuda, como PLTR o DDOG—.
+ */
+export const INDUSTRY_CAPITAL_DATASET = "damodaran.capex-us";
+export const INDUSTRY_SALES_TO_CAPITAL_FIELD = "sales_to_invested_capital";
+export const SALES_TO_CAPITAL_RULE_VERSION = "industry-sales-to-capital-1.0.0";
 
 export const DERIVED_EXPLICIT_YEARS = 10;
 /** Último año que sostiene el punto de partida; desde el siguiente converge. */
@@ -105,6 +113,22 @@ export const industryReturnSchema = z.object({
 
 export type IndustryReturn = z.infer<typeof industryReturnSchema>;
 
+/** La fila de la industria en `damodaran.capex-us`, congelada igual. */
+export const industrySalesToCapitalSchema = z.object({
+  rule: z.literal(SALES_TO_CAPITAL_RULE_VERSION),
+  datasetId: z.literal(INDUSTRY_CAPITAL_DATASET),
+  releaseId: z.uuid(),
+  rowKey: z.string().max(128),
+  field: z.literal(INDUSTRY_SALES_TO_CAPITAL_FIELD),
+  value: engineDecimalSchema,
+  publishedLabel: z.string().max(64).nullable(),
+  availableAt: utcTimestampSchema,
+});
+
+export type IndustrySalesToCapital = z.infer<
+  typeof industrySalesToCapitalSchema
+>;
+
 export const derivedAssumptionsSchema = z.discriminatedUnion("version", [
   z.object({
     version: z.literal(DERIVED_ASSUMPTIONS_VERSION),
@@ -115,6 +139,11 @@ export const derivedAssumptionsSchema = z.discriminatedUnion("version", [
     revenueHistory: revenueHistorySchema,
     /** `null`: la industria no tiene ROC publicado o ninguna release se veía. */
     industryReturn: industryReturnSchema.nullable(),
+    /**
+     * Sólo cuando la ventas sobre capital propia no es positiva (`F6-31`).
+     * Opcional: las corridas anteriores conservan su hash.
+     */
+    industrySalesToCapital: industrySalesToCapitalSchema.optional(),
   }),
 ]);
 
@@ -226,6 +255,22 @@ export function fade(start: Dec, end: Dec, year: number): Dec {
  * normalización y el costo de capital de la corrida. Pura y determinista:
  * lo que no alcanza se nombra, nunca se rellena.
  */
+/** La ventas sobre capital ajustada propia, sólo si es positiva. */
+export function ownSalesToCapitalOf(normalization: Normalization): Dec | null {
+  const value = normalization.base.salesToCapitalAdjusted;
+
+  if (value === null) {
+    return null;
+  }
+
+  const parsed = parseDecimal(
+    value,
+    "normalization.base.salesToCapitalAdjusted",
+  );
+
+  return parsed.greaterThan(ZERO) ? parsed : null;
+}
+
 export function deriveAssumptions(input: {
   derivation: DerivedAssumptions;
   /** Desde donde se cuentan los períodos: el cierre del año base. */
@@ -264,13 +309,21 @@ export function deriveAssumptions(input: {
     return { status: "unavailable", reason: "base_margin_unavailable" };
   }
 
-  if (
-    base.salesToCapitalAdjusted === null ||
-    !parseDecimal(
-      base.salesToCapitalAdjusted,
-      "normalization.base.salesToCapitalAdjusted",
-    ).greaterThan(ZERO)
-  ) {
+  const ownSalesToCapital = ownSalesToCapitalOf(input.normalization);
+  const industrySalesToCapital =
+    input.derivation.version === DERIVED_ASSUMPTIONS_V2_VERSION
+      ? (input.derivation.industrySalesToCapital ?? null)
+      : null;
+  const chosenSalesToCapital =
+    ownSalesToCapital ??
+    (industrySalesToCapital !== null &&
+    parseDecimal(industrySalesToCapital.value, "industrySalesToCapital").gt(
+      ZERO,
+    )
+      ? parseDecimal(industrySalesToCapital.value, "industrySalesToCapital")
+      : null);
+
+  if (chosenSalesToCapital === null) {
     return { status: "unavailable", reason: "sales_to_capital_unavailable" };
   }
 
@@ -315,10 +368,7 @@ export function deriveAssumptions(input: {
     parseDecimal(base.ebitMarginAdjusted, "normalization.base.ebitMargin"),
     "ebitMargin",
   );
-  const salesToCapital = formatDecimal(
-    parseDecimal(base.salesToCapitalAdjusted, "salesToCapital"),
-    "salesToCapital",
-  );
+  const salesToCapital = formatDecimal(chosenSalesToCapital, "salesToCapital");
 
   const baseReturn =
     base.returnOnCapitalAdjusted === null
@@ -630,6 +680,18 @@ export function derivedAssumptionsMismatches(input: {
   ) {
     mismatches.push("derivedAssumptions.industryReturn");
   }
+
+  // La de la industria sólo reemplaza a una propia que no sirve, y es la fila
+  // de la industria del WACC.
+  if (
+    derivation.version === DERIVED_ASSUMPTIONS_V2_VERSION &&
+    derivation.industrySalesToCapital !== undefined &&
+    (ownSalesToCapitalOf(input.normalization) !== null ||
+      derivation.industrySalesToCapital.rowKey !==
+        input.costOfCapital.industryKey)
+  ) {
+    mismatches.push("derivedAssumptions.industrySalesToCapital");
+  }
   const [base] = input.derivation.revenueHistory;
   const historyBase = input.historyBase ?? {
     value: input.baseRevenue.value,
@@ -739,6 +801,8 @@ export type DerivationExplanation = {
   readonly terminalReturnBasis: TerminalReturnBasis;
   readonly industryReturn: IndustryReturn | null;
   readonly baseReturn: string | null;
+  /** `F6-31`: la de la industria cuando la propia no era positiva. */
+  readonly industrySalesToCapital: IndustrySalesToCapital | null;
 };
 
 export function explainDerivation(input: {
@@ -778,5 +842,6 @@ export function explainDerivation(input: {
     }).basis,
     industryReturn: derivation.industryReturn,
     baseReturn,
+    industrySalesToCapital: derivation.industrySalesToCapital ?? null,
   };
 }
