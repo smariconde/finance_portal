@@ -228,7 +228,14 @@ export function fade(start: Dec, end: Dec, year: number): Dec {
  */
 export function deriveAssumptions(input: {
   derivation: DerivedAssumptions;
+  /** Desde donde se cuentan los períodos: el cierre del año base. */
   baseFiscalYearEnd: string;
+  /**
+   * El último ejercicio de la historia. Sólo difiere en un año base TTM
+   * (`F6-24`, ADR 0081): la tendencia sigue anual desde el 10-K y los
+   * períodos se cuentan desde el 10-Q.
+   */
+  historyEnd?: string;
   normalization: Normalization;
   costOfCapital: CostOfCapital;
 }): DerivedAssumptionsResult {
@@ -236,7 +243,7 @@ export function deriveAssumptions(input: {
 
   if (
     history.length < DERIVED_MIN_REVENUE_YEARS ||
-    history[0]?.fiscalYearEnd !== input.baseFiscalYearEnd
+    history[0]?.fiscalYearEnd !== (input.historyEnd ?? input.baseFiscalYearEnd)
   ) {
     return { status: "unavailable", reason: "revenue_history_insufficient" };
   }
@@ -587,6 +594,11 @@ function derivedScenarios(input: {
 export function derivedAssumptionsMismatches(input: {
   derivation: DerivedAssumptions;
   baseRevenue: { value: string; asOf: string };
+  /**
+   * Las ventas del último ejercicio cuando el año base es TTM (`F6-24`): la
+   * historia termina ahí, no en las ventas TTM.
+   */
+  historyBase?: { value: string; fiscalYearEnd: string };
   normalization: Normalization;
   costOfCapital: CostOfCapital;
   periods: readonly PeriodAssumption[];
@@ -619,12 +631,16 @@ export function derivedAssumptionsMismatches(input: {
     mismatches.push("derivedAssumptions.industryReturn");
   }
   const [base] = input.derivation.revenueHistory;
+  const historyBase = input.historyBase ?? {
+    value: input.baseRevenue.value,
+    fiscalYearEnd: input.baseRevenue.asOf,
+  };
 
   if (
     base === undefined ||
-    base.fiscalYearEnd !== input.baseRevenue.asOf ||
+    base.fiscalYearEnd !== historyBase.fiscalYearEnd ||
     !parseDecimal(base.value, "revenueHistory.0").eq(
-      parseDecimal(input.baseRevenue.value, "baseRevenue"),
+      parseDecimal(historyBase.value, "baseRevenue"),
     )
   ) {
     mismatches.push("derivedAssumptions.revenueHistory");
@@ -633,6 +649,9 @@ export function derivedAssumptionsMismatches(input: {
   const derived = deriveAssumptions({
     derivation: input.derivation,
     baseFiscalYearEnd: input.baseRevenue.asOf,
+    ...(input.historyBase === undefined
+      ? {}
+      : { historyEnd: input.historyBase.fiscalYearEnd }),
     normalization: input.normalization,
     costOfCapital: input.costOfCapital,
   });

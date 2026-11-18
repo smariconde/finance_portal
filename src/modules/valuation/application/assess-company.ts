@@ -25,6 +25,15 @@ import {
 } from "../domain/normalization";
 import { resolveReportedDebt } from "../domain/reported-debt";
 import {
+  buildTtmBasePeriod,
+  flowOf,
+  ttmCapitalizationFacts,
+  ttmFlowFact,
+  ttmNormalizationFacts,
+  type BasePeriod,
+} from "../domain/ttm-base-period";
+import { VALUATION_METHOD } from "../domain/valuation-input";
+import {
   assessZeroDebtEvidence,
   listZeroDebtEvidenceFacts,
   zeroDebtEvidenceHasInterest,
@@ -230,6 +239,12 @@ export type CompanyAssessment = {
    * armada a mano.
    */
   readonly cycle?: DerivedCycle | null;
+  /**
+   * La base del año base (`F6-24`, ADR 0081), sólo para `fcff_base`: TTM con
+   * sus patas —y entonces `capitalization` y `normalization` son las del
+   * TTM—, o anual con su motivo. Ausente o `null` en otro método.
+   */
+  readonly basePeriod?: BasePeriod | null;
   /** Common book, common earnings and equity risk for a bank or insurer. */
   readonly financialEquity?: DerivedFinancialEquity | null;
   readonly financialRisk?: DerivedFinancialRisk | null;
@@ -270,6 +285,8 @@ export async function readAnnualFundamentals(
 ): Promise<{
   readonly anchor: string | null;
   readonly series: AnnualFundamentals | null;
+  /** Las filas elegidas al corte, de las que sale el año base TTM. */
+  readonly rows: readonly FundamentalRow[];
 }> {
   const rows = await readers.readFundamentals(legalEntityId, query);
   const lineageSubjects = [
@@ -286,6 +303,7 @@ export async function readAnnualFundamentals(
       anchor === null
         ? null
         : buildAnnualFundamentals(rows, anchor, query.effectiveAt.slice(0, 10)),
+    rows,
   };
 }
 
@@ -323,7 +341,7 @@ export async function assessCompany(
     isVisible(classification, query),
   );
 
-  const { anchor, series } = await readAnnualFundamentals(
+  const { anchor, series, rows } = await readAnnualFundamentals(
     legalEntityId,
     query,
     dependencies,
@@ -508,6 +526,16 @@ export async function assessCompany(
           normalizedFcffMissingInputs: [],
         })
       : selection;
+  const base = assessBasePeriod({
+    selection: finalSelection,
+    series,
+    rows,
+    cutoffDate: query.effectiveAt.slice(0, 10),
+    sourceId: request.fundamentalsSourceId,
+    capitalization,
+    normalization,
+    costOfCapital,
+  });
 
   return {
     legalEntityId,
@@ -543,10 +571,117 @@ export async function assessCompany(
       cik: request.cik,
       declarations: DECLARED_FAILURE_PROBABILITIES,
     }),
-    capitalization,
-    normalization,
+    capitalization: base.capitalization,
+    normalization: base.normalization,
+    basePeriod: base.basePeriod,
     zeroDebt,
     cycle,
+  };
+}
+
+/**
+ * El año base de una corrida `fcff_base` (`F6-24`, ADR 0081): los flujos TTM
+ * al último 10-Q y el balance por bloques cuando las patas están; si no, el
+ * anual con su motivo. Un cargo revertido en el anual deja la corrida anual:
+ * su TTM no se arma igual.
+ */
+function assessBasePeriod(input: {
+  readonly selection: MethodSelection;
+  readonly series: AnnualFundamentals | null;
+  readonly rows: readonly FundamentalRow[];
+  readonly cutoffDate: string;
+  readonly sourceId: string;
+  readonly capitalization: Capitalization | null;
+  readonly normalization: Normalization | null;
+  readonly costOfCapital: CostOfCapitalResult;
+}): {
+  readonly basePeriod: BasePeriod | null;
+  readonly capitalization: Capitalization | null;
+  readonly normalization: Normalization | null;
+} {
+  const { series, capitalization, normalization, costOfCapital } = input;
+  const annual = { basePeriod: null, capitalization, normalization };
+
+  if (
+    input.selection.status !== "selected" ||
+    input.selection.recommendedMethod !== VALUATION_METHOD ||
+    series === null ||
+    capitalization === null ||
+    normalization === null ||
+    costOfCapital.status !== "computed"
+  ) {
+    return annual;
+  }
+
+  const toFact = (item: LineItemValue) => ({
+    ...seriesFact(item, input.sourceId),
+    concept: item.concept,
+  });
+  const candidate = buildTtmBasePeriod({
+    rows: input.rows,
+    series,
+    cutoffDate: input.cutoffDate,
+    toFact,
+  });
+
+  if (candidate === null) {
+    return annual;
+  }
+
+  if (candidate.status === "annual") {
+    return { ...annual, basePeriod: candidate.basePeriod };
+  }
+
+  if (
+    normalization.charges.restructuring.status === "applied" ||
+    normalization.charges.impairment.status === "applied"
+  ) {
+    return {
+      ...annual,
+      basePeriod: {
+        version: candidate.basePeriod.version,
+        basis: "annual",
+        fiscalYearEnd: candidate.basePeriod.fiscalYearEnd,
+        reason: "non_recurring_charge_applied",
+        item: null,
+      },
+    };
+  }
+
+  const annualCapitalization = capitalizationFactsFromSeries(series, (item) =>
+    seriesFact(item, input.sourceId),
+  );
+
+  if (annualCapitalization === null) {
+    return annual;
+  }
+
+  const { basePeriod } = candidate;
+  const baseRevenue = ttmFlowFact(
+    flowOf(basePeriod, "revenue")!,
+    basePeriod.periodEnd,
+  ).value;
+  const { derived } = costOfCapital.costOfCapital;
+  const ttmCapitalization = buildCapitalization(
+    ttmCapitalizationFacts(annualCapitalization, candidate, toFact),
+    {
+      baseRevenue,
+      industryKey: costOfCapital.costOfCapital.industryKey,
+      preTaxCostOfDebt: derived.preTaxCostOfDebt,
+    },
+  );
+
+  return {
+    basePeriod,
+    capitalization: ttmCapitalization,
+    normalization: buildNormalization(
+      ttmNormalizationFacts(normalization.facts, candidate, toFact),
+      {
+        baseRevenue,
+        marginalTaxRate: marginalTaxRateOf(costOfCapital.costOfCapital),
+        capitalization: ttmCapitalization,
+      },
+    ),
   };
 }
 

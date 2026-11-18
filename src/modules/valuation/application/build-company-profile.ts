@@ -11,7 +11,10 @@ import {
 import { formatDecimal, parseDecimal } from "../domain/decimal-policy";
 import type { ExcessReturnRun } from "../domain/excess-return-run";
 import type { MarketPriceComparison } from "../domain/market-implied";
-import type { BridgeItem } from "../domain/valuation-input";
+import {
+  baseFiscalYearEndOf,
+  type BridgeItem,
+} from "../domain/valuation-input";
 import type { ValuationRun } from "../domain/valuation-run";
 
 const reported = (item: LineItemValue | undefined): ProfileAmount | null =>
@@ -142,7 +145,7 @@ export function profileOfFcffRun(
   comparison: MarketPriceComparison,
 ): CompanyProfile {
   const price = comparison.status === "compared" ? comparison.price : null;
-  const base = baseInput(run, series, run.input.baseRevenue.asOf);
+  const base = baseInput(run, series, baseFiscalYearEndOf(run.input));
   const ebit = run.input.normalization.base.ebitAdjusted;
   const debt = bridgeAmount(run.input.bridge.debt, run.currency);
   const normalizedEbit = run.result?.cycleComparison?.normalizedBaseEbit;

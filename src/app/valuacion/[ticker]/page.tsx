@@ -15,6 +15,7 @@ import { CompanyMark } from "@/app/_components/company-mark";
 import { FinvizProfileLink } from "@/app/_components/finviz-profile-link";
 import { Fold } from "@/app/_components/fold";
 import { InfoTip } from "@/app/_components/info-tip";
+import { BasePeriodFact } from "./_components/base-period";
 import { PageContainer, PageHeader } from "@/app/_components/page-frame";
 import { StatTile } from "@/app/_components/stat-tile";
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
@@ -962,7 +963,9 @@ export default async function ValuationResultPage({ params }: PageProps) {
       title={subject?.legalName ?? reading.ticker}
       hasRun
     >
-      <RunFacts asOf={run.asOf} method={run.method} />
+      <RunFacts asOf={run.asOf} method={run.method}>
+        <BasePeriodFact input={run.input} />
+      </RunFacts>
 
       {reading.newerGap === null ? null : (
         <NewerGapAlert gap={reading.newerGap} />

@@ -544,6 +544,28 @@ recomputes from the frozen basis. The job no longer ends in
 Cencora, ALGN, DECK, EXPD and MRK reach a run with the basis named; 44 stored
 runs replay. The next slice is `F6-08`.
 
+The base year rolls forward to the last 10-Q (`F6-24`,
+[ADR 0081](docs/architecture/adr/0081-ttm-base-period.md)). For an `fcff_base`
+run, `ttm-base-period-1.0.0` builds revenue, EBIT (or pretax plus the interest
+of its `interest-expense-1.0.0` basis), pretax, tax and SBC as fiscal year +
+current year-to-date − the comparable one, **one concept across the three
+legs**, edges within 10 days and lengths within 7 (a quarter is never a
+half-year's comparable). Without every leg the whole run stays annual and names
+the item (`ttm_leg_missing`); also with no 10-Q after the 10-K or a reversed
+non-recurring charge. The balance goes by blocks (owner's decision with the
+measured table): debt, cash, equity and minority at the 10-Q close when the debt
+recipe closes there and every 10-K item is present, else at the 10-K; operating
+leases at the 10-Q only with the total or both parts. Revenue history, R&D
+capitalization, charge history, zero-debt evidence, coverage and options stay on
+10-K fiscal years; cycle, growth, financial and REIT runs stay annual. A TTM fact
+has no observation of its own (`ttm` flag, last leg's availability); the legs
+live in the optional `ValuationInput.basePeriod`, and `capitalization.basePeriod`
+/ `normalization.facts.basePeriod` carry each block's close, so earlier runs keep
+their hashes. `base_period_recomputed` rebuilds every flow and requires the
+snapshot to use exactly those facts; annual readers use `baseFiscalYearEndOf`.
+Measured on a replica: AAPL 151.76 → 176.23, JNJ 184.72 → 133.36 (FY2025 held
+the talc reversal), AMZN debt doubled in the half-year; 16 stored runs replay.
+
 Company logos are loaded by the **browser** from logo.dev
 ([ADR 0062](docs/architecture/adr/0062-company-logos-browser-loaded.md)): the
 free plan forbids storing them, so the CSP opens `img-src` to
