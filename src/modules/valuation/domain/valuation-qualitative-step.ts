@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import type { MethodSelection } from "./method-selection";
+
 /**
  * Lo que la corrida le preguntó a la IA antes de valuar (`F6-13`,
  * [ADR 0052](../../../../docs/architecture/adr/0052-qualitative-decisions-in-valuation-job.md)).
@@ -73,5 +75,82 @@ export function qualitativeStepAccepted(
 ): boolean {
   return QUALITATIVE_TASK_ORDER.some(
     (task) => step[task].status === "accepted",
+  );
+}
+
+type SelectionForQualitative = Pick<
+  MethodSelection,
+  | "status"
+  | "assetProfile"
+  | "recommendedMethod"
+  | "requiredInputs"
+  | "unsupportedReasons"
+>;
+
+const FCFF_ASKING_METHODS: ReadonlySet<string> = new Set([
+  "fcff_base",
+  "normalized_fcff",
+  "excess_return",
+]);
+
+const GROWTH_METHODS: ReadonlySet<string> = new Set([
+  "fcff_three_stage",
+  "revenue_margin_survival",
+]);
+
+/**
+ * Una cíclica a la que sólo le falta la historia del ciclo (`F6-18`): la
+ * historia necesita el costo de capital, y éste puede necesitar la industria.
+ */
+export function awaitsCycleHistory(
+  selection: SelectionForQualitative,
+): boolean {
+  return (
+    selection.recommendedMethod === "normalized_fcff" &&
+    selection.unsupportedReasons.length === 1 &&
+    selection.unsupportedReasons[0] === "missing_required_input" &&
+    selection.requiredInputs.length === 1 &&
+    selection.requiredInputs[0] === "cycle_margins"
+  );
+}
+
+/**
+ * Pérdidas o alto crecimiento (`F6-21`) a los que sólo les faltan insumos: la
+ * trayectoria y el margen objetivo salen del costo de capital y de la industria
+ * de Damodaran, así que un SIC ambiguo los dejaba sin camino si la IA no
+ * preguntaba antes. Cualquier otro motivo de negativa no gasta.
+ */
+export function awaitsGrowthInputs(
+  selection: SelectionForQualitative,
+): boolean {
+  return (
+    selection.recommendedMethod !== null &&
+    GROWTH_METHODS.has(selection.recommendedMethod) &&
+    selection.unsupportedReasons.length === 1 &&
+    selection.unsupportedReasons[0] === "missing_required_input"
+  );
+}
+
+/**
+ * Si el job le pregunta a la IA lo cualitativo que falta (ADR 0052): un método
+ * FCFF elegido, una cíclica que espera su historia, un banco o una aseguradora
+ * con exceso de retorno, o pérdidas y alto crecimiento que esperan insumos.
+ */
+export function asksQualitativeDecisions(
+  selection: SelectionForQualitative,
+): boolean {
+  const financialProfile =
+    selection.assetProfile === "bank" || selection.assetProfile === "insurer";
+
+  if (awaitsGrowthInputs(selection)) {
+    return true;
+  }
+
+  return (
+    (selection.status === "selected" ||
+      awaitsCycleHistory(selection) ||
+      financialProfile) &&
+    selection.recommendedMethod !== null &&
+    FCFF_ASKING_METHODS.has(selection.recommendedMethod)
   );
 }
