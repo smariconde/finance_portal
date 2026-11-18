@@ -89,6 +89,95 @@ describe(`${FUNDAMENTAL_PROFILE_SIGNALS_VERSION}: distress`, () => {
     });
   });
 
+  // CRWD FY2026: cobertura −10,5 y −4,4 por EBIT negativo, con caja neta.
+  const lossWithCash = (cash: string, equity = "900") =>
+    series(
+      {
+        end: "2025-12-31",
+        items: {
+          operating_income: "-100",
+          interest_expense: "10",
+          equity,
+          cash,
+          liquid_investments: "50",
+          debt_long_term_total: "300",
+        },
+      },
+      {
+        end: "2024-12-31",
+        items: { operating_income: "-40", interest_expense: "9" },
+      },
+    );
+
+  it("is absent for operating losses when cash covers the resolved debt", () => {
+    expect(signal(lossWithCash("400"), "distressed")).toMatchObject({
+      state: "absent",
+      basis: ["operating_loss_with_net_cash"],
+      measures: { liquidAssets: "450.0000", debt: "300.0000" },
+    });
+  });
+
+  it("stays present for operating losses when cash does not cover the debt", () => {
+    expect(signal(lossWithCash("200"), "distressed")).toMatchObject({
+      state: "present",
+      basis: ["coverage_below_threshold_two_years"],
+    });
+  });
+
+  it("stays present when equity is negative even with net cash", () => {
+    expect(signal(lossWithCash("400", "-5"), "distressed")).toMatchObject({
+      state: "present",
+    });
+  });
+
+  it("does not use the net cash exception when EBIT is positive but thin", () => {
+    expect(
+      signal(
+        series(
+          {
+            end: "2025-12-31",
+            items: {
+              operating_income: "5",
+              interest_expense: "10",
+              equity: "900",
+              cash: "400",
+              debt_long_term_total: "300",
+            },
+          },
+          {
+            end: "2024-12-31",
+            items: { operating_income: "4", interest_expense: "9" },
+          },
+        ),
+        "distressed",
+      ),
+    ).toMatchObject({ state: "present" });
+  });
+
+  it("does not prove absence when no debt recipe closes", () => {
+    expect(
+      signal(
+        series(
+          {
+            end: "2025-12-31",
+            items: {
+              operating_income: "-100",
+              interest_expense: "10",
+              equity: "900",
+              cash: "400",
+              debt_long_term_noncurrent: "300",
+            },
+          },
+          {
+            end: "2024-12-31",
+            items: { operating_income: "-40", interest_expense: "9" },
+          },
+        ),
+        "distressed",
+      ),
+    ).toMatchObject({ state: "present" });
+  });
+
   it("is present with negative equity and an operating loss", () => {
     expect(
       signal(

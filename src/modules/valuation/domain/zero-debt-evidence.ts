@@ -48,11 +48,21 @@ import { conceptFactSchema, type ConceptFact } from "./valuation-facts";
  * ausencia de las demás partidas es lo que la serie no tenía al corte, con la
  * selección que la corrida registra. El monto de los intereses y del EBIT se
  * recalcula siempre desde los hechos.
+ *
+ * `1.1.0` (2026-11-18, decisión del owner con RDDT medido: cuatro ejercicios
+ * desde su salida a bolsa): una empresa joven prueba la ausencia con **todos**
+ * sus ejercicios, al menos tres. Con cinco la evidencia sigue siendo `1.0.0`
+ * byte a byte, así que las corridas guardadas no cambian.
  */
 export const ZERO_DEBT_EVIDENCE_VERSION = "zero-debt-evidence-1.0.0";
+export const ZERO_DEBT_EVIDENCE_SHORT_HISTORY_VERSION =
+  "zero-debt-evidence-1.1.0";
 
-/** Ejercicios que la evidencia exige: la ventana de la ADR 0017. */
+/** Ejercicios que la evidencia toma: la ventana de la ADR 0017. */
 export const ZERO_DEBT_FISCAL_YEARS = 5;
+
+/** `1.1.0`: el mínimo para una empresa con menos historia. */
+export const ZERO_DEBT_MIN_FISCAL_YEARS = 3;
 
 /** Los componentes de préstamos de la serie, viejos y nuevos. */
 const BORROWING_ITEMS: readonly LineItemId[] = [
@@ -91,31 +101,45 @@ export const frozenEbitSchema = z.discriminatedUnion("basis", [
 
 export type FrozenEbit = z.infer<typeof frozenEbitSchema>;
 
-export const zeroDebtEvidenceSchema = z.object({
-  version: z.literal(ZERO_DEBT_EVIDENCE_VERSION),
-  coverageFloor: coverageFloorSchema,
-  /** Del ejercicio base hacia atrás. */
-  fiscalYears: z
-    .array(
-      z.object({
-        fiscalYearEnd: calendarDateSchema,
-        /** Las ventas prueban que el ejercicio está en la serie. */
-        revenue: conceptFactSchema,
-        /** Componentes o partidas de la guardia publicados en cero. */
-        reportedAtZero: z.array(conceptFactSchema).max(24),
-        /** `null`: ninguna base de `interest-expense-1.0.0` cerró. */
-        interest: frozenInterestSchema.nullable(),
-        /** Sólo cuando hay intereses que medir contra el piso. */
-        ebit: frozenEbitSchema.nullable(),
-      }),
-    )
-    .length(ZERO_DEBT_FISCAL_YEARS),
-});
+export const zeroDebtEvidenceSchema = z
+  .object({
+    version: z.enum([
+      ZERO_DEBT_EVIDENCE_VERSION,
+      ZERO_DEBT_EVIDENCE_SHORT_HISTORY_VERSION,
+    ]),
+    coverageFloor: coverageFloorSchema,
+    /** Del ejercicio base hacia atrás. */
+    fiscalYears: z
+      .array(
+        z.object({
+          fiscalYearEnd: calendarDateSchema,
+          /** Las ventas prueban que el ejercicio está en la serie. */
+          revenue: conceptFactSchema,
+          /** Componentes o partidas de la guardia publicados en cero. */
+          reportedAtZero: z.array(conceptFactSchema).max(24),
+          /** `null`: ninguna base de `interest-expense-1.0.0` cerró. */
+          interest: frozenInterestSchema.nullable(),
+          /** Sólo cuando hay intereses que medir contra el piso. */
+          ebit: frozenEbitSchema.nullable(),
+        }),
+      )
+      .min(ZERO_DEBT_MIN_FISCAL_YEARS)
+      .max(ZERO_DEBT_FISCAL_YEARS),
+  })
+  .refine(
+    (evidence) =>
+      (evidence.version === ZERO_DEBT_EVIDENCE_VERSION) ===
+      (evidence.fiscalYears.length === ZERO_DEBT_FISCAL_YEARS),
+    {
+      path: ["fiscalYears"],
+      message: "1.0.0 freezes five fiscal years; 1.1.0 three or four.",
+    },
+  );
 
 export type ZeroDebtEvidence = z.infer<typeof zeroDebtEvidenceSchema>;
 
 export const zeroDebtShortfallSchema = z.enum([
-  /** Menos de cinco ejercicios con ventas. */
+  /** Menos de tres ejercicios con ventas, o alguno sin ventas (`1.1.0`). */
   "insufficient_history",
   /** Un componente de préstamos o una partida de la guardia distinta de cero. */
   "borrowing_reported",
@@ -203,7 +227,7 @@ export function assessZeroDebtEvidence(
   const years = series.fiscalYears.slice(0, ZERO_DEBT_FISCAL_YEARS);
 
   if (
-    years.length < ZERO_DEBT_FISCAL_YEARS ||
+    years.length < ZERO_DEBT_MIN_FISCAL_YEARS ||
     years.some((year) => year.items.revenue === undefined)
   ) {
     return { status: "not_met", reason: "insufficient_history" };
@@ -258,7 +282,10 @@ export function assessZeroDebtEvidence(
   }
 
   const evidence = zeroDebtEvidenceSchema.parse({
-    version: ZERO_DEBT_EVIDENCE_VERSION,
+    version:
+      fiscalYears.length === ZERO_DEBT_FISCAL_YEARS
+        ? ZERO_DEBT_EVIDENCE_VERSION
+        : ZERO_DEBT_EVIDENCE_SHORT_HISTORY_VERSION,
     coverageFloor,
     fiscalYears,
   });

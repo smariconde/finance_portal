@@ -104,3 +104,36 @@ faltante, debe quedar auditada y ser reproducible sin red. El selector, el
 snapshot, las fuentes y el render se prueban al mismo corte; la UI nombra el
 rigor experimental y las ausencias. Antes de cerrar, pasan unit, integración,
 build y E2E con axe, y se revisan desktop y 390 px.
+
+## Enmienda 2026-11-18 — tres reglas que dejaban el camino sin casos
+
+Decisiones del owner con las notas y los cierres medidos de MU, PLTR, DDOG,
+CRWD, RDDT, UBER y ABNB. Ninguna empresa medida llegaba a una corrida.
+
+1. **Quebrantos: sólo el pool federal** (`growth-tax-evidence-2.0.0`). Se lee
+   el monto federal que escribe el 10-K: la posición federal de una enumeración
+   («$A and $B, respectively»), o la suma de los tramos de una oración sólo
+   federal (UBER: uno que vence y otro indefinido). Los pools estatales y
+   extranjeros quedan fuera con nombre. «No remaining … for federal» es un cero
+   con evidencia (ABNB). Sin monto federal escrito, el escudo es cero y la
+   justificación dice que es una cota inferior (MU, cuyos quebrantos son de
+   Malasia). Dos montos federales distintos se niegan. El tope anual es el
+   80 % de la TCJA para todo el pool, como simplificación declarada.
+2. **Distress con EBIT negativo** (`fundamental-profile-signals-1.2.0`). Con
+   EBIT negativo la cobertura es negativa por construcción. Si fue negativo los
+   dos años, el patrimonio es positivo y la caja con las inversiones líquidas
+   cubre la deuda resuelta, la señal es `operating_loss_with_net_cash` y no
+   distress: el fracaso lo mide la supervivencia del método.
+3. **Deuda cero en empresas jóvenes** (`zero-debt-evidence-1.1.0`). La
+   evidencia usa todos los ejercicios, entre tres y cinco. Con cinco sigue
+   siendo `1.0.0` byte a byte.
+
+Además, el job pregunta la industria ambigua también para los métodos de
+crecimiento que sólo esperan insumos (PR #159), y `damodaran.margins-us` se
+cargó en Production.
+
+Resultado en Production el mismo día: MU registró la primera corrida
+`fcff_three_stage` (`requires_review`). PLTR y DDOG frenan en
+`sales_to_capital_unavailable`, RDDT en `shares_outstanding_unavailable` y
+CRWD en distress porque su deuda, publicada sólo como no corriente, no cierra
+ninguna receta.

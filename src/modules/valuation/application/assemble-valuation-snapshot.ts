@@ -6,10 +6,7 @@ import type {
 
 import type { ReferenceDatasetReading } from "@/modules/reference-data/application/read-reference-dataset";
 
-import {
-  ZERO_DEBT_EVIDENCE_VERSION,
-  ZERO_DEBT_FISCAL_YEARS,
-} from "../domain/zero-debt-evidence";
+import { ZERO_DEBT_FISCAL_YEARS } from "../domain/zero-debt-evidence";
 import {
   consecutiveRevenueHistory,
   deriveAssumptions,
@@ -433,7 +430,7 @@ export function assembleValuationSnapshot(
           ? reported(atBalance(normalization.debt.total, firstDebtFact))
           : normalization.debt.status === "zero_with_evidence"
             ? declaredAbsent(
-                `${ZERO_DEBT_EVIDENCE_VERSION}: no borrowing or scheduled debt maturity in the last ${ZERO_DEBT_FISCAL_YEARS} fiscal years, and interest is absent or within the top rating band; valued at zero and named.`,
+                `${normalization.debt.evidence}: no borrowing or scheduled debt maturity in the last ${normalization.facts.zeroDebtEvidence?.fiscalYears.length ?? ZERO_DEBT_FISCAL_YEARS} fiscal years, and interest is absent or within the top rating band; valued at zero and named.`,
               )
             : missing,
       leaseDebt:
