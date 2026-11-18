@@ -14,6 +14,7 @@ import { computeContentHash } from "@/modules/ingestion/domain/content-hash";
 import { divide, ONE, parseDecimal, ZERO, type Dec } from "./decimal-policy";
 import type { FcffComputation } from "./fcff";
 import { capitalizationMismatches } from "./capitalization-bridge";
+import { captiveCoverage } from "./captive-finance";
 import { deriveCostOfCapital, marginalTaxRateOf } from "./cost-of-capital";
 import { employeeEquityMismatches } from "./employee-equity-claim";
 import { normalizationMismatches } from "./normalization";
@@ -549,6 +550,61 @@ function checkZeroDebtEvidence(input: ValuationInput): PolicyCheck[] {
   ];
 }
 
+/**
+ * La apertura de una financiera cautiva y el costo de capital cuentan la misma
+ * historia (`F6-23`, ADR 0082): la cobertura es el EBIT publicado sobre el
+ * interés industrial del mismo ejercicio, y el año base es el del 10-K del que
+ * se leyó la apertura. Sin apertura ni esa cobertura no hay check: una corrida
+ * anterior queda igual.
+ */
+function checkCaptiveFinance(input: ValuationInput): PolicyCheck[] {
+  const split = input.normalization.facts.captiveFinance;
+  const { coverage } = input.costOfCapital;
+  const industrial = coverage.interestBasis === "captive_industrial";
+
+  if (split === undefined && !industrial) {
+    return [];
+  }
+
+  const mismatches: string[] = [];
+
+  if (split === undefined) {
+    mismatches.push("normalization.facts.captiveFinance");
+  } else {
+    const ebit = input.capitalization.reportedEbit;
+
+    if (ebit === null || ebit.asOf !== split.fiscalYearEnd) {
+      mismatches.push("capitalization.reportedEbit");
+    } else {
+      const expected = captiveCoverage(split, ebit);
+      if (
+        !industrial ||
+        !coverage.fromLatestFiscalYear ||
+        coverage.fiscalYearEnd !== expected.fiscalYearEnd ||
+        !parseDecimal(coverage.value, "costOfCapital.coverage").eq(
+          parseDecimal(expected.value, "captiveCoverage"),
+        )
+      ) {
+        mismatches.push("costOfCapital.coverage");
+      }
+    }
+
+    if (input.basePeriod?.basis === "ttm") {
+      mismatches.push("basePeriod");
+    }
+  }
+
+  return [
+    check(
+      "captive_finance_split_consistent",
+      "reject",
+      mismatches.length === 0,
+      "With a captive finance arm, the debt is the industrial segment's, the coverage is reported EBIT over the industrial interest of the same fiscal year, and the base year is the 10-K the split was read from.",
+      mismatches,
+    ),
+  ];
+}
+
 /** Mismo hecho, campo por campo: el monto como decimal, el resto exacto. */
 function sameFact(
   frozen: { value: string } & Record<string, unknown>,
@@ -760,6 +816,7 @@ export function checkValuationInput(input: ValuationInput): PolicyCheck[] {
     ...checkNormalization(input),
     ...checkBasePeriod(input),
     ...checkZeroDebtEvidence(input),
+    ...checkCaptiveFinance(input),
     ...checkEmployeeEquity(input),
     ...checkFailureRisk(input),
     ...checkScenarioDeclarations(input),

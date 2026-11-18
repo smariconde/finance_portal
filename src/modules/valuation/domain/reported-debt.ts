@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import type { LineItemId } from "./annual-fundamentals";
 import {
   engineDecimalSchema,
   formatDecimal,
@@ -59,6 +60,17 @@ export const debtComponentKeySchema = z.enum([
 export type DebtComponentKey = z.infer<typeof debtComponentKeySchema>;
 
 export const DEBT_COMPONENT_KEYS = debtComponentKeySchema.options;
+
+/** La partida de la serie anual que alimenta cada componente de la deuda. */
+export const DEBT_ITEMS: Readonly<Record<DebtComponentKey, LineItemId>> = {
+  longTermTotal: "debt_long_term_total",
+  longTermNoncurrent: "debt_long_term_noncurrent",
+  longTermCurrent: "debt_long_term_current",
+  currentTotal: "debt_current_total",
+  shortTermBorrowings: "debt_short_term_borrowings",
+  commercialPaper: "debt_commercial_paper",
+  financeLeases: "finance_lease_liability",
+};
 
 export const debtRecipeSchema = z.enum([
   "current_plus_noncurrent",

@@ -48,6 +48,8 @@ const ANNUAL_REASONS: Record<
   no_interim_after_fiscal_year: "no hay un 10-Q posterior al último 10-K",
   ttm_leg_missing: "falta un acumulado comparable",
   non_recurring_charge_applied: "el ejercicio revierte un cargo no recurrente",
+  captive_finance_split:
+    "la deuda industrial se leyó del 10-K, sin la financiera cautiva",
 };
 
 const CORE_REASONS: Record<string, string> = {

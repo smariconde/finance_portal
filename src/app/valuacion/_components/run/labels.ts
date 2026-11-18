@@ -81,6 +81,7 @@ const CHECK_LABELS: Record<string, string> = {
   failure_risk_recomputed: "Probabilidad de quiebra recalculada",
   assumptions_derived_recomputed: "Supuestos derivados recalculados",
   zero_debt_evidence_consistent: "Evidencia de deuda cero consistente",
+  captive_finance_split_consistent: "Financiera cautiva separada",
   share_count_positive: "Cantidad de acciones positiva",
   method_versions_match: "Versiones del método coherentes",
   cycle_model_experimental: "Modelo de ciclo experimental",
@@ -114,6 +115,8 @@ const CHECK_RULES: Record<string, string> = {
     "Los supuestos derivados son los que reconstruyen la historia de ventas, la normalización y el costo de capital congelados.",
   zero_debt_evidence_consistent:
     "La evidencia de deuda cero se mide contra la mejor banda de calificación de la propia corrida.",
+  captive_finance_split_consistent:
+    "Con financiera cautiva, la deuda es la industrial y la cobertura usa el interés industrial del mismo 10-K.",
   method_versions_match:
     "El método usa sus propias versiones de motor y metodología.",
   currency_and_unit_consistency:

@@ -566,6 +566,30 @@ snapshot to use exactly those facts; annual readers use `baseFiscalYearEndOf`.
 Measured on a replica: AAPL 151.76 → 176.23, JNJ 184.72 → 133.36 (FY2025 held
 the talc reversal), AMZN debt doubled in the half-year; 16 stored runs replay.
 
+A captive finance arm is separated, not consolidated (`F6-23`,
+[ADR 0082](docs/architecture/adr/0082-captive-finance-split.md), migration
+`0054`, owner's decision with the measured table): the debt subtracted is the
+**industrial** one; the arm stays inside the business as net capital, its profit
+after its own interest already in EBIT. companyfacts has no dimensions and GM,
+F, PCAR, TXT and DE's long-term debt are not in any undimensioned `us-gaap`
+concept, so the job reads the 10-K's XBRL instance (`<primary>_htm.xml`, two
+metered requests) through `sec-xbrl-instance-1.0.0` —closed: no `DOCTYPE`,
+prefixes resolved by namespace, single-explicit-member contexts, a concept with
+two values dropped by name—. `captive-finance-declarations-1.0.0` declares per
+CIK the axis and member of the industrial debt, the industrial interest and the
+arm's debt (CAT, GM, F, PCAR, TXT; DE with no tagged split).
+`captive-finance-split-1.0.0` applies `reported-debt-1.0.0`'s recipes to the
+industrial member's facts and `interest-expense-1.0.0` to its interest, and
+needs the published operating income; the rating coverage is EBIT over the
+industrial interest (`coverage_interest_industrial_only`), cash stays
+consolidated and named, the base year stays annual (`captive_finance_split`),
+and a declared issuer never uses zero-debt evidence. The split is frozen in the
+optional `normalization.facts.captiveFinance` and checked by
+`captive_finance_split_consistent`; without it the job names
+`captive_finance_{not_tagged,filing_unavailable,debt_unresolved,interest_missing,ebit_derived}`
+before asking the AI. Measured on a replica: CAT 43,330 → 10,713 M of debt, AAA,
+393.45; GM 16,247 M, A3/A−, 130.06; DE and TXT named; 18 stored runs replay.
+
 Company logos are loaded by the **browser** from logo.dev
 ([ADR 0062](docs/architecture/adr/0062-company-logos-browser-loaded.md)): the
 free plan forbids storing them, so the CSP opens `img-src` to

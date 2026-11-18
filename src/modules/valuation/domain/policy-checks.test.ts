@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { DEMO_VALUATION_INPUT } from "../infrastructure/demo-valuation-fixtures";
+import { captiveFinanceSplitFixture } from "../infrastructure/captive-finance-fixtures";
 import { zeroDebtEvidenceFixture } from "../infrastructure/zero-debt-evidence-fixtures";
 import { computeFcff } from "./fcff";
 import {
@@ -480,6 +481,118 @@ describe("valuation policy checks", () => {
     it("adds no check to a run without evidence", () => {
       expect(
         failed(DEMO_VALUATION_INPUT, "zero_debt_evidence_consistent"),
+      ).toBeUndefined();
+    });
+  });
+
+  describe("captive finance split", () => {
+    const base = DEMO_VALUATION_INPUT.normalization.facts.baseFiscalYearEnd;
+    const availableAt =
+      DEMO_VALUATION_INPUT.capitalization.reportedEbit!.availableAt;
+
+    /**
+     * La demo con la deuda leída del miembro industrial: el mismo total, y un
+     * interés industrial que da la misma cobertura (17,28 M / 1,728 M = 10),
+     * así el costo de capital no se mueve.
+     */
+    const withSplit = (
+      mutate: (candidate: ValuationInput) => void = () => {},
+      options: { debt?: string; interest?: string } = {},
+    ): ValuationInput =>
+      draft((candidate) => {
+        const facts: NormalizationFacts = structuredClone(
+          candidate.normalization.facts,
+        );
+        facts.captiveFinance = captiveFinanceSplitFixture(
+          base,
+          availableAt,
+          options,
+        );
+        candidate.normalization = buildNormalization(facts, {
+          baseRevenue: candidate.baseRevenue.value,
+          marginalTaxRate: marginalTaxRateOf(candidate.costOfCapital),
+          capitalization: candidate.capitalization,
+        });
+        candidate.costOfCapital.coverage = {
+          ...candidate.costOfCapital.coverage,
+          availableAt,
+          interestBasis: "captive_industrial",
+        };
+        candidate.costOfCapital.declarations = [
+          ...candidate.costOfCapital.declarations,
+          "coverage_interest_industrial_only",
+        ];
+        mutate(candidate);
+      });
+
+    it("subtracts the industrial debt and covers EBIT with the industrial interest", () => {
+      const input = withSplit();
+
+      expect(input.normalization.debt).toMatchObject({
+        status: "resolved",
+        total: "30000000",
+        included: [{ concept: "us-gaap:LongTermDebt" }],
+      });
+      expect(failed(input, "captive_finance_split_consistent")?.status).toBe(
+        "passed",
+      );
+      expect(failed(input, "normalization_recomputed")?.status).toBe("passed");
+      expect(failed(input, "wacc_built_from_components")?.status).toBe(
+        "passed",
+      );
+    });
+
+    it("recomputes the debt from the industrial facts, never the consolidated ones", () => {
+      const input = withSplit(() => {}, { debt: "12000000" });
+
+      expect(input.normalization.debt).toMatchObject({ total: "12000000" });
+      expect(failed(input, "normalization_recomputed")?.subjects).toEqual([
+        "bridge.debt",
+      ]);
+    });
+
+    it("rejects a coverage that is not the industrial one of the same year", () => {
+      const consolidated = withSplit((candidate) => {
+        candidate.costOfCapital.coverage =
+          DEMO_VALUATION_INPUT.costOfCapital.coverage;
+      });
+      const other = withSplit(() => {}, { interest: "2000000" });
+
+      expect(
+        failed(consolidated, "captive_finance_split_consistent")?.subjects,
+      ).toEqual(["costOfCapital.coverage"]);
+      expect(
+        failed(other, "captive_finance_split_consistent")?.subjects,
+      ).toEqual(["costOfCapital.coverage"]);
+    });
+
+    it("rejects an industrial coverage without a split", () => {
+      const input = draft((candidate) => {
+        candidate.costOfCapital.coverage = {
+          ...candidate.costOfCapital.coverage,
+          interestBasis: "captive_industrial",
+        };
+      });
+
+      expect(
+        failed(input, "captive_finance_split_consistent")?.subjects,
+      ).toEqual(["normalization.facts.captiveFinance"]);
+    });
+
+    it("keeps the split on the 10-K it was read from", () => {
+      const input = withSplit((candidate) => {
+        candidate.normalization.facts.captiveFinance!.fiscalYearEnd =
+          "2023-12-31";
+      });
+
+      expect(failed(input, "normalization_recomputed")?.subjects).toContain(
+        "normalization.facts.captiveFinance",
+      );
+    });
+
+    it("adds no check to a run without a captive finance arm", () => {
+      expect(
+        failed(DEMO_VALUATION_INPUT, "captive_finance_split_consistent"),
       ).toBeUndefined();
     });
   });

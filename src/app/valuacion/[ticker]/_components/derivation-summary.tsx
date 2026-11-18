@@ -25,8 +25,10 @@ import {
 import {
   formatAmount,
   formatCalendarDate,
+  formatCompactAmount,
   formatPercent,
 } from "@/modules/valuation/domain/display-format";
+import { financeDebtOf } from "@/modules/valuation/domain/captive-finance";
 import type { ValuationRun } from "@/modules/valuation/domain/valuation-run";
 
 import { BasePeriodLegs } from "./base-period";
@@ -356,7 +358,11 @@ function BaseYearBasis({ run }: { run: ValuationRun }) {
           ? "Deuda: sólo los arrendamientos financieros. En los cinco ejercicios no hay préstamos ni vencimientos de deuda publicados."
           : null;
 
-  if (derivation === undefined && debtLine === null) {
+  // La financiera cautiva (`F6-23`, ADR 0082): la deuda es la industrial.
+  const captive = run.input.normalization.facts.captiveFinance;
+  const financeDebt = captive === undefined ? null : financeDebtOf(captive);
+
+  if (derivation === undefined && debtLine === null && captive === undefined) {
     return null;
   }
 
@@ -374,6 +380,16 @@ function BaseYearBasis({ run }: { run: ValuationRun }) {
       {debtLine === null || evidence === undefined ? null : (
         <li>
           {debtLine} <CodeValue>{evidence.version}</CodeValue>
+        </li>
+      )}
+      {captive === undefined ? null : (
+        <li>
+          Deuda: sólo la industrial. La de {captive.financeArm}
+          {financeDebt?.status === "resolved"
+            ? ` (${formatCompactAmount(financeDebt.total)})`
+            : ""}{" "}
+          no se resta: su interés ya está en el EBIT y su caja cuenta como
+          excedente. <CodeValue>{captive.version}</CodeValue>
         </li>
       )}
     </ul>

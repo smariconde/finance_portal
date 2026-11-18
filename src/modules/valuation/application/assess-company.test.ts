@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import type { SubjectClassification } from "@/modules/classification/domain/subject-classification";
 
+import { readXbrlInstance } from "@/modules/fundamentals/domain/sec-xbrl-instance";
+
 import type { FundamentalRow } from "../domain/annual-fundamentals";
+import type { CaptiveFinanceFiling } from "../domain/captive-finance";
 import { fixtureCostOfCapitalReadings } from "../infrastructure/fixture-cost-of-capital-readings";
 import {
   assessCompany,
@@ -237,6 +240,142 @@ describe("assessCompany", () => {
       expect(assessment.costOfCapital).toMatchObject({
         status: "unsupported",
         missing: expect.arrayContaining(["interest_coverage"]),
+      });
+    });
+  });
+
+  describe("captive finance arm", () => {
+    const CAT_CIK = "0000018230";
+    const instant = (concept: string, end: string, value: string) => ({
+      ...annual(concept, end, value),
+      periodType: "instant",
+      periodStart: null,
+    });
+    /** Deuda consolidada sin receta e intereses pagados con la financiera. */
+    const rows = () =>
+      ["2022", "2023", "2024", "2025"].flatMap((year, index) => {
+        const end = `${year}-12-31`;
+        return [
+          annual("Revenues", end, String(100 + index * 5)),
+          annual("OperatingIncomeLoss", end, "20"),
+          annual("InterestPaidNet", end, "5"),
+          annual("IncomeTaxExpenseBenefit", end, "4"),
+          annual("WeightedAverageNumberOfDilutedSharesOutstanding", end, "10"),
+          annual("StockholdersEquity", end, "60"),
+          instant("LongTermDebtNoncurrent", end, "400"),
+          instant("ShortTermBorrowings", end, "50"),
+        ];
+      });
+    const member = (id: string, period: string, local: string) =>
+      `<context id="${id}"><entity><identifier scheme="http://www.sec.gov/CIK">${CAT_CIK}</identifier><segment><xbrldi:explicitMember dimension="srt:ProductOrServiceAxis">cat:${local}</xbrldi:explicitMember></segment></entity><period>${period}</period></context>`;
+    const read =
+      readXbrlInstance(`<xbrl xmlns="http://www.xbrl.org/2003/instance" xmlns:us-gaap="http://fasb.org/us-gaap/2025" xmlns:iso4217="http://www.xbrl.org/2003/iso4217" xmlns:xbrldi="http://xbrl.org/2006/xbrldi">
+<unit id="usd"><measure>iso4217:USD</measure></unit>
+${member("ind", "<instant>2025-12-31</instant>", "MachineryPowerEnergyMember")}
+${member("int", "<startDate>2025-01-01</startDate><endDate>2025-12-31</endDate>", "AllOtherExcludingFinancialProductsMember")}
+<us-gaap:LongTermDebtAndCapitalLeaseObligations contextRef="ind" unitRef="usd">30</us-gaap:LongTermDebtAndCapitalLeaseObligations>
+<us-gaap:LongTermDebtAndCapitalLeaseObligationsCurrent contextRef="ind" unitRef="usd">5</us-gaap:LongTermDebtAndCapitalLeaseObligationsCurrent>
+<us-gaap:InterestExpenseNonoperating contextRef="int" unitRef="usd">1</us-gaap:InterestExpenseNonoperating>
+</xbrl>`);
+    if (read.status !== "read") throw new Error(read.reason);
+    const filing: CaptiveFinanceFiling = {
+      accessionNumber: "0000018230-26-000008",
+      acceptedAt: "2026-02-13T21:10:00.000Z",
+      reportDate: "2025-12-31",
+      instance: read.instance,
+    };
+    const request = {
+      legalEntityId: SUBJECT,
+      query: query("2026-10-03T00:00:00.000Z"),
+      fundamentalsSourceId: "sec-edgar",
+      cik: CAT_CIK,
+      industryDeclarations: [],
+      listingCountry: "US",
+    };
+
+    it("subtracts the industrial debt and rates the industrial coverage", async () => {
+      const assessment = await assessCompany(
+        { ...request, captiveFinanceFiling: filing },
+        dependencies([sic("3571")], rows()),
+      );
+
+      expect(assessment.captiveFinance).toMatchObject({ status: "split" });
+      expect(assessment.normalization?.debt).toMatchObject({
+        status: "resolved",
+        recipe: "noncurrent_plus_current_maturities",
+        total: "35",
+      });
+      expect(assessment.normalization?.facts.captiveFinance?.financeArm).toBe(
+        "Cat Financial",
+      );
+      expect(assessment.costOfCapital).toMatchObject({
+        status: "computed",
+        costOfCapital: {
+          coverage: { value: "20", interestBasis: "captive_industrial" },
+          declarations: expect.arrayContaining([
+            "coverage_interest_industrial_only",
+          ]),
+        },
+      });
+    });
+
+    it("never subtracts the consolidated debt without the filing", async () => {
+      const assessment = await assessCompany(
+        request,
+        dependencies([sic("3571")], rows()),
+      );
+
+      expect(assessment.captiveFinance).toMatchObject({
+        status: "unavailable",
+        reason: "filing_unavailable",
+      });
+      expect("captiveFinance" in (assessment.normalization?.facts ?? {})).toBe(
+        false,
+      );
+      expect(assessment.normalization?.debt).toMatchObject({
+        status: "unresolved",
+      });
+    });
+
+    it("never calls a declared issuer debt-free from its consolidated facts", async () => {
+      const debtFree = ["2021", "2022", "2023", "2024", "2025"].flatMap(
+        (year, index) => {
+          const end = `${year}-12-31`;
+          return [
+            annual("Revenues", end, String(100 + index * 5)),
+            annual("OperatingIncomeLoss", end, "20"),
+            annual("IncomeTaxExpenseBenefit", end, "4"),
+            annual(
+              "WeightedAverageNumberOfDilutedSharesOutstanding",
+              end,
+              "10",
+            ),
+            annual("StockholdersEquity", end, "60"),
+            instant("CashAndCashEquivalentsAtCarryingValue", end, "15"),
+          ];
+        },
+      );
+      const assessment = await assessCompany(
+        request,
+        dependencies([sic("3571")], debtFree),
+      );
+
+      expect(assessment.zeroDebt?.status).toBe("met");
+      expect(assessment.normalization?.debt).toMatchObject({
+        status: "unresolved",
+        reason: "no_recipe",
+      });
+    });
+
+    it("leaves an undeclared issuer as before", async () => {
+      const assessment = await assessCompany(
+        { ...request, cik: "0000000042", captiveFinanceFiling: filing },
+        dependencies([sic("3571")], rows()),
+      );
+
+      expect(assessment.captiveFinance).toBeNull();
+      expect(assessment.normalization?.debt).toMatchObject({
+        status: "unresolved",
       });
     });
   });

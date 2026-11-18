@@ -237,6 +237,16 @@ export const SNAPSHOT_GAP_COPY: Record<ValuationSnapshotGap, string> = {
     "no hay una transcripción AFFO aceptada por la policy de citas y sumas",
   reit_nav_inputs_unavailable:
     "faltan NOI forward, tasa de capitalización comparable y claims del NAV fechados",
+  captive_finance_not_tagged:
+    "el 10-K no etiqueta la deuda de la parte industrial aparte de su financiera cautiva",
+  captive_finance_filing_unavailable:
+    "falta el 10-K del ejercicio base al corte para separar la financiera cautiva",
+  captive_finance_debt_unresolved:
+    "la deuda de la parte industrial no cierra con ninguna receta",
+  captive_finance_interest_missing:
+    "falta el gasto de intereses de la parte industrial",
+  captive_finance_ebit_derived:
+    "sin resultado operativo publicado, el EBIT podría incluir los intereses de la financiera cautiva",
 };
 
 export const PROFILE_COPY: Record<AssetProfile, string> = {

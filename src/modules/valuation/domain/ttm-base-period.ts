@@ -129,6 +129,11 @@ export const annualBasePeriodReasonSchema = z.enum([
   "ttm_leg_missing",
   /** El año anual revierte un cargo: su TTM no se puede armar igual. */
   "non_recurring_charge_applied",
+  /**
+   * La deuda industrial de una financiera cautiva se leyó del 10-K
+   * (`F6-23`, ADR 0082): el balance del 10-Q no tiene su apertura.
+   */
+  "captive_finance_split",
 ]);
 
 export type AnnualBasePeriodReason = z.infer<
