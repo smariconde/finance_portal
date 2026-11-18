@@ -5,6 +5,9 @@ const mocks = vi.hoisted(() => ({
   request: vi.fn(),
   start: vi.fn(),
   after: vi.fn(),
+  security: vi.fn(),
+  ensureConsensus: vi.fn(),
+  startConsensus: vi.fn(),
 }));
 
 vi.mock("next/server", () => ({ after: mocks.after }));
@@ -16,7 +19,13 @@ vi.mock("@/server/jobs/valuation-job", () => ({
   startValuationWorker: mocks.start,
 }));
 
-import { enqueueValuation } from "./actions";
+vi.mock("@/server/jobs/consensus-refresh", () => ({
+  securityOfValuedTicker: mocks.security,
+  ensureConsensusForRequest: mocks.ensureConsensus,
+  startConsensusWorker: mocks.startConsensus,
+}));
+
+import { enqueueValuation, refreshConsensus } from "./actions";
 
 const QUEUED = {
   state: "queued" as const,
@@ -107,5 +116,73 @@ describe("enqueueValuation", () => {
     ).toEqual({ state: "unavailable" });
     expect(JSON.stringify(consoleError.mock.calls)).not.toContain("secret");
     consoleError.mockRestore();
+  });
+});
+
+/** The consensus capture on open (`F6-29`, `TM-03`), invoked without the UI. */
+describe("refreshConsensus", () => {
+  const SECURITY = "00000000-0000-4000-8000-000000000001";
+
+  beforeEach(() => {
+    mocks.mode = "personal";
+    mocks.security.mockReset();
+    mocks.ensureConsensus.mockReset();
+    mocks.startConsensus.mockReset();
+    mocks.after.mockReset();
+  });
+
+  it("refuses in a locked runtime without composing anything", async () => {
+    mocks.mode = "locked";
+    expect(
+      await refreshConsensus({ ticker: "AAPL", retryFailures: false }),
+    ).toEqual({ state: "unavailable" });
+    expect(mocks.security).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["no body", undefined],
+    ["a URL", { ticker: "http://169.254.169.254", retryFailures: false }],
+    ["an extra field", { ticker: "AAPL", retryFailures: false, url: "x" }],
+    ["a missing boolean", { ticker: "AAPL" }],
+  ])("refuses %s", async (_label, input) => {
+    expect(await refreshConsensus(input)).toEqual({ state: "unavailable" });
+    expect(mocks.ensureConsensus).not.toHaveBeenCalled();
+  });
+
+  it("captures only a ticker with a recorded valuation run", async () => {
+    mocks.security.mockResolvedValue(null);
+    expect(
+      await refreshConsensus({ ticker: "ZZZZ", retryFailures: false }),
+    ).toEqual({ state: "unavailable" });
+    expect(mocks.ensureConsensus).not.toHaveBeenCalled();
+  });
+
+  it("starts the worker after answering and returns only the state", async () => {
+    mocks.security.mockResolvedValue(SECURITY);
+    mocks.ensureConsensus.mockResolvedValue({
+      status: { state: "running", other: false, waitingUntil: null },
+      runJobId: "job-1",
+    });
+    expect(
+      await refreshConsensus({ ticker: "aapl", retryFailures: true }),
+    ).toEqual({ state: "running", other: false, waitingUntil: null });
+    expect(mocks.security).toHaveBeenCalledWith("AAPL");
+    expect(mocks.ensureConsensus).toHaveBeenCalledWith({
+      securityId: SECURITY,
+      retryFailures: true,
+    });
+    expect(mocks.after).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides a failure's message", async () => {
+    mocks.security.mockRejectedValue(
+      new Error("connect ECONNREFUSED 10.0.0.1"),
+    );
+    const result = await refreshConsensus({
+      ticker: "AAPL",
+      retryFailures: false,
+    });
+    expect(result).toEqual({ state: "unavailable" });
+    expect(JSON.stringify(result)).not.toContain("10.0.0.1");
   });
 });

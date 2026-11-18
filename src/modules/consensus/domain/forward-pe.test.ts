@@ -88,14 +88,16 @@ describe("forwardPe", () => {
     ).not.toBeNull();
   });
 
-  it("names a missing consensus, a stale capture and one after the close", () => {
+  it("names a missing consensus and a capture a week away from the close", () => {
     expect(reading({ capturedOn: null }).forwardPeReason).toBe("no_consensus");
     expect(reading({ years: [] }).forwardPeReason).toBe("no_consensus");
     expect(reading({ capturedOn: "2026-11-10" }).forwardPeReason).toBe(
       "stale_consensus",
     );
     expect(reading({ capturedOn: "2026-11-11" }).forwardPeReason).toBeNull();
-    expect(reading({ capturedOn: "2026-11-19" }).forwardPeReason).toBe(
+    // Today's capture against yesterday's close is the current reading.
+    expect(reading({ capturedOn: "2026-11-19" }).forwardPeReason).toBeNull();
+    expect(reading({ capturedOn: "2026-11-26" }).forwardPeReason).toBe(
       "stale_consensus",
     );
   });

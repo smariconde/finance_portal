@@ -158,11 +158,12 @@ export function forwardPe(input: {
   if (close.currency !== input.consensusCurrency) {
     return empty("currency_mismatch", base);
   }
-  // A capture after the close is not visible to it; one too far before is
-  // stale. The caller reads the consensus at the close's cutoff, so the first
-  // can only be a caller bug and is refused the same way.
-  const age = calendarDaysBetween(input.capturedOn, close.marketDate);
-  if (age < 0 || age > CONSENSUS_STALE_AFTER_DAYS) {
+  // Price and consensus more than a week apart do not describe the same
+  // moment. Which consensus a close may see is the caller's cutoff: a
+  // historical point reads it as known when its session settled, so it never
+  // sees a later capture; today's reading pairs the last close with today's.
+  const age = Math.abs(calendarDaysBetween(input.capturedOn, close.marketDate));
+  if (age > CONSENSUS_STALE_AFTER_DAYS) {
     return empty("stale_consensus", base);
   }
   const price = d(close.close, "close");

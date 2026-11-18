@@ -8,7 +8,13 @@ import {
   valuationTickerSchema,
   type ValuationJobView,
 } from "@/modules/valuation/domain/valuation-job";
+import type { ConsensusRefreshStatus } from "@/modules/consensus/application/consensus-refresh";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
+import {
+  ensureConsensusForRequest,
+  securityOfValuedTicker,
+  startConsensusWorker,
+} from "@/server/jobs/consensus-refresh";
 import {
   requestValuationForRequest,
   startValuationWorker,
@@ -75,6 +81,66 @@ export async function enqueueValuation(
       error instanceof Error ? error.name : typeof error,
     );
 
+    return { state: "unavailable" };
+  }
+}
+
+const consensusRequestSchema = z
+  .object({
+    ticker: z.string().trim().min(1).max(32),
+    retryFailures: z.boolean(),
+  })
+  .strict();
+
+export type ConsensusRefreshResult =
+  | ConsensusRefreshStatus
+  /** Locked runtime, invalid request, unvalued ticker or a database down. */
+  | { readonly state: "unavailable" };
+
+/**
+ * Brings a valued company's analyst consensus up to date on opening its
+ * valuation (`F6-29`,
+ * [ADR 0083](../../../docs/architecture/adr/0083-consensus-estimates-forward-pe.md)).
+ *
+ * A public endpoint in all but name (`TM-03`): the mode is resolved in the
+ * request; the input is a symbol and a boolean under a closed schema, never a
+ * URL; only a ticker with a recorded valuation run is captured, so a request
+ * cannot choose what is downloaded; the request itself opens no network —the
+ * worker after it does, through the metered door under the source's lease,
+ * budget and kill switch (ADR 0020)—; the answer is a state and codes.
+ */
+export async function refreshConsensus(
+  input: unknown,
+): Promise<ConsensusRefreshResult> {
+  const health = await getRequestConfigHealth();
+  if (!servesRealData(health)) return { state: "unavailable" };
+
+  const request = consensusRequestSchema.safeParse(input);
+  const ticker = request.success
+    ? valuationTickerSchema.safeParse(request.data.ticker)
+    : null;
+  if (!request.success || ticker === null || !ticker.success) {
+    return { state: "unavailable" };
+  }
+
+  try {
+    const securityId = await securityOfValuedTicker(ticker.data);
+    if (securityId === null) return { state: "unavailable" };
+    const result = await ensureConsensusForRequest({
+      securityId,
+      retryFailures: request.data.retryFailures,
+    });
+    if (result.runJobId !== null) {
+      const jobId = result.runJobId;
+      after(() => startConsensusWorker(jobId));
+    }
+    return result.status;
+  } catch (error) {
+    // Only the type: a message can carry a host, a port or SQL (`TM-02`).
+    console.error(
+      "consensus refresh failed",
+      error instanceof Error ? error.name : typeof error,
+    );
     return { state: "unavailable" };
   }
 }
