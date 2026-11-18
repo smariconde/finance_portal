@@ -141,6 +141,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   113 | `F11-17`   | `done`        | MCP de solo lectura en `/mcp` con dos secretos, catálogo `portal-mcp-tools-1.0.0` (valuaciones y diario primero) y `ownerAssistant` por fuente.                                                                           | ADR 0078           |
 |   114 | `F9-20`    | `done`        | `/argentina` marca lo nuevo desde la visita anterior: período nuevo o revisado de EMAE, IPC, REM, fiscal y comercio, leído por `system_recorded`, con la visita como sesión guardada en la base.                          | `F9-12`, `F9-18`   |
 |   115 | `F9-21`    | `done`        | Riesgo país en `/argentina` según la ADR 0080: ingesta de Ámbito con revisiones, actualización al abrir, bloque con gráfico, el cambio de índice marcado y fuente citada.                                                 | `F9-19`            |
+|   116 | `F6-30`    | `done`        | Camino de crecimiento destrabado: quebrantos del pool federal, distress con EBIT negativo y caja neta, deuda cero con tres a cinco ejercicios y la IA antes de los métodos de crecimiento; primera corrida real (MU).     | `F6-21`            |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la

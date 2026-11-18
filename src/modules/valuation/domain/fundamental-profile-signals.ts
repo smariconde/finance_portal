@@ -21,6 +21,12 @@ import {
   type InterestExpenseBasis,
 } from "./interest-expense";
 import {
+  DEBT_COMPONENT_KEYS,
+  DEBT_ITEMS,
+  resolveReportedDebt,
+  type ReportedDebtInput,
+} from "./reported-debt";
+import {
   profileEvidenceSchema,
   type ProfileEvidence,
   type SignalProfile,
@@ -56,9 +62,18 @@ import {
  * cuando es gasto o el pagado— y el EBIT de respaldo suma el neto con su signo,
  * así que Nike, que no publica resultado operativo ni intereses brutos, tiene
  * EBIT. Con el bruto publicado, todo es como en `1.0.0`.
+ *
+ * `1.2.0` (2026-11-18, decisión del owner con CRWD medido): con EBIT negativo
+ * la cobertura es negativa por construcción y no mide la capacidad de pagar la
+ * deuda. Si el EBIT fue negativo los dos años, el patrimonio es positivo y la
+ * caja con las inversiones líquidas cubre la deuda resuelta del último cierre,
+ * la cobertura no prueba distress (`operating_loss_with_net_cash`): la empresa
+ * es de pérdidas, y su riesgo de fracaso lo mide la supervivencia del método de
+ * crecimiento. Una deuda sin receta no prueba nada y la cobertura sigue
+ * decidiendo.
  */
 export const FUNDAMENTAL_PROFILE_SIGNALS_VERSION =
-  "fundamental-profile-signals-1.1.0";
+  "fundamental-profile-signals-1.2.0";
 
 /** Borde de cobertura bajo el cual el rating sintético es `CCC` o peor. */
 export const DISTRESS_COVERAGE_THRESHOLD = "1.25";
@@ -197,6 +212,26 @@ function distressSignal(series: AnnualFundamentals): FundamentalSignal {
     ...(ebitLatest?.inputs ?? []),
   ];
 
+  const netCash =
+    coverageBranch === "true" && equityBranch !== "true"
+      ? netCashWithOperatingLosses(latest, ebitLatest, ebitPrior, equityValue)
+      : null;
+
+  if (netCash !== null) {
+    return {
+      profile: "distressed",
+      state: "absent",
+      basis: ["operating_loss_with_net_cash"],
+      missing: [],
+      measures: {
+        ...measures,
+        liquidAssets: display(netCash.liquid, "liquid"),
+        debt: display(netCash.debt, "debt"),
+      },
+      inputs: unique([...coverageInputs, ...netCash.inputs]),
+    };
+  }
+
   if (coverageBranch === "true") {
     return {
       profile: "distressed",
@@ -315,6 +350,80 @@ function distressSignal(series: AnnualFundamentals): FundamentalSignal {
     measures,
     inputs: [],
   };
+}
+
+const LIQUID_ITEMS: readonly LineItemId[] = [
+  "cash",
+  "liquid_investments",
+  "marketable_securities_noncurrent",
+];
+
+/**
+ * `1.2.0`: caja e inversiones líquidas contra la deuda resuelta del último
+ * cierre, sólo con pérdida operativa dos años y patrimonio positivo. `null` si
+ * algo de eso falta o la caja no cubre la deuda.
+ */
+function netCashWithOperatingLosses(
+  latest: FiscalYear | undefined,
+  ebitLatest: Ebit | null,
+  ebitPrior: Ebit | null,
+  equityValue: Dec | null,
+): { liquid: Dec; debt: Dec; inputs: LineItemValue[] } | null {
+  if (
+    latest === undefined ||
+    ebitLatest === null ||
+    ebitPrior === null ||
+    equityValue === null ||
+    !equityValue.greaterThan(ZERO) ||
+    !ebitLatest.value.lessThan(ZERO) ||
+    !ebitPrior.value.lessThan(ZERO)
+  ) {
+    return null;
+  }
+
+  const liquidItems = LIQUID_ITEMS.flatMap((key) => {
+    const value = latest.items[key];
+    return value === undefined ? [] : [value];
+  });
+  const debtItems = DEBT_COMPONENT_KEYS.flatMap((key) => {
+    const value = latest.items[DEBT_ITEMS[key]];
+    return value === undefined ? [] : [value];
+  });
+
+  if (
+    latest.items.cash === undefined ||
+    !sameCurrency([...liquidItems, ...debtItems])
+  ) {
+    return null;
+  }
+
+  const debt = resolveReportedDebt(
+    Object.fromEntries(
+      DEBT_COMPONENT_KEYS.map((key) => {
+        const value = latest.items[DEBT_ITEMS[key]];
+        return [
+          key,
+          value === undefined
+            ? null
+            : { value: value.value, concept: value.concept },
+        ];
+      }),
+    ) as ReportedDebtInput,
+  );
+
+  if (debt.status !== "resolved") {
+    return null;
+  }
+
+  const liquid = liquidItems.reduce(
+    (total, value) => total.plus(parseDecimal(value.value, value.item)),
+    ZERO,
+  );
+  const debtTotal = parseDecimal(debt.total, "debt");
+
+  return liquid.greaterThanOrEqualTo(debtTotal)
+    ? { liquid, debt: debtTotal, inputs: [...liquidItems, ...debtItems] }
+    : null;
 }
 
 function lossSignal(series: AnnualFundamentals): FundamentalSignal {
@@ -437,6 +546,7 @@ const DECLARED_ALTERNATIVE_BASES: ReadonlySet<string> = new Set([
   "ebit_pretax_plus_interest",
   "positive_equity_and_net_income_two_years",
   "liquid_assets_cover_liabilities",
+  "operating_loss_with_net_cash",
 ]);
 
 /**

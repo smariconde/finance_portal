@@ -9,6 +9,7 @@ import {
   ZERO,
 } from "./decimal-policy";
 import {
+  ZERO_DEBT_EVIDENCE_SHORT_HISTORY_VERSION,
   ZERO_DEBT_EVIDENCE_VERSION,
   zeroDebtShortfall,
   type ZeroDebtEvidence,
@@ -133,7 +134,10 @@ export const reportedDebtSchema = z.discriminatedUnion("status", [
   z.object({
     version: z.literal(REPORTED_DEBT_EVIDENCE_VERSION),
     status: z.literal("zero_with_evidence"),
-    evidence: z.literal(ZERO_DEBT_EVIDENCE_VERSION),
+    evidence: z.enum([
+      ZERO_DEBT_EVIDENCE_VERSION,
+      ZERO_DEBT_EVIDENCE_SHORT_HISTORY_VERSION,
+    ]),
     /** Componentes del ejercicio base publicados en cero. */
     reportedZero: z.array(debtComponentKeySchema).max(7),
     total: engineDecimalSchema,
@@ -212,7 +216,7 @@ function withoutRecipe(
     return {
       version: REPORTED_DEBT_EVIDENCE_VERSION,
       status: "zero_with_evidence",
-      evidence: ZERO_DEBT_EVIDENCE_VERSION,
+      evidence: evidence.version,
       reportedZero: present,
       total: formatDecimal(ZERO, "debt.total"),
     };

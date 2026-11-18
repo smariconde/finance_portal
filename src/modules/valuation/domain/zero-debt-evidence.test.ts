@@ -10,8 +10,10 @@ import type { ConceptFact } from "./valuation-facts";
 import {
   assessZeroDebtEvidence,
   listZeroDebtEvidenceFacts,
+  ZERO_DEBT_EVIDENCE_SHORT_HISTORY_VERSION,
   ZERO_DEBT_EVIDENCE_VERSION,
   zeroDebtEvidenceHasInterest,
+  zeroDebtEvidenceSchema,
   zeroDebtEvidenceMismatches,
   zeroDebtShortfall,
   type CoverageFloor,
@@ -225,14 +227,40 @@ describe(ZERO_DEBT_EVIDENCE_VERSION, () => {
     ).toBe("met");
   });
 
-  it("needs five fiscal years with revenue", () => {
+  it("freezes five fiscal years as 1.0.0, byte for byte", () => {
+    expect(met(series()).version).toBe(ZERO_DEBT_EVIDENCE_VERSION);
+  });
+
+  // RDDT, 2026-11-18: cuatro ejercicios desde su salida a bolsa.
+  it("proves a young company with all its fiscal years, three or four (1.1.0)", () => {
+    for (const count of [4, 3]) {
+      const evidence = met(series(() => ({}), ENDS.slice(0, count)));
+
+      expect(evidence.version).toBe(ZERO_DEBT_EVIDENCE_SHORT_HISTORY_VERSION);
+      expect(evidence.fiscalYears).toHaveLength(count);
+      expect(zeroDebtEvidenceMismatches(evidence, ENDS[0]!, "e")).toEqual([]);
+    }
+  });
+
+  it("needs at least three fiscal years with revenue", () => {
     expect(
       assessZeroDebtEvidence(
-        series(() => ({}), ENDS.slice(0, 4)),
+        series(() => ({}), ENDS.slice(0, 2)),
         FLOOR,
         toFact,
       ),
     ).toEqual({ status: "not_met", reason: "insufficient_history" });
+  });
+
+  it("refuses a stored 1.0.0 evidence with fewer than five years", () => {
+    const evidence = met(series(() => ({}), ENDS.slice(0, 4)));
+
+    expect(() =>
+      zeroDebtEvidenceSchema.parse({
+        ...evidence,
+        version: ZERO_DEBT_EVIDENCE_VERSION,
+      }),
+    ).toThrow();
   });
 
   it("needs EBIT to measure interest", () => {
