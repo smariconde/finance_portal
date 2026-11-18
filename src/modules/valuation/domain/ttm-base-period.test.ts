@@ -232,6 +232,23 @@ describe("ttm-base-period-1.0.0", () => {
     });
   });
 
+  it("stays annual and names the flow the fiscal year itself lacks", () => {
+    // MCD, 2026-11-18: el 10-K base no trae una partida que el TTM pide y el
+    // armado caía con un TypeError en vez de quedarse en anual con motivo.
+    const rows = BASE_ROWS.filter(
+      (entry) =>
+        !(
+          entry.concept === "us-gaap:IncomeTaxExpenseBenefit" &&
+          entry.asOf === FY
+        ),
+    );
+
+    expect(decide(rows)).toMatchObject({
+      status: "annual",
+      basePeriod: { reason: "ttm_leg_missing", item: "income_tax" },
+    });
+  });
+
   it("never treats a null leg as zero", () => {
     const rows = BASE_ROWS.map((entry) =>
       entry.concept === "us-gaap:OperatingIncomeLoss" && entry.asOf === H1
