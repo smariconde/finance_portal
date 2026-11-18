@@ -112,6 +112,8 @@ import {
 import { FAILURE_RATES_DATASET } from "@/modules/valuation/domain/failure-risk";
 import { DAMODARAN_INDUSTRY_TAXONOMY } from "@/modules/valuation/domain/industry-mapping";
 import {
+  asksQualitativeDecisions,
+  awaitsCycleHistory,
   qualitativeStepAccepted,
   type ValuationQualitativeStep,
 } from "@/modules/valuation/domain/valuation-qualitative-step";
@@ -346,8 +348,9 @@ export type PreparedValuationRun =
  * no publica fundamentals; las notas fiscal y financiera todavía pueden
  * requerir una lectura SEC por el egress medido.
  *
- * Con `askAi` (`F6-13`) y un método FCFF —`fcff_base` o, desde `F6-18`,
- * `normalized_fcff`—, pregunta a la IA lo
+ * Con `askAi` (`F6-13`) y un método FCFF —`fcff_base`; desde `F6-18`,
+ * `normalized_fcff`; desde el fix de `F6-21`, pérdidas y alto crecimiento que
+ * sólo esperan insumos (`asksQualitativeDecisions`)—, pregunta a la IA lo
  * cualitativo que falta antes de armar el snapshot; eso escribe en las tablas
  * de cada tarea y gasta. Sólo corre detrás del paso de datos: una tarea sobre
  * una ventana que no pasó la auditoría preguntaría sobre datos rotos.
@@ -741,12 +744,7 @@ export async function prepareValuationRun(
   if (
     options.askAi === true &&
     dataStep !== null &&
-    (assessment.selection.status === "selected" ||
-      awaitsCycle ||
-      financialProfile) &&
-    (assessment.selection.recommendedMethod === "fcff_base" ||
-      assessment.selection.recommendedMethod === "normalized_fcff" ||
-      assessment.selection.recommendedMethod === "excess_return")
+    asksQualitativeDecisions(assessment.selection)
   ) {
     const needs = {
       industry: assessment.industry.status === "ambiguous",
@@ -1022,17 +1020,6 @@ function captiveFinanceGapOf(
  * historia necesita el costo de capital, y éste la industria que resuelve la
  * IA (`F6-18`). Si sólo falta `cycle_margins`, el paso cualitativo corre.
  */
-function awaitsCycleHistory(
-  selection: CompanyAssessment["selection"],
-): boolean {
-  return (
-    selection.recommendedMethod === "normalized_fcff" &&
-    selection.unsupportedReasons.length === 1 &&
-    selection.unsupportedReasons[0] === "missing_required_input" &&
-    selection.requiredInputs.length === 1 &&
-    selection.requiredInputs[0] === "cycle_margins"
-  );
-}
 
 /**
  * Una decisión aceptada se publica después del corte de este job: otro, con
