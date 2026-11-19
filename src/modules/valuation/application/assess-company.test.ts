@@ -326,6 +326,71 @@ describe("assessCompany", () => {
     });
   });
 
+  describe("owner-declared rating (declared-rating-1.0.0)", () => {
+    const instant = (concept: string, end: string, value: string) => ({
+      ...annual(concept, end, value),
+      periodType: "instant",
+      periodStart: null,
+    });
+    /** Ford's shape in one line: an operating loss over the interest. */
+    const rows = () =>
+      ["2022", "2023", "2024", "2025"].flatMap((year, index) => {
+        const end = `${year}-12-31`;
+        return [
+          annual("Revenues", end, String(100 + index * 5)),
+          annual("OperatingIncomeLoss", end, index === 3 ? "-9" : "5"),
+          annual("InterestExpense", end, "1"),
+          annual("IncomeTaxExpenseBenefit", end, "1"),
+          annual("WeightedAverageNumberOfDilutedSharesOutstanding", end, "10"),
+          annual("StockholdersEquity", end, "60"),
+          instant("LongTermDebtNoncurrent", end, "400"),
+          instant("LongTermDebtCurrent", end, "50"),
+        ];
+      });
+    const request = (at: string) => ({
+      legalEntityId: SUBJECT,
+      query: query(at),
+      fundamentalsSourceId: "sec-edgar",
+      cik: "0000037996",
+      industryDeclarations: [],
+      listingCountry: "US",
+    });
+
+    it("rates at the declared band once the declaration is visible", async () => {
+      const assessment = await assessCompany(
+        request("2026-11-20T00:00:00.000Z"),
+        dependencies([sic("3571")], rows()),
+      );
+
+      expect(assessment.costOfCapital).toMatchObject({
+        status: "computed",
+        costOfCapital: {
+          coverage: {
+            value: "2.25",
+            interestBasis: "owner_declared_rating",
+            declaredRating: { declaration: { rating: "Ba1/BB+" } },
+          },
+          derived: { syntheticRating: "Ba1/BB+" },
+          declarations: expect.arrayContaining([
+            "coverage_owner_declared_rating",
+          ]),
+        },
+      });
+    });
+
+    it("keeps the synthetic D before it was declared", async () => {
+      const assessment = await assessCompany(
+        request("2026-10-03T00:00:00.000Z"),
+        dependencies([sic("3571")], rows()),
+      );
+
+      expect(assessment.costOfCapital).toMatchObject({
+        status: "computed",
+        costOfCapital: { derived: { syntheticRating: "D2/D" } },
+      });
+    });
+  });
+
   describe("captive finance arm", () => {
     const CAT_CIK = "0000018230";
     const instant = (concept: string, end: string, value: string) => ({

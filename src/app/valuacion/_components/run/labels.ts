@@ -82,6 +82,7 @@ const CHECK_LABELS: Record<string, string> = {
   assumptions_derived_recomputed: "Supuestos derivados recalculados",
   zero_debt_evidence_consistent: "Evidencia de deuda cero consistente",
   net_cash_coverage_consistent: "Cobertura con caja neta consistente",
+  declared_rating_consistent: "Rating declarado consistente",
   captive_finance_split_consistent: "Financiera cautiva separada",
   share_count_positive: "Cantidad de acciones positiva",
   method_versions_match: "Versiones del método coherentes",
@@ -118,6 +119,8 @@ const CHECK_RULES: Record<string, string> = {
     "La evidencia de deuda cero se mide contra la mejor banda de calificación de la propia corrida.",
   net_cash_coverage_consistent:
     "Con pérdida operativa, caja que cubre la deuda y flujo operativo positivo, la cobertura vale la mejor banda de la propia corrida.",
+  declared_rating_consistent:
+    "El rating declarado es de esta empresa, visible al corte, y su banda da la cobertura y el spread de la corrida.",
   captive_finance_split_consistent:
     "Con financiera cautiva, la deuda es la industrial y la cobertura usa el interés industrial del mismo 10-K.",
   method_versions_match:
