@@ -4,6 +4,7 @@ import { applyNewYorkOffsetTwice } from "../infrastructure/fixture-sec-filer";
 import {
   buildAnnualReportUrl,
   locateLatestAnnualReport,
+  locateLatestPeriodicReport,
 } from "./sec-annual-report";
 
 const CIK = "0000320193";
@@ -189,5 +190,50 @@ describe("locateLatestAnnualReport", () => {
     ).toBe(
       "https://www.sec.gov/Archives/edgar/data/34088/000003408826000045/xom-20251231.htm",
     );
+  });
+});
+
+describe("locateLatestPeriodicReport", () => {
+  const payload = submissions([
+    ["10-Q/A", "0000320193-26-000020", "2026-06-01T20:00:00.000Z", "qa.htm"],
+    ["10-Q", "0000320193-26-000010", "2026-05-01T20:00:00.000Z", "q.htm"],
+    [
+      "10-K",
+      "0000320193-25-000079",
+      "2025-10-31T20:01:00.000Z",
+      "aapl-20250927.htm",
+    ],
+  ]);
+
+  it("takes the latest original 10-Q or 10-K accepted by the cutoff", () => {
+    const result = locateLatestPeriodicReport(
+      payload,
+      CIK,
+      "2026-07-01T00:00:00.000Z",
+    );
+    expect(result).toMatchObject({
+      status: "found",
+      report: { accessionNumber: "0000320193-26-000010" },
+    });
+  });
+
+  it("falls back to the 10-K before the 10-Q is accepted", () => {
+    const result = locateLatestPeriodicReport(
+      payload,
+      CIK,
+      "2026-04-30T00:00:00.000Z",
+    );
+    expect(result).toMatchObject({
+      status: "found",
+      report: { accessionNumber: "0000320193-25-000079" },
+    });
+  });
+
+  it("leaves the annual locator on 10-K only", () => {
+    expect(
+      locateLatestAnnualReport(payload, CIK, "2026-07-01T00:00:00.000Z"),
+    ).toMatchObject({
+      report: { accessionNumber: "0000320193-25-000079" },
+    });
   });
 });

@@ -28,6 +28,11 @@ export const SEC_ANNUAL_REPORT_LOCATOR_VERSION =
   "sec-annual-report-locator-1.1.0";
 
 const ANNUAL_REPORT_FORM = "10-K";
+const ANNUAL_REPORT_FORMS: ReadonlySet<string> = new Set([ANNUAL_REPORT_FORM]);
+const PERIODIC_REPORT_FORMS: ReadonlySet<string> = new Set([
+  ANNUAL_REPORT_FORM,
+  "10-Q",
+]);
 
 export type SecAnnualReport = {
   readonly cik: string;
@@ -88,6 +93,31 @@ export function locateLatestAnnualReport(
   cik: string,
   knownAt: string,
 ): LocateAnnualReportResult {
+  return locateLatestReport(payload, cik, knownAt, ANNUAL_REPORT_FORMS);
+}
+
+/**
+ * El último `10-K` o `10-Q` original aceptado al corte
+ * (`sec-periodic-report-locator-1.0.0`, `F6-32`): la carátula más reciente que
+ * el corte deja ver, con la misma regla de aceptación que el 10-K.
+ */
+export const SEC_PERIODIC_REPORT_LOCATOR_VERSION =
+  "sec-periodic-report-locator-1.0.0";
+
+export function locateLatestPeriodicReport(
+  payload: unknown,
+  cik: string,
+  knownAt: string,
+): LocateAnnualReportResult {
+  return locateLatestReport(payload, cik, knownAt, PERIODIC_REPORT_FORMS);
+}
+
+function locateLatestReport(
+  payload: unknown,
+  cik: string,
+  knownAt: string,
+  forms: ReadonlySet<string>,
+): LocateAnnualReportResult {
   const parsed = columnsSchema.safeParse(payload);
 
   if (!parsed.success) {
@@ -122,7 +152,8 @@ export function locateLatestAnnualReport(
     const reportDate = recent.reportDate?.[row];
 
     if (
-      form !== ANNUAL_REPORT_FORM ||
+      typeof form !== "string" ||
+      !forms.has(form) ||
       typeof accessionNumber !== "string" ||
       !ACCESSION.test(accessionNumber) ||
       typeof rawAcceptance !== "string" ||

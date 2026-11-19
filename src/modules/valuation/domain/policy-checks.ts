@@ -148,6 +148,12 @@ function checkAssessment(input: ValuationInput): PolicyCheck[] {
   ];
 }
 
+/** Una unidad del último dígito de un WACC de 34 dígitos, con margen. */
+const WACC_PATH_ROUNDING = parseDecimal(
+  "0.000000000000000000000000000001",
+  "waccPathRounding",
+);
+
 /**
  * El WACC no es un input crudo (`F3-06`): se recalcula desde los componentes
  * fechados del snapshot, y los períodos tienen que empezar en el WACC de hoy,
@@ -165,8 +171,12 @@ function checkCostOfCapital(input: ValuationInput): PolicyCheck[] {
     costOfCapital.derived.terminalWacc,
     "costOfCapital.terminalWacc",
   );
-  const low = wacc.lte(terminal) ? wacc : terminal;
-  const high = wacc.lte(terminal) ? terminal : wacc;
+  // La interpolación de `fade` redondea a 34 dígitos y puede quedar una unidad
+  // del último dígito afuera del tramo (GOOGL, 2026-11-18: `…503782` contra
+  // `…503783`). Ese residuo no es un WACC fuera de camino; uno real está
+  // decenas de órdenes de magnitud más lejos.
+  const low = (wacc.lte(terminal) ? wacc : terminal).minus(WACC_PATH_ROUNDING);
+  const high = (wacc.lte(terminal) ? terminal : wacc).plus(WACC_PATH_ROUNDING);
   const first = input.periods[0];
   const offPath = input.periods
     .filter((period) => {

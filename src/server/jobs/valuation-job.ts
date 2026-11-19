@@ -71,6 +71,7 @@ import {
   OPTIONS_OUTSTANDING_CONCEPT,
   OPTIONS_WEIGHTED_STRIKE_CONCEPT,
   SHARES_OUTSTANDING_CONCEPT,
+  sharesOutstandingAt,
   UNVESTED_UNITS_CONCEPT,
 } from "@/modules/valuation/domain/employee-equity-claim";
 import { readLineageObservations } from "@/modules/corporate-actions/application/read-lineage-observations";
@@ -134,6 +135,7 @@ import { runQualitativeStep } from "./valuation-qualitative";
 import type { CaptiveFinanceUnavailableReason } from "@/modules/valuation/domain/captive-finance";
 import { readCaptiveFinanceFiling } from "./captive-finance-filing";
 import { readFinancialFiling } from "./financial-filing";
+import { readCoverShareClasses } from "./cover-share-classes-filing";
 import { readGrowthTaxFiling } from "./growth-tax-filing";
 import { runReitAffoStep } from "./reit-affo-step";
 
@@ -857,15 +859,29 @@ export async function prepareValuationRun(
     ),
   ]);
 
+  // Varias clases en la carátula (`F6-32`): sin un conteo sin dimensiones
+  // visible al corte, se suman las clases del último 10-Q o 10-K.
+  const coverCounts = shareCounts.filter(
+    (fact) => fact.concept === SHARES_OUTSTANDING_CONCEPT,
+  );
+  const coverClasses =
+    sharesOutstandingAt(coverCounts, {
+      asOf: job.knownAt.slice(0, 10),
+      knownAt: job.knownAt,
+    }) === null
+      ? await readCoverShareClasses({ cik, knownAt: job.knownAt })
+      : null;
+
   const snapshotRequest = {
     subject: { legalEntityId, securityId, listingId: resolution.listingId },
     query,
     assessment,
     fundamentalsSourceId: SEC_SOURCE_ID,
     employeeEquity,
-    shareCounts: shareCounts.filter(
-      (fact) => fact.concept === SHARES_OUTSTANDING_CONCEPT,
-    ),
+    shareCounts:
+      coverClasses?.status === "summed"
+        ? [...coverCounts, coverClasses.observation]
+        : coverCounts,
     employeeOptionFacts: shareCounts.filter(
       (fact) => fact.concept !== SHARES_OUTSTANDING_CONCEPT,
     ),
