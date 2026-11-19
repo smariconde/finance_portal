@@ -19,6 +19,7 @@ import { fixtureCycleValuation } from "./fixture-cycle-valuation";
 /** Synthetic startup and growth company. Never published as an owner dataset. */
 export function fixtureGrowthValuation(
   profile: "loss_making" | "high_growth" = "loss_making",
+  options: { readonly reportedEbit?: string } = {},
 ): ValuationInput {
   const input = fixtureCycleValuation();
   const evidence = input.cycleNormalization!.profileEvidence.map((item) => ({
@@ -39,7 +40,8 @@ export function fixtureGrowthValuation(
   input.methodologyVersion = GROWTH_METHODOLOGY_VERSION;
   const capitalization = structuredClone(input.capitalization);
   capitalization.reportedEbit!.value =
-    profile === "loss_making" ? "-19200000" : "9600000";
+    options.reportedEbit ??
+    (profile === "loss_making" ? "-19200000" : "9600000");
   input.capitalization = buildCapitalization(capitalization, {
     baseRevenue: input.baseRevenue.value,
     industryKey: input.costOfCapital.industryKey,

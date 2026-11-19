@@ -92,7 +92,12 @@ export function assembleGrowthSnapshot(input: {
     assessment: {
       ...foundation.assessment,
       selection,
-      rigor: deriveRigorLevel(selection, foundation.assessment.completeness),
+      // Sin opciones restadas el nivel baja uno, como en la corrida base: el
+      // motor lo recalcula desde la decisión congelada (`F6-16`).
+      rigor: deriveRigorLevel(selection, foundation.assessment.completeness, {
+        employeeOptionsNotSubtracted:
+          foundation.employeeEquity.decision.basis === "not_subtracted",
+      }),
     },
     periods,
     terminal: { ...foundation.terminal, ebitMargin: margin.value },

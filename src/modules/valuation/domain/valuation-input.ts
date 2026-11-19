@@ -29,6 +29,7 @@ import {
 import { costOfCapitalSchema } from "./cost-of-capital";
 import { derivedAssumptionsSchema } from "./derived-assumptions";
 import { employeeEquityClaimSchema } from "./employee-equity-claim";
+import { listNetCashCoverageFacts } from "./net-cash-coverage";
 import { listNormalizationFacts, normalizationSchema } from "./normalization";
 import { qualitativeDecisionsSchema } from "./qualitative-decisions";
 import { scenarioSetSchema } from "./scenarios";
@@ -403,6 +404,13 @@ export function listMonetaryFacts(
       fact,
     })),
   );
+
+  const netCash = input.costOfCapital.coverage.netCash;
+  if (netCash !== undefined) {
+    facts.push(
+      ...listNetCashCoverageFacts(netCash, "costOfCapital.coverage.netCash"),
+    );
+  }
 
   if (input.basePeriod?.basis === "ttm") {
     input.basePeriod.flows.forEach((flow, index) => {

@@ -244,6 +244,88 @@ describe("assessCompany", () => {
     });
   });
 
+  describe("operating loss with net cash (net-cash-coverage-1.0.0)", () => {
+    const instant = (concept: string, end: string, value: string) => ({
+      ...annual(concept, end, value),
+      periodType: "instant",
+      periodStart: null,
+    });
+    /** CRWD's shape: GAAP operating losses, notes, more cash than debt. */
+    const rows = (ocf: string, cash: string) =>
+      ["2022", "2023", "2024", "2025"].flatMap((year, index) => {
+        const end = `${year}-12-31`;
+        return [
+          annual("Revenues", end, String(100 + index * 30)),
+          annual("OperatingIncomeLoss", end, "-5"),
+          annual("InterestExpense", end, "1"),
+          annual("IncomeTaxExpenseBenefit", end, "1"),
+          annual("WeightedAverageNumberOfDilutedSharesOutstanding", end, "10"),
+          annual("StockholdersEquity", end, "60"),
+          annual("NetCashProvidedByUsedInOperatingActivities", end, ocf),
+          instant("CashAndCashEquivalentsAtCarryingValue", end, cash),
+          instant("LongTermDebtNoncurrent", end, "30"),
+        ];
+      });
+    const request = {
+      legalEntityId: SUBJECT,
+      query: query("2026-10-03T00:00:00.000Z"),
+      fundamentalsSourceId: "sec-edgar",
+      cik: "0000000042",
+      industryDeclarations: [],
+      listingCountry: "US",
+    };
+
+    it("rates the coverage at the top band with the evidence frozen", async () => {
+      const assessment = await assessCompany(
+        request,
+        dependencies([sic("3571")], rows("25", "80")),
+      );
+
+      expect(assessment.costOfCapital).toMatchObject({
+        status: "computed",
+        costOfCapital: {
+          coverage: {
+            interestBasis: "net_cash_operating_loss",
+            fiscalYearEnd: "2025-12-31",
+            netCash: { version: "net-cash-coverage-1.0.0" },
+          },
+          declarations: expect.arrayContaining([
+            "coverage_net_cash_operating_loss",
+          ]),
+        },
+      });
+      if (assessment.costOfCapital.status !== "computed") return;
+      const { coverage, derived } = assessment.costOfCapital.costOfCapital;
+      expect(coverage.value).toBe(coverage.netCash!.coverageFloor.value);
+      expect(derived.syntheticRating).not.toMatch(/\/D$/u);
+    });
+
+    it("keeps the measured D when the company burns cash, at the worst row", async () => {
+      const assessment = await assessCompany(
+        request,
+        dependencies([sic("3571")], rows("-10", "80")),
+      );
+
+      expect(assessment.costOfCapital).toMatchObject({
+        status: "computed",
+        costOfCapital: { coverage: { value: "-5" } },
+      });
+      if (assessment.costOfCapital.status !== "computed") return;
+      expect(
+        assessment.costOfCapital.costOfCapital.coverage,
+      ).not.toHaveProperty("netCash");
+      expect(
+        assessment.costOfCapital.costOfCapital.derived.syntheticRating,
+      ).toMatch(/\/D$/u);
+      // D maps to the worst row now; this fixture has no failure table, so
+      // what is missing is the release, not the row.
+      expect(assessment.failureRisk).toMatchObject({
+        basis: "missing",
+        reason: "failure_rate_release_missing",
+      });
+    });
+  });
+
   describe("captive finance arm", () => {
     const CAT_CIK = "0000018230";
     const instant = (concept: string, end: string, value: string) => ({

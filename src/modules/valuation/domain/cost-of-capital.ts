@@ -18,6 +18,7 @@ import {
   ZERO,
   type Dec,
 } from "./decimal-policy";
+import { netCashCoverageSchema } from "./net-cash-coverage";
 import type { CoverageFloor } from "./zero-debt-evidence";
 
 /**
@@ -133,8 +134,16 @@ export const coverageEvidenceSchema = z.object({
        * `normalization.facts.captiveFinance.industrialInterest`.
        */
       "captive_industrial",
+      /**
+       * EBIT no positivo con caja neta y flujo operativo positivo (`F6-41`):
+       * la cobertura es el piso de la banda más alta, con la evidencia en
+       * `netCash`.
+       */
+      "net_cash_operating_loss",
     ])
     .optional(),
+  /** Sólo con `net_cash_operating_loss`: los hechos que la regla leyó. */
+  netCash: netCashCoverageSchema.optional(),
 });
 
 export type CoverageEvidence = z.infer<typeof coverageEvidenceSchema>;
@@ -146,6 +155,7 @@ export const COVERAGE_INTEREST_DECLARATION = {
   interest_paid: "coverage_interest_paid",
   no_interest_expense: "coverage_no_interest_expense",
   captive_industrial: "coverage_interest_industrial_only",
+  net_cash_operating_loss: "coverage_net_cash_operating_loss",
 } as const satisfies Record<
   NonNullable<CoverageEvidence["interestBasis"]>,
   string
@@ -181,6 +191,7 @@ export const costOfCapitalDeclarationSchema = z.enum([
   "coverage_interest_paid",
   "coverage_no_interest_expense",
   "coverage_interest_industrial_only",
+  "coverage_net_cash_operating_loss",
   "terminal_beta_converges_to_one",
   "country_risk_by_operations",
   "regions_combined_by_gdp",

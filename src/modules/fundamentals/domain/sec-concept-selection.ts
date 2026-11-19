@@ -24,7 +24,7 @@ import { SEC_HISTORY_WINDOW_VERSION } from "./sec-history-window";
  *   a correr el CIK publica sólo lo nuevo. No sube la versión del parser, porque
  *   filtrar no cambia el contenido de un hecho ya publicado.
  */
-export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-10.0.0";
+export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-11.0.0";
 
 /**
  * Qué decide la versión. La 1.0.0 eran los mismos conceptos con toda la historia
@@ -49,6 +49,9 @@ export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-10.0.0";
  * financiero (F6-20). Patrimonio total no se toma como común sin evidencia.
  * La 10.0.0 suma la deuda convertible corriente y no corriente (F6-36): Snowflake
  * y Datadog no publican su deuda con ningún otro concepto.
+ * La 11.0.0 suma los títulos de deuda disponibles para la venta corrientes
+ * (F6-41): Datadog publica sus inversiones de corto plazo (4.074 M en 2025)
+ * sólo como `AvailableForSaleSecuritiesDebtSecuritiesCurrent`.
  * Con la versión y el ancla,
  * un período anterior al corte sigue siendo «no se fue a buscar». El test fija
  * los componentes: cambiar uno sin subir la versión lo rompe.
@@ -140,6 +143,9 @@ const US_GAAP = [
   "MarketableSecuritiesCurrent",
   "MarketableSecuritiesNoncurrent",
   "ShortTermInvestments",
+  // Las inversiones de corto plazo que sólo se publican como títulos de deuda
+  // disponibles para la venta (11.0.0): Datadog.
+  "AvailableForSaleSecuritiesDebtSecuritiesCurrent",
   // Balance: estructura.
   "AssetsCurrent",
   "Assets",

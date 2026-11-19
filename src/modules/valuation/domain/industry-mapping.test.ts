@@ -237,8 +237,15 @@ describe(INDUSTRY_MAPPING_VERSION, () => {
     ).toThrow();
   });
 
-  it("keeps the declarations file empty until the owner decides", () => {
-    expect(DECLARED_INDUSTRY_ASSIGNMENTS).toEqual([]);
+  it("declares only what the owner decided, each key in the release", () => {
+    expect(
+      DECLARED_INDUSTRY_ASSIGNMENTS.map(({ ticker, industryKey }) => [
+        ticker,
+        industryKey,
+      ]),
+    ).toEqual([["MELI", "retail-general"]]);
+    for (const declaration of DECLARED_INDUSTRY_ASSIGNMENTS)
+      expect(mappedIndustryKeys()).toContain(declaration.industryKey);
   });
 
   it("separates the reasons a company stays unmapped", () => {

@@ -4,6 +4,7 @@ import {
   GROWTH_METHODOLOGY_VERSION,
 } from "./revenue-margin";
 import { failureRiskMismatches } from "./failure-risk";
+import { netCashCoverageMismatches } from "./net-cash-coverage";
 import {
   cycleNormalizationMismatches,
   NORMALIZED_FCFF_ENGINE_VERSION,
@@ -561,6 +562,59 @@ function checkZeroDebtEvidence(input: ValuationInput): PolicyCheck[] {
 }
 
 /**
+ * La cobertura de caja neta (`F6-41`, `net-cash-coverage-1.0.0`): la evidencia
+ * congelada sostiene la regla, su piso es la banda que la corrida usó —misma
+ * release, misma fila— y la cobertura vale ese piso en ese ejercicio. Sin
+ * evidencia ni esa base no hay check: una corrida anterior queda igual.
+ */
+function checkNetCashCoverage(input: ValuationInput): PolicyCheck[] {
+  const { coverage } = input.costOfCapital;
+  const netCashBasis = coverage.interestBasis === "net_cash_operating_loss";
+  const evidence = coverage.netCash;
+
+  if (evidence === undefined && !netCashBasis) {
+    return [];
+  }
+
+  const prefix = "costOfCapital.coverage.netCash";
+  const mismatches: string[] = [];
+
+  if (evidence === undefined || !netCashBasis) {
+    mismatches.push(prefix);
+  } else {
+    mismatches.push(...netCashCoverageMismatches(evidence, prefix));
+    const band = input.costOfCapital.parameters.find(
+      (parameter) => parameter.name === "company_default_spread",
+    );
+    if (
+      band === undefined ||
+      band.releaseId !== evidence.coverageFloor.releaseId ||
+      band.rowKey !== evidence.coverageFloor.rowKey
+    ) {
+      mismatches.push(`${prefix}.coverageFloor`);
+    }
+    if (
+      !parseDecimal(coverage.value, "costOfCapital.coverage").eq(
+        parseDecimal(evidence.coverageFloor.value, "coverageFloor"),
+      ) ||
+      coverage.fiscalYearEnd !== evidence.fiscalYearEnd
+    ) {
+      mismatches.push("costOfCapital.coverage");
+    }
+  }
+
+  return [
+    check(
+      "net_cash_coverage_consistent",
+      "reject",
+      mismatches.length === 0,
+      "A net-cash coverage needs a non-positive EBIT with interest, positive equity and operating cash flow, liquid assets covering the resolved debt of that close, and the run's own top rating band as its value.",
+      [...new Set(mismatches)].slice(0, 32),
+    ),
+  ];
+}
+
+/**
  * La apertura de una financiera cautiva y el costo de capital cuentan la misma
  * historia (`F6-23`, ADR 0082): la cobertura es el EBIT publicado sobre el
  * interés industrial del mismo ejercicio, y el año base es el del 10-K del que
@@ -826,6 +880,7 @@ export function checkValuationInput(input: ValuationInput): PolicyCheck[] {
     ...checkNormalization(input),
     ...checkBasePeriod(input),
     ...checkZeroDebtEvidence(input),
+    ...checkNetCashCoverage(input),
     ...checkCaptiveFinance(input),
     ...checkEmployeeEquity(input),
     ...checkFailureRisk(input),

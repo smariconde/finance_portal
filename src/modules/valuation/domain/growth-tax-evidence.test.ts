@@ -27,7 +27,7 @@ const frozenMuManifest = JSON.parse(
   ),
 ) as { extractBytes: number; extractSha256: string; sourceUrl: string };
 
-describe("growth-tax-evidence-2.0.0", () => {
+describe("growth-tax-evidence-2.1.0", () => {
   const derive = (note: string, fiscalYearEnd = "2026-09-03") =>
     deriveGrowthTaxEvidence({ html: filing(note), report, fiscalYearEnd });
   const federal = (note: string) => {
@@ -104,6 +104,39 @@ describe("growth-tax-evidence-2.0.0", () => {
         "At December 31, 2025, the Company has net operating loss carryforwards for federal tax purposes of approximately $340.2 million, which is available to offset federal taxable income. As of December 31, 2025, we have approximately $340.2 million and $474.2 million of net operating loss carryforwards, or NOLs, for federal and state income tax purposes, respectively.",
       ).lossCarryforward.value,
     ).toBe("340200000");
+  });
+
+  it("reads SNOW's breakdown as the pool it breaks down, not a second pool", () => {
+    // SNOW FY2026: the pool, its breakdown and two valuation-allowance sentences.
+    const evidence = federal(
+      [
+        "As of January 31, 2026, we had U.S. federal, state, and foreign NOL carryforwards of $7.3 billion, $6.5 billion, and $174.5 million, respectively.",
+        "Of the $7.3 billion U.S. federal NOL carryforwards, $7.2 billion may be carried forward indefinitely with utilization limited to 80% of taxable income, and the remaining $0.1 billion will begin to expire in 2032.",
+        "The valuation allowance was $3.7 billion and $3.1 billion as of January 31, 2026 and 2025, respectively, primarily relating to U.S. federal and state net operating loss carryforwards, capitalized research and development, and tax credit carryforwards.",
+        "The valuation allowance increased $591.6 million and $520.4 million during the fiscal years ended January 31, 2026 and January 31, 2024, respectively, primarily due to increased U.S. federal and state net operating loss carryforwards.",
+      ].join(" "),
+    );
+    expect(evidence.basis).toBe("federal_amount_stated");
+    expect(evidence.lossCarryforward.value).toBe("7300000000");
+    expect(evidence.lossPolicyRationale).toMatch(
+      /^growth-tax-evidence-2\.1\.0:/u,
+    );
+  });
+
+  it("refuses a breakdown whose parts do not add up to its pool", () => {
+    expect(
+      derive(
+        "We had U.S. federal NOL carryforwards of $7.3 billion. Of the $7.3 billion U.S. federal NOL carryforwards, $6.0 billion may be carried forward indefinitely and the remaining $0.1 billion will begin to expire in 2032.",
+      ),
+    ).toEqual({ status: "unavailable", reason: "tax_pool_not_reconciled" });
+  });
+
+  it("still refuses a breakdown of a different pool than the one stated", () => {
+    expect(
+      derive(
+        "We had U.S. federal NOL carryforwards of $7.3 billion. Of the $5.0 billion U.S. federal NOL carryforwards, $4.9 billion may be carried forward indefinitely and the remaining $0.1 billion will expire.",
+      ),
+    ).toEqual({ status: "unavailable", reason: "tax_pool_not_reconciled" });
   });
 
   it("reads ABNB's explicit absence as a zero with evidence", () => {
