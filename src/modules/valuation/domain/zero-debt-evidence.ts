@@ -55,6 +55,18 @@ import { conceptFactSchema, type ConceptFact } from "./valuation-facts";
  * byte a byte, así que las corridas guardadas no cambian.
  */
 export const ZERO_DEBT_EVIDENCE_VERSION = "zero-debt-evidence-1.0.0";
+
+/**
+ * Intereses de un ejercicio con EBIT no positivo (`F6-34`, decisión del owner
+ * del 2026-11-18 con PLTR medido): la cobertura de un EBIT negativo es negativa
+ * con cualquier interés y no dice nada sobre la deuda. En esos ejercicios el
+ * interés se mide contra las ventas: hasta el 0,5 % son comisiones de una línea
+ * sin usar o intereses de arrendamientos, no el servicio de una deuda (PLTR
+ * 2021–2022: 0,23 % y 0,22 %). La regla se congela sólo cuando la evidencia la
+ * usa, así que las anteriores no cambian.
+ */
+export const LOSS_YEAR_INTEREST_RULE_VERSION = "loss-year-interest-1.0.0";
+export const LOSS_YEAR_INTEREST_TO_REVENUE_CEILING = "0.005";
 export const ZERO_DEBT_EVIDENCE_SHORT_HISTORY_VERSION =
   "zero-debt-evidence-1.1.0";
 
@@ -125,6 +137,16 @@ export const zeroDebtEvidenceSchema = z
       )
       .min(ZERO_DEBT_MIN_FISCAL_YEARS)
       .max(ZERO_DEBT_FISCAL_YEARS),
+    /**
+     * `loss-year-interest-1.0.0`: el techo de intereses sobre ventas de un
+     * ejercicio con EBIT no positivo. Sólo existe si algún ejercicio lo usó.
+     */
+    lossYearInterest: z
+      .object({
+        version: z.literal(LOSS_YEAR_INTEREST_RULE_VERSION),
+        ceiling: z.literal(LOSS_YEAR_INTEREST_TO_REVENUE_CEILING),
+      })
+      .optional(),
   })
   .refine(
     (evidence) =>
@@ -145,7 +167,10 @@ export const zeroDebtShortfallSchema = z.enum([
   "borrowing_reported",
   /** Intereses sin EBIT con qué medirlos. */
   "interest_without_ebit",
-  /** Una cobertura por debajo de la banda más alta. */
+  /**
+   * Una cobertura por debajo de la banda más alta o, con EBIT no positivo,
+   * intereses por encima del 0,5 % de las ventas.
+   */
   "interest_material",
   /** Sin tabla de ratings al corte no hay piso. */
   "coverage_floor_unavailable",
@@ -194,14 +219,45 @@ export function zeroDebtShortfall(
       return "interest_without_ebit";
     }
 
-    if (
-      divide(frozenEbitValue(year.ebit), interest, "coverage").lessThan(floor)
-    ) {
+    const ebit = frozenEbitValue(year.ebit);
+
+    if (!ebit.greaterThan(ZERO) && evidence.lossYearInterest !== undefined) {
+      const share = divide(
+        interest,
+        parseDecimal(year.revenue.value, "revenue"),
+        "interestToRevenue",
+      );
+
+      if (
+        share.greaterThan(
+          parseDecimal(evidence.lossYearInterest.ceiling, "ceiling"),
+        )
+      ) {
+        return "interest_material";
+      }
+
+      continue;
+    }
+
+    if (divide(ebit, interest, "coverage").lessThan(floor)) {
       return "interest_material";
     }
   }
 
   return null;
+}
+
+/** ¿Algún ejercicio cobra intereses con un EBIT no positivo? */
+function usesLossYearInterest(
+  fiscalYears: ZeroDebtEvidence["fiscalYears"],
+): boolean {
+  return fiscalYears.some(
+    (year) =>
+      year.interest !== null &&
+      frozenInterestValue(year.interest).greaterThan(ZERO) &&
+      year.ebit !== null &&
+      !frozenEbitValue(year.ebit).greaterThan(ZERO),
+  );
 }
 
 /** ¿Algún ejercicio de la evidencia tiene un gasto de intereses? */
@@ -288,6 +344,14 @@ export function assessZeroDebtEvidence(
         : ZERO_DEBT_EVIDENCE_SHORT_HISTORY_VERSION,
     coverageFloor,
     fiscalYears,
+    ...(usesLossYearInterest(fiscalYears)
+      ? {
+          lossYearInterest: {
+            version: LOSS_YEAR_INTEREST_RULE_VERSION,
+            ceiling: LOSS_YEAR_INTEREST_TO_REVENUE_CEILING,
+          },
+        }
+      : {}),
   });
   const reason = zeroDebtShortfall(evidence);
 
