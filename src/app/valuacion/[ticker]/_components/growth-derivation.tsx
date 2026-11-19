@@ -102,6 +102,12 @@ export function GrowthDerivation({ run }: { run: ValuationRun }) {
                 </dt>
                 <dd className="numeric font-medium">
                   {formatPercent(run.result!.failureAdjustment.probability)}
+                  {run.input.failureRisk.basis === "rating_table" &&
+                  run.input.failureRisk.ratingStandIn !== undefined ? (
+                    <span className="text-muted-foreground block text-xs font-normal">
+                      Rating D: peor fila de la tabla, piso del riesgo
+                    </span>
+                  ) : null}
                 </dd>
               </div>
               <div>

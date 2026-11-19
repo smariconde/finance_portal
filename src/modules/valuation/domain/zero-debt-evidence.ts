@@ -182,7 +182,7 @@ export type ZeroDebtAssessment =
   | { readonly status: "met"; readonly evidence: ZeroDebtEvidence }
   | { readonly status: "not_met"; readonly reason: ZeroDebtShortfall };
 
-function frozenEbitValue(ebit: FrozenEbit): Dec {
+export function frozenEbitValue(ebit: FrozenEbit): Dec {
   return ebit.basis === "operating_income"
     ? parseDecimal(ebit.fact.value, "ebit.fact")
     : parseDecimal(ebit.pretaxIncome.value, "ebit.pretaxIncome").plus(

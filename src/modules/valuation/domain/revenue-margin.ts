@@ -24,10 +24,25 @@ import { growthMarginReferenceSchema } from "./derived-growth-margin";
 
 export const GROWTH_FCFF_ENGINE_VERSION = "growth-fcff-1.0.0";
 export const GROWTH_METHODOLOGY_VERSION = "growth-fcff-1.0.0";
-export const REVENUE_MARGIN_VERSION = "revenue-margin-1.0.0";
+/**
+ * `1.1.0` (2026-11-19, decisión delegada por el owner con RDDT, CRWD y DDOG
+ * medidos): una empresa de pérdidas puede arrancar desde un EBIT base ajustado
+ * positivo. El selector la clasifica por el EBIT **reportado** —pérdidas dos de
+ * tres años— y el camino arranca del EBIT con I+D y arrendamientos
+ * capitalizados, que es positivo cuando la pérdida contable viene de expensar
+ * I+D. Los dos métodos de crecimiento corren el mismo motor —ventas, margen que
+ * converge, pool de quebrantos, ajuste de fracaso—, así que exigir un EBIT base
+ * negativo sólo rechazaba corridas sin cambiar ningún número. `1.0.0` lo sigue
+ * exigiendo, para que un snapshot guardado reproduzca su estado.
+ */
+export const REVENUE_MARGIN_VERSION = "revenue-margin-1.1.0";
+export const REVENUE_MARGIN_VERSIONS = [
+  "revenue-margin-1.0.0",
+  REVENUE_MARGIN_VERSION,
+] as const;
 const rationale = z.string().trim().min(1).max(512);
 export const revenueMarginSchema = z.object({
-  version: z.literal(REVENUE_MARGIN_VERSION),
+  version: z.enum(REVENUE_MARGIN_VERSIONS),
   profileEvidence: z.array(profileEvidenceSchema).min(1).max(100),
   declaredAt: utcTimestampSchema,
   highGrowthYears: z.number().int().min(1).max(19),
@@ -258,6 +273,7 @@ export function revenueMarginMismatches(input: ValuationInput): string[] {
   )
     paths.push("revenueMargin.initialRevenueGrowth");
   if (
+    plan.version === "revenue-margin-1.0.0" &&
     input.assetProfile === "loss_making" &&
     !parseDecimal(input.normalization.base.ebitAdjusted!, "baseEbit").lt(0)
   )

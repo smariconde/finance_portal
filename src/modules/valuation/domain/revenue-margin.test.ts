@@ -95,6 +95,36 @@ describe("revenue-to-margin and survival", () => {
     },
   );
 
+  it("starts a loss-making path from a positive adjusted EBIT since 1.1.0 (RDDT, CRWD, DDOG)", () => {
+    const input = fixtureGrowthValuation("loss_making", {
+      reportedEbit: "9600000",
+    });
+    expect(input.revenueMargin!.version).toBe("revenue-margin-1.1.0");
+    expect(
+      parseDecimal(input.normalization.base.ebitAdjusted!, "ebit").gt(0),
+    ).toBe(true);
+    expect(revenueMarginMismatches(input)).toEqual([]);
+    const result = run(input);
+    expect(result.status).toBe("requires_review");
+    expect(replayValuationRun(result).outcome).toBe("reproduced");
+
+    // The same numbers as the high-growth method: only the label differs.
+    const growth = run(
+      fixtureGrowthValuation("high_growth", { reportedEbit: "9600000" }),
+    );
+    expect(result.result!.valuePerShare).toBe(growth.result!.valuePerShare);
+  });
+
+  it("keeps 1.0.0 snapshots rejecting a positive base EBIT, so they replay", () => {
+    const input = fixtureGrowthValuation("loss_making", {
+      reportedEbit: "9600000",
+    });
+    input.revenueMargin!.version = "revenue-margin-1.0.0";
+    expect(revenueMarginMismatches(input)).toContain(
+      "normalization.base.ebitAdjusted",
+    );
+  });
+
   it("includes negative EBIT and FCFF, adds losses without a refund and exposes funding need", () => {
     const result = run().result!;
     const first = result.periods[0]!;

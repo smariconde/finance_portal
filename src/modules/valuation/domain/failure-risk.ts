@@ -12,6 +12,25 @@ import { engineDecimalSchema, parseDecimal } from "./decimal-policy";
 import { ValuationPolicyError } from "./valuation-error";
 
 export const FAILURE_RISK_VERSION = "failure-risk-1.0.0";
+/**
+ * `1.1.0` (`F6-41`, decisión delegada por el owner el 2026-11-19 con F
+ * medido): un rating sintético `D` —la cobertura de un EBIT no positivo sin
+ * caja neta que lo compense— toma la peor fila de la tabla, `CCC/C`. La tabla
+ * de Damodaran no tiene fila para `D`, porque `D` es el incumplimiento mismo:
+ * la probabilidad de la peor fila es una **cota inferior** del fracaso, así que
+ * el valor que resulta es una cota superior, y el snapshot lo nombra
+ * (`ratingStandIn`). Sólo se emite cuando hace falta: con cualquier otro rating
+ * la lectura sigue siendo `1.0.0` byte a byte. Una empresa con caja neta no
+ * llega acá: su cobertura es la de `net-cash-coverage-1.0.0`.
+ */
+export const FAILURE_RISK_DEFAULT_STAND_IN_VERSION = "failure-risk-1.1.0";
+const FAILURE_RISK_VERSIONS = [
+  FAILURE_RISK_VERSION,
+  FAILURE_RISK_DEFAULT_STAND_IN_VERSION,
+] as const;
+type FailureRiskVersion = (typeof FAILURE_RISK_VERSIONS)[number];
+/** La fila que reemplaza a `D` en `1.1.0`. */
+const DEFAULT_STAND_IN_BUCKET = "ccc-c";
 export const FAILURE_RATES_DATASET = "damodaran.failure-rates";
 export const FAILURE_HORIZON_YEARS = 10;
 
@@ -27,7 +46,7 @@ export type FailureProbabilityDeclaration = z.infer<
 >;
 
 const base = {
-  version: z.literal(FAILURE_RISK_VERSION),
+  version: z.enum(FAILURE_RISK_VERSIONS),
   horizonYears: z.literal(FAILURE_HORIZON_YEARS),
   syntheticRating: z.string().min(1).max(32),
 };
@@ -45,6 +64,8 @@ export const failureRiskSchema = z.discriminatedUnion("basis", [
       availableAt: utcTimestampSchema,
       recordedAt: utcTimestampSchema,
     }),
+    /** `1.1.0`: la fila es la peor de la tabla en lugar de un `D` que no tiene. */
+    ratingStandIn: z.literal("worst_row_for_default").optional(),
   }),
   z.object({
     ...base,
@@ -53,7 +74,7 @@ export const failureRiskSchema = z.discriminatedUnion("basis", [
     declaration: failureProbabilityDeclarationSchema,
   }),
   z.object({
-    version: z.literal(FAILURE_RISK_VERSION),
+    version: z.enum(FAILURE_RISK_VERSIONS),
     basis: z.literal("missing"),
     reason: z.string().min(1).max(64),
   }),
@@ -61,11 +82,26 @@ export const failureRiskSchema = z.discriminatedUnion("basis", [
 export type FailureRisk = z.infer<typeof failureRiskSchema>;
 
 /** The seven broad S&P groups on Ginzu's sheet; no interpolation of notches. */
-export function failureRatingBucket(rating: string): string | null {
+export function failureRatingBucket(
+  rating: string,
+  version: FailureRiskVersion = FAILURE_RISK_VERSION,
+): string | null {
   const sp = rating.includes("/") ? rating.split("/").at(-1)! : rating;
   if (/^(?:CCC|CC|C)[+-]?$/u.test(sp)) return "ccc-c";
+  if (isDefaultRating(sp))
+    return version === FAILURE_RISK_DEFAULT_STAND_IN_VERSION
+      ? DEFAULT_STAND_IN_BUCKET
+      : null;
   const group = sp.replace(/[+-]$/u, "").toLowerCase();
   return ["aaa", "aa", "a", "bbb", "bb", "b"].includes(group) ? group : null;
+}
+
+function isDefaultRating(sp: string): boolean {
+  return sp === "D";
+}
+
+function ratingGroup(rating: string): string {
+  return rating.includes("/") ? rating.split("/").at(-1)! : rating;
 }
 
 export function failureProbability(risk: FailureRisk): string {
@@ -141,7 +177,11 @@ export function buildFailureRisk(input: {
       declaration,
     };
   else {
-    const bucket = failureRatingBucket(input.syntheticRating);
+    const standIn = isDefaultRating(ratingGroup(input.syntheticRating));
+    const version = standIn
+      ? FAILURE_RISK_DEFAULT_STAND_IN_VERSION
+      : FAILURE_RISK_VERSION;
+    const bucket = failureRatingBucket(input.syntheticRating, version);
     if (bucket === null) return missing("synthetic_rating_unmapped");
     const reading = input.reading;
     if (
@@ -163,7 +203,9 @@ export function buildFailureRisk(input: {
       return missing("failure_probability_missing");
     risk = {
       ...common,
+      version,
       basis: "rating_table",
+      ...(standIn ? { ratingStandIn: "worst_row_for_default" as const } : {}),
       parameter: {
         datasetId: FAILURE_RATES_DATASET,
         releaseId: reading.release.releaseId,
@@ -196,10 +238,18 @@ export function failureRiskMismatches(
   const errors: string[] = [];
   if (risk.syntheticRating !== context.syntheticRating)
     errors.push("failureRisk.syntheticRating");
-  const bucket = failureRatingBucket(context.syntheticRating);
+  const bucket = failureRatingBucket(context.syntheticRating, risk.version);
   if (risk.basis === "rating_table") {
     if (risk.parameter.rowKey !== bucket)
       errors.push("failureRisk.parameter.rowKey");
+    const standIn =
+      risk.version === FAILURE_RISK_DEFAULT_STAND_IN_VERSION &&
+      isDefaultRating(ratingGroup(context.syntheticRating));
+    if (
+      (risk.ratingStandIn === "worst_row_for_default") !== standIn ||
+      (risk.version === FAILURE_RISK_DEFAULT_STAND_IN_VERSION && !standIn)
+    )
+      errors.push("failureRisk.ratingStandIn");
     if (
       !visible(risk.parameter.availableAt, context.knowledge) ||
       (context.knowledge.knowledgeBasis === "system_recorded" &&

@@ -60,8 +60,13 @@ import { z } from "zod";
  * en cero. Entran como alternativas **después** de los conceptos generales:
  * quien publica `LongTermDebtNoncurrent` ya tiene los convertibles adentro, y
  * la precedencia no suma.
+ * `1.8.0` (`F6-41`): las inversiones líquidas que un filer sólo publica como
+ * `AvailableForSaleSecuritiesDebtSecuritiesCurrent` (Datadog: 4.074 M en 2025,
+ * la misma línea del balance). Entran **después** de `MarketableSecuritiesCurrent`
+ * y `ShortTermInvestments`: la precedencia no suma, y sin ellas la caja de
+ * Datadog era sólo su efectivo (401 M).
  */
-export const ANNUAL_FUNDAMENTALS_VERSION = "annual-fundamentals-1.7.0";
+export const ANNUAL_FUNDAMENTALS_VERSION = "annual-fundamentals-1.8.0";
 
 export const lineItemIdSchema = z.enum([
   "revenue",
@@ -257,6 +262,7 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
     concepts: [
       "us-gaap:MarketableSecuritiesCurrent",
       "us-gaap:ShortTermInvestments",
+      "us-gaap:AvailableForSaleSecuritiesDebtSecuritiesCurrent",
     ],
   },
   {

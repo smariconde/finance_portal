@@ -25,6 +25,10 @@ import {
 } from "../domain/normalization";
 import { resolveReportedDebt } from "../domain/reported-debt";
 import {
+  assessNetCashCoverage,
+  listNetCashCoverageFacts,
+} from "../domain/net-cash-coverage";
+import {
   captiveCoverage,
   deriveCaptiveFinanceSplit,
   type CaptiveFinanceAssessment,
@@ -44,6 +48,7 @@ import {
 import { VALUATION_METHOD } from "../domain/valuation-input";
 import {
   assessZeroDebtEvidence,
+  type CoverageFloor,
   listZeroDebtEvidenceFacts,
   zeroDebtEvidenceHasInterest,
   type ZeroDebtAssessment,
@@ -89,7 +94,8 @@ import {
   type CoverageEvidence,
   type ReferenceReading,
 } from "../domain/cost-of-capital";
-import type { MonetaryFact } from "../domain/valuation-facts";
+import type { ConceptFact, MonetaryFact } from "../domain/valuation-facts";
+import { parseDecimal } from "../domain/decimal-policy";
 import {
   industryDecisionOf,
   operationsMixReadingOf,
@@ -507,7 +513,14 @@ export async function assessCompany(
               ? noInterestCoverage(zeroDebtEvidence)
               : series === null
                 ? null
-                : latestInterestCoverage(series),
+                : coverageWithNetCash(
+                    series,
+                    topCoverageFloor(readings.ratings),
+                    (item) => ({
+                      ...seriesFact(item, request.fundamentalsSourceId),
+                      concept: item.concept,
+                    }),
+                  ),
         operationsMix,
       });
 
@@ -767,6 +780,39 @@ function needsZeroDebtEvidence(
       : resolveReportedDebt(debtInputOf(facts.balance.debt));
 
   return debt?.status === "unresolved" && debt.reason === "no_recipe";
+}
+
+/**
+ * La cobertura medida, salvo que un EBIT no positivo la vuelva negativa en una
+ * empresa con caja neta y flujo operativo positivo (`net-cash-coverage-1.0.0`):
+ * entonces es el piso de la banda más alta, con la evidencia congelada. Sin la
+ * regla —caja que no cubre, caja quemada, deuda sin receta— queda la medida.
+ */
+function coverageWithNetCash(
+  series: AnnualFundamentals,
+  floor: CoverageFloor | null,
+  toFact: (item: LineItemValue) => ConceptFact,
+): CoverageEvidence | null {
+  const measured = latestInterestCoverage(series);
+  if (measured === null || parseDecimal(measured.value, "coverage").gt(0))
+    return measured;
+  const netCash = assessNetCashCoverage(
+    series,
+    measured.fiscalYearEnd,
+    floor,
+    toFact,
+  );
+  if (netCash.status !== "met") return measured;
+  return {
+    value: netCash.evidence.coverageFloor.value,
+    fiscalYearEnd: measured.fiscalYearEnd,
+    fromLatestFiscalYear: measured.fromLatestFiscalYear,
+    availableAt: listNetCashCoverageFacts(netCash.evidence, "netCash")
+      .map(({ fact }) => fact.availableAt)
+      .sort((left, right) => right.localeCompare(left))[0]!,
+    interestBasis: "net_cash_operating_loss",
+    netCash: netCash.evidence,
+  };
 }
 
 /**

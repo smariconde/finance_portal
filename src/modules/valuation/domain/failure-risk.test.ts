@@ -107,14 +107,47 @@ describe("failure risk selection", () => {
     input.reading.rows[0]!.values.year_10 = "NaN";
     expect(buildFailureRisk(input)).toMatchObject({ basis: "missing" });
   });
-  it("does not turn a synthetic D rating into a certain observed default", () => {
+  it("reads a synthetic D at the table's worst row since 1.1.0, naming the stand-in", () => {
+    const base = fixture();
+    const risk = buildFailureRisk({
+      ...base,
+      syntheticRating: "D2/D",
+      reading: {
+        ...base.reading,
+        rows: [{ key: "ccc-c", label: "CCC/C", values: { year_10: "0.5038" } }],
+      },
+    });
+    expect(risk).toMatchObject({
+      version: "failure-risk-1.1.0",
+      basis: "rating_table",
+      ratingStandIn: "worst_row_for_default",
+      parameter: { rowKey: "ccc-c", value: "0.5038" },
+    });
+    // Never a certain default: the worst published row is a lower bound.
+    expect(failureProbability(risk)).toBe("0.5038");
+    const context = {
+      syntheticRating: "D2/D",
+      legalEntityId: base.legalEntityId,
+      knowledge,
+    };
+    expect(failureRiskMismatches(risk, context)).toEqual([]);
+    if (risk.basis !== "rating_table") return;
     expect(
-      buildFailureRisk({
-        ...fixture(),
-        syntheticRating: "D2/D",
-        reading: null,
-      }),
-    ).toMatchObject({ basis: "missing", reason: "synthetic_rating_unmapped" });
+      failureRiskMismatches({ ...risk, ratingStandIn: undefined }, context),
+    ).toContain("failureRisk.ratingStandIn");
+    expect(
+      failureRiskMismatches(
+        { ...risk, version: "failure-risk-1.0.0" },
+        context,
+      ),
+    ).toContain("failureRisk.parameter.rowKey");
+  });
+  it("keeps 1.0.0 for every rating the table has, byte for byte", () => {
+    expect(buildFailureRisk(fixture())).toMatchObject({
+      version: "failure-risk-1.0.0",
+    });
+    expect(buildFailureRisk(fixture())).not.toHaveProperty("ratingStandIn");
+    expect(failureRatingBucket("D2/D", "failure-risk-1.1.0")).toBe("ccc-c");
   });
   it("honors only the owner's known declaration for this CIK and subject", () => {
     const input = fixture();

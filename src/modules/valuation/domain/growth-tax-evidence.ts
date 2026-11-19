@@ -30,8 +30,23 @@ import type { MonetaryFact } from "./valuation-facts";
  * - El tope anual es el 80 % de la base imponible que fija la TCJA para los
  *   quebrantos federales posteriores a 2017; los anteriores no tienen tope y
  *   vencen. Usarlo para todo el pool es la simplificación declarada.
+ *
+ * `2.1.0` (2026-11-19, SNOW FY2026 medido): `2.0.0` negaba un pool que el 10-K
+ * escribe una sola vez, por dos lecturas de más.
+ *
+ * - Un desglose («Of the $7.3 billion U.S. federal NOL carryforwards, $7.2
+ *   billion … and the remaining $0.1 billion …») es el mismo pool: el monto es
+ *   el que encabeza y las partes tienen que sumarlo dentro del redondeo impreso.
+ *   Si no lo suman, el pool no reconcilia. `2.0.0` sumaba encabezado y partes.
+ * - Una oración cuyo sujeto es la reserva de valuación («The valuation
+ *   allowance was $3.7 billion and $3.1 billion … respectively, primarily
+ *   relating to U.S. federal and state net operating loss carryforwards») da
+ *   montos de la reserva, no de quebrantos: no se lee. `2.0.0` tomaba el primero
+ *   como federal.
+ *
+ * Montos federales distintos siguen negándose: no se elige entre dos.
  */
-export const GROWTH_TAX_EVIDENCE_VERSION = "growth-tax-evidence-2.0.0";
+export const GROWTH_TAX_EVIDENCE_VERSION = "growth-tax-evidence-2.1.0";
 
 /** TCJA, IRC §172(a)(2): 80 % de la base imponible para quebrantos post-2017. */
 export const FEDERAL_NOL_OFFSET_LIMIT = "0.8";
@@ -67,6 +82,12 @@ const OTHER_JURISDICTION =
 const MONEY = /\$\s?([\d,]+(?:\.\d+)?)\s*(million|billion)\b/giu;
 const NO_FEDERAL =
   /\bno (?:remaining )?(?:u\.?s\.? )?(?:federal )?(?:net operating loss|nol)s?(?: carry ?forwards?)?(?: remaining)? for (?:u\.?s\.? )?federal\b|\bno (?:remaining )?(?:u\.?s\.? )?federal (?:net operating loss|nol)/iu;
+/** La reserva de valuación como sujeto: sus montos no son quebrantos. */
+const VALUATION_ALLOWANCE_SUBJECT =
+  /^(?:the |our |its )?(?:(?:change|increase|decrease) in (?:the |our )?)?valuation allowance\b/iu;
+/** «Of the $X [U.S.] federal …»: el desglose de un pool ya escrito. */
+const BREAKDOWN =
+  /^of (?:the |our |its |this |these )?(?:approximately )?\$\s?([\d,]+(?:\.\d+)?)\s*(million|billion)\b(?:\s+of)?\s+(?:(?:total|aggregate)\s+)?(?:u\.?s\.?\s+)?federal\b/iu;
 /** Una oración más larga es casi siempre una tabla aplanada. */
 const MAX_SENTENCE = 600;
 
@@ -78,11 +99,42 @@ const JURISDICTION_LIST = new RegExp(
 );
 
 function amountsOf(text: string): Dec[] {
-  return [...text.matchAll(MONEY)].map((match) =>
-    parseDecimal(match[1]!.replaceAll(",", ""), "taxLoss").times(
-      match[2]!.toLowerCase() === "billion" ? 1e9 : 1e6,
-    ),
+  return printedAmountsOf(text).map((amount) => amount.value);
+}
+
+type PrintedAmount = { readonly value: Dec; readonly halfUnit: Dec };
+
+/** Cada monto con la mitad de su último dígito impreso: su redondeo. */
+function printedAmountsOf(text: string): PrintedAmount[] {
+  return [...text.matchAll(MONEY)].map((match) => {
+    const digits = match[1]!.replaceAll(",", "");
+    const scale = match[2]!.toLowerCase() === "billion" ? 1e9 : 1e6;
+    const decimals = digits.includes(".") ? digits.split(".")[1]!.length : 0;
+    return {
+      value: parseDecimal(digits, "taxLoss").times(scale),
+      halfUnit: parseDecimal("0.5", "taxLoss")
+        .times(scale)
+        .div(parseDecimal("10", "taxLoss").pow(decimals)),
+    };
+  });
+}
+
+/**
+ * `2.1.0`: el desglose de un pool. El encabezado es el monto; las partes lo
+ * corroboran dentro del redondeo impreso de cada número. `undefined` si la
+ * oración no es un desglose federal.
+ */
+function breakdownAmount(sentence: string): Dec | null | undefined {
+  if (!BREAKDOWN.test(sentence)) return undefined;
+  const [total, ...parts] = printedAmountsOf(sentence);
+  if (total === undefined) return undefined;
+  if (parts.length === 0) return total.value;
+  const sum = parts.reduce((acc, part) => acc.plus(part.value), ZERO);
+  const tolerance = parts.reduce(
+    (acc, part) => acc.plus(part.halfUnit),
+    total.halfUnit,
   );
+  return sum.minus(total.value).abs().lte(tolerance) ? total.value : null;
 }
 
 /** «federal and state … $A and $B, respectively»: el monto en la posición federal. */
@@ -143,6 +195,7 @@ export function deriveGrowthTaxEvidence(input: {
 
   const stated = new Map<string, Dec>();
   let statesNone = false;
+  let breakdownUnreconciled = false;
 
   for (const sentence of sentences) {
     if (NO_FEDERAL.test(sentence)) {
@@ -150,16 +203,31 @@ export function deriveGrowthTaxEvidence(input: {
       continue;
     }
 
-    const amount = /\brespectively\b/iu.test(sentence)
-      ? respectiveFederalAmount(sentence)
-      : federalClauseAmount(sentence);
+    if (VALUATION_ALLOWANCE_SUBJECT.test(sentence)) continue;
+
+    const breakdown = breakdownAmount(sentence);
+    if (breakdown === null) {
+      breakdownUnreconciled = true;
+      continue;
+    }
+
+    const amount =
+      breakdown !== undefined
+        ? breakdown
+        : /\brespectively\b/iu.test(sentence)
+          ? respectiveFederalAmount(sentence)
+          : federalClauseAmount(sentence);
 
     if (amount !== null && amount.gt(ZERO)) {
       stated.set(formatDecimal(amount, "taxLoss"), amount);
     }
   }
 
-  if (stated.size > 1 || (stated.size === 1 && statesNone))
+  if (
+    stated.size > 1 ||
+    (stated.size === 1 && statesNone) ||
+    breakdownUnreconciled
+  )
     return { status: "unavailable", reason: "tax_pool_not_reconciled" };
 
   const [amount] = [...stated.values()];

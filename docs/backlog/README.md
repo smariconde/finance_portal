@@ -150,8 +150,10 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   122 | `F6-36`    | `done`        | Convertibles en la deuda: medir los conceptos con que se publican y sumarlos a una receta (DDOG).                                                                                                                         | `F6-30`            |
 |   123 | `F6-37`    | `done`        | Volatilidad de las opciones con toda la historia disponible desde dos años, nombrada, cuando no hay cinco (RDDT).                                                                                                         | `F6-32`            |
 |   124 | `F6-38`    | `done`        | Investigar el rechazo `failureRisk` de F en el método cíclico y el `pretax_income_not_reported` de MCD.                                                                                                                   | `F6-32`            |
-|   125 | `F6-39`    | `ready`       | Supuestos derivados `3.0.0`: el crecimiento de ventas de los primeros años desde el consenso guardado, con la historia como respaldo.                                                                                     | `F6-29`            |
-|   126 | `F6-40`    | `queued`      | E2E estable: el aviso sin base de `/sectores` y `/argentina` en mobile no se encuentra dos veces.                                                                                                                         | -                  |
+|   125 | `F6-41`    | `done`        | Decisiones de cobertura delegadas por el owner: pérdidas con EBIT ajustado positivo, cobertura con caja neta, rating D en la peor fila, industria de MELI y desglose de quebrantos de SNOW.                               | `F6-38`            |
+|   126 | `F6-39`    | `ready`       | Supuestos derivados `3.0.0`: el crecimiento de ventas de los primeros años desde el consenso guardado, con la historia como respaldo.                                                                                     | `F6-29`            |
+|   127 | `F6-40`    | `queued`      | E2E estable: el aviso sin base de `/sectores` y `/argentina` en mobile no se encuentra dos veces.                                                                                                                         | -                  |
+|   128 | `F6-42`    | `queued`      | Propuesta: margen objetivo del camino de crecimiento cuando el propio supera al de la industria (RDDT: 29 % → 4,7 %); decisión del owner.                                                                                 | `F6-41`            |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -4634,6 +4636,77 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
   ajuste de normalización que no se aplica: publica el resultado antes de
   impuestos partido en doméstico (3.291 M) y extranjero (7.606 M), sin el
   total. Sumarlos es una mejora menor, sin un freno detrás.
+
+#### `F6-41` — decisiones de cobertura delegadas (cerrado el 2026-11-19)
+
+El owner delegó las cuatro decisiones que dejaron `F6-35`..`F6-38` («hacé lo que
+te parezca mejor en cada caso»). Lo que se decidió y por qué:
+
+- **Pérdidas con EBIT ajustado positivo** (RDDT, CRWD, DDOG):
+  `revenue-margin-1.1.0` deja arrancar el modelo de pérdidas desde un EBIT base
+  ajustado positivo. El selector las clasifica por el EBIT **reportado** (dos
+  de tres años con pérdida) y el camino arranca del EBIT con I+D capitalizado.
+  Los dos métodos de crecimiento corren el mismo motor —ventas, margen que
+  converge, pool de quebrantos, ajuste de fracaso—: un test fija que dan el
+  mismo valor. Mandarlas a alto crecimiento exigía que el selector viera la
+  capitalización, que depende del costo de deuda (circular por los
+  arrendamientos). `1.0.0` sigue exigiendo el EBIT negativo, así que las
+  corridas guardadas reproducen.
+- **Rating D** (CRWD, DDOG, F): las dos salidas, cada una donde corresponde.
+  - `net-cash-coverage-1.0.0`: con EBIT no positivo, patrimonio positivo, flujo
+    operativo positivo y caja con inversiones líquidas que cubren la deuda
+    resuelta del cierre, la cobertura es el piso de la banda más alta, como la
+    deuda cero (ADR 0054). Es la lectura de `operating_loss_with_net_cash`
+    (`F6-30`) llevada al rating. Quien quema caja no entra. Los hechos se
+    congelan en `costOfCapital.coverage.netCash` y
+    `net_cash_coverage_consistent` los recalcula.
+  - `failure-risk-1.1.0`: un D sin caja neta toma la peor fila de la tabla
+    (`CCC/C`, 50,38 % a diez años) y el snapshot lo nombra
+    (`ratingStandIn: worst_row_for_default`). Es una cota inferior del
+    fracaso: el valor que resulta es una cota superior. Con cualquier otro
+    rating la lectura sigue en `1.0.0` byte por byte.
+- **MELI**: declarada `retail-general`, la industria que la IA eligió para AMZN.
+  La release de enero de 2026 no tiene «Retail (Online)», y «financiera no
+  bancaria» describiría sólo a Mercado Pago.
+- **SNOW**: no eran dos pools. El 10-K escribe 7,3 B federales y en otra oración
+  los desglosa (7,2 + 0,1). `growth-tax-evidence-2.1.0` lee el desglose como el
+  mismo pool si las partes lo suman dentro del redondeo impreso, y deja de leer
+  como quebranto la reserva de valuación. Dos montos distintos se siguen
+  negando.
+
+Lo que apareció al medir:
+
+- DDOG publica sus inversiones de corto plazo sólo como
+  `AvailableForSaleSecuritiesDebtSecuritiesCurrent` (4.074 M). Sin ellas su
+  caja era 401 M en todas sus corridas. `sec-core-concepts-11.0.0` y
+  `annual-fundamentals-1.8.0` la leen como alternativa, después de
+  `MarketableSecuritiesCurrent` y `ShortTermInvestments`.
+- `assemble-growth-snapshot` derivaba el rigor sin bajar el nivel cuando las
+  opciones no se restan, y el motor lo rechazaba (`rigor_derived_from_completeness`).
+  MELI fue la primera corrida de crecimiento en ese caso.
+
+Medido el 2026-11-19 en una réplica de la base personal (cierre del 18-11):
+
+| Empresa | Método                    | Cobertura           | Rating  | Fracaso | Valor    | Cierre   |
+| ------- | ------------------------- | ------------------- | ------- | ------- | -------- | -------- |
+| CRWD    | `revenue_margin_survival` | caja neta           | Aaa/AAA | 0,70 %  | 54,60    | 237,03   |
+| DDOG    | `revenue_margin_survival` | caja neta           | Aaa/AAA | 0,70 %  | 109,73   | 167,11   |
+| SNOW    | `revenue_margin_survival` | caja neta           | Aaa/AAA | 0,70 %  | 124,29   | 279,62   |
+| RDDT    | `revenue_margin_survival` | sin intereses       | Aaa/AAA | 0,70 %  | 5,19     | 94,09    |
+| MELI    | `fcff_three_stage`        | intereses pagados   | A2/A    | 1,24 %  | 1.160,24 | 1.423,11 |
+| F       | `normalized_fcff`         | industrial negativa | D2/D    | 50,38 % | 6,63     | 11,28    |
+
+- Las seis registran una corrida `requires_review`; antes, cinco se rechazaban
+  y MELI terminaba `unsupported_method`.
+- RDDT queda casi en cero porque el camino lleva su margen ajustado de 29 % al
+  de «Software (Internet)» (4,7 %). Es un supuesto del modelo, no de estas
+  reglas: queda como propuesta `F6-42`.
+- F toma el 50 % de la peor fila por un solo ejercicio con cargos especiales.
+  La salida es una declaración del owner en `declared-failure-probabilities.ts`
+  o una cobertura normalizada para cíclicas.
+- Replay: 32 de 32 corridas en la réplica y 56 de 57 en Neon (la de GOOGL ya
+  conocida).
+- Gates: 4.705 unit, 251 de integración, lint, tipos, formato y build.
 
 #### Cobertura de valuación — decisiones del owner del 2026-11-18
 

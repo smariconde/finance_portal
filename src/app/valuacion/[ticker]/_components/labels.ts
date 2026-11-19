@@ -112,6 +112,8 @@ const COST_DECLARATION_LABELS: Record<string, string> = {
     "El gasto de intereses es lo pagado en el ejercicio: la empresa no publica el devengado.",
   coverage_no_interest_expense:
     "Sin gasto de intereses en cinco ejercicios y sin deuda: la cobertura es el piso de la banda más alta de la tabla.",
+  coverage_net_cash_operating_loss:
+    "EBIT negativo con caja neta y flujo operativo positivo: la cobertura es el piso de la banda más alta de la tabla.",
   coverage_interest_industrial_only:
     "El gasto de intereses es el de la parte industrial: el de la financiera cautiva ya está descontado en el EBIT.",
   terminal_beta_converges_to_one: "La beta terminal converge a 1.",

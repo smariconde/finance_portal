@@ -15,6 +15,7 @@ import {
 } from "./policy-checks";
 import { marginalTaxRateOf } from "./cost-of-capital";
 import { formatDecimal, parseDecimal } from "./decimal-policy";
+import type { NetCashCoverage } from "./net-cash-coverage";
 import { buildNormalization, type NormalizationFacts } from "./normalization";
 import { isValuationPolicyError } from "./valuation-error";
 import { valuationInputSchema, type ValuationInput } from "./valuation-input";
@@ -505,6 +506,107 @@ describe("valuation policy checks", () => {
     it("adds no check to a run without evidence", () => {
       expect(
         failed(DEMO_VALUATION_INPUT, "zero_debt_evidence_consistent"),
+      ).toBeUndefined();
+    });
+  });
+
+  describe("net-cash coverage", () => {
+    const band = DEMO_VALUATION_INPUT.costOfCapital.parameters.find(
+      (parameter) => parameter.name === "company_default_spread",
+    )!;
+    const end = "2024-12-31";
+    const fact = (concept: string, value: string, sequence: number) => ({
+      value,
+      currency: "USD",
+      unit: "monetary" as const,
+      asOf: end,
+      availableAt: "2025-02-15T00:00:00.000Z",
+      sourceId: "sec-edgar",
+      sourceDocumentId: "0000000000-25-000001",
+      observationId: `00000000-0000-4000-8000-${String(sequence).padStart(12, "0")}`,
+      qualityFlags: [],
+      concept,
+    });
+    const evidence = (ocf = "1500"): NetCashCoverage => ({
+      version: "net-cash-coverage-1.0.0",
+      fiscalYearEnd: end,
+      coverageFloor: {
+        value: "8.5",
+        datasetId: band.datasetId,
+        releaseId: band.releaseId,
+        rowKey: band.rowKey,
+        availableAt: band.availableAt,
+      },
+      ebit: {
+        basis: "operating_income",
+        fact: fact("us-gaap:OperatingIncomeLoss", "-120", 1),
+      },
+      interest: {
+        basis: "gross",
+        facts: [fact("us-gaap:InterestExpense", "26", 2)],
+      },
+      equity: fact("us-gaap:StockholdersEquity", "4000", 3),
+      operatingCashFlow: fact(
+        "us-gaap:NetCashProvidedByUsedInOperatingActivities",
+        ocf,
+        4,
+      ),
+      liquid: [
+        fact("us-gaap:CashAndCashEquivalentsAtCarryingValue", "4600", 5),
+      ],
+      debt: [
+        {
+          component: "longTermNoncurrent",
+          fact: fact("us-gaap:LongTermDebtNoncurrent", "745", 6),
+        },
+      ],
+    });
+    const withNetCash = (netCash: NetCashCoverage | undefined, basis = true) =>
+      draft((candidate) => {
+        candidate.costOfCapital.coverage = {
+          ...candidate.costOfCapital.coverage,
+          value: "8.5",
+          fiscalYearEnd: end,
+          ...(basis ? { interestBasis: "net_cash_operating_loss" } : {}),
+          ...(netCash === undefined ? {} : { netCash }),
+        };
+      });
+
+    it("passes with the evidence frozen against the run's own top band", () => {
+      expect(
+        failed(withNetCash(evidence()), "net_cash_coverage_consistent")?.status,
+      ).toBe("passed");
+    });
+
+    it("rejects a company that burns cash, recomputed from the snapshot", () => {
+      expect(
+        failed(withNetCash(evidence("-1")), "net_cash_coverage_consistent")
+          ?.subjects,
+      ).toEqual(["costOfCapital.coverage.netCash"]);
+    });
+
+    it("rejects the basis without its evidence, and the evidence without its basis", () => {
+      expect(
+        failed(withNetCash(undefined), "net_cash_coverage_consistent")
+          ?.subjects,
+      ).toEqual(["costOfCapital.coverage.netCash"]);
+      expect(
+        failed(withNetCash(evidence(), false), "net_cash_coverage_consistent")
+          ?.status,
+      ).toBe("failed");
+    });
+
+    it("rejects a floor from a band the run did not use", () => {
+      const moved = evidence();
+      moved.coverageFloor.rowKey = "large-nonfinancial-aa";
+      expect(
+        failed(withNetCash(moved), "net_cash_coverage_consistent")?.subjects,
+      ).toEqual(["costOfCapital.coverage.netCash.coverageFloor"]);
+    });
+
+    it("adds no check to a run without it", () => {
+      expect(
+        failed(DEMO_VALUATION_INPUT, "net_cash_coverage_consistent"),
       ).toBeUndefined();
     });
   });
