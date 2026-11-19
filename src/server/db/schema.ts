@@ -1903,6 +1903,7 @@ export const valuationJobIdentity = pgEnum("valuation_job_identity", [
 
 export const valuationJobGap = pgEnum("valuation_job_gap", [
   "unresolved_ticker",
+  "identity_constituted",
   "ambiguous_ticker",
   "identity_conflict",
   "cik_missing",
@@ -1949,6 +1950,12 @@ export const valuationJobs = pgTable(
     reitAffoAccessionNumber: varchar("reit_affo_accession_number", {
       length: 20,
     }),
+    /**
+     * Por qué un ticker fuera del grafo no se constituyó (`F6-33`, ADR 0084).
+     * El dominio valida el código; acá sólo se exige que acompañe a
+     * `unresolved_ticker`.
+     */
+    identityRefusal: varchar("identity_refusal", { length: 64 }),
     /** La corrida que registró el job: `valuation_runs` es append-only. */
     valuationRunId: uuid("valuation_run_id"),
     runStatus: varchar("run_status", { length: 16 }),
@@ -1988,6 +1995,10 @@ export const valuationJobs = pgTable(
       sql`${table.ticker} ~ '^[A-Z][A-Z0-9.-]{0,15}$'`,
     ),
     check(
+      "valuation_jobs_identity_refusal_check",
+      sql`${table.identityRefusal} is null or ${table.gap}::text = 'unresolved_ticker'`,
+    ),
+    check(
       "valuation_jobs_rule_check",
       sql`${table.ruleVersion} in ('valuation-job-1.0.0', 'valuation-job-1.1.0', 'valuation-job-1.2.0', 'valuation-job-1.3.0')`,
     ),
@@ -2007,13 +2018,13 @@ export const valuationJobs = pgTable(
     ),
     check(
       "valuation_jobs_identity_check",
-      sql`(${table.gap} = 'unresolved_ticker') = (${table.identityStatus} is not null and ${table.identityStatus} = 'not_found')
+      sql`(${table.gap}::text in ('unresolved_ticker', 'identity_constituted')) = (${table.identityStatus} is not null and ${table.identityStatus} = 'not_found')
         and (${table.gap} = 'ambiguous_ticker') = (${table.identityStatus} is not null and ${table.identityStatus} = 'ambiguous')
         and (${table.gap} = 'identity_conflict') = (${table.identityStatus} is not null and ${table.identityStatus} = 'conflict')
         and (${table.legalEntityId} is not null) = (${table.identityStatus} is not null and ${table.identityStatus} = 'resolved')
         and (${table.securityId} is null or ${table.legalEntityId} is not null)
         and (${table.listingId} is null or ${table.securityId} is not null)
-        and (${table.gap} is null or ${table.gap} in ('unresolved_ticker', 'ambiguous_ticker', 'identity_conflict', 'assessment_failed') or ${table.legalEntityId} is not null)`,
+        and (${table.gap} is null or ${table.gap}::text in ('unresolved_ticker', 'identity_constituted', 'ambiguous_ticker', 'identity_conflict', 'assessment_failed') or ${table.legalEntityId} is not null)`,
     ),
     check(
       "valuation_jobs_method_check",

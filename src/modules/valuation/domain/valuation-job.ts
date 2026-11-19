@@ -2,6 +2,10 @@ import { z } from "zod";
 
 import { normalizeSymbol } from "@/modules/identity/domain/identity-graph";
 import { utcTimestampSchema } from "@/modules/temporal/domain/temporal-version";
+import {
+  followedFilerRefusalSchema,
+  type FollowedFilerRefusal,
+} from "@/modules/universe/domain/followed-filer-eligibility";
 
 import { assetProfileSchema } from "./asset-profile";
 import {
@@ -94,6 +98,11 @@ export type ValuationJobIdentity = z.infer<typeof valuationJobIdentitySchema>;
 
 export const valuationJobGapSchema = z.enum([
   "unresolved_ticker",
+  /**
+   * El job constituyó al emisor en `owner-followed` (`F6-33`, ADR 0084): a su
+   * propio corte todavía no existía, así que el que sigue lo resuelve.
+   */
+  "identity_constituted",
   "ambiguous_ticker",
   "identity_conflict",
   "cik_missing",
@@ -205,6 +214,11 @@ const runFieldsSchema = z.object({
     .optional(),
   valuationRunId: uuidSchema.nullable(),
   runStatus: valuationRunStatusSchema.nullable(),
+  /**
+   * Por qué un ticker fuera del grafo no se constituyó (`F6-33`,
+   * `followed-filer-eligibility-1.0.0`); los jobs anteriores la omiten.
+   */
+  identityRefusal: followedFilerRefusalSchema.nullable().optional(),
   dataStep: valuationDataStepSchema.nullable(),
   /** Qué le preguntó el job a la IA (`F6-13`); `null` si no llegó a preguntar. */
   qualitativeStep: valuationQualitativeStepSchema.nullable(),
@@ -340,6 +354,7 @@ export const valuationJobSchema = z
         "reitAffoAccessionNumber",
         context,
       );
+      requireAbsent(job.identityRefusal ?? null, "identityRefusal", context);
       requireAbsent(job.startedAt, "startedAt", context);
       requireAbsent(job.heartbeatAt, "heartbeatAt", context);
       requireAbsent(job.finishedAt, "finishedAt", context);
@@ -366,6 +381,7 @@ export const valuationJobSchema = z
         "reitAffoAccessionNumber",
         context,
       );
+      requireAbsent(job.identityRefusal ?? null, "identityRefusal", context);
       requireAbsent(job.finishedAt, "finishedAt", context);
       requireAbsent(job.gap, "gap", context);
       requireAbsent(job.dataStep, "dataStep", context);
@@ -442,6 +458,7 @@ function requirePresent(
 
 const IDENTITY_GAPS: Readonly<Record<string, ValuationJobIdentity>> = {
   unresolved_ticker: "not_found",
+  identity_constituted: "not_found",
   ambiguous_ticker: "ambiguous",
   identity_conflict: "conflict",
 };
@@ -511,6 +528,7 @@ function refineOutcome(
     unsupportedReason: ValuationJobOutcome["unsupportedReason"];
     snapshotGap: ValuationSnapshotGap | null;
     reitAffoAccessionNumber?: string | null;
+    identityRefusal?: FollowedFilerRefusal | null;
     valuationRunId: string | null;
     runStatus: ValuationJobOutcome["runStatus"];
     dataStep: ValuationDataStep | null;
@@ -592,6 +610,14 @@ function refineOutcome(
       code: "custom",
       path: ["reitAffoAccessionNumber"],
       message: "Only a REIT filing refusal keeps its verified 10-K accession.",
+    });
+  }
+
+  if (outcome.identityRefusal != null && gap !== "unresolved_ticker") {
+    context.addIssue({
+      code: "custom",
+      path: ["identityRefusal"],
+      message: "Only an unresolved ticker names why it was not constituted.",
     });
   }
 
@@ -728,6 +754,7 @@ const EMPTY_METHOD = {
 const EMPTY_RUN = {
   snapshotGap: null,
   reitAffoAccessionNumber: null,
+  identityRefusal: null,
   valuationRunId: null,
   runStatus: null,
   dataStep: null,
@@ -845,6 +872,7 @@ const IDENTITY_OUTCOME: Readonly<
 
 export function outcomeForIdentity(
   status: "not_found" | "ambiguous" | "conflict",
+  identityRefusal: FollowedFilerRefusal | null = null,
 ): ValuationJobOutcome {
   return valuationJobOutcomeSchema.parse({
     identityStatus: status,
@@ -852,6 +880,23 @@ export function outcomeForIdentity(
     securityId: null,
     listingId: null,
     gap: IDENTITY_OUTCOME[status],
+    ...EMPTY_METHOD,
+    ...EMPTY_RUN,
+    identityRefusal: status === "not_found" ? identityRefusal : null,
+  });
+}
+
+/**
+ * El emisor quedó constituido en `owner-followed` (`F6-33`): el job no lo
+ * resuelve a su propio corte y el que sigue, con uno nuevo, sí.
+ */
+export function outcomeForConstitution(): ValuationJobOutcome {
+  return valuationJobOutcomeSchema.parse({
+    identityStatus: "not_found",
+    legalEntityId: null,
+    securityId: null,
+    listingId: null,
+    gap: "identity_constituted",
     ...EMPTY_METHOD,
     ...EMPTY_RUN,
   });
@@ -1057,6 +1102,8 @@ export type ValuationJobView =
       readonly rigor: ValuationJobOutcome["rigor"];
       readonly unsupportedReason: ValuationJobOutcome["unsupportedReason"];
       readonly snapshotGap: ValuationSnapshotGap | null;
+      /** Por qué un ticker fuera del grafo no entró (`F6-33`). */
+      readonly identityRefusal: FollowedFilerRefusal | null;
       /** El estado de la corrida registrada; su ID no sale del servidor. */
       readonly runStatus: ValuationJobOutcome["runStatus"];
       readonly ruleVersion: ValuationJob["ruleVersion"];
@@ -1081,6 +1128,7 @@ export function toValuationJobView(job: ValuationJob): ValuationJobView {
     rigor: job.rigor,
     unsupportedReason: job.unsupportedReason,
     snapshotGap: job.snapshotGap,
+    identityRefusal: job.identityRefusal ?? null,
     runStatus: job.runStatus,
     ruleVersion: job.ruleVersion,
     dataStep: job.dataStep,

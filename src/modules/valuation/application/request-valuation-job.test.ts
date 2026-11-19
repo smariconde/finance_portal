@@ -6,6 +6,7 @@ import { createInMemoryValuationJobStore } from "../infrastructure/in-memory-val
 import { VALUATION_DATA_RULE_VERSION } from "../domain/valuation-data-step";
 import { VALUATION_QUALITATIVE_RULE_VERSION } from "../domain/valuation-qualitative-step";
 import {
+  outcomeForConstitution,
   outcomeForDataStep,
   outcomeForIdentity,
   outcomeForQualitativeStep,
@@ -162,6 +163,25 @@ describe("requestValuationJob", () => {
     ).toMatchObject({
       view: { state: "queued", follows: true },
       runJobId: first.followUpJobId,
+    });
+  });
+
+  it("una constitución se continúa con un corte que ve a la empresa (F6-33)", async () => {
+    const box = harness(async () => {
+      box.advance(5_000);
+
+      return outcomeForConstitution();
+    });
+    const requested = await requestValuationJob(
+      { ticker: "meli", intent: "enqueue" },
+      box.dependencies,
+    );
+    const first = await runValuationJob(requested.runJobId!, box.dependencies);
+
+    expect(first.followUpJobId).not.toBeNull();
+    expect(await box.store.findOpenByTicker("MELI")).toMatchObject({
+      jobId: first.followUpJobId,
+      followsJobId: requested.runJobId,
     });
   });
 

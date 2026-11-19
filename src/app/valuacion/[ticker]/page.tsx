@@ -164,7 +164,12 @@ function NewerGapAlert({ gap }: { gap: ValuationResultNewerGap }) {
         El del{" "}
         <time dateTime={gap.knownAt}>{formatUtcTimestamp(gap.knownAt)}</time>{" "}
         terminó así:{" "}
-        {describeJobGap(gap.gap, gap.assetProfile, gap.unsupportedReason)}
+        {describeJobGap(
+          gap.gap,
+          gap.assetProfile,
+          gap.unsupportedReason,
+          gap.identityRefusal,
+        )}
         {gap.snapshotGap === null
           ? null
           : ` Motivo: ${SNAPSHOT_GAP_COPY[gap.snapshotGap]}.`}
@@ -393,6 +398,7 @@ function WithoutRun({
       gap,
       reading.latest.assetProfile,
       reading.latest.unsupportedReason,
+      reading.latest.identityRefusal,
     )}${snapshotGap === null ? "" : ` Motivo: ${SNAPSHOT_GAP_COPY[snapshotGap]}.`}${data === null ? "" : ` ${data}`}${qualitative === null ? "" : ` ${qualitative}`}`;
   }
 

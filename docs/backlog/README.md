@@ -144,8 +144,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   116 | `F6-30`    | `done`        | Camino de crecimiento destrabado: quebrantos del pool federal, distress con EBIT negativo y caja neta, deuda cero con tres a cinco ejercicios y la IA antes de los métodos de crecimiento; primera corrida real (MU).     | `F6-21`            |
 |   117 | `F6-31`    | `done`        | Ventas sobre capital de la industria (`damodaran.capex-us`) cuando la propia no es positiva, congelada en el snapshot y recalculada por el motor.                                                                         | `F6-30`            |
 |   118 | `F6-32`    | `done`        | Acciones en circulación de filers con varias clases desde la carátula del instance XBRL, con peso declarado cuando las clases no valen lo mismo (BRK); GOOGL y META valuadas.                                             | `F6-31`            |
-|   119 | `F6-33`    | `ready`       | Empresas fuera del S&P 500 con 10-K constituidas a pedido desde `/valuacion` según la ADR 0084, en el índice declarado `owner-followed`; 20-F y 40-F negados por nombre.                                                  | ADR 0084           |
-|   120 | `F6-34`    | `queued`      | Evidencia de deuda cero con EBIT negativo: en esos años el interés se mide contra las ventas, no por cobertura (PLTR).                                                                                                    | `F6-30`            |
+|   119 | `F6-33`    | `done`        | Empresas fuera del S&P 500 con 10-K constituidas a pedido desde `/valuacion` según la ADR 0084, en el índice declarado `owner-followed`; 20-F y 40-F negados por nombre.                                                  | ADR 0084           |
+|   120 | `F6-34`    | `ready`       | Evidencia de deuda cero con EBIT negativo: en esos años el interés se mide contra las ventas, no por cobertura (PLTR).                                                                                                    | `F6-30`            |
 |   121 | `F6-35`    | `queued`      | Deuda publicada sólo como `LongTermDebtNoncurrent`, sin cronograma ni porción corriente, con receta propia nombrada (CRWD).                                                                                               | `F6-30`            |
 |   122 | `F6-36`    | `queued`      | Convertibles en la deuda: medir los conceptos con que se publican y sumarlos a una receta (DDOG).                                                                                                                         | `F6-30`            |
 |   123 | `F6-37`    | `queued`      | Volatilidad de las opciones con toda la historia disponible desde dos años, nombrada, cuando no hay cinco (RDDT).                                                                                                         | `F6-32`            |
@@ -4520,6 +4520,37 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
   cerró sin mergear y se borraron la rama y el worktree; el commit sigue
   accesible desde el PR. Si REIT vuelve, se parte del camino medido de arriba,
   no de este PR.
+
+#### `F6-33` — empresas fuera del S&P 500 a pedido (cerrado el 2026-11-19)
+
+- [ADR 0084](../architecture/adr/0084-followed-filers-outside-sp500.md),
+  migración `0056`. Un job pedido por el owner, cuyo ticker el grafo no
+  resuelve, pide la tabla ticker→CIK de la SEC y el `submissions` del CIK: dos
+  requests por el egress medido, con los derechos de `sec-edgar` revisados antes.
+- `followed-filer-eligibility-1.0.0` asigna el ticker con las reglas de
+  `constituent-match-1.0.0` y exige que el último anual original sea un 10-K o
+  un 10-KT de hace 18 meses o menos. Un 20-F o un 40-F es
+  `foreign_private_issuer`.
+- El planner gana `membershipPolicy: "additive"`, que no cierra membresías, y
+  constituye en `owner-followed` con la observación como vigencia.
+- El job termina `identity_constituted` y encola un seguimiento con un corte
+  nuevo. El seguimiento de una constitución sí puede bajar datos, y la cadena
+  pasa a cuatro jobs.
+- Un ticker que no entra termina `unresolved_ticker` con su `identity_refusal`,
+  que la página nombra.
+- Medido el 2026-11-19 en una réplica de la base personal:
+
+  | Empresa | Resultado   | Detalle                                                                                                                                                                                                                                           |
+  | ------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | MELI    | Constituida | Datos bajados y auditados (1.230 cadenas) en 64 s. Termina `unsupported_method` porque ninguna de las tres industrias candidatas de su SIC 7389 sirve: la IA se abstuvo en los cuatro peldaños por USD 0,038. Necesita una declaración del owner. |
+  | TSM     | Negada      | `foreign_private_issuer`.                                                                                                                                                                                                                         |
+  | GLD     | Constituida | El selector la niega: `missing_classification_evidence`.                                                                                                                                                                                          |
+  | SNOW    | Constituida | Queda `distressed` porque sus convertibles no tienen receta de deuda (`F6-36`).                                                                                                                                                                   |
+
+- El rollback de `0056` se niega mientras haya jobs que registran constituciones
+  o rechazos. Sin ellos se aplica y la migración se re-aplica limpia, con
+  `ADD VALUE IF NOT EXISTS`.
+- Gates: 4.669 unit, 251 de integración, lint, tipos, formato y build.
 
 #### Cobertura de valuación — decisiones del owner del 2026-11-18
 

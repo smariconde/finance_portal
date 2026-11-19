@@ -1,6 +1,7 @@
 # ADR 0084: empresas fuera del S&P 500 que presentan 10-K, constituidas a pedido
 
-- Estado: aceptada el 2026-11-18 por el owner (decisión 2: opción 1)
+- Estado: aceptada el 2026-11-18 por el owner (decisión 2: opción 1);
+  implementada en `F6-33` el 2026-11-19 (migración `0056`)
 - Fecha: 2026-11-18
 - Alcance: slice a abrir en Fase 6 (valuación por ticker).
 - Relacionadas: [ADR 0007](0007-ticker-driven-valuation-pivot.md) (alcance
@@ -97,3 +98,19 @@ un rebalanceo del S&P 500. Ninguna lectura del S&P 500 la ve:
   `sp-500` para resolver identidad tienen que nombrar qué índice quieren.
 - Pendiente con su propia ADR: 20-F en IFRS y en US GAAP, empezando por los que
   el owner pida (NU, VIST, TSM, MELI ya entra por 10-K).
+
+## Implementación (`F6-33`)
+
+- `followed-filer-eligibility-1.0.0` es la regla pura. Asigna el ticker con
+  `constituent-match-1.0.0`, sin una regla propia. Después exige que el último
+  informe anual original sea un 10-K o un 10-KT de hace 18 meses o menos.
+- El ticker llega de un request del owner, pero no elige qué se baja: elige
+  como mucho **una** empresa que la SEC ya asigna, con dos requests medidos y
+  los derechos revisados antes de la red (`TM-03`, `TM-08`, `TM-15`). Sólo
+  constituye un job pedido por el owner, nunca uno que sigue a otro.
+- El planner sólo agrega (`membershipPolicy: "additive"`). Un rebalanceo del
+  S&P 500 lee sólo sus propias membresías, así que nunca cierra una de
+  `owner-followed`.
+- A su propio corte la empresa todavía no existía. Por eso el job termina
+  `identity_constituted`, y el seguimiento la resuelve con un corte nuevo y
+  puede bajar sus datos.

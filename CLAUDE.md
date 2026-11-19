@@ -590,6 +590,19 @@ optional `normalization.facts.captiveFinance` and checked by
 before asking the AI. Measured on a replica: CAT 43,330 → 10,713 M of debt, AAA,
 393.45; GM 16,247 M, A3/A−, 130.06; DE and TXT named; 18 stored runs replay.
 
+Since `F6-33` ([ADR 0084](docs/architecture/adr/0084-followed-filers-outside-sp500.md),
+migration `0056`) a ticker outside the graph is constituted on demand: an owner's
+job asks the SEC tickers table and the CIK's `submissions` (two metered requests),
+and `followed-filer-eligibility-1.0.0` admits it only with the S&P 500's own
+`constituent-match-1.0.0` and a latest original annual report that is a 10-K or
+10-KT filed within 18 months —a 20-F or 40-F is `foreign_private_issuer`—. It
+enters the declared index `owner-followed` through an **additive** plan (no
+index exits), dated at the observation; the job ends `identity_constituted`
+and its follow-up, the only one allowed to download, resolves it at a fresh
+cutoff (chain of four). A refusal ends `unresolved_ticker` with its
+`identity_refusal`. It has no S&P 500 sector. Measured on a replica: MELI
+constituted and audited in 64 s; TSM refused; GLD refused by the selector.
+
 ```bash
 pnpm consensus:ingest --ticker AAPL            # dry run: one Alpha Vantage request, plans the revisions
 pnpm consensus:ingest --ticker AAPL --apply    # records the run and the changed fiscal years

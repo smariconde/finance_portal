@@ -73,6 +73,13 @@ export type UniverseConstitutionInput = {
   readonly state: UniverseState;
   /** Generador inyectado: los IDs internos son opacos y no derivan del ticker. */
   readonly newId: () => string;
+  /**
+   * `replace` (el default) trata la lista como el índice entero: lo que falta
+   * sale. `additive` sólo agrega: es la constitución a pedido de un índice
+   * declarado por el owner (`owner-followed`, ADR 0084), donde una empresa
+   * nueva nunca saca a las anteriores.
+   */
+  readonly membershipPolicy?: "replace" | "additive";
 };
 
 export type ConstitutionRejectionCode =
@@ -164,6 +171,7 @@ export function planUniverseConstitution(
     state,
     newId,
   } = input;
+  const additive = input.membershipPolicy === "additive";
 
   const provenance = { sourceId, sourceDocumentId } as const;
   const opening = {
@@ -509,7 +517,7 @@ export function planUniverseConstitution(
   let held = 0;
 
   for (const [securityId, membership] of openMembershipBySecurity) {
-    if (memberSecurityIds.has(securityId)) {
+    if (additive || memberSecurityIds.has(securityId)) {
       continue;
     }
 

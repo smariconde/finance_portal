@@ -61,6 +61,7 @@ function toDomain(row: ValuationJobRow): ValuationJob {
     unsupportedReason: row.unsupportedReason,
     snapshotGap: row.snapshotGap,
     reitAffoAccessionNumber: row.reitAffoAccessionNumber,
+    identityRefusal: row.identityRefusal as ValuationJob["identityRefusal"],
     valuationRunId: row.valuationRunId,
     runStatus: row.runStatus,
     dataStep: row.dataStep,
@@ -93,6 +94,7 @@ function toInsert(job: ValuationJob): typeof schema.valuationJobs.$inferInsert {
     unsupportedReason: job.unsupportedReason,
     snapshotGap: job.snapshotGap,
     reitAffoAccessionNumber: job.reitAffoAccessionNumber ?? null,
+    identityRefusal: job.identityRefusal ?? null,
     valuationRunId: job.valuationRunId,
     runStatus: job.runStatus,
     dataStep: job.dataStep,
@@ -218,6 +220,7 @@ export function createPostgresValuationJobStore(
             snapshotGap: input.outcome.snapshotGap,
             reitAffoAccessionNumber:
               input.outcome.reitAffoAccessionNumber ?? null,
+            identityRefusal: input.outcome.identityRefusal ?? null,
             valuationRunId: input.outcome.valuationRunId,
             runStatus: input.outcome.runStatus,
             dataStep: input.outcome.dataStep,
