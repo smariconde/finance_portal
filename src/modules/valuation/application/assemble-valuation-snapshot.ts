@@ -11,9 +11,14 @@ import {
   consecutiveRevenueHistory,
   deriveAssumptions,
   DERIVED_ASSUMPTIONS_V2_VERSION,
+  INDUSTRY_CAPITAL_DATASET,
   INDUSTRY_RETURN_FIELD,
   INDUSTRY_RETURNS_DATASET,
+  INDUSTRY_SALES_TO_CAPITAL_FIELD,
+  ownSalesToCapitalOf,
+  SALES_TO_CAPITAL_RULE_VERSION,
   type IndustryReturn,
+  type IndustrySalesToCapital,
 } from "../domain/derived-assumptions";
 import {
   CYCLE_METHODOLOGY_VERSION,
@@ -102,6 +107,11 @@ export type ValuationSnapshotRequest = {
    * Sin ella el ROIC terminal cae al WACC terminal y lo nombra.
    */
   readonly industryReturns: ReferenceDatasetReading | null;
+  /**
+   * La release de `damodaran.capex-us` visible al corte (`F6-31`). Sólo se usa
+   * cuando la ventas sobre capital propia no es positiva.
+   */
+  readonly industryCapital?: ReferenceDatasetReading | null;
   /** Builds common FCFF inputs for the separate growth assembler. */
   readonly growthFoundation?: boolean;
 };
@@ -185,6 +195,31 @@ function industryReturnAt(
   };
 }
 
+/** La ventas sobre capital de la industria de la corrida, si la release la publica. */
+function industrySalesToCapitalAt(
+  reading: ReferenceDatasetReading | null,
+  industryKey: string,
+): IndustrySalesToCapital | null {
+  const value = reading?.rows.find((row) => row.key === industryKey)?.values[
+    INDUSTRY_SALES_TO_CAPITAL_FIELD
+  ];
+
+  if (reading === null || value === undefined || value === null) {
+    return null;
+  }
+
+  return {
+    rule: SALES_TO_CAPITAL_RULE_VERSION,
+    datasetId: INDUSTRY_CAPITAL_DATASET,
+    releaseId: reading.release.releaseId,
+    rowKey: industryKey,
+    field: INDUSTRY_SALES_TO_CAPITAL_FIELD,
+    value,
+    publishedLabel: reading.release.publishedLabel,
+    availableAt: reading.release.availableAt,
+  };
+}
+
 export function assembleValuationSnapshot(
   request: ValuationSnapshotRequest,
 ): ValuationSnapshotResult {
@@ -245,12 +280,20 @@ export function assembleValuationSnapshot(
   const balanceAsOf =
     normalization.facts.basePeriod?.balanceAsOf ?? baseFiscalYearEnd;
   const leasesAsOf = capitalization.basePeriod?.leasesAsOf ?? baseFiscalYearEnd;
+  const industrySalesToCapital =
+    ownSalesToCapitalOf(normalization) === null
+      ? industrySalesToCapitalAt(
+          request.industryCapital ?? null,
+          costOfCapital.industryKey,
+        )
+      : null;
   const derivation = {
     version: DERIVED_ASSUMPTIONS_V2_VERSION,
     industryReturn: industryReturnAt(
       request.industryReturns,
       costOfCapital.industryKey,
     ),
+    ...(industrySalesToCapital === null ? {} : { industrySalesToCapital }),
     revenueHistory: consecutiveRevenueHistory(
       series.fiscalYears.flatMap((year) =>
         year.items.revenue === undefined

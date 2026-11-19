@@ -8,8 +8,11 @@ import {
   derivedAssumptionsMismatches,
   DERIVED_ASSUMPTIONS_V2_VERSION,
   DERIVED_ASSUMPTIONS_VERSION,
+  INDUSTRY_CAPITAL_DATASET,
   INDUSTRY_RETURNS_DATASET,
+  INDUSTRY_SALES_TO_CAPITAL_FIELD,
   measuredGrowth,
+  SALES_TO_CAPITAL_RULE_VERSION,
   type DerivedAssumptions,
 } from "./derived-assumptions";
 import { parseDecimal } from "./decimal-policy";
@@ -557,5 +560,120 @@ describe("derived-assumptions-2.0.0", () => {
       status: "unavailable",
       reason: "revenue_history_non_positive",
     });
+  });
+});
+
+describe("industry-sales-to-capital-1.0.0", () => {
+  const industry = (
+    value: string,
+    rowKey: string = base.costOfCapital.industryKey,
+  ): DerivedAssumptions => ({
+    ...(historyV2(null) as Extract<
+      DerivedAssumptions,
+      { version: typeof DERIVED_ASSUMPTIONS_V2_VERSION }
+    >),
+    industrySalesToCapital: {
+      rule: SALES_TO_CAPITAL_RULE_VERSION,
+      datasetId: INDUSTRY_CAPITAL_DATASET,
+      releaseId: "00000000-0000-4000-8000-0000000000c1",
+      rowKey,
+      field: INDUSTRY_SALES_TO_CAPITAL_FIELD,
+      value,
+      publishedLabel: "January 2026",
+      availableAt: "2026-01-10T00:00:00.000Z",
+    },
+  });
+  // PLTR y DDOG, 2026-11-18: la caja supera al patrimonio más la deuda.
+  const cashRich = withBase({ salesToCapitalAdjusted: "-0.8" });
+
+  it("uses the industry ratio when the company's own is not positive", () => {
+    const result = derive({
+      derivation: industry("1.54"),
+      normalization: cashRich,
+    });
+
+    expect(result.status).toBe("derived");
+    if (result.status !== "derived") return;
+    expect(
+      result.periods.every(
+        (period) =>
+          period.reinvestment.convention === "sales_to_capital" &&
+          period.reinvestment.salesToCapital === "1.54",
+      ),
+    ).toBe(true);
+  });
+
+  it("stays unavailable without an industry ratio", () => {
+    expect(
+      derive({ derivation: historyV2(null), normalization: cashRich }),
+    ).toEqual({
+      status: "unavailable",
+      reason: "sales_to_capital_unavailable",
+    });
+  });
+
+  it("keeps the company's own ratio when it is positive", () => {
+    const result = derive({ derivation: industry("1.54") });
+
+    expect(result.status).toBe("derived");
+    if (result.status !== "derived") return;
+    expect(result.periods[0]?.reinvestment).not.toMatchObject({
+      salesToCapital: "1.54",
+    });
+  });
+
+  it("rejects an industry ratio frozen next to a usable own ratio, or for another industry", () => {
+    const own = derivedV2(historyV2(null));
+    const ownMismatches = derivedAssumptionsMismatches({
+      derivation: industry("1.54"),
+      baseRevenue: own.baseRevenue,
+      normalization: own.normalization,
+      costOfCapital: own.costOfCapital,
+      periods: own.periods,
+      terminal: own.terminal,
+      sensitivity: own.sensitivity,
+      scenarios: own.scenarios,
+    });
+    expect(ownMismatches).toContain(
+      "derivedAssumptions.industrySalesToCapital",
+    );
+
+    const result = derive({
+      derivation: industry("1.54"),
+      normalization: cashRich,
+    });
+    if (result.status !== "derived") throw new Error(result.reason);
+    const other = derivedAssumptionsMismatches({
+      derivation: industry("1.54", "another-industry"),
+      baseRevenue: base.baseRevenue,
+      normalization: cashRich,
+      costOfCapital: base.costOfCapital,
+      periods: result.periods,
+      terminal: result.terminal,
+      sensitivity: result.sensitivity,
+      scenarios: result.scenarios,
+    });
+    expect(other).toEqual(["derivedAssumptions.industrySalesToCapital"]);
+  });
+
+  it("recomputes a cash-rich run with the industry ratio and no mismatch", () => {
+    const result = derive({
+      derivation: industry("1.54"),
+      normalization: cashRich,
+    });
+    if (result.status !== "derived") throw new Error(result.reason);
+
+    expect(
+      derivedAssumptionsMismatches({
+        derivation: industry("1.54"),
+        baseRevenue: base.baseRevenue,
+        normalization: cashRich,
+        costOfCapital: base.costOfCapital,
+        periods: result.periods,
+        terminal: result.terminal,
+        sensitivity: result.sensitivity,
+        scenarios: result.scenarios,
+      }),
+    ).toEqual([]);
   });
 });

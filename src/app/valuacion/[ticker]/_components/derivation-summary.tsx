@@ -94,10 +94,27 @@ function RuleV2({
         </span>
         ).
       </li>
-      <li>
-        Margen EBIT ajustado y sales-to-capital del ejercicio base, iguales en
-        los {DERIVED_EXPLICIT_YEARS} años.
-      </li>
+      {explanation.industrySalesToCapital === null ? (
+        <li>
+          Margen EBIT ajustado y sales-to-capital del ejercicio base, iguales en
+          los {DERIVED_EXPLICIT_YEARS} años.
+        </li>
+      ) : (
+        <li>
+          Margen EBIT ajustado del ejercicio base y sales-to-capital de la
+          industria,{" "}
+          <span className="numeric font-medium text-foreground">
+            {explanation.industrySalesToCapital.value}
+          </span>{" "}
+          (
+          {explanation.industrySalesToCapital.publishedLabel ??
+            "release sin fecha publicada"}
+          {" · "}
+          <CodeValue>{explanation.industrySalesToCapital.rowKey}</CodeValue>),
+          porque la caja supera al capital invertido de la empresa; iguales en
+          los {DERIVED_EXPLICIT_YEARS} años.
+        </li>
+      )}
       <li>
         Tasa impositiva aplicada que converge a la marginal, y WACC que converge
         al terminal, en los años {DERIVED_HOLD_YEARS + 1} a{" "}

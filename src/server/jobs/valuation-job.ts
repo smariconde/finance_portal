@@ -53,7 +53,10 @@ import {
   readValuationResult,
   type ValuationResultReading,
 } from "@/modules/valuation/application/read-valuation-result";
-import { INDUSTRY_RETURNS_DATASET } from "@/modules/valuation/domain/derived-assumptions";
+import {
+  INDUSTRY_CAPITAL_DATASET,
+  INDUSTRY_RETURNS_DATASET,
+} from "@/modules/valuation/domain/derived-assumptions";
 import { consecutiveRevenueHistory } from "@/modules/valuation/domain/derived-assumptions";
 import { deriveGrowthTrajectory } from "@/modules/valuation/domain/derived-growth-trajectory";
 import {
@@ -830,19 +833,29 @@ export async function prepareValuationRun(
     };
   }
 
-  const [employeeEquity, shareCounts, prices, industryReturns] =
-    await Promise.all([
-      employeeEquityRepository.acceptedAsKnown(legalEntityId, job.knownAt),
-      readShareCounts(legalEntityId, query),
-      securityId === null
-        ? Promise.resolve({ closes: [], events: [] })
-        : readPrices(securityId, job.knownAt),
-      readReferenceDataset(
-        INDUSTRY_RETURNS_DATASET,
-        query,
-        getReferenceDatasetRepository(),
-      ),
-    ]);
+  const [
+    employeeEquity,
+    shareCounts,
+    prices,
+    industryReturns,
+    industryCapital,
+  ] = await Promise.all([
+    employeeEquityRepository.acceptedAsKnown(legalEntityId, job.knownAt),
+    readShareCounts(legalEntityId, query),
+    securityId === null
+      ? Promise.resolve({ closes: [], events: [] })
+      : readPrices(securityId, job.knownAt),
+    readReferenceDataset(
+      INDUSTRY_RETURNS_DATASET,
+      query,
+      getReferenceDatasetRepository(),
+    ),
+    readReferenceDataset(
+      INDUSTRY_CAPITAL_DATASET,
+      query,
+      getReferenceDatasetRepository(),
+    ),
+  ]);
 
   const snapshotRequest = {
     subject: { legalEntityId, securityId, listingId: resolution.listingId },
@@ -858,6 +871,7 @@ export async function prepareValuationRun(
     ),
     prices: { sourceId: PRICES_SOURCE_ID, ...prices },
     industryReturns,
+    industryCapital,
   };
 
   if (awaitsGrowth) {

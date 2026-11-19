@@ -268,6 +268,47 @@ export const DAMODARAN_DATASETS: readonly DamodaranDataset[] = Object.freeze([
     ],
   },
   {
+    // `F6-31`: ventas sobre capital invertido de la industria, la que usa
+    // Damodaran cuando la propia no sirve (caja mayor que el capital).
+    datasetId: "damodaran.capex-us",
+    url: `${BASE}capex.html`,
+    shape: "table",
+    keyHeader: "industry name",
+    requiredKey: "total-market",
+    minimumRows: 50,
+    fields: [
+      { field: "firms", header: "number of firms", kind: "integer" },
+      { field: "capex", header: "capital expenditures", kind: "verified" },
+      {
+        field: "depreciation",
+        header: "depreciation & amort",
+        kind: "verified",
+      },
+      {
+        field: "capex_depreciation",
+        header: "cap ex/deprecn",
+        kind: "verified",
+      },
+      { field: "acquisitions", header: "acquisitions", kind: "verified" },
+      { field: "net_rd", header: "net r&d", kind: "verified" },
+      {
+        field: "net_capex_sales",
+        header: "net cap ex/sales",
+        kind: "verified",
+      },
+      {
+        field: "net_capex_ebit",
+        header: "net cap ex/ ebit (1-t)",
+        kind: "verified",
+      },
+      {
+        field: "sales_to_invested_capital",
+        header: "sales/ invested capital",
+        kind: "decimal",
+      },
+    ],
+  },
+  {
     datasetId: "damodaran.country-risk",
     url: DAMODARAN_COUNTRY_RISK_WORKBOOK.url,
     shape: "workbook",

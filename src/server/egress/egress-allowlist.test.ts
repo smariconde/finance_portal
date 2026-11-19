@@ -491,6 +491,7 @@ describe("egress allowlist", () => {
           "/~adamodar/New_Home_Page/datafile/ratings.html",
           "/~adamodar/New_Home_Page/datafile/EVA.html",
           "/~adamodar/New_Home_Page/datafile/margin.html",
+          "/~adamodar/New_Home_Page/datafile/capex.html",
         ],
       },
     ]);
