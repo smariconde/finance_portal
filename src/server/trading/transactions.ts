@@ -37,6 +37,7 @@ import {
   rMultipleOf,
   type PlannedStop,
 } from "@/modules/trading/domain/trade-r-multiple";
+import { tradeReturnOf } from "@/modules/trading/domain/trade-return";
 import type { RoundTrip } from "@/modules/trading/domain/trade-round-trips";
 import { tradingSessionOf } from "@/modules/trading/domain/trading-session";
 import {
@@ -233,6 +234,7 @@ export async function readJournal(): Promise<JournalReading> {
         null,
       review: annotation?.review ?? "pending",
       r: rMultipleOf(trade, stops.get(trade.tradeId) ?? null),
+      return: tradeReturnOf(trade),
     };
   }
   return {

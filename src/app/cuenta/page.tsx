@@ -11,6 +11,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 import { InfoTip } from "@/app/_components/info-tip";
+import { PageContainer, PageHeader } from "@/app/_components/page-frame";
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
 import {
   StatusMark,
@@ -128,17 +129,6 @@ function Code({ children }: { children: React.ReactNode }) {
     <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
       {children}
     </code>
-  );
-}
-
-function PageHeader() {
-  return (
-    <h1
-      id="cuenta-title"
-      className="text-2xl font-semibold tracking-tight md:text-3xl"
-    >
-      Cuenta
-    </h1>
   );
 }
 
@@ -371,26 +361,24 @@ export default async function AccountPage({
   }
 
   return (
-    <div id="contenido" className="flex-1">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 md:p-6 lg:p-8">
-        <PageHeader />
-        {outcome !== null ? (
-          <Alert role="status">
-            {outcome.tone === "ok" ? (
-              <ShieldCheck aria-hidden="true" />
-            ) : (
-              <TriangleAlert aria-hidden="true" />
-            )}
-            <AlertTitle>{outcome.title}</AlertTitle>
-            {shownReference !== null ? (
-              <AlertDescription>
-                Referencia <Code>{shownReference}</Code>
-              </AlertDescription>
-            ) : null}
-          </Alert>
-        ) : null}
-        {body}
-      </div>
-    </div>
+    <PageContainer>
+      <PageHeader id="cuenta-title" title="Cuenta" />
+      {outcome !== null ? (
+        <Alert role="status">
+          {outcome.tone === "ok" ? (
+            <ShieldCheck aria-hidden="true" />
+          ) : (
+            <TriangleAlert aria-hidden="true" />
+          )}
+          <AlertTitle>{outcome.title}</AlertTitle>
+          {shownReference !== null ? (
+            <AlertDescription>
+              Referencia <Code>{shownReference}</Code>
+            </AlertDescription>
+          ) : null}
+        </Alert>
+      ) : null}
+      {body}
+    </PageContainer>
   );
 }

@@ -1,7 +1,10 @@
 /**
- * La gramática de los selectores excluyentes —secciones hermanas, pestañas y
- * botones de rango o vista—: la lista de tabs de shadcn. Un solo lugar para que
- * el diario, el plan, las matrices y los gráficos se vean iguales.
+ * La gramática de los selectores compactos sobre la lista de tabs de shadcn:
+ * rutas hermanas al lado del título (`SectionNav`: Trades · Estadísticas,
+ * Ideas · Finviz, Riesgo · Divergencias) y valores excluyentes (`Segmented`:
+ * rango, escala, filtro, unidad). Las partes de una misma página —índice de
+ * secciones, grupos de un panel— usan las pestañas subrayadas de
+ * `tab-styles.ts`.
  */
 export const segmentGroupClass =
   "inline-flex w-fit max-w-full items-center rounded-lg bg-muted p-[3px] text-muted-foreground";

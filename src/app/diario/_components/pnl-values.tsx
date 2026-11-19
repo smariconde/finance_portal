@@ -42,3 +42,24 @@ export function RValue({
     </span>
   );
 }
+
+/**
+ * Un retorno en puntos porcentuales con su signo y el color del P&L; sin
+ * retorno, una raya, nunca un cero.
+ */
+export function PercentValue({
+  value,
+  className,
+}: {
+  readonly value: string | null;
+  readonly className?: string;
+}) {
+  if (value === null) {
+    return <span className={cn("text-muted-foreground", className)}>—</span>;
+  }
+  return (
+    <span className={cn("numeric", pnlTone(value), className)}>
+      {formatSignedAmount(value, { scale: 2 })} %
+    </span>
+  );
+}

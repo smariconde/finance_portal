@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { Metadata } from "next";
 
 import { InfoTip } from "@/app/_components/info-tip";
+import { PageContainer, PageHeader } from "@/app/_components/page-frame";
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
 import {
   servesRealData,
@@ -64,16 +65,12 @@ export default async function FinvizPage() {
     `${FINVIZ_FILTER_SOURCE.measuredOn}T12:00:00Z`,
   ).toLocaleDateString("es-AR", { timeZone: "UTC" });
   return (
-    <div
-      id="contenido"
-      className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 md:p-6 lg:p-8"
-    >
-      <header className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-          Plan
-        </h1>
-        <PlanNav current="finviz" />
-      </header>
+    <PageContainer>
+      <PageHeader
+        id="plan-title"
+        title="Plan"
+        nav={<PlanNav current="finviz" />}
+      />
       <FinvizBuilder strategies={strategies} />
       <footer className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
         <span>
@@ -95,6 +92,6 @@ export default async function FinvizPage() {
           </p>
         </InfoTip>
       </footer>
-    </div>
+    </PageContainer>
   );
 }

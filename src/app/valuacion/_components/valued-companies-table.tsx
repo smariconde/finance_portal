@@ -1,10 +1,18 @@
 "use client";
 
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
 
 import { CompanyMark } from "@/app/_components/company-mark";
+import {
+  SortableTableHead,
+  useTableSort,
+} from "@/app/_components/data-table/sortable-table-head";
+import {
+  compareDecimalText,
+  compareNullsLast,
+  type SortDirection,
+  type SortState,
+} from "@/app/_components/data-table/table-sort";
 import {
   Table,
   TableBody,
@@ -39,7 +47,7 @@ const GAP_COPY: Record<MarketPriceComparisonUnavailableReason, string> = {
 };
 
 type SortKey = "name" | "priceToValue" | "asOf";
-type Sort = { key: SortKey; direction: "ascending" | "descending" };
+type Sort = SortState<SortKey>;
 
 const SORT_LABELS: Record<SortKey, string> = {
   name: "Empresa",
@@ -48,7 +56,7 @@ const SORT_LABELS: Record<SortKey, string> = {
 };
 
 /** La primera dirección de cada columna: la fecha arranca por lo último. */
-const FIRST_DIRECTION: Record<SortKey, Sort["direction"]> = {
+const FIRST_DIRECTION: Record<SortKey, SortDirection> = {
   name: "ascending",
   priceToValue: "ascending",
   asOf: "descending",
@@ -72,13 +80,12 @@ function sortCompanies(
 
   return [...companies].sort((left, right) => {
     if (sort.key === "priceToValue") {
-      if (left.priceToValue === null || right.priceToValue === null) {
-        return (
-          Number(left.priceToValue === null) -
-          Number(right.priceToValue === null)
-        );
-      }
-      return sign * (Number(left.priceToValue) - Number(right.priceToValue));
+      return compareNullsLast(
+        left.priceToValue,
+        right.priceToValue,
+        sort.direction,
+        compareDecimalText,
+      );
     }
     if (sort.key === "asOf") {
       return (
@@ -88,45 +95,6 @@ function sortCompanies(
     }
     return sign * nameOf(left).localeCompare(nameOf(right), "es");
   });
-}
-
-function SortHeader({
-  sortKey,
-  sort,
-  onSort,
-  align,
-}: {
-  sortKey: SortKey;
-  sort: Sort;
-  onSort: (key: SortKey) => void;
-  align?: "right";
-}) {
-  const active = sort.key === sortKey;
-  const Icon = !active
-    ? ArrowUpDown
-    : sort.direction === "ascending"
-      ? ArrowUp
-      : ArrowDown;
-
-  return (
-    <TableHead
-      scope="col"
-      aria-sort={active ? sort.direction : "none"}
-      className={align === "right" ? "text-right" : undefined}
-    >
-      <button
-        type="button"
-        onClick={() => onSort(sortKey)}
-        className="inline-flex items-center gap-1 rounded-sm font-medium outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        {SORT_LABELS[sortKey]}
-        <Icon
-          aria-hidden="true"
-          className={active ? "size-3.5" : "size-3.5 opacity-50"}
-        />
-      </button>
-    </TableHead>
-  );
 }
 
 /**
@@ -139,35 +107,27 @@ export function ValuedCompaniesTable({
 }: {
   companies: readonly ValuedCompanyRow[];
 }) {
-  const [sort, setSort] = useState<Sort>({
-    key: "asOf",
-    direction: "descending",
-  });
+  const [sort, toggle] = useTableSort<SortKey>(
+    { key: "asOf", direction: "descending" },
+    (key) => FIRST_DIRECTION[key],
+  );
   const rows = sortCompanies(companies, sort);
-
-  function toggle(key: SortKey) {
-    setSort((current) =>
-      current.key === key
-        ? {
-            key,
-            direction:
-              current.direction === "ascending" ? "descending" : "ascending",
-          }
-        : { key, direction: FIRST_DIRECTION[key] },
-    );
-  }
 
   return (
     <Table containerLabel="Empresas valuadas, tabla desplazable">
       <TableHeader>
         <TableRow>
-          <SortHeader sortKey="name" sort={sort} onSort={toggle} />
-          <SortHeader
+          <SortableTableHead sortKey="name" sort={sort} onSort={toggle}>
+            {SORT_LABELS.name}
+          </SortableTableHead>
+          <SortableTableHead
             sortKey="priceToValue"
             sort={sort}
             onSort={toggle}
             align="right"
-          />
+          >
+            {SORT_LABELS.priceToValue}
+          </SortableTableHead>
           <TableHead scope="col" className="text-right">
             Value per share
           </TableHead>
@@ -176,7 +136,9 @@ export function ValuedCompaniesTable({
           </TableHead>
           <TableHead scope="col">Estado</TableHead>
           <TableHead scope="col">Método</TableHead>
-          <SortHeader sortKey="asOf" sort={sort} onSort={toggle} />
+          <SortableTableHead sortKey="asOf" sort={sort} onSort={toggle}>
+            {SORT_LABELS.asOf}
+          </SortableTableHead>
         </TableRow>
       </TableHeader>
       <TableBody>

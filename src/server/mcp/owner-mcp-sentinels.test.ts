@@ -109,6 +109,11 @@ describe("salidas del MCP", () => {
               setupCode: null,
               review: "pending" as const,
               r: { value: null, reason: "no_planned_stop" as const },
+              return: {
+                percent: null,
+                scope: null,
+                reason: "no_exits" as const,
+              },
             },
           ]),
         ),

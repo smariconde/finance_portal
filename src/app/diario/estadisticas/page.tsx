@@ -4,6 +4,7 @@ import { ArrowRight, DatabaseZap } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { PageContainer, PageHeader } from "@/app/_components/page-frame";
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
 import { UnreadTradingParts } from "@/app/_components/unread-trading-parts";
 import { buttonVariants } from "@/components/ui/button";
@@ -38,23 +39,14 @@ export const instant = false;
 
 function Shell({ children }: { readonly children: React.ReactNode }) {
   return (
-    <div id="contenido" className="flex-1">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 md:p-6 lg:p-8">
-        <section
-          className="flex flex-wrap items-center gap-x-4 gap-y-2"
-          aria-labelledby="estadisticas-title"
-        >
-          <h1
-            id="estadisticas-title"
-            className="text-2xl font-semibold tracking-tight md:text-3xl"
-          >
-            Diario
-          </h1>
-          <JournalNav current="stats" />
-        </section>
-        {children}
-      </div>
-    </div>
+    <PageContainer>
+      <PageHeader
+        id="estadisticas-title"
+        title="Diario"
+        nav={<JournalNav current="stats" />}
+      />
+      {children}
+    </PageContainer>
   );
 }
 

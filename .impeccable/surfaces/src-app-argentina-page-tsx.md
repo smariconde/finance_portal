@@ -5,7 +5,7 @@ primary_target: "src/app/argentina/page.tsx"
 related_targets:
   [
     "src/app/argentina/_components/summary-cards.tsx",
-    "src/app/argentina/_components/block-index.tsx",
+    "src/app/_components/section-index.tsx",
     "src/app/argentina/_components/sections.tsx",
     "src/app/argentina/_components/block.tsx",
     "src/app/argentina/_components/timeline-chart.tsx",
@@ -44,7 +44,7 @@ related_targets:
 - ITCRM (`F9-17`, 2026-11-12): séptimo bloque tras dólar, modo Operate y visuales heredados. Responde cómo cambió la competitividad cambiaria real frente a su propia historia, con un índice oficial y sin precio objetivo del dólar. Traza días hasta cinco años y cierres mensuales antes, con fuente, base 17/12/2015=100 y fecha de la versión observada en la cabecera. La metodología explica las estimaciones diarias y revisiones posteriores del BCRA. Con datos reales locales, 1440 px claro y 390 px oscuro: cero desborde y axe sin hallazgos en el bloque; detector Impeccable sin hallazgos.
 - Pulido (2026-11-16, pedido del owner: visual y operativo, sin párrafos):
   - Cambio en las tarjetas: `summary-change-1.0.0` resta la lectura anterior —el mes, el año o el último día publicado antes; un hueco es un motivo («Sin el mes anterior»), nunca un salto— en pp para tasas y brechas y en US$ M para el saldo, redondeada antes de elegir la flecha. Polaridad: actividad, primario, saldo y soja `higher_is_better` (la brecha de la soja es negativa: menos negativa es más precio de Chicago para el productor); inflación y brecha CCL `lower_is_better`. Las tarjetas sin cifra (BCRA ausente en la base local) no muestran cambio. Rótulos sin ambigüedad: «Dólar: brecha CCL / oficial» y «Soja: Rosario–Chicago»; el primario dice «Año 2025» al pie y «Ene–ago 2026: superávit …» en el detalle.
-  - Índice fijo de bloques debajo del header (`BlockIndex`), con el actual en `aria-current="location"`; en un teléfono se desplaza de costado.
+  - Índice fijo de bloques debajo del header (`SectionIndex`, pestañas subrayadas desde 2026-11-19), con el actual en `aria-current="location"`; en un teléfono se desplaza de costado.
   - Barra de cada gráfico en una línea: rangos a la vista y «Opciones» (escala, comparar, gobiernos y regímenes) en un popover; a 390 px, una o dos líneas en vez de cuatro.
   - Rótulos del dibujo en 12 px; barras de régimen de 14 px y margen superior de 54 px para que no choquen. Las fechas de soja que la escala no ubica ya no dibujan líneas en NaN (14 errores de consola menos por vista).
   - Mapa de sectores sin la letra ClaNAE en el rótulo (queda en el `title`) y con la línea de lectura fuera del scroll.

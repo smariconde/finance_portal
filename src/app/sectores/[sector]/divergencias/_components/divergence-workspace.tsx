@@ -1,9 +1,6 @@
 "use client";
 
 import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
   ChevronsRight,
   CircleCheck,
   CircleSlash,
@@ -15,6 +12,10 @@ import { useId, useMemo, useState } from "react";
 
 import { displayCompanyName } from "@/modules/companies/domain/display-company-name";
 import { CompanyMark } from "@/app/_components/company-mark";
+import {
+  SortableTableHead,
+  useTableSort,
+} from "@/app/_components/data-table/sortable-table-head";
 import { FinvizProfileLink } from "@/app/_components/finviz-profile-link";
 import { InfoTip } from "@/app/_components/info-tip";
 import { Segmented } from "@/app/_components/segmented";
@@ -437,10 +438,10 @@ export function DivergenceWorkspace({
   const [view, setView] = useState<ViewKey>("fundamental");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filters, setFilters] = useState<DivergenceFilters>(NO_FILTERS);
-  const [sort, setSort] = useState<{
-    key: SortKey;
-    direction: "ascending" | "descending";
-  }>({ key: "fundamental", direction: "descending" });
+  const [sort, toggleSort] = useTableSort<SortKey>(
+    { key: "fundamental", direction: "descending" },
+    (key) => (key === "ticker" ? "ascending" : "descending"),
+  );
 
   // Gráfico, paneles y tabla leen el mismo conjunto: la tabla es el
   // equivalente accesible del gráfico, no una lista aparte.
@@ -551,17 +552,6 @@ export function DivergenceWorkspace({
   const clipped = layout.points.some(
     (point) => point.clipX !== 0 || point.clipY !== 0,
   );
-
-  const toggleSort = (key: SortKey) =>
-    setSort((current) =>
-      current.key === key
-        ? {
-            key,
-            direction:
-              current.direction === "ascending" ? "descending" : "ascending",
-          }
-        : { key, direction: key === "ticker" ? "ascending" : "descending" },
-    );
 
   return (
     <>
@@ -820,35 +810,25 @@ export function DivergenceWorkspace({
                     "shares",
                   ] as const
                 ).map((key) => {
-                  const sorted = sort.key === key;
-                  const Icon = !sorted
-                    ? ArrowUpDown
-                    : sort.direction === "ascending"
-                      ? ArrowUp
-                      : ArrowDown;
                   return (
-                    <TableHead
+                    <SortableTableHead
                       key={key}
-                      aria-sort={sorted ? sort.direction : "none"}
+                      sortKey={key}
+                      sort={sort}
+                      onSort={toggleSort}
+                      align={key === "ticker" ? "left" : "right"}
                       className={
                         key === "ticker"
                           ? undefined
-                          : "h-auto py-2 text-right align-bottom whitespace-normal"
+                          : "h-auto py-2 align-bottom whitespace-normal"
                       }
                     >
-                      <button
-                        type="button"
-                        onClick={() => toggleSort(key)}
-                        className="inline-flex items-center gap-1 rounded-sm text-right leading-tight font-medium outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                      >
-                        {key === "y"
-                          ? names.y
-                          : key === "x"
-                            ? names.x
-                            : SORT_LABELS[key]}
-                        <Icon className="size-3.5" aria-hidden="true" />
-                      </button>
-                    </TableHead>
+                      {key === "y"
+                        ? names.y
+                        : key === "x"
+                          ? names.x
+                          : SORT_LABELS[key]}
+                    </SortableTableHead>
                   );
                 })}
                 <TableHead>Puente EPS</TableHead>

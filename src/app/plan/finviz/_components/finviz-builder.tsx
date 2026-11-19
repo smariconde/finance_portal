@@ -21,10 +21,10 @@ import {
 
 import { InfoTip } from "@/app/_components/info-tip";
 import {
-  segmentActiveClass,
-  segmentGroupClass,
-  segmentItemClass,
-} from "@/app/_components/segment-styles";
+  tabBaselineClass,
+  tabClass,
+  tabListClass,
+} from "@/app/_components/tab-styles";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -457,14 +457,21 @@ export function FinvizBuilder({
 
   function onTabKey(event: KeyboardEvent<HTMLButtonElement>) {
     const index = FINVIZ_FILTER_TABS.indexOf(tab);
-    const step =
-      event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
-    if (step === 0) return;
+    const count = FINVIZ_FILTER_TABS.length;
+    // Flechas recorren en ronda; Inicio y Fin saltan a los extremos (APG).
+    const target =
+      event.key === "ArrowRight"
+        ? (index + 1) % count
+        : event.key === "ArrowLeft"
+          ? (index - 1 + count) % count
+          : event.key === "Home"
+            ? 0
+            : event.key === "End"
+              ? count - 1
+              : null;
+    if (target === null) return;
     event.preventDefault();
-    const next =
-      FINVIZ_FILTER_TABS[
-        (index + step + FINVIZ_FILTER_TABS.length) % FINVIZ_FILTER_TABS.length
-      ]!;
+    const next = FINVIZ_FILTER_TABS[target]!;
     setTab(next);
     tabRefs.current[next]?.focus();
   }
@@ -550,16 +557,16 @@ export function FinvizBuilder({
           </div>
         </div>
 
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
+        <div className="mt-5 flex items-end justify-between gap-2">
           {searching ? (
-            <p role="status" className="text-sm text-muted-foreground">
+            <p role="status" className="py-2 text-sm text-muted-foreground">
               {visible.length} de {FINVIZ_FILTERS.length} variables
             </p>
           ) : (
             <div
               role="tablist"
               aria-label="Grupos de variables"
-              className={cn(segmentGroupClass, "overflow-x-auto")}
+              className={cn(tabListClass, tabBaselineClass, "min-w-0 flex-1")}
             >
               {FINVIZ_FILTER_TABS.map((key) => (
                 <button
@@ -575,10 +582,7 @@ export function FinvizBuilder({
                   tabIndex={tab === key ? 0 : -1}
                   onClick={() => setTab(key)}
                   onKeyDown={onTabKey}
-                  className={cn(
-                    segmentItemClass,
-                    tab === key && segmentActiveClass,
-                  )}
+                  className={tabClass(tab === key)}
                 >
                   {FINVIZ_TAB_LABELS[key]}
                   {counts[key] > 0 ? (

@@ -18,6 +18,10 @@ import { Fold } from "@/app/_components/fold";
 import { InfoTip } from "@/app/_components/info-tip";
 import { BasePeriodFact } from "./_components/base-period";
 import { PageContainer, PageHeader } from "@/app/_components/page-frame";
+import {
+  SectionIndex,
+  type IndexedSection,
+} from "@/app/_components/section-index";
 import { StatTile } from "@/app/_components/stat-tile";
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -100,7 +104,6 @@ import { ValueWalkthrough } from "./_components/value-walkthrough";
 import { VerdictPanel } from "./_components/verdict-panel";
 import { QualitativeDecisions } from "./_components/qualitative-decisions";
 import { RigorPanel } from "./_components/rigor-panel";
-import { ResultIndex, type ResultSection } from "./_components/result-index";
 
 /** Ver [ADR 0005](../../../../docs/architecture/adr/0005-request-time-runtime-boundary.md). */
 export const instant = false;
@@ -241,7 +244,7 @@ const SECTIONS = [
   { id: "cedear", label: "CEDEAR" },
   { id: "auditoria", label: "Auditoría" },
   { id: "historial", label: "Historial" },
-] as const satisfies readonly ResultSection[];
+] as const satisfies readonly IndexedSection[];
 
 /** Las de un banco o una aseguradora: sin exigencias, pares ni escenarios. */
 const FINANCIAL_SECTIONS = [
@@ -252,7 +255,7 @@ const FINANCIAL_SECTIONS = [
   { id: "cedear", label: "CEDEAR" },
   { id: "auditoria", label: "Auditoría" },
   { id: "historial", label: "Historial" },
-] as const satisfies readonly ResultSection[];
+] as const satisfies readonly IndexedSection[];
 
 /**
  * Un grupo de la página con su ancla; el título lo pone cada tarjeta. El
@@ -517,7 +520,11 @@ function FinancialRunView({
         <ReviewAlert labels={reviewLabels} />
       )}
 
-      <ResultIndex sections={FINANCIAL_SECTIONS} />
+      <SectionIndex
+        label="Secciones del resultado"
+        className="-mt-2"
+        sections={FINANCIAL_SECTIONS}
+      />
 
       <Anchor id="veredicto">
         <Card>
@@ -991,7 +998,9 @@ export default async function ValuationResultPage({ params }: PageProps) {
 
       <ReviewAlert labels={reviewLabels} />
 
-      <ResultIndex
+      <SectionIndex
+        label="Secciones del resultado"
+        className="-mt-2"
         sections={SECTIONS.filter(
           (section) =>
             section.id !== "escenarios" ||
