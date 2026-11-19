@@ -144,6 +144,14 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   116 | `F6-30`    | `done`        | Camino de crecimiento destrabado: quebrantos del pool federal, distress con EBIT negativo y caja neta, deuda cero con tres a cinco ejercicios y la IA antes de los métodos de crecimiento; primera corrida real (MU).     | `F6-21`            |
 |   117 | `F6-31`    | `done`        | Ventas sobre capital de la industria (`damodaran.capex-us`) cuando la propia no es positiva, congelada en el snapshot y recalculada por el motor.                                                                         | `F6-30`            |
 |   118 | `F6-32`    | `done`        | Acciones en circulación de filers con varias clases desde la carátula del instance XBRL, con peso declarado cuando las clases no valen lo mismo (BRK); GOOGL y META valuadas.                                             | `F6-31`            |
+|   119 | `F6-33`    | `ready`       | Empresas fuera del S&P 500 con 10-K constituidas a pedido desde `/valuacion` según la ADR 0084, en el índice declarado `owner-followed`; 20-F y 40-F negados por nombre.                                                  | ADR 0084           |
+|   120 | `F6-34`    | `queued`      | Evidencia de deuda cero con EBIT negativo: en esos años el interés se mide contra las ventas, no por cobertura (PLTR).                                                                                                    | `F6-30`            |
+|   121 | `F6-35`    | `queued`      | Deuda publicada sólo como `LongTermDebtNoncurrent`, sin cronograma ni porción corriente, con receta propia nombrada (CRWD).                                                                                               | `F6-30`            |
+|   122 | `F6-36`    | `queued`      | Convertibles en la deuda: medir los conceptos con que se publican y sumarlos a una receta (DDOG).                                                                                                                         | `F6-30`            |
+|   123 | `F6-37`    | `queued`      | Volatilidad de las opciones con toda la historia disponible desde dos años, nombrada, cuando no hay cinco (RDDT).                                                                                                         | `F6-32`            |
+|   124 | `F6-38`    | `queued`      | Investigar el rechazo `failureRisk` de F en el método cíclico y el `pretax_income_not_reported` de MCD.                                                                                                                   | `F6-32`            |
+|   125 | `F6-39`    | `queued`      | Supuestos derivados `3.0.0`: el crecimiento de ventas de los primeros años desde el consenso guardado, con la historia como respaldo.                                                                                     | `F6-29`            |
+|   126 | `F6-40`    | `queued`      | E2E estable: el aviso sin base de `/sectores` y `/argentina` en mobile no se encuentra dos veces.                                                                                                                         | -                  |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -4512,6 +4520,29 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
   cerró sin mergear y se borraron la rama y el worktree; el commit sigue
   accesible desde el PR. Si REIT vuelve, se parte del camino medido de arriba,
   no de este PR.
+
+#### Cobertura de valuación — decisiones del owner del 2026-11-18
+
+Pedido del owner: «que se pueda valuar todo lo que sea posible». Aprobó las
+propuestas siguientes, medidas en Production después de `F6-32`:
+
+- `F6-33`: la [ADR 0084](../architecture/adr/0084-followed-filers-outside-sp500.md)
+  aceptada, constitución a pedido (opción 1).
+- `F6-34`, PLTR: con EBIT negativo la cobertura no mide nada. En esos años, el
+  interés se compara contra las ventas, con un umbral a medir (propuesto 0,5 %).
+- `F6-35`, CRWD: sólo publica `LongTermDebtNoncurrent` (745 M, bonos 2029),
+  sin cronograma ni porción corriente. La receta «sólo no corriente» se
+  nombra en el snapshot. Es una excepción declarada a «no deducir deuda de una
+  ausencia».
+- `F6-36`, DDOG: los convertibles no entran en ninguna receta. Se miden sus
+  conceptos antes de codificar.
+- `F6-37`, RDDT: con menos de cinco años de precios, la volatilidad usa toda la
+  historia desde dos años y se nombra.
+- `F6-38`: investigar F (`failureRisk`) y MCD (`pretax_income_not_reported`).
+- `F6-39`: supuestos derivados `3.0.0` con el consenso guardado
+  (`revenue_average`) como crecimiento cercano. El sesgo medido de
+  precio/valor viene del crecimiento histórico, no del ROIC terminal.
+- `F6-40`: el flake del E2E que falló en los PR #158 y #162.
 
 #### `F6-01` — corrida por ticker encolada (cerrado el 2026-10-21)
 
