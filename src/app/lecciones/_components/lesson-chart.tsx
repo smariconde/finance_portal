@@ -12,13 +12,18 @@ import {
   YAxis,
 } from "recharts";
 
-import { CandleShape } from "@/app/_components/candle-shape";
+import { CandleShape, VolumeShape } from "@/app/_components/candle-shape";
+import {
+  candlePriceScale,
+  candleVolumeDomain,
+  VOLUME_SHARE,
+} from "@/app/_components/candle-scale";
 import { CandleDirection } from "@/app/_components/candle-direction";
 import {
   CandleWindowControls,
+  handleCandleKeys,
   useCandleWindow,
 } from "@/app/_components/candle-window";
-import { linearTicks } from "@/app/_components/chart-ticks";
 import { InfoTip } from "@/app/_components/info-tip";
 import { Badge } from "@/components/ui/badge";
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
@@ -53,7 +58,9 @@ export type LessonChartProps = {
 const MARGIN = { top: 26, right: 12, bottom: 0, left: 4 } as const;
 const PANEL_MARGIN = { top: 6, right: 12, bottom: 0, left: 4 } as const;
 const Y_AXIS_WIDTH = 52;
-const HEIGHT = 300;
+const HEIGHT = 360;
+/** La altura del eje X: Recharts lo reserva aunque esté oculto en diarias. */
+const X_AXIS_HEIGHT = 30;
 const PANEL_HEIGHT = 92;
 const MARK_OFFSET = 16;
 
@@ -220,14 +227,15 @@ function PriceChart({
     () => new Map(props.marks.map((mark) => [mark.index, mark])),
     [props.marks],
   );
-  const lows = rows.map((row) => row.range[0]);
-  const highs = rows.map((row) => row.range[1]);
-  const levels = props.levels.map((level) => level.price);
-  const low = Math.min(...lows, ...levels);
-  const high = Math.max(...highs, ...levels);
-  const pad = (high - low) * 0.06 || high * 0.01;
-  const ticks = linearTicks(low - pad, high + pad, 5);
-  const maxVolume = Math.max(...rows.map((row) => row.volume), 1);
+  // Los niveles son parte de la lección: entran en la escala con las velas.
+  const { domain, ticks } = candlePriceScale(
+    [
+      ...rows.flatMap((row) => row.range),
+      ...props.levels.map((level) => level.price),
+    ],
+    { padding: 0.08 },
+  );
+  const volumeDomain = candleVolumeDomain(rows.map((row) => row.volume));
 
   return (
     <ChartContainer
@@ -240,12 +248,13 @@ function PriceChart({
         accessibilityLayer={false}
         data={rows as Row[]}
         margin={MARGIN}
-        barCategoryGap="16%"
-        maxBarSize={14}
+        barCategoryGap="22%"
+        maxBarSize={24}
       >
         <XAxis
           tick={{ fill: "var(--muted-foreground)" }}
           dataKey="index"
+          height={X_AXIS_HEIGHT}
           hide={props.timeframe === "1d"}
           tickLine={false}
           axisLine={false}
@@ -261,13 +270,13 @@ function PriceChart({
           width={Y_AXIS_WIDTH}
           tickLine={false}
           axisLine={false}
-          domain={[ticks[0]!, ticks.at(-1)!]}
+          domain={domain}
           ticks={ticks}
           tickFormatter={(value: number) =>
             value.toLocaleString("es-AR", { maximumFractionDigits: 2 })
           }
         />
-        <YAxis yAxisId="volume" hide domain={[0, maxVolume * 5]} />
+        <YAxis yAxisId="volume" hide domain={volumeDomain} />
         {props.zones
           .filter(
             (zone) =>
@@ -297,8 +306,7 @@ function PriceChart({
           yAxisId="volume"
           dataKey="volume"
           isAnimationActive={false}
-          fill="var(--muted-foreground)"
-          fillOpacity={0.18}
+          shape={VolumeShape}
         />
         <Bar
           yAxisId="price"
@@ -599,6 +607,10 @@ export function LessonChart(props: LessonChartProps) {
     MARGIN.left + Y_AXIS_WIDTH + MARGIN.right,
   );
   const { index, frame, width, move } = view;
+  const markIndexes = useMemo(
+    () => new Set(props.marks.map((mark) => mark.index)),
+    [props.marks],
+  );
   const visibleRows = useMemo(
     () => rows.slice(view.start, view.end),
     [rows, view.start, view.end],
@@ -627,6 +639,8 @@ export function LessonChart(props: LessonChartProps) {
   const plotWidth = Math.max(width - plotLeft - MARGIN.right, 1);
   const band = plotWidth / Math.max(visibleRows.length, 1);
   const panelsHeight = props.panels.length * PANEL_HEIGHT;
+  const xAxisSpace = props.timeframe === "5m" ? X_AXIS_HEIGHT : 0;
+  const plotHeight = HEIGHT - MARGIN.top - xAxisSpace;
   const row = props.rows[index]!;
 
   return (
@@ -653,42 +667,38 @@ export function LessonChart(props: LessonChartProps) {
                 ),
             );
           }}
-          onKeyDown={(event) => {
-            const step: Record<string, number> = {
-              ArrowLeft: -1,
-              ArrowRight: 1,
-              PageUp: -10,
-              PageDown: 10,
-            };
-            if (event.key in step) {
-              event.preventDefault();
-              move(index + step[event.key]!);
-            } else if (event.key === "Home") {
-              event.preventDefault();
-              move(0);
-            } else if (event.key === "End") {
-              event.preventDefault();
-              move(rows.length - 1);
-            }
-          }}
+          onKeyDown={(event) => handleCandleKeys(event, view)}
         >
-          {chart}
-          {panels}
+          {width === 0 ||
+          selected === null ||
+          !markIndexes.has(index) ? null : (
+            // La vela de la marca elegida, resaltada como en un libro de
+            // análisis técnico: es lo que la regla describe.
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute rounded-sm bg-primary/10"
+              style={{
+                left: plotLeft + band * (index - view.start),
+                width: band,
+                top: MARGIN.top,
+                height: plotHeight * (1 - VOLUME_SHARE),
+              }}
+            />
+          )}
           {width === 0 ? null : (
+            // Detrás de las velas: la línea no tapa la mecha de la elegida.
             <span
               aria-hidden="true"
               className="pointer-events-none absolute w-px bg-foreground/30"
               style={{
                 left: plotLeft + band * (index - view.start + 0.5),
                 top: MARGIN.top,
-                height:
-                  HEIGHT -
-                  MARGIN.top -
-                  (props.timeframe === "5m" ? 30 : 4) +
-                  panelsHeight,
+                height: plotHeight + panelsHeight,
               }}
             />
           )}
+          {chart}
+          {panels}
         </div>
         <CandleWindowControls window={view} />
         {props.levels.length === 0 ? null : (

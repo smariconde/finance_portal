@@ -13,8 +13,13 @@
  * velas, y las velas que enseñan una forma (un martillo, una envolvente) se
  * declaran enteras. Los tests de cada lección comprueban que el dibujo muestra
  * lo que dicen sus reglas.
+ *
+ * `1.1.0` (2026-11-19, pedido del owner: «no se ven muy demostrativos»): un
+ * tramo sin `swing` ya no da dojis en fila —sus cierres zigzaguean a la mitad
+ * de la mecha, como una consolidación real— y cada mecha mide entre un cuarto
+ * y el total de `wick` o de medio cuerpo si es mayor, nunca cero. La semilla consume los mismos números.
  */
-export const SCHEMATIC_CANDLES_VERSION = "schematic-candles-1.0.0";
+export const SCHEMATIC_CANDLES_VERSION = "schematic-candles-1.1.0";
 
 export type SchematicCandle = {
   readonly open: number;
@@ -78,11 +83,16 @@ export function schematicCandles(spec: SchematicSpec): SchematicCandle[] {
       const open = cents(step === 1 ? close + (leg.gap ?? 0) : close);
       const linear = from + ((leg.to - from) * step) / leg.bars;
       const zig = step % 2 === 1 ? 1 : -1;
+      // Sin zigzag declarado, el de una consolidación: media mecha.
+      const amplitude = leg.swing ?? spec.wick * 0.5;
       const swing =
-        step === leg.bars ? 0 : zig * (leg.swing ?? 0) * (0.4 + 0.6 * next());
+        step === leg.bars ? 0 : zig * amplitude * (0.4 + 0.6 * next());
       close = cents(step === leg.bars ? leg.to : linear + swing);
-      let high = Math.max(open, close) + spec.wick * next();
-      let low = Math.min(open, close) - spec.wick * next();
+      // Una mecha crece con su cuerpo, como en una vela real: nunca menos que
+      // `wick`, y hasta la mitad del cuerpo en una vela grande.
+      const reach = Math.max(spec.wick, Math.abs(close - open) * 0.5);
+      let high = Math.max(open, close) + reach * (0.25 + 0.75 * next());
+      let low = Math.min(open, close) - reach * (0.25 + 0.75 * next());
       if (leg.ceiling !== undefined) high = Math.min(high, leg.ceiling);
       if (leg.floor !== undefined) low = Math.max(low, leg.floor);
       candles.push({

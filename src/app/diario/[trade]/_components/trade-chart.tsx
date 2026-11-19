@@ -1,6 +1,6 @@
 "use client";
 
-import { RefreshCw } from "lucide-react";
+import { ArrowDown, ArrowUp, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -12,13 +12,18 @@ import {
   YAxis,
 } from "recharts";
 
-import { CandleShape } from "@/app/_components/candle-shape";
+import { CandleShape, VolumeShape } from "@/app/_components/candle-shape";
 import { CandleDirection } from "@/app/_components/candle-direction";
 import {
+  candlePriceScale,
+  candleVolumeDomain,
+} from "@/app/_components/candle-scale";
+import {
   CandleWindowControls,
+  handleCandleKeys,
   useCandleWindow,
 } from "@/app/_components/candle-window";
-import { linearTicks } from "@/app/_components/chart-ticks";
+import { Segmented } from "@/app/_components/segmented";
 import { InfoTip } from "@/app/_components/info-tip";
 import {
   formatClock,
@@ -31,7 +36,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import {
+  aggregateCandles,
+  candleIntervalsOf,
+} from "@/modules/trading/domain/candle-interval";
+import type { Candle } from "@/modules/trading/domain/schwab-price-history";
 import type { TradePlan } from "@/modules/trading/domain/trade-annotation";
+import type { FillMarker } from "@/modules/trading/domain/trade-chart";
 import { formatAmount } from "@/modules/valuation/domain/display-format";
 
 import { loadTradeChart, type TradeChartResult } from "../../actions";
@@ -40,7 +51,24 @@ type Reading = Extract<TradeChartResult, { state: "read" }>;
 
 const MARGIN = { top: 12, right: 12, bottom: 0, left: 4 } as const;
 const Y_AXIS_WIDTH = 56;
-const HEIGHT = 320;
+const HEIGHT = 360;
+const X_AXIS_HEIGHT = 30;
+const PLOT_HEIGHT = HEIGHT - MARGIN.top - MARGIN.bottom - X_AXIS_HEIGHT;
+
+/**
+ * Qué entra en la escala de precio. «Velas» (por defecto) es la autoescala de
+ * TradingView: las velas y las ejecuciones visibles, y un nivel del plan que
+ * queda fuera se nombra arriba del gráfico. «Plan» suma stop, target y entrada.
+ */
+type ScaleMode = "candles" | "plan";
+
+/** Las velas que se dibujan: las de Schwab o reagrupadas en un intervalo. */
+type View = {
+  readonly candles: readonly Candle[];
+  readonly markers: readonly FillMarker[];
+  /** En minutos; `null` en diarias. */
+  readonly minutes: number | null;
+};
 
 const chartConfig = {
   candle: { label: "Vela", color: "var(--chart-1)" },
@@ -65,16 +93,41 @@ const SESSION_DAY = new Intl.DateTimeFormat("es-AR", {
   timeZone: "America/Chicago",
 });
 
-function resolutionLabel(reading: Reading): string {
-  return reading.resolution.kind === "daily"
-    ? "Velas diarias"
-    : `Velas de ${reading.resolution.minutes} min`;
+function resolutionLabel(minutes: number | null): string {
+  return minutes === null ? "Velas diarias" : `Velas de ${minutes} min`;
 }
 
-function candleLabel(reading: Reading, time: number): string {
-  return reading.resolution.kind === "daily"
+function candleLabel(view: View, time: number): string {
+  return view.minutes === null
     ? SESSION_DAY.format(new Date(time))
     : `${NY_DAY.format(new Date(time))} ${NY_CLOCK.format(new Date(time))} NY`;
+}
+
+/** Las velas en el intervalo elegido, con cada ejecución en su vela agrupada. */
+function viewOf(reading: Reading, minutes: number | null): View {
+  if (
+    minutes === null ||
+    reading.resolution.kind === "daily" ||
+    minutes === reading.resolution.minutes
+  ) {
+    return {
+      candles: reading.candles,
+      markers: reading.markers,
+      minutes: reading.resolution.kind === "daily" ? null : minutes,
+    };
+  }
+  const grouped = aggregateCandles(reading.candles, minutes);
+  return {
+    candles: grouped.candles,
+    markers: reading.markers.map((marker) => ({
+      ...marker,
+      candleIndex:
+        marker.candleIndex === null
+          ? null
+          : (grouped.indexOf[marker.candleIndex] ?? null),
+    })),
+    minutes,
+  };
 }
 
 type Row = {
@@ -112,26 +165,33 @@ function FillShape(direction: "up" | "down") {
 const BuyShape = FillShape("up");
 const SellShape = FillShape("down");
 
+function planLevels(
+  plan: TradePlan | null,
+): { readonly label: string; readonly price: number }[] {
+  const levels: { readonly label: string; readonly price: number }[] = [];
+  if (plan?.stop != null)
+    levels.push({ label: "Stop", price: Number(plan.stop) });
+  if (plan?.target != null)
+    levels.push({ label: "Target", price: Number(plan.target) });
+  if (plan?.entry != null)
+    levels.push({ label: "Entrada", price: Number(plan.entry) });
+  return levels;
+}
+
 function CandleChart({
-  reading,
+  view,
   plan,
   rows,
+  domain,
+  ticks,
 }: {
-  readonly reading: Reading;
+  readonly view: View;
   readonly plan: TradePlan | null;
   readonly rows: readonly Row[];
+  readonly domain: [number, number];
+  readonly ticks: number[];
 }) {
-  const levels = [plan?.stop, plan?.target, plan?.entry]
-    .filter((value): value is string => value != null)
-    .map(Number);
-  const lows = rows.map((row) => row.range[0]);
-  const highs = rows.map((row) => row.range[1]);
-  const low = Math.min(...lows, ...levels);
-  const high = Math.max(...highs, ...levels);
-  const pad = (high - low) * 0.04 || high * 0.01;
-  // Pasos redondos: un eje en «372,56» obliga a hacer la cuenta para leerlo.
-  const ticks = linearTicks(low - pad, high + pad, 5);
-  const maxVolume = Math.max(...rows.map((row) => row.volume), 1);
+  const volumeDomain = candleVolumeDomain(rows.map((row) => row.volume));
 
   return (
     <ChartContainer
@@ -144,19 +204,20 @@ function CandleChart({
         accessibilityLayer={false}
         data={rows as Row[]}
         margin={MARGIN}
-        barCategoryGap="16%"
-        maxBarSize={14}
+        barCategoryGap="22%"
+        maxBarSize={24}
       >
         <XAxis
           tick={{ fill: "var(--muted-foreground)" }}
           dataKey="index"
+          height={X_AXIS_HEIGHT}
           tickLine={false}
           axisLine={false}
           minTickGap={56}
           tickFormatter={(index: number) => {
-            const candle = reading.candles[index];
+            const candle = view.candles[index];
             if (candle === undefined) return "";
-            return reading.resolution.kind === "daily"
+            return view.minutes === null
               ? SESSION_DAY.format(new Date(candle.time)).slice(0, 5)
               : NY_CLOCK.format(new Date(candle.time));
           }}
@@ -169,20 +230,19 @@ function CandleChart({
           orientation="left"
           tickLine={false}
           axisLine={false}
-          domain={[ticks[0]!, ticks.at(-1)!]}
+          domain={domain}
           ticks={ticks}
           tickFormatter={(value: number) =>
             value.toLocaleString("es-AR", { maximumFractionDigits: 2 })
           }
         />
-        <YAxis yAxisId="volume" hide domain={[0, maxVolume * 5]} />
+        <YAxis yAxisId="volume" hide domain={volumeDomain} />
         <Bar
           xAxisId="volume"
           yAxisId="volume"
           dataKey="volume"
           isAnimationActive={false}
-          fill="var(--muted-foreground)"
-          fillOpacity={0.18}
+          shape={VolumeShape}
         />
         <Bar
           yAxisId="price"
@@ -254,17 +314,15 @@ function FillGlyph({ side }: { readonly side: "buy" | "sell" }) {
 }
 
 function ReadingStrip({
-  reading,
+  view,
   index,
 }: {
-  readonly reading: Reading;
+  readonly view: View;
   readonly index: number;
 }) {
-  const candle = reading.candles[index];
+  const candle = view.candles[index];
   if (candle === undefined) return null;
-  const fills = reading.markers.filter(
-    (marker) => marker.candleIndex === index,
-  );
+  const fills = view.markers.filter((marker) => marker.candleIndex === index);
   const value = (label: string, amount: string) => (
     <span className="whitespace-nowrap">
       <span className="text-muted-foreground">{label} </span>
@@ -277,7 +335,7 @@ function ReadingStrip({
       className="flex min-h-10 flex-wrap items-center gap-x-4 gap-y-1 text-xs"
     >
       <span className="numeric font-medium">
-        {candleLabel(reading, candle.time)}
+        {candleLabel(view, candle.time)}
       </span>
       {value("O", candle.open)}
       {value("H", candle.high)}
@@ -306,6 +364,38 @@ function ReadingStrip({
   );
 }
 
+/**
+ * Un nivel del plan que la escala de velas deja fuera, con su dirección. Es un
+ * botón: llevarlo a la vista es pasar la escala a «Plan».
+ */
+function OffScaleLevel({
+  label,
+  price,
+  above,
+  onShow,
+}: {
+  readonly label: string;
+  readonly price: number;
+  readonly above: boolean;
+  readonly onShow: () => void;
+}) {
+  const Icon = above ? ArrowUp : ArrowDown;
+  return (
+    <button
+      type="button"
+      onClick={onShow}
+      aria-label={`${label} ${formatMoney(String(price))}, ${above ? "arriba" : "abajo"} de la escala. Incluir el plan en la escala.`}
+      className="inline-flex min-h-6 items-center gap-1 rounded-md border px-1.5 text-xs whitespace-nowrap text-muted-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      <Icon aria-hidden="true" className="size-3" />
+      {label}
+      <span className="numeric text-foreground">
+        {formatMoney(String(price))}
+      </span>
+    </button>
+  );
+}
+
 function ChartBody({
   reading,
   plan,
@@ -315,10 +405,15 @@ function ChartBody({
   readonly plan: TradePlan | null;
   readonly symbol: string;
 }) {
+  const intervals = candleIntervalsOf(reading.resolution);
+  const [minutes, setMinutes] = useState<number | null>(intervals[0] ?? null);
+  const [scaleMode, setScaleMode] = useState<ScaleMode>("candles");
+  const view = useMemo(() => viewOf(reading, minutes), [reading, minutes]);
+
   const rows = useMemo<Row[]>(
     () =>
-      reading.candles.map((candle, index) => {
-        const fills = reading.markers.filter(
+      view.candles.map((candle, index) => {
+        const fills = view.markers.filter(
           (marker) => marker.candleIndex === index,
         );
         const buy = fills.find((fill) => fill.side === "buy");
@@ -333,50 +428,160 @@ function ChartBody({
           sell: sell === undefined ? null : Number(sell.price),
         };
       }),
-    [reading],
+    [view],
   );
   const firstFill =
-    reading.markers.find((marker) => marker.candleIndex !== null)
-      ?.candleIndex ?? rows.length - 1;
-  const view = useCandleWindow(
+    view.markers.find((marker) => marker.candleIndex !== null)?.candleIndex ??
+    rows.length - 1;
+  // Otro intervalo es otra serie: la ventana arranca de nuevo en la entrada.
+  return (
+    <CandleBody
+      key={view.minutes ?? "daily"}
+      reading={reading}
+      view={view}
+      rows={rows}
+      firstFill={firstFill}
+      plan={plan}
+      symbol={symbol}
+      intervals={intervals}
+      onInterval={setMinutes}
+      scaleMode={scaleMode}
+      onScaleMode={setScaleMode}
+    />
+  );
+}
+
+function CandleBody({
+  reading,
+  view,
+  rows,
+  firstFill,
+  plan,
+  symbol,
+  intervals,
+  onInterval,
+  scaleMode,
+  onScaleMode,
+}: {
+  readonly reading: Reading;
+  readonly view: View;
+  readonly rows: readonly Row[];
+  readonly firstFill: number;
+  readonly plan: TradePlan | null;
+  readonly symbol: string;
+  readonly intervals: readonly number[];
+  readonly onInterval: (minutes: number) => void;
+  readonly scaleMode: ScaleMode;
+  readonly onScaleMode: (mode: ScaleMode) => void;
+}) {
+  const pane = useCandleWindow(
     rows.length,
     firstFill,
     MARGIN.left + Y_AXIS_WIDTH + MARGIN.right,
   );
-  const { index, frame, width, move } = view;
+  const { index, frame, width, move } = pane;
   const visibleRows = useMemo(
-    () => rows.slice(view.start, view.end),
-    [rows, view.start, view.end],
+    () => rows.slice(pane.start, pane.end),
+    [rows, pane.start, pane.end],
+  );
+
+  const levels = useMemo(() => planLevels(plan), [plan]);
+  const scale = useMemo(() => {
+    const prices = visibleRows.flatMap((row) => [
+      ...row.range,
+      ...(row.buy === null ? [] : [row.buy]),
+      ...(row.sell === null ? [] : [row.sell]),
+    ]);
+    return candlePriceScale(
+      scaleMode === "plan"
+        ? [...prices, ...levels.map((level) => level.price)]
+        : prices,
+    );
+  }, [visibleRows, levels, scaleMode]);
+  const [bottom, top] = scale.price;
+  const offScale = levels.filter(
+    (level) => level.price > top || level.price < bottom,
   );
 
   // El dibujo no depende del cursor: moverlo no vuelve a pintar las velas.
   const chart = useMemo(
-    () => <CandleChart reading={reading} plan={plan} rows={visibleRows} />,
-    [reading, plan, visibleRows],
+    () => (
+      <CandleChart
+        view={view}
+        plan={plan}
+        rows={visibleRows}
+        domain={scale.domain}
+        ticks={scale.ticks}
+      />
+    ),
+    [view, plan, visibleRows, scale],
   );
 
   const plotLeft = MARGIN.left + Y_AXIS_WIDTH;
   const plotWidth = Math.max(width - plotLeft - MARGIN.right, 1);
   const band = plotWidth / Math.max(visibleRows.length, 1);
 
-  const placed = reading.markers.filter((m) => m.candleIndex !== null);
-  const outside = reading.markers.filter((m) => m.outsideCandle).length;
-  const missing = reading.markers.length - placed.length;
+  const placed = view.markers.filter((m) => m.candleIndex !== null);
+  const outside = view.markers.filter((m) => m.outsideCandle).length;
+  const missing = view.markers.length - placed.length;
 
   return (
     <div className="flex flex-col gap-2">
-      <ReadingStrip reading={reading} index={index} />
+      <ReadingStrip view={view} index={index} />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {intervals.length > 1 ? (
+            <Segmented
+              label="Intervalo de las velas"
+              options={intervals.map((value) => ({
+                value: String(value),
+                label: `${value} min`,
+              }))}
+              value={String(view.minutes)}
+              onChange={(value) => onInterval(Number(value))}
+            />
+          ) : null}
+          {levels.length === 0 ? null : (
+            <Segmented
+              label="Escala de precio"
+              options={[
+                { value: "candles", label: "Velas" },
+                { value: "plan", label: "Plan" },
+              ]}
+              value={scaleMode}
+              onChange={onScaleMode}
+            />
+          )}
+        </div>
+        {offScale.length === 0 ? null : (
+          <div
+            aria-label="Niveles fuera de la escala"
+            role="group"
+            className="flex flex-wrap items-center gap-1.5"
+          >
+            {offScale.map((level) => (
+              <OffScaleLevel
+                key={level.label}
+                label={level.label}
+                price={level.price}
+                above={level.price > top}
+                onShow={() => onScaleMode("plan")}
+              />
+            ))}
+          </div>
+        )}
+      </div>
       <div
         ref={frame}
         role="group"
         tabIndex={0}
         aria-roledescription="gráfico de velas"
-        aria-label={`${resolutionLabel(reading)} de ${symbol}, ${rows.length} velas y ${placed.length} ejecuciones. Flechas para recorrer las velas; la tabla de ejecuciones está abajo.`}
+        aria-label={`${resolutionLabel(view.minutes)} de ${symbol}, ${rows.length} velas y ${placed.length} ejecuciones. Flechas para recorrer las velas, más y menos para el zoom; la tabla de ejecuciones está abajo.`}
         className="relative touch-pan-y rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         onPointerMove={(event) => {
           const box = event.currentTarget.getBoundingClientRect();
           move(
-            view.start +
+            pane.start +
               Math.min(
                 Math.max(
                   Math.floor((event.clientX - box.left - plotLeft) / band),
@@ -386,42 +591,31 @@ function ChartBody({
               ),
           );
         }}
-        onKeyDown={(event) => {
-          const step: Record<string, number> = {
-            ArrowLeft: -1,
-            ArrowRight: 1,
-            PageUp: -10,
-            PageDown: 10,
-          };
-          if (event.key in step) {
-            event.preventDefault();
-            move(index + step[event.key]!);
-          } else if (event.key === "Home") {
-            event.preventDefault();
-            move(0);
-          } else if (event.key === "End") {
-            event.preventDefault();
-            move(rows.length - 1);
-          }
-        }}
+        onKeyDown={(event) => handleCandleKeys(event, pane)}
       >
-        {chart}
         {width === 0 ? null : (
+          // Detrás de las velas: la línea no tapa la mecha de la elegida.
           <span
             aria-hidden="true"
             className="pointer-events-none absolute w-px bg-foreground/30"
             style={{
-              left: plotLeft + band * (index - view.start + 0.5),
+              left: plotLeft + band * (index - pane.start + 0.5),
               top: MARGIN.top,
-              height: HEIGHT - MARGIN.top - 30,
+              height: PLOT_HEIGHT,
             }}
           />
         )}
+        {chart}
       </div>
-      <CandleWindowControls window={view} />
+      <CandleWindowControls window={pane} />
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
         <span>
-          Schwab · {resolutionLabel(reading)}
+          Schwab · {resolutionLabel(view.minutes)}
+          {view.minutes !== null &&
+          reading.resolution.kind === "minute" &&
+          view.minutes !== reading.resolution.minutes
+            ? ` (de ${reading.resolution.minutes} min)`
+            : null}
           {reading.resolution.kind === "minute"
             ? reading.extendedHours
               ? " · horario extendido"
@@ -435,6 +629,13 @@ function ChartBody({
             . Las marcas son tus ejecuciones: <FillGlyph side="buy" /> compra,{" "}
             <FillGlyph side="sell" /> venta. Las líneas punteadas son el stop,
             el target y la entrada del plan.
+          </p>
+          <p>
+            <strong>Intervalo</strong> reagrupa las mismas velas (1 minuto casi
+            no tiene cuerpo; 5 o 15 sí). <strong>Escala</strong>: «Velas» ajusta
+            el precio a lo visible y nombra arriba un nivel que queda afuera;
+            «Plan» incluye stop y target. <strong>Zoom</strong>: lupas, o + y −
+            con el gráfico enfocado.
           </p>
           {reading.fallback === null ? null : (
             <p>

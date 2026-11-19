@@ -20,7 +20,7 @@ import {
 import { TRADING_GLOSSARY } from "./trading-glossary";
 
 /**
- * Las lecciones de análisis técnico (`technical-lessons-1.0.0`, `F11-10`).
+ * Las lecciones de análisis técnico (`technical-lessons-1.1.0`, `F11-10`).
  *
  * Decisiones del owner (2026-11-15): cada lección es un gráfico anotado y unas
  * pocas reglas de una línea, con los errores comunes plegados y, en los setups,
@@ -33,7 +33,7 @@ import { TRADING_GLOSSARY } from "./trading-glossary";
  * escrito por el agente a partir de las fuentes del glosario; el owner lo
  * revisa antes de cerrar el slice.
  */
-export const TECHNICAL_LESSONS_VERSION = "technical-lessons-1.0.0";
+export const TECHNICAL_LESSONS_VERSION = "technical-lessons-1.1.0";
 
 export type LessonTimeframe = "5m" | "1d";
 export type LessonOverlay = "ema9" | "ema20" | "sma20" | "sma50" | "vwap";

@@ -1,7 +1,7 @@
 import type { LessonSpec } from "./technical-lessons";
 
 /**
- * El contenido de `technical-lessons-1.0.0`: siete conceptos y un setup por
+ * El contenido de `technical-lessons-1.1.0`: siete conceptos y un setup por
  * cada código de `trading-setups-1.0.0`. Las velas son esquemáticas
  * (`schematic-candles-1.0.0`) y los tests de `technical-lessons.test.ts`
  * comprueban, lección por lección, que el dibujo muestra lo que dicen las
@@ -591,7 +591,14 @@ export const LESSON_CATALOG: readonly LessonSpec[] = [
             volume: 0.6,
           },
           { bars: 1, to: 30.7, volume: 2.8 },
-          { bars: 12, to: 34.4, swing: 0.25, volume: 1.3 },
+          {
+            bars: 10,
+            to: 33.5,
+            swing: 0.25,
+            volume: 1.3,
+            ceiling: 33.95,
+          },
+          { bars: 2, to: 34.6, volume: 1.3 },
           { bars: 7, to: 33.8, swing: 0.3 },
         ],
         overrides: {
@@ -750,13 +757,21 @@ export const LESSON_CATALOG: readonly LessonSpec[] = [
             volume: 0.8,
           },
           { bars: 1, to: 20.75, volume: 2.5 },
-          { bars: 20, to: 22.4, swing: 0.08, volume: 1.2 },
+          {
+            bars: 16,
+            to: 22.0,
+            swing: 0.08,
+            volume: 1.2,
+            ceiling: 22.12,
+          },
+          { bars: 4, to: 22.4, volume: 1.2 },
           { bars: 18, to: 22.1, swing: 0.07, volume: 0.6 },
         ],
         overrides: {
           0: { open: 20.0, high: 20.5, low: 19.85, close: 20.35 },
           1: { open: 20.35, high: 20.42, low: 19.6, close: 19.75 },
           2: { open: 19.75, high: 20.3, low: 19.7, close: 20.2 },
+          26: { high: 22.3 },
         },
       },
       overlays: ["vwap"],
@@ -830,8 +845,8 @@ export const LESSON_CATALOG: readonly LessonSpec[] = [
         wick: 0.05,
         baseVolume: 70_000,
         legs: [
-          { bars: 6, to: 14.3, swing: 0.06, volume: 2 },
-          { bars: 10, to: 14.42, swing: 0.1, floor: 14.15, volume: 0.7 },
+          { bars: 6, to: 14.3, swing: 0.06, volume: 2, floor: 14.25 },
+          { bars: 10, to: 14.42, swing: 0.1, floor: 14.25, volume: 0.7 },
           { bars: 1, to: 14.78, volume: 2.4 },
           { bars: 3, to: 14.72, swing: 0.03, volume: 0.8 },
           { bars: 14, to: 16.05, swing: 0.06, volume: 1.1 },
@@ -904,7 +919,8 @@ export const LESSON_CATALOG: readonly LessonSpec[] = [
           { bars: 1, to: 10.9, gap: 0.7, volume: 3.5 },
           { bars: 1, to: 10.85, volume: 1.6 },
           { bars: 1, to: 11.15, volume: 2.6 },
-          { bars: 12, to: 11.9, swing: 0.06, volume: 1.4 },
+          { bars: 8, to: 11.6, swing: 0.06, volume: 1.4, ceiling: 11.66 },
+          { bars: 4, to: 11.9, volume: 1.4 },
           { bars: 21, to: 11.55, swing: 0.06, volume: 0.6 },
         ],
         overrides: {
@@ -993,7 +1009,7 @@ export const LESSON_CATALOG: readonly LessonSpec[] = [
           },
           { bars: 1, to: 30.9 },
           { bars: 1, to: 31.4, volume: 1.4 },
-          { bars: 10, to: 34.6, swing: 0.2, volume: 1.1 },
+          { bars: 10, to: 34.6, swing: 0.2, volume: 1.1, ceiling: 34.45 },
           { bars: 4, to: 34.2, swing: 0.2 },
         ],
         overrides: {
