@@ -10,6 +10,7 @@ import type { ConceptFact } from "./valuation-facts";
 import {
   assessZeroDebtEvidence,
   listZeroDebtEvidenceFacts,
+  LOSS_YEAR_INTEREST_RULE_VERSION,
   ZERO_DEBT_EVIDENCE_SHORT_HISTORY_VERSION,
   ZERO_DEBT_EVIDENCE_VERSION,
   zeroDebtEvidenceHasInterest,
@@ -176,6 +177,74 @@ describe(ZERO_DEBT_EVIDENCE_VERSION, () => {
         toFact,
       ),
     ).toEqual({ status: "not_met", reason: "interest_material" });
+  });
+
+  it("measures a loss year's interest against revenue (PLTR, loss-year-interest-1.0.0)", () => {
+    // PLTR 2021–2022: EBIT -411 M y -161 M, intereses de 3,6 M y 4,1 M sobre
+    // ventas de 1.542 M y 1.906 M (0,23 % y 0,22 %); 2023 con EBIT 120 M.
+    const pltr = series((_, index) =>
+      index === 4
+        ? { operating_income: "-411", interest_expense: "3.6", revenue: "1542" }
+        : index === 3
+          ? {
+              operating_income: "-161",
+              interest_expense: "4.1",
+              revenue: "1906",
+            }
+          : index === 2
+            ? { operating_income: "120", interest_expense: "3.5" }
+            : {},
+    );
+    const evidence = met(pltr);
+
+    expect(evidence.version).toBe(ZERO_DEBT_EVIDENCE_VERSION);
+    expect(evidence.lossYearInterest).toEqual({
+      version: LOSS_YEAR_INTEREST_RULE_VERSION,
+      ceiling: "0.005",
+    });
+    expect(zeroDebtShortfall(evidence)).toBeNull();
+  });
+
+  it("still rejects a loss year whose interest exceeds 0.5 % of revenue", () => {
+    expect(
+      assessZeroDebtEvidence(
+        series((_, index) =>
+          index === 1
+            ? { operating_income: "-50", interest_expense: "5.01" }
+            : {},
+        ),
+        FLOOR,
+        toFact,
+      ),
+    ).toEqual({ status: "not_met", reason: "interest_material" });
+    expect(
+      met(
+        series((_, index) =>
+          index === 1 ? { operating_income: "0", interest_expense: "5" } : {},
+        ),
+      ).lossYearInterest,
+    ).toBeDefined();
+  });
+
+  it("does not freeze the loss-year rule when no year uses it", () => {
+    expect(
+      met(
+        series((_, index) => (index === 0 ? { interest_expense: "2.5" } : {})),
+      ),
+    ).not.toHaveProperty("lossYearInterest");
+  });
+
+  it("reads a stored evidence without the rule as coverage only", () => {
+    const evidence = met(
+      series((_, index) =>
+        index === 1 ? { operating_income: "-50", interest_expense: "1" } : {},
+      ),
+    );
+    const stored: ZeroDebtEvidence = { ...evidence };
+    delete stored.lossYearInterest;
+
+    expect(evidence.lossYearInterest).toBeDefined();
+    expect(zeroDebtShortfall(stored)).toBe("interest_material");
   });
 
   it("rejects a scheduled maturity even with no recipe component (D.R. Horton)", () => {

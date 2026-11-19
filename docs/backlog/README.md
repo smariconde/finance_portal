@@ -145,8 +145,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   117 | `F6-31`    | `done`        | Ventas sobre capital de la industria (`damodaran.capex-us`) cuando la propia no es positiva, congelada en el snapshot y recalculada por el motor.                                                                         | `F6-30`            |
 |   118 | `F6-32`    | `done`        | Acciones en circulación de filers con varias clases desde la carátula del instance XBRL, con peso declarado cuando las clases no valen lo mismo (BRK); GOOGL y META valuadas.                                             | `F6-31`            |
 |   119 | `F6-33`    | `done`        | Empresas fuera del S&P 500 con 10-K constituidas a pedido desde `/valuacion` según la ADR 0084, en el índice declarado `owner-followed`; 20-F y 40-F negados por nombre.                                                  | ADR 0084           |
-|   120 | `F6-34`    | `ready`       | Evidencia de deuda cero con EBIT negativo: en esos años el interés se mide contra las ventas, no por cobertura (PLTR).                                                                                                    | `F6-30`            |
-|   121 | `F6-35`    | `queued`      | Deuda publicada sólo como `LongTermDebtNoncurrent`, sin cronograma ni porción corriente, con receta propia nombrada (CRWD).                                                                                               | `F6-30`            |
+|   120 | `F6-34`    | `done`        | Evidencia de deuda cero con EBIT negativo: en esos años el interés se mide contra las ventas, no por cobertura (PLTR).                                                                                                    | `F6-30`            |
+|   121 | `F6-35`    | `ready`       | Deuda publicada sólo como `LongTermDebtNoncurrent`, sin cronograma ni porción corriente, con receta propia nombrada (CRWD).                                                                                               | `F6-30`            |
 |   122 | `F6-36`    | `queued`      | Convertibles en la deuda: medir los conceptos con que se publican y sumarlos a una receta (DDOG).                                                                                                                         | `F6-30`            |
 |   123 | `F6-37`    | `queued`      | Volatilidad de las opciones con toda la historia disponible desde dos años, nombrada, cuando no hay cinco (RDDT).                                                                                                         | `F6-32`            |
 |   124 | `F6-38`    | `queued`      | Investigar el rechazo `failureRisk` de F en el método cíclico y el `pretax_income_not_reported` de MCD.                                                                                                                   | `F6-32`            |
@@ -4551,6 +4551,30 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
   o rechazos. Sin ellos se aplica y la migración se re-aplica limpia, con
   `ADD VALUE IF NOT EXISTS`.
 - Gates: 4.669 unit, 251 de integración, lint, tipos, formato y build.
+
+#### `F6-34` — intereses de un ejercicio con EBIT negativo (cerrado el 2026-11-19)
+
+- `loss-year-interest-1.0.0`, dentro de `zero-debt-evidence`. En un ejercicio
+  con EBIT no positivo, el interés se mide contra las ventas, con un techo de
+  0,5 % (umbral aprobado por el owner). En los ejercicios con EBIT positivo
+  sigue la cobertura contra el piso de la banda más alta.
+- La regla se congela en `lossYearInterest` sólo cuando un ejercicio la usa.
+  Una evidencia guardada sin ese campo se sigue leyendo sólo por cobertura, así
+  que las corridas anteriores no cambian.
+- Medido sobre los datos de PLTR en Neon:
+
+  | Año  | EBIT   | Interés | Ventas  | Lectura          |
+  | ---- | ------ | ------- | ------- | ---------------- |
+  | 2021 | −411 M | 3,6 M   | 1.542 M | 0,23 % de ventas |
+  | 2022 | −161 M | 4,1 M   | 1.906 M | 0,22 % de ventas |
+  | 2023 | 120 M  | 3,5 M   | 2.225 M | cobertura 34×    |
+
+- PLTR pasa de una deuda sin resolver a deuda cero con evidencia, con rating
+  Aaa/AAA. En una réplica registró `fcff_three_stage` `requires_review` a
+  26,05 por acción contra un cierre de 156,67.
+- Replay de las corridas guardadas: 18 de 18 en la réplica y 56 de 57 en Neon.
+  La que diverge es la de GOOGL que se rechazó por el redondeo que corrigió
+  `F6-32`.
 
 #### Cobertura de valuación — decisiones del owner del 2026-11-18
 
