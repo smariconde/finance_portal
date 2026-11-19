@@ -488,19 +488,33 @@ export function buildTtmBasePeriod(input: {
   const missingCore = CORE_BALANCE_ITEMS.find(
     (item) => base.items[item] !== undefined && quarter[item] === undefined,
   );
-  const quarterDebt = resolveReportedDebt(
-    Object.fromEntries(
-      DEBT_COMPONENT_KEYS.map((key) => {
-        const value = quarter[DEBT_ITEMS[key]];
-        return [
-          key,
-          value === undefined
-            ? null
-            : { value: value.value, concept: value.concept },
-        ];
-      }),
-    ) as Parameters<typeof resolveReportedDebt>[0],
-  );
+  const debtAt = (items: typeof quarter) =>
+    resolveReportedDebt(
+      Object.fromEntries(
+        DEBT_COMPONENT_KEYS.map((key) => {
+          const value = items[DEBT_ITEMS[key]];
+          return [
+            key,
+            value === undefined
+              ? null
+              : { value: value.value, concept: value.concept },
+          ];
+        }),
+      ) as Parameters<typeof resolveReportedDebt>[0],
+    );
+  const quarterDebt = debtAt(quarter);
+  // `noncurrent_only` (`reported-debt-1.2.0`) confía en que el filer nunca
+  // publica porción corriente: si el 10-K sí la tenía, un 10-Q que no la
+  // etiqueta no la hace desaparecer.
+  const quarterDebtCloses =
+    quarterDebt.status === "resolved" &&
+    (quarterDebt.recipe !== "noncurrent_only" ||
+      (() => {
+        const annual = debtAt(base.items);
+        return (
+          annual.status === "resolved" && annual.recipe === "noncurrent_only"
+        );
+      })());
   const core =
     missingCore !== undefined
       ? {
@@ -508,7 +522,7 @@ export function buildTtmBasePeriod(input: {
           reason: "balance_item_not_at_quarter" as const,
           item: missingCore,
         }
-      : quarterDebt.status !== "resolved"
+      : !quarterDebtCloses
         ? {
             basis: "fiscal_year" as const,
             reason: "debt_recipe_not_at_quarter" as const,

@@ -146,11 +146,11 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   118 | `F6-32`    | `done`        | Acciones en circulación de filers con varias clases desde la carátula del instance XBRL, con peso declarado cuando las clases no valen lo mismo (BRK); GOOGL y META valuadas.                                             | `F6-31`            |
 |   119 | `F6-33`    | `done`        | Empresas fuera del S&P 500 con 10-K constituidas a pedido desde `/valuacion` según la ADR 0084, en el índice declarado `owner-followed`; 20-F y 40-F negados por nombre.                                                  | ADR 0084           |
 |   120 | `F6-34`    | `done`        | Evidencia de deuda cero con EBIT negativo: en esos años el interés se mide contra las ventas, no por cobertura (PLTR).                                                                                                    | `F6-30`            |
-|   121 | `F6-35`    | `ready`       | Deuda publicada sólo como `LongTermDebtNoncurrent`, sin cronograma ni porción corriente, con receta propia nombrada (CRWD).                                                                                               | `F6-30`            |
-|   122 | `F6-36`    | `queued`      | Convertibles en la deuda: medir los conceptos con que se publican y sumarlos a una receta (DDOG).                                                                                                                         | `F6-30`            |
+|   121 | `F6-35`    | `done`        | Deuda publicada sólo como `LongTermDebtNoncurrent`, sin cronograma ni porción corriente, con receta propia nombrada (CRWD).                                                                                               | `F6-30`            |
+|   122 | `F6-36`    | `done`        | Convertibles en la deuda: medir los conceptos con que se publican y sumarlos a una receta (DDOG).                                                                                                                         | `F6-30`            |
 |   123 | `F6-37`    | `done`        | Volatilidad de las opciones con toda la historia disponible desde dos años, nombrada, cuando no hay cinco (RDDT).                                                                                                         | `F6-32`            |
-|   124 | `F6-38`    | `queued`      | Investigar el rechazo `failureRisk` de F en el método cíclico y el `pretax_income_not_reported` de MCD.                                                                                                                   | `F6-32`            |
-|   125 | `F6-39`    | `queued`      | Supuestos derivados `3.0.0`: el crecimiento de ventas de los primeros años desde el consenso guardado, con la historia como respaldo.                                                                                     | `F6-29`            |
+|   124 | `F6-38`    | `done`        | Investigar el rechazo `failureRisk` de F en el método cíclico y el `pretax_income_not_reported` de MCD.                                                                                                                   | `F6-32`            |
+|   125 | `F6-39`    | `ready`       | Supuestos derivados `3.0.0`: el crecimiento de ventas de los primeros años desde el consenso guardado, con la historia como respaldo.                                                                                     | `F6-29`            |
 |   126 | `F6-40`    | `queued`      | E2E estable: el aviso sin base de `/sectores` y `/argentina` en mobile no se encuentra dos veces.                                                                                                                         | -                  |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
@@ -4593,6 +4593,47 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
   (pérdidas en 2023 y 2024) pero su EBIT base es positivo (442 M en 2025), y
   el modelo de supervivencia exige un EBIT base negativo. Resolverlo es una
   decisión del owner.
+
+#### `F6-35` y `F6-36` — deuda sólo no corriente y convertible (cerrado el 2026-11-19)
+
+- `sec-core-concepts-10.0.0` y `annual-fundamentals-1.7.0` leen la deuda
+  convertible como alternativa **después** de los conceptos generales
+  (precedencia, nunca suma). En la no corriente: `ConvertibleDebtNoncurrent` y
+  `ConvertibleLongTermNotesPayable`. En la corriente: `ConvertibleDebtCurrent` y
+  `ConvertibleNotesPayableCurrent`.
+- `reported-debt-1.2.0` agrega la receta `noncurrent_only`. Se usa sólo cuando
+  ninguna receta cierra, la no corriente es positiva y el filer no publica
+  ninguna partida corriente ni un total de largo plazo. Es la excepción que
+  aprobó el owner, y la página la nombra. Un cero publicado sigue el camino de
+  la evidencia de deuda cero.
+- En el TTM, la receta sólo cierra en el 10-Q si el 10-K también cerró con
+  ella: un trimestre que no etiqueta la porción corriente no la hace
+  desaparecer.
+- Medido en companyfacts (3 requests) y en una réplica:
+
+  | Empresa | Qué publica                                                 | Deuda                                          | Resultado                                                                       |
+  | ------- | ----------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------- |
+  | CRWD    | sólo `LongTermDebtNoncurrent`                               | 745 M por `noncurrent_only`                    | corrida `rejected`                                                              |
+  | DDOG    | `ConvertibleLongTermNotesPayable` 987 M y la corriente en 0 | 983 M por `noncurrent_plus_current_maturities` | corrida `rejected`                                                              |
+  | SNOW    | `ConvertibleDebtNoncurrent` 2.284 M                         | resuelve                                       | `growth_tax_pool_not_reconciled`: su 10-K da dos montos federales de quebrantos |
+
+- CRWD y DDOG se rechazan por dos reglas que piden una decisión del owner:
+  - `revenue_margin_recomputed`: son `loss_making` por historia, con EBIT base
+    ajustado positivo (332 M y 617 M), como RDDT.
+  - `failure_risk_recomputed`: un EBIT negativo da cobertura negativa, rating
+    D2/D, y la tabla de fracaso no tiene fila para D.
+- Moderna (590 M no corrientes más 45 M de arrendamientos, sin porción
+  corriente) pasa de sin resolver a 635 M.
+
+#### `F6-38` — F y MCD investigados (cerrado el 2026-11-19, sin código)
+
+- F: su EBIT 2025 es negativo. La cobertura da −7,3, el rating sintético D2/D,
+  y la tabla de fracaso no tiene fila para D. Es la misma decisión pendiente
+  que en CRWD y DDOG.
+- MCD: su corrida es `computed`. `pretax_income_not_reported` sólo marca un
+  ajuste de normalización que no se aplica: publica el resultado antes de
+  impuestos partido en doméstico (3.291 M) y extranjero (7.606 M), sin el
+  total. Sumarlos es una mejora menor, sin un freno detrás.
 
 #### Cobertura de valuación — decisiones del owner del 2026-11-18
 

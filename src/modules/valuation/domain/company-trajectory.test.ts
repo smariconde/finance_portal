@@ -54,7 +54,7 @@ const complete: Values = {
 
 /** La serie llega como la entrega la lectura: el más reciente primero. */
 function series(...years: FiscalYear[]): AnnualFundamentals {
-  return { version: "annual-fundamentals-1.6.0", fiscalYears: years };
+  return { version: "annual-fundamentals-1.7.0", fiscalYears: years };
 }
 
 describe(COMPANY_TRAJECTORY_VERSION, () => {
@@ -137,10 +137,16 @@ describe(COMPANY_TRAJECTORY_VERSION, () => {
   });
 
   it("una deuda sin receta no es deuda cero", () => {
-    // Sólo el no corriente: ninguna receta cierra con una parte.
-    const withoutCurrent = Object.fromEntries(
-      Object.entries(complete).filter(([key]) => key !== "debt_current_total"),
-    ) as Values;
+    // El no corriente y préstamos de corto plazo sin los vencimientos:
+    // ninguna receta cierra con una parte.
+    const withoutCurrent = {
+      ...(Object.fromEntries(
+        Object.entries(complete).filter(
+          ([key]) => key !== "debt_current_total",
+        ),
+      ) as Values),
+      debt_short_term_borrowings: "10",
+    } as Values;
     const { years } = companyTrajectory(
       series(year("2024-12-31", withoutCurrent)),
     );

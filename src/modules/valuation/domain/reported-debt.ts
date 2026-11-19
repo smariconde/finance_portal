@@ -37,9 +37,20 @@ import {
  * Sólo esas dos salidas llevan `1.1.0`: donde una receta cierra o no hay
  * evidencia, la salida es la de `1.0.0` byte por byte, y una corrida anterior
  * conserva su hash.
+ *
+ * `1.2.0` (`F6-35`/`F6-36`, decisión del owner del 2026-11-18 con CrowdStrike
+ * medido): sin receta ni evidencia, la deuda es la **no corriente sola** cuando
+ * el filer no publica ninguna partida corriente —ni deuda corriente, ni
+ * vencimientos, ni préstamos de corto plazo, ni papeles—
+ * (`noncurrent_only`). CrowdStrike publica sólo `LongTermDebtNoncurrent`
+ * (746 M de bonos a 2029) y Snowflake sólo `ConvertibleDebtNoncurrent`
+ * (2.284 M). Es una excepción declarada a «la ausencia no prueba nada»: se
+ * confía en que no hay porción corriente, y la receta lo nombra. Sólo esa
+ * salida lleva `1.2.0`.
  */
 export const REPORTED_DEBT_VERSION = "reported-debt-1.0.0";
 export const REPORTED_DEBT_EVIDENCE_VERSION = "reported-debt-1.1.0";
+export const REPORTED_DEBT_NONCURRENT_ONLY_VERSION = "reported-debt-1.2.0";
 
 /**
  * La no corriente que ya incluye los arrendamientos financieros: con ella, la
@@ -79,6 +90,8 @@ export const debtRecipeSchema = z.enum([
   "noncurrent_plus_current_maturities",
   /** Sin préstamos con evidencia: la deuda son los arrendamientos financieros. */
   "finance_leases_only",
+  /** Sin ninguna partida corriente publicada: la no corriente sola (`1.2.0`). */
+  "noncurrent_only",
 ]);
 
 export type DebtRecipe = z.infer<typeof debtRecipeSchema>;
@@ -100,7 +113,11 @@ const conceptSchema = z.string().trim().min(1).max(256);
 
 export const reportedDebtSchema = z.discriminatedUnion("status", [
   z.object({
-    version: z.enum([REPORTED_DEBT_VERSION, REPORTED_DEBT_EVIDENCE_VERSION]),
+    version: z.enum([
+      REPORTED_DEBT_VERSION,
+      REPORTED_DEBT_EVIDENCE_VERSION,
+      REPORTED_DEBT_NONCURRENT_ONLY_VERSION,
+    ]),
     status: z.literal("resolved"),
     recipe: debtRecipeSchema,
     included: z
@@ -189,7 +206,7 @@ function withoutRecipe(
   };
 
   if (evidence === null || zeroDebtShortfall(evidence) !== null) {
-    return unresolved;
+    return noncurrentOnly(input, present) ?? unresolved;
   }
 
   const borrowings = present.filter((key) => key !== "financeLeases");
@@ -198,7 +215,7 @@ function withoutRecipe(
   );
 
   if (borrowings.some((key) => !amounts.get(key)!.isZero())) {
-    return unresolved;
+    return noncurrentOnly(input, present) ?? unresolved;
   }
 
   const leases = amounts.get("financeLeases");
@@ -239,6 +256,84 @@ function withoutRecipe(
       reason: "reported_zero" as const,
     })),
     total: formatDecimal(leases, "debt.total"),
+  };
+}
+
+const CURRENT_COMPONENTS: readonly DebtComponentKey[] = [
+  "currentTotal",
+  "longTermCurrent",
+  "shortTermBorrowings",
+  "commercialPaper",
+];
+
+/**
+ * `noncurrent_only` (`1.2.0`): la no corriente, más los arrendamientos
+ * financieros si se publican aparte, cuando no hay ninguna partida corriente.
+ * `null` si no aplica.
+ */
+function noncurrentOnly(
+  input: ReportedDebtInput,
+  present: DebtComponentKey[],
+): ReportedDebt | null {
+  // Un cero publicado sigue el camino de la evidencia de deuda cero: esta
+  // receta no prueba ausencias, sólo suma una deuda que sí se publica.
+  if (
+    input.longTermNoncurrent === null ||
+    input.longTermTotal !== null ||
+    CURRENT_COMPONENTS.some((key) => input[key] !== null) ||
+    !parseDecimal(
+      input.longTermNoncurrent.value,
+      "debt.longTermNoncurrent",
+    ).greaterThan(ZERO)
+  ) {
+    return null;
+  }
+
+  const included: DebtComponentKey[] = ["longTermNoncurrent"];
+  const excluded: {
+    component: DebtComponentKey;
+    concept: string;
+    reason: z.infer<typeof debtExclusionReasonSchema>;
+  }[] = [];
+
+  if (input.financeLeases !== null) {
+    if (
+      input.longTermNoncurrent.concept === NONCURRENT_INCLUDING_FINANCE_LEASES
+    ) {
+      excluded.push({
+        component: "financeLeases",
+        concept: input.financeLeases.concept,
+        reason: "included_in_noncurrent",
+      });
+    } else {
+      included.push("financeLeases");
+    }
+  }
+
+  const amounts = included.map((key) =>
+    parseDecimal(input[key]!.value, `debt.${key}`),
+  );
+
+  if (amounts.some((amount) => amount.lessThan(ZERO))) {
+    return {
+      version: REPORTED_DEBT_VERSION,
+      status: "unresolved",
+      reason: "negative_component",
+      present,
+    };
+  }
+
+  return {
+    version: REPORTED_DEBT_NONCURRENT_ONLY_VERSION,
+    status: "resolved",
+    recipe: "noncurrent_only",
+    included: included.map((key, index) => ({
+      component: key,
+      concept: input[key]!.concept,
+      amount: formatDecimal(amounts[index]!, `debt.${key}`),
+    })),
+    excluded,
+    total: formatDecimal(sum(amounts), "debt.total"),
   };
 }
 

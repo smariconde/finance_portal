@@ -24,7 +24,7 @@ import { SEC_HISTORY_WINDOW_VERSION } from "./sec-history-window";
  *   a correr el CIK publica sólo lo nuevo. No sube la versión del parser, porque
  *   filtrar no cambia el contenido de un hecho ya publicado.
  */
-export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-9.0.0";
+export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-10.0.0";
 
 /**
  * Qué decide la versión. La 1.0.0 eran los mismos conceptos con toda la historia
@@ -47,6 +47,8 @@ export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-9.0.0";
  * opciones que el XBRL del mismo 10-K publica.
  * La 9.0.0 suma patrimonio común y patrimonio preferente para el preflight
  * financiero (F6-20). Patrimonio total no se toma como común sin evidencia.
+ * La 10.0.0 suma la deuda convertible corriente y no corriente (F6-36): Snowflake
+ * y Datadog no publican su deuda con ningún otro concepto.
  * Con la versión y el ancla,
  * un período anterior al corte sigue siendo «no se fue a buscar». El test fija
  * los componentes: cambiar uno sin subir la versión lo rompe.
@@ -165,6 +167,11 @@ const US_GAAP = [
   // Sus vencimientos corrientes: Coca-Cola, Home Depot y Eaton no publican
   // `LongTermDebtCurrent` (6.0.0).
   "LongTermDebtAndCapitalLeaseObligationsCurrent",
+  // La deuda que sólo se publica como convertible (10.0.0): Snowflake y Datadog.
+  "ConvertibleDebtNoncurrent",
+  "ConvertibleLongTermNotesPayable",
+  "ConvertibleDebtCurrent",
+  "ConvertibleNotesPayableCurrent",
   "DebtCurrent",
   "CommercialPaper",
   "ShortTermBorrowings",

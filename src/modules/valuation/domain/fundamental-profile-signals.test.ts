@@ -22,7 +22,7 @@ function series(
   ...years: Array<{ end: string; items: YearSpec }>
 ): AnnualFundamentals {
   return {
-    version: "annual-fundamentals-1.6.0",
+    version: "annual-fundamentals-1.7.0",
     fiscalYears: years.map(({ end, items }) => ({
       fiscalYearEnd: end,
       items: Object.fromEntries(
@@ -165,7 +165,11 @@ describe(`${FUNDAMENTAL_PROFILE_SIGNALS_VERSION}: distress`, () => {
               interest_expense: "10",
               equity: "900",
               cash: "400",
+              // Préstamos de corto plazo sin los vencimientos corrientes: la
+              // no corriente más ellos no es el total (`reported-debt-1.2.0`
+              // sólo toma la no corriente sin ninguna partida corriente).
               debt_long_term_noncurrent: "300",
+              debt_short_term_borrowings: "50",
             },
           },
           {
@@ -476,7 +480,7 @@ describe("evidence from fundamentals", () => {
     expect(
       assessFundamentalProfileSignals(
         SUBJECT,
-        { version: "annual-fundamentals-1.6.0", fiscalYears: [] },
+        { version: "annual-fundamentals-1.7.0", fiscalYears: [] },
         "sec-edgar",
       ).evidence,
     ).toEqual([]);
