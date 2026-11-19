@@ -71,6 +71,11 @@ export type LiveFailure = {
   readonly state: "failed";
   /** Código cerrado: `not_connected`, `http_401`, `source_daily_budget_exhausted`… */
   readonly code: string;
+  /**
+   * Con un formato que cambió, el camino de la clave que falló
+   * (`[0].childOrderStrategies[1].stopType`): nombres de claves, nunca valores.
+   */
+  readonly path?: string | null;
 };
 
 export type LiveAccountReading =
@@ -179,7 +184,9 @@ async function readAccountNumber(
   if (numbersFailure !== null) return numbersFailure;
 
   const numbers = parseSchwabAccountNumbers(numbersResponse.body);
-  if (!numbers.ok) return { state: "failed", code: numbers.code };
+  if (!numbers.ok) {
+    return { state: "failed", code: numbers.code, path: numbers.path };
+  }
   // Medido: una cuenta. Más de una pide decidir cuál se muestra y cómo se
   // identifica en el diario; no se elige una en silencio.
   if (numbers.value.length === 0)
@@ -231,7 +238,9 @@ async function readUnguarded(
   }
 
   const account = parseSchwabAccount(accountResponse.body);
-  if (!account.ok) return { state: "failed", code: account.code };
+  if (!account.ok) {
+    return { state: "failed", code: account.code, path: account.path };
+  }
   // La cuenta de `accountNumbers` y la leída tienen que ser la misma.
   if (account.value.accountNumber !== accountNumber) {
     return { state: "failed", code: "account_number_mismatch" };
@@ -241,7 +250,9 @@ async function readUnguarded(
     recentResponse.body,
     workingResponse.body,
   ]);
-  if (!orders.ok) return { state: "failed", code: orders.code };
+  if (!orders.ok) {
+    return { state: "failed", code: orders.code, path: orders.path };
+  }
 
   const open = account.value.positions.filter(
     (position) =>
@@ -307,7 +318,9 @@ export async function readOpenDayPnl(
     if (failure !== null) return failure;
 
     const account = parseSchwabAccount(response.body);
-    if (!account.ok) return { state: "failed", code: account.code };
+    if (!account.ok) {
+      return { state: "failed", code: account.code, path: account.path };
+    }
     if (account.value.accountNumber !== number.accountNumber) {
       return { state: "failed", code: "account_number_mismatch" };
     }
@@ -362,7 +375,9 @@ export async function readLiveQuotes(
     if (failure !== null) return failure;
 
     const parsed = parseSchwabQuotes(response.body);
-    if (!parsed.ok) return { state: "failed", code: parsed.code };
+    if (!parsed.ok) {
+      return { state: "failed", code: parsed.code, path: parsed.path };
+    }
 
     // Schwab no puede devolver un símbolo que no se pidió.
     const asked = new Set(check.scope.symbols);
