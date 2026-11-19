@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { PageContainer, PageHeader } from "@/app/_components/page-frame";
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
 import type { StoredIdea } from "@/modules/trading/application/pre-market-store";
 import { buttonVariants } from "@/components/ui/button";
@@ -33,16 +34,12 @@ export default async function PlanPage() {
   if (!servesRealData(health))
     return <RuntimeLockedNotice health={health} surface="El plan" />;
   return (
-    <div
-      id="contenido"
-      className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 md:p-6 lg:p-8"
-    >
-      <header className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-          Plan
-        </h1>
-        <PlanNav current="ideas" />
-      </header>
+    <PageContainer>
+      <PageHeader
+        id="plan-title"
+        title="Plan"
+        nav={<PlanNav current="ideas" />}
+      />
       {!servesSchwabConnection(health) ? (
         <Card>
           <CardHeader>
@@ -55,7 +52,7 @@ export default async function PlanPage() {
       ) : (
         <PlanContent />
       )}
-    </div>
+    </PageContainer>
   );
 }
 

@@ -7,6 +7,7 @@ import {
 import type { SchwabTransaction } from "./schwab-transactions";
 import type { ReviewStatus } from "./trade-annotation";
 import type { RMultiple } from "./trade-r-multiple";
+import type { TradeReturn } from "./trade-return";
 import {
   buildRoundTrips,
   type RoundTrip,
@@ -74,6 +75,8 @@ export type JournalEntry = {
   readonly review: ReviewStatus;
   /** R de lo realizado con el stop planeado (`trade-r-multiple-1.0.0`). */
   readonly r: RMultiple;
+  /** Lo realizado sobre el costo de lo que salió (`trade-return-1.0.0`). */
+  readonly return: TradeReturn;
 };
 
 export type JournalPoint = {

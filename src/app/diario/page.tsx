@@ -4,6 +4,7 @@ import { ArrowRight, DatabaseZap } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { PageContainer, PageHeader } from "@/app/_components/page-frame";
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
 import { UnreadTradingParts } from "@/app/_components/unread-trading-parts";
 import { buttonVariants } from "@/components/ui/button";
@@ -35,31 +36,12 @@ export const instant = false;
 
 function Header({ children }: { readonly children?: React.ReactNode }) {
   return (
-    <section
-      className="flex flex-wrap items-end justify-between gap-3"
-      aria-labelledby="diario-title"
-    >
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <h1
-          id="diario-title"
-          className="text-2xl font-semibold tracking-tight md:text-3xl"
-        >
-          Diario
-        </h1>
-        <JournalNav current="journal" />
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function Shell({ children }: { readonly children: React.ReactNode }) {
-  return (
-    <div id="contenido" className="flex-1">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 md:p-6 lg:p-8">
-        {children}
-      </div>
-    </div>
+    <PageHeader
+      id="diario-title"
+      title="Diario"
+      actions={children}
+      nav={<JournalNav current="journal" />}
+    />
   );
 }
 
@@ -102,10 +84,10 @@ export default async function JournalPage() {
 
   if (!servesSchwabConnection(health)) {
     return (
-      <Shell>
+      <PageContainer>
         <Header />
         <NotConnected />
-      </Shell>
+      </PageContainer>
     );
   }
 
@@ -119,7 +101,7 @@ export default async function JournalPage() {
 
   if (reading === null) {
     return (
-      <Shell>
+      <PageContainer>
         <Header />
         <Card>
           <CardHeader>
@@ -132,12 +114,12 @@ export default async function JournalPage() {
             Referencia <code className="font-mono text-xs">{reference}</code>
           </CardContent>
         </Card>
-      </Shell>
+      </PageContainer>
     );
   }
 
   return (
-    <Shell>
+    <PageContainer>
       <Header>
         <div className="flex items-center gap-3">
           {reading.account === null ? null : (
@@ -160,6 +142,6 @@ export default async function JournalPage() {
           setups={reading.setups}
         />
       )}
-    </Shell>
+    </PageContainer>
   );
 }

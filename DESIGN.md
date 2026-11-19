@@ -258,7 +258,8 @@ Las primitivas son componentes shadcn editables construidos sobre Base UI. Se re
 
 ### Page header
 
-- **Estructura:** `PageHeader` (`src/app/_components/page-frame.tsx`): título, a lo sumo una línea que lo precisa —lo demás va en un `InfoTip` al final de esa línea— y las acciones a la derecha (el selector de rutas hermanas, «Volver a valuar»). Debajo, si hace falta, una línea de datos de la página (fecha, método).
+- **Estructura:** `PageHeader` (`src/app/_components/page-frame.tsx`): título, a lo sumo una línea que lo precisa —lo demás va en un `InfoTip` al final de esa línea— y las acciones a la derecha («Volver a valuar», el estado de la sincronización, el selector de una matriz). Debajo, si hace falta, una línea de datos de la página (fecha, método) y, al lado del título, el selector de rutas hermanas (`nav`, ver **Tabs**).
+- **Todas las páginas (2026-11-19):** inicio, configuración, cuenta, diario, trade, estadísticas, plan, Finviz y lecciones usan `PageContainer` y `PageHeader`; ninguna arma su `h1` ni su contenedor a mano.
 - **Sin «volver»:** el header del shell ya dice dónde está el owner; la página no repite el paso de arriba como vínculo.
 - **Ancho:** `PageContainer` y todas las páginas usan el mismo contenedor de `80rem`, así el título arranca en el mismo lugar en cada sección.
 
@@ -284,6 +285,8 @@ Las primitivas son componentes shadcn editables construidos sobre Base UI. Se re
 - **Density:** headers de `2.5rem`; celdas con `0.5rem` de padding y contenido sin wrap por defecto.
 - **State:** divisores horizontales y hover muted al `50%`; filas seleccionadas usan muted.
 - **Financial data:** valores comparables usan `.numeric`; estado y provenance viajan en columnas explícitas.
+- **Order (2026-11-19):** una columna ordenable usa `SortableTableHead` (`src/app/_components/data-table/`): el estado vive en `aria-sort` del `th`, el botón ocupa el rótulo y en una columna de cifras la flecha va a la izquierda para alinear con los números. Lo que no tiene la cifra queda al final en los dos sentidos (`compareNullsLast`), nunca leído como cero. `useTableSort` declara con qué sentido arranca cada columna: texto de A a Z, fechas y cifras de mayor a menor.
+- **Pages (2026-11-19):** una lista que crece sin tope —los trades del diario— se pagina con `TablePagination` al pie de la card: «1–25 de 47 trades» (anunciado con `aria-live`), «Por página» nativo (10/25/50/100) y los cuatro saltos con nombre. Filtrar, ordenar o cambiar la unidad vuelve a la primera página; `pageWindow` acota la página pedida a las que existen.
 
 ### Plan risk sheet
 
@@ -340,13 +343,15 @@ Implementada en `src/app/valuacion/_components/run/sensitivity-matrix.tsx`.
 - **Undefined cells:** una celda fuera del modelo declara `No definido` con su motivo; no queda vacía, no cae a cero y no hereda el valor vecino. Una **columna entera** fuera del modelo con el mismo motivo —un crecimiento terminal por encima de la libre de riesgo— no se dibuja: una línea debajo la nombra con su valor y su motivo (2026-11-16). El `caption` es `sr-only` y la lectura de la grilla vive en el ⓘ del encabezado.
 - **Base case:** la celda que reproduce el caso base se marca con `ring` y etiqueta. Cuando el snapshot no la contiene, no se marca ninguna y la página lo explica.
 
-### Result index
+### Tabs
 
-Implementado en `src/app/valuacion/[ticker]/_components/result-index.tsx` (2026-11-16).
+Gramática en `src/app/_components/tab-styles.ts` (la del índice del resultado de valuación, extendida al resto el 2026-11-19 a pedido del owner).
 
-- **Position:** pegado debajo del header del shell (`top-14`), con el mismo fondo traslúcido y borde inferior; las anclas usan `scroll-mt-28` para que el título no quede tapado.
-- **Current section:** un `IntersectionObserver` marca la primera sección que cruza el tercio superior debajo del índice, con `aria-current="location"` y un subrayado `primary` de 2 px. Sin JavaScript sigue siendo una lista de anclas.
-- **Mobile:** una sola línea que se desplaza de costado; la marcada se trae a la vista moviendo sólo el `scrollLeft` del índice, sin desplazamiento suave con `prefers-reduced-motion`. Targets de `2.75rem`.
+- **Purpose:** las pestañas subrayadas recorren **partes de una misma página**: secciones de una página larga (`SectionIndex`: el resultado de valuación, el tablero argentino) y grupos de un panel (Finviz, `role="tablist"` con flechas, Inicio y Fin). Las **rutas hermanas** (`SectionNav`: Trades · Estadísticas, Ideas · Finviz, Riesgo · Divergencias) conservan el selector compacto de `segment-styles.ts`, al lado del título para no ocupar una fila (decisión del owner, 2026-11-19); para **elegir un valor** —rango, escala, filtro, unidad— está `Segmented`, con la misma gramática.
+- **Look:** rótulos `text-sm` sobre una línea de base de 1 px y la elegida en `foreground` medium con un subrayado `primary` de 2 px. La línea de base es una sombra interior del contenedor, así el subrayado la tapa sin márgenes negativos; la lista es `relative` para que un `sr-only` de una pestaña fuera de la vista no ensanche la página.
+- **Rutas hermanas:** `PageHeader` las pone en la misma línea que el título (`nav`), con `aria-current="page"`; con un título largo —la pregunta de una matriz— van a la derecha (`actions`).
+- **Índice de secciones:** pegado debajo del header del shell (`sticky top-14`), fondo traslúcido y línea de base de borde a borde; un `IntersectionObserver` marca la primera sección que cruza el tercio superior (`aria-current="location"`). Cada pestaña puede llevar una marca al final (el punto de «nuevo» de `/argentina`). Las anclas usan `scroll-mt-28` o más. Sin JavaScript sigue siendo una lista de anclas.
+- **Mobile:** una sola línea que se desplaza de costado, sin barra; la marcada se trae a la vista moviendo sólo el `scrollLeft` de la lista, sin desplazamiento suave con `prefers-reduced-motion`. Targets de `2.75rem`.
 
 ### Scenario paths
 
@@ -388,7 +393,7 @@ Implementado en `src/app/argentina/_components/sector-heatmap.tsx` (`F9-06`).
 Implementados en `src/app/argentina/_components/` (`F9-06`).
 
 - **Block:** una `section` con card: la pregunta como `h2`, la lectura en una frase corta sin causalidad («Agosto de 2026: +0,1 % …»), la fuente y la última fecha en una línea a la vista; después el gráfico, la tabla equivalente y la metodología, estas dos en `Fold`. Los códigos de versión van sólo en la metodología o en un `InfoTip`.
-- **Block index (2026-11-16):** con más de seis bloques, un índice de una línea fijo debajo del header del shell (`sticky top-14`), con la gramática de `segment-styles.ts` y el bloque que se lee en `aria-current="location"` (IntersectionObserver sobre una franja que empieza debajo del índice). En un teléfono se desplaza de costado, sin barra, y centra el bloque actual sin mover la página; con `prefers-reduced-motion` el desplazamiento es instantáneo. Los vínculos son anclas: sin JavaScript siguen funcionando, y las secciones llevan `scroll-mt-32` para no quedar bajo el índice.
+- **Block index (2026-11-16; pestañas desde 2026-11-19):** con más de seis bloques, el `SectionIndex` compartido (ver **Tabs**) con el bloque que se lee en `aria-current="location"` y el punto de «nuevo» al final de cada pestaña. Las secciones llevan `scroll-mt-32` para no quedar bajo el índice.
 - **Summary change (2026-11-16, decisión del owner):** cada tile de la lectura rápida lleva `ChangeIndicator` con la diferencia contra su lectura anterior (`summary-change-1.0.0`: el mes, el año o el último día publicado antes; un hueco es un motivo, nunca un salto a una lectura más vieja). En pp para tasas y brechas, en la unidad propia para un saldo; redondeado antes de decidir la flecha, así «0,0 pp» no lleva color. La polaridad la declara la métrica en el dominio.
 - **Charts:** Recharts sin animación. Líneas sólidas para la serie principal, punteadas para tendencia; la banda cambiaria es un área sombreada con borde punteado; barras desde cero con línea del cero visible. La leyenda repite el trazo (línea), el relleno (cuadrado) o la banda. Un punto sin dato corta la línea; en una serie diaria, el trazo cruza los nulos entre dos datos a lo sumo a una semana (las filas son la unión de fechas de las series), y la lectura y la tabla siguen diciendo «Sin dato». Los ticks lineales van en pasos de 1, 2, 2,5 o 5 por potencia de diez. Una escala se reduce sólo para el dibujo y el título dice la unidad («miles de millones de US$»); la tabla conserva la cifra exacta.
 - **Reading a point (`F9-13`, decisión del owner del 2026-11-03, reemplaza «sin tooltip»):** una franja fija arriba del gráfico muestra la fecha, la presidencia, el régimen y la cifra de cada serie del punto activo, o, sin ninguno, el último punto que tiene alguna cifra. El punto sale de la posición del puntero, nunca del índice de Recharts, que en un click es el de su último movimiento; se activa con mouse, con toque o arrastre (`touch-pan-y` deja el desplazamiento vertical a la página) y con las flechas sobre el gráfico enfocable (Mayúscula salta diez; Inicio y Fin). Lo que se anuncia al lector de pantalla sale sólo del teclado, por una región `polite` aparte.

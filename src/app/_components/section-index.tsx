@@ -1,28 +1,44 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
-export type ResultSection = { readonly id: string; readonly label: string };
+import { tabBaselineClass, tabClass, tabListClass } from "./tab-styles";
+
+export type IndexedSection = {
+  readonly id: string;
+  readonly label: string;
+  /** Después del rótulo: una marca de novedad, nunca texto que haga falta. */
+  readonly trailing?: ReactNode;
+};
 
 /**
- * El índice de la página del resultado: queda pegado debajo del header del
- * shell y marca la sección que se está leyendo (`aria-current`). En un
- * teléfono es una sola línea que se desplaza de costado y lleva la marcada a
- * la vista. Sin JavaScript sigue siendo una lista de anclas.
+ * El índice de una página larga —el resultado de una valuación, el tablero
+ * argentino—: queda pegado debajo del header del shell, con la gramática de
+ * pestañas de `tab-styles.ts`, y marca la sección que se está leyendo
+ * (`aria-current="location"`). En un teléfono es una sola línea que se
+ * desplaza de costado y trae la marcada a la vista sin mover la página. Sin
+ * JavaScript sigue siendo una lista de anclas; cada sección necesita
+ * `scroll-mt-28` o más para no quedar debajo.
  */
-export function ResultIndex({
+export function SectionIndex({
+  label,
   sections,
+  className,
 }: {
-  sections: readonly ResultSection[];
+  readonly label: string;
+  readonly sections: readonly IndexedSection[];
+  readonly className?: string;
 }) {
   const [current, setCurrent] = useState<string | null>(null);
   const list = useRef<HTMLUListElement>(null);
+  // Sólo los IDs deciden qué se observa: un `trailing` nuevo no reinicia nada.
+  const ids = sections.map((section) => section.id).join(" ");
 
   useEffect(() => {
+    const order = ids.split(" ").filter((id) => id !== "");
     const visible = new Set<string>();
-    const order = sections.map((section) => section.id);
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
@@ -43,7 +59,7 @@ export function ResultIndex({
     }
 
     return () => observer.disconnect();
-  }, [sections]);
+  }, [ids]);
 
   // La marcada queda a la vista en la fila que se desplaza de costado. Se
   // mueve sólo el `scrollLeft` del índice: `scrollIntoView` también movería
@@ -52,7 +68,7 @@ export function ResultIndex({
     const container = list.current;
     if (container === null || current === null) return;
     const link = container.querySelector<HTMLElement>(
-      `[data-section="${current}"]`,
+      `[data-section="${CSS.escape(current)}"]`,
     );
     if (link === null) return;
     const left = link.offsetLeft - container.offsetLeft;
@@ -74,13 +90,14 @@ export function ResultIndex({
 
   return (
     <nav
-      aria-label="Secciones del resultado"
-      className="sticky top-14 z-20 -mx-4 -mt-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/85 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8"
+      aria-label={label}
+      className={cn(
+        "sticky top-14 z-20 -mx-4 bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/85 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8",
+        tabBaselineClass,
+        className,
+      )}
     >
-      <ul
-        ref={list}
-        className="flex [scrollbar-width:none] gap-x-1 overflow-x-auto text-sm whitespace-nowrap [&::-webkit-scrollbar]:hidden"
-      >
+      <ul ref={list} className={tabListClass}>
         {sections.map((section) => {
           const active = section.id === current;
 
@@ -90,15 +107,11 @@ export function ResultIndex({
                 data-section={section.id}
                 aria-current={active ? "location" : undefined}
                 href={`#${section.id}`}
-                className={cn(
-                  "-mb-px inline-flex h-11 items-center border-b-2 px-2 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset md:h-10",
-                  active
-                    ? "border-primary font-medium text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground",
-                )}
+                className={tabClass(active)}
                 onClick={() => setCurrent(section.id)}
               >
                 {section.label}
+                {section.trailing}
               </a>
             </li>
           );

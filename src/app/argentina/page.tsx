@@ -4,6 +4,7 @@ import { DataUnavailableNotice } from "@/app/_components/data-unavailable-notice
 import { InfoTip } from "@/app/_components/info-tip";
 import { PageContainer, PageHeader } from "@/app/_components/page-frame";
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
+import { SectionIndex } from "@/app/_components/section-index";
 import {
   loadArgentinaDashboard,
   type ArgentinaDashboard,
@@ -26,10 +27,9 @@ import {
 } from "@/modules/macro-series/application/read-rem-inflation-comparison";
 
 import { ArgentinaRefresh } from "./_components/argentina-refresh";
-import { BlockIndex } from "./_components/block-index";
 import { CountryRiskSection } from "./_components/country-risk-section";
 import { ItcrmSection } from "./_components/itcrm-section";
-import { markedBlocks, NewsStrip } from "./_components/news-mark";
+import { markedBlocks, NewsDot, NewsStrip } from "./_components/news-mark";
 import { RemInflationSection } from "./_components/rem-inflation-section";
 import {
   ActivitySection,
@@ -54,6 +54,26 @@ const BLOCKS = [
   { id: "externo", label: "Comercio" },
   { id: "soja", label: "Soja" },
 ] as const;
+
+/** El índice de los bloques, con un punto en los que trajeron algo nuevo (ADR 0079). */
+function BlockIndex({
+  marks,
+}: {
+  readonly marks: ReturnType<typeof markedBlocks>;
+}) {
+  return (
+    <SectionIndex
+      label="Bloques del tablero"
+      sections={BLOCKS.map((block) => ({
+        ...block,
+        trailing:
+          marks[block.id] === undefined ? undefined : (
+            <NewsDot status={marks[block.id]!} />
+          ),
+      }))}
+    />
+  );
+}
 
 export const metadata: Metadata = {
   title: "Argentina | Portal Financiero",
@@ -174,7 +194,7 @@ export default async function ArgentinaPage() {
       <VisitRecorder readAt={dashboard.readAt} />
       <NewsStrip news={news} />
       <SummaryCards dashboard={dashboard} news={news} />
-      <BlockIndex blocks={BLOCKS} marks={markedBlocks(news)} />
+      <BlockIndex marks={markedBlocks(news)} />
 
       <ActivitySection activity={dashboard.activity} />
       <DollarSection dollar={dashboard.dollar} />

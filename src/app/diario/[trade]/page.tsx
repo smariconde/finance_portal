@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
 
-import { ArrowLeft, DatabaseZap, GraduationCap } from "lucide-react";
+import { DatabaseZap, GraduationCap } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { InfoTip } from "@/app/_components/info-tip";
+import { PageContainer, PageHeader } from "@/app/_components/page-frame";
 import { TickerMark } from "@/app/_components/ticker-mark";
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
 import { UnreadTradingParts } from "@/app/_components/unread-trading-parts";
@@ -53,20 +54,7 @@ export const instant = false;
 type PageProps = { readonly params: Promise<{ trade: string }> };
 
 function Shell({ children }: { readonly children: React.ReactNode }) {
-  return (
-    <div id="contenido" className="flex-1">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 md:p-6 lg:p-8">
-        <Link
-          href="/diario"
-          className="inline-flex w-fit items-center gap-1 rounded-sm text-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-        >
-          <ArrowLeft className="size-4" aria-hidden="true" />
-          Diario
-        </Link>
-        {children}
-      </div>
-    </div>
-  );
+  return <PageContainer>{children}</PageContainer>;
 }
 
 /** Sólo lo que el owner escribió: la cuenta (su HMAC) no viaja al cliente. */
@@ -106,23 +94,20 @@ function TradeHeader({ reading }: { readonly reading: TradeEntryReading }) {
       ? trade.portions[0]!.quantity
       : trade.entryQuantity;
   return (
-    <section
-      aria-labelledby="trade-title"
-      className="flex flex-wrap items-end justify-between gap-3"
-    >
-      <div className="flex flex-col gap-1">
-        <h1
-          id="trade-title"
-          className="flex flex-wrap items-center gap-2 text-2xl font-semibold tracking-tight md:text-3xl"
-        >
-          <TickerMark ticker={trade.symbol} name={null} size="md" />
+    <PageHeader
+      id="trade-title"
+      leading={<TickerMark ticker={trade.symbol} name={null} size="md" />}
+      title={
+        <span className="flex flex-wrap items-center gap-2">
           {trade.symbol}
           <span className="text-base font-normal text-muted-foreground">
             {trade.direction === "long" ? "Largo" : "Corto"}
           </span>
           {statusBadge(trade)}
-        </h1>
-        <p className="numeric text-sm text-muted-foreground">
+        </span>
+      }
+      lead={
+        <span className="numeric">
           {trade.status === "opened_before_history"
             ? "—"
             : formatSession(trade.openedSession)}
@@ -135,21 +120,23 @@ function TradeHeader({ reading }: { readonly reading: TradeEntryReading }) {
           {trade.assetType === "COLLECTIVE_INVESTMENT"
             ? " cuotas"
             : " acciones"}
-        </p>
-      </div>
-      <span className="flex items-center gap-3 text-sm text-muted-foreground">
-        {lesson === null ? null : (
-          <Link
-            href={`/lecciones/${lesson.slug}`}
-            className="inline-flex items-center gap-1 rounded-sm outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-          >
-            <GraduationCap className="size-4" aria-hidden="true" />
-            Lección · {lesson.title}
-          </Link>
-        )}
-        <span className="numeric">···{reading.lastFour}</span>
-      </span>
-    </section>
+        </span>
+      }
+      actions={
+        <span className="flex items-center gap-3 text-sm text-muted-foreground">
+          {lesson === null ? null : (
+            <Link
+              href={`/lecciones/${lesson.slug}`}
+              className="inline-flex items-center gap-1 rounded-sm outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <GraduationCap className="size-4" aria-hidden="true" />
+              Lección · {lesson.title}
+            </Link>
+          )}
+          <span className="numeric">···{reading.lastFour}</span>
+        </span>
+      }
+    />
   );
 }
 

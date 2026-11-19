@@ -1,10 +1,15 @@
 "use client";
 
-import { ArrowDown, ArrowUp, ArrowUpDown, CircleSlash } from "lucide-react";
+import { CircleSlash } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 
 import { displayCompanyName } from "@/modules/companies/domain/display-company-name";
 import { CompanyMark } from "@/app/_components/company-mark";
+import {
+  SortableTableHead,
+  useTableSort,
+} from "@/app/_components/data-table/sortable-table-head";
+import { compareNullsLast } from "@/app/_components/data-table/table-sort";
 import { FinvizProfileLink } from "@/app/_components/finviz-profile-link";
 import { InfoTip } from "@/app/_components/info-tip";
 import type { BusinessExcerpt } from "@/modules/companies/domain/sec-business-excerpt";
@@ -97,15 +102,13 @@ function sortPoints(
       return sign * pointLabel(left).localeCompare(pointLabel(right));
     }
 
-    const a = numericKey(left, key);
-    const b = numericKey(right, key);
-
     // Un `null` va siempre al final: no es el menor ni el mayor, no es un valor.
-    if (a === null || b === null) {
-      return a === b ? 0 : a === null ? 1 : -1;
-    }
-
-    return sign * (a - b);
+    return compareNullsLast(
+      numericKey(left, key),
+      numericKey(right, key),
+      direction,
+      (a, b) => a - b,
+    );
   });
 }
 
@@ -261,10 +264,10 @@ export function SectorRiskWorkspace({
   const titleId = useId();
   const descriptionId = useId();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [sort, setSort] = useState<{
-    key: SortKey;
-    direction: "ascending" | "descending";
-  }>({ key: "sortino5y", direction: "descending" });
+  const [sort, toggleSort] = useTableSort<SortKey>(
+    { key: "sortino5y", direction: "descending" },
+    (key) => (key === "ticker" ? "ascending" : "descending"),
+  );
 
   const layout = useMemo(() => layoutMatrix(matrix), [matrix]);
   const descriptions = useMemo(
@@ -297,17 +300,6 @@ export function SectorRiskWorkspace({
   const cedearCount = matrix.points.filter(
     (point) => point.cedear.status === "program",
   ).length;
-
-  const toggleSort = (key: SortKey) =>
-    setSort((current) =>
-      current.key === key
-        ? {
-            key,
-            direction:
-              current.direction === "ascending" ? "descending" : "ascending",
-          }
-        : { key, direction: key === "ticker" ? "ascending" : "descending" },
-    );
 
   return (
     <>
@@ -499,28 +491,16 @@ export function SectorRiskWorkspace({
                     );
                   }
 
-                  const active = sort.key === key;
-                  const Icon = !active
-                    ? ArrowUpDown
-                    : sort.direction === "ascending"
-                      ? ArrowUp
-                      : ArrowDown;
-
                   return (
-                    <TableHead
+                    <SortableTableHead
                       key={key}
-                      aria-sort={active ? sort.direction : "none"}
-                      className={key === "ticker" ? undefined : "text-right"}
+                      sortKey={key}
+                      sort={sort}
+                      onSort={toggleSort}
+                      align={key === "ticker" ? "left" : "right"}
                     >
-                      <button
-                        type="button"
-                        onClick={() => toggleSort(key)}
-                        className="inline-flex items-center gap-1 rounded-sm font-medium outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                      >
-                        {SORT_LABELS[key]}
-                        <Icon className="size-3.5" aria-hidden="true" />
-                      </button>
-                    </TableHead>
+                      {SORT_LABELS[key]}
+                    </SortableTableHead>
                   );
                 })}
               </TableRow>

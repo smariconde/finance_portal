@@ -7881,6 +7881,42 @@ probar el control; fases posteriores pueden volver a verificarlo.
   sin violaciones propias (las `region` de la sidebar son previas). La cuenta
   se revisó con una lectura sintética en una ruta temporal ya borrada.
 
+## Mejora transversal — pestañas, encabezados y tabla de trades (2026-11-19)
+
+- Estado: `done`.
+- Autorización: pedido expreso del owner del 2026-11-19 (consistencia de las
+  pestañas, componentes repetidos, paginación, orden y porcentajes en la tabla
+  de trades). Corrección del owner durante la entrega: las rutas hermanas
+  conservan el selector segmentado al lado del título.
+- Alcance:
+  - Pestañas: `tab-styles.ts` es la gramática subrayada del índice de
+    valuación; `SectionIndex` reemplaza `ResultIndex` (valuación) y
+    `BlockIndex` (`/argentina`, que pasa a subrayado con su punto de
+    «nuevo»); los grupos de Finviz también, con Inicio y Fin en el teclado.
+    `SectionNav` (rutas hermanas) y `Segmented` siguen en `segment-styles.ts`.
+  - Encabezados: `PageHeader` gana `nav` (el selector al lado del título);
+    inicio, configuración, cuenta, diario, trade, estadísticas, plan, Finviz y
+    lecciones usan `PageContainer` y `PageHeader` en vez de su `h1` y su
+    contenedor a mano; trade y lección pierden el «volver» que repetía el
+    breadcrumb.
+  - Tablas: `SortableTableHead`, `useTableSort`, `compareNullsLast` y
+    `TablePagination`/`pageWindow` en `src/app/_components/data-table/`;
+    reemplazan el orden copiado en empresas valuadas, la matriz de riesgo y la
+    de divergencias.
+  - `/diario`: la tabla de trades sale a `trades-table.tsx` con resultado en
+    US$ o % (`trade-return-1.0.0`: lo realizado sobre el costo FIFO de lo que
+    salió, `|netAmount − realizedPnl|` por salida, comisiones y multiplicador
+    incluidos; parcial en un trade abierto; `null` con motivo sin salidas, con
+    entrada anterior a la historia o base cero), orden por símbolo, resultado,
+    R, entrada, salida, días y fees (lo que falta, al final), y páginas de
+    10/25/50/100. El resultado va al lado del símbolo.
+- Evidencia: formato, lint, tipos, build, 4.751 unitarios (10 de
+  `trade-return`, 10 del orden de trades, 12 de orden y páginas) y 390 E2E con
+  axe (3 omitidos). Revisión renderizada contra la base personal a 1366 y
+  390 px en 13 rutas: sin overflow y sin violaciones axe; encontró y corrigió un
+  `sr-only` absoluto que ensanchaba `/argentina` en el teléfono (184 px).
+  Medido en los 47 trades reales: orden por retorno y «26–47 de 47».
+
 ## `F11-17` — MCP de sólo lectura del owner
 
 - Estado: `done`. Código, local, Neon y Production verificados; el owner

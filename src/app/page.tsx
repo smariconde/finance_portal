@@ -14,6 +14,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { PageContainer, PageHeader } from "@/app/_components/page-frame";
 import { StatusMark } from "@/app/_components/status-mark";
 import { ValuationRequestForm } from "@/app/valuacion/_components/valuation-request-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -114,133 +115,127 @@ export default async function HomePage({
   ).length;
 
   return (
-    <div id="contenido" className="flex-1">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 p-4 md:p-6 lg:p-8">
-        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-          Inicio
-        </h1>
+    <PageContainer>
+      <PageHeader id="inicio-title" title="Inicio" />
 
-        <div className="grid items-start gap-6 lg:grid-cols-2">
-          <section aria-labelledby="analysis-title">
-            <Card>
-              <CardHeader className="border-b">
-                <CardTitle as="h2" id="analysis-title">
-                  Análisis
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-3">
-                <h3 className="flex items-center gap-2 text-sm font-medium">
-                  <Calculator
-                    className="size-4 shrink-0 text-muted-foreground"
-                    aria-hidden="true"
-                  />
-                  Valuar una empresa
-                </h3>
-                {live ? (
-                  <ValuationRequestForm />
-                ) : (
-                  <StatusMark status="disabled" label="Runtime trabado" />
-                )}
-              </CardContent>
-              <CardContent className="border-t px-0">
-                <LinkList links={analysisLinks} />
-              </CardContent>
-            </Card>
-          </section>
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+        <section aria-labelledby="analysis-title">
+          <Card>
+            <CardHeader className="border-b">
+              <CardTitle as="h2" id="analysis-title">
+                Análisis
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <h3 className="flex items-center gap-2 text-sm font-medium">
+                <Calculator
+                  className="size-4 shrink-0 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                Valuar una empresa
+              </h3>
+              {live ? (
+                <ValuationRequestForm />
+              ) : (
+                <StatusMark status="disabled" label="Runtime trabado" />
+              )}
+            </CardContent>
+            <CardContent className="border-t px-0">
+              <LinkList links={analysisLinks} />
+            </CardContent>
+          </Card>
+        </section>
 
-          <section aria-labelledby="trading-title">
-            <Card className="gap-0">
-              <CardHeader className="border-b">
-                <CardTitle as="h2" id="trading-title">
-                  Trading
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-0">
-                <LinkList links={tradingLinks} />
-              </CardContent>
-            </Card>
-          </section>
-        </div>
-
-        <div className="grid items-start gap-6 border-t pt-6 lg:grid-cols-2">
-          <section aria-labelledby="verification-title">
-            <Card className="gap-0">
-              <CardHeader className="border-b">
-                <CardTitle as="h2" id="verification-title">
-                  Verificación
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-0">
-                <ul className="divide-y">
-                  <li>
-                    <Link href="/valuacion/referencia" className={rowClass}>
-                      <span className="flex min-w-0 flex-col gap-0.5">
-                        <span className="text-sm font-medium">
-                          Corrida de referencia del motor
-                        </span>
-                        <span className="text-sm text-muted-foreground">
-                          Un snapshot fijo, siempre el mismo hash
-                        </span>
-                      </span>
-                      <RowChevron />
-                    </Link>
-                  </li>
-                  <li>
-                    <Link href="/configuracion" className={rowClass}>
-                      <span className="flex flex-col items-start gap-1.5">
-                        <span className="text-sm font-medium">
-                          Diagnóstico de configuración
-                        </span>
-                        <StatusMark
-                          status={
-                            !live
-                              ? "disabled"
-                              : attentionCount > 0
-                                ? "degraded"
-                                : "ready"
-                          }
-                          label={
-                            !live
-                              ? "Runtime trabado"
-                              : attentionCount > 0
-                                ? `${attentionCount} pendiente${attentionCount === 1 ? "" : "s"}`
-                                : "Sin pendientes"
-                          }
-                        />
-                      </span>
-                      <RowChevron />
-                    </Link>
-                  </li>
-                </ul>
-              </CardContent>
-            </Card>
-          </section>
-
-          <section
-            className="flex flex-col gap-4"
-            aria-labelledby="evidence-title"
-          >
-            <h2
-              id="evidence-title"
-              className="flex items-center gap-2 text-base font-medium"
-            >
-              <ShieldCheck className="size-4 text-primary" aria-hidden="true" />
-              Contrato de evidencia
-            </h2>
-            <dl className="grid gap-4 sm:grid-cols-2">
-              {evidenceContract.map(([term, description]) => (
-                <div className="flex flex-col gap-1" key={term}>
-                  <dt className="text-sm font-medium">{term}</dt>
-                  <dd className="text-sm text-muted-foreground">
-                    {description}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </section>
-        </div>
+        <section aria-labelledby="trading-title">
+          <Card className="gap-0">
+            <CardHeader className="border-b">
+              <CardTitle as="h2" id="trading-title">
+                Trading
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-0">
+              <LinkList links={tradingLinks} />
+            </CardContent>
+          </Card>
+        </section>
       </div>
-    </div>
+
+      <div className="grid items-start gap-6 border-t pt-6 lg:grid-cols-2">
+        <section aria-labelledby="verification-title">
+          <Card className="gap-0">
+            <CardHeader className="border-b">
+              <CardTitle as="h2" id="verification-title">
+                Verificación
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-0">
+              <ul className="divide-y">
+                <li>
+                  <Link href="/valuacion/referencia" className={rowClass}>
+                    <span className="flex min-w-0 flex-col gap-0.5">
+                      <span className="text-sm font-medium">
+                        Corrida de referencia del motor
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        Un snapshot fijo, siempre el mismo hash
+                      </span>
+                    </span>
+                    <RowChevron />
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/configuracion" className={rowClass}>
+                    <span className="flex flex-col items-start gap-1.5">
+                      <span className="text-sm font-medium">
+                        Diagnóstico de configuración
+                      </span>
+                      <StatusMark
+                        status={
+                          !live
+                            ? "disabled"
+                            : attentionCount > 0
+                              ? "degraded"
+                              : "ready"
+                        }
+                        label={
+                          !live
+                            ? "Runtime trabado"
+                            : attentionCount > 0
+                              ? `${attentionCount} pendiente${attentionCount === 1 ? "" : "s"}`
+                              : "Sin pendientes"
+                        }
+                      />
+                    </span>
+                    <RowChevron />
+                  </Link>
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
+        </section>
+
+        <section
+          className="flex flex-col gap-4"
+          aria-labelledby="evidence-title"
+        >
+          <h2
+            id="evidence-title"
+            className="flex items-center gap-2 text-base font-medium"
+          >
+            <ShieldCheck className="size-4 text-primary" aria-hidden="true" />
+            Contrato de evidencia
+          </h2>
+          <dl className="grid gap-4 sm:grid-cols-2">
+            {evidenceContract.map(([term, description]) => (
+              <div className="flex flex-col gap-1" key={term}>
+                <dt className="text-sm font-medium">{term}</dt>
+                <dd className="text-sm text-muted-foreground">{description}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      </div>
+    </PageContainer>
   );
 }
 
