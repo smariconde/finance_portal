@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { InfoTip } from "@/app/_components/info-tip";
 import { PercentChange } from "@/app/_components/price-change";
 import { TickerMark } from "@/app/_components/ticker-mark";
-import { pnlTone } from "@/app/_components/trading-format";
+import { pnlTone, signOf } from "@/app/_components/trading-format";
 import { StatusMark } from "@/app/_components/status-mark";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -411,7 +411,12 @@ export function LiveAccount({
           {failure !== null ? (
             <StaleNotice failure={failure} readAt={reading.readAt} />
           ) : null}
-          <Balances reading={reading} />
+          <Balances
+            reading={reading}
+            cashFlows={
+              riskContext?.state === "read" ? riskContext.cashFlows : null
+            }
+          />
         </CardContent>
       </Card>
 
@@ -567,13 +572,24 @@ function Figure({
 
 /**
  * El valor de liquidación manda; su cambio desde la apertura al lado, con signo
- * y color. Una cuenta cash no tiene buying power intradía: Schwab manda 0
+ * y color, sin los depósitos y retiros de la sesión
+ * (`live-account-figures-1.1.0`): una transferencia no es ganancia. Hasta leer
+ * la base de trading el cambio es bruto y va sin color, porque no se sabe si
+ * es resultado. Una cuenta cash no tiene buying power intradía: Schwab manda 0
  * siempre, así que no se muestra (pedido del owner, 2026-11-16).
  */
-function Balances({ reading }: { readonly reading: Reading }) {
+function Balances({
+  reading,
+  cashFlows,
+}: {
+  readonly reading: Reading;
+  /** `null` mientras la base de trading no se leyó. */
+  readonly cashFlows: string | null;
+}) {
   const b = reading.balances;
   const cash = reading.account.accountType === "CASH";
-  const change = accountDayChange(b);
+  const change = accountDayChange({ ...b, cashFlows });
+  const flowSign = cashFlows === null ? 0 : signOf(cashFlows);
   return (
     <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
       <div className="flex flex-col gap-1">
@@ -582,13 +598,39 @@ function Balances({ reading }: { readonly reading: Reading }) {
           US$ {formatMoney(b.liquidationValue)}
         </span>
         <span className="flex flex-wrap items-center gap-x-1.5 text-sm">
-          <span className={cn("numeric font-medium", pnlTone(change.amount))}>
+          <span
+            className={cn(
+              "numeric font-medium",
+              change.net ? pnlTone(change.amount) : "text-muted-foreground",
+            )}
+          >
             {formatSignedAmount(change.amount, { scale: 2 })}
           </span>
-          <PercentChange value={change.percent} />
+          {change.net ? (
+            <PercentChange value={change.percent} />
+          ) : (
+            <span className="numeric text-muted-foreground">
+              {change.percent === null
+                ? "—"
+                : `${formatSignedAmount(change.percent, { scale: 2 })} %`}
+            </span>
+          )}
           <span className="text-muted-foreground">
             hoy · al abrir US$ {formatMoney(b.liquidationValueAtOpen)}
           </span>
+          {flowSign === 0 ? null : (
+            <span className="numeric text-muted-foreground">
+              · {flowSign > 0 ? "depósitos" : "retiros"}{" "}
+              {formatSignedAmount(cashFlows!, { scale: 2 })}
+            </span>
+          )}
+          <InfoTip title="Cambio del día">
+            <p>
+              {change.net
+                ? "Valor de liquidación menos el de la apertura, sin los depósitos ni retiros de la sesión de Nueva York."
+                : "Cambio bruto: incluye depósitos y retiros hasta leer las transacciones."}
+            </p>
+          </InfoTip>
         </span>
       </div>
       <dl

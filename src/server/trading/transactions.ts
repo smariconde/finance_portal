@@ -6,6 +6,7 @@ import {
 } from "@/modules/configuration/domain/config-health";
 import type {
   SchwabTransactionStore,
+  StoredTransaction,
   TransactionRun,
 } from "@/modules/trading/application/schwab-transaction-store";
 import type {
@@ -99,6 +100,8 @@ export type JournalState = {
   } | null;
   readonly trades: readonly RoundTrip[];
   readonly summary: JournalSummary;
+  /** Las transacciones vigentes de la cuenta, de las que salen los trades. */
+  readonly transactions: readonly StoredTransaction[];
   /** Por clave de trade (`schwab:<instrumentId>:<fillId>`). */
   readonly annotations: ReadonlyMap<string, StoredAnnotation>;
   readonly linkedPlans: ReadonlyMap<
@@ -176,6 +179,7 @@ export async function loadJournalState(
     account,
     trades,
     summary,
+    transactions,
     annotations: new Map(
       annotations.map((stored) => [stored.tradeKey, stored]),
     ),
