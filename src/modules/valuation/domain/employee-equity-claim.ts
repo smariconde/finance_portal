@@ -3,6 +3,7 @@ import { z } from "zod";
 import { computeContentHash } from "@/modules/ingestion/domain/content-hash";
 import {
   EQUITY_VOLATILITY_FORMULA_VERSION,
+  EQUITY_VOLATILITY_SHORT_HISTORY_VERSION,
   equityVolatility,
 } from "@/modules/metrics/domain/equity-volatility";
 import type {
@@ -156,7 +157,10 @@ export const employeeOptionMarketSchema = z.object({
     sourceId: z.string().min(3).max(64),
   }),
   volatility: z.object({
-    formulaVersion: z.literal(EQUITY_VOLATILITY_FORMULA_VERSION),
+    formulaVersion: z.enum([
+      EQUITY_VOLATILITY_FORMULA_VERSION,
+      EQUITY_VOLATILITY_SHORT_HISTORY_VERSION,
+    ]),
     value: engineDecimalSchema,
     windowStart: z.iso.date(),
     baseDate: z.iso.date(),
@@ -547,6 +551,7 @@ export function employeeOptionMarketAt(input: {
     asOf: input.asOf,
     closes: input.closes,
     events: input.events,
+    allowShortHistory: true,
   });
 
   if (volatility.status === "null") {

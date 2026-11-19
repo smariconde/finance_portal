@@ -148,7 +148,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   120 | `F6-34`    | `done`        | Evidencia de deuda cero con EBIT negativo: en esos años el interés se mide contra las ventas, no por cobertura (PLTR).                                                                                                    | `F6-30`            |
 |   121 | `F6-35`    | `ready`       | Deuda publicada sólo como `LongTermDebtNoncurrent`, sin cronograma ni porción corriente, con receta propia nombrada (CRWD).                                                                                               | `F6-30`            |
 |   122 | `F6-36`    | `queued`      | Convertibles en la deuda: medir los conceptos con que se publican y sumarlos a una receta (DDOG).                                                                                                                         | `F6-30`            |
-|   123 | `F6-37`    | `queued`      | Volatilidad de las opciones con toda la historia disponible desde dos años, nombrada, cuando no hay cinco (RDDT).                                                                                                         | `F6-32`            |
+|   123 | `F6-37`    | `done`        | Volatilidad de las opciones con toda la historia disponible desde dos años, nombrada, cuando no hay cinco (RDDT).                                                                                                         | `F6-32`            |
 |   124 | `F6-38`    | `queued`      | Investigar el rechazo `failureRisk` de F en el método cíclico y el `pretax_income_not_reported` de MCD.                                                                                                                   | `F6-32`            |
 |   125 | `F6-39`    | `queued`      | Supuestos derivados `3.0.0`: el crecimiento de ventas de los primeros años desde el consenso guardado, con la historia como respaldo.                                                                                     | `F6-29`            |
 |   126 | `F6-40`    | `queued`      | E2E estable: el aviso sin base de `/sectores` y `/argentina` en mobile no se encuentra dos veces.                                                                                                                         | -                  |
@@ -4575,6 +4575,24 @@ gate` pasaron en el [PR #75](https://github.com/smariconde/finance_portal/pull/7
 - Replay de las corridas guardadas: 18 de 18 en la réplica y 56 de 57 en Neon.
   La que diverge es la de GOOGL que se rechazó por el redondeo que corrigió
   `F6-32`.
+
+#### `F6-37` — volatilidad de una acción joven (cerrado el 2026-11-19)
+
+- `equity-volatility-1.1.0`: cuando la ventana de cinco años no tiene base, la
+  volatilidad de Black-Scholes usa toda la historia guardada, siempre que
+  empiece al menos dos años antes del `as_of` y no tenga huecos de más de cinco
+  días (decisión del owner). La fórmula no cambia: cambia la ventana, y la
+  versión lo dice.
+- `selectAvailableHistory` vive al lado de `selectCalendarWindow`. Con cinco
+  años, la lectura sigue siendo `1.0.0` byte por byte.
+- La serie se baja con cinco años más catorce días, así que si la ventana no
+  tiene base es porque la acción todavía no cotizaba.
+- Medido en una réplica: RDDT (cotiza desde marzo de 2024) pasa de
+  `market_unavailable` a registrar una corrida. Esa corrida termina `rejected`
+  por `revenue_margin_recomputed`: el selector la clasifica `loss_making`
+  (pérdidas en 2023 y 2024) pero su EBIT base es positivo (442 M en 2025), y
+  el modelo de supervivencia exige un EBIT base negativo. Resolverlo es una
+  decisión del owner.
 
 #### Cobertura de valuación — decisiones del owner del 2026-11-18
 
