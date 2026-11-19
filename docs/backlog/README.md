@@ -154,7 +154,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   126 | `F6-39`    | `ready`       | Supuestos derivados `3.0.0`: el crecimiento de ventas de los primeros años desde el consenso guardado, con la historia como respaldo.                                                                                     | `F6-29`            |
 |   127 | `F6-40`    | `queued`      | E2E estable: el aviso sin base de `/sectores` y `/argentina` en mobile no se encuentra dos veces.                                                                                                                         | -                  |
 |   128 | `F6-42`    | `done`        | Margen objetivo del camino de crecimiento: el propio cuando supera al de la industria (META, MSFT, RDDT), y rating declarado por el owner con la menor calificación publicada (F).                                        | `F6-41`            |
-|   129 | `F6-43`    | `queued`      | Propuesta: memorias (MU) al método cíclico; hoy van a crecimiento y sostienen un margen de pico (76 %); decisión del owner.                                                                                               | `F6-42`            |
+|   129 | `F6-43`    | `done`        | Perfil de ciclo declarado por el owner por CIK, que reemplaza al del SIC: MU (memorias) al método cíclico en lugar del de crecimiento.                                                                                    | `F6-42`            |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -4759,6 +4759,28 @@ Medido el 2026-11-19 en una réplica (cierre del 18-11):
 
 - Replay: 41 de 41 en la réplica y 56 de 57 en Neon (la de GOOGL ya conocida).
 - Gates: 4.716 unit, 251 de integración, lint, tipos, formato y build.
+
+#### `F6-43` — perfil de ciclo declarado (cerrado el 2026-11-19)
+
+Decisión delegada por el owner («tomá la mejor decisión»).
+
+- MU iba a crecimiento: el SIC 3674 junta a quien diseña chips con quien
+  fabrica memorias, y el camino sostenía un margen de pico (76 % ajustado):
+  4.202 por acción contra 705. Antes de `F6-42`, con el margen de la
+  industria, daba 1.977.
+- Opciones descartadas:
+  - Mover el 3674 entero a cíclico: llevaría a NVDA, AVGO y AMD al método de
+    ciclo.
+  - Una señal de ciclicidad por márgenes: toca a todo el universo y hay que
+    medirla con descargas.
+- `owner-declared-profile-1.0.0`: una declaración por CIK con motivo, en
+  `declared-profiles.ts`. **Reemplaza** la evidencia del SIC para ese perfil,
+  porque dos evidencias de un perfil son un conflicto que el selector no
+  desempata. Un corte anterior no la ve.
+- Medido en una réplica: MU `normalized_fcff` `requires_review`, **449,15**
+  contra un cierre de 705,27. El ciclo 2021–2025 incluye el −20 % de 2023.
+- Replay: 42 de 42 en la réplica y 56 de 57 en Neon (la de GOOGL ya conocida).
+- Gates: 4.719 unit, 251 de integración, lint, tipos, formato y build.
 
 #### Cobertura de valuación — decisiones del owner del 2026-11-18
 
