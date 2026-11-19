@@ -510,6 +510,87 @@ describe("valuation policy checks", () => {
     });
   });
 
+  describe("owner-declared rating", () => {
+    const band = DEMO_VALUATION_INPUT.costOfCapital.parameters.find(
+      (parameter) => parameter.name === "company_default_spread",
+    )!;
+    const rating = DEMO_VALUATION_INPUT.costOfCapital.derived.syntheticRating;
+    const declared = (
+      overrides: Partial<{
+        rowKey: string;
+        declaredAt: string;
+        rating: string;
+      }> = {},
+    ) => ({
+      version: "declared-rating-1.0.0" as const,
+      legalEntityId: DEMO_VALUATION_INPUT.subject.legalEntityId,
+      declaration: {
+        cik: "0000037996",
+        ticker: "F",
+        rating: overrides.rating ?? rating,
+        decidedBy: "owner" as const,
+        declaredAt: overrides.declaredAt ?? "2025-01-01T00:00:00.000Z",
+        rationale: "The lowest of the published ratings, from the agencies.",
+        publishedRatings: [
+          {
+            agency: "Moody's" as const,
+            rating: "Ba1",
+            source: "https://example.com/rating",
+          },
+        ],
+      },
+      coverageFloor: {
+        value: DEMO_VALUATION_INPUT.costOfCapital.coverage.value,
+        datasetId: band.datasetId,
+        releaseId: band.releaseId,
+        rowKey: overrides.rowKey ?? band.rowKey,
+        availableAt: band.availableAt,
+      },
+    });
+    const withDeclared = (value: ReturnType<typeof declared> | undefined) =>
+      draft((candidate) => {
+        candidate.costOfCapital.coverage = {
+          ...candidate.costOfCapital.coverage,
+          interestBasis: "owner_declared_rating",
+          ...(value === undefined ? {} : { declaredRating: value }),
+        };
+      });
+
+    it("passes with the run's own band, visible at the cutoff", () => {
+      expect(
+        failed(withDeclared(declared()), "declared_rating_consistent")?.status,
+      ).toBe("passed");
+    });
+
+    it("names an unseen declaration, another band or another rating", () => {
+      expect(
+        failed(
+          withDeclared(
+            declared({
+              declaredAt: "2099-01-01T00:00:00.000Z",
+              rowKey: "large-nonfinancial-01",
+              rating: "D2/D",
+            }),
+          ),
+          "declared_rating_consistent",
+        )?.subjects,
+      ).toEqual([
+        "costOfCapital.coverage.declaredRating.declaration.declaredAt",
+        "costOfCapital.coverage.declaredRating.declaration.rating",
+        "costOfCapital.coverage.declaredRating.coverageFloor",
+      ]);
+      expect(
+        failed(withDeclared(undefined), "declared_rating_consistent")?.subjects,
+      ).toEqual(["costOfCapital.coverage.declaredRating"]);
+    });
+
+    it("adds no check to a run without it", () => {
+      expect(
+        failed(DEMO_VALUATION_INPUT, "declared_rating_consistent"),
+      ).toBeUndefined();
+    });
+  });
+
   describe("net-cash coverage", () => {
     const band = DEMO_VALUATION_INPUT.costOfCapital.parameters.find(
       (parameter) => parameter.name === "company_default_spread",

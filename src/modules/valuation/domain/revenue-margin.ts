@@ -35,11 +35,55 @@ export const GROWTH_METHODOLOGY_VERSION = "growth-fcff-1.0.0";
  * negativo sólo rechazaba corridas sin cambiar ningún número. `1.0.0` lo sigue
  * exigiendo, para que un snapshot guardado reproduzca su estado.
  */
-export const REVENUE_MARGIN_VERSION = "revenue-margin-1.1.0";
+/**
+ * `1.2.0` (`F6-42`, 2026-11-19, decisión delegada por el owner con META,
+ * MSFT, RDDT, LLY, NVDA, MELI y MU medidos): el margen objetivo es el de la
+ * industria **o el propio, el mayor**. Converger siempre al margen de la
+ * industria castigaba a quien ya lo supera: META, con 51 % de margen ajustado,
+ * iba al 4,7 % agregado de «Software (Internet)» y valía −45 por acción contra
+ * un cierre de 616; MSFT, 299 contra 508. Para una empresa con margen probado,
+ * Damodaran fija el objetivo en su propio margen; el de la industria es el
+ * destino de quien todavía no llegó. El propio es el EBIT base ajustado sobre
+ * las ventas base del snapshot, así que el motor lo recalcula. Un pico de ciclo
+ * se sostiene igual (MU): ese caso es del selector, que la manda a crecimiento.
+ */
+export const REVENUE_MARGIN_VERSION = "revenue-margin-1.2.0";
 export const REVENUE_MARGIN_VERSIONS = [
   "revenue-margin-1.0.0",
+  "revenue-margin-1.1.0",
   REVENUE_MARGIN_VERSION,
 ] as const;
+
+export type GrowthTargetMargin = {
+  readonly value: string;
+  readonly basis: "industry" | "company_above_industry";
+};
+
+/**
+ * `1.2.0`: el objetivo del camino. Sin EBIT base, o con un margen propio que no
+ * supera al de la industria, es el de la industria.
+ */
+export function growthTargetMargin(
+  industryMargin: string,
+  baseRevenue: string,
+  baseEbit: string | null,
+): GrowthTargetMargin {
+  const industry = parseDecimal(industryMargin, "industryMargin");
+  const revenue = parseDecimal(baseRevenue, "baseRevenue");
+  if (baseEbit === null || !revenue.gt(ZERO))
+    return { value: industryMargin, basis: "industry" };
+  const own = divide(
+    parseDecimal(baseEbit, "baseEbit"),
+    revenue,
+    "baseRevenue",
+  );
+  return own.gt(industry)
+    ? {
+        value: formatDecimal(own, "ownMargin"),
+        basis: "company_above_industry",
+      }
+    : { value: industryMargin, basis: "industry" };
+}
 const rationale = z.string().trim().min(1).max(512);
 export const revenueMarginSchema = z.object({
   version: z.enum(REVENUE_MARGIN_VERSIONS),
@@ -220,9 +264,17 @@ export function revenueMarginMismatches(input: ValuationInput): string[] {
       )
     )
       paths.push("revenueMargin.derivedFrom.trajectory");
+    const expectedTarget =
+      plan.version === REVENUE_MARGIN_VERSION
+        ? growthTargetMargin(
+            margin.value,
+            input.baseRevenue.value,
+            input.normalization.base.ebitAdjusted,
+          ).value
+        : margin.value;
     if (
       !parseDecimal(plan.targetMargin, "targetMargin").eq(
-        parseDecimal(margin.value, "industryMargin"),
+        parseDecimal(expectedTarget, "expectedTargetMargin"),
       ) ||
       Date.parse(margin.availableAt) > cutoff ||
       (input.knowledge.knowledgeBasis === "system_recorded" &&

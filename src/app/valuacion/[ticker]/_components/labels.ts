@@ -114,6 +114,8 @@ const COST_DECLARATION_LABELS: Record<string, string> = {
     "Sin gasto de intereses en cinco ejercicios y sin deuda: la cobertura es el piso de la banda más alta de la tabla.",
   coverage_net_cash_operating_loss:
     "EBIT negativo con caja neta y flujo operativo positivo: la cobertura es el piso de la banda más alta de la tabla.",
+  coverage_owner_declared_rating:
+    "Rating declarado por el owner: la menor de las calificaciones publicadas reemplaza al sintético.",
   coverage_interest_industrial_only:
     "El gasto de intereses es el de la parte industrial: el de la financiera cautiva ya está descontado en el EBIT.",
   terminal_beta_converges_to_one: "La beta terminal converge a 1.",

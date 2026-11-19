@@ -4,6 +4,7 @@ import {
   GROWTH_METHODOLOGY_VERSION,
 } from "./revenue-margin";
 import { failureRiskMismatches } from "./failure-risk";
+import { declaredRatingMismatches } from "./declared-rating";
 import { netCashCoverageMismatches } from "./net-cash-coverage";
 import {
   cycleNormalizationMismatches,
@@ -562,6 +563,68 @@ function checkZeroDebtEvidence(input: ValuationInput): PolicyCheck[] {
 }
 
 /**
+ * El rating declarado por el owner (`F6-42`, `declared-rating-1.0.0`): la
+ * declaración es de esta entidad y visible al corte, su banda es la que la
+ * corrida usó —misma release, misma fila— y la cobertura vale su piso. Sin
+ * declaración ni esa base no hay check.
+ */
+function checkDeclaredRating(input: ValuationInput): PolicyCheck[] {
+  const { coverage } = input.costOfCapital;
+  const declaredBasis = coverage.interestBasis === "owner_declared_rating";
+  const declared = coverage.declaredRating;
+
+  if (declared === undefined && !declaredBasis) {
+    return [];
+  }
+
+  const prefix = "costOfCapital.coverage.declaredRating";
+  const mismatches: string[] = [];
+
+  if (declared === undefined || !declaredBasis) {
+    mismatches.push(prefix);
+  } else {
+    mismatches.push(
+      ...declaredRatingMismatches(
+        declared,
+        {
+          legalEntityId: input.subject.legalEntityId,
+          knowledge: input.knowledge,
+          syntheticRating: input.costOfCapital.derived.syntheticRating,
+        },
+        prefix,
+      ),
+    );
+    const band = input.costOfCapital.parameters.find(
+      (parameter) => parameter.name === "company_default_spread",
+    );
+    if (
+      band === undefined ||
+      band.releaseId !== declared.coverageFloor.releaseId ||
+      band.rowKey !== declared.coverageFloor.rowKey
+    ) {
+      mismatches.push(`${prefix}.coverageFloor`);
+    }
+    if (
+      !parseDecimal(coverage.value, "costOfCapital.coverage").eq(
+        parseDecimal(declared.coverageFloor.value, "coverageFloor"),
+      )
+    ) {
+      mismatches.push("costOfCapital.coverage");
+    }
+  }
+
+  return [
+    check(
+      "declared_rating_consistent",
+      "reject",
+      mismatches.length === 0,
+      "An owner-declared rating belongs to this entity, is visible at the cutoff, and its band floor is the run's coverage and default spread.",
+      [...new Set(mismatches)].slice(0, 32),
+    ),
+  ];
+}
+
+/**
  * La cobertura de caja neta (`F6-41`, `net-cash-coverage-1.0.0`): la evidencia
  * congelada sostiene la regla, su piso es la banda que la corrida usó —misma
  * release, misma fila— y la cobertura vale ese piso en ese ejercicio. Sin
@@ -641,13 +704,17 @@ function checkCaptiveFinance(input: ValuationInput): PolicyCheck[] {
       mismatches.push("capitalization.reportedEbit");
     } else {
       const expected = captiveCoverage(split, ebit);
+      // Un rating declarado reemplaza la cobertura (`F6-42`): lo verifica su
+      // propio check, y la apertura sigue mandando sobre la deuda.
+      const declared = coverage.interestBasis === "owner_declared_rating";
       if (
-        !industrial ||
-        !coverage.fromLatestFiscalYear ||
-        coverage.fiscalYearEnd !== expected.fiscalYearEnd ||
-        !parseDecimal(coverage.value, "costOfCapital.coverage").eq(
-          parseDecimal(expected.value, "captiveCoverage"),
-        )
+        !declared &&
+        (!industrial ||
+          !coverage.fromLatestFiscalYear ||
+          coverage.fiscalYearEnd !== expected.fiscalYearEnd ||
+          !parseDecimal(coverage.value, "costOfCapital.coverage").eq(
+            parseDecimal(expected.value, "captiveCoverage"),
+          ))
       ) {
         mismatches.push("costOfCapital.coverage");
       }
@@ -881,6 +948,7 @@ export function checkValuationInput(input: ValuationInput): PolicyCheck[] {
     ...checkBasePeriod(input),
     ...checkZeroDebtEvidence(input),
     ...checkNetCashCoverage(input),
+    ...checkDeclaredRating(input),
     ...checkCaptiveFinance(input),
     ...checkEmployeeEquity(input),
     ...checkFailureRisk(input),

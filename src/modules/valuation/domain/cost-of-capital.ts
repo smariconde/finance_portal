@@ -18,6 +18,7 @@ import {
   ZERO,
   type Dec,
 } from "./decimal-policy";
+import { declaredRatingSchema } from "./declared-rating";
 import { netCashCoverageSchema } from "./net-cash-coverage";
 import type { CoverageFloor } from "./zero-debt-evidence";
 
@@ -140,10 +141,17 @@ export const coverageEvidenceSchema = z.object({
        * `netCash`.
        */
       "net_cash_operating_loss",
+      /**
+       * Rating declarado por el owner (`F6-42`): la cobertura es el piso de
+       * la banda declarada, con la declaración en `declaredRating`.
+       */
+      "owner_declared_rating",
     ])
     .optional(),
   /** Sólo con `net_cash_operating_loss`: los hechos que la regla leyó. */
   netCash: netCashCoverageSchema.optional(),
+  /** Sólo con `owner_declared_rating`: la declaración y su banda. */
+  declaredRating: declaredRatingSchema.optional(),
 });
 
 export type CoverageEvidence = z.infer<typeof coverageEvidenceSchema>;
@@ -156,6 +164,7 @@ export const COVERAGE_INTEREST_DECLARATION = {
   no_interest_expense: "coverage_no_interest_expense",
   captive_industrial: "coverage_interest_industrial_only",
   net_cash_operating_loss: "coverage_net_cash_operating_loss",
+  owner_declared_rating: "coverage_owner_declared_rating",
 } as const satisfies Record<
   NonNullable<CoverageEvidence["interestBasis"]>,
   string
@@ -192,6 +201,7 @@ export const costOfCapitalDeclarationSchema = z.enum([
   "coverage_no_interest_expense",
   "coverage_interest_industrial_only",
   "coverage_net_cash_operating_loss",
+  "coverage_owner_declared_rating",
   "terminal_beta_converges_to_one",
   "country_risk_by_operations",
   "regions_combined_by_gdp",
@@ -389,6 +399,32 @@ export function topCoverageFloor(
         datasetId: ratings.release.datasetId,
         releaseId: ratings.release.releaseId,
         rowKey: top.row.key,
+        availableAt: ratings.release.availableAt,
+      };
+}
+
+/**
+ * El piso de la banda con esa etiqueta («Ba1/BB+») en la tabla al corte, con
+ * su release y su fila (`F6-42`). `null` sin tabla o sin esa fila.
+ */
+export function ratingBandFloor(
+  ratings: ReferenceReading | null,
+  rating: string,
+): CoverageFloor | null {
+  const band =
+    ratings === null
+      ? undefined
+      : largeNonfinancialBands(ratings).filter(
+          (entry) => entry.row.values.rating === rating,
+        );
+
+  return ratings === null || band === undefined || band.length !== 1
+    ? null
+    : {
+        value: band[0]!.floor,
+        datasetId: ratings.release.datasetId,
+        releaseId: ratings.release.releaseId,
+        rowKey: band[0]!.row.key,
         availableAt: ratings.release.availableAt,
       };
 }

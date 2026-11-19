@@ -153,7 +153,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   125 | `F6-41`    | `done`        | Decisiones de cobertura delegadas por el owner: pérdidas con EBIT ajustado positivo, cobertura con caja neta, rating D en la peor fila, industria de MELI y desglose de quebrantos de SNOW.                               | `F6-38`            |
 |   126 | `F6-39`    | `ready`       | Supuestos derivados `3.0.0`: el crecimiento de ventas de los primeros años desde el consenso guardado, con la historia como respaldo.                                                                                     | `F6-29`            |
 |   127 | `F6-40`    | `queued`      | E2E estable: el aviso sin base de `/sectores` y `/argentina` en mobile no se encuentra dos veces.                                                                                                                         | -                  |
-|   128 | `F6-42`    | `queued`      | Propuesta: margen objetivo del camino de crecimiento cuando el propio supera al de la industria (RDDT: 29 % → 4,7 %); decisión del owner.                                                                                 | `F6-41`            |
+|   128 | `F6-42`    | `done`        | Margen objetivo del camino de crecimiento: el propio cuando supera al de la industria (META, MSFT, RDDT), y rating declarado por el owner con la menor calificación publicada (F).                                        | `F6-41`            |
+|   129 | `F6-43`    | `queued`      | Propuesta: memorias (MU) al método cíclico; hoy van a crecimiento y sostienen un margen de pico (76 %); decisión del owner.                                                                                               | `F6-42`            |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -4707,6 +4708,57 @@ Medido el 2026-11-19 en una réplica de la base personal (cierre del 18-11):
 - Replay: 32 de 32 corridas en la réplica y 56 de 57 en Neon (la de GOOGL ya
   conocida).
 - Gates: 4.705 unit, 251 de integración, lint, tipos, formato y build.
+
+#### `F6-42` — margen objetivo y rating declarado (cerrado el 2026-11-19)
+
+El owner delegó también las dos decisiones que dejó `F6-41` («decidí lo mejor
+por mí»).
+
+- **Margen objetivo** (`revenue-margin-1.2.0`): el de la industria o el propio
+  —el EBIT base ajustado sobre las ventas base—, el mayor. Converger siempre a
+  la industria era el sesgo: META, con 51 % de margen ajustado, iba al 4,7 % de
+  «Software (Internet)» (29 empresas chicas en Damodaran). Para una empresa con
+  margen probado, Damodaran fija el objetivo en su propio margen. Medido con
+  el motor sobre los snapshots reales antes de codificar:
+
+  | Empresa | Cierre | Industria | Propio si supera | Punto medio |
+  | ------- | -----: | --------: | ---------------: | ----------: |
+  | META    |    616 |       −45 |              620 |         287 |
+  | MSFT    |    508 |       299 |              448 |         373 |
+  | RDDT    |     94 |         5 |               97 |          51 |
+  | LLY     |  1.416 |       677 |            1.566 |       1.121 |
+  | NVDA    |    155 |       140 |              259 |         200 |
+  | MELI    |  1.423 |     1.160 |            2.826 |       1.993 |
+  | MU      |    705 |     1.977 |            4.202 |       3.089 |
+
+  MU sostiene un margen de pico de ciclo (76 %): ese caso es del selector, que
+  manda las memorias a crecimiento (propuesta `F6-43`).
+
+- **Rating declarado** (`declared-rating-1.0.0`): F daba D2/D por un solo
+  ejercicio con cargos de vehículos eléctricos, y la cobertura promedio
+  2020–2025 también da CCC (1,05), porque Ford tiene cargos todos los años y la
+  normalización no los revierte. Las calificadoras publican BBB- (S&P y Fitch)
+  y Ba1 (Moody's). Damodaran usa el rating real cuando existe: el owner declara
+  por CIK la **menor** de las publicadas con sus fuentes, en
+  `declared-ratings.ts`, y la cobertura pasa a ser el piso de esa banda. El
+  costo de deuda y el fracaso salen de la misma fila. Declarar sólo la
+  probabilidad de fracaso habría dejado un costo de deuda del 23 %. Un corte
+  anterior a la declaración no la ve. `declared_rating_consistent` la verifica,
+  y la financiera cautiva sigue mandando sobre la deuda.
+
+Medido el 2026-11-19 en una réplica (cierre del 18-11):
+
+| Empresa | Objetivo | Rating  | Costo de deuda | Fracaso |    Valor |   Cierre |
+| ------- | -------: | ------- | -------------: | ------: | -------: | -------: |
+| META    |   51,0 % | Aaa/AAA |         4,58 % |  0,70 % |   615,54 |   616,38 |
+| MSFT    |   48,8 % | Aaa/AAA |         4,58 % |  0,70 % |   447,50 |   508,29 |
+| RDDT    |   29,4 % | Aaa/AAA |         4,58 % |  0,70 % |    97,08 |    94,09 |
+| MELI    |   12,8 % | A2/A    |         4,96 % |  1,24 % | 2.825,59 | 1.423,11 |
+| CRWD    |   34,5 % | Aaa/AAA |         4,58 % |  0,70 % |    54,60 |   237,03 |
+| F       |  (ciclo) | Ba1/BB+ |         5,56 % | 11,78 % |     8,16 |    11,28 |
+
+- Replay: 41 de 41 en la réplica y 56 de 57 en Neon (la de GOOGL ya conocida).
+- Gates: 4.716 unit, 251 de integración, lint, tipos, formato y build.
 
 #### Cobertura de valuación — decisiones del owner del 2026-11-18
 

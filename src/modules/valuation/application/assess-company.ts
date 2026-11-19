@@ -1,5 +1,11 @@
 import { buildFailureRisk, type FailureRisk } from "../domain/failure-risk";
 import { DECLARED_FAILURE_PROBABILITIES } from "./declared-failure-probabilities";
+import { DECLARED_RATINGS } from "./declared-ratings";
+import {
+  assessDeclaredRating,
+  declaredRatingAt,
+  type DeclaredRating,
+} from "../domain/declared-rating";
 import { SEC_SIC_TAXONOMY_ID } from "@/modules/classification/domain/sec-sic-classification";
 import type { SubjectClassification } from "@/modules/classification/domain/subject-classification";
 import {
@@ -89,6 +95,7 @@ import {
   buildCostOfCapital,
   COST_OF_CAPITAL_VERSION,
   marginalTaxRateOf,
+  ratingBandFloor,
   topCoverageFloor,
   type CostOfCapitalResult,
   type CoverageEvidence,
@@ -489,6 +496,25 @@ export async function assessCompany(
       ? zeroDebt.evidence
       : null;
 
+  // Un rating declarado por el owner manda sobre el sintético (`F6-42`).
+  const ratingDeclaration = declaredRatingAt(
+    DECLARED_RATINGS,
+    request.cik,
+    query,
+  );
+  const declaredRatingReading =
+    ratingDeclaration === null
+      ? null
+      : assessDeclaredRating(
+          ratingDeclaration,
+          legalEntityId,
+          ratingBandFloor(readings.ratings, ratingDeclaration.rating),
+        );
+  const declaredRating =
+    declaredRatingReading?.status === "declared"
+      ? declaredRatingReading.declared
+      : null;
+
   const costOfCapital: CostOfCapitalResult = FINANCIAL_PROFILES.has(
     selection.assetProfile ?? "",
   )
@@ -506,21 +532,26 @@ export async function assessCompany(
         listingCountry: request.listingCountry,
         ...readings,
         coverage:
-          captiveSplit !== null && baseOperatingIncome !== undefined
-            ? captiveCoverage(captiveSplit, baseOperatingIncome)
-            : zeroDebtEvidence !== null &&
-                !zeroDebtEvidenceHasInterest(zeroDebtEvidence)
-              ? noInterestCoverage(zeroDebtEvidence)
-              : series === null
-                ? null
-                : coverageWithNetCash(
-                    series,
-                    topCoverageFloor(readings.ratings),
-                    (item) => ({
-                      ...seriesFact(item, request.fundamentalsSourceId),
-                      concept: item.concept,
-                    }),
-                  ),
+          declaredRating !== null
+            ? declaredRatingCoverage(
+                declaredRating,
+                baseYear?.fiscalYearEnd ?? null,
+              )
+            : captiveSplit !== null && baseOperatingIncome !== undefined
+              ? captiveCoverage(captiveSplit, baseOperatingIncome)
+              : zeroDebtEvidence !== null &&
+                  !zeroDebtEvidenceHasInterest(zeroDebtEvidence)
+                ? noInterestCoverage(zeroDebtEvidence)
+                : series === null
+                  ? null
+                  : coverageWithNetCash(
+                      series,
+                      topCoverageFloor(readings.ratings),
+                      (item) => ({
+                        ...seriesFact(item, request.fundamentalsSourceId),
+                        concept: item.concept,
+                      }),
+                    ),
         operationsMix,
       });
 
@@ -780,6 +811,26 @@ function needsZeroDebtEvidence(
       : resolveReportedDebt(debtInputOf(facts.balance.debt));
 
   return debt?.status === "unresolved" && debt.reason === "no_recipe";
+}
+
+/**
+ * La cobertura de un rating declarado: el piso de su banda, fechado cuando se
+ * declaró (`declared-rating-1.0.0`).
+ */
+function declaredRatingCoverage(
+  declared: DeclaredRating,
+  baseFiscalYearEnd: string | null,
+): CoverageEvidence {
+  return {
+    value: declared.coverageFloor.value,
+    // El ejercicio base al que reemplaza: la declaración no tiene uno propio.
+    fiscalYearEnd:
+      baseFiscalYearEnd ?? declared.declaration.declaredAt.slice(0, 10),
+    fromLatestFiscalYear: true,
+    availableAt: declared.declaration.declaredAt,
+    interestBasis: "owner_declared_rating",
+    declaredRating: declared,
+  };
 }
 
 /**

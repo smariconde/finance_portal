@@ -3,6 +3,7 @@ import type { ProfileEvidence } from "../domain/method-selection";
 import { deriveRigorLevel } from "../domain/rigor-level";
 import {
   deriveRevenueMargin,
+  growthTargetMargin,
   GROWTH_FCFF_ENGINE_VERSION,
   GROWTH_METHODOLOGY_VERSION,
   REVENUE_MARGIN_VERSION,
@@ -48,6 +49,11 @@ export function assembleGrowthSnapshot(input: {
   )
     return null;
 
+  const target = growthTargetMargin(
+    margin.value,
+    foundation.baseRevenue.value,
+    foundation.normalization.base.ebitAdjusted,
+  );
   const plan = revenueMarginSchema.parse({
     version: REVENUE_MARGIN_VERSION,
     profileEvidence: [...evidence],
@@ -57,10 +63,12 @@ export function assembleGrowthSnapshot(input: {
     initialRevenueGrowth: trajectory.initialRevenueGrowth,
     revenueRationale:
       "derived-growth-trajectory-1.0.0: three-year revenue CAGR capped at 30%, three high-growth years and a linear fade to terminal growth.",
-    targetMargin: margin.value,
+    targetMargin: target.value,
     marginConvergenceYears: trajectory.marginConvergenceYears,
     targetMarginRationale:
-      "Pretax lease- and R&D-adjusted operating margin of the dated Damodaran industry release.",
+      target.basis === "industry"
+        ? "Pretax lease- and R&D-adjusted operating margin of the dated Damodaran industry release."
+        : "The company's own lease- and R&D-adjusted base-year margin, above its dated Damodaran industry margin: a proven margin is held, not converged down.",
     financingRationale: input.financingRationale,
     lossCarryforward: input.lossCarryforward,
     lossOffsetLimit: input.lossOffsetLimit,
@@ -100,7 +108,7 @@ export function assembleGrowthSnapshot(input: {
       }),
     },
     periods,
-    terminal: { ...foundation.terminal, ebitMargin: margin.value },
+    terminal: { ...foundation.terminal, ebitMargin: target.value },
     revenueMargin: plan,
     scenarios: null,
   });

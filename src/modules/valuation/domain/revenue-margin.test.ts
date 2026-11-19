@@ -5,6 +5,7 @@ import { fixtureGrowthValuation } from "../infrastructure/fixture-growth-valuati
 import {
   deriveRevenueMargin,
   computeLossTax,
+  growthTargetMargin,
   revenueMarginMismatches,
 } from "./revenue-margin";
 import { parseDecimal } from "./decimal-policy";
@@ -31,6 +32,20 @@ function rebuild(input: ValuationInput) {
     period.revenueGrowth = path.periodGrowth[i]!;
   });
   input.terminal.ebitMargin = input.revenueMargin!.targetMargin;
+}
+
+function deriveTrajectory(input: ValuationInput) {
+  const baseYear = input.baseRevenue.asOf;
+  const years = [0, 1, 2, 3].map((offset) => ({
+    fiscalYearEnd: `${Number(baseYear.slice(0, 4)) - offset}${baseYear.slice(4)}`,
+    value:
+      offset === 0
+        ? input.baseRevenue.value
+        : String(100000000 / 1.2 ** offset),
+  }));
+  const trajectory = deriveGrowthTrajectory(years, input.terminal.growth);
+  if (trajectory.status !== "ready") throw new Error(trajectory.status);
+  return trajectory.trajectory;
 }
 
 describe("revenue-to-margin and survival", () => {
@@ -99,7 +114,7 @@ describe("revenue-to-margin and survival", () => {
     const input = fixtureGrowthValuation("loss_making", {
       reportedEbit: "9600000",
     });
-    expect(input.revenueMargin!.version).toBe("revenue-margin-1.1.0");
+    expect(input.revenueMargin!.version).not.toBe("revenue-margin-1.0.0");
     expect(
       parseDecimal(input.normalization.base.ebitAdjusted!, "ebit").gt(0),
     ).toBe(true);
@@ -113,6 +128,54 @@ describe("revenue-to-margin and survival", () => {
       fixtureGrowthValuation("high_growth", { reportedEbit: "9600000" }),
     );
     expect(result.result!.valuePerShare).toBe(growth.result!.valuePerShare);
+  });
+
+  it("targets the company's own margin when it beats the industry's since 1.2.0 (META)", () => {
+    expect(growthTargetMargin("0.047", "1000", "510")).toEqual({
+      value: "0.51",
+      basis: "company_above_industry",
+    });
+    expect(growthTargetMargin("0.3445", "1000", "66")).toEqual({
+      value: "0.3445",
+      basis: "industry",
+    });
+    expect(growthTargetMargin("0.3445", "1000", "-133")).toEqual({
+      value: "0.3445",
+      basis: "industry",
+    });
+    expect(growthTargetMargin("0.2", "1000", null).basis).toBe("industry");
+  });
+
+  it("rechecks the 1.2.0 target from the snapshot and keeps 1.1.0 at the industry", () => {
+    const input = fixtureGrowthValuation("high_growth");
+    const own = growthTargetMargin(
+      "0.01",
+      input.baseRevenue.value,
+      input.normalization.base.ebitAdjusted,
+    );
+    expect(own.basis).toBe("company_above_industry");
+    input.revenueMargin!.derivedFrom = {
+      trajectory: deriveTrajectory(input),
+      margin: {
+        datasetId: "damodaran.margins-us",
+        releaseId: "d5ee9466-6666-4329-9732-b9809ca4f169",
+        rowKey: "software",
+        field: "pretax_lease_rd_adjusted_margin",
+        value: "0.01",
+        publishedLabel: "January 2025",
+        availableAt: "2025-01-01T00:00:00.000Z",
+        recordedAt: "2025-01-01T00:00:00.000Z",
+      },
+    };
+    input.revenueMargin!.targetMargin = own.value;
+    rebuild(input);
+    expect(revenueMarginMismatches(input)).not.toContain(
+      "revenueMargin.derivedFrom.margin",
+    );
+    input.revenueMargin!.version = "revenue-margin-1.1.0";
+    expect(revenueMarginMismatches(input)).toContain(
+      "revenueMargin.derivedFrom.margin",
+    );
   });
 
   it("keeps 1.0.0 snapshots rejecting a positive base EBIT, so they replay", () => {
