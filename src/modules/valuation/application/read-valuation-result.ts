@@ -176,6 +176,8 @@ export type ValuationResultNewerGap = ValuationResultJob & {
   readonly unsupportedReason: ValuationJob["unsupportedReason"];
   readonly snapshotGap: ValuationJob["snapshotGap"];
   readonly reitAffoAccessionNumber: string | null;
+  /** Por qué un ticker fuera del grafo no entró (`F6-33`). */
+  readonly identityRefusal: ValuationJob["identityRefusal"];
   /** Qué bajó y auditó (`F6-05`): estados y códigos, sin IDs. */
   readonly dataStep: ValuationJob["dataStep"];
   /** Qué le preguntó a la IA (`F6-13`): estados y códigos, sin IDs. */
@@ -340,6 +342,7 @@ function gapReading(job: ValuationJob): ValuationResultNewerGap {
     unsupportedReason: job.unsupportedReason,
     snapshotGap: job.snapshotGap,
     reitAffoAccessionNumber: job.reitAffoAccessionNumber ?? null,
+    identityRefusal: job.identityRefusal ?? null,
     dataStep: job.dataStep,
     qualitativeStep: job.qualitativeStep,
   };

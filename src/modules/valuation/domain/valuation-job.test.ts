@@ -14,6 +14,7 @@ import {
   claimValuationJob,
   finishValuationJob,
   outcomeForAssessment,
+  outcomeForConstitution,
   outcomeForDataStep,
   outcomeForFailure,
   outcomeForIdentity,
@@ -126,6 +127,46 @@ describe("valuation job", () => {
 
     expect(finished?.gap).toBe("ambiguous_ticker");
     expect(finished?.claimToken).toBeNull();
+  });
+
+  it("una constitución guarda not_found y el rechazo sólo acompaña a unresolved_ticker (F6-33)", () => {
+    expect(outcomeForConstitution()).toMatchObject({
+      gap: "identity_constituted",
+      identityStatus: "not_found",
+      legalEntityId: null,
+      identityRefusal: null,
+    });
+    expect(
+      outcomeForIdentity("not_found", "foreign_private_issuer"),
+    ).toMatchObject({
+      gap: "unresolved_ticker",
+      identityRefusal: "foreign_private_issuer",
+    });
+    expect(
+      outcomeForIdentity("ambiguous", "foreign_private_issuer"),
+    ).toMatchObject({ gap: "ambiguous_ticker", identityRefusal: null });
+    expect(
+      valuationJobOutcomeSchema.safeParse({
+        ...outcomeForConstitution(),
+        identityRefusal: "no_annual_report",
+      }).success,
+    ).toBe(false);
+
+    const running = claimValuationJob(queued(), {
+      startedAt: T0,
+      claimToken: TOKEN,
+      staleBefore: T0,
+    })!;
+    const finished = finishValuationJob(running, {
+      claimToken: TOKEN,
+      finishedAt: addMilliseconds(T0, 10),
+      outcome: outcomeForIdentity("not_found", "annual_report_stale"),
+    })!;
+
+    expect(toValuationJobView(finished)).toMatchObject({
+      gap: "unresolved_ticker",
+      identityRefusal: "annual_report_stale",
+    });
   });
 
   it("prioriza el CIK y la serie anual sobre el método", () => {

@@ -97,6 +97,7 @@ export async function requestValuationJob(
 
 /** Lo que el job dejó publicado después de su corte: otro lo continúa. */
 const CONTINUED_GAPS: ReadonlySet<string> = new Set([
+  "identity_constituted",
   "data_ingested",
   "qualitative_resolved",
 ]);

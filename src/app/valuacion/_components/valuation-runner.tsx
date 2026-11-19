@@ -99,7 +99,7 @@ export function ValuationRunner({
             message:
               view.runStatus !== null
                 ? RUN_STATUS_COPY[view.runStatus]
-                : `No se registró una corrida: ${describeJobGap(view.gap, view.assetProfile, view.unsupportedReason)}${view.snapshotGap === null ? "" : ` ${SNAPSHOT_GAP_COPY[view.snapshotGap]}.`}${
+                : `No se registró una corrida: ${describeJobGap(view.gap, view.assetProfile, view.unsupportedReason, view.identityRefusal)}${view.snapshotGap === null ? "" : ` ${SNAPSHOT_GAP_COPY[view.snapshotGap]}.`}${
                     describeDataStep(view.dataStep) === null
                       ? ""
                       : ` ${describeDataStep(view.dataStep)}`

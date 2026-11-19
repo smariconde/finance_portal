@@ -64,6 +64,7 @@ type PlanOverrides = {
   availableAt?: string;
   recordedAt?: string;
   newId?: () => string;
+  membershipPolicy?: "replace" | "additive";
 };
 
 function plan(overrides: PlanOverrides = {}): UniverseConstitutionPlan {
@@ -80,6 +81,7 @@ function plan(overrides: PlanOverrides = {}): UniverseConstitutionPlan {
     ),
     state: overrides.state ?? EMPTY_STATE,
     newId: overrides.newId ?? createIdFactory(),
+    membershipPolicy: overrides.membershipPolicy,
   });
 }
 
@@ -271,6 +273,27 @@ describe("planificación de la constitución del universo", () => {
     expect(
       snapshot.graph.securities.every((security) => security.validTo === null),
     ).toBe(true);
+  });
+
+  it("en un índice aditivo agrega sin sacar a nadie (ADR 0084)", async () => {
+    const repository = await applied(plan());
+    const state = await repository.loadState({ indexId: FIXTURE_INDEX_ID });
+
+    const followed = plan({
+      state,
+      effectiveAt: LATER_EFFECTIVE_AT,
+      availableAt: LATER_AVAILABLE_AT,
+      recordedAt: LATER_RECORDED_AT,
+      claims: FIXTURE_CONSTITUENT_CLAIMS.filter(
+        (entry) => entry.symbol === "ANDES",
+      ),
+      membershipPolicy: "additive",
+    });
+
+    expect(followed.counts.members).toBe(1);
+    expect(followed.counts.exits).toBe(0);
+    expect(followed.closures).toEqual([]);
+    expect(followed.memberships).toEqual([]);
   });
 
   it("rechaza el ticker que ya pertenece a la security de otro emisor", async () => {

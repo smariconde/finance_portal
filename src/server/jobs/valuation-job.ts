@@ -98,6 +98,7 @@ import { getValuationRunRepository } from "@/server/persistence/get-valuation-ru
 import {
   outcomeForAssessment,
   outcomeForDataStep,
+  outcomeForConstitution,
   outcomeForIdentity,
   outcomeForQualitativeStep,
   valuationJobMethodSchema,
@@ -136,6 +137,7 @@ import type { CaptiveFinanceUnavailableReason } from "@/modules/valuation/domain
 import { readCaptiveFinanceFiling } from "./captive-finance-filing";
 import { readFinancialFiling } from "./financial-filing";
 import { readCoverShareClasses } from "./cover-share-classes-filing";
+import { constituteFollowedFiler } from "./followed-filer-constitution";
 import { readGrowthTaxFiling } from "./growth-tax-filing";
 import { runReitAffoStep } from "./reit-affo-step";
 
@@ -241,12 +243,13 @@ export function startValuationWorker(jobId: string): Promise<void> {
 }
 
 /**
- * Un job que continúa a otro nunca baja nada, y uno que sigue a una decisión
- * de la IA ya la ve: la cadena es de tres —bajar, decidir, valuar—. Cada
- * tarea guarda una respuesta por 10-K, así que una cuarta no tendría qué
- * preguntar.
+ * Un job que continúa a otro nunca baja nada —salvo el que sigue a una
+ * constitución (`F6-33`), que es el primero que ve a la empresa—, y uno que
+ * sigue a una decisión de la IA ya la ve: la cadena es de cuatro
+ * —constituir, bajar, decidir, valuar—. Cada tarea guarda una respuesta por
+ * 10-K, así que una quinta no tendría qué preguntar.
  */
-const MAX_CHAINED_JOBS = 3;
+const MAX_CHAINED_JOBS = 4;
 
 async function runWorker(jobId: string): Promise<void> {
   let next: string | null = jobId;
@@ -278,6 +281,8 @@ async function assessValuationJob(
   const prepared = await prepareValuationRun(job, {
     downloadData: true,
     askAi: true,
+    constituteMissing: job.followsJobId === null,
+    followsConstitution: await followsConstitution(job),
   });
 
   if (prepared.kind === "outcome") {
@@ -324,6 +329,24 @@ async function assessValuationJob(
   );
 }
 
+/** El job que éste continúa constituyó al emisor (`F6-33`). */
+async function followsConstitution(job: ValuationJob): Promise<boolean> {
+  if (job.followsJobId === null) {
+    return false;
+  }
+
+  const recent = await getValuationJobStore().listCompletedByTicker(
+    job.ticker,
+    MAX_CHAINED_JOBS,
+  );
+
+  return recent.some(
+    (previous) =>
+      previous.jobId === job.followsJobId &&
+      previous.gap === "identity_constituted",
+  );
+}
+
 export type PreparedValuationRun =
   | { readonly kind: "outcome"; readonly outcome: ValuationJobOutcome }
   | {
@@ -367,6 +390,13 @@ export async function prepareValuationRun(
   options: {
     readonly downloadData?: boolean;
     readonly askAi?: boolean;
+    /**
+     * Constituye en `owner-followed` un ticker que el grafo no tiene (`F6-33`,
+     * ADR 0084). Sólo un job pedido por el owner, nunca uno que sigue a otro.
+     */
+    readonly constituteMissing?: boolean;
+    /** Sigue a una constitución: puede bajar aunque continúe a otro job. */
+    readonly followsConstitution?: boolean;
   } = {},
 ): Promise<PreparedValuationRun> {
   const query = pointInTimeQuerySchema.parse({
@@ -389,6 +419,22 @@ export async function prepareValuationRun(
   );
 
   if (resolution.status !== "resolved" || resolution.legalEntityId === null) {
+    if (
+      resolution.status === "not_found" &&
+      options.constituteMissing === true &&
+      options.downloadData === true
+    ) {
+      const constitution = await constituteFollowedFiler(job.ticker);
+
+      return {
+        kind: "outcome",
+        outcome:
+          constitution.status === "constituted"
+            ? outcomeForConstitution()
+            : outcomeForIdentity("not_found", constitution.reason),
+      };
+    }
+
     return {
       kind: "outcome",
       outcome: outcomeForIdentity(
@@ -495,7 +541,9 @@ export async function prepareValuationRun(
           reading.hasAnnualFundamentals &&
           (await storedSelectionVersion(cik)) !== SEC_CONCEPT_SELECTION_VERSION,
         needsSic: assessment.sic === null,
-        mayDownload: (job.followsJobId ?? null) === null,
+        mayDownload:
+          (job.followsJobId ?? null) === null ||
+          options.followsConstitution === true,
       },
       createValuationDataDependencies(state.graph),
     );

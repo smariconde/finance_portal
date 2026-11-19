@@ -6,6 +6,7 @@ import type {
   DataPendingReason,
   ValuationDataStep,
 } from "@/modules/valuation/domain/valuation-data-step";
+import type { FollowedFilerRefusal } from "@/modules/universe/domain/followed-filer-eligibility";
 import type {
   ValuationJobGap,
   ValuationSnapshotGap,
@@ -24,6 +25,8 @@ import {
  */
 export const GAP_COPY: Record<ValuationJobGap, string> = {
   unresolved_ticker: "Ese ticker no está en el universo constituido.",
+  identity_constituted:
+    "La empresa no estaba en el universo: se sumó a las seguidas con su CIK y su 10-K; otro pedido baja sus datos y la valúa.",
   ambiguous_ticker: "El ticker corresponde a más de una security.",
   identity_conflict: "El grafo de identidad se contradice para ese ticker.",
   cik_missing:
@@ -48,12 +51,39 @@ export const GAP_COPY: Record<ValuationJobGap, string> = {
     "La IA resolvió lo cualitativo que faltaba, con citas del 10-K que una policy verificó; otro pedido valúa con un corte que lo ve.",
 };
 
+/** Por qué un ticker fuera del universo no se sumó (`F6-33`, ADR 0084). */
+export const IDENTITY_REFUSAL_COPY: Record<FollowedFilerRefusal, string> = {
+  duplicate_claim_symbol: "El ticker llegó repetido.",
+  issuer_not_assigned: "La SEC no le asigna ese ticker a ningún emisor.",
+  ambiguous_issuer: "La SEC le asigna ese ticker a más de un emisor.",
+  ambiguous_venue: "El emisor cotiza en más de un mercado y no se elige uno.",
+  missing_exchange: "La SEC no dice en qué mercado cotiza.",
+  unmapped_venue:
+    "Cotiza en un mercado que el portal no lee (OTC u otro fuera de las bolsas de EE.UU.).",
+  foreign_private_issuer:
+    "Presenta 20-F o 40-F: es un emisor extranjero y todavía no se valúa.",
+  no_annual_report: "No presentó ningún informe anual a la SEC.",
+  annual_report_stale: "Su último 10-K tiene más de 18 meses.",
+  issuer_conflict: "El ticker ya pertenece a otra empresa del universo.",
+  unresolved_share_class:
+    "El emisor ya está en el universo con otro ticker: no se adivina si es una clase nueva o un cambio de ticker.",
+  stale_effective_date:
+    "El universo tiene una versión más nueva de ese emisor.",
+  source_unavailable:
+    "La SEC no respondió o su cuota del día se agotó. Se puede volver a pedir.",
+};
+
 /** El selector conserva el perfil y el motivo; el gap solo no explica el caso. */
 export function describeJobGap(
   gap: ValuationJobGap | null,
   assetProfile: AssetProfile | null,
   unsupportedReason: MethodSelectionReason | null,
+  identityRefusal: FollowedFilerRefusal | null = null,
 ): string {
+  if (gap === "unresolved_ticker" && identityRefusal !== null) {
+    return `Ese ticker no está en el universo y no se pudo sumar: ${IDENTITY_REFUSAL_COPY[identityRefusal]}`;
+  }
+
   if (
     gap === "unsupported_method" &&
     assetProfile === "reit" &&
