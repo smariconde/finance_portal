@@ -134,7 +134,11 @@ export async function readLiveAccount(
   try {
     const reading = await readLiveAccountNow(getLiveAccountDependencies());
     if (reading.state === "failed") {
-      console.warn("schwab account read failed", reading.code);
+      console.warn(
+        "schwab account read failed",
+        reading.code,
+        reading.path ?? "",
+      );
     }
     return reading;
   } catch (error) {

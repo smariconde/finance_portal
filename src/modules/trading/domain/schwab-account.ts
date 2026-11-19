@@ -6,6 +6,7 @@ import {
   failure,
   issuePath,
   readExactJson,
+  type SchwabParseFailure,
   type SchwabParseResult,
 } from "./schwab-exact";
 
@@ -19,6 +20,13 @@ import {
  * queda marcado así hasta que aparezca en la cuenta:
  *
  * - posiciones y órdenes: claves del schema publicado, también cerradas;
+ * - `1.1.0` (2026-11-19, medido en Production): la ventana de 7 días trae
+ *   también las órdenes ejecutadas, canceladas y reemplazadas, y una de ellas
+ *   con una clave fuera del schema publicado dejaba `/cuenta` sin lectura. De
+ *   una orden terminada sólo se lee su `orderId`, su estado —un estado
+ *   desconocido sigue rechazando: no se adivina si sigue viva— y sus hijas;
+ *   el schema cerrado se aplica a las abiertas, que son las que se muestran y
+ *   alimentan el riesgo. El camino de la clave que falla viaja con el código;
  * - una cuenta `MARGIN` no se lee: sus saldos no se midieron, y adivinar cuál es
  *   el poder de compra sería peor que decir que falta (decisión del owner).
  *
@@ -26,7 +34,7 @@ import {
  * claves. El número de cuenta completo tampoco sale: la vista lleva los últimos
  * cuatro dígitos.
  */
-export const SCHWAB_ACCOUNT_PARSER_VERSION = "schwab-account-1.0.0";
+export const SCHWAB_ACCOUNT_PARSER_VERSION = "schwab-account-1.1.0";
 
 const decimal = exactDecimalSchema;
 const optionalDecimal = exactDecimalSchema.optional();
@@ -462,8 +470,6 @@ type RawOrder = {
   readonly stopPrice?: string;
   readonly orderStrategyType?: string;
   readonly orderLegCollection?: readonly z.infer<typeof orderLegSchema>[];
-  readonly childOrderStrategies?: readonly RawOrder[];
-  readonly replacingOrderCollection?: readonly RawOrder[];
 };
 
 const instantSchema = z
@@ -473,50 +479,64 @@ const instantSchema = z
     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})$/u,
   );
 
-/** Una orden según el schema publicado (sin medir: no hubo órdenes en 60 días). */
-const orderSchema: z.ZodType<RawOrder, unknown> = z.lazy(() =>
-  z
-    .object({
-      orderId: exactIntegerSchema,
-      status: orderStatusSchema,
-      enteredTime: instantSchema,
-      session: z.string().max(32).optional(),
-      duration: z.string().max(32).optional(),
-      orderType: z.string().max(64).optional(),
-      cancelTime: z.string().max(40).optional(),
-      complexOrderStrategyType: z.string().max(64).optional(),
-      quantity: optionalDecimal,
-      filledQuantity: optionalDecimal,
-      remainingQuantity: optionalDecimal,
-      requestedDestination: z.string().max(64).optional(),
-      destinationLinkName: z.string().max(64).optional(),
-      releaseTime: z.string().max(40).optional(),
-      stopPrice: optionalDecimal,
-      stopPriceLinkBasis: z.string().max(64).optional(),
-      stopPriceLinkType: z.string().max(64).optional(),
-      stopPriceOffset: optionalDecimal,
-      stopType: z.string().max(64).optional(),
-      priceLinkBasis: z.string().max(64).optional(),
-      priceLinkType: z.string().max(64).optional(),
-      price: optionalDecimal,
-      taxLotMethod: z.string().max(64).optional(),
-      orderLegCollection: z.array(orderLegSchema).max(8).optional(),
-      activationPrice: optionalDecimal,
-      specialInstruction: z.string().max(64).optional(),
-      orderStrategyType: z.string().max(64).optional(),
-      cancelable: z.boolean().optional(),
-      editable: z.boolean().optional(),
-      closeTime: z.string().max(40).optional(),
-      tag: z.string().max(128).optional(),
-      accountNumber: exactIntegerSchema.optional(),
-      orderActivityCollection: z.array(orderActivitySchema).optional(),
-      replacingOrderCollection: z.array(orderSchema).max(16).optional(),
-      childOrderStrategies: z.array(orderSchema).max(16).optional(),
-      statusDescription: z.string().max(512).optional(),
-      firmActionType: z.string().max(64).optional(),
-    })
-    .strict(),
-);
+/**
+ * Una orden abierta según el schema publicado. Sus hijas y reemplazos se
+ * recorren aparte (`collectOpen`), cada una con su propio estado.
+ */
+const openOrderSchema = z
+  .object({
+    orderId: exactIntegerSchema,
+    status: orderStatusSchema,
+    enteredTime: instantSchema,
+    session: z.string().max(32).optional(),
+    duration: z.string().max(32).optional(),
+    orderType: z.string().max(64).optional(),
+    cancelTime: z.string().max(40).optional(),
+    complexOrderStrategyType: z.string().max(64).optional(),
+    quantity: optionalDecimal,
+    filledQuantity: optionalDecimal,
+    remainingQuantity: optionalDecimal,
+    requestedDestination: z.string().max(64).optional(),
+    destinationLinkName: z.string().max(64).optional(),
+    releaseTime: z.string().max(40).optional(),
+    stopPrice: optionalDecimal,
+    stopPriceLinkBasis: z.string().max(64).optional(),
+    stopPriceLinkType: z.string().max(64).optional(),
+    stopPriceOffset: optionalDecimal,
+    stopType: z.string().max(64).optional(),
+    priceLinkBasis: z.string().max(64).optional(),
+    priceLinkType: z.string().max(64).optional(),
+    price: optionalDecimal,
+    taxLotMethod: z.string().max(64).optional(),
+    orderLegCollection: z.array(orderLegSchema).max(8).optional(),
+    activationPrice: optionalDecimal,
+    specialInstruction: z.string().max(64).optional(),
+    orderStrategyType: z.string().max(64).optional(),
+    cancelable: z.boolean().optional(),
+    editable: z.boolean().optional(),
+    closeTime: z.string().max(40).optional(),
+    tag: z.string().max(128).optional(),
+    accountNumber: exactIntegerSchema.optional(),
+    orderActivityCollection: z.array(orderActivitySchema).optional(),
+    replacingOrderCollection: z.array(z.unknown()).max(16).optional(),
+    childOrderStrategies: z.array(z.unknown()).max(16).optional(),
+    statusDescription: z.string().max(512).optional(),
+    firmActionType: z.string().max(64).optional(),
+  })
+  .strict();
+
+/**
+ * Lo que se lee de cualquier orden, abierta o terminada: identidad, estado e
+ * hijas. El resto de una orden terminada no se usa y no se valida.
+ */
+const orderProbeSchema = z.object({
+  orderId: exactIntegerSchema,
+  status: orderStatusSchema,
+  childOrderStrategies: z.array(z.unknown()).max(16).optional(),
+});
+
+/** Un bracket es madre e hijas; más hondo que esto no es una orden medible. */
+const MAX_ORDER_DEPTH = 4;
 
 export type SchwabOpenOrder = {
   readonly orderId: string;
@@ -542,13 +562,25 @@ export type SchwabOpenOrder = {
 const OPEN: ReadonlySet<string> = new Set(SCHWAB_OPEN_ORDER_STATUSES);
 
 function collectOpen(
-  order: RawOrder,
+  raw: unknown,
   parentOrderId: string | null,
+  path: string,
+  depth: number,
   into: Map<string, SchwabOpenOrder>,
-): void {
-  const orderId = String(order.orderId);
+): SchwabParseFailure | null {
+  if (depth > MAX_ORDER_DEPTH) return failure("order_nesting_too_deep", path);
+  const probe = orderProbeSchema.safeParse(raw);
+  if (!probe.success) {
+    return failure("order_schema_changed", issuePath(probe.error, path));
+  }
+  const orderId = String(probe.data.orderId);
 
-  if (OPEN.has(order.status)) {
+  if (OPEN.has(probe.data.status)) {
+    const parsed = openOrderSchema.safeParse(raw);
+    if (!parsed.success) {
+      return failure("order_schema_changed", issuePath(parsed.error, path));
+    }
+    const order: RawOrder = parsed.data;
     into.set(orderId, {
       orderId,
       parentOrderId,
@@ -572,9 +604,19 @@ function collectOpen(
 
   // Una madre ejecutada puede tener hijas vivas: el stop y el target de un
   // bracket esperan con la madre ya `FILLED`.
-  for (const child of order.childOrderStrategies ?? []) {
-    collectOpen(child, orderId, into);
+  for (const [index, child] of (
+    probe.data.childOrderStrategies ?? []
+  ).entries()) {
+    const failed = collectOpen(
+      child,
+      orderId,
+      `${path}.childOrderStrategies[${index}]`,
+      depth + 1,
+      into,
+    );
+    if (failed !== null) return failed;
   }
+  return null;
 }
 
 /**
@@ -593,14 +635,8 @@ export function parseSchwabOpenOrders(
     if (!Array.isArray(json)) return failure("orders_schema_changed");
 
     for (const [index, raw] of json.entries()) {
-      const order = orderSchema.safeParse(raw);
-      if (!order.success) {
-        return failure(
-          "order_schema_changed",
-          issuePath(order.error, `[${index}]`),
-        );
-      }
-      collectOpen(order.data, null, open);
+      const failed = collectOpen(raw, null, `[${index}]`, 0, open);
+      if (failed !== null) return failed;
     }
   }
 

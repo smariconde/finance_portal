@@ -87,10 +87,30 @@ type QuotesState = {
 /** Cada cuánto se recalcula la luz sin pedir nada: sólo el reloj. */
 const CLOCK_TICK_MS = 5_000;
 
-function failureOf(result: LiveAccountResult): string | null {
+/** El código cerrado de una lectura fallida y, si el formato cambió, el camino de la clave. */
+type FailureNote = { readonly code: string; readonly path: string | null };
+
+function failureOf(result: LiveAccountResult): FailureNote | null {
   if (result.state === "read") return null;
-  if (result.state === "failed") return result.code;
-  return "unavailable";
+  if (result.state === "failed") {
+    return { code: result.code, path: result.path ?? null };
+  }
+  return { code: "unavailable", path: null };
+}
+
+/** Código y camino, en monoespaciado, para el ⓘ de una lectura fallida. */
+function FailureCode({ failure }: { readonly failure: FailureNote }) {
+  return (
+    <p className="font-mono text-xs break-all">
+      {failure.code}
+      {failure.path === null ? null : (
+        <>
+          <br />
+          {failure.path}
+        </>
+      )}
+    </p>
+  );
 }
 
 function isVisible(): boolean {
@@ -114,7 +134,7 @@ export function LiveAccount({
   const [reading, setReading] = useState<Reading | null>(
     initial.state === "read" ? initial : null,
   );
-  const [failedCode, setFailedCode] = useState<string | null>(
+  const [failure, setFailure] = useState<FailureNote | null>(
     failureOf(initial),
   );
   const [refreshing, setRefreshing] = useState(false);
@@ -155,9 +175,9 @@ export function LiveAccount({
     setLastAttemptAt(finished);
     if (result.state === "read") {
       setReading(result);
-      setFailedCode(null);
+      setFailure(null);
     } else {
-      setFailedCode(failureOf(result));
+      setFailure(failureOf(result));
     }
   }, []);
 
@@ -306,7 +326,7 @@ export function LiveAccount({
   );
 
   if (reading === null) {
-    const copy = liveFailureCopy(failedCode ?? "unavailable");
+    const copy = liveFailureCopy(failure?.code ?? "unavailable");
     return (
       <Card>
         <CardHeader className="border-b">
@@ -322,7 +342,9 @@ export function LiveAccount({
               {copy.title}
               <InfoTip title={copy.title}>
                 <p>{copy.text}</p>
-                <p className="font-mono text-xs">{failedCode}</p>
+                <FailureCode
+                  failure={failure ?? { code: "unavailable", path: null }}
+                />
               </InfoTip>
             </p>
             <RefreshButton refreshing={refreshing} onRefresh={refreshAccount} />
@@ -337,7 +359,7 @@ export function LiveAccount({
     readAt: reading.readAt,
     now,
     intervalMs: cadence.accountMs,
-    lastAttemptFailed: failedCode !== null,
+    lastAttemptFailed: failure !== null,
   });
 
   return (
@@ -386,8 +408,8 @@ export function LiveAccount({
           </div>
         </CardHeader>
         <CardContent className="space-y-5">
-          {failedCode !== null ? (
-            <StaleNotice code={failedCode} readAt={reading.readAt} />
+          {failure !== null ? (
+            <StaleNotice failure={failure} readAt={reading.readAt} />
           ) : null}
           <Balances reading={reading} />
         </CardContent>
@@ -502,13 +524,13 @@ function RefreshButton({
 }
 
 function StaleNotice({
-  code,
+  failure,
   readAt,
 }: {
-  readonly code: string;
+  readonly failure: FailureNote;
   readonly readAt: string;
 }) {
-  const copy = liveFailureCopy(code);
+  const copy = liveFailureCopy(failure.code);
   return (
     <Alert>
       <TriangleAlert aria-hidden="true" />
@@ -516,7 +538,7 @@ function StaleNotice({
         {copy.title} · lectura de las {formatClock(readAt)}
         <InfoTip title={copy.title}>
           <p>{copy.text}</p>
-          <p className="font-mono text-xs">{code}</p>
+          <FailureCode failure={failure} />
         </InfoTip>
       </AlertTitle>
     </Alert>

@@ -17,7 +17,11 @@ export async function LiveAccountSection() {
   try {
     initial = await readLiveAccount(getLiveAccountDependencies());
     if (initial.state === "failed") {
-      console.warn("schwab account read failed", initial.code);
+      console.warn(
+        "schwab account read failed",
+        initial.code,
+        initial.path ?? "",
+      );
     }
   } catch (error) {
     console.error("schwab account read failed", safeErrorSummary(error));

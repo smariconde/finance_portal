@@ -200,6 +200,62 @@ describe("parseSchwabOpenOrders", () => {
     });
   });
 
+  it("does not reject the reading for an unknown key of a finished order", () => {
+    // Measured in Production on 2026-11-19: the 7-day window brings filled
+    // orders too, and one outside the published schema blanked /cuenta.
+    const parsed = parseSchwabOpenOrders([
+      bytes(
+        `[${order(1, "FILLED", { extra: ',"surprise":true' })},${order(2, "WORKING")}]`,
+      ),
+    ]);
+    expect(parsed.ok && parsed.value.map((o) => o.orderId)).toEqual(["2"]);
+  });
+
+  it("still finds the live child of a finished parent it does not fully read", () => {
+    const bracket = order(10, "FILLED", {
+      extra: ',"surprise":{"nested":1}',
+      children: [order(11, "WORKING")],
+    });
+    const parsed = parseSchwabOpenOrders([bytes(`[${bracket}]`)]);
+    expect(parsed.ok && parsed.value).toMatchObject([
+      { orderId: "11", parentOrderId: "10" },
+    ]);
+  });
+
+  it("names the path of an unknown key in a live child", () => {
+    const bracket = order(10, "FILLED", {
+      children: [
+        order(11, "CANCELED"),
+        order(12, "WORKING", { extra: ',"surprise":true' }),
+      ],
+    });
+    expect(parseSchwabOpenOrders([bytes(`[${bracket}]`)])).toEqual({
+      ok: false,
+      code: "order_schema_changed",
+      path: "[0].childOrderStrategies[1].surprise",
+    });
+  });
+
+  it("rejects an unknown status even in a finished order's child", () => {
+    const bracket = order(10, "FILLED", { children: [order(11, "PARKED")] });
+    expect(parseSchwabOpenOrders([bytes(`[${bracket}]`)])).toEqual({
+      ok: false,
+      code: "order_schema_changed",
+      path: "[0].childOrderStrategies[0].status",
+    });
+  });
+
+  it("refuses orders nested deeper than a bracket can be", () => {
+    let nested = order(9, "WORKING");
+    for (let id = 8; id >= 3; id -= 1) {
+      nested = order(id, "FILLED", { children: [nested] });
+    }
+    expect(parseSchwabOpenOrders([bytes(`[${nested}]`)])).toMatchObject({
+      ok: false,
+      code: "order_nesting_too_deep",
+    });
+  });
+
   it("reads an empty window", () => {
     expect(parseSchwabOpenOrders([bytes("[]"), bytes("[]")])).toEqual({
       ok: true,
