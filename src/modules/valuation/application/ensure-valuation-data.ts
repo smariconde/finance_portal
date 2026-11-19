@@ -12,6 +12,7 @@ import {
   VALUATION_DATA_RULE_VERSION,
   type DataPendingReason,
   type FundamentalsStep,
+  type ConsensusStep,
   type PricesStep,
   type SicStep,
   type ValuationDataStep,
@@ -57,6 +58,11 @@ export type ValuationDataDependencies = {
     readonly cik: string;
   }) => Promise<SicObservation>;
   readonly ensureCedearPrices?: (securityId: string) => Promise<void>;
+  /**
+   * El consenso de la security (`F6-39`, ADR 0085), capturado en línea si le
+   * toca. Opcional: sin él el paso no lo registra.
+   */
+  readonly ensureConsensus?: (securityId: string) => Promise<ConsensusStep>;
   readonly latestClose: (securityId: string) => Promise<string | null>;
   /** Cuándo un job de precios terminado revisó la security por última vez. */
   readonly lastPriceCheck: (securityId: string) => Promise<string | null>;
@@ -93,6 +99,12 @@ export async function ensureValuationData(
   const fundamentals = await fundamentalsStep(request, dependencies);
   const sic = await sicStep(request, dependencies);
   const prices = await pricesStep(request, dependencies);
+  const consensus =
+    request.mayDownload &&
+    request.securityId !== null &&
+    dependencies.ensureConsensus !== undefined
+      ? await dependencies.ensureConsensus(request.securityId)
+      : undefined;
   const blocked = dataStepBlock({ fundamentals, sic }) !== null;
 
   return valuationDataStepSchema.parse({
@@ -100,6 +112,7 @@ export async function ensureValuationData(
     fundamentals,
     sic,
     prices,
+    ...(consensus === undefined ? {} : { consensus }),
     // Si una descarga quedó a medias, se audita cuando termine: auditar ahora
     // diría «pasó» sobre cadenas que todavía no llegaron.
     audit: blocked

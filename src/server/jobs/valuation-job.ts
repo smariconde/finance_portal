@@ -83,11 +83,13 @@ import {
   type ValuationDataStep,
 } from "@/modules/valuation/domain/valuation-data-step";
 import { PRICES_SOURCE_ID } from "@/modules/prices/application/live-price-source";
+import { readRevenueConsensusAt } from "@/modules/consensus/application/read-revenue-consensus";
 import {
   subtractCalendarYears,
   subtractDays,
 } from "@/modules/temporal/domain/calendar-date";
 import { getCedearRegistryRepository } from "@/server/persistence/get-cedear-registry-repository";
+import { getConsensusRepository } from "@/server/persistence/get-consensus-repository";
 import { getCorporateActionRepository } from "@/server/persistence/get-corporate-action-repository";
 import { getEmployeeEquityRepository } from "@/server/persistence/get-employee-equity-repository";
 import { getIngestionRunRepository } from "@/server/persistence/get-ingestion-run-repository";
@@ -889,6 +891,7 @@ export async function prepareValuationRun(
     prices,
     industryReturns,
     industryCapital,
+    consensus,
   ] = await Promise.all([
     employeeEquityRepository.acceptedAsKnown(legalEntityId, job.knownAt),
     readShareCounts(legalEntityId, query),
@@ -905,6 +908,13 @@ export async function prepareValuationRun(
       query,
       getReferenceDatasetRepository(),
     ),
+    // El consenso de ventas vigente al corte (`F6-39`, ADR 0085).
+    securityId === null
+      ? Promise.resolve(undefined)
+      : readRevenueConsensusAt(
+          { securityId, knownAt: job.knownAt },
+          getConsensusRepository(),
+        ),
   ]);
 
   // Varias clases en la carátula (`F6-32`): sin un conteo sin dimensiones
@@ -936,6 +946,7 @@ export async function prepareValuationRun(
     prices: { sourceId: PRICES_SOURCE_ID, ...prices },
     industryReturns,
     industryCapital,
+    ...(consensus === undefined ? {} : { consensus }),
   };
 
   if (awaitsGrowth) {

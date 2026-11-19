@@ -1,6 +1,10 @@
 import type { PriceEvent } from "@/modules/prices/domain/daily-close";
 
-import { DERIVED_EXPLICIT_YEARS, fade } from "./derived-assumptions";
+import {
+  DERIVED_EXPLICIT_YEARS,
+  DERIVED_HOLD_YEARS,
+  fade,
+} from "./derived-assumptions";
 import {
   divide,
   formatDecimal,
@@ -38,7 +42,12 @@ import type { ValuationRun } from "./valuation-run";
  * nunca se extrapola.
  */
 export const MARKET_PRICE_COMPARISON_VERSION = "market-price-comparison-1.0.0";
-export const MARKET_IMPLIED_VERSION = "market-implied-1.0.0";
+/**
+ * `1.1.0` (`F6-39`, ADR 0085): el crecimiento también se resuelve sobre una
+ * corrida `derived-assumptions-3.0.0`, cuyos años 1 y 2 vienen del consenso.
+ * Sobre una `2.0.0` el resultado es el de `1.0.0`.
+ */
+export const MARKET_IMPLIED_VERSION = "market-implied-1.1.0";
 
 /** Pasos de bisección: con el intervalo más ancho (5) dejan < 1e-12. */
 export const MARKET_IMPLIED_ITERATIONS = 48;
@@ -260,7 +269,12 @@ function withGrowth(input: ValuationInput, growth: Dec): ValuationInput {
   };
 }
 
-/** La forma de la regla derivada: diez años, los cinco primeros iguales. */
+/**
+ * La forma de la regla derivada: diez años que desde el sexto convergen a la
+ * libre de riesgo desde el crecimiento del quinto. Los cinco primeros son lo
+ * que el crecimiento implícito reemplaza: iguales en `2.0.0`, los dos del
+ * consenso y la tendencia en `3.0.0`.
+ */
 function hasDerivedGrowthShape(input: ValuationInput): boolean {
   if (
     input.derivedAssumptions === undefined ||
@@ -269,12 +283,17 @@ function hasDerivedGrowthShape(input: ValuationInput): boolean {
     return false;
   }
 
-  const start = parseDecimal(input.periods[0]!.revenueGrowth, "growth");
+  const held = parseDecimal(
+    input.periods[DERIVED_HOLD_YEARS - 1]!.revenueGrowth,
+    "growth",
+  );
 
-  return withGrowth(input, start).periods.every((period, index) =>
-    parseDecimal(period.revenueGrowth, "growth").eq(
-      parseDecimal(input.periods[index]!.revenueGrowth, "growth"),
-    ),
+  return withGrowth(input, held).periods.every(
+    (period, index) =>
+      index < DERIVED_HOLD_YEARS ||
+      parseDecimal(period.revenueGrowth, "growth").eq(
+        parseDecimal(input.periods[index]!.revenueGrowth, "growth"),
+      ),
   );
 }
 

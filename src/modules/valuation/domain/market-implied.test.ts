@@ -271,6 +271,33 @@ describe("market-implied-1.0.0", () => {
     }
   });
 
+  it("solves growth on a consensus-shaped run, years 1–5 replaced by one rate (1.1.0)", () => {
+    // Años 1 y 2 del consenso, la tendencia del 3 al 5, la misma convergencia.
+    const shaped = {
+      ...input,
+      periods: input.periods.map((period, index) =>
+        index < 2 ? { ...period, revenueGrowth: "0.2" } : period,
+      ),
+    };
+    const readings = readingsAt(computeFcff(shaped).valuePerShare, shaped);
+
+    expect(reading(readings, "revenue_growth").status).toBe("solved");
+
+    // Un año 6 que no converge desde el 5 no tiene la forma de la regla.
+    const broken = {
+      ...input,
+      periods: input.periods.map((period, index) =>
+        index === 5 ? { ...period, revenueGrowth: "0.3" } : period,
+      ),
+    };
+    expect(
+      reading(readingsAt(computed.valuePerShare, broken), "revenue_growth"),
+    ).toMatchObject({
+      status: "unavailable",
+      reason: "growth_shape_unsupported",
+    });
+  });
+
   it("does not move growth on a snapshot that is not shaped by the rule", () => {
     const handWritten = { ...input, derivedAssumptions: undefined };
     const readings = readingsAt(computed.valuePerShare, handWritten);

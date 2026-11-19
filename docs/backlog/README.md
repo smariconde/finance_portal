@@ -151,10 +151,11 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   123 | `F6-37`    | `done`        | Volatilidad de las opciones con toda la historia disponible desde dos años, nombrada, cuando no hay cinco (RDDT).                                                                                                         | `F6-32`            |
 |   124 | `F6-38`    | `done`        | Investigar el rechazo `failureRisk` de F en el método cíclico y el `pretax_income_not_reported` de MCD.                                                                                                                   | `F6-32`            |
 |   125 | `F6-41`    | `done`        | Decisiones de cobertura delegadas por el owner: pérdidas con EBIT ajustado positivo, cobertura con caja neta, rating D en la peor fila, industria de MELI y desglose de quebrantos de SNOW.                               | `F6-38`            |
-|   126 | `F6-39`    | `ready`       | Supuestos derivados `3.0.0`: el crecimiento de ventas de los primeros años desde el consenso guardado, con la historia como respaldo.                                                                                     | `F6-29`            |
+|   126 | `F6-39`    | `done`        | Supuestos derivados `3.0.0`: el crecimiento de ventas de los primeros años desde el consenso guardado, con la historia como respaldo.                                                                                     | `F6-29`            |
 |   127 | `F6-40`    | `queued`      | E2E estable: el aviso sin base de `/sectores` y `/argentina` en mobile no se encuentra dos veces.                                                                                                                         | -                  |
 |   128 | `F6-42`    | `done`        | Margen objetivo del camino de crecimiento: el propio cuando supera al de la industria (META, MSFT, RDDT), y rating declarado por el owner con la menor calificación publicada (F).                                        | `F6-41`            |
 |   129 | `F6-43`    | `done`        | Perfil de ciclo declarado por el owner por CIK, que reemplaza al del SIC: MU (memorias) al método cíclico en lugar del de crecimiento.                                                                                    | `F6-42`            |
+|   130 | `F6-44`    | `ready`       | Una valuación nueva ve el 10-K o 10-Q presentado después de la última descarga: el job sondea `submissions` y vuelve a bajar companyfacts cuando hay uno más nuevo.                                                       | `F6-39`            |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -4781,6 +4782,52 @@ Decisión delegada por el owner («tomá la mejor decisión»).
   contra un cierre de 705,27. El ciclo 2021–2025 incluye el −20 % de 2023.
 - Replay: 42 de 42 en la réplica y 56 de 57 en Neon (la de GOOGL ya conocida).
 - Gates: 4.719 unit, 251 de integración, lint, tipos, formato y build.
+
+#### `F6-39` — crecimiento cercano desde el consenso (cerrado el 2026-11-19)
+
+Decisiones del owner con la tabla medida a la vista:
+[ADR 0085](../architecture/adr/0085-consensus-near-term-growth.md).
+
+- Medido antes de codificar sobre las 11 corridas `fcff_base` de Production
+  con el consenso capturado ese día (12 pedidos de Alpha Vantage a la base
+  local). **El consenso no explica el sesgo de precio contra valor**: la
+  mediana pasa de 1,92 a 1,91. Mejora LRCX (1,42 → 0,99), GOOGL y GLW;
+  empeora KO (1,63 → 1,95) y SBUX. El owner eligió usarlo igual con la forma
+  IB, que pone el consenso en los años 1–2 y vuelve a la tendencia desde el 3.
+  Las otras formas medidas daban 1,87 y 1,74.
+- `derived-assumptions-3.0.0` y `consensus-revenue-path-1.0.0`: un camino de
+  niveles de ventas FY0 → FY1 → FY2 en el calendario fiscal de la empresa,
+  interpolado geométricamente. Con base anual da exactamente FY1/FY0 − 1 y
+  FY2/FY1 − 1. Con base TTM arranca de las ventas TTM: aplicar la tasa del
+  ejercicio contaba dos veces lo ya crecido (LRCX 52 % contra 41,7 %, KO +5 %
+  contra −3,5 %). Desde el año 3 es `2.0.0`.
+- Bear y bull en los años 1–2 con el mínimo y el máximo de los analistas.
+- Sin consenso utilizable la corrida es `2.0.0` salvo la versión, y nombra el
+  motivo: `no_consensus`, `stale_consensus` (más de 7 días contra el `as_of`),
+  `insufficient_horizons`, `fiscal_year_gap`, `revenue_incomplete`,
+  `non_positive_revenue` o `currency_mismatch`.
+- El snapshot congela la decisión. `assumptions_derived_recomputed` la vuelve
+  a decidir: captura no posterior al corte, revisiones no posteriores a la
+  captura, alineación y moneda. Sólo `fcff_base`: cíclicas y crecimiento
+  siguen en `2.0.0`, y una `3.0.0` en una cíclica se rechaza.
+- El job pide el consenso en su paso de datos (`consensus`, opcional en
+  `valuation-data-1.0.0`) con la regla de la página. Espera hasta un minuto y
+  nunca bloquea. Una captura nueva es «bajó algo» y la continuación la ve.
+- `market-implied-1.1.0`: el DCF inverso resuelve el crecimiento también
+  sobre la forma `3.0.0`.
+- La tarjeta «De dónde salen los supuestos» muestra el consenso (ejercicio,
+  analistas, promedio y rango en una sola magnitud, captura y regla) o el
+  motivo por el que no se usó.
+- Réplica con el worker real: AMZN pasó del precio viejo a `3.0.0` usado
+  (crecimiento 15,96 % y 15,74 %, tendencia 12,51 % desde el año 3). Vale
+  140,33 contra 134,58 con `2.0.0` y su replay reproduce. AAPL queda
+  `fiscal_year_gap`, porque la historia guardada no tiene el 10-K de FY2026.
+  De ahí sale `F6-44`.
+- Revisión renderizada a 1366 y 390 px sin overflow; axe limpio en
+  escritorio. En mobile, `landmark-unique` cae en una tabla de otro bloque de
+  la página que este slice no toca.
+- Replay: 17 de 17 en la réplica y 58 de 59 en Neon (la de GOOGL ya
+  conocida).
 
 #### Cobertura de valuación — decisiones del owner del 2026-11-18
 

@@ -1,3 +1,4 @@
+import { InfoTip } from "@/app/_components/info-tip";
 import { EvidenceKindMark } from "@/app/valuacion/_components/run/data-marks";
 import { CodeValue } from "@/app/valuacion/_components/run/field";
 import {
@@ -19,14 +20,19 @@ import {
   DERIVED_EXPLICIT_YEARS,
   DERIVED_HOLD_YEARS,
   explainDerivation,
+  type ConsensusRevenue,
+  type ConsensusRevenueReason,
   type DerivationExplanation,
   type TerminalReturnBasis,
 } from "@/modules/valuation/domain/derived-assumptions";
 import {
   formatAmount,
   formatCalendarDate,
+  displayMagnitude,
   formatCompactAmount,
+  formatInMagnitude,
   formatPercent,
+  formatUtcTimestamp,
 } from "@/modules/valuation/domain/display-format";
 import { financeDebtOf } from "@/modules/valuation/domain/captive-finance";
 import type { ValuationRun } from "@/modules/valuation/domain/valuation-run";
@@ -55,6 +61,16 @@ const TERMINAL_RETURN_COPY: Record<TerminalReturnBasis, string> = {
     "igual al WACC terminal, porque el ROIC ajustado del año base no se pudo calcular",
 };
 
+const CONSENSUS_REASON_COPY: Record<ConsensusRevenueReason, string> = {
+  no_consensus: "sin captura visible al corte",
+  stale_consensus: "captura a más de 7 días del cierre",
+  insufficient_horizons: "no publica dos ejercicios por delante",
+  fiscal_year_gap: "no empieza en el ejercicio siguiente al último 10-K",
+  revenue_incomplete: "falta el promedio, el mínimo o el máximo de ventas",
+  non_positive_revenue: "ventas no positivas",
+  currency_mismatch: "la corrida no está en dólares",
+};
+
 function percent(value: string): string {
   return formatPercent(value, { scale: 2 });
 }
@@ -68,32 +84,55 @@ function RuleV2({
   explanation: DerivationExplanation;
 }) {
   const first = run.input.periods[0]!;
+  const second = run.input.periods[1]!;
   const industry = explanation.industryReturn;
+  const consensusUsed = explanation.consensus?.status === "used";
 
   return (
     <>
-      <li>
-        Crecimiento de ventas de{" "}
-        <span className="numeric font-medium text-foreground">
-          {percent(first.revenueGrowth)}
-        </span>
-        : la tendencia log-lineal de los ejercicios de la tabla, que usa todos
-        los años y no sólo las puntas
-        {explanation.windows.length === 0
-          ? ""
-          : ` (entre puntas: ${explanation.windows
-              .map(
-                (window) =>
-                  `${percent(window.cagr)} en ${window.years} ${window.years === 1 ? "año" : "años"}`,
-              )
-              .join(", ")})`}
-        . Se sostiene {DERIVED_HOLD_YEARS} años y converge a la libre de riesgo,
-        que es también el crecimiento terminal (
-        <span className="numeric font-medium text-foreground">
-          {percent(run.input.terminal.growth)}
-        </span>
-        ).
-      </li>
+      {consensusUsed ? (
+        <li>
+          Crecimiento de ventas de{" "}
+          <span className="numeric font-medium text-foreground">
+            {percent(first.revenueGrowth)}
+          </span>{" "}
+          y{" "}
+          <span className="numeric font-medium text-foreground">
+            {percent(second.revenueGrowth)}
+          </span>{" "}
+          en los años 1 y 2: el consenso de analistas. Desde el año 3, la
+          tendencia log-lineal de la tabla (
+          <span className="numeric">{percent(explanation.trend)}</span>) hasta
+          el año {DERIVED_HOLD_YEARS}, y después converge a la libre de riesgo (
+          <span className="numeric font-medium text-foreground">
+            {percent(run.input.terminal.growth)}
+          </span>
+          ).
+        </li>
+      ) : (
+        <li>
+          Crecimiento de ventas de{" "}
+          <span className="numeric font-medium text-foreground">
+            {percent(first.revenueGrowth)}
+          </span>
+          : la tendencia log-lineal de los ejercicios de la tabla, que usa todos
+          los años y no sólo las puntas
+          {explanation.windows.length === 0
+            ? ""
+            : ` (entre puntas: ${explanation.windows
+                .map(
+                  (window) =>
+                    `${percent(window.cagr)} en ${window.years} ${window.years === 1 ? "año" : "años"}`,
+                )
+                .join(", ")})`}
+          . Se sostiene {DERIVED_HOLD_YEARS} años y converge a la libre de
+          riesgo, que es también el crecimiento terminal (
+          <span className="numeric font-medium text-foreground">
+            {percent(run.input.terminal.growth)}
+          </span>
+          ).
+        </li>
+      )}
       {explanation.industrySalesToCapital === null ? (
         <li>
           Margen EBIT ajustado y sales-to-capital del ejercicio base, iguales en
@@ -146,7 +185,9 @@ function RuleV2({
       <li>
         {run.input.scenarios === null
           ? "Sin escenarios: bear o bull no cambiarían ningún supuesto respecto de la base."
-          : "Bear y bull salen de lo medido: el crecimiento más bajo y más alto entre la tendencia y las ventanas, y el ROIC terminal en el WACC (sin ventaja) o en el propio de la empresa (ventaja intacta)."}
+          : consensusUsed
+            ? "Bear y bull llevan los años 1 y 2 al mínimo y al máximo de los analistas, y el ROIC terminal al WACC (sin ventaja) o al propio de la empresa (ventaja intacta)."
+            : "Bear y bull salen de lo medido: el crecimiento más bajo y más alto entre la tendencia y las ventanas, y el ROIC terminal en el WACC (sin ventaja) o en el propio de la empresa (ventaja intacta)."}
       </li>
     </>
   );
@@ -285,6 +326,12 @@ export function DerivationSummary({ run }: { run: ValuationRun }) {
                 ))}
               </TableBody>
             </Table>
+            {explanation?.consensus == null ? null : (
+              <ConsensusBlock
+                consensus={explanation.consensus}
+                currency={run.currency}
+              />
+            )}
           </div>
         </CardContent>
       )}
@@ -412,5 +459,114 @@ function BaseYearBasis({ run }: { run: ValuationRun }) {
         </li>
       )}
     </ul>
+  );
+}
+
+/**
+ * El consenso que `derived-assumptions-3.0.0` congeló (`F6-39`, ADR 0085):
+ * los dos ejercicios con su rango y la captura que los fecha, o el motivo por
+ * el que la corrida siguió con la historia.
+ */
+function ConsensusBlock({
+  consensus,
+  currency,
+}: {
+  consensus: ConsensusRevenue;
+  currency: string;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="text-sm font-medium">Consenso de analistas</h3>
+        {consensus.status === "used" ? (
+          <EvidenceKindMark kind="reference_data" />
+        ) : null}
+        <InfoTip title="Cómo entra el consenso">
+          <p>
+            El promedio de ventas de los analistas para los dos ejercicios
+            siguientes al último 10-K fija los años 1 y 2. Con un año base TTM,
+            el crecimiento sale del nivel del consenso al cierre de cada
+            período, no de aplicar la tasa del ejercicio. El mínimo y el máximo
+            son bear y bull.
+          </p>
+          <p>
+            Sin una captura de los 7 días previos al cierre, o si el consenso no
+            empieza en el ejercicio siguiente al último 10-K, la corrida sigue
+            con la historia y dice por qué.
+          </p>
+        </InfoTip>
+      </div>
+      {consensus.status === "not_used" ? (
+        <p className="text-sm text-muted-foreground">
+          No se usó: {CONSENSUS_REASON_COPY[consensus.reason]}.
+        </p>
+      ) : (
+        <ConsensusTable consensus={consensus} currency={currency} />
+      )}
+    </div>
+  );
+}
+
+function ConsensusTable({
+  consensus,
+  currency,
+}: {
+  consensus: Extract<ConsensusRevenue, { status: "used" }>;
+  currency: string;
+}) {
+  const years = [consensus.fy1, consensus.fy2];
+  // Una sola magnitud para promedio y rango: se comparan en la misma unidad.
+  const magnitude = displayMagnitude(years.map((year) => year.revenueHigh));
+  const amount = (value: string) =>
+    formatInMagnitude(value, magnitude, { scale: 1 });
+  const unit =
+    magnitude.unit === null ? currency : `${magnitude.unit} de ${currency}`;
+
+  return (
+    <>
+      <Table containerLabel="Consenso de ventas de los analistas, tabla desplazable">
+        <TableHeader>
+          <TableRow>
+            <TableHead scope="col">Ejercicio</TableHead>
+            <TableHead scope="col" className="text-right">
+              Promedio
+            </TableHead>
+            <TableHead scope="col" className="text-right">
+              Mín – máx
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {years.map((year, index) => (
+            <TableRow key={year.periodEnd}>
+              <TableHead scope="row" className="font-medium">
+                <time className="numeric" dateTime={year.periodEnd}>
+                  {formatCalendarDate(year.periodEnd)}
+                </time>
+                <span className="block text-xs font-normal text-muted-foreground">
+                  FY{index + 1}
+                  {year.analystCount === null
+                    ? null
+                    : ` · ${year.analystCount} analistas`}
+                </span>
+              </TableHead>
+              <TableCell className="numeric text-right">
+                {amount(year.revenueAverage)}
+              </TableCell>
+              <TableCell className="numeric text-right text-muted-foreground">
+                {amount(year.revenueLow)}–{amount(year.revenueHigh)}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      <p className="text-xs text-muted-foreground">
+        Ventas en {unit} · Alpha Vantage · capturado{" "}
+        <time dateTime={consensus.capturedAt}>
+          {formatUtcTimestamp(consensus.capturedAt)}
+        </time>{" "}
+        · <CodeValue>{consensus.rule}</CodeValue>
+      </p>
+    </>
   );
 }

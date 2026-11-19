@@ -22,6 +22,7 @@ import type { StoredEmployeeEquity } from "./employee-equity-repository";
 import { runValuation } from "./run-valuation";
 import { seriesFact } from "./assess-company";
 import { deriveCycleHistory } from "../domain/derived-cycle";
+import { parseDecimal } from "../domain/decimal-policy";
 import {
   PROFILE_PRECEDENCE,
   selectValuationMethod,
@@ -40,6 +41,29 @@ import {
 
 const demo = DEMO_VALUATION_INPUT;
 const KNOWN_AT = "2025-06-01T00:00:00.000Z";
+
+/** El consenso visible al corte: FY2025 y FY2026, capturado el día antes. */
+const CONSENSUS: NonNullable<ValuationSnapshotRequest["consensus"]> = {
+  capturedAt: "2025-05-31T12:00:00.000Z",
+  years: [
+    {
+      periodEnd: "2025-12-31",
+      revenueAverage: "105600000",
+      revenueLow: "100800000",
+      revenueHigh: "110400000",
+      analystCount: 12,
+      availableAt: "2025-05-31T12:00:00.000Z",
+    },
+    {
+      periodEnd: "2026-12-31",
+      revenueAverage: "116160000",
+      revenueLow: "105840000",
+      revenueHigh: "126960000",
+      analystCount: 11,
+      availableAt: "2025-05-31T12:00:00.000Z",
+    },
+  ],
+};
 const OBSERVATION = "70000000-0000-4000-8000-000000000001";
 
 function revenue(fiscalYearEnd: string, value: string) {
@@ -321,6 +345,67 @@ describe("valuation-snapshot-1.0.0", () => {
     });
 
     expect(run.failure).toBeNull();
+  });
+
+  it("takes years 1 and 2 from the consensus visible at the cutoff (F6-39)", () => {
+    const result = assembleValuationSnapshot(request({ consensus: CONSENSUS }));
+
+    expect(result.status).toBe("assembled");
+    if (result.status !== "assembled") return;
+
+    const { input } = result;
+    const derivation = input.derivedAssumptions;
+
+    expect(derivation?.version).toBe("derived-assumptions-3.0.0");
+    expect(
+      derivation?.version === "derived-assumptions-3.0.0" &&
+        derivation.consensus,
+    ).toMatchObject({
+      status: "used",
+      capturedAt: CONSENSUS.capturedAt,
+      fy1: { periodEnd: "2025-12-31" },
+    });
+    // 105,6 M sobre las ventas del año base.
+    expect(
+      parseDecimal(input.periods[0]!.revenueGrowth, "g1").eq(
+        parseDecimal("105600000", "fy1")
+          .dividedBy(parseDecimal(demo.baseRevenue.value, "base"))
+          .minus(1),
+      ),
+    ).toBe(true);
+    expect(input.bridge.nonOperatingAssets.rationale).toContain(
+      "derived-assumptions-3.0.0",
+    );
+
+    const run = runValuation(input, {
+      now: () => "2026-11-19T00:00:00.000Z",
+      newValuationRunId: () => "00000000-0000-4000-8000-0000000000fc",
+    });
+
+    expect(run.failure).toBeNull();
+    expect(
+      run.result?.checks.find(
+        (check) => check.id === "assumptions_derived_recomputed",
+      )?.status,
+    ).toBe("passed");
+  });
+
+  it("names a consensus it cannot use and keeps the history's path", () => {
+    const result = assembleValuationSnapshot(
+      request({ consensus: { capturedAt: null, years: [] } }),
+    );
+    const v2 = assembleValuationSnapshot(request());
+
+    if (result.status !== "assembled" || v2.status !== "assembled") {
+      throw new Error("assembled expected");
+    }
+
+    expect(result.input.derivedAssumptions).toMatchObject({
+      version: "derived-assumptions-3.0.0",
+      consensus: { status: "not_used", reason: "no_consensus" },
+    });
+    expect(result.input.periods).toEqual(v2.input.periods);
+    expect(result.input.scenarios).toEqual(v2.input.scenarios);
   });
 
   it("names an industry the release publishes without a ROC as no reference", () => {
@@ -640,6 +725,7 @@ describe("valuation-snapshot-1.0.0", () => {
           knowledgeBasis: "public_availability",
           knownAt: KNOWN_AT,
         } as ValuationSnapshotRequest["query"],
+        consensus: CONSENSUS,
       }),
     );
 
@@ -648,6 +734,8 @@ describe("valuation-snapshot-1.0.0", () => {
 
     const { input } = result;
     expect(input.method).toBe("normalized_fcff");
+    // La regla de ciclo reemplaza el crecimiento: el consenso no entra.
+    expect(input.derivedAssumptions?.version).toBe("derived-assumptions-2.0.0");
     expect(input.cycleNormalization?.history).toHaveLength(5);
     expect(
       input.periods.every(

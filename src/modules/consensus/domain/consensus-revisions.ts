@@ -134,7 +134,12 @@ export function planConsensusRevisions(input: {
 export function consensusAt(
   revisions: readonly ConsensusRevision[],
   knownAt: string,
-): readonly { readonly periodEnd: string; readonly values: ConsensusValues }[] {
+): readonly {
+  readonly periodEnd: string;
+  readonly values: ConsensusValues;
+  /** The capture that published the revision in force. */
+  readonly availableAt: string;
+}[] {
   const at = Date.parse(knownAt);
   const visible = new Map<string, ConsensusRevision>();
   for (const revision of revisions) {
@@ -155,6 +160,7 @@ export function consensusAt(
     .map((revision) => ({
       periodEnd: revision.periodEnd,
       values: revision.values,
+      availableAt: revision.availableAt,
     }))
     .sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
 }

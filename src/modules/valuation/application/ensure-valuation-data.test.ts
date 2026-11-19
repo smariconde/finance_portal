@@ -13,6 +13,11 @@ import {
   type ValuationDataDependencies,
   type ValuationDataRequest,
 } from "./ensure-valuation-data";
+import {
+  dataStepBlock,
+  dataStepIngested,
+  type ConsensusStep,
+} from "../domain/valuation-data-step";
 
 const ENTITY = "33333333-3333-4333-8333-333333333333";
 const PREDECESSOR = "66666666-6666-4666-8666-666666666666";
@@ -346,5 +351,50 @@ describe("on-demand CEDEAR prices", () => {
     expect(calls).toEqual([SECURITY]);
     await ensureValuationData(request({ mayDownload: false }), local);
     expect(calls).toEqual([SECURITY]);
+  });
+});
+
+describe("consensus before valuing (F6-39)", () => {
+  it("records the step, never blocks, and a fresh capture asks for a new cutoff", async () => {
+    const { dependencies } = fake();
+    const calls: string[] = [];
+    const withConsensus = (step: ConsensusStep) => ({
+      ...dependencies,
+      ensureConsensus: async (id: string) => {
+        calls.push(id);
+        return step;
+      },
+    });
+
+    const current = await ensureValuationData(
+      request(),
+      withConsensus({ status: "current" }),
+    );
+    expect(current.consensus).toEqual({ status: "current" });
+    expect(dataStepIngested(current)).toBe(false);
+
+    const captured = await ensureValuationData(
+      request(),
+      withConsensus({ status: "captured" }),
+    );
+    expect(dataStepIngested(captured)).toBe(true);
+
+    const blocked = await ensureValuationData(
+      request(),
+      withConsensus({
+        status: "unavailable",
+        reason: "daily_budget_exhausted",
+      }),
+    );
+    expect(dataStepBlock(blocked)).toBeNull();
+    expect(blocked.audit?.status).toBe("passed");
+
+    // Un job que continúa a otro no lo pide ni lo registra.
+    const continuation = await ensureValuationData(
+      request({ mayDownload: false }),
+      withConsensus({ status: "captured" }),
+    );
+    expect(continuation.consensus).toBeUndefined();
+    expect(calls).toEqual([SECURITY, SECURITY, SECURITY]);
   });
 });
