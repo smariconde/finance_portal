@@ -4,10 +4,15 @@ import { DEMO_VALUATION_INPUT } from "../infrastructure/demo-valuation-fixtures"
 import { runValuation } from "../application/run-valuation";
 import {
   consecutiveRevenueHistory,
+  consensusRevenueGrowth,
+  CONSENSUS_REVENUE_PATH_VERSION,
   deriveAssumptions,
   derivedAssumptionsMismatches,
   DERIVED_ASSUMPTIONS_V2_VERSION,
+  DERIVED_ASSUMPTIONS_V3_VERSION,
   DERIVED_ASSUMPTIONS_VERSION,
+  explainDerivation,
+  selectConsensusRevenue,
   INDUSTRY_CAPITAL_DATASET,
   INDUSTRY_RETURNS_DATASET,
   INDUSTRY_SALES_TO_CAPITAL_FIELD,
@@ -675,5 +680,324 @@ describe("industry-sales-to-capital-1.0.0", () => {
         scenarios: result.scenarios,
       }),
     ).toEqual([]);
+  });
+});
+
+/** Un consenso que crece 10 % con un rango de ±5 puntos por año. */
+const CAPTURED_AT = "2025-06-29T12:00:00.000Z";
+const CONSENSUS_YEARS = [
+  {
+    periodEnd: "2025-12-31",
+    revenueAverage: "105600000",
+    revenueLow: "100800000",
+    revenueHigh: "110400000",
+    analystCount: 12,
+    availableAt: CAPTURED_AT,
+  },
+  {
+    periodEnd: "2026-12-31",
+    revenueAverage: "116160000",
+    revenueLow: "105840000",
+    revenueHigh: "126960000",
+    analystCount: 11,
+    availableAt: CAPTURED_AT,
+  },
+];
+
+function selectAt(
+  overrides: Partial<Parameters<typeof selectConsensusRevenue>[0]> = {},
+) {
+  return selectConsensusRevenue({
+    years: CONSENSUS_YEARS,
+    capturedAt: CAPTURED_AT,
+    historyEnd: baseYear,
+    baseAsOf: baseYear,
+    asOf: base.asOf,
+    currency: "USD",
+    ...overrides,
+  });
+}
+
+function historyV3(
+  consensus = selectAt(),
+): Extract<DerivedAssumptions, { version: "derived-assumptions-3.0.0" }> {
+  const v2 = historyV2("0.12");
+  if (v2.version !== DERIVED_ASSUMPTIONS_V2_VERSION) throw new Error("v2");
+  return { ...v2, version: DERIVED_ASSUMPTIONS_V3_VERSION, consensus };
+}
+
+/** Una corrida `3.0.0` con un corte que ve la captura. */
+function derivedV3(derivation: DerivedAssumptions): ValuationInput {
+  return {
+    ...derivedV2(derivation),
+    knowledge: {
+      ...base.knowledge,
+      knownAt: "2025-06-30T23:00:00.000Z",
+    } as ValuationInput["knowledge"],
+  };
+}
+
+describe("consensus-revenue-path-1.0.0", () => {
+  it("uses FY1 and FY2 right after the history when the capture is current", () => {
+    const consensus = selectAt();
+
+    expect(consensus).toMatchObject({
+      status: "used",
+      rule: CONSENSUS_REVENUE_PATH_VERSION,
+      capturedAt: CAPTURED_AT,
+      fy1: { periodEnd: "2025-12-31", revenueAverage: "105600000" },
+      fy2: { periodEnd: "2026-12-31", revenueAverage: "116160000" },
+    });
+  });
+
+  it("skips a fiscal year that already closed before FY1", () => {
+    const consensus = selectAt({
+      years: [
+        { ...CONSENSUS_YEARS[0]!, periodEnd: "2024-12-31" },
+        ...CONSENSUS_YEARS,
+      ],
+    });
+
+    expect(consensus.status === "used" && consensus.fy1.periodEnd).toBe(
+      "2025-12-31",
+    );
+  });
+
+  it("names why it is not used, never filling it from the history", () => {
+    const reasonOf = (
+      overrides: Partial<Parameters<typeof selectConsensusRevenue>[0]>,
+    ) => {
+      const consensus = selectAt(overrides);
+      return consensus.status === "not_used" ? consensus.reason : null;
+    };
+
+    expect(reasonOf({ capturedAt: null })).toBe("no_consensus");
+    expect(reasonOf({ years: [] })).toBe("no_consensus");
+    expect(reasonOf({ capturedAt: "2025-06-01T00:00:00.000Z" })).toBe(
+      "stale_consensus",
+    );
+    expect(reasonOf({ currency: "EUR" })).toBe("currency_mismatch");
+    expect(reasonOf({ years: [CONSENSUS_YEARS[0]!] })).toBe(
+      "insufficient_horizons",
+    );
+    // La historia guardada quedó un ejercicio atrás: FY1 es otro año.
+    expect(reasonOf({ historyEnd: "2023-12-31" })).toBe("fiscal_year_gap");
+    expect(reasonOf({ baseAsOf: "2025-12-31" })).toBe("fiscal_year_gap");
+    expect(
+      reasonOf({
+        years: [
+          CONSENSUS_YEARS[0]!,
+          { ...CONSENSUS_YEARS[1]!, periodEnd: "2027-12-31" },
+        ],
+      }),
+    ).toBe("fiscal_year_gap");
+    expect(
+      reasonOf({
+        years: [
+          { ...CONSENSUS_YEARS[0]!, revenueLow: null },
+          CONSENSUS_YEARS[1]!,
+        ],
+      }),
+    ).toBe("revenue_incomplete");
+    expect(
+      reasonOf({
+        years: [
+          { ...CONSENSUS_YEARS[0]!, revenueLow: "0" },
+          CONSENSUS_YEARS[1]!,
+        ],
+      }),
+    ).toBe("non_positive_revenue");
+    expect(
+      reasonOf({
+        years: [
+          { ...CONSENSUS_YEARS[0]!, revenueAverage: "-1" },
+          CONSENSUS_YEARS[1]!,
+        ],
+      }),
+    ).toBe("non_positive_revenue");
+  });
+
+  it("is exactly FY1/FY0 − 1 and FY2/FY1 − 1 on an annual base", () => {
+    const consensus = selectAt();
+    if (consensus.status !== "used") throw new Error("used expected");
+
+    const growth = consensusRevenueGrowth({
+      consensus,
+      level: "revenueAverage",
+      anchor: { fiscalYearEnd: baseYear, value: base.baseRevenue.value },
+      baseRevenue: base.baseRevenue.value,
+      periodEnds: ["2025-12-31", "2026-12-31"],
+    });
+
+    expect(growth.map((value) => value.toString())).toEqual(["0.1", "0.1"]);
+  });
+
+  it("starts a TTM base from its own revenue and reads the path at each period end", () => {
+    const consensus = selectAt({ baseAsOf: "2025-06-30" });
+    if (consensus.status !== "used") throw new Error("used expected");
+
+    // El TTM ya creció: 100 M a junio contra 96 M del FY0.
+    const [first, second] = consensusRevenueGrowth({
+      consensus,
+      level: "revenueAverage",
+      anchor: { fiscalYearEnd: baseYear, value: "96000000" },
+      baseRevenue: "100000000",
+      periodEnds: ["2026-06-30", "2027-06-30"],
+    });
+    const expectedFirst = (105.6e6 * 1.1 ** (181 / 365)) / 100e6 - 1;
+
+    expect(first.toNumber()).toBeCloseTo(expectedFirst, 10);
+    // Después de FY2 sigue a la tasa FY1→FY2.
+    expect(second.toNumber()).toBeCloseTo(0.1, 10);
+
+    // Un TTM que ya corrió por delante del camino crece menos el año 1:
+    // aplicarle FY1/FY0 contaría dos veces lo que ya creció.
+    const [ahead] = consensusRevenueGrowth({
+      consensus,
+      level: "revenueAverage",
+      anchor: { fiscalYearEnd: baseYear, value: "96000000" },
+      baseRevenue: "104000000",
+      periodEnds: ["2026-06-30", "2027-06-30"],
+    });
+    expect(ahead.toNumber()).toBeCloseTo(
+      (105.6e6 * 1.1 ** (181 / 365)) / 104e6 - 1,
+      10,
+    );
+    expect(ahead.toNumber()).toBeLessThan(0.1);
+  });
+});
+
+describe("derived-assumptions-3.0.0", () => {
+  it("takes years 1 and 2 from the consensus and the trend from year 3", () => {
+    const result = derive({ derivation: historyV3() });
+    const v2 = derive({ derivation: historyV2("0.12") });
+    if (result.status !== "derived" || v2.status !== "derived") {
+      throw new Error("derived expected");
+    }
+
+    const growth = result.periods.map((period) =>
+      rounded(period.revenueGrowth),
+    );
+
+    expect(growth.slice(0, 2)).toEqual(["0.1", "0.1"]);
+    expect(rounded(result.initialGrowth)).toBe("0.1");
+    // Desde el año 3, exactamente `2.0.0`.
+    expect(result.periods.slice(2)).toEqual(v2.periods.slice(2));
+    expect(rounded(v2.periods[0]!.revenueGrowth)).not.toBe("0.1");
+    expect(result.terminal).toEqual(v2.terminal);
+    expect(result.sensitivity).toEqual(v2.sensitivity);
+  });
+
+  it("moves bear and bull to the analysts' low and high for two years only", () => {
+    const result = derive({ derivation: historyV3() });
+    if (result.status !== "derived" || result.scenarios === null) {
+      throw new Error("scenarios expected");
+    }
+
+    const growthOf = (scenario: typeof result.scenarios.bear) => {
+      const driver = scenario.drivers.find(
+        (candidate) => candidate.driver === "revenueGrowth",
+      );
+      return driver !== undefined && "values" in driver ? driver : null;
+    };
+    const bear = growthOf(result.scenarios.bear)!;
+    const bull = growthOf(result.scenarios.bull)!;
+
+    expect(bear.values.slice(0, 2).map((value) => rounded(value!))).toEqual([
+      "0.05",
+      "0.05",
+    ]);
+    expect(bull.values.slice(0, 2).map((value) => rounded(value!))).toEqual([
+      "0.15",
+      "0.15",
+    ]);
+    expect(bear.values.slice(2).every((value) => value === null)).toBe(true);
+    expect(bear.rationale).toContain(CONSENSUS_REVENUE_PATH_VERSION);
+    expect(result.scenarios.bull.thesis).toContain("highest estimate");
+  });
+
+  it("is `2.0.0` in everything but the version when the consensus is not used", () => {
+    const fallback = derive({
+      derivation: historyV3(selectAt({ capturedAt: null })),
+    });
+    const v2 = derive({ derivation: historyV2("0.12") });
+
+    expect(fallback).toEqual(v2);
+  });
+
+  it("passes the run's checks and explains the consensus it froze", () => {
+    const derivation = historyV3();
+    const input = derivedV3(derivation);
+    const run = runValuation(input, {
+      now: () => "2026-11-19T00:00:00.000Z",
+      newValuationRunId: () => "00000000-0000-4000-8000-0000000000fb",
+    });
+
+    expect(run.status).toBe("computed");
+    expect(
+      run.result?.checks.find(
+        (check) => check.id === "assumptions_derived_recomputed",
+      )?.status,
+    ).toBe("passed");
+    expect(
+      explainDerivation({
+        derivation,
+        normalization: input.normalization,
+        costOfCapital: input.costOfCapital,
+      })?.consensus,
+    ).toMatchObject({ status: "used", capturedAt: CAPTURED_AT });
+  });
+
+  it("rejects a consensus the run could not have known or changed by hand", () => {
+    const mismatchesOf = (input: ValuationInput) =>
+      derivedAssumptionsMismatches({
+        derivation: input.derivedAssumptions!,
+        baseRevenue: input.baseRevenue,
+        normalization: input.normalization,
+        costOfCapital: input.costOfCapital,
+        periods: input.periods,
+        terminal: input.terminal,
+        sensitivity: input.sensitivity,
+        scenarios: input.scenarios,
+        run: {
+          asOf: input.asOf,
+          knownAt: input.knowledge.knownAt!,
+          currency: input.currency,
+        },
+      });
+    const input = derivedV3(historyV3());
+    const consensus = historyV3().consensus;
+    if (consensus.status !== "used") throw new Error("used expected");
+
+    expect(mismatchesOf(input)).toEqual([]);
+
+    // Capturado después del corte de la corrida.
+    expect(
+      mismatchesOf({
+        ...input,
+        knowledge: {
+          ...input.knowledge,
+          knownAt: "2025-06-29T00:00:00.000Z",
+        } as ValuationInput["knowledge"],
+      }),
+    ).toContain("derivedAssumptions.consensus");
+
+    // El promedio cambiado a mano: el camino ya no es el de los períodos.
+    const edited = {
+      ...input,
+      derivedAssumptions: {
+        ...historyV3(),
+        consensus: {
+          ...consensus,
+          fy1: { ...consensus.fy1, revenueAverage: "110000000" },
+        },
+      },
+    };
+    expect(mismatchesOf(edited)).toContain("periods");
+
+    // Un `as_of` a más de siete días de la captura.
+    expect(mismatchesOf({ ...input, asOf: "2025-07-31" })).toContain(
+      "derivedAssumptions.consensus",
+    );
   });
 });

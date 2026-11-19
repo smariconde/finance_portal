@@ -11,12 +11,15 @@ import {
   consecutiveRevenueHistory,
   deriveAssumptions,
   DERIVED_ASSUMPTIONS_V2_VERSION,
+  DERIVED_ASSUMPTIONS_V3_VERSION,
+  selectConsensusRevenue,
   INDUSTRY_CAPITAL_DATASET,
   INDUSTRY_RETURN_FIELD,
   INDUSTRY_RETURNS_DATASET,
   INDUSTRY_SALES_TO_CAPITAL_FIELD,
   ownSalesToCapitalOf,
   SALES_TO_CAPITAL_RULE_VERSION,
+  type DerivedAssumptions,
   type IndustryReturn,
   type IndustrySalesToCapital,
 } from "../domain/derived-assumptions";
@@ -119,6 +122,22 @@ export type ValuationSnapshotRequest = {
   readonly industryCapital?: ReferenceDatasetReading | null;
   /** Builds common FCFF inputs for the separate growth assembler. */
   readonly growthFoundation?: boolean;
+  /**
+   * El consenso de ventas vigente al corte (`F6-39`, ADR 0085): los ejercicios
+   * no retirados y la última captura visible. Sólo lo lee `fcff_base`; sin él
+   * la derivación es `2.0.0`.
+   */
+  readonly consensus?: {
+    readonly years: readonly {
+      readonly periodEnd: string;
+      readonly revenueAverage: string | null;
+      readonly revenueLow: string | null;
+      readonly revenueHigh: string | null;
+      readonly analystCount: number | null;
+      readonly availableAt: string;
+    }[];
+    readonly capturedAt: string | null;
+  };
 };
 
 export type ValuationSnapshotResult =
@@ -292,8 +311,13 @@ export function assembleValuationSnapshot(
           costOfCapital.industryKey,
         )
       : null;
-  const derivation = {
-    version: DERIVED_ASSUMPTIONS_V2_VERSION,
+  const knownAt = request.query.knownAt ?? request.query.effectiveAt;
+  const asOf = valuationDate(request.prices.closes, knownAt);
+  const fcffBase =
+    !growthFoundation &&
+    cycle === null &&
+    selection.recommendedMethod === VALUATION_METHOD;
+  const measured = {
     industryReturn: industryReturnAt(
       request.industryReturns,
       costOfCapital.industryKey,
@@ -313,10 +337,28 @@ export function assembleValuationSnapshot(
       lastFiscalYearEnd,
     ),
   } as const;
+  // `3.0.0` sólo en `fcff_base` (ADR 0085): las cíclicas y el camino de
+  // crecimiento reemplazan el crecimiento y siguen en `2.0.0`.
+  const derivation: DerivedAssumptions =
+    fcffBase && request.consensus !== undefined
+      ? {
+          version: DERIVED_ASSUMPTIONS_V3_VERSION,
+          ...measured,
+          consensus: selectConsensusRevenue({
+            years: request.consensus.years,
+            capturedAt: request.consensus.capturedAt,
+            historyEnd: lastFiscalYearEnd,
+            baseAsOf: baseRevenue.asOf,
+            asOf,
+            currency: costOfCapital.currency,
+          }),
+        }
+      : { version: DERIVED_ASSUMPTIONS_V2_VERSION, ...measured };
   const assumptions = deriveAssumptions({
     derivation,
     baseFiscalYearEnd,
     ...(ttm === null ? {} : { historyEnd: lastFiscalYearEnd }),
+    baseRevenue: baseRevenue.value,
     normalization,
     costOfCapital,
   });
@@ -325,8 +367,6 @@ export function assembleValuationSnapshot(
     return notAssembled(assumptions.reason);
   }
 
-  const knownAt = request.query.knownAt ?? request.query.effectiveAt;
-  const asOf = valuationDate(request.prices.closes, knownAt);
   const shares = sharesOutstandingAt(request.shareCounts, { asOf, knownAt });
 
   if (shares === null) {
@@ -471,7 +511,7 @@ export function assembleValuationSnapshot(
           ? reported(atBalance(normalization.excessCash.total, balance.cash))
           : missing,
       nonOperatingAssets: declaredAbsent(
-        `${DERIVED_ASSUMPTIONS_V2_VERSION}: no recipe separates non-operating assets; valued at zero and named.`,
+        `${derivation.version}: no recipe separates non-operating assets; valued at zero and named.`,
       ),
       debt:
         normalization.debt.status === "resolved" && firstDebtFact !== undefined
@@ -501,7 +541,7 @@ export function assembleValuationSnapshot(
                 "No noncontrolling interest is reported in the base-year balance sheet.",
               ),
       otherClaims: declaredAbsent(
-        `${DERIVED_ASSUMPTIONS_V2_VERSION}: no recipe reads preferred or other senior claims; valued at zero and named.`,
+        `${derivation.version}: no recipe reads preferred or other senior claims; valued at zero and named.`,
       ),
       employeeOptions: employeeOptionsClaim(decision, derived, {
         currency: costOfCapital.currency,

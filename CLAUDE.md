@@ -640,6 +640,23 @@ with the owner's threshold (`owner_multiple_thresholds`, append-only, a null
 value removes it) and the trailing GAAP median as labelled dashed lines.
 Measured: AAPL and AMZN captured, 48 kB.
 
+Since `F6-39` ([ADR 0085](docs/architecture/adr/0085-consensus-near-term-growth.md))
+new `fcff_base` runs use `derived-assumptions-3.0.0`: years 1 and 2 come from
+the stored revenue consensus (`consensus-revenue-path-1.0.0`), a level path
+FY0 → FY1 → FY2 dated on the company's own fiscal calendar and interpolated
+geometrically, so a TTM base starts from its own revenue instead of applying
+the fiscal year's rate twice. From year 3 it is `2.0.0`; bear and bull take the
+analysts' low and high for those two years. Without a usable consensus the run
+is `2.0.0` but for the version and names why (`no_consensus`,
+`stale_consensus` beyond 7 days of the `as_of`, `insufficient_horizons`,
+`fiscal_year_gap`, `revenue_incomplete`, `non_positive_revenue`,
+`currency_mismatch`). `assumptions_derived_recomputed` re-decides the frozen
+consensus against the run's cutoff; cyclical and growth runs stay `2.0.0`. The
+job asks for the consensus in its data step (optional `consensus`, never
+blocking; a fresh capture asks for a follow-up), and `market-implied-1.1.0`
+solves growth on that shape too. Measured first: the consensus does **not**
+explain the price/value bias (median 1.92 → 1.91 over 11 Production runs).
+
 Company logos are loaded by the **browser** from logo.dev
 ([ADR 0062](docs/architecture/adr/0062-company-logos-browser-loaded.md)): the
 free plan forbids storing them, so the CSP opens `img-src` to

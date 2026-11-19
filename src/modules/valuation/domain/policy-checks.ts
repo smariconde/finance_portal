@@ -32,7 +32,10 @@ import {
   VALUATION_METHOD,
   type ValuationInput,
 } from "./valuation-input";
-import { derivedAssumptionsMismatches } from "./derived-assumptions";
+import {
+  DERIVED_ASSUMPTIONS_V3_VERSION,
+  derivedAssumptionsMismatches,
+} from "./derived-assumptions";
 import { applyDerivedCycle } from "./derived-cycle";
 import { zeroDebtEvidenceHasInterest } from "./zero-debt-evidence";
 import {
@@ -478,6 +481,11 @@ function checkDerivedAssumptions(input: ValuationInput): PolicyCheck[] {
     terminal: input.terminal,
     sensitivity: input.sensitivity,
     scenarios: input.scenarios,
+    run: {
+      asOf: input.asOf,
+      knownAt: input.knowledge.knownAt ?? input.knowledge.effectiveAt,
+      currency: input.currency,
+    },
     ...(cycleNormalization === undefined
       ? {}
       : {
@@ -492,6 +500,15 @@ function checkDerivedAssumptions(input: ValuationInput): PolicyCheck[] {
 
   if (input.method !== VALUATION_METHOD && !cycle) {
     mismatches.push("method");
+  }
+
+  // El consenso sólo mueve el crecimiento de `fcff_base` (ADR 0085): una
+  // cíclica lo reemplaza por la regla de ciclo.
+  if (
+    cycle &&
+    input.derivedAssumptions.version === DERIVED_ASSUMPTIONS_V3_VERSION
+  ) {
+    mismatches.push("derivedAssumptions.version");
   }
 
   return [

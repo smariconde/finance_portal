@@ -1,6 +1,7 @@
 import { cedearPriceTargets } from "@/modules/cedears/domain/cedear-price-targets";
 import { pointInTimeQuerySchema } from "@/modules/temporal/domain/point-in-time-query";
 import { getCedearRegistryRepository } from "@/server/persistence/get-cedear-registry-repository";
+import { captureConsensusForValuation } from "./consensus-refresh";
 import "server-only";
 
 import { createHash, randomUUID } from "node:crypto";
@@ -274,6 +275,7 @@ export function createValuationDataDependencies(
         }
       }
     },
+    ensureConsensus: captureConsensusForValuation,
     async ingestPrices(securityId) {
       const { job } = await jobs.createJob(
         buildPriceRefreshJobPlan("securities", [securityId]),

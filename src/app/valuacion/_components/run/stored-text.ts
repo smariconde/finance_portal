@@ -32,6 +32,22 @@ const BODIES: readonly (readonly [RegExp, string])[] = [
     "Crecimiento a la tasa más alta medida en su historia y el retorno sobre el capital propio de la empresa para siempre.",
   ],
   [
+    /^Revenue at the analysts' lowest estimate for two years, then the base path, and no excess returns after year 10\.$/u,
+    "Ventas al mínimo de los analistas durante dos años, después el camino de la base, y sin retornos extraordinarios después del año 10.",
+  ],
+  [
+    /^Revenue at the analysts' highest estimate for two years, then the base path, and the company's own return on capital in perpetuity\.$/u,
+    "Ventas al máximo de los analistas durante dos años, después el camino de la base, y el retorno sobre el capital propio de la empresa para siempre.",
+  ],
+  [
+    /^years 1 and 2 from the lowest analyst revenue estimate; later years as the base\.$/u,
+    "años 1 y 2 desde la menor estimación de ventas de los analistas; los siguientes, como la base.",
+  ],
+  [
+    /^years 1 and 2 from the highest analyst revenue estimate; later years as the base\.$/u,
+    "años 1 y 2 desde la mayor estimación de ventas de los analistas; los siguientes, como la base.",
+  ],
+  [
     /^the lowest of the log-linear trend and the window CAGRs\.$/u,
     "la menor entre la tendencia y las tasas compuestas de cada ventana.",
   ],

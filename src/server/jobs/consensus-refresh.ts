@@ -13,6 +13,7 @@ import {
   createConsensusRefreshJobExecutor,
   ensureConsensus,
   readConsensusReadiness,
+  type ConsensusRefreshStatus,
   type EnsureConsensusResult,
 } from "@/modules/consensus/application/consensus-refresh";
 import { createLiveConsensusSource } from "@/modules/consensus/application/live-consensus-source";
@@ -22,6 +23,7 @@ import {
 } from "@/modules/consensus/application/load-forward-multiples";
 import { recordConsensus } from "@/modules/consensus/application/record-consensus";
 import { securityTickersAt } from "@/modules/identity/domain/resolve-identity";
+import type { ConsensusStep } from "@/modules/valuation/domain/valuation-data-step";
 import {
   CONSENSUS_REQUEST_PACING,
   createPacedEgressFetch,
@@ -235,4 +237,70 @@ async function runConsensusRefreshJob(jobId: string) {
       }),
     },
   );
+}
+
+/** The longest a valuation job waits for a capture in line (ADR 0051). */
+const VALUATION_CONSENSUS_WAIT_MS = 60_000;
+
+/**
+ * The valuation job's consensus step (`F6-39`, ADR 0085): the page's rule,
+ * run in line. A capture this job made is `captured`, so the follow-up values
+ * with a cutoff that sees it; anything else never stops the valuation.
+ */
+export async function captureConsensusForValuation(
+  securityId: string,
+): Promise<ConsensusStep> {
+  try {
+    const first = await ensureConsensusForRequest({
+      securityId,
+      retryFailures: false,
+    });
+    const settled = settledStep(first.status);
+    if (settled !== null) return settled;
+
+    const worker =
+      first.runJobId !== null
+        ? startConsensusWorker(first.runJobId)
+        : (activeWorker ?? Promise.resolve());
+    // The timer is cancelled once the worker ends: a dangling one would hold
+    // the function open for the rest of the minute.
+    const timeout = new AbortController();
+    await Promise.race([
+      worker,
+      sleep(VALUATION_CONSENSUS_WAIT_MS, undefined, {
+        signal: timeout.signal,
+      }).catch(() => undefined),
+    ]).finally(() => timeout.abort());
+
+    const after = await ensureConsensusForRequest({
+      securityId,
+      retryFailures: false,
+    });
+    if (after.status.state === "fresh") return { status: "captured" };
+    return (
+      settledStep(after.status) ?? {
+        status: "unavailable",
+        reason: "source_busy",
+      }
+    );
+  } catch (error) {
+    console.error(
+      "valuation consensus step failed",
+      error instanceof Error ? error.name : typeof error,
+    );
+    return { status: "unavailable", reason: "failed" };
+  }
+}
+
+function settledStep(status: ConsensusRefreshStatus): ConsensusStep | null {
+  switch (status.state) {
+    case "fresh":
+      return { status: "current" };
+    case "failed":
+      return { status: "unavailable", reason: "failed" };
+    case "blocked":
+      return { status: "unavailable", reason: status.reason };
+    case "running":
+      return null;
+  }
 }

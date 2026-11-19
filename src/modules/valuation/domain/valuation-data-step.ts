@@ -104,6 +104,32 @@ export const pricesStepSchema = z.discriminatedUnion("status", [
 
 export type PricesStep = z.infer<typeof pricesStepSchema>;
 
+/**
+ * El consenso de analistas (`F6-39`, ADR 0085), con la regla de la página
+ * (`consensus-freshness-1.0.0`). Nunca bloquea: sin él la derivación usa la
+ * historia y lo nombra.
+ */
+export const consensusStepSchema = z.discriminatedUnion("status", [
+  /** Ya había una captura de hoy (o un chequeo fallido de hoy). */
+  z.object({ status: z.literal("current") }),
+  /** Este job lo capturó: el siguiente valúa con un corte que lo ve. */
+  z.object({ status: z.literal("captured") }),
+  z.object({
+    status: z.literal("unavailable"),
+    reason: z.enum([
+      "source_disabled",
+      "daily_budget_exhausted",
+      "budget_undeclared",
+      "credential_missing",
+      "job_paused",
+      "source_busy",
+      "failed",
+    ]),
+  }),
+]);
+
+export type ConsensusStep = z.infer<typeof consensusStepSchema>;
+
 export const auditStepSchema = z.discriminatedUnion("status", [
   z.object({
     status: z.literal("passed"),
@@ -129,6 +155,11 @@ export const valuationDataStepSchema = z.object({
   fundamentals: fundamentalsStepSchema,
   sic: sicStepSchema,
   prices: pricesStepSchema,
+  /**
+   * Opcional: los jobs anteriores a `F6-39` no lo tienen, y un job que
+   * continúa a otro no lo pide.
+   */
+  consensus: consensusStepSchema.optional(),
   /** `null` cuando el job no llegó a auditar porque una descarga quedó pendiente o falló. */
   audit: auditStepSchema.nullable(),
 });
@@ -140,7 +171,8 @@ export function dataStepIngested(step: ValuationDataStep): boolean {
   return (
     step.fundamentals.status === "ingested" ||
     step.sic.status === "observed" ||
-    step.prices.status === "ingested"
+    step.prices.status === "ingested" ||
+    step.consensus?.status === "captured"
   );
 }
 
