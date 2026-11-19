@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   EQUITY_VOLATILITY_FORMULA_VERSION,
+  EQUITY_VOLATILITY_SHORT_HISTORY_VERSION,
   equityVolatility,
 } from "./equity-volatility";
 import type { ReturnClose, ReturnEvent } from "./total-return";
@@ -232,5 +233,77 @@ describe("equityVolatility", () => {
         events: [],
       }),
     ).toMatchObject({ status: "null", reason: "currency_mismatch" });
+  });
+
+  describe(EQUITY_VOLATILITY_SHORT_HISTORY_VERSION, () => {
+    // RDDT salió a bolsa en marzo de 2024: a fines de 2026 tiene 2,7 años.
+    const young = series(weekdays("2024-03-21", AS_OF));
+
+    it("uses every stored close when the five-year window has no base", () => {
+      const reading = equityVolatility({
+        subjectId: SUBJECT,
+        asOf: AS_OF,
+        closes: young,
+        events: [],
+        allowShortHistory: true,
+      });
+
+      expect(reading).toMatchObject({
+        status: "computed",
+        formulaVersion: EQUITY_VOLATILITY_SHORT_HISTORY_VERSION,
+        windowStart: "2024-03-21",
+        baseDate: "2024-03-21",
+        returns: young.length - 1,
+      });
+      expect(
+        Number(reading.status === "computed" ? reading.value : NaN),
+      ).toBeCloseTo(floatVolatility(young), 10);
+    });
+
+    it("keeps 1.0.0 byte for byte when five years exist", () => {
+      const closes = series();
+
+      expect(
+        equityVolatility({
+          subjectId: SUBJECT,
+          asOf: AS_OF,
+          closes,
+          events: [],
+          allowShortHistory: true,
+        }),
+      ).toEqual(
+        equityVolatility({
+          subjectId: SUBJECT,
+          asOf: AS_OF,
+          closes,
+          events: [],
+        }),
+      );
+    });
+
+    it("needs two years and no gaps", () => {
+      expect(
+        equityVolatility({
+          subjectId: SUBJECT,
+          asOf: AS_OF,
+          closes: series(weekdays("2024-07-01", AS_OF)),
+          events: [],
+          allowShortHistory: true,
+        }),
+      ).toMatchObject({ status: "null", reason: "insufficient_history" });
+      expect(
+        equityVolatility({
+          subjectId: SUBJECT,
+          asOf: AS_OF,
+          closes: young.filter(
+            (close) =>
+              close.marketDate < "2025-02-03" ||
+              close.marketDate > "2025-02-12",
+          ),
+          events: [],
+          allowShortHistory: true,
+        }),
+      ).toMatchObject({ status: "null", reason: "missing_period" });
+    });
   });
 });

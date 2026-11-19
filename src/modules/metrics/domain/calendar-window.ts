@@ -82,3 +82,48 @@ export function selectCalendarWindow(input: {
 
   return { status: "selected", windowStart, closes };
 }
+
+/**
+ * Toda la historia hasta el `as_of`, para una acción joven (`F6-37`): la base es
+ * el primer cierre guardado y tiene que estar al menos `minimumYears` antes. Se
+ * usa sólo cuando la ventana de `n` años no tiene base: la serie se baja con
+ * cinco años más catorce días, así que si no la tiene es porque la acción no
+ * cotizaba. Mismos huecos que la ventana.
+ */
+export function selectAvailableHistory(input: {
+  readonly asOf: string;
+  readonly minimumYears: number;
+  readonly closes: readonly ReturnClose[];
+}): CalendarWindow {
+  const known = [...input.closes]
+    .filter((close) => close.marketDate <= input.asOf)
+    .sort((left, right) => (left.marketDate < right.marketDate ? -1 : 1));
+  const first = known[0]?.marketDate ?? null;
+  const windowStart =
+    first ?? subtractCalendarYears(input.asOf, input.minimumYears);
+  const unavailable = (
+    reason: CalendarWindowNullReason,
+    marketDate: string | null,
+  ): CalendarWindow => ({ status: "null", windowStart, reason, marketDate });
+
+  if (known.at(-1)?.marketDate !== input.asOf) {
+    return unavailable("no_close_at_as_of", known.at(-1)?.marketDate ?? null);
+  }
+
+  if (first! > subtractCalendarYears(input.asOf, input.minimumYears)) {
+    return unavailable("insufficient_history", first);
+  }
+
+  for (let index = 1; index < known.length; index += 1) {
+    if (
+      calendarDaysBetween(
+        known[index - 1]!.marketDate,
+        known[index]!.marketDate,
+      ) > MAX_GAP_CALENDAR_DAYS
+    ) {
+      return unavailable("missing_period", known[index]!.marketDate);
+    }
+  }
+
+  return { status: "selected", windowStart, closes: known };
+}

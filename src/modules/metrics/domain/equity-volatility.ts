@@ -5,6 +5,7 @@ import {
 } from "@/modules/numeric/domain/decimal-policy";
 
 import {
+  selectAvailableHistory,
   selectCalendarWindow,
   type CalendarWindowNullReason,
 } from "./calendar-window";
@@ -36,6 +37,21 @@ import {
  */
 export const EQUITY_VOLATILITY_FORMULA_VERSION = "equity-volatility-1.0.0";
 
+/**
+ * `1.1.0` (`F6-37`, decisión del owner del 2026-11-18 con RDDT medido: salió a
+ * bolsa en marzo de 2024): sin base a cinco años, la volatilidad usa **toda**
+ * la historia guardada si empieza al menos dos años antes del `as_of`. La
+ * fórmula es la misma; cambia la ventana, y la versión lo dice. Con cinco años
+ * sigue siendo `1.0.0` byte por byte.
+ */
+export const EQUITY_VOLATILITY_SHORT_HISTORY_VERSION =
+  "equity-volatility-1.1.0";
+export const EQUITY_VOLATILITY_MIN_HISTORY_YEARS = 2;
+
+export type EquityVolatilityVersion =
+  | typeof EQUITY_VOLATILITY_FORMULA_VERSION
+  | typeof EQUITY_VOLATILITY_SHORT_HISTORY_VERSION;
+
 export const EQUITY_VOLATILITY_PARAMETERS = Object.freeze({
   windowYears: 5,
   periodsPerYear: 252,
@@ -52,7 +68,7 @@ export type EquityVolatilityNullReason =
 export type EquityVolatility =
   | {
       readonly status: "computed";
-      readonly formulaVersion: typeof EQUITY_VOLATILITY_FORMULA_VERSION;
+      readonly formulaVersion: EquityVolatilityVersion;
       readonly asOf: string;
       readonly windowStart: string;
       readonly baseDate: string;
@@ -80,12 +96,25 @@ export function equityVolatility(input: {
   readonly asOf: string;
   readonly closes: readonly ReturnClose[];
   readonly events: readonly ReturnEvent[];
+  /** `1.1.0`: sin cinco años, toda la historia desde dos. */
+  readonly allowShortHistory?: boolean;
 }): EquityVolatility {
-  const selected = selectCalendarWindow({
+  const window = selectCalendarWindow({
     asOf: input.asOf,
     windowYears: EQUITY_VOLATILITY_PARAMETERS.windowYears,
     closes: input.closes,
   });
+  const shortHistory =
+    window.status === "null" &&
+    window.reason === "insufficient_history" &&
+    input.allowShortHistory === true;
+  const selected = shortHistory
+    ? selectAvailableHistory({
+        asOf: input.asOf,
+        minimumYears: EQUITY_VOLATILITY_MIN_HISTORY_YEARS,
+        closes: input.closes,
+      })
+    : window;
   const unavailable = (
     reason: EquityVolatilityNullReason,
     marketDate: string | null,
@@ -148,7 +177,9 @@ export function equityVolatility(input: {
 
   return {
     status: "computed",
-    formulaVersion: EQUITY_VOLATILITY_FORMULA_VERSION,
+    formulaVersion: shortHistory
+      ? EQUITY_VOLATILITY_SHORT_HISTORY_VERSION
+      : EQUITY_VOLATILITY_FORMULA_VERSION,
     asOf: input.asOf,
     windowStart: selected.windowStart,
     baseDate: selected.closes[0]!.marketDate,

@@ -276,12 +276,26 @@ describe("employeeOptionMarketAt", () => {
         subjectId: "s",
         asOf: AS_OF,
         sourceId: "yahoo-prices",
-        closes: closes.filter((entry) => entry.marketDate >= "2023-01-02"),
+        closes: closes.filter((entry) => entry.marketDate >= "2025-01-02"),
         events: [],
       }),
     ).toStrictEqual({
       reason: "volatility_unavailable",
       detail: "insufficient_history",
+    });
+  });
+
+  it("values a young company with its whole history (equity-volatility-1.1.0)", () => {
+    const market = employeeOptionMarketAt({
+      subjectId: "s",
+      asOf: AS_OF,
+      sourceId: "yahoo-prices",
+      closes: closes.filter((entry) => entry.marketDate >= "2023-01-02"),
+      events: [],
+    });
+
+    expect(market).toMatchObject({
+      volatility: { formulaVersion: "equity-volatility-1.1.0" },
     });
   });
 });
