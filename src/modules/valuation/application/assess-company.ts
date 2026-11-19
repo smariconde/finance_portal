@@ -1,6 +1,8 @@
 import { buildFailureRisk, type FailureRisk } from "../domain/failure-risk";
 import { DECLARED_FAILURE_PROBABILITIES } from "./declared-failure-probabilities";
 import { DECLARED_RATINGS } from "./declared-ratings";
+import { DECLARED_PROFILES } from "./declared-profiles";
+import { applyProfileDeclarations } from "../domain/declared-profile";
 import {
   assessDeclaredRating,
   declaredRatingAt,
@@ -390,7 +392,15 @@ export async function assessCompany(
           request.fundamentalsSourceId,
         );
 
-  const evidence = [...sicEvidence, ...(fundamental?.evidence ?? [])];
+  // Un perfil de ciclo declarado por el owner reemplaza al del SIC (`F6-43`).
+  const evidence = [
+    ...applyProfileDeclarations(
+      [...sicEvidence, ...(fundamental?.evidence ?? [])],
+      DECLARED_PROFILES,
+      { legalEntityId, cik: request.cik },
+      query,
+    ),
+  ];
   const aiResolution =
     ((await dependencies.loadIndustryResolutions?.(legalEntityId)) ?? []).find(
       (item) =>
