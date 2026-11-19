@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { zeroDebtEvidenceFixture } from "../infrastructure/zero-debt-evidence-fixtures";
 import {
   REPORTED_DEBT_EVIDENCE_VERSION,
+  REPORTED_DEBT_NONCURRENT_ONLY_VERSION,
   REPORTED_DEBT_VERSION,
   resolveReportedDebt,
   type DebtComponentKey,
@@ -277,16 +278,18 @@ describe("reported-debt-1.1.0", () => {
   });
 
   it("does not use the evidence against a borrowing with an amount (Moderna)", () => {
+    // Desde `1.2.0` la no corriente sin partidas corrientes es la deuda: nunca
+    // cero por la evidencia.
     expect(
       resolveReportedDebt(
         debt({ longTermNoncurrent: "590", financeLeases: "45" }),
         evidence,
       ),
-    ).toStrictEqual({
-      version: REPORTED_DEBT_VERSION,
-      status: "unresolved",
-      reason: "no_recipe",
-      present: ["longTermNoncurrent", "financeLeases"],
+    ).toMatchObject({
+      version: REPORTED_DEBT_NONCURRENT_ONLY_VERSION,
+      status: "resolved",
+      recipe: "noncurrent_only",
+      total: "635",
     });
   });
 
@@ -306,5 +309,76 @@ describe("reported-debt-1.1.0", () => {
       resolveReportedDebt(input),
     );
     expect(resolveReportedDebt(input).version).toBe(REPORTED_DEBT_VERSION);
+  });
+});
+
+describe(REPORTED_DEBT_NONCURRENT_ONLY_VERSION, () => {
+  it("takes the noncurrent debt alone when nothing current is published (CrowdStrike)", () => {
+    expect(
+      resolveReportedDebt(debt({ longTermNoncurrent: "746.2" })),
+    ).toStrictEqual({
+      version: REPORTED_DEBT_NONCURRENT_ONLY_VERSION,
+      status: "resolved",
+      recipe: "noncurrent_only",
+      included: [
+        {
+          component: "longTermNoncurrent",
+          concept: "us-gaap:LongTermDebtNoncurrent",
+          amount: "746.2",
+        },
+      ],
+      excluded: [],
+      total: "746.2",
+    });
+  });
+
+  it("reads a convertible-only filer through the same item (Snowflake)", () => {
+    expect(
+      resolveReportedDebt(
+        debt(
+          { longTermNoncurrent: "2284", financeLeases: "12" },
+          { longTermNoncurrent: "us-gaap:ConvertibleDebtNoncurrent" },
+        ),
+      ),
+    ).toMatchObject({
+      recipe: "noncurrent_only",
+      included: [
+        { component: "longTermNoncurrent", amount: "2284" },
+        { component: "financeLeases", amount: "12" },
+      ],
+      total: "2296",
+    });
+  });
+
+  it("closes the 1.0.0 recipe when the current convertible is published at zero (Datadog)", () => {
+    expect(
+      resolveReportedDebt(
+        debt(
+          { longTermNoncurrent: "986.6", longTermCurrent: "0" },
+          {
+            longTermNoncurrent: "us-gaap:ConvertibleLongTermNotesPayable",
+            longTermCurrent: "us-gaap:ConvertibleNotesPayableCurrent",
+          },
+        ),
+      ),
+    ).toMatchObject({
+      version: REPORTED_DEBT_VERSION,
+      recipe: "noncurrent_plus_current_maturities",
+      total: "986.6",
+    });
+  });
+
+  it("does not apply with any current item, a long-term total or a zero", () => {
+    expect(
+      resolveReportedDebt(
+        debt({ longTermNoncurrent: "30696", shortTermBorrowings: "5514" }),
+      ),
+    ).toMatchObject({ status: "unresolved", reason: "no_recipe" });
+    expect(
+      resolveReportedDebt(debt({ longTermNoncurrent: "0" })),
+    ).toMatchObject({ status: "unresolved", reason: "no_recipe" });
+    expect(
+      resolveReportedDebt(debt({ longTermNoncurrent: "-1" })),
+    ).toMatchObject({ status: "unresolved" });
   });
 });

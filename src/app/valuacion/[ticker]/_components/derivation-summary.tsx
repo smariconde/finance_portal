@@ -367,13 +367,15 @@ function BaseYearBasis({ run }: { run: ValuationRun }) {
   const { debt } = run.input.normalization;
   const evidence = run.input.normalization.facts.zeroDebtEvidence;
   const debtLine =
-    evidence === undefined
-      ? null
-      : debt.status === "zero_with_evidence"
-        ? "Deuda: cero. En los cinco ejercicios no hay préstamos ni vencimientos de deuda publicados, y los intereses son nulos o caben en la banda más alta de la tabla de ratings."
-        : debt.status === "resolved" && debt.recipe === "finance_leases_only"
-          ? "Deuda: sólo los arrendamientos financieros. En los cinco ejercicios no hay préstamos ni vencimientos de deuda publicados."
-          : null;
+    debt.status === "resolved" && debt.recipe === "noncurrent_only"
+      ? "Deuda: sólo la no corriente. La empresa no publica porción corriente, y se toma como cero."
+      : evidence === undefined
+        ? null
+        : debt.status === "zero_with_evidence"
+          ? "Deuda: cero. En los cinco ejercicios no hay préstamos ni vencimientos de deuda publicados, y los intereses son nulos o caben en la banda más alta de la tabla de ratings."
+          : debt.status === "resolved" && debt.recipe === "finance_leases_only"
+            ? "Deuda: sólo los arrendamientos financieros. En los cinco ejercicios no hay préstamos ni vencimientos de deuda publicados."
+            : null;
 
   // La financiera cautiva (`F6-23`, ADR 0082): la deuda es la industrial.
   const captive = run.input.normalization.facts.captiveFinance;

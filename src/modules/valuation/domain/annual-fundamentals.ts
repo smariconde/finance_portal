@@ -53,8 +53,15 @@ import { z } from "zod";
  * utilidad neta ni el patrimonio total como sustitutos silenciosos.
  * `1.6.0` (`F6-25`): dividendos pagados, goodwill e intangibles separados para
  * la ficha de múltiplos. No se infiere un cero cuando el filer omite uno.
+ * `1.7.0` (`F6-35`/`F6-36`): la deuda que un filer sólo publica como
+ * convertible. Snowflake publica su deuda únicamente como
+ * `ConvertibleDebtNoncurrent` (2.284 M) y Datadog como
+ * `ConvertibleLongTermNotesPayable` (987 M) más `ConvertibleNotesPayableCurrent`
+ * en cero. Entran como alternativas **después** de los conceptos generales:
+ * quien publica `LongTermDebtNoncurrent` ya tiene los convertibles adentro, y
+ * la precedencia no suma.
  */
-export const ANNUAL_FUNDAMENTALS_VERSION = "annual-fundamentals-1.6.0";
+export const ANNUAL_FUNDAMENTALS_VERSION = "annual-fundamentals-1.7.0";
 
 export const lineItemIdSchema = z.enum([
   "revenue",
@@ -351,6 +358,8 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
     concepts: [
       "us-gaap:LongTermDebtNoncurrent",
       "us-gaap:LongTermDebtAndCapitalLeaseObligations",
+      "us-gaap:ConvertibleDebtNoncurrent",
+      "us-gaap:ConvertibleLongTermNotesPayable",
     ],
   },
   {
@@ -359,6 +368,8 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
     concepts: [
       "us-gaap:LongTermDebtCurrent",
       "us-gaap:LongTermDebtAndCapitalLeaseObligationsCurrent",
+      "us-gaap:ConvertibleDebtCurrent",
+      "us-gaap:ConvertibleNotesPayableCurrent",
     ],
   },
   {
