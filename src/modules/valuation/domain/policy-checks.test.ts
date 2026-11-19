@@ -14,7 +14,7 @@ import {
   TERMINAL_SPREAD_BUFFER,
 } from "./policy-checks";
 import { marginalTaxRateOf } from "./cost-of-capital";
-import { parseDecimal } from "./decimal-policy";
+import { formatDecimal, parseDecimal } from "./decimal-policy";
 import { buildNormalization, type NormalizationFacts } from "./normalization";
 import { isValuationPolicyError } from "./valuation-error";
 import { valuationInputSchema, type ValuationInput } from "./valuation-input";
@@ -99,6 +99,30 @@ describe("valuation policy checks", () => {
         (period) => `periods.${period.periodIndex - 1}.wacc`,
       ),
     ]);
+  });
+
+  // GOOGL, 2026-11-18: la interpolación dejó el año 10 una unidad del dígito
+  // 34 por debajo del terminal.
+  it("accepts a last-digit rounding residue on the WACC path, never more", () => {
+    const terminal = DEMO_VALUATION_INPUT.costOfCapital.derived.terminalWacc;
+    const nudged = (delta: string) =>
+      draft((candidate) => {
+        const last = candidate.periods.at(-1)!;
+        last.wacc = formatDecimal(
+          parseDecimal(terminal, "terminal").plus(delta),
+          "wacc",
+        );
+      });
+
+    expect(
+      failed(
+        nudged("-0.000000000000000000000000000000001"),
+        "wacc_built_from_components",
+      )?.subjects ?? [],
+    ).not.toContain(`periods.${DEMO_VALUATION_INPUT.periods.length - 1}.wacc`);
+    expect(
+      failed(nudged("-0.0001"), "wacc_built_from_components")?.subjects,
+    ).toContain(`periods.${DEMO_VALUATION_INPUT.periods.length - 1}.wacc`);
   });
 
   it("rejects a derived WACC edited without its components", () => {

@@ -366,3 +366,147 @@ export function segmentFacts(
 
   return found;
 }
+
+/**
+ * La carátula por clase de acciones (`sec-xbrl-cover-shares-1.0.0`, `F6-32`).
+ *
+ * Un filer con varias clases publica `dei:EntityCommonStockSharesOutstanding`
+ * sólo con un miembro de `StatementClassOfStockAxis`, y `companyfacts` no trae
+ * dimensiones: sin el instance, PLTR, DDOG, RDDT, GOOGL, META, F y BRK no
+ * tienen conteo. Las mismas defensas que el lector de la apertura: sin
+ * `DOCTYPE`, prefijos por namespace, contextos del CIK. La unidad tiene que
+ * medir `shares` del namespace del instance, y un mismo contexto con dos
+ * valores distintos se descarta.
+ */
+export const SEC_XBRL_COVER_SHARES_VERSION = "sec-xbrl-cover-shares-1.0.0";
+
+const DEI_NAMESPACE_PREFIX = "http://xbrl.sec.gov/dei/";
+const COVER_SHARES_LOCAL = "EntityCommonStockSharesOutstanding";
+const SHARES_COUNT = /^[0-9]{1,15}$/u;
+
+export type CoverShareFact = {
+  readonly contextId: string;
+  readonly cik: string;
+  readonly instant: string | null;
+  readonly members: readonly XbrlMember[];
+  readonly typed: boolean;
+  /** Entero publicado, como texto. */
+  readonly value: string;
+};
+
+export type ReadCoverSharesResult =
+  | {
+      readonly status: "read";
+      readonly version: typeof SEC_XBRL_COVER_SHARES_VERSION;
+      readonly facts: readonly CoverShareFact[];
+      /** Contextos con dos valores distintos: descartados. */
+      readonly conflicting: readonly string[];
+    }
+  | { readonly status: "rejected"; readonly reason: XbrlInstanceRejection };
+
+function shareUnits(xml: string, instance: string): Set<string> {
+  const units = new Set<string>();
+  const namespaces = /<((?:[A-Za-z_][A-Za-z0-9_.-]*:)?)xbrl\b[^>]*>/u.exec(xml);
+  const instancePrefixes =
+    namespaces === null
+      ? []
+      : prefixesFor(
+          namespacesOf(namespaces[0]),
+          (namespace) => namespace === INSTANCE_NAMESPACE,
+        );
+  const pattern = new RegExp(
+    `<${instance}unit\\b([^>]*)>\\s*<${instance}measure>\\s*((?:${NAME}:)?)shares\\s*</${instance}measure>\\s*</${instance}unit>`,
+    "gu",
+  );
+  for (const match of xml.matchAll(pattern)) {
+    const id = attribute(match[1]!, "id");
+    const prefix = match[2]!.replace(/:$/u, "");
+    if (id !== null && instancePrefixes.includes(prefix)) {
+      units.add(id);
+    }
+  }
+  return units;
+}
+
+/** Lee los conteos de la carátula. Puro: no abre red. */
+export function readCoverShares(xml: string): ReadCoverSharesResult {
+  if (/<!DOCTYPE/iu.test(xml)) {
+    return { status: "rejected", reason: "doctype_present" };
+  }
+
+  const root = /<((?:[A-Za-z_][A-Za-z0-9_.-]*:)?)xbrl\b[^>]*>/u.exec(xml);
+
+  if (root === null) {
+    return { status: "rejected", reason: "instance_root_missing" };
+  }
+
+  const namespaces = namespacesOf(root[0]);
+  const rootPrefix = root[1]!.replace(/:$/u, "");
+
+  if (namespaces.get(rootPrefix) !== INSTANCE_NAMESPACE) {
+    return { status: "rejected", reason: "instance_root_missing" };
+  }
+
+  const instance = qualified(rootPrefix);
+  const contexts = readContexts(
+    xml,
+    instance,
+    prefixesFor(namespaces, (namespace) => namespace === DIMENSION_NAMESPACE),
+  );
+
+  if (contexts.size === 0) {
+    return { status: "rejected", reason: "no_contexts" };
+  }
+
+  const units = shareUnits(xml, instance);
+  const values = new Map<string, CoverShareFact>();
+  const conflicting = new Set<string>();
+
+  for (const prefix of prefixesFor(namespaces, (namespace) =>
+    namespace.startsWith(DEI_NAMESPACE_PREFIX),
+  )) {
+    const pattern = new RegExp(
+      `<${qualified(prefix)}${COVER_SHARES_LOCAL}\\b([^>]*?)>([^<]*)</${qualified(prefix)}${COVER_SHARES_LOCAL}>`,
+      "gu",
+    );
+
+    for (const match of xml.matchAll(pattern)) {
+      const contextId = attribute(match[1]!, "contextRef");
+      const unitId = attribute(match[1]!, "unitRef");
+      const value = match[2]!.trim();
+      const context = contextId === null ? undefined : contexts.get(contextId);
+
+      if (
+        context === undefined ||
+        unitId === null ||
+        !units.has(unitId) ||
+        !SHARES_COUNT.test(value)
+      ) {
+        continue;
+      }
+
+      const previous = values.get(context.id);
+      if (previous === undefined) {
+        values.set(context.id, {
+          contextId: context.id,
+          cik: context.cik,
+          instant: context.instant,
+          members: context.members,
+          typed: context.typed,
+          value,
+        });
+      } else if (previous.value !== value) {
+        conflicting.add(context.id);
+      }
+    }
+  }
+
+  return {
+    status: "read",
+    version: SEC_XBRL_COVER_SHARES_VERSION,
+    facts: [...values.values()].filter(
+      (fact) => !conflicting.has(fact.contextId),
+    ),
+    conflicting: [...conflicting].sort(),
+  };
+}

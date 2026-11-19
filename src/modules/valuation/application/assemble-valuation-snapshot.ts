@@ -75,8 +75,11 @@ export type ShareCountReading = {
   readonly asOf: string;
   readonly availableAt: string;
   readonly value: string;
-  readonly observationId: string;
+  /** `null`: la suma de clases de la carátula (`F6-32`) no tiene observación. */
+  readonly observationId: string | null;
   readonly sourceDocumentId: string | null;
+  /** La regla que armó el conteo cuando no es una observación. */
+  readonly qualityFlags?: readonly string[];
 };
 
 export type ValuationSnapshotRequest = {
@@ -96,7 +99,9 @@ export type ValuationSnapshotRequest = {
    * Opciones vivas, su strike y unidades no consolidadas del XBRL (`F6-16`):
    * el respaldo sin transcripción aceptada. Ausente es `[]`.
    */
-  readonly employeeOptionFacts?: readonly ShareCountReading[];
+  readonly employeeOptionFacts?: readonly (ShareCountReading & {
+    readonly observationId: string;
+  })[];
   readonly prices: {
     readonly sourceId: string;
     readonly closes: readonly ReturnClose[];
@@ -391,7 +396,7 @@ export function assembleValuationSnapshot(
     sourceId: request.fundamentalsSourceId,
     sourceDocumentId: shares.sourceDocumentId,
     observationId: shares.observationId,
-    qualityFlags: [],
+    qualityFlags: [...(shares.qualityFlags ?? [])],
     value: shares.value,
     unit: "shares" as const,
   };

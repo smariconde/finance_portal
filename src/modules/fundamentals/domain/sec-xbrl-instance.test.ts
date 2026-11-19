@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { readXbrlInstance, segmentFacts } from "./sec-xbrl-instance";
+import {
+  readCoverShares,
+  readXbrlInstance,
+  segmentFacts,
+} from "./sec-xbrl-instance";
 
 const CIK = "0000000042";
 
@@ -220,5 +224,73 @@ ${context("c-2", instant("2025-12-31"), [INDUSTRIAL])}
     });
 
     expect(Object.fromEntries(facts)).toEqual({ "us-gaap:DebtCurrent": "3" });
+  });
+});
+
+describe("sec-xbrl-cover-shares-1.0.0", () => {
+  const CLASS_A: [string, string] = [
+    "us-gaap:StatementClassOfStockAxis",
+    "us-gaap:CommonClassAMember",
+  ];
+  const CLASS_B: [string, string] = [
+    "us-gaap:StatementClassOfStockAxis",
+    "us-gaap:CommonClassBMember",
+  ];
+  const cover = (facts: string, doctype = "") =>
+    `${doctype}<?xml version="1.0" encoding="utf-8"?>
+<xbrli:xbrl xmlns:xbrli="http://www.xbrl.org/2003/instance" xmlns:dei="http://xbrl.sec.gov/dei/2025" xmlns:us-gaap="http://fasb.org/us-gaap/2025" xmlns:xbrldi="http://xbrl.org/2006/xbrldi">
+<xbrli:unit id="shares"><xbrli:measure>xbrli:shares</xbrli:measure></xbrli:unit>
+<xbrli:unit id="usd"><xbrli:measure>iso4217:USD</xbrli:measure></xbrli:unit>
+${context("a", instant("2026-10-26", "xbrli:"), [CLASS_A], { prefix: "xbrli:" })}
+${context("b", instant("2026-10-26", "xbrli:"), [CLASS_B], { prefix: "xbrli:" })}
+${facts}
+</xbrli:xbrl>`;
+
+  it("reads each class with its member, date and published integer", () => {
+    const result = readCoverShares(
+      cover(
+        '<dei:EntityCommonStockSharesOutstanding contextRef="a" unitRef="shares" decimals="INF">2306705341</dei:EntityCommonStockSharesOutstanding><dei:EntityCommonStockSharesOutstanding contextRef="b" unitRef="shares" decimals="INF">101787133</dei:EntityCommonStockSharesOutstanding>',
+      ),
+    );
+    if (result.status !== "read") throw new Error(result.reason);
+    expect(
+      result.facts.map((fact) => [
+        fact.members[0]?.member,
+        fact.instant,
+        fact.value,
+      ]),
+    ).toEqual([
+      ["CommonClassAMember", "2026-10-26", "2306705341"],
+      ["CommonClassBMember", "2026-10-26", "101787133"],
+    ]);
+  });
+
+  it("ignores a count in a unit that is not shares", () => {
+    const result = readCoverShares(
+      cover(
+        '<dei:EntityCommonStockSharesOutstanding contextRef="a" unitRef="usd">5</dei:EntityCommonStockSharesOutstanding>',
+      ),
+    );
+    expect(result).toMatchObject({ status: "read", facts: [] });
+  });
+
+  it("drops a context published with two different counts", () => {
+    const result = readCoverShares(
+      cover(
+        '<dei:EntityCommonStockSharesOutstanding contextRef="a" unitRef="shares">10</dei:EntityCommonStockSharesOutstanding><dei:EntityCommonStockSharesOutstanding contextRef="a" unitRef="shares">11</dei:EntityCommonStockSharesOutstanding>',
+      ),
+    );
+    expect(result).toMatchObject({
+      status: "read",
+      facts: [],
+      conflicting: ["a"],
+    });
+  });
+
+  it("rejects a document with a DOCTYPE", () => {
+    expect(readCoverShares(cover("", "<!DOCTYPE x>"))).toEqual({
+      status: "rejected",
+      reason: "doctype_present",
+    });
   });
 });
