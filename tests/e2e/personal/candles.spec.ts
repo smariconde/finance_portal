@@ -18,18 +18,15 @@ test.describe("lectura de velas", () => {
       const bodies = candles.flatMap((candle) => [
         ...candle.querySelectorAll("rect"),
       ]);
-      const volume = [
-        ...element.querySelectorAll<SVGGraphicsElement>(
-          ".recharts-bar-rectangles",
-        ),
-      ][0]?.querySelectorAll<SVGGraphicsElement>(".recharts-rectangle");
+      const volume =
+        element.querySelectorAll<SVGGraphicsElement>("[data-volume-bar]");
       const centers = candles.map((candle) =>
         Number(candle.querySelector("line")?.getAttribute("x1")),
       );
       return {
         widths: bodies.map((body) => Number(body.getAttribute("width"))),
         fills: bodies.map((body) => body.getAttribute("fill")),
-        alignment: volume
+        alignment: volume.length
           ? [...volume].map((bar, index) =>
               Math.abs(
                 bar.getBBox().x + bar.getBBox().width / 2 - centers[index]!,

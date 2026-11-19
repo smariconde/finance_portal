@@ -79,3 +79,37 @@ export function CandleShape({
     </g>
   );
 }
+
+/**
+ * La barra de volumen con el color de su vela, tenue: así se lee si el volumen
+ * acompañó la suba o la baja sin competir con los cuerpos. La dirección también
+ * se nombra en la franja OHLC.
+ */
+export function VolumeShape({
+  x = 0,
+  y = 0,
+  width = 0,
+  height = 0,
+  payload,
+}: ShapeProps) {
+  if (payload === undefined || width <= 0 || height <= 0) return null;
+  const body = Math.max(Math.floor(width), 1);
+  const center = x + width / 2;
+  const color =
+    payload.close === payload.open
+      ? "var(--muted-foreground)"
+      : payload.close > payload.open
+        ? "var(--candle-up)"
+        : "var(--candle-down)";
+  return (
+    <rect
+      data-volume-bar=""
+      x={center - body / 2}
+      y={y}
+      width={body}
+      height={height}
+      fill={color}
+      fillOpacity={0.3}
+    />
+  );
+}

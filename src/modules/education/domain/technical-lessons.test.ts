@@ -51,7 +51,7 @@ const lowerWick = (row: LessonChartRow) =>
   Math.min(row.candle.open, row.candle.close) - row.candle.low;
 const green = (row: LessonChartRow) => row.candle.close > row.candle.open;
 
-describe("technical-lessons-1.0.0", () => {
+describe("technical-lessons-1.1.0", () => {
   it("gives every declared setup exactly one lesson, tied by its code", () => {
     for (const setup of DECLARED_SETUPS) {
       const found = lessonOfSetup(setup.code);

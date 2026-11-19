@@ -48,4 +48,14 @@ describe("ventana de velas", () => {
       maxStart: 99,
     });
   });
+  it("acerca y aleja sin perder la vela elegida", () => {
+    const near = candleWindowLayout(390, 200, 0, 720, 70, 26);
+    const far = candleWindowLayout(390, 200, 0, 720, 70, 6);
+    expect(near.size).toBe(25);
+    expect(far.size).toBe(108);
+    for (const view of [near, far]) {
+      expect(view.start).toBeLessThanOrEqual(200);
+      expect(view.end).toBeGreaterThan(200);
+    }
+  });
 });
