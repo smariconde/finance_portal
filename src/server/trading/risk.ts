@@ -4,6 +4,7 @@ import type {
   StoredRiskSettings,
   TradingRiskSettingsStore,
 } from "@/modules/trading/application/trading-risk-settings-store";
+import { sessionCashFlows } from "@/modules/trading/domain/account-cash-flows";
 import type { PlanLevels } from "@/modules/trading/domain/position-size-risk";
 import {
   tradeKeyOf,
@@ -28,6 +29,11 @@ export type RiskContext = {
   /** Lo planeado para cada trade abierto, por símbolo. */
   readonly plans: readonly (PlanLevels & { readonly symbol: string })[];
   readonly activity: SessionActivity;
+  /**
+   * El neto de depósitos y retiros de la sesión (`account-cash-flow-1.0.0`):
+   * lo que el cambio del día descuenta para no leerlo como resultado.
+   */
+  readonly cashFlows: string;
   /**
    * Las partes que la base de trading todavía no tiene (`F11-15`): sin reglas
    * rigen las por defecto, sin planes no hay stop planeado.
@@ -93,6 +99,7 @@ export async function readRiskContext(
     settingsRevision: stored?.revision ?? null,
     plans,
     activity: sessionActivity(state.trades, now),
+    cashFlows: sessionCashFlows(state.transactions, now),
     unread: unreadParts(unread),
   };
 }
