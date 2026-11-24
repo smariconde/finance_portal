@@ -55,7 +55,7 @@ export const MAX_REQUESTS_PER_REFRESH_ITEM =
   1 + MAX_REQUESTS_PER_COMPANY_FACTS_LOAD;
 
 export function buildCompanyFactsRefreshJobPlan(
-  subjects: readonly CompanyFactsRefreshSubject[],
+  subjects: readonly Pick<CompanyFactsRefreshSubject, "cik">[],
 ): IngestionJobPlanInput {
   return {
     kind: COMPANY_FACTS_REFRESH_KIND,

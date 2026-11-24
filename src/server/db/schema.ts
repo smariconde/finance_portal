@@ -1961,7 +1961,8 @@ export const valuationJobs = pgTable(
     runStatus: varchar("run_status", { length: 16 }),
     /**
      * Qué bajó y auditó el job antes de valuar (`F6-05`, ADR 0051). El dominio
-     * lo valida con `valuation-data-1.0.0`; acá sólo se exige que exista
+     * lo valida con `valuation-data-1.0.0` o `1.1.0` (`F6-44`, la parte
+     * `filings`); acá sólo se exige que exista
      * cuando el gap lo nombra.
      */
     dataStep: jsonb("data_step"),

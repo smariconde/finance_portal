@@ -4,6 +4,8 @@ import type { MethodSelectionReason } from "@/modules/valuation/domain/method-se
 import type { RigorLevel } from "@/modules/valuation/domain/rigor-level";
 import type {
   DataPendingReason,
+  FilingsStep,
+  PeriodicFiling,
   ValuationDataStep,
 } from "@/modules/valuation/domain/valuation-data-step";
 import type { FollowedFilerRefusal } from "@/modules/universe/domain/followed-filer-eligibility";
@@ -196,6 +198,43 @@ export function describeDataStep(
     return null;
   }
 
+  const parts = [describeDataBlock(step), describeFilings(step.filings)].filter(
+    (part): part is string => part !== null,
+  );
+
+  return parts.length === 0 ? null : parts.join(" ");
+}
+
+/** Lo presentado después de la última descarga (`F6-44`), en una frase. */
+function describeFilings(step: FilingsStep | undefined): string | null {
+  switch (step?.status) {
+    case undefined:
+    case "current":
+      return null;
+    case "refreshed":
+      return step.latest === null
+        ? "Bajó lo que la SEC publicó después de la última descarga."
+        : `Bajó lo publicado después de la última descarga; el último informe es el ${describeFiling(step.latest)}.`;
+    case "not_in_companyfacts":
+      return `La SEC aceptó el ${describeFiling(step.latest)}, pero companyfacts todavía no lo trae: se valúa con lo guardado.`;
+    case "pending":
+      return `No se pudo ver si hay un 10-K o 10-Q nuevo: ${PENDING_COPY[step.reason]}; se valúa con lo guardado.`;
+    case "failed":
+      return `No se pudo ver si hay un 10-K o 10-Q nuevo (${step.code}); se valúa con lo guardado.`;
+  }
+}
+
+function describeFiling(filing: PeriodicFiling): string {
+  // EDGAR acepta en hora de Nueva York: la fecha es la del filing.
+  return `${filing.form} aceptado el ${new Date(
+    filing.acceptedAt,
+  ).toLocaleDateString("es-AR", {
+    dateStyle: "medium",
+    timeZone: "America/New_York",
+  })}`;
+}
+
+function describeDataBlock(step: ValuationDataStep): string | null {
   if (step.audit?.status === "failed") {
     const { audit } = step;
 

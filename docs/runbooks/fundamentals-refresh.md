@@ -115,8 +115,14 @@ Ver [history-prune.md](history-prune.md).
 ## Qué queda registrado
 
 - Una corrida de `sec.submissions` por vuelta y por filer, con
-  `parser_version = sec-refresh-probe-1.0.0`: `cursor` es la marca de la que
+  `parser_version = sec-refresh-probe-1.1.0`: `cursor` es la marca de la que
   partió y `next_cursor` la que dejó. Una vuelta sin novedades queda `duplicate`.
+- Desde `1.1.0` (`F6-44`), un 10-K o 10-Q original nuevo cuyo accession no
+  aparece en `source_documents` después de la descarga **no mueve la marca**: el
+  comando dice «no está en companyfacts» y la vuelta siguiente lo vuelve a pedir.
+  Un job de refresh planeado con `1.0.0` no corre: se cancela y se planea otro.
+- El job de valuación corre este mismo refresh, un filer por pedido, antes de
+  valuar ([enmienda de la ADR 0051](../architecture/adr/0051-on-demand-valuation-data.md#enmienda-del-2026-11-24-lo-presentado-después-de-la-última-descarga-f6-44)).
 - Una fila por filer en `ingestion_refresh_state`: la marca, cuándo se lo miró,
   cuándo cambió por última vez, y las dos corridas —la del sondeo y la de
   companyfacts— que lo explican.

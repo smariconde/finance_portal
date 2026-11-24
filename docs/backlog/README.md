@@ -155,7 +155,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   127 | `F6-40`    | `queued`      | E2E estable: el aviso sin base de `/sectores` y `/argentina` en mobile no se encuentra dos veces.                                                                                                                         | -                  |
 |   128 | `F6-42`    | `done`        | Margen objetivo del camino de crecimiento: el propio cuando supera al de la industria (META, MSFT, RDDT), y rating declarado por el owner con la menor calificación publicada (F).                                        | `F6-41`            |
 |   129 | `F6-43`    | `done`        | Perfil de ciclo declarado por el owner por CIK, que reemplaza al del SIC: MU (memorias) al método cíclico en lugar del de crecimiento.                                                                                    | `F6-42`            |
-|   130 | `F6-44`    | `ready`       | Una valuación nueva ve el 10-K o 10-Q presentado después de la última descarga: el job sondea `submissions` y vuelve a bajar companyfacts cuando hay uno más nuevo.                                                       | `F6-39`            |
+|   130 | `F6-44`    | `done`        | Una valuación nueva ve el 10-K o 10-Q presentado después de la última descarga: el job sondea `submissions` y vuelve a bajar companyfacts cuando hay uno más nuevo.                                                       | `F6-39`            |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -4782,6 +4782,38 @@ Decisión delegada por el owner («tomá la mejor decisión»).
   contra un cierre de 705,27. El ciclo 2021–2025 incluye el −20 % de 2023.
 - Replay: 42 de 42 en la réplica y 56 de 57 en Neon (la de GOOGL ya conocida).
 - Gates: 4.719 unit, 251 de integración, lint, tipos, formato y build.
+
+#### `F6-44` — lo presentado después de la última descarga (cerrado el 2026-11-24)
+
+[Enmienda de la ADR 0051](../architecture/adr/0051-on-demand-valuation-data.md#enmienda-del-2026-11-24-lo-presentado-después-de-la-última-descarga-f6-44).
+
+- Medido antes de codificar en Production (sólo lectura y 21 requests de
+  `submissions`): de 21 empresas valuadas, 7 tenían un periódico posterior a lo
+  guardado —AAPL y SBUX un 10-K; GOOGL, AMZN, MCD, DDOG y PLTR un 10-Q—, 14 sólo
+  8-K y ninguna tenía marca en `ingestion_refresh_state`.
+- `valuation-data-1.1.0`: parte `filings` (`current`, `refreshed`,
+  `not_in_companyfacts`, `pending`, `failed`), opcional, sin migración (`data_step`
+  es `jsonb`); `1.0.0` sigue leyéndose. Sólo `refreshed` cuenta como «bajó algo»;
+  nunca bloquea.
+- El job corre el refresh de la ADR 0022 como job durable de un item
+  (`sec_companyfacts_refresh`) con la ventana presente y vigente, en un job que
+  puede bajar y sólo para el CIK pedido. `filingsStepFromRefresh` lee qué vio el
+  sondeo y qué publicó la descarga.
+- `sec-refresh-probe-1.1.0`: un 10-K/10-Q original nuevo que no está en
+  `source_documents` después de la descarga no mueve la marca
+  (`periodicFilingMissing`); vale también para `pnpm fundamentals:refresh`.
+- El runner y la página dicen en una línea qué informe se bajó, o que se valuó con
+  lo guardado porque la SEC no respondió o companyfacts todavía no lo trae.
+- Réplica de la base personal con el worker real: AAPL valúa con el 10-K de FY2026
+  (consenso `used`, 181,75 contra 151,76) y el pedido siguiente gasta 1 request y
+  queda `current`; GOOGL (selección marcada vigente en la réplica para aislar el
+  sondeo) `refreshed` por el 10-Q del 2026-10-29, continuación con base TTM y
+  corrida `computed`; con la SEC frenada, `pending` y la corrida se registra igual.
+- Gate point-in-time aprobado y replay 21 de 21 en la réplica. Gates: 4.813 unit,
+  251 de integración, lint, tipos, formato, build y E2E.
+- Lo que queda: la primera valuación de cada filer después del merge redescarga
+  companyfacts una vez (`never_probed`). Un 8-K nuevo también redescarga, como en
+  la ADR 0022.
 
 #### `F6-39` — crecimiento cercano desde el consenso (cerrado el 2026-11-19)
 

@@ -16,7 +16,41 @@ import type { SecFiling } from "./parse-sec-submissions";
  * filer pueden compartir el segundo, y comparar por tupla no deja a ninguna del
  * lado viejo.
  */
-export const SEC_REFRESH_PROBE_VERSION = "sec-refresh-probe-1.0.0";
+export const SEC_REFRESH_PROBE_VERSION = "sec-refresh-probe-1.1.0";
+
+/**
+ * Los informes periódicos originales: siempre traen XBRL de los estados, así
+ * que uno nuevo que companyfacts no trae todavía no se da por visto
+ * (`sec-refresh-probe-1.1.0`, `F6-44`). Las enmiendas quedan fuera: algunas
+ * —la Parte III de un 10-K/A— no publican ningún hecho seleccionado.
+ */
+export const PERIODIC_REPORT_FORMS: ReadonlySet<string> = new Set([
+  "10-K",
+  "10-Q",
+  "10-KT",
+  "10-QT",
+]);
+
+/** El informe periódico original más nuevo con aceptación, o `null`. */
+export function newestPeriodicFiling(
+  filings: readonly SecFiling[],
+): (SecFiling & { readonly acceptedAt: string }) | null {
+  let newest: (SecFiling & { readonly acceptedAt: string }) | null = null;
+
+  for (const filing of filings) {
+    if (!PERIODIC_REPORT_FORMS.has(filing.form) || filing.acceptedAt === null) {
+      continue;
+    }
+
+    const accepted = filing as SecFiling & { readonly acceptedAt: string };
+
+    if (newest === null || compareMarks(markOf(accepted), markOf(newest)) > 0) {
+      newest = accepted;
+    }
+  }
+
+  return newest;
+}
 
 /**
  * Formularios que pueden publicar hechos XBRL de empresa.
@@ -72,6 +106,8 @@ export type FilerRefreshDecision = {
   readonly relevant: number;
   /** Relevantes posteriores a la marca anterior, de la más vieja a la más nueva. */
   readonly newFilings: readonly SecFiling[];
+  /** El 10-K o 10-Q original más nuevo del índice, nuevo o no. */
+  readonly latestPeriodic: (SecFiling & { readonly acceptedAt: string }) | null;
   /**
    * Relevantes que el índice publica sin instante de aceptación. No se comparan
    * —no hay con qué— y se cuentan para que la omisión no sea silenciosa. En las
@@ -100,6 +136,14 @@ function compareMarks(
 const isAfter = (left: FilerRefreshWatermark, right: FilerRefreshWatermark) =>
   compareMarks(left, right) > 0;
 
+function markOf(filing: AcceptedFiling): FilerRefreshWatermark {
+  return {
+    acceptedAt: filing.acceptedAt,
+    accessionNumber: filing.accessionNumber,
+    formSelectionVersion: COMPANY_FACTS_FORM_SELECTION_VERSION,
+  };
+}
+
 export function decideFilerRefresh(input: {
   readonly filings: readonly SecFiling[];
   readonly watermark: FilerRefreshWatermark | null;
@@ -127,6 +171,7 @@ export function decideFilerRefresh(input: {
     formSelectionVersion: COMPANY_FACTS_FORM_SELECTION_VERSION,
     relevant: relevant.length,
     withoutAcceptance,
+    latestPeriodic: newestPeriodicFiling(accepted),
   };
 
   if (newest === null) {

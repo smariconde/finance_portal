@@ -243,6 +243,7 @@ function buildDependencies(fetch: ReturnType<typeof getSourceEgressFetch>) {
     sourceRegistry: registry,
     ingestionRuns,
     refreshState,
+    sourceDocuments: getSourceDocumentRepository(),
     probeSource: source,
     ingest: (cik: string) =>
       ingestCompanyFacts(
@@ -324,6 +325,14 @@ if (values.job === undefined) {
       if (outcome.ingestion.window?.window != null) {
         log("  ancla de la ventana", outcome.ingestion.window.window.anchorOn);
       }
+    }
+
+    if (outcome.periodicFilingMissing !== null) {
+      const missing = outcome.periodicFilingMissing;
+      log(
+        "  no está en companyfacts",
+        `${missing.form} ${missing.accessionNumber}: la marca no se mueve`,
+      );
     }
 
     log(

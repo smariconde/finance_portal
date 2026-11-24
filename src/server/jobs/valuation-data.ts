@@ -19,12 +19,22 @@ import {
   createCompanyFactsJobExecutor,
   observeSourceSignals,
 } from "@/modules/fundamentals/application/company-facts-backfill";
+import {
+  assertCompanyFactsRefreshJob,
+  buildCompanyFactsRefreshJobPlan,
+  createCompanyFactsRefreshAdmission,
+  createCompanyFactsRefreshJobExecutor,
+} from "@/modules/fundamentals/application/company-facts-refresh-job";
 import { ingestCompanyFacts } from "@/modules/fundamentals/application/ingest-company-facts";
 import {
   createLiveCompanyFactsSource,
   SEC_SOURCE_ID,
 } from "@/modules/fundamentals/application/live-company-facts-source";
-import { REFRESH_PROBE_DATASET_ID } from "@/modules/fundamentals/application/refresh-company-facts";
+import {
+  REFRESH_PROBE_DATASET_ID,
+  refreshCompanyFacts,
+  type RefreshCompanyFactsOutcome,
+} from "@/modules/fundamentals/application/refresh-company-facts";
 import { SEC_SUBMISSIONS_PARSER_VERSION } from "@/modules/fundamentals/domain/parse-sec-submissions";
 import { createGraphIdentityResolver } from "@/modules/identity/application/identity-resolver";
 import type { IdentityGraph } from "@/modules/identity/domain/identity-graph";
@@ -58,6 +68,7 @@ import {
   type SicObservation,
   type ValuationDataDependencies,
 } from "@/modules/valuation/application/ensure-valuation-data";
+import { filingsStepFromRefresh } from "@/modules/valuation/application/filings-step";
 import { getMeteredEgressFetch } from "@/server/egress/get-source-egress-fetch";
 import { getClassificationRepository } from "@/server/persistence/get-classification-repository";
 import { getIngestionJobStore } from "@/server/persistence/get-ingestion-job-store";
@@ -65,6 +76,7 @@ import { getIngestionRunRepository } from "@/server/persistence/get-ingestion-ru
 import { getObservationRepository } from "@/server/persistence/get-observation-repository";
 import { getPointInTimeAuditReader } from "@/server/persistence/get-point-in-time-audit-reader";
 import { getPriceRepository } from "@/server/persistence/get-price-repository";
+import { getRefreshStateStore } from "@/server/persistence/get-refresh-state-store";
 import { getSourceBudgetStore } from "@/server/persistence/get-source-budget-store";
 import { getSourceDocumentRepository } from "@/server/persistence/get-source-document-repository";
 import { getSourceRegistryRepository } from "@/server/persistence/get-source-registry-repository";
@@ -111,6 +123,22 @@ export function createValuationDataDependencies(
     ));
   const jobs = getIngestionJobStore();
 
+  const secSource = createLiveCompanyFactsSource({ fetch: secFetch });
+  const ingestFacts = (cik: string) =>
+    ingestCompanyFacts(
+      { cik, mode: "personal", dryRun: false },
+      {
+        sourceRegistry: registry,
+        ingestionRuns: getIngestionRunRepository(),
+        sourceDocuments: getSourceDocumentRepository(),
+        observations: getObservationRepository(),
+        identity: createGraphIdentityResolver(() => graph),
+        source: secSource,
+        now,
+        newId: () => randomUUID(),
+      },
+    );
+
   return {
     async ingestFundamentals(ciks) {
       await syncRegistry();
@@ -120,26 +148,12 @@ export function createValuationDataDependencies(
       );
       assertCompanyFactsJob(job);
 
-      const ingestion = {
-        sourceRegistry: registry,
-        ingestionRuns: getIngestionRunRepository(),
-        sourceDocuments: getSourceDocumentRepository(),
-        observations: getObservationRepository(),
-        identity: createGraphIdentityResolver(() => graph),
-        source: createLiveCompanyFactsSource({ fetch: secFetch }),
-        now,
-        newId: () => randomUUID(),
-      };
       const result = await runIngestionJob(
         { jobId: job.jobId, holder: holderName() },
         {
           store: jobs,
           execute: createCompanyFactsJobExecutor({
-            ingest: (cik) =>
-              ingestCompanyFacts(
-                { cik, mode: "personal", dryRun: false },
-                ingestion,
-              ),
+            ingest: ingestFacts,
             takeSignal: signals.take,
           }),
           now,
@@ -158,6 +172,61 @@ export function createValuationDataDependencies(
 
       return classify(result);
     },
+    /**
+     * El refresh de la ADR 0022 como job de un item (`F6-44`): un sondeo de
+     * `submissions` y companyfacts sólo si hay algo nuevo, bajo el lease y la
+     * cuota de la SEC. Un plan igual a uno abierto lo devuelve, que es la
+     * reanudación.
+     */
+    async refreshFilings(cik) {
+      await syncRegistry();
+      const { job } = await jobs.createJob(
+        buildCompanyFactsRefreshJobPlan([{ cik }]),
+        { now: now() },
+      );
+      assertCompanyFactsRefreshJob(job);
+
+      let observed: RefreshCompanyFactsOutcome | null = null;
+      const result = await runIngestionJob(
+        { jobId: job.jobId, holder: holderName() },
+        {
+          store: jobs,
+          execute: createCompanyFactsRefreshJobExecutor({
+            refresh: async (subject) =>
+              (observed = await refreshCompanyFacts(
+                { cik: subject, mode: "personal", dryRun: false },
+                {
+                  sourceRegistry: registry,
+                  ingestionRuns: getIngestionRunRepository(),
+                  refreshState: getRefreshStateStore(),
+                  sourceDocuments: getSourceDocumentRepository(),
+                  probeSource: secSource,
+                  ingest: ingestFacts,
+                  now,
+                  newId: () => randomUUID(),
+                },
+              )),
+            takeSignal: signals.take,
+          }),
+          now,
+          sleep: (ms) => sleep(ms),
+          newLeaseToken: () => randomUUID(),
+          startHeartbeat: startTimer,
+          admitItem: createCompanyFactsRefreshAdmission({
+            fetch: secFetch,
+            pacing: SEC_REQUEST_PACING,
+            budgets: getSourceBudgetStore(),
+            now,
+          }),
+          policy: ON_DEMAND_POLICY,
+        },
+      );
+      const download = await classify(result);
+
+      return download.status === "completed"
+        ? filingsStepFromRefresh(observed)
+        : download;
+    },
     async observeSic({ legalEntityId, cik }) {
       await syncRegistry();
       const refusal = await sicRefusal(registry);
@@ -169,9 +238,7 @@ export function createValuationDataDependencies(
       let probe;
 
       try {
-        probe = await createLiveCompanyFactsSource({ fetch: secFetch }).probe(
-          cik,
-        );
+        probe = await secSource.probe(cik);
       } catch (error) {
         // Una negativa nuestra a mitad de camino es un pendiente, no un fallo
         // del filer; cualquier otro error lo nombra el job.

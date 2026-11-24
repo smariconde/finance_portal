@@ -9,6 +9,7 @@ import {
   type IngestionRun,
   type IngestionRunStatus,
 } from "@/modules/ingestion/domain/ingestion-run";
+import type { SourceDocument } from "@/modules/observations/domain/source-document";
 
 import {
   FIXTURE_ACCEPTED_AT,
@@ -142,6 +143,8 @@ function createHarness(
     ingestStatus?: IngestionRunStatus;
     probeSource?: CompanyFactsProbeSource;
     registry?: typeof DEMO_SOURCE_REGISTRY;
+    /** Accessions que companyfacts todavía no trae. */
+    notInCompanyFacts?: readonly string[];
   } = {},
 ) {
   const newId = createIds();
@@ -154,17 +157,30 @@ function createHarness(
     return outcomeFor(options.ingestStatus ?? "succeeded", newId());
   });
 
+  const missing = new Set(options.notInCompanyFacts ?? []);
+  // Sólo importa si la accession está: el resto del documento no se lee.
+  const sourceDocuments = {
+    findByIds: vi.fn(
+      async ({ sourceDocumentIds }: { sourceDocumentIds: string[] }) =>
+        sourceDocumentIds
+          .filter((id) => !missing.has(id))
+          .map((id) => ({ sourceDocumentId: id }) as SourceDocument),
+    ),
+  };
+
   return {
     refreshState,
     ingestionRuns,
     probeSource,
     ingest,
+    sourceDocuments,
     dependencies: {
       sourceRegistry: createInMemorySourceRegistryRepository(
         options.registry ?? DEMO_SOURCE_REGISTRY,
       ),
       ingestionRuns,
       refreshState,
+      sourceDocuments,
       probeSource,
       ingest,
       now: () => CLOCK,
@@ -231,6 +247,59 @@ describe("refreshCompanyFacts", () => {
     expect(outcome.decision?.newFilings).toEqual([NEW_ANNUAL]);
     expect(next.ingest).toHaveBeenCalledOnce();
     expect(outcome.state?.watermarkAccession).toBe(NEW_ANNUAL.accessionNumber);
+  });
+
+  it("un 10-K nuevo que companyfacts todavía no trae no mueve la marca (1.1.0)", async () => {
+    const harness = createHarness();
+    await refreshCompanyFacts(command, harness.dependencies);
+
+    const next = createHarness({
+      filings: [QUARTER, NEW_ANNUAL],
+      notInCompanyFacts: [NEW_ANNUAL.accessionNumber],
+    });
+    await next.refreshState.record(
+      (await harness.refreshState.find(STATE_KEY))!,
+    );
+
+    const outcome = await refreshCompanyFacts(command, next.dependencies);
+
+    expect(next.ingest).toHaveBeenCalledOnce();
+    expect(outcome.periodicFilingMissing).toEqual(NEW_ANNUAL);
+    expect(outcome.state?.watermarkAccession).toBe(FIXTURE_ACCESSIONS.q2Filing);
+    expect(outcome.decision?.latestPeriodic).toEqual(NEW_ANNUAL);
+
+    // Cuando companyfacts lo integra, la vuelta siguiente lo baja y avanza.
+    next.sourceDocuments.findByIds.mockImplementation(
+      async ({ sourceDocumentIds }) =>
+        sourceDocumentIds.map(
+          (id) => ({ sourceDocumentId: id }) as SourceDocument,
+        ),
+    );
+    const again = await refreshCompanyFacts(command, next.dependencies);
+
+    expect(again.decision?.reason).toBe("new_filing");
+    expect(again.periodicFilingMissing).toBeNull();
+    expect(again.state?.watermarkAccession).toBe(NEW_ANNUAL.accessionNumber);
+  });
+
+  it("un 8-K o una enmienda sin hechos sí mueven la marca, como antes", async () => {
+    for (const form of ["8-K", "10-K/A"]) {
+      const harness = createHarness();
+      await refreshCompanyFacts(command, harness.dependencies);
+      const filing: SecFiling = { ...NEW_ANNUAL, form };
+      const next = createHarness({
+        filings: [QUARTER, filing],
+        notInCompanyFacts: [filing.accessionNumber],
+      });
+      await next.refreshState.record(
+        (await harness.refreshState.find(STATE_KEY))!,
+      );
+
+      const outcome = await refreshCompanyFacts(command, next.dependencies);
+
+      expect(outcome.periodicFilingMissing).toBeNull();
+      expect(outcome.state?.watermarkAccession).toBe(filing.accessionNumber);
+    }
   });
 
   it("una ingesta que falla no mueve la marca", async () => {

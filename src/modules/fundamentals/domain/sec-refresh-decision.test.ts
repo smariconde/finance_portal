@@ -4,6 +4,7 @@ import type { SecFiling } from "./parse-sec-submissions";
 import {
   COMPANY_FACTS_FORM_SELECTION_VERSION,
   decideFilerRefresh,
+  newestPeriodicFiling,
   type FilerRefreshWatermark,
 } from "./sec-refresh-decision";
 
@@ -40,7 +41,7 @@ describe("decideFilerRefresh", () => {
     expect(decision.reason).toBe("never_probed");
     expect(decision.refresh).toBe(true);
     expect(decision.observed).toEqual(watermark());
-    expect(decision.probeVersion).toBe("sec-refresh-probe-1.0.0");
+    expect(decision.probeVersion).toBe("sec-refresh-probe-1.1.0");
   });
 
   it("con la marca en la presentación más nueva no baja nada", () => {
@@ -147,5 +148,47 @@ describe("decideFilerRefresh", () => {
     expect(decision.reason).toBe("no_relevant_filings");
     expect(decision.refresh).toBe(false);
     expect(decision.observed).toBeNull();
+  });
+});
+
+describe("newestPeriodicFiling (sec-refresh-probe-1.1.0)", () => {
+  it("elige el 10-K o 10-Q original más nuevo y deja fuera enmiendas, 8-K y sin aceptación", () => {
+    const annual = filing({
+      accessionNumber: "0000320193-26-000100",
+      form: "10-K",
+      acceptedAt: "2026-11-03T21:00:00.000Z",
+    });
+    const filings = [
+      QUARTER,
+      annual,
+      filing({
+        accessionNumber: "0000320193-26-000101",
+        form: "10-K/A",
+        acceptedAt: "2026-11-10T21:00:00.000Z",
+      }),
+      filing({
+        accessionNumber: "0000320193-26-000102",
+        form: "8-K",
+        acceptedAt: "2026-11-12T21:00:00.000Z",
+      }),
+      filing({
+        accessionNumber: "0000320193-26-000103",
+        form: "10-Q",
+        acceptedAt: null,
+      }),
+    ];
+
+    expect(newestPeriodicFiling(filings)).toEqual(annual);
+    expect(
+      decideFilerRefresh({ filings, watermark: null }).latestPeriodic,
+    ).toEqual(annual);
+    expect(newestPeriodicFiling([filings[2]!, filings[3]!])).toBeNull();
+  });
+
+  it("a igual instante desempata por accession, como la marca", () => {
+    const first = filing({ accessionNumber: "0000320193-26-000110" });
+    const second = filing({ accessionNumber: "0000320193-26-000111" });
+
+    expect(newestPeriodicFiling([second, first])).toEqual(second);
   });
 });

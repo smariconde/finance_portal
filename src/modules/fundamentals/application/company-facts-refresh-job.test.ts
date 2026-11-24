@@ -53,7 +53,7 @@ function run(
     runId: overrides.runId ?? PROBE_RUN_ID,
     sourceId: "sec-edgar",
     datasetId: overrides.datasetId ?? "sec.submissions",
-    parserVersion: "sec-refresh-probe-1.0.0",
+    parserVersion: "sec-refresh-probe-1.1.0",
     idempotencyKey: "a".repeat(64),
     requestedAsOf: null,
     requestedVintage: null,
@@ -97,6 +97,7 @@ function outcome(
     previous: null,
     state: null,
     ingestion: null,
+    periodicFilingMissing: null,
     ...overrides,
   };
 }
@@ -122,7 +123,7 @@ function job(overrides: Partial<IngestionJob> = {}): IngestionJob {
     kind: "sec_companyfacts_refresh",
     sourceId: "sec-edgar",
     datasetId: "sec.companyfacts",
-    parserVersion: "sec-refresh-probe-1.0.0",
+    parserVersion: "sec-refresh-probe-1.1.0",
     selectionVersion: "sec-companyfacts-forms-1.0.0",
     planHash: "c".repeat(64),
     itemCount: 1,
@@ -170,7 +171,7 @@ describe("plan del job de refresh", () => {
       kind: "sec_companyfacts_refresh",
       sourceId: "sec-edgar",
       datasetId: "sec.companyfacts",
-      parserVersion: "sec-refresh-probe-1.0.0",
+      parserVersion: "sec-refresh-probe-1.1.0",
       selectionVersion: "sec-companyfacts-forms-1.0.0",
       subjects: ["0000320193", "0001045810"],
     });
