@@ -18,8 +18,18 @@ import {
 import type { CapitalizationFacts } from "./capitalization-bridge";
 import { formatDecimal, parseDecimal } from "./decimal-policy";
 import { netInterestForEbit } from "./interest-expense";
-import { DEBT_ITEMS, type NormalizationFacts } from "./normalization";
-import { DEBT_COMPONENT_KEYS, resolveReportedDebt } from "./reported-debt";
+import {
+  DEBT_ITEMS,
+  debtControlsAt,
+  withDebtControls,
+  type NormalizationFacts,
+} from "./normalization";
+import {
+  DEBT_COMPONENT_KEYS,
+  DEBT_CONTROL_ITEMS,
+  DEBT_CONTROL_KEYS,
+  resolveReportedDebt,
+} from "./reported-debt";
 import {
   conceptFactSchema,
   type ConceptFact,
@@ -479,7 +489,11 @@ export function buildTtmBasePeriod(input: {
     });
   }
 
-  const debtItems = DEBT_COMPONENT_KEYS.map((key) => DEBT_ITEMS[key]);
+  const debtItems = [
+    ...DEBT_COMPONENT_KEYS.map((key) => DEBT_ITEMS[key]),
+    // Los totales publicados corroboran `reported-debt-1.3.0` (`F6-46`).
+    ...DEBT_CONTROL_KEYS.map((key) => DEBT_CONTROL_ITEMS[key]),
+  ];
   const quarter = instantItemsAt(input.rows, periodEnd, [
     ...CORE_BALANCE_ITEMS,
     ...debtItems,
@@ -501,6 +515,18 @@ export function buildTtmBasePeriod(input: {
           ];
         }),
       ) as Parameters<typeof resolveReportedDebt>[0],
+      null,
+      Object.fromEntries(
+        DEBT_CONTROL_KEYS.map((key) => {
+          const value = items[DEBT_CONTROL_ITEMS[key]];
+          return [
+            key,
+            value === undefined
+              ? null
+              : { value: value.value, concept: value.concept },
+          ];
+        }),
+      ) as Parameters<typeof resolveReportedDebt>[2],
     );
   const quarterDebt = debtAt(quarter);
   // `noncurrent_only` (`reported-debt-1.2.0`) confía en que el filer nunca
@@ -722,9 +748,9 @@ export function ttmNormalizationFacts(
     return value === undefined ? null : toFact(value);
   };
   const atQuarter = basePeriod.balance.core.basis === "quarter";
-  const { zeroDebtEvidence, ...rest } = annual;
+  const { zeroDebtEvidence, debtControls, ...rest } = annual;
 
-  return {
+  const facts: NormalizationFacts = {
     ...rest,
     baseFiscalYearEnd: periodEnd,
     income: {
@@ -752,9 +778,22 @@ export function ttmNormalizationFacts(
     ...(zeroDebtEvidence === undefined || atQuarter
       ? {}
       : { zeroDebtEvidence }),
+    // Con el balance del 10-K, los totales del 10-K; con el del 10-Q, los
+    // suyos, y sólo si su deuda los necesita (`F6-46`).
+    ...(debtControls === undefined || atQuarter ? {} : { debtControls }),
     basePeriod: {
       fiscalYearEnd: basePeriod.fiscalYearEnd,
       balanceAsOf: blockAsOf(basePeriod, "core"),
     },
   };
+
+  return atQuarter
+    ? withDebtControls(
+        facts,
+        debtControlsAt(quarter, (items, key) => {
+          const value = items[key];
+          return value === undefined ? null : toFact(value);
+        }),
+      )
+    : facts;
 }

@@ -30,6 +30,7 @@ import {
   debtInputOf,
   normalizationFactsFromSeries,
   type Normalization,
+  type NormalizationFacts,
 } from "../domain/normalization";
 import { resolveReportedDebt } from "../domain/reported-debt";
 import {
@@ -924,13 +925,24 @@ function assessNormalization(
     : buildNormalization(
         captiveSplit === null
           ? facts
-          : { ...facts, captiveFinance: captiveSplit },
+          : // Con la apertura, la deuda es la del miembro industrial: los
+            // totales consolidados no corroboran nada (`F6-46`).
+            {
+              ...withoutDebtControls(facts),
+              captiveFinance: captiveSplit,
+            },
         {
           baseRevenue: revenue.value,
           marginalTaxRate,
           capitalization,
         },
       );
+}
+
+function withoutDebtControls(facts: NormalizationFacts): NormalizationFacts {
+  const { debtControls: _controls, ...plain } = facts;
+  void _controls;
+  return plain;
 }
 
 /** Una partida de la serie como hecho con la provenance de su fuente. */

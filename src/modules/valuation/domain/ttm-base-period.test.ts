@@ -14,8 +14,10 @@ import {
   ttmBasePeriodMismatches,
   ttmFlowFact,
   ttmFlowValue,
+  ttmNormalizationFacts,
   type TtmBasePeriod,
 } from "./ttm-base-period";
+import { normalizationFactsFromSeries } from "./normalization";
 import type { ConceptFact } from "./valuation-facts";
 
 const SUBJECT = "11111111-1111-4111-8111-111111111111";
@@ -329,6 +331,44 @@ describe("ttm-base-period-1.0.0", () => {
     expect(
       candidate?.status === "ttm" ? Object.keys(candidate.quarter) : [],
     ).toEqual(["operating_lease_liability"]);
+  });
+
+  it("takes the quarter balance when a published total closes noncurrent plus borrowings (F6-46)", () => {
+    const withoutMaturities = BASE_ROWS.filter(
+      (entry) =>
+        !(entry.concept === "us-gaap:LongTermDebtCurrent" && entry.asOf === H1),
+    );
+    const rows = [
+      ...withoutMaturities,
+      instant("ShortTermBorrowings", H1, "40"),
+      instant("NotesPayable", H1, "640"),
+    ];
+    const candidate = decide(rows);
+
+    expect(candidate).toMatchObject({
+      status: "ttm",
+      basePeriod: { balance: { core: { basis: "quarter" } } },
+    });
+    if (candidate?.status !== "ttm") throw new Error("expected a TTM base");
+
+    const series = buildAnnualFundamentals(rows, FY, CUTOFF);
+    const annual = normalizationFactsFromSeries(series, toFact)!;
+    const facts = ttmNormalizationFacts(annual, candidate, toFact);
+
+    expect("debtControls" in annual).toBe(false);
+    expect(facts.debtControls?.notesPayable).toMatchObject({
+      value: "640",
+      asOf: H1,
+    });
+
+    // Sin el total, el trimestre no cierra y queda el balance del 10-K.
+    expect(
+      decide(rows.filter((entry) => entry.concept !== "us-gaap:NotesPayable")),
+    ).toMatchObject({
+      basePeriod: {
+        balance: { core: { reason: "debt_recipe_not_at_quarter" } },
+      },
+    });
   });
 
   it("keeps the 10-K balance when an item the 10-K had is missing at the quarter", () => {
