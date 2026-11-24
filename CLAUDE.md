@@ -1713,7 +1713,7 @@ each source. Since `F11-17` (done; migration `0052`, connected from Production, 
 `Host` outside the deployment's own domains, `401` unless the `Bearer`'s
 SHA-256 matches in constant time, and counts every request in `portal-mcp`
 (500/day, kill switch through `pnpm ingestion:sources`).
-`portal-mcp-tools-1.0.0` holds `list_valuations`, `get_valuation`,
+`portal-mcp-tools-1.1.0` (a rejected run carries `failure` with the engine's rules and fields since `F6-45`) holds `list_valuations`, `get_valuation`,
 `list_trades` and `get_trade` over the pages' own readers, projected in
 `src/modules/owner-mcp/` with no internal IDs and never the account HMAC; a
 section whose source denies `ownerAssistant` is `withheld` with its reason,

@@ -156,6 +156,9 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   128 | `F6-42`    | `done`        | Margen objetivo del camino de crecimiento: el propio cuando supera al de la industria (META, MSFT, RDDT), y rating declarado por el owner con la menor calificación publicada (F).                                        | `F6-41`            |
 |   129 | `F6-43`    | `done`        | Perfil de ciclo declarado por el owner por CIK, que reemplaza al del SIC: MU (memorias) al método cíclico en lugar del de crecimiento.                                                                                    | `F6-42`            |
 |   130 | `F6-44`    | `done`        | Una valuación nueva ve el 10-K o 10-Q presentado después de la última descarga: el job sondea `submissions` y vuelve a bajar companyfacts cuando hay uno más nuevo.                                                       | `F6-39`            |
+|   131 | `F6-45`    | `done`        | El MCP dice por qué se rechazó una corrida: código, reglas que fallaron y campos (`portal-mcp-tools-1.1.0`).                                                                                                              | `F11-17`           |
+|   132 | `F6-46`    | `ready`       | Deuda como no corriente más préstamos de corto plazo cuando ésa es la única deuda corriente publicada (NFLX, PEP, JNJ, MSI, TRMB), nombrada en el snapshot.                                                               | `F6-45`            |
+|   133 | `F6-47`    | `queued`      | Medir de dónde sale el sesgo precio/valor (mediana ≈ 1,9) por componente —crecimiento, margen, reinversión, WACC, terminal— y traer la tabla al owner antes de tocar reglas.                                              | `F6-46`            |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -4782,6 +4785,22 @@ Decisión delegada por el owner («tomá la mejor decisión»).
   contra un cierre de 705,27. El ciclo 2021–2025 incluye el −20 % de 2023.
 - Replay: 42 de 42 en la réplica y 56 de 57 en Neon (la de GOOGL ya conocida).
 - Gates: 4.719 unit, 251 de integración, lint, tipos, formato y build.
+
+#### `F6-45` — el motivo de un rechazo, legible desde el MCP (cerrado el 2026-11-24)
+
+- Medido: las tres corridas rechazadas de Production (NFLX, DDOG, F) llegaban
+  al asistente con `failureCode: policy_check_failed` y `failedChecks: []`. Un
+  rechazo no tiene `result`, así que sus reglas nunca estaban en `checks`; la
+  página ya mostraba el mensaje, el MCP no.
+- `portal-mcp-tools-1.1.0`: `run.failure` con `code`, `message` (el del motor,
+  que sólo nombra reglas, `TM-02`) y `subjects`, en lugar de `failureCode`. Sin
+  migración: las tres columnas ya existían.
+- Lo que dijeron, leído en Neon: NFLX (2026-11-24) `required_inputs_present` y
+  `failure_risk_recomputed` sobre `bridge.debt` —deuda sin receta, de ahí
+  `F6-46`—; DDOG y F (2026-11-18) `failure_risk_recomputed`, anteriores a
+  `failure-risk-1.1.0` (`F6-41`): se revalúan, no hace falta código. META sigue
+  con −45 por acción, anterior a `F6-42`.
+- Gates: unit, lint, tipos, formato y build.
 
 #### `F6-40` — E2E estable con rutas en streaming (cerrado el 2026-11-24)
 

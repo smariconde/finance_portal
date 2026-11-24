@@ -16,7 +16,7 @@ import {
 
 /**
  * Las valuaciones como las lee la página, proyectadas para el asistente del
- * owner (`portal-mcp-tools-1.0.0`). Montos en texto decimal, nunca `number`;
+ * owner (`portal-mcp-tools-1.1.0`). Montos en texto decimal, nunca `number`;
  * ningún ID interno (entidad, security, corrida o job): el ticker y las
  * fechas alcanzan para volver a la página.
  */
@@ -91,7 +91,16 @@ function runSection(run: RunRecord, valuePerShare: string | null) {
     inputHash: run.inputHash,
     resultHash: run.resultHash,
     recordedAt: run.recordedAt,
-    failureCode: run.failure?.code ?? null,
+    // Un rechazo dice qué reglas lo frenaron y sobre qué campos (`F6-45`):
+    // el motor sólo nombra reglas y rutas, nunca valores (`TM-02`).
+    failure:
+      run.failure === null
+        ? null
+        : {
+            code: run.failure.code,
+            message: run.failure.message,
+            subjects: run.failure.subjects,
+          },
   };
 }
 

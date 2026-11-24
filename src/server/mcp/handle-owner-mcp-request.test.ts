@@ -247,7 +247,7 @@ describe("handleOwnerMcpRequest", () => {
 
     expect(body.result.isError).not.toBe(true);
     expect(result).toMatchObject({
-      catalogVersion: "portal-mcp-tools-1.0.0",
+      catalogVersion: "portal-mcp-tools-1.1.0",
       ticker: "AAPL",
       state: "not_requested",
     });

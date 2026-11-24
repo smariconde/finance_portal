@@ -146,7 +146,7 @@ function metadataOf(name: McpToolName) {
   return { title: tool.title, description: tool.description };
 }
 
-/** Un servidor por pedido, con el catálogo `portal-mcp-tools-1.0.0`. */
+/** Un servidor por pedido, con el catálogo `portal-mcp-tools-1.1.0`. */
 export function createOwnerMcpServer(context: Context): McpServer {
   const server = new McpServer(
     { name: "portal-financiero", version: PORTAL_MCP_TOOLS_VERSION },
