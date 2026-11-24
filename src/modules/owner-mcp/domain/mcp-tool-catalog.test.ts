@@ -10,7 +10,7 @@ import {
   McpResponseTooLargeError,
 } from "./mcp-tool-catalog";
 
-describe("portal-mcp-tools-1.0.0", () => {
+describe("portal-mcp-tools-1.1.0", () => {
   it("trae valuaciones y diario, nada que escriba", () => {
     expect(MCP_TOOLS.map((tool) => tool.name)).toEqual([
       "list_valuations",

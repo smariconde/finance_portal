@@ -7,7 +7,7 @@ red, no escribe, no encola jobs y no lee la cuenta en vivo de Schwab.
 
 ## Qué expone
 
-Catálogo `portal-mcp-tools-1.0.0`:
+Catálogo `portal-mcp-tools-1.1.0`:
 
 | Herramienta       | Lee                                                                | Entrada                                 |
 | ----------------- | ------------------------------------------------------------------ | --------------------------------------- |
@@ -21,6 +21,12 @@ y sus fuentes. Montos en texto decimal. Una sección cuya fuente no admite
 `ownerAssistant` sale como `{ "withheld": [...] }` con el motivo. Una respuesta
 de más de 256 KB se rechaza con `response_too_large` y su tamaño: se acota con
 `limit`, `from` o `to`, nunca se corta.
+
+Desde `1.1.0` (`F6-45`), una corrida de `get_valuation` trae `failure`: `null`
+si se calculó, o el código, el mensaje del motor —que nombra las reglas que
+fallaron— y los campos que esas reglas señalan. `failedChecks` sigue listando
+los controles `require_review` de una corrida calculada; un rechazo no tiene
+`result`, así que sus reglas están en `failure`.
 
 Nunca sale: tokens ni claves, URLs de base, el número de cuenta ni su HMAC
 (sólo los últimos cuatro dígitos), IDs internos de entidades o corridas, el

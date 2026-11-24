@@ -24,7 +24,7 @@ describe("projectValuationResult", () => {
     const projected = projectValuationResult(reading, DEMO_SOURCE_REGISTRY);
 
     expect(projected).toMatchObject({
-      catalogVersion: "portal-mcp-tools-1.0.0",
+      catalogVersion: "portal-mcp-tools-1.1.0",
       state: "run",
       run: {
         withheld: null,
@@ -37,6 +37,37 @@ describe("projectValuationResult", () => {
         },
       },
     });
+  });
+
+  it("un rechazo nombra sus reglas y campos, y una corrida calculada no trae falla", async () => {
+    const { reading } = await fixtureValuationReading("fcff");
+    if (reading.state !== "run") throw new Error("expected an FCFF run");
+    const failure = {
+      code: "policy_check_failed" as const,
+      message:
+        "Valuation rejected by policy checks: failure_risk_recomputed, required_inputs_present.",
+      subjects: ["normalization.investedCapital", "bridge.debt"],
+    };
+    const rejected = projectValuationResult(
+      {
+        ...reading,
+        run: {
+          ...reading.run,
+          status: "rejected",
+          result: null,
+          resultHash: null,
+          failure,
+        },
+      },
+      DEMO_SOURCE_REGISTRY,
+    );
+
+    expect(rejected).toMatchObject({
+      run: { status: "rejected", valuePerShare: null, failure },
+    });
+    expect(projectValuationResult(reading, DEMO_SOURCE_REGISTRY)).toMatchObject(
+      { run: { failure: null } },
+    );
   });
 
   it("una corrida financiera lee su valor de `result.base`", async () => {

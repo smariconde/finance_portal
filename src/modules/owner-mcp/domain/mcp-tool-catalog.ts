@@ -11,8 +11,12 @@ import { valuationTickerSchema } from "@/modules/valuation/domain/valuation-job"
  *
  * `1.0.0` trae valuaciones y diario. Las demás lecturas (matrices, Argentina,
  * estadísticas, plan) entran de a una, cada una con su versión nueva.
+ *
+ * `1.1.0` (`F6-45`): una corrida rechazada trae `failure` con su código, el
+ * mensaje del motor (las reglas que fallaron) y los campos que nombra, en
+ * lugar de sólo `failureCode`.
  */
-export const PORTAL_MCP_TOOLS_VERSION = "portal-mcp-tools-1.0.0";
+export const PORTAL_MCP_TOOLS_VERSION = "portal-mcp-tools-1.1.0";
 
 /** Tope de cada respuesta. Una lectura más grande se acota, nunca se trunca. */
 export const MCP_RESPONSE_BYTE_LIMIT = 256 * 1024;
