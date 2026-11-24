@@ -27,6 +27,10 @@ import {
  *   desconocido sigue rechazando: no se adivina si sigue viva— y sus hijas;
  *   el schema cerrado se aplica a las abiertas, que son las que se muestran y
  *   alimentan el riesgo. El camino de la clave que falla viaja con el código;
+ * - `1.2.0` (2026-11-24, visto en Production): la hija viva de un bracket
+ *   trae `priceOffset`, que el schema publicado no lista (sí
+ *   `stopPriceOffset`); es el desplazamiento del límite de un trailing stop
+ *   limit. Se lee como decimal y no se usa: el riesgo lee `stopPrice`;
  * - una cuenta `MARGIN` no se lee: sus saldos no se midieron, y adivinar cuál es
  *   el poder de compra sería peor que decir que falta (decisión del owner).
  *
@@ -34,7 +38,7 @@ import {
  * claves. El número de cuenta completo tampoco sale: la vista lleva los últimos
  * cuatro dígitos.
  */
-export const SCHWAB_ACCOUNT_PARSER_VERSION = "schwab-account-1.1.0";
+export const SCHWAB_ACCOUNT_PARSER_VERSION = "schwab-account-1.2.0";
 
 const decimal = exactDecimalSchema;
 const optionalDecimal = exactDecimalSchema.optional();
@@ -506,6 +510,7 @@ const openOrderSchema = z
     stopType: z.string().max(64).optional(),
     priceLinkBasis: z.string().max(64).optional(),
     priceLinkType: z.string().max(64).optional(),
+    priceOffset: optionalDecimal,
     price: optionalDecimal,
     taxLotMethod: z.string().max(64).optional(),
     orderLegCollection: z.array(orderLegSchema).max(8).optional(),

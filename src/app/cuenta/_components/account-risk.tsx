@@ -944,6 +944,7 @@ export function RiskCard({
 
 const POSITION_REASON_COPY: Readonly<Record<PositionRiskReason, string>> = {
   no_stop: "Sin stop",
+  orders_unread: "Órdenes sin leer",
   stop_order_partial: "Stop parcial",
   price_through_stop: "Precio bajo el stop",
   asset_not_measured: "No medido",

@@ -68,7 +68,8 @@ describe("readLiveAccount", () => {
     if (reading.state !== "read") return;
     expect(reading.account.lastFour).toBe("5678");
     expect(reading.quotableSymbols).toEqual(["SYN"]);
-    expect(reading.openOrders.map((o) => o.orderId)).toEqual(["7"]);
+    expect(reading.openOrders?.map((o) => o.orderId)).toEqual(["7"]);
+    expect(reading.ordersFailure).toBeNull();
     expect(JSON.stringify(reading)).not.toContain("12345678");
     expect(JSON.stringify(reading)).not.toContain(SYNTHETIC_HASH);
 
@@ -87,6 +88,26 @@ describe("readLiveAccount", () => {
     expect(
       orderUrls.map((url) => url.searchParams.get("fromEnteredTime")),
     ).toEqual(["2026-11-06T15:00:00.000Z", "2026-09-14T15:00:00.000Z"]);
+  });
+
+  it("keeps the account and positions when only the orders change format", async () => {
+    const reading = await readLiveAccount({
+      egress: account(
+        [equityPosition("SYN")],
+        `[${order(7, "WORKING", { extra: ',"surprise":true' })}]`,
+      ).egress,
+      quoteScopeKey: KEY,
+      now: () => NOW,
+    });
+    expect(reading.state).toBe("read");
+    if (reading.state !== "read") return;
+    expect(reading.positions.map((p) => p.symbol)).toEqual(["SYN"]);
+    expect(reading.quotableSymbols).toEqual(["SYN"]);
+    expect(reading.openOrders).toBeNull();
+    expect(reading.ordersFailure).toEqual({
+      code: "order_schema_changed",
+      path: "[0].surprise",
+    });
   });
 
   it("quotes only open stock and ETF positions", async () => {

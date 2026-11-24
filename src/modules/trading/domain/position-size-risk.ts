@@ -81,6 +81,7 @@ export type PlanLevels = {
 
 export type PositionRiskReason =
   | "no_stop"
+  | "orders_unread"
   | "stop_order_partial"
   | "price_through_stop"
   | "asset_not_measured"
@@ -172,7 +173,8 @@ export function positionRisk(input: {
   /** La cotización si la hay; si no, `markOf(position)`. */
   readonly price: string;
   readonly plan: PlanLevels | null;
-  readonly orders: readonly RiskOrderInput[];
+  /** `null` si las órdenes no se leyeron: sin plan, el stop es desconocido. */
+  readonly orders: readonly RiskOrderInput[] | null;
 }): PositionRisk {
   const { position, plan } = input;
   const base = {
@@ -203,7 +205,8 @@ export function positionRisk(input: {
   const quantity = parse(position.quantity);
   const price = parse(input.price);
   const entry = parse(position.averagePrice);
-  const order = orderStopOf(input.orders, position.symbol, quantity);
+  const orders = input.orders ?? [];
+  const order = orderStopOf(orders, position.symbol, quantity);
 
   let stop: string | null = null;
   let stopSource: PositionRisk["stopSource"] = null;
@@ -215,7 +218,7 @@ export function positionRisk(input: {
     stopSource = "order";
   }
 
-  const orderTarget = orderTargetOf(input.orders, position.symbol, price);
+  const orderTarget = orderTargetOf(orders, position.symbol, price);
   const target = plan?.target ?? orderTarget;
   const targetSource =
     plan?.target != null ? "plan" : orderTarget !== null ? "order" : null;
@@ -242,7 +245,12 @@ export function positionRisk(input: {
       priceInR: null,
       risk: {
         value: null,
-        reason: order !== null ? "stop_order_partial" : "no_stop",
+        reason:
+          input.orders === null
+            ? "orders_unread"
+            : order !== null
+              ? "stop_order_partial"
+              : "no_stop",
       },
     };
   }
