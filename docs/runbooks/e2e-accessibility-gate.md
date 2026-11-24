@@ -113,6 +113,20 @@ pnpm exec playwright show-trace tests/e2e/.output/<carpeta>/trace.zip
 - **Sin navegador.** Playwright falla nombrando la versión de Chromium que espera;
   se resuelve con `playwright install chromium`, no ajustando el test.
 
+## Rutas en streaming (`F6-40`)
+
+Una ruta con `loading.tsx` llega en streaming: React manda lo resuelto en un
+`<div hidden id="S:…">` al final del `body` y un script lo mueve a `<main>`.
+Mientras tanto el texto puede estar dos veces en el DOM, una de ellas oculta.
+`getByRole` ignora lo oculto, pero `getByText` no, y en modo estricto falla con
+«resolved to 2 elements». Pasó en CI en `personal-mobile` (PR #158 con
+`/sectores` y #162 con `/argentina`), nunca en local ni con la CPU frenada 6×.
+
+Regla: en una ruta con `loading.tsx`, el texto se busca dentro de `<main>` con
+`withinMain(page)` (`tests/e2e/support/streaming.ts`). `streaming.spec.ts` fija la
+forma del DOM que falló. Un reintento de CI que pasa no es la solución: el flake
+vuelve.
+
 ## Qué no cubre
 
 - Un solo motor. Firefox y WebKit quedan para `F10-06`.
