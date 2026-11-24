@@ -14,8 +14,18 @@ import { utcTimestampSchema } from "@/modules/temporal/domain/temporal-version";
  * registra la auditoría point-in-time del sujeto. Es un registro, no un plan:
  * cada parte dice qué encontró el job y qué hizo. Nada de este archivo lee un
  * reloj ni sale a la red.
+ *
+ * `valuation-data-1.1.0` (`F6-44`) suma `filings`: con la ventana guardada, el
+ * job sondea `submissions` y vuelve a bajar companyfacts si el filer presentó
+ * algo después (el refresh de la ADR 0022).
  */
-export const VALUATION_DATA_RULE_VERSION = "valuation-data-1.0.0";
+export const VALUATION_DATA_RULE_VERSION = "valuation-data-1.1.0";
+
+/** Las versiones que un `data_step` guardado puede traer. */
+export const VALUATION_DATA_RULE_VERSIONS = [
+  "valuation-data-1.0.0",
+  VALUATION_DATA_RULE_VERSION,
+] as const;
 
 /** La regla de la referencia de la ADR 0030 aplicada a una security. */
 export const TICKER_PRICE_FRESHNESS_VERSION = "ticker-price-freshness-1.0.0";
@@ -104,6 +114,45 @@ export const pricesStepSchema = z.discriminatedUnion("status", [
 
 export type PricesStep = z.infer<typeof pricesStepSchema>;
 
+/** El 10-K o 10-Q más nuevo que el sondeo vio en `submissions`. */
+export const periodicFilingSchema = z.object({
+  form: z.enum(["10-K", "10-Q", "10-KT", "10-QT"]),
+  acceptedAt: utcTimestampSchema,
+  accessionNumber: z.string().regex(/^\d{10}-\d{2}-\d{6}$/u),
+});
+
+export type PeriodicFiling = z.infer<typeof periodicFilingSchema>;
+
+/**
+ * Lo presentado después de la última descarga (`F6-44`). Nunca bloquea: con la
+ * ventana guardada, una SEC que no responde se nombra y se valúa con lo que hay.
+ */
+export const filingsStepSchema = z.discriminatedUnion("status", [
+  /** Sondeado y sin nada nuevo, o la descarga no publicó ningún hecho. */
+  z.object({
+    status: z.literal("current"),
+    latest: periodicFilingSchema.nullable(),
+  }),
+  /** Había algo nuevo y la descarga publicó: el siguiente valúa con un corte que lo ve. */
+  z.object({
+    status: z.literal("refreshed"),
+    reason: z.enum(["new_filing", "never_probed", "form_selection_superseded"]),
+    latest: periodicFilingSchema.nullable(),
+  }),
+  /**
+   * La SEC aceptó un 10-K o 10-Q que companyfacts todavía no trae: la marca no
+   * se movió y la próxima valuación vuelve a mirar.
+   */
+  z.object({
+    status: z.literal("not_in_companyfacts"),
+    latest: periodicFilingSchema,
+  }),
+  pendingSchema,
+  z.object({ status: z.literal("failed"), code: failureCodeSchema }),
+]);
+
+export type FilingsStep = z.infer<typeof filingsStepSchema>;
+
 /**
  * El consenso de analistas (`F6-39`, ADR 0085), con la regla de la página
  * (`consensus-freshness-1.0.0`). Nunca bloquea: sin él la derivación usa la
@@ -151,8 +200,13 @@ export const auditStepSchema = z.discriminatedUnion("status", [
 export type AuditStep = z.infer<typeof auditStepSchema>;
 
 export const valuationDataStepSchema = z.object({
-  ruleVersion: z.literal(VALUATION_DATA_RULE_VERSION),
+  ruleVersion: z.enum(VALUATION_DATA_RULE_VERSIONS),
   fundamentals: fundamentalsStepSchema,
+  /**
+   * Opcional: los jobs de `1.0.0` no lo tienen, y un job que continúa a otro
+   * o que acaba de bajar la ventana no sondea.
+   */
+  filings: filingsStepSchema.optional(),
   sic: sicStepSchema,
   prices: pricesStepSchema,
   /**
@@ -170,6 +224,7 @@ export type ValuationDataStep = z.infer<typeof valuationDataStepSchema>;
 export function dataStepIngested(step: ValuationDataStep): boolean {
   return (
     step.fundamentals.status === "ingested" ||
+    step.filings?.status === "refreshed" ||
     step.sic.status === "observed" ||
     step.prices.status === "ingested" ||
     step.consensus?.status === "captured"
@@ -178,7 +233,8 @@ export function dataStepIngested(step: ValuationDataStep): boolean {
 
 /**
  * La parte que impide valuar ahora. Los precios nunca bloquean: sin el cierre
- * del día la comparación con el mercado lo nombra.
+ * del día la comparación con el mercado lo nombra. Lo presentado después de la
+ * última descarga tampoco: la ventana guardada sigue sirviendo.
  */
 export function dataStepBlock(
   step: Pick<ValuationDataStep, "fundamentals" | "sic">,

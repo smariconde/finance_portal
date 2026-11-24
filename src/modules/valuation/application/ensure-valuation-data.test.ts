@@ -17,6 +17,7 @@ import {
   dataStepBlock,
   dataStepIngested,
   type ConsensusStep,
+  type FilingsStep,
 } from "../domain/valuation-data-step";
 
 const ENTITY = "33333333-3333-4333-8333-333333333333";
@@ -396,5 +397,98 @@ describe("consensus before valuing (F6-39)", () => {
     );
     expect(continuation.consensus).toBeUndefined();
     expect(calls).toEqual([SECURITY, SECURITY, SECURITY]);
+  });
+});
+
+describe("filings after the last download (F6-44)", () => {
+  const ANNUAL = {
+    form: "10-K",
+    acceptedAt: "2026-11-03T21:00:00.000Z",
+    accessionNumber: "0000320193-26-000100",
+  } as const;
+
+  function withFilings(answer: FilingsStep) {
+    const harness = fake();
+    harness.dependencies = {
+      ...harness.dependencies,
+      refreshFilings: async (cik) => {
+        harness.calls.push(`filings:${cik}`);
+        return answer;
+      },
+    };
+    return harness;
+  }
+
+  it("probes the requested CIK before the SIC, and a refresh asks for a new cutoff", async () => {
+    const { calls, dependencies } = withFilings({
+      status: "refreshed",
+      reason: "new_filing",
+      latest: ANNUAL,
+    });
+    const step = await ensureValuationData(
+      request({
+        needsSic: true,
+        lineageCiks: ["0000789019", "0000034088"],
+      }),
+      dependencies,
+    );
+
+    expect(step.ruleVersion).toBe("valuation-data-1.1.0");
+    expect(step.filings).toEqual({
+      status: "refreshed",
+      reason: "new_filing",
+      latest: ANNUAL,
+    });
+    expect(calls).toEqual([
+      "filings:0000789019",
+      "sic:0000789019",
+      `audit:${ENTITY}`,
+    ]);
+    expect(dataStepIngested(step)).toBe(true);
+  });
+
+  it("nothing new is recorded and does not ask for a new cutoff", async () => {
+    const { dependencies } = withFilings({ status: "current", latest: ANNUAL });
+    const step = await ensureValuationData(request(), dependencies);
+
+    expect(step.filings).toEqual({ status: "current", latest: ANNUAL });
+    expect(dataStepIngested(step)).toBe(false);
+  });
+
+  it("never probes on a continuation, right after downloading the window, or with an outdated one", async () => {
+    for (const overrides of [
+      { mayDownload: false },
+      { needsFundamentals: true },
+      { fundamentalsOutdated: true },
+    ]) {
+      const { calls, dependencies } = withFilings({
+        status: "current",
+        latest: null,
+      });
+      const step = await ensureValuationData(request(overrides), dependencies);
+
+      expect(step.filings).toBeUndefined();
+      expect(calls.some((call) => call.startsWith("filings:"))).toBe(false);
+    }
+  });
+
+  it("a probe that does not answer never blocks: the stored window is valued and audited", async () => {
+    for (const answer of [
+      {
+        status: "pending",
+        reason: "daily_budget_exhausted",
+        resumesAt: "2026-10-22T00:00:00.000Z",
+      },
+      { status: "failed", code: "provider_error" },
+      { status: "not_in_companyfacts", latest: ANNUAL },
+    ] as const) {
+      const { dependencies } = withFilings(answer);
+      const step = await ensureValuationData(request(), dependencies);
+
+      expect(step.filings).toEqual(answer);
+      expect(dataStepBlock(step)).toBeNull();
+      expect(dataStepIngested(step)).toBe(false);
+      expect(step.audit?.status).toBe("passed");
+    }
   });
 });

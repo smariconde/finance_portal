@@ -195,3 +195,9 @@ se escribió nada: las migraciones `0015` y `0016` se aplicaron ahí, sin filas.
 - **Mirar también los archivos históricos de `submissions`.** Una presentación
   nueva siempre está entre las mil recientes; pedir el resto gastaría cuota sin
   cambiar la respuesta.
+
+## Nota del 2026-11-24 (`F6-44`)
+
+`sec-refresh-probe-1.1.0` no mueve la marca cuando un 10-K o 10-Q original nuevo
+todavía no está en companyfacts, y el job de valuación corre este refresh antes de
+valuar. Ver la [enmienda de la ADR 0051](0051-on-demand-valuation-data.md#enmienda-del-2026-11-24-lo-presentado-después-de-la-última-descarga-f6-44).

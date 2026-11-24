@@ -21,10 +21,13 @@ import {
   type IngestionRunStatus,
 } from "@/modules/ingestion/domain/ingestion-run";
 import { evaluateIngestionRights } from "@/modules/ingestion/domain/source-registry-entry";
+import type { SourceDocumentRepository } from "@/modules/observations/application/source-document-repository";
 
 import { acceptanceClockFlags } from "../domain/sec-acceptance-clock";
+import type { SecFiling } from "../domain/parse-sec-submissions";
 import {
   decideFilerRefresh,
+  newestPeriodicFiling,
   SEC_REFRESH_PROBE_VERSION,
   type FilerRefreshDecision,
   type FilerRefreshWatermark,
@@ -51,7 +54,8 @@ import { SEC_SOURCE_ID } from "./live-company-facts-source";
  * 4. **corrida del sondeo**, siempre, porque toda vuelta tiene que poder
  *    explicarse desde la base (`TM-16`);
  * 5. **companyfacts**, sólo si hay algo nuevo;
- * 6. **marca**, al final.
+ * 6. **marca**, al final, y sólo si el 10-K o 10-Q nuevo ya está en
+ *    companyfacts (`sec-refresh-probe-1.1.0`, `F6-44`).
  *
  * El paso 6 va último a propósito: si algo se corta en el medio la marca queda
  * atrás y la vuelta siguiente vuelve a bajar —que deduplica por contenido— pero
@@ -89,6 +93,11 @@ export type RefreshCompanyFactsDependencies = {
   readonly sourceRegistry: SourceRegistryRepository;
   readonly ingestionRuns: IngestionRunRepository;
   readonly refreshState: RefreshStateStore;
+  /**
+   * Dónde se mira si el informe periódico nuevo llegó: su accession es el
+   * `sourceDocumentId` que la ingesta registra.
+   */
+  readonly sourceDocuments: Pick<SourceDocumentRepository, "findByIds">;
   readonly probeSource: CompanyFactsProbeSource;
   /**
    * Qué hacer cuando hay algo nuevo. Se inyecta en vez de construir la ingesta
@@ -112,6 +121,11 @@ export type RefreshCompanyFactsOutcome = {
   readonly state: RefreshState | null;
   /** Corrida de companyfacts, si el refresh la hizo. */
   readonly ingestion: IngestCompanyFactsOutcome | null;
+  /**
+   * El 10-K o 10-Q nuevo que la SEC aceptó y companyfacts todavía no trae: la
+   * marca no se movió. `null` en cualquier otro caso.
+   */
+  readonly periodicFilingMissing: SecFiling | null;
 };
 
 /** Una ingesta que terminó sin publicar igual dejó al filer al día. */
@@ -130,6 +144,7 @@ export async function refreshCompanyFacts(
     sourceRegistry,
     ingestionRuns,
     refreshState,
+    sourceDocuments,
     probeSource,
     ingest,
     now,
@@ -219,6 +234,7 @@ export async function refreshCompanyFacts(
     previous: null,
     state: null,
     ingestion: null,
+    periodicFilingMissing: null,
   });
 
   // 1. Registro y derechos, antes de cualquier egress.
@@ -292,6 +308,7 @@ export async function refreshCompanyFacts(
         previous,
         state: null,
         ingestion: null,
+        periodicFilingMissing: null,
       };
     }
 
@@ -378,6 +395,7 @@ export async function refreshCompanyFacts(
             probeVersion: decision.probeVersion,
           }),
       ingestion: null,
+      periodicFilingMissing: null,
     };
   }
 
@@ -390,6 +408,7 @@ export async function refreshCompanyFacts(
       previous,
       state: null,
       ingestion: null,
+      periodicFilingMissing: null,
     };
   }
 
@@ -406,6 +425,38 @@ export async function refreshCompanyFacts(
       previous,
       state: null,
       ingestion,
+      periodicFilingMissing: null,
+    };
+  }
+
+  // 5bis. Un 10-K o 10-Q original siempre trae XBRL: si companyfacts todavía no
+  //    lo integró, mover la marca lo perdería hasta la próxima presentación.
+  //    Sólo avanza cuándo se miró, y la vuelta siguiente lo vuelve a pedir.
+  const periodic = newestPeriodicFiling(decision.newFilings);
+
+  if (
+    periodic !== null &&
+    (
+      await sourceDocuments.findByIds({
+        sourceId: SEC_SOURCE_ID,
+        sourceDocumentIds: [periodic.accessionNumber],
+      })
+    ).length === 0
+  ) {
+    return {
+      persisted: true,
+      cik,
+      probeRun,
+      decision,
+      previous,
+      state: await refreshState.touch({
+        ...stateKey,
+        checkedAt,
+        probeRunId: probeRun.runId,
+        probeVersion: decision.probeVersion,
+      }),
+      ingestion,
+      periodicFilingMissing: periodic,
     };
   }
 
@@ -431,5 +482,6 @@ export async function refreshCompanyFacts(
       updatedAt: recordedAt,
     }),
     ingestion,
+    periodicFilingMissing: null,
   };
 }

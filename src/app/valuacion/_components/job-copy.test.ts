@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
 
+import {
+  VALUATION_DATA_RULE_VERSION,
+  type ValuationDataStep,
+} from "@/modules/valuation/domain/valuation-data-step";
 import { VALUATION_QUALITATIVE_RULE_VERSION } from "@/modules/valuation/domain/valuation-qualitative-step";
 
-import { describeJobGap, describeQualitativeStep } from "./job-copy";
+import {
+  describeDataStep,
+  describeJobGap,
+  describeQualitativeStep,
+} from "./job-copy";
 
 describe("describeJobGap", () => {
   it("explains why a cyclical ticker cannot yet be valued from the page", () => {
@@ -62,5 +70,55 @@ describe("describeQualitativeStep", () => {
         employeeEquity: { status: "not_run" },
       }),
     ).toContain("no se intentó porque la capa IA frenó antes");
+  });
+});
+
+describe("describeDataStep: filings (F6-44)", () => {
+  const latest = {
+    form: "10-K",
+    acceptedAt: "2026-11-03T21:00:00.000Z",
+    accessionNumber: "0000320193-26-000100",
+  } as const;
+  const dataStep = (
+    filings: ValuationDataStep["filings"],
+  ): ValuationDataStep => ({
+    ruleVersion: VALUATION_DATA_RULE_VERSION,
+    fundamentals: { status: "present" },
+    filings,
+    sic: { status: "present" },
+    prices: { status: "current", latestClose: "2026-11-20" },
+    audit: { status: "passed", chains: 4, notExercised: [] },
+  });
+
+  it("says nothing when nothing new was filed or nothing was probed", () => {
+    expect(
+      describeDataStep(dataStep({ status: "current", latest })),
+    ).toBeNull();
+    expect(describeDataStep(dataStep(undefined))).toBeNull();
+  });
+
+  it("names the filing by its New York date", () => {
+    expect(
+      describeDataStep(
+        dataStep({ status: "refreshed", reason: "new_filing", latest }),
+      ),
+    ).toContain("10-K aceptado el 3 nov 2026");
+    expect(
+      describeDataStep(dataStep({ status: "not_in_companyfacts", latest })),
+    ).toContain("companyfacts todavía no lo trae");
+  });
+
+  it("a probe that did not answer says the stored window was used", () => {
+    expect(
+      describeDataStep(
+        dataStep({
+          status: "pending",
+          reason: "daily_budget_exhausted",
+          resumesAt: null,
+        }),
+      ),
+    ).toBe(
+      "No se pudo ver si hay un 10-K o 10-Q nuevo: la cuota del día de la fuente está gastada; se valúa con lo guardado.",
+    );
   });
 });

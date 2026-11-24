@@ -152,3 +152,63 @@ describe("valuation-data-1.0.0", () => {
     ).toMatchObject({ status: "passed", chains: 0 });
   });
 });
+
+describe("valuation-data-1.1.0 (F6-44)", () => {
+  it("still reads a stored 1.0.0 step without filings", () => {
+    const stored = valuationDataStepSchema.parse({
+      ruleVersion: "valuation-data-1.0.0",
+      fundamentals: { status: "present" },
+      sic: { status: "present" },
+      prices: { status: "current", latestClose: "2026-10-20" },
+      audit: PASSED,
+    });
+
+    expect(stored.filings).toBeUndefined();
+  });
+
+  it("a refresh is something downloaded; filings never block", () => {
+    const latest = {
+      form: "10-Q",
+      acceptedAt: "2026-10-29T20:05:00.000Z",
+      accessionNumber: "0001652044-26-000090",
+    } as const;
+
+    expect(
+      dataStepIngested(
+        step({
+          filings: { status: "refreshed", reason: "never_probed", latest },
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      dataStepIngested(step({ filings: { status: "current", latest } })),
+    ).toBe(false);
+    expect(
+      dataStepBlock(
+        step({
+          filings: {
+            status: "pending",
+            reason: "source_busy",
+            resumesAt: null,
+          },
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  it("rejects a periodic filing with a form outside the periodic reports", () => {
+    expect(() =>
+      step({
+        filings: {
+          status: "not_in_companyfacts",
+          latest: {
+            // @ts-expect-error: an 8-K is not a periodic report
+            form: "8-K",
+            acceptedAt: "2026-10-29T20:05:00.000Z",
+            accessionNumber: "0001652044-26-000090",
+          },
+        },
+      }),
+    ).toThrow();
+  });
+});

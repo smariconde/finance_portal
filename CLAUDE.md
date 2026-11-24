@@ -465,6 +465,19 @@ with a fresh cutoff (`follows_job_id`) that the same worker runs and that
 **never downloads**. Jobs beat every 30 s (`heartbeat_at`). Measured on a
 replica: MSFT went from nothing to an assessed follow-up in 6.3 s.
 
+Since `F6-44` (ADR 0051's 2026-11-24 amendment, `valuation-data-1.1.0`, no
+migration) a job whose window is present and current also runs ADR 0022's refresh
+for the requested CIK as a one-item `sec_companyfacts_refresh` job: one
+`submissions` request against the `ingestion_refresh_state` watermark, companyfacts
+only if something relevant was filed since. The `filings` part is `current`,
+`refreshed`, `not_in_companyfacts`, `pending` or `failed`; it **never blocks**, and
+only `refreshed` (new filing **and** something published) ends `data_ingested`
+with a follow-up. `sec-refresh-probe-1.1.0` keeps the watermark still when a new
+original 10-K/10-Q is not in `source_documents` after the download (companyfacts
+has not integrated it yet), for `pnpm fundamentals:refresh` too. A filer's first
+probe is `never_probed` and re-downloads once. Measured first: 7 of 21 valued
+companies in Production had a newer periodic report and none had a watermark.
+
 Since `F6-13` ([ADR 0052](docs/architecture/adr/0052-qualitative-decisions-in-valuation-job.md),
 `valuation-job-1.3.0`, migration `0035`) the job asks the AI what is missing
 before the snapshot, for an `fcff_base` method and only after the data step

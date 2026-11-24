@@ -149,5 +149,57 @@ Una fila `1.0.0` o `1.1.0` no tiene `data_step` y conserva lo que dijo.
   expectativas siguen siendo comandos.
 - No registra splits (`corporate-actions:splits`). La corrida usa el conteo de la
   carátula, que ya está en la base más reciente.
-- No refresca una ventana existente ni actualiza un SIC ya observado.
+- No actualiza un SIC ya observado. Hasta `F6-44` tampoco refrescaba una ventana
+  existente: ver la enmienda del 2026-11-24.
 - No hay valuación por lote (ADR 0016).
+
+## Enmienda del 2026-11-24: lo presentado después de la última descarga (`F6-44`)
+
+**Problema.** Con la ventana guardada y vigente, el job valuaba con lo que había
+aunque el filer hubiera presentado un 10-K o 10-Q después. Medido el 2026-11-24 en
+Production, antes de codificar: de las 21 empresas valuadas, **7** tenían un periódico
+posterior a lo guardado (AAPL y SBUX un 10-K; GOOGL, AMZN, MCD, DDOG y PLTR un
+10-Q), 14 sólo 8-K nuevos, y **ninguna** tenía marca de refresh (`ingestion_refresh_state`
+vacía: el job baja por backfill, que no la escribe). El sondeo costó 21 requests.
+AAPL quedaba `fiscal_year_gap` en el consenso (`F6-39`) y sin el TTM al último 10-Q
+(`F6-24`).
+
+**Decisión 1 — el refresh de la ADR 0022, no un sondeo nuevo.** El paso de datos
+(`valuation-data-1.1.0`) suma una parte, `filings`, que corre el refresh como job
+durable de un item (`sec_companyfacts_refresh`): un `submissions` del CIK pedido, la
+comparación con la marca `(aceptación, accession)` y companyfacts sólo si hay una
+presentación relevante nueva, bajo el lease, la admisión y la cuota de la SEC. La marca
+es la misma que usa `pnpm fundamentals:refresh`. Se sondea sólo con la ventana presente
+y vigente, sólo en un job que puede bajar y sólo el CIK pedido: si el mismo job acaba de
+bajar la ventana ya está al día, y los antecesores del linaje no presentan más.
+
+**Decisión 2 — nunca bloquea.** `current`, `refreshed`, `not_in_companyfacts`,
+`pending` y `failed`. Sólo `refreshed` —había algo nuevo **y** la descarga publicó— es
+«bajó algo»: el job termina `data_ingested` y la continuación valúa con un corte que lo
+ve. Una SEC que no responde o un índice en cuarentena se nombran y se valúa con la
+ventana guardada, como una selección vieja que no se pudo rebajar (`F6-14`) o un precio.
+
+**Decisión 3 — un 10-K o 10-Q nuevo tiene que estar en companyfacts
+(`sec-refresh-probe-1.1.0`).** La ADR 0022 mueve la marca aunque la presentación
+nueva no publique hechos, y para un 8-K está bien. Pero un informe periódico original
+(`10-K`, `10-Q`, `10-KT`, `10-QT`) siempre trae XBRL: si su accession no aparece en
+`source_documents` después de la descarga, companyfacts todavía no lo integró, y mover
+la marca lo perdería en silencio hasta la próxima presentación. En ese caso la marca no
+se mueve (sólo la mirada), el resultado lo nombra (`periodicFilingMissing`) y la
+próxima vuelta lo vuelve a pedir. Las enmiendas quedan fuera: un 10-K/A de la Parte III
+no publica ningún hecho seleccionado. Vale también para `pnpm fundamentals:refresh`; un
+job de refresh planeado con `1.0.0` se vuelve a planear.
+
+**Costo.** Una valuación con la ventana al día gasta 1 request. La primera de cada filer
+después de esta enmienda es `never_probed` y vuelve a bajar companyfacts una vez
+(deduplicado por contenido; sin novedades queda `current`). Un 8-K nuevo también vuelve
+a bajar, como en la ADR 0022.
+
+**Medido en una réplica de la base personal con el worker real.** AAPL: la ventana
+vieja se rebajó por selección y la continuación valuó con el 10-K de FY2026 (historia
+hasta el 2026-09-26, consenso `used`, 181,75 contra 151,76 del 2026-10-30); el pedido
+siguiente sondeó (`never_probed`, nada nuevo que publicar → `current`) y dejó la marca.
+GOOGL, con la selección marcada vigente en la réplica para aislar el sondeo: `refreshed`
+por el 10-Q del 2026-10-29, `data_ingested`, continuación con IA y corrida `computed`
+con base TTM. Con la SEC frenada: `pending`/`source_disabled` y la corrida se registró
+igual. Gate point-in-time aprobado y 21 de 21 corridas guardadas reproducidas.

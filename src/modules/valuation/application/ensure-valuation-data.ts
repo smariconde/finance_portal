@@ -12,6 +12,7 @@ import {
   VALUATION_DATA_RULE_VERSION,
   type DataPendingReason,
   type FundamentalsStep,
+  type FilingsStep,
   type ConsensusStep,
   type PricesStep,
   type SicStep,
@@ -52,6 +53,12 @@ export type ValuationDataDependencies = {
   readonly ingestFundamentals: (
     ciks: readonly string[],
   ) => Promise<DurableDownload>;
+  /**
+   * Sondea `submissions` del CIK y vuelve a bajar companyfacts si presentó
+   * algo después de la última descarga (`F6-44`, el refresh de la ADR 0022).
+   * Opcional: sin él el paso no lo registra.
+   */
+  readonly refreshFilings?: (cik: string) => Promise<FilingsStep>;
   /** Una request a `submissions` y la aserción `sec-sic` si cambió. */
   readonly observeSic: (subject: {
     readonly legalEntityId: string;
@@ -97,6 +104,7 @@ export async function ensureValuationData(
   dependencies: ValuationDataDependencies,
 ): Promise<ValuationDataStep> {
   const fundamentals = await fundamentalsStep(request, dependencies);
+  const filings = await filingsStep(request, fundamentals, dependencies);
   const sic = await sicStep(request, dependencies);
   const prices = await pricesStep(request, dependencies);
   const consensus =
@@ -110,6 +118,7 @@ export async function ensureValuationData(
   return valuationDataStepSchema.parse({
     ruleVersion: VALUATION_DATA_RULE_VERSION,
     fundamentals,
+    ...(filings === undefined ? {} : { filings }),
     sic,
     prices,
     ...(consensus === undefined ? {} : { consensus }),
@@ -152,6 +161,28 @@ async function fundamentalsStep(
     filers: request.lineageCiks.length,
     ...(outdated ? { selectionOutdated: true as const } : {}),
   };
+}
+
+/**
+ * Lo presentado después de la última descarga (`F6-44`). Sólo con la ventana
+ * guardada y vigente: si este job acaba de bajarla, ya está al día. Sólo el CIK
+ * pedido: los antecesores del linaje no presentan más.
+ */
+async function filingsStep(
+  request: ValuationDataRequest,
+  fundamentals: FundamentalsStep,
+  dependencies: ValuationDataDependencies,
+): Promise<FilingsStep | undefined> {
+  if (
+    !request.mayDownload ||
+    dependencies.refreshFilings === undefined ||
+    fundamentals.status !== "present" ||
+    request.fundamentalsOutdated === true
+  ) {
+    return undefined;
+  }
+
+  return dependencies.refreshFilings(request.cik);
 }
 
 async function sicStep(
