@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import { ROUTES, SENTINEL_VALUES } from "../support/runtime";
 import { expectNoSecretLeaks } from "../support/secrets";
+import { withinMain } from "../support/streaming";
 
 /**
  * Runtime trabado (`F1-07`, `TM-01`, `TM-02`, `TM-04`).
@@ -69,7 +70,7 @@ test.describe("negativa del runtime trabado", () => {
         page.getByRole("heading", { level: 1, name: "Runtime trabado" }),
       ).toBeVisible();
       await expect(
-        page.getByText(new RegExp(`${surface} no se sirve porque`)),
+        withinMain(page).getByText(new RegExp(`${surface} no se sirve porque`)),
       ).toBeVisible();
     }
   });

@@ -152,7 +152,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   124 | `F6-38`    | `done`        | Investigar el rechazo `failureRisk` de F en el método cíclico y el `pretax_income_not_reported` de MCD.                                                                                                                   | `F6-32`            |
 |   125 | `F6-41`    | `done`        | Decisiones de cobertura delegadas por el owner: pérdidas con EBIT ajustado positivo, cobertura con caja neta, rating D en la peor fila, industria de MELI y desglose de quebrantos de SNOW.                               | `F6-38`            |
 |   126 | `F6-39`    | `done`        | Supuestos derivados `3.0.0`: el crecimiento de ventas de los primeros años desde el consenso guardado, con la historia como respaldo.                                                                                     | `F6-29`            |
-|   127 | `F6-40`    | `queued`      | E2E estable: el aviso sin base de `/sectores` y `/argentina` en mobile no se encuentra dos veces.                                                                                                                         | -                  |
+|   127 | `F6-40`    | `done`        | E2E estable: el aviso sin base de `/sectores` y `/argentina` en mobile no se encuentra dos veces.                                                                                                                         | -                  |
 |   128 | `F6-42`    | `done`        | Margen objetivo del camino de crecimiento: el propio cuando supera al de la industria (META, MSFT, RDDT), y rating declarado por el owner con la menor calificación publicada (F).                                        | `F6-41`            |
 |   129 | `F6-43`    | `done`        | Perfil de ciclo declarado por el owner por CIK, que reemplaza al del SIC: MU (memorias) al método cíclico en lugar del de crecimiento.                                                                                    | `F6-42`            |
 |   130 | `F6-44`    | `done`        | Una valuación nueva ve el 10-K o 10-Q presentado después de la última descarga: el job sondea `submissions` y vuelve a bajar companyfacts cuando hay uno más nuevo.                                                       | `F6-39`            |
@@ -4782,6 +4782,26 @@ Decisión delegada por el owner («tomá la mejor decisión»).
   contra un cierre de 705,27. El ciclo 2021–2025 incluye el −20 % de 2023.
 - Replay: 42 de 42 en la réplica y 56 de 57 en Neon (la de GOOGL ya conocida).
 - Gates: 4.719 unit, 251 de integración, lint, tipos, formato y build.
+
+#### `F6-40` — E2E estable con rutas en streaming (cerrado el 2026-11-24)
+
+- Causa, leída en los logs del primer intento de los PR #158 y #162: en
+  `personal-mobile`, `getByText` encontró el aviso «necesita leer la base
+  personal» dos veces, uno visible en `<main>` y otro oculto fuera, en el
+  `<div hidden id="S:…">` que React deja mientras transmite una ruta con
+  `loading.tsx`. El heading, buscado con `getByRole`, nunca falló porque esa
+  consulta ignora lo oculto. Era un defecto del test, no del producto: nunca hubo
+  dos avisos visibles.
+- Reproducción local: un `MutationObserver` mostró el movimiento del contenido de
+  `S:1` a `S:0` y de ahí a `<main>` en unos 8 ms; el test original, repetido 40
+  veces y con la CPU de Chromium frenada 6×, no falló. Por eso el arreglo no
+  depende del orden de los chunks.
+- `withinMain(page)` (`tests/e2e/support/streaming.ts`) acota la búsqueda de
+  texto a `<main>` en `sectors.spec.ts`, `valuation-result.spec.ts` y el recorrido
+  de `runtime-locked.spec.ts`, que pasaba por diario, estadísticas y trade con el
+  mismo riesgo. `streaming.spec.ts` fija el DOM que falló: sin acotar cuenta 2,
+  acotado encuentra el visible.
+- Runbook del gate con la regla. E2E: 393 aprobadas y 3 omitidas.
 
 #### `F6-44` — lo presentado después de la última descarga (cerrado el 2026-11-24)
 

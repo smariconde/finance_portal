@@ -48,6 +48,10 @@ every secret and fails if any sentinel appears anywhere in `.next/` (except
 `cache/`); both servers are then checked for sentinels in HTML, headers and the
 RSC payload of every route. It needs no PostgreSQL and opens no network. Full
 workflow: [docs/runbooks/e2e-accessibility-gate.md](docs/runbooks/e2e-accessibility-gate.md).
+On a route with `loading.tsx`, look text up inside `<main>` with
+`withinMain(page)` (`tests/e2e/support/streaming.ts`): React keeps the resolved
+content in a hidden `S:…` div outside `<main>` until it moves it, and
+`getByText`, unlike `getByRole`, counts it (`F6-40`).
 
 `pnpm walkthrough` is not a gate: it prepares the owner's manual session for `F1-08`
 by serving one build on `127.0.0.1:3120` with the real `.env.local` and on

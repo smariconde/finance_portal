@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { ROUTES } from "../support/runtime";
+import { withinMain } from "../support/streaming";
 
 /**
  * Resultado de una valuación (`F6-03`) en el runtime personal del gate.
@@ -21,7 +22,7 @@ test.describe("resultado de la valuación sin base", () => {
       }),
     ).toBeVisible();
     await expect(
-      page.getByText(
+      withinMain(page).getByText(
         /El resultado de la valuación necesita leer la base personal/u,
       ),
     ).toBeVisible();

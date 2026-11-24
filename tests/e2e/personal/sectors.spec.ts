@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { ROUTES } from "../support/runtime";
+import { withinMain } from "../support/streaming";
 
 /**
  * Matrices por sector (`F7-05`) en el runtime personal del gate.
@@ -29,7 +30,9 @@ test.describe("matrices por sector sin base", () => {
         }),
       ).toBeVisible();
       await expect(
-        page.getByText(new RegExp(`${surface} necesita leer la base personal`)),
+        withinMain(page).getByText(
+          new RegExp(`${surface} necesita leer la base personal`),
+        ),
       ).toBeVisible();
     });
   }
