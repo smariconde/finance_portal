@@ -42,8 +42,13 @@ import {
  *   cada ventana no se usa para dar de baja: Schwab filtra por su propia fecha.
  * - **Cuarentena:** si más de un décimo de lo comparado cambia o desaparece (con
  *   al menos diez), la corrida no escribe y queda `mass_change_guard`.
+ * - **`positionId` no revisa** (`1.1.0`, medido en Production el 2026-11-24):
+ *   Schwab lo informa al ejecutar y lo quita un día después; las seis
+ *   revisiones guardadas hasta entonces eran sólo eso, y 17 trades de un día
+ *   pusieron la corrida en cuarentena. Nada lo lee, así que un cambio sólo en
+ *   `positionId` es «sin cambios» y queda el primero que se guardó.
  */
-export const TRANSACTION_SYNC_VERSION = "schwab-transaction-sync-1.0.0";
+export const TRANSACTION_SYNC_VERSION = "schwab-transaction-sync-1.1.0";
 
 const TRADER = "https://api.schwabapi.com/trader/v1/accounts";
 const DAY_MS = 86_400_000;
@@ -339,7 +344,12 @@ export function planRevisions(input: {
       });
     } else if (
       previous.state === "withdrawn" ||
-      previous.contentHash !== contentHash
+      (previous.contentHash !== contentHash &&
+        previous.contentHash !==
+          transactionContentHash({
+            ...transaction,
+            positionId: previous.positionId,
+          }))
     ) {
       revised += 1;
       revisions.push({

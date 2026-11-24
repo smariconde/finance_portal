@@ -171,6 +171,39 @@ describe("syncSchwabTransactions", () => {
     ]);
   });
 
+  it("does not revise a trade whose only change is a dropped positionId", async () => {
+    // Measured in Production on 2026-11-24: Schwab drops `positionId` a day
+    // after the execution, and 17 trades of one day quarantined the run.
+    const store = createInMemorySchwabTransactionStore();
+    const many = Array.from({ length: 12 }, (_, i) => {
+      const time = `2026-11-1${i % 2}T1${i % 10}:00:00+0000`;
+      return { time, json: tradeTransaction(100 + i, { time }) };
+    });
+    await syncSchwabTransactions({
+      egress: schwab(history(many)).egress,
+      store,
+      accountKeySubkey: KEY,
+      now: () => NOW,
+    });
+
+    const withoutPosition = many.map((row) => ({
+      ...row,
+      json: row.json.replace(/"positionId":\d+,/u, ""),
+    }));
+    expect(withoutPosition[0]!.json).not.toContain("positionId");
+    const result = await syncSchwabTransactions({
+      egress: schwab(history(withoutPosition)).egress,
+      store,
+      accountKeySubkey: KEY,
+      now: () => "2026-11-14T16:00:00.000Z",
+    });
+    expect(result).toMatchObject({ state: "synced", revised: 0 });
+    const [account] = await store.listAccounts();
+    const current = await store.listCurrent(account!.accountKey);
+    expect(current.every((row) => row.revision === 1)).toBe(true);
+    expect(current.every((row) => row.positionId !== null)).toBe(true);
+  });
+
   it("quarantines a run that would change more than a tenth", async () => {
     const store = createInMemorySchwabTransactionStore();
     const many = Array.from({ length: 12 }, (_, i) => {
