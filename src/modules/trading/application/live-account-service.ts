@@ -92,7 +92,16 @@ export type LiveAccountReading =
       };
       readonly balances: SchwabCashBalances;
       readonly positions: readonly SchwabPosition[];
-      readonly openOrders: readonly SchwabOpenOrder[];
+      /**
+       * `null` si las órdenes no se pudieron leer: la cuenta y las posiciones
+       * se muestran igual, y el riesgo no inventa que falta un stop.
+       */
+      readonly openOrders: readonly SchwabOpenOrder[] | null;
+      /** Por qué no se leyeron las órdenes; `null` si se leyeron. */
+      readonly ordersFailure: {
+        readonly code: string;
+        readonly path: string | null;
+      } | null;
       readonly ordersWindow: typeof OPEN_ORDERS_WINDOW;
       /** Alcance firmado para pedir las cotizaciones de estas posiciones. */
       readonly quoteScope: string;
@@ -246,13 +255,12 @@ async function readUnguarded(
     return { state: "failed", code: "account_number_mismatch" };
   }
 
+  // Una orden con un formato nuevo deja en cuarentena sólo las órdenes: los
+  // saldos y las posiciones vienen de otra respuesta, ya validada entera.
   const orders = parseSchwabOpenOrders([
     recentResponse.body,
     workingResponse.body,
   ]);
-  if (!orders.ok) {
-    return { state: "failed", code: orders.code, path: orders.path };
-  }
 
   const open = account.value.positions.filter(
     (position) =>
@@ -272,7 +280,8 @@ async function readUnguarded(
     },
     balances: account.value.balances,
     positions: account.value.positions,
-    openOrders: orders.value,
+    openOrders: orders.ok ? orders.value : null,
+    ordersFailure: orders.ok ? null : { code: orders.code, path: orders.path },
     ordersWindow: OPEN_ORDERS_WINDOW,
     quoteScope: issueQuoteScope(
       dependencies.quoteScopeKey,

@@ -935,6 +935,28 @@ function PositionsCard({
   );
 }
 
+/**
+ * Las órdenes en cuarentena: la cuenta y las posiciones se leyeron, las órdenes
+ * no. El riesgo de una posición sin plan queda como desconocido, no «sin stop».
+ */
+function OrdersUnread({ failure }: { readonly failure: FailureNote | null }) {
+  const copy = liveFailureCopy(failure?.code ?? "unexpected");
+  return (
+    <p className="flex items-center gap-1.5 text-sm text-amber-800 dark:text-amber-300">
+      <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
+      Órdenes sin leer · {copy.title}
+      <InfoTip title={copy.title}>
+        <p>
+          La cuenta y las posiciones se leyeron; sólo las órdenes quedaron en
+          cuarentena. Sin un stop planeado en el diario, el riesgo de cada
+          posición queda sin medir.
+        </p>
+        {failure === null ? null : <FailureCode failure={failure} />}
+      </InfoTip>
+    </p>
+  );
+}
+
 function OrdersCard({ reading }: { readonly reading: Reading }) {
   const orders = reading.openOrders;
   const ordersWindow = reading.ordersWindow;
@@ -955,7 +977,11 @@ function OrdersCard({ reading }: { readonly reading: Reading }) {
           </InfoTip>
         </CardTitle>
       </CardHeader>
-      {orders.length === 0 ? (
+      {orders === null ? (
+        <CardContent>
+          <OrdersUnread failure={reading.ordersFailure} />
+        </CardContent>
+      ) : orders.length === 0 ? (
         <CardContent>
           <p className="text-sm text-muted-foreground">
             Ninguna orden abierta.

@@ -222,6 +222,38 @@ describe("parseSchwabOpenOrders", () => {
     ]);
   });
 
+  it("reads a live bracket child that carries priceOffset", () => {
+    // Seen in Production on 2026-11-24: an OCO inside a filled entry whose
+    // second leg carries `priceOffset`, a key the published schema omits.
+    const oco = order(20, "WORKING", {
+      children: [
+        order(21, "WORKING"),
+        order(22, "WORKING", {
+          extra:
+            ',"stopPriceLinkBasis":"LAST","stopPriceLinkType":"VALUE","stopPriceOffset":0.5,"priceLinkBasis":"LAST","priceLinkType":"VALUE","priceOffset":0.1,"stopPrice":94.5',
+        }),
+      ],
+    });
+    const bracket = order(19, "FILLED", { children: [oco] });
+    const parsed = parseSchwabOpenOrders([bytes(`[${bracket}]`)]);
+    expect(parsed.ok && parsed.value.map((o) => o.orderId).sort()).toEqual([
+      "20",
+      "21",
+      "22",
+    ]);
+  });
+
+  it("rejects priceOffset that is not an exact decimal", () => {
+    const parsed = parseSchwabOpenOrders([
+      bytes(`[${order(1, "WORKING", { extra: ',"priceOffset":"x"' })}]`),
+    ]);
+    expect(parsed).toMatchObject({
+      ok: false,
+      code: "order_schema_changed",
+      path: "[0].priceOffset",
+    });
+  });
+
   it("names the path of an unknown key in a live child", () => {
     const bracket = order(10, "FILLED", {
       children: [

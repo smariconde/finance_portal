@@ -171,6 +171,30 @@ describe("positionRisk", () => {
     expect(risk.risk).toEqual({ value: null, reason: "no_stop" });
   });
 
+  it("does not call a position stopless when its orders were not read", () => {
+    const unread = positionRisk({
+      position: LONG,
+      price: "55",
+      plan: null,
+      orders: null,
+    });
+    expect(unread.risk).toEqual({ value: null, reason: "orders_unread" });
+    expect(unread.orderStop).toBeNull();
+
+    const planned = positionRisk({
+      position: LONG,
+      price: "55",
+      plan: plan("48", "65"),
+      orders: null,
+    });
+    expect(planned).toMatchObject({
+      stop: "48",
+      stopSource: "plan",
+      stopMismatch: false,
+    });
+    expect(planned.risk.value).not.toBeNull();
+  });
+
   it("names what it does not measure", () => {
     expect(
       positionRisk({
