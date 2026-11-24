@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import { zeroDebtEvidenceFixture } from "../infrastructure/zero-debt-evidence-fixtures";
 import {
+  REPORTED_DEBT_CONTROLLED_VERSION,
   REPORTED_DEBT_EVIDENCE_VERSION,
   REPORTED_DEBT_NONCURRENT_ONLY_VERSION,
   REPORTED_DEBT_VERSION,
   resolveReportedDebt,
   type DebtComponentKey,
+  type DebtControlKey,
+  type ReportedDebtControls,
   type ReportedDebtInput,
 } from "./reported-debt";
 import { ZERO_DEBT_EVIDENCE_VERSION } from "./zero-debt-evidence";
@@ -380,5 +383,199 @@ describe(REPORTED_DEBT_NONCURRENT_ONLY_VERSION, () => {
     expect(
       resolveReportedDebt(debt({ longTermNoncurrent: "-1" })),
     ).toMatchObject({ status: "unresolved" });
+  });
+});
+
+const CONTROL_CONCEPTS: Record<DebtControlKey, string> = {
+  notesPayable: "us-gaap:NotesPayable",
+  debtInstrumentCarryingAmount: "us-gaap:DebtInstrumentCarryingAmount",
+  debtCombinedTotal: "us-gaap:DebtLongtermAndShorttermCombinedAmount",
+};
+
+function controls(
+  values: Partial<Record<DebtControlKey, string>>,
+): ReportedDebtControls {
+  return Object.fromEntries(
+    (Object.keys(CONTROL_CONCEPTS) as DebtControlKey[]).map((key) => [
+      key,
+      values[key] === undefined
+        ? null
+        : { value: values[key], concept: CONTROL_CONCEPTS[key] },
+    ]),
+  ) as ReportedDebtControls;
+}
+
+// Los montos son los medidos en Neon el 2026-11-24, en miles o millones según
+// cómo los publicó cada filer.
+describe(REPORTED_DEBT_CONTROLLED_VERSION, () => {
+  it("adds short-term borrowings when a published total closes the sum (Netflix)", () => {
+    expect(
+      resolveReportedDebt(
+        debt({ longTermNoncurrent: "13463971", shortTermBorrowings: "998865" }),
+        null,
+        controls({ notesPayable: "14463000" }),
+      ),
+    ).toStrictEqual({
+      version: REPORTED_DEBT_CONTROLLED_VERSION,
+      status: "resolved",
+      recipe: "noncurrent_plus_short_term",
+      included: [
+        {
+          component: "longTermNoncurrent",
+          concept: "us-gaap:LongTermDebtNoncurrent",
+          amount: "13463971",
+        },
+        {
+          component: "shortTermBorrowings",
+          concept: "us-gaap:ShortTermBorrowings",
+          amount: "998865",
+        },
+      ],
+      excluded: [],
+      total: "14462836",
+      control: {
+        key: "notesPayable",
+        concept: "us-gaap:NotesPayable",
+        amount: "14463000",
+      },
+    });
+  });
+
+  it("takes the first control that closes, in declared order (Trimble, Motorola)", () => {
+    expect(
+      resolveReportedDebt(
+        debt({ longTermNoncurrent: "1442.9", shortTermBorrowings: "16.4" }),
+        null,
+        controls({ notesPayable: "900", debtCombinedTotal: "1459.3" }),
+      ),
+    ).toMatchObject({
+      total: "1459.3",
+      control: { key: "debtCombinedTotal", amount: "1459.3" },
+    });
+    expect(
+      resolveReportedDebt(
+        debt({ longTermNoncurrent: "8417", shortTermBorrowings: "615" }),
+        null,
+        controls({ debtInstrumentCarryingAmount: "9033" }),
+      ),
+    ).toMatchObject({ total: "9032", control: { amount: "9033" } });
+  });
+
+  it("accepts the printed rounding up to half a percent and no further", () => {
+    // McDonald's publica el total redondeado a cien millones.
+    expect(
+      resolveReportedDebt(
+        debt({ longTermNoncurrent: "38845", shortTermBorrowings: "80" }),
+        null,
+        controls({ debtInstrumentCarryingAmount: "38900" }),
+      ),
+    ).toMatchObject({ recipe: "noncurrent_plus_short_term", total: "38925" });
+    expect(
+      resolveReportedDebt(
+        debt({ longTermNoncurrent: "1000", shortTermBorrowings: "0" }),
+        null,
+        controls({ notesPayable: "1005" }),
+      ),
+    ).toMatchObject({ recipe: "noncurrent_plus_short_term" });
+    expect(
+      resolveReportedDebt(
+        debt({ longTermNoncurrent: "1000", shortTermBorrowings: "0" }),
+        null,
+        controls({ notesPayable: "1005.01" }),
+      ),
+    ).toMatchObject({ status: "unresolved", reason: "no_recipe" });
+  });
+
+  it("stays unresolved without a control or with one that does not close (Caterpillar, AMD)", () => {
+    const input = debt({
+      longTermNoncurrent: "30696",
+      shortTermBorrowings: "5514",
+    });
+
+    expect(resolveReportedDebt(input)).toMatchObject({
+      status: "unresolved",
+      reason: "no_recipe",
+    });
+    expect(resolveReportedDebt(input, null, controls({}))).toMatchObject({
+      status: "unresolved",
+    });
+    expect(
+      resolveReportedDebt(
+        debt({ longTermNoncurrent: "3217", shortTermBorrowings: "947" }),
+        null,
+        controls({ debtCombinedTotal: "3217" }),
+      ),
+    ).toMatchObject({ status: "unresolved", reason: "no_recipe" });
+  });
+
+  it("keeps commercial paper inside the borrowings and adds finance leases apart", () => {
+    expect(
+      resolveReportedDebt(
+        debt({
+          longTermNoncurrent: "1000",
+          shortTermBorrowings: "200",
+          commercialPaper: "150",
+          financeLeases: "30",
+        }),
+        null,
+        controls({ notesPayable: "1200" }),
+      ),
+    ).toMatchObject({
+      included: [
+        { component: "longTermNoncurrent" },
+        { component: "shortTermBorrowings" },
+        { component: "financeLeases" },
+      ],
+      excluded: [
+        {
+          component: "commercialPaper",
+          reason: "short_term_borrowings_preferred",
+        },
+      ],
+      total: "1230",
+    });
+  });
+
+  it("never applies when a recipe or another rule already answers", () => {
+    const closed = debt({
+      longTermNoncurrent: "1000",
+      longTermCurrent: "100",
+      shortTermBorrowings: "50",
+    });
+    expect(
+      resolveReportedDebt(closed, null, controls({ notesPayable: "1150" })),
+    ).toStrictEqual(resolveReportedDebt(closed));
+    const alone = debt({ longTermNoncurrent: "746.2" });
+    expect(
+      resolveReportedDebt(alone, null, controls({ notesPayable: "746.2" })),
+    ).toStrictEqual(resolveReportedDebt(alone));
+  });
+
+  it("refuses a zero noncurrent, negative borrowings or a negative lease", () => {
+    expect(
+      resolveReportedDebt(
+        debt({ longTermNoncurrent: "0", shortTermBorrowings: "10" }),
+        null,
+        controls({ notesPayable: "10" }),
+      ),
+    ).toMatchObject({ status: "unresolved" });
+    expect(
+      resolveReportedDebt(
+        debt({ longTermNoncurrent: "100", shortTermBorrowings: "-10" }),
+        null,
+        controls({ notesPayable: "90" }),
+      ),
+    ).toMatchObject({ status: "unresolved" });
+    expect(
+      resolveReportedDebt(
+        debt({
+          longTermNoncurrent: "100",
+          shortTermBorrowings: "10",
+          financeLeases: "-1",
+        }),
+        null,
+        controls({ notesPayable: "110" }),
+      ),
+    ).toMatchObject({ status: "unresolved", reason: "negative_component" });
   });
 });

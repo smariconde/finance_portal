@@ -8,6 +8,7 @@ import {
   listNormalizationFacts,
   normalizationFactsFromSeries,
   normalizationMismatches,
+  withDebtControls,
   type ConceptFact,
   type NormalizationContext,
   type NormalizationFacts,
@@ -475,6 +476,94 @@ describe("normalization with zero-debt evidence", () => {
 
   it("does not carry the evidence when there is none", () => {
     expect("zeroDebtEvidence" in facts()).toBe(false);
+  });
+});
+
+describe("normalization with published debt totals (reported-debt-1.3.0)", () => {
+  const borrowed = (draft: NormalizationFacts) => {
+    draft.balance.debt.longTermTotal = null;
+    draft.balance.debt.commercialPaper = null;
+    draft.balance.debt.longTermNoncurrent = fact(
+      "1350",
+      "LongTermDebtNoncurrent",
+    );
+    draft.balance.debt.shortTermBorrowings = fact("150", "ShortTermBorrowings");
+  };
+  const controls = {
+    notesPayable: fact("1500", "NotesPayable"),
+    debtInstrumentCarryingAmount: null,
+    debtCombinedTotal: null,
+  };
+
+  it("carries the totals only when they close the debt, and recomputes it", () => {
+    const withTotals = withDebtControls(facts(borrowed), controls);
+    const normalization = buildNormalization(withTotals, CONTEXT);
+
+    expect(withTotals.debtControls).toStrictEqual(controls);
+    expect(normalization.debt).toMatchObject({
+      version: "reported-debt-1.3.0",
+      recipe: "noncurrent_plus_short_term",
+      total: "1500",
+      control: { key: "notesPayable", amount: "1500" },
+    });
+    expect(normalization.investedCapital).toMatchObject({
+      status: "resolved",
+      debt: "1500",
+    });
+    expect(normalizationMismatches(normalization, CONTEXT)).toEqual([]);
+    expect(
+      listNormalizationFacts(normalization).map((entry) => entry.path),
+    ).toContain("normalization.facts.debtControls.notesPayable");
+  });
+
+  it("leaves the facts as they were when a recipe closes or the totals do not", () => {
+    expect("debtControls" in withDebtControls(facts(), controls)).toBe(false);
+    expect(
+      "debtControls" in
+        withDebtControls(facts(borrowed), {
+          ...controls,
+          notesPayable: fact("2000", "NotesPayable"),
+        }),
+    ).toBe(false);
+    expect(buildNormalization(facts(borrowed), CONTEXT).debt.status).toBe(
+      "unresolved",
+    );
+  });
+
+  it("rejects totals carried next to a debt that does not use them", () => {
+    const normalization = buildNormalization(
+      facts((draft) => {
+        draft.debtControls = controls;
+      }),
+      CONTEXT,
+    );
+
+    expect(normalization.debt.version).toBe("reported-debt-1.0.0");
+    expect(normalizationMismatches(normalization, CONTEXT)).toContain(
+      "normalization.facts.debtControls",
+    );
+  });
+
+  it("rejects a total edited by hand or of another close", () => {
+    const normalization = buildNormalization(
+      withDebtControls(facts(borrowed), controls),
+      CONTEXT,
+    );
+    const edited = structuredClone(normalization);
+    edited.facts.debtControls!.notesPayable = fact("1490", "NotesPayable");
+    const stale = structuredClone(normalization);
+    stale.facts.debtControls!.notesPayable = fact(
+      "1500",
+      "NotesPayable",
+      "2024-12-31",
+    );
+
+    expect(normalizationMismatches(edited, CONTEXT)).toContain(
+      "normalization.debt",
+    );
+    expect(normalizationMismatches(stale, CONTEXT)).toContain(
+      "normalization.facts.debtControls.notesPayable",
+    );
   });
 });
 

@@ -33,11 +33,15 @@ import {
 } from "./captive-finance";
 import {
   DEBT_COMPONENT_KEYS,
+  DEBT_CONTROL_ITEMS,
+  DEBT_CONTROL_KEYS,
   DEBT_ITEMS,
   REPORTED_DEBT_EVIDENCE_VERSION,
   reportedDebtSchema,
   resolveReportedDebt,
   type DebtComponentKey,
+  type DebtControlKey,
+  type ReportedDebtControls,
 } from "./reported-debt";
 import {
   conceptFactSchema,
@@ -82,6 +86,10 @@ const amount = engineDecimalSchema;
 const debtFactsShape = Object.fromEntries(
   DEBT_COMPONENT_KEYS.map((key) => [key, fact]),
 ) as Record<DebtComponentKey, typeof fact>;
+
+const debtControlFactsShape = Object.fromEntries(
+  DEBT_CONTROL_KEYS.map((key) => [key, fact]),
+) as Record<DebtControlKey, typeof fact>;
 
 export const normalizationFactsSchema = z.object({
   baseFiscalYearEnd: calendarDateSchema,
@@ -135,6 +143,13 @@ export const normalizationFactsSchema = z.object({
    * anterior no la tiene y conserva su hash.
    */
   captiveFinance: captiveFinanceSplitSchema.optional(),
+  /**
+   * Los totales de deuda publicados al cierre del balance (`F6-46`,
+   * `reported-debt-1.3.0`). Sólo viajan cuando corroboran la no corriente más
+   * los préstamos de corto plazo: un snapshot anterior no los tiene y
+   * conserva su hash.
+   */
+  debtControls: z.object(debtControlFactsShape).optional(),
 });
 
 export type NormalizationFacts = z.infer<typeof normalizationFactsSchema>;
@@ -618,6 +633,58 @@ export function debtInputOf(
   ) as Record<DebtComponentKey, { value: string; concept: string } | null>;
 }
 
+/** Los totales de deuda de los hechos, como los lee la receta `1.3.0`. */
+export function debtControlInputOf(
+  controls: NonNullable<NormalizationFacts["debtControls"]>,
+): ReportedDebtControls {
+  return Object.fromEntries(
+    DEBT_CONTROL_KEYS.map((key) => {
+      const value = controls[key];
+      return [
+        key,
+        value === null ? null : { value: value.value, concept: value.concept },
+      ];
+    }),
+  ) as Record<DebtControlKey, { value: string; concept: string } | null>;
+}
+
+/**
+ * Suma los totales de deuda publicados a los hechos sólo si los necesita la
+ * deuda (`F6-46`): ninguna receta cierra sin ellos y la no corriente más los
+ * préstamos de corto plazo cierra con ellos. En cualquier otro caso devuelve
+ * los hechos como estaban, así que el snapshot no cambia. Nunca con la
+ * evidencia de deuda cero ni con una financiera cautiva.
+ */
+export function withDebtControls(
+  facts: NormalizationFacts,
+  controls: Record<DebtControlKey, ConceptFact | null>,
+): NormalizationFacts {
+  const { debtControls: _previous, ...plain } = facts;
+  void _previous;
+
+  if (
+    facts.zeroDebtEvidence !== undefined ||
+    facts.captiveFinance !== undefined ||
+    DEBT_CONTROL_KEYS.every((key) => controls[key] === null)
+  ) {
+    return plain;
+  }
+
+  const debt = debtInputOf(facts.balance.debt);
+  const without = resolveReportedDebt(debt);
+  const controlled = resolveReportedDebt(
+    debt,
+    null,
+    debtControlInputOf(controls),
+  );
+
+  return without.status === "unresolved" &&
+    controlled.status === "resolved" &&
+    controlled.recipe === "noncurrent_plus_short_term"
+    ? { ...plain, debtControls: controls }
+    : plain;
+}
+
 /** Aplica las reglas a los hechos y arma el libro. Pura. */
 export function buildNormalization(
   facts: NormalizationFacts,
@@ -630,6 +697,9 @@ export function buildNormalization(
       ? resolveReportedDebt(
           debtInputOf(facts.balance.debt),
           facts.zeroDebtEvidence ?? null,
+          facts.debtControls === undefined
+            ? null
+            : debtControlInputOf(facts.debtControls),
         )
       : resolveReportedDebt(
           captiveDebtInput(facts.captiveFinance.industrialDebt),
@@ -711,6 +781,20 @@ export function listNormalizationFacts(
       (entry): entry is { path: string; fact: ConceptFact; asOf: string } =>
         entry.fact !== null,
     ),
+    ...(facts.debtControls === undefined
+      ? []
+      : DEBT_CONTROL_KEYS.flatMap((key) => {
+          const control = facts.debtControls![key];
+          return control === null
+            ? []
+            : [
+                {
+                  path: `normalization.facts.debtControls.${key}`,
+                  fact: control,
+                  asOf: balanceAsOf,
+                },
+              ];
+        })),
     ...(facts.zeroDebtEvidence === undefined
       ? []
       : listZeroDebtEvidenceFacts(
@@ -808,6 +892,17 @@ export function normalizationMismatches(
     mismatches.push("normalization.facts.captiveFinance");
   }
 
+  // Los totales publicados sólo viajan si la deuda los usa (`F6-46`).
+  if (
+    facts.debtControls !== undefined &&
+    (normalization.debt.status !== "resolved" ||
+      normalization.debt.recipe !== "noncurrent_plus_short_term" ||
+      facts.zeroDebtEvidence !== undefined ||
+      facts.captiveFinance !== undefined)
+  ) {
+    mismatches.push("normalization.facts.debtControls");
+  }
+
   const rebuilt = buildNormalization(facts, context);
 
   for (const key of [
@@ -868,7 +963,7 @@ export function normalizationFactsFromSeries(
       : { ...toFact(value), concept: value.concept };
   };
 
-  return {
+  const facts: NormalizationFacts = {
     baseFiscalYearEnd: base.fiscalYearEnd,
     income: {
       pretaxIncome: read(base.items, "pretax_income"),
@@ -899,4 +994,16 @@ export function normalizationFactsFromSeries(
       })),
     ...(zeroDebtEvidence === null ? {} : { zeroDebtEvidence }),
   };
+
+  return withDebtControls(facts, debtControlsAt(base.items, read));
+}
+
+/** Los totales de deuda publicados entre unas partidas de un cierre. */
+export function debtControlsAt<Items>(
+  items: Items,
+  read: (items: Items, key: LineItemId) => ConceptFact | null,
+): Record<DebtControlKey, ConceptFact | null> {
+  return Object.fromEntries(
+    DEBT_CONTROL_KEYS.map((key) => [key, read(items, DEBT_CONTROL_ITEMS[key])]),
+  ) as Record<DebtControlKey, ConceptFact | null>;
 }

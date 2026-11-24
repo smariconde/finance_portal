@@ -157,8 +157,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   129 | `F6-43`    | `done`        | Perfil de ciclo declarado por el owner por CIK, que reemplaza al del SIC: MU (memorias) al método cíclico en lugar del de crecimiento.                                                                                    | `F6-42`            |
 |   130 | `F6-44`    | `done`        | Una valuación nueva ve el 10-K o 10-Q presentado después de la última descarga: el job sondea `submissions` y vuelve a bajar companyfacts cuando hay uno más nuevo.                                                       | `F6-39`            |
 |   131 | `F6-45`    | `done`        | El MCP dice por qué se rechazó una corrida: código, reglas que fallaron y campos (`portal-mcp-tools-1.1.0`).                                                                                                              | `F11-17`           |
-|   132 | `F6-46`    | `ready`       | Deuda como no corriente más préstamos de corto plazo cuando ésa es la única deuda corriente publicada (NFLX, PEP, JNJ, MSI, TRMB), nombrada en el snapshot.                                                               | `F6-45`            |
-|   133 | `F6-47`    | `queued`      | Medir de dónde sale el sesgo precio/valor (mediana ≈ 1,9) por componente —crecimiento, margen, reinversión, WACC, terminal— y traer la tabla al owner antes de tocar reglas.                                              | `F6-46`            |
+|   132 | `F6-46`    | `done`        | Deuda como no corriente más préstamos de corto plazo cuando ésa es la única deuda corriente publicada (NFLX, PEP, JNJ, MSI, TRMB), nombrada en el snapshot.                                                               | `F6-45`            |
+|   133 | `F6-47`    | `ready`       | Medir de dónde sale el sesgo precio/valor (mediana ≈ 1,9) por componente —crecimiento, margen, reinversión, WACC, terminal— y traer la tabla al owner antes de tocar reglas.                                              | `F6-46`            |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -4785,6 +4785,41 @@ Decisión delegada por el owner («tomá la mejor decisión»).
   contra un cierre de 705,27. El ciclo 2021–2025 incluye el −20 % de 2023.
 - Replay: 42 de 42 en la réplica y 56 de 57 en Neon (la de GOOGL ya conocida).
 - Gates: 4.719 unit, 251 de integración, lint, tipos, formato y build.
+
+#### `F6-46` — deuda no corriente más préstamos, corroborada (cerrado el 2026-11-24)
+
+[Enmienda de la ADR 0038](../architecture/adr/0038-reported-adjusted-normalization.md#enmienda-del-2026-11-24--no-corriente-más-préstamos-corroborada-f6-46).
+
+- Origen: NFLX se rechazó el 2026-11-24 con `required_inputs_present` sobre
+  `bridge.debt`. Publica `LongTermDebtNoncurrent` y etiqueta los vencimientos
+  de sus bonos como `ShortTermBorrowings`; ninguna receta cerraba.
+- Medido en Neon antes de codificar (sólo lectura). La forma —no corriente más
+  préstamos, sin otra partida corriente— aparece en NFLX, TRMB, MSI, MCD (en
+  10-Q), JNJ, PEP, CTSH, NKE, AMAT, AMD y CAT. Contra un total publicado:
+
+  | Filer | Cierres | Control                                  | Brecha máxima |
+  | ----- | ------: | ---------------------------------------- | ------------: |
+  | NFLX  |      10 | `NotesPayable`                           |       0,003 % |
+  | TRMB  |       5 | `DebtLongtermAndShorttermCombinedAmount` |           0 % |
+  | MSI   |       2 | `DebtInstrumentCarryingAmount`           |       0,011 % |
+  | MCD   |       5 | `DebtInstrumentCarryingAmount`           |       0,064 % |
+  | AMD   |       1 | `DebtLongtermAndShorttermCombinedAmount` |       −22,7 % |
+
+  El test de `1.0.0` ya rechazaba la forma sin control a propósito (CAT: los
+  préstamos son de la financiera). Por eso la receta exige el control.
+
+- `reported-debt-1.3.0`, `noncurrent_plus_short_term`: sólo donde ninguna otra
+  regla cierra, con el control dentro del 0,5 % y nombrado en la salida
+  (`control`). Papeles comerciales dentro de los préstamos; arrendamientos
+  financieros aparte; un control que no cierra deja la deuda `unresolved`.
+- `normalization.facts.debtControls`, opcional: viaja sólo si la receta lo usa,
+  así que ningún snapshot anterior cambia de hash. La base TTM lee los
+  controles del 10-Q cuando su balance es el del trimestre.
+- Medido con el código nuevo contra Neon, en memoria y sin escribir: NFLX pasa
+  de `rejected` a `computed`, 88,90 por acción contra un cierre de 58,87
+  (deuda 15.132 M al 10-Q). MCD y JNJ no cambian (sus recetas cierran). PEP,
+  MSI y TRMB no tienen SIC observado todavía: el job lo sondea al valuarlas.
+- Gates: unit, lint, tipos, formato y build; replay de las corridas de Neon.
 
 #### `F6-45` — el motivo de un rechazo, legible desde el MCP (cerrado el 2026-11-24)
 

@@ -482,6 +482,17 @@ has not integrated it yet), for `pnpm fundamentals:refresh` too. A filer's first
 probe is `never_probed` and re-downloads once. Measured first: 7 of 21 valued
 companies in Production had a newer periodic report and none had a watermark.
 
+Since `F6-46` (ADR 0038's 2026-11-24 amendment, no migration)
+`reported-debt-1.3.0` adds `noncurrent_plus_short_term`: noncurrent debt plus
+`ShortTermBorrowings` when that is the only current debt published **and** the
+sum is within 0.5 % of a total the filer publishes at the same close
+(`NotesPayable`, `DebtInstrumentCarryingAmount`,
+`DebtLongtermAndShorttermCombinedAmount`, from the debt guard). Without a
+closing control it stays `unresolved` (CAT's borrowings are the finance arm's;
+AMD is 22.7 % off). The controls travel in the optional
+`normalization.facts.debtControls` only when used, so earlier runs keep their
+hashes. Measured: NFLX `rejected` → `computed`.
+
 Since `F6-13` ([ADR 0052](docs/architecture/adr/0052-qualitative-decisions-in-valuation-job.md),
 `valuation-job-1.3.0`, migration `0035`) the job asks the AI what is missing
 before the snapshot, for an `fcff_base` method and only after the data step

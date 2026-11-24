@@ -47,10 +47,26 @@ import {
  * (2.284 M). Es una excepción declarada a «la ausencia no prueba nada»: se
  * confía en que no hay porción corriente, y la receta lo nombra. Sólo esa
  * salida lleva `1.2.0`.
+ *
+ * `1.3.0` (`F6-46`, medido en Neon el 2026-11-24): sin receta ni evidencia, la
+ * deuda es la **no corriente más los préstamos de corto plazo** cuando ésa es
+ * la única deuda corriente que el filer publica y la suma coincide, dentro del
+ * 0,5 %, con un total de deuda que el mismo filer publica al mismo cierre
+ * (`noncurrent_plus_short_term`). Netflix etiqueta los vencimientos de sus
+ * bonos como `ShortTermBorrowings` y su `NotesPayable` cierra la suma en
+ * diez cierres seguidos (≤ 0,003 %); Motorola, Trimble y McDonald's cierran
+ * contra `DebtInstrumentCarryingAmount` o `DebtLongtermAndShorttermCombinedAmount`.
+ * Sin el control no aplica: en Caterpillar los préstamos son de la financiera
+ * y los vencimientos no están, y AMD queda 22,7 % lejos de su total. Sólo esa
+ * salida lleva `1.3.0` y nombra el control que la cerró.
  */
 export const REPORTED_DEBT_VERSION = "reported-debt-1.0.0";
 export const REPORTED_DEBT_EVIDENCE_VERSION = "reported-debt-1.1.0";
 export const REPORTED_DEBT_NONCURRENT_ONLY_VERSION = "reported-debt-1.2.0";
+export const REPORTED_DEBT_CONTROLLED_VERSION = "reported-debt-1.3.0";
+
+/** Cuánto puede apartarse la suma del total publicado: el redondeo impreso. */
+export const DEBT_CONTROL_TOLERANCE = "0.005";
 
 /**
  * La no corriente que ya incluye los arrendamientos financieros: con ella, la
@@ -70,6 +86,29 @@ export const debtComponentKeySchema = z.enum([
 ]);
 
 export type DebtComponentKey = z.infer<typeof debtComponentKeySchema>;
+
+/**
+ * Los totales de deuda que un filer publica aparte de su balance (`1.3.0`).
+ * Ninguna receta los suma: sólo corroboran una suma. El orden es el de
+ * preferencia cuando más de uno cierra.
+ */
+export const debtControlKeySchema = z.enum([
+  "notesPayable",
+  "debtInstrumentCarryingAmount",
+  "debtCombinedTotal",
+]);
+
+export type DebtControlKey = z.infer<typeof debtControlKeySchema>;
+
+export const DEBT_CONTROL_KEYS = debtControlKeySchema.options;
+
+/** La partida de la serie anual —de la guardia de deuda— de cada control. */
+export const DEBT_CONTROL_ITEMS: Readonly<Record<DebtControlKey, LineItemId>> =
+  {
+    notesPayable: "notes_payable",
+    debtInstrumentCarryingAmount: "debt_instrument_carrying_amount",
+    debtCombinedTotal: "debt_combined_total",
+  };
 
 export const DEBT_COMPONENT_KEYS = debtComponentKeySchema.options;
 
@@ -92,6 +131,8 @@ export const debtRecipeSchema = z.enum([
   "finance_leases_only",
   /** Sin ninguna partida corriente publicada: la no corriente sola (`1.2.0`). */
   "noncurrent_only",
+  /** No corriente más préstamos de corto plazo, corroborada (`1.3.0`). */
+  "noncurrent_plus_short_term",
 ]);
 
 export type DebtRecipe = z.infer<typeof debtRecipeSchema>;
@@ -117,6 +158,7 @@ export const reportedDebtSchema = z.discriminatedUnion("status", [
       REPORTED_DEBT_VERSION,
       REPORTED_DEBT_EVIDENCE_VERSION,
       REPORTED_DEBT_NONCURRENT_ONLY_VERSION,
+      REPORTED_DEBT_CONTROLLED_VERSION,
     ]),
     status: z.literal("resolved"),
     recipe: debtRecipeSchema,
@@ -140,6 +182,14 @@ export const reportedDebtSchema = z.discriminatedUnion("status", [
       )
       .max(7),
     total: engineDecimalSchema,
+    /** El total publicado que cerró la suma; sólo en `1.3.0`. */
+    control: z
+      .object({
+        key: debtControlKeySchema,
+        concept: conceptSchema,
+        amount: engineDecimalSchema,
+      })
+      .optional(),
   }),
   z.object({
     version: z.literal(REPORTED_DEBT_VERSION),
@@ -172,6 +222,10 @@ export type ReportedDebtInput = Readonly<
   Record<DebtComponentKey, DebtComponentValue | null>
 >;
 
+export type ReportedDebtControls = Readonly<
+  Record<DebtControlKey, DebtComponentValue | null>
+>;
+
 /** Componentes que cada receta exige, en el orden en que se prueban. */
 const RECIPES: readonly {
   recipe: DebtRecipe;
@@ -197,6 +251,7 @@ function withoutRecipe(
   input: ReportedDebtInput,
   present: DebtComponentKey[],
   evidence: ZeroDebtEvidence | null,
+  controls: ReportedDebtControls | null,
 ): ReportedDebt {
   const unresolved: ReportedDebt = {
     version: REPORTED_DEBT_VERSION,
@@ -205,8 +260,13 @@ function withoutRecipe(
     present,
   };
 
+  const fallback = () =>
+    noncurrentOnly(input, present) ??
+    noncurrentPlusShortTerm(input, present, controls) ??
+    unresolved;
+
   if (evidence === null || zeroDebtShortfall(evidence) !== null) {
-    return noncurrentOnly(input, present) ?? unresolved;
+    return fallback();
   }
 
   const borrowings = present.filter((key) => key !== "financeLeases");
@@ -215,7 +275,7 @@ function withoutRecipe(
   );
 
   if (borrowings.some((key) => !amounts.get(key)!.isZero())) {
-    return noncurrentOnly(input, present) ?? unresolved;
+    return fallback();
   }
 
   const leases = amounts.get("financeLeases");
@@ -338,12 +398,140 @@ function noncurrentOnly(
 }
 
 /**
+ * `noncurrent_plus_short_term` (`1.3.0`): la no corriente más los préstamos de
+ * corto plazo, cuando ninguna otra partida corriente se publica y la suma
+ * coincide con un total publicado al mismo cierre. Los papeles comerciales
+ * quedan dentro de los préstamos, como en las otras recetas. Los
+ * arrendamientos financieros se suman aparte, salvo que la no corriente ya los
+ * incluya; el control se compara sin ellos. `null` si no aplica.
+ */
+function noncurrentPlusShortTerm(
+  input: ReportedDebtInput,
+  present: DebtComponentKey[],
+  controls: ReportedDebtControls | null,
+): ReportedDebt | null {
+  if (
+    controls === null ||
+    input.longTermNoncurrent === null ||
+    input.shortTermBorrowings === null ||
+    input.longTermTotal !== null ||
+    input.currentTotal !== null ||
+    input.longTermCurrent !== null
+  ) {
+    return null;
+  }
+
+  const noncurrent = parseDecimal(
+    input.longTermNoncurrent.value,
+    "debt.longTermNoncurrent",
+  );
+  const shortTerm = parseDecimal(
+    input.shortTermBorrowings.value,
+    "debt.shortTermBorrowings",
+  );
+
+  if (!noncurrent.greaterThan(ZERO) || shortTerm.lessThan(ZERO)) {
+    return null;
+  }
+
+  const borrowed = noncurrent.plus(shortTerm);
+  const tolerance = borrowed.times(
+    parseDecimal(DEBT_CONTROL_TOLERANCE, "debt.controlTolerance"),
+  );
+  const control = DEBT_CONTROL_KEYS.map((key) => ({
+    key,
+    value: controls[key],
+  })).find(
+    ({ value }) =>
+      value !== null &&
+      parseDecimal(value.value, "debt.control")
+        .minus(borrowed)
+        .abs()
+        .lte(tolerance),
+  );
+
+  if (control === undefined) {
+    return null;
+  }
+
+  const included: DebtComponentKey[] = [
+    "longTermNoncurrent",
+    "shortTermBorrowings",
+  ];
+  const excluded: {
+    component: DebtComponentKey;
+    concept: string;
+    reason: z.infer<typeof debtExclusionReasonSchema>;
+  }[] = [];
+
+  if (input.commercialPaper !== null) {
+    excluded.push({
+      component: "commercialPaper",
+      concept: input.commercialPaper.concept,
+      reason: "short_term_borrowings_preferred",
+    });
+  }
+
+  if (input.financeLeases !== null) {
+    if (
+      input.longTermNoncurrent.concept === NONCURRENT_INCLUDING_FINANCE_LEASES
+    ) {
+      excluded.push({
+        component: "financeLeases",
+        concept: input.financeLeases.concept,
+        reason: "included_in_noncurrent",
+      });
+    } else {
+      included.push("financeLeases");
+    }
+  }
+
+  const amounts = included.map((key) =>
+    parseDecimal(input[key]!.value, `debt.${key}`),
+  );
+
+  if (amounts.some((amount) => amount.lessThan(ZERO))) {
+    return {
+      version: REPORTED_DEBT_VERSION,
+      status: "unresolved",
+      reason: "negative_component",
+      present,
+    };
+  }
+
+  return {
+    version: REPORTED_DEBT_CONTROLLED_VERSION,
+    status: "resolved",
+    recipe: "noncurrent_plus_short_term",
+    included: included.map((key, index) => ({
+      component: key,
+      concept: input[key]!.concept,
+      amount: formatDecimal(amounts[index]!, `debt.${key}`),
+    })),
+    excluded: DEBT_COMPONENT_KEYS.flatMap((key) =>
+      excluded.filter((entry) => entry.component === key),
+    ),
+    total: formatDecimal(sum(amounts), "debt.total"),
+    control: {
+      key: control.key,
+      concept: control.value!.concept,
+      amount: formatDecimal(
+        parseDecimal(control.value!.value, "debt.control"),
+        "debt.control",
+      ),
+    },
+  };
+}
+
+/**
  * Aplica la primera receta que cierra; sin ninguna, la evidencia de deuda cero
- * si la hay (`1.1.0`). Pura.
+ * si la hay (`1.1.0`), la no corriente sola (`1.2.0`) o la no corriente más
+ * los préstamos corroborada por un control (`1.3.0`). Pura.
  */
 export function resolveReportedDebt(
   input: ReportedDebtInput,
   evidence: ZeroDebtEvidence | null = null,
+  controls: ReportedDebtControls | null = null,
 ): ReportedDebt {
   const present = DEBT_COMPONENT_KEYS.filter((key) => input[key] !== null);
   const chosen = RECIPES.find(({ required }) =>
@@ -351,7 +539,7 @@ export function resolveReportedDebt(
   );
 
   if (chosen === undefined) {
-    return withoutRecipe(input, present, evidence);
+    return withoutRecipe(input, present, evidence, controls);
   }
 
   const included = new Set<DebtComponentKey>(chosen.required);

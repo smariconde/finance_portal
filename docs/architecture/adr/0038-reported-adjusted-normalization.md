@@ -112,6 +112,26 @@ mismo saldo etiquetado dos veces (Devon) y no se suma: la salida lo nombra. Sin
 receta, la deuda queda `unresolved` con los conceptos que faltan: la ausencia
 de una etiqueta no prueba que no haya deuda.
 
+### Enmienda del 2026-11-24 — no corriente más préstamos, corroborada (`F6-46`)
+
+`reported-debt-1.3.0` agrega `noncurrent_plus_short_term`: la no corriente
+más `ShortTermBorrowings` cuando ésa es la única deuda corriente publicada
+—ni `DebtCurrent`, ni `LongTermDebt`, ni vencimientos— **y** la suma coincide,
+dentro del 0,5 %, con un total de deuda que el filer publica al mismo cierre:
+`NotesPayable`, `DebtInstrumentCarryingAmount` o
+`DebtLongtermAndShorttermCombinedAmount`, en ese orden. Sólo corre donde
+ninguna otra regla cierra, así que las demás salidas no cambian.
+
+Medido en Neon antes de codificar: NFLX cierra contra `NotesPayable` en diez
+cierres seguidos (≤ 0,003 %), TRMB contra el total combinado (0 %), MSI y MCD
+contra `DebtInstrumentCarryingAmount` (≤ 0,07 %, MCD lo imprime redondeado a
+100 M). Sin control no aplica: en CAT los préstamos son de la financiera y los
+vencimientos no se publican sin dimensión, y AMD queda 22,7 % lejos de su
+total. Los controles viajan en `normalization.facts.debtControls`, opcional y
+sólo cuando la receta los usa; `normalization_recomputed` la recalcula y
+rechaza un control que viaje sin uso. Un emisor con financiera cautiva no los
+usa.
+
 ## Decisión 5 — cargos no recurrentes con regla de recurrencia
 
 `non-recurring-charge-1.0.0`, decidido por el owner. Dos categorías, cada una
