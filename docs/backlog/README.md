@@ -158,7 +158,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   130 | `F6-44`    | `done`        | Una valuación nueva ve el 10-K o 10-Q presentado después de la última descarga: el job sondea `submissions` y vuelve a bajar companyfacts cuando hay uno más nuevo.                                                       | `F6-39`            |
 |   131 | `F6-45`    | `done`        | El MCP dice por qué se rechazó una corrida: código, reglas que fallaron y campos (`portal-mcp-tools-1.1.0`).                                                                                                              | `F11-17`           |
 |   132 | `F6-46`    | `done`        | Deuda como no corriente más préstamos de corto plazo cuando ésa es la única deuda corriente publicada (NFLX, PEP, JNJ, MSI, TRMB), nombrada en el snapshot.                                                               | `F6-45`            |
-|   133 | `F6-47`    | `ready`       | Medir de dónde sale el sesgo precio/valor (mediana ≈ 1,9) por componente —crecimiento, margen, reinversión, WACC, terminal— y traer la tabla al owner antes de tocar reglas.                                              | `F6-46`            |
+|   133 | `F6-47`    | `done`        | Medir de dónde sale el sesgo precio/valor (mediana ≈ 1,9) por componente —crecimiento, margen, reinversión, WACC, terminal— y traer la tabla al owner antes de tocar reglas.                                              | `F6-46`            |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -4785,6 +4785,50 @@ Decisión delegada por el owner («tomá la mejor decisión»).
   contra un cierre de 705,27. El ciclo 2021–2025 incluye el −20 % de 2023.
 - Replay: 42 de 42 en la réplica y 56 de 57 en Neon (la de GOOGL ya conocida).
 - Gates: 4.719 unit, 251 de integración, lint, tipos, formato y build.
+
+#### `F6-47` — de dónde sale el sesgo precio/valor (medido el 2026-11-24, sin código)
+
+Medido sobre la última corrida de cada empresa de Production con el DCF
+inverso de la página (`market-implied-1.1.0`): cuánto tiene que valer **un solo
+driver**, con todo lo demás igual, para que el modelo dé el precio. Las 11
+`fcff_base` calculadas; la mediana de P/V es 1,92.
+
+| Ticker |  P/V | Industria (β)                |  WACC → exige | Crec. 1–5 → exige | Margen → exige | ROIC terminal |
+| ------ | ---: | ---------------------------- | ------------: | ----------------: | -------------: | ------------- |
+| GLW    | 4,11 | electrical-equipment (1,30)  |   9,5 → 5,3 % |      3,8 → 48,0 % |  16,8 → 48,7 % | no alcanza    |
+| WMT    | 2,31 | retail-general (0,83)        |   7,3 → 5,8 % |      5,3 → 22,4 % |    4,5 → 9,1 % | no alcanza    |
+| SBUX   | 2,28 | restaurant-dining (0,94)     |   7,4 → 5,9 % |      9,1 → 22,1 % |   9,0 → 16,6 % | no alcanza    |
+| COST   | 2,12 | retail-general (0,83)        |   7,4 → 5,8 % |      8,4 → 23,6 % |    3,9 → 8,2 % | no alcanza    |
+| AAPL   | 2,00 | computers-peripherals (1,37) |  10,8 → 6,7 % |      6,7 → 19,9 % |  35,2 → 70,2 % | no alcanza    |
+| AMZN   | 1,92 | retail-general (0,83)        |   7,5 → 6,4 % |     12,5 → 28,6 % |  12,7 → 20,1 % | no alcanza    |
+| KO     | 1,63 | beverage-soft (0,67)         |   6,7 → 6,5 % |      7,5 → 17,0 % |  30,2 → 45,0 % | no alcanza    |
+| GOOGL  | 1,45 | software-internet (1,74)     |  12,0 → 7,8 % |     15,2 → 24,5 % |  37,0 → 50,4 % | 8,6 → 43,9 %  |
+| LRCX   | 1,42 | semiconductor-equip (1,44)   |  10,0 → 7,2 % |      7,0 → 13,8 % |  39,4 → 55,5 % | no alcanza    |
+| MCD    | 0,95 | restaurant-dining (0,94)     |   7,2 → 7,5 % |       6,2 → 5,5 % |  48,7 → 47,1 % | 17,7 → 15,2 % |
+| ADBE   | 0,47 | software-system (1,30)       | 10,2 → 14,6 % |     12,4 → −2,1 % |  35,8 → 17,6 % | 29,3 → 4,8 %  |
+
+Lo que dice:
+
+- **El ROIC terminal no es la fuente.** En 9 de las 11, ni un ROIC terminal de
+  500 % llega al precio: con `g` terminal igual a la libre de riesgo (3,96 %) el
+  valor terminal tiene techo. La regla de `F6-10` no mueve el sesgo.
+- **La tasa que exige el precio** está 1,5 pp debajo de la de la corrida en la
+  mediana. Las cuatro brechas más grandes (−2,8 a −4,2 pp: GLW, GOOGL, AAPL,
+  LRCX) son exactamente las industrias de β alto (1,30–1,74): una sola beta de
+  industria para Alphabet o Apple da un WACC de 10,8–12 %.
+- **En las de β bajo** (WMT, COST, SBUX, AMZN, KO) la tasa del modelo ya es
+  7,3–7,5 %, y el precio exige crecimiento de 17–29 % anual por cinco años, el
+  doble o el triple de su tendencia. Ninguna regla razonable de crecimiento
+  llega ahí: es el precio el que está lejos, no un supuesto roto.
+- Fuera de `fcff_base`, el camino de crecimiento queda **debajo** del precio
+  (MU 0,36, MELI 0,51, NVDA 0,64, LLY 0,90) y los extremos son de mercado
+  (PLTR 6,17, TSLA 12,49).
+
+Decisión pendiente del owner, con la tabla: (a) beta por mezcla de negocios
+—segmentos del 10-K ponderados, como hace Damodaran con empresas de varias
+industrias—, que ataca las cuatro brechas grandes sin perseguir el precio;
+(b) no tocar reglas y mostrar en la página la tasa y el crecimiento que exige
+el precio como lectura principal del sesgo; (c) otra.
 
 #### `F6-46` — deuda no corriente más préstamos, corroborada (cerrado el 2026-11-24)
 
