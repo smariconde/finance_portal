@@ -165,7 +165,9 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   137 | `F6-51`    | `done`        | «Experimental» separado de «Requiere revisión» en la lista, la página y el MCP, con los controles de bear y bull a la vista (GOOGL); sin tocar snapshot ni hashes.                                                        | `F6-50`            |
 |   138 | `F6-52`    | `done`        | GE evaluable: la lectura de linaje deja de cortar en 1.000 revisiones por segmento; PSX re-medido con la selección vigente.                                                                                               | `F6-51`            |
 |   139 | `F6-53`    | `done`        | Corredores y bancos de inversión (SIC 6211) valuados como `broker_dealer` con exceso de retorno y payout del trienio con tope en uno; HOOD, SCHW, GS, MS y RJF llegan a corrida.                                          | `F6-52`            |
-|   140 | `F6-54`    | `ready`       | Emisores con 20-F o 40-F (TSM, ASML, NVO, SPOT, NU): medición y ADR —IFRS, moneda, ratio del ADS, sin 10-Q, secciones para la IA—; el código sale de la ADR.                                                              | `F6-53`            |
+|   140 | `F6-54`    | `done`        | Emisores con 20-F medidos y [ADR 0087](../architecture/adr/0087-foreign-private-issuers.md) aceptada: moneda de reporte, FX de Yahoo, SPOT, NVO y TSM primero.                                                            | `F6-53`            |
+|   141 | `F6-55`    | `ready`       | SPOT, NVO y TSM valuados desde su 20-F en su moneda de reporte, con el valor por ADS en dólares al tipo de cambio del día.                                                                                                | `F6-54`            |
+|   142 | `F6-56`    | `queued`      | ASML: 20-F en US GAAP y EUR, con las secciones de su informe integrado leídas por el índice de referencias cruzadas.                                                                                                      | `F6-55`            |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -4808,7 +4810,7 @@ revisión». Medido sobre Production (Neon y MCP) con `valuation:assess
 | GE                       | `LineageReadLimitError`: un segmento de linaje pasa las 1.000 revisiones y la evaluación no termina             | `F6-52` (hecho)      |
 | PSX                      | `commodity` sin `operating_income` con una ventana bajada el 2026-10-29 con otra selección                      | `F6-52` (hecho)      |
 | HOOD                     | SIC 6211 dentro del rango financiero sin perfil: `missing_classification_evidence`                              | `F6-53` (hecho)      |
-| TSM, ASML, NVO, SPOT, NU | `unresolved_ticker`: 20-F o 40-F negados por la ADR 0084                                                        | `F6-54`              |
+| TSM, ASML, NVO, SPOT, NU | `unresolved_ticker`: 20-F o 40-F negados por la ADR 0084                                                        | `F6-55`–`F6-56`      |
 | CRWD, MRNA               | la última negativa (`distressed`, `method_not_implemented`) es vieja: hoy evalúan `loss_making`                 | revaluar, sin código |
 
 - «Requiere revisión» en Production: 13 de las 23 últimas corridas. Once son
@@ -5058,21 +5060,43 @@ revisión». Medido sobre Production (Neon y MCP) con `valuation:assess
   1440 y 390 px, sin overflow y 0 violaciones de axe.
 - Gates: 4.955 unit, 257 de integración, lint, tipos, formato y build.
 
-#### `F6-54` — emisores extranjeros (20-F y 40-F)
+#### `F6-54` — emisores extranjeros (20-F y 40-F) (cerrado el 2026-11-25)
+
+- Estado: `done`
+- Medido con 21 pedidos a la SEC (tabla de tickers; `submissions` y
+  `companyfacts` de TSM, ASML, NVO, SPOT y NU; instance y documento principal del
+  20-F de 2025): los cinco presentan 20-F; TSM, NVO, SPOT y NU en IFRS (TWD, DKK,
+  EUR, USD) y ASML en US GAAP en EUR. `companyfacts` no integró los 20-F de abril
+  de 2026 de TSM (2 hechos) y NU (ninguno); el instance sí los trae. Ningún 6-K
+  tiene XBRL desde 2021: base anual. El ratio del ADS no está en el XBRL (TSM:
+  «each ADS represents five (5) common shares» en el texto). Item 4 e Item 5 son
+  encabezados en TSM, NVO, SPOT y NU; ASML es un informe integrado.
+- Decisiones del owner (2026-11-25), en la
+  [ADR 0087](../architecture/adr/0087-foreign-private-issuers.md): valuar en la
+  moneda de reporte con su tasa libre de riesgo y convertir sólo el valor por
+  acción; tipo de cambio de Yahoo del mismo día; primero SPOT, NVO y TSM, ASML
+  después, NU fuera.
+- Sin código.
+
+#### `F6-55` — 20-F en IFRS: SPOT, NVO y TSM
+
+- Estado: `ready`
+- Fase y dependencia: Fase 6, después de `F6-54`.
+- Alcance incluido: medir antes de codificar la tasa libre de riesgo en EUR, DKK
+  y TWD (Damodaran por moneda o diferencial de inflación) y traerla al owner;
+  admitir el 20-F de los CIK declarados; selección `ifrs-full`; último ejercicio
+  desde el instance del 20-F si `companyfacts` no lo tiene; base anual; ratio del
+  ADS declarado con su cita; pares FX de Yahoo; tareas de IA sobre Item 4 e
+  Item 5; valor por ADS en dólares en `/valuacion/[ticker]`.
+- Controles: `TM-05`, `TM-06`, `TM-08`, `TM-10`, `TM-16`.
+- Criterios de aceptación: corrida registrada de los tres en una réplica con el
+  worker real, replay de lo existente sin cambios.
+
+#### `F6-56` — ASML (20-F en US GAAP y EUR)
 
 - Estado: `queued`
-- Fase y dependencia: Fase 6, después de `F6-53`; necesita ADR antes del
-  código.
-- Demanda observada: TSM, ASML, NVO, SPOT y NU pedidos desde `/valuacion` y
-  negados como `foreign_private_issuer` (ADR 0084).
-- Alcance incluido: medir companyfacts `ifrs-full` de los cinco, moneda de
-  reporte frente a la de cotización, ratio del ADS, períodos intermedios sin
-  10-Q (6-K), secciones del 20-F para las tareas de IA, y escribir la ADR con
-  las opciones.
-- Fuera de alcance: código; los slices de implementación salen de la ADR.
-- Controles: `TM-05`, `TM-06`, `TM-08`, `TM-10`, `TM-16`.
-- Criterios de aceptación: ADR propuesta con la tabla medida y la decisión del
-  owner.
+- Alcance: lo de `F6-55` para un 20-F en `us-gaap` con moneda EUR, y las
+  secciones de su informe anual integrado por el índice de referencias cruzadas.
 
 #### `F6-48` — beta por mezcla de negocios (cerrado el 2026-11-24)
 
