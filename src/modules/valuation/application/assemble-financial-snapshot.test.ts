@@ -135,6 +135,29 @@ describe("financial-snapshot-1.0.0", () => {
     expect(run.result?.base.valuePerShare).not.toBeNull();
   });
 
+  it("values without subtracting options when neither a transcription nor the XBRL has them, and says so (F6-50)", () => {
+    const snapshot = assembleFinancialSnapshot(
+      request({ employeeOptionFacts: [] }),
+    );
+    expect(snapshot.status).toBe("assembled");
+    if (snapshot.status !== "assembled") return;
+    expect(snapshot.input.employeeEquity?.decision).toMatchObject({
+      basis: "not_subtracted",
+      reason: "no_transcription_or_xbrl",
+    });
+    expect(snapshot.input.employeeEquityAvailableAt).toBe(filing.availableAt);
+    const run = runExcessReturn(snapshot.input, {
+      now: () => knownAt,
+      newValuationRunId: () => observationId,
+    });
+    expect(run.status).toBe("requires_review");
+    expect(
+      run.result?.checks.find(
+        (check) => check.id === "financial_employee_equity",
+      )?.status,
+    ).toBe("passed");
+  });
+
   it("does not invent distributions or filing diagnostics", () => {
     expect(assembleFinancialSnapshot(request({ filing: null }))).toMatchObject({
       status: "not_assembled",

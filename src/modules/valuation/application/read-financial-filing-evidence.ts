@@ -1,10 +1,19 @@
 import { buildSubmissionsUrl } from "@/modules/fundamentals/application/live-company-facts-source";
-import { locateLatestAnnualReport } from "@/modules/fundamentals/domain/sec-annual-report";
+import {
+  buildAnnualReportUrl,
+  locateLatestAnnualReport,
+} from "@/modules/fundamentals/domain/sec-annual-report";
+import { readXbrlShareFacts } from "@/modules/fundamentals/domain/sec-xbrl-instance";
 
 import {
   deriveFinancialFilingEvidence,
   type FinancialFilingEvidence,
 } from "../domain/financial-filing-evidence";
+import {
+  deriveFinancialXbrlEvidence,
+  FINANCIAL_XBRL_US_GAAP_CONCEPTS,
+} from "../domain/financial-xbrl-evidence";
+import { instanceDocumentOf } from "./read-captive-finance-filing";
 
 export type FinancialFilingRequest = {
   readonly cik: string;
@@ -36,9 +45,32 @@ export async function readFinancialFilingEvidence(
   )
     return null;
   const html = await readText(located.report.url, "text/html");
-  if (html === null) return null;
-  const result = deriveFinancialFilingEvidence({
-    html,
+  if (html !== null) {
+    const result = deriveFinancialFilingEvidence({
+      html,
+      report: located.report,
+      fiscalYearEnd: input.fiscalYearEnd,
+      priorFiscalYearEnd: input.priorFiscalYearEnd,
+    });
+    if (result.status === "ready") return result.evidence;
+  }
+  // Sin las tablas que el lector HTML reconoce, el XBRL del mismo 10-K
+  // (`F6-50`): una lectura medida más.
+  const document = instanceDocumentOf(located.report.primaryDocument);
+  if (document === null) return null;
+  const xml = await readText(
+    buildAnnualReportUrl(input.cik, located.report.accessionNumber, document),
+    "application/xml",
+  );
+  if (xml === null) return null;
+  const read = readXbrlShareFacts(xml, {
+    usGaap: FINANCIAL_XBRL_US_GAAP_CONCEPTS,
+    extension: [],
+  });
+  if (read.status !== "read") return null;
+  const result = deriveFinancialXbrlEvidence({
+    cik: input.cik,
+    read: read.read,
     report: located.report,
     fiscalYearEnd: input.fiscalYearEnd,
     priorFiscalYearEnd: input.priorFiscalYearEnd,

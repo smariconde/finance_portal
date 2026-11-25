@@ -741,6 +741,17 @@ with no NCI component. Capex also reads `PaymentsToAcquireProductiveAssets`,
 without the PP&E concept). Measured on a replica: V `requires_review` 524.03
 (61 % terminal margin), HSY and STZ `computed`, XOM `requires_review`.
 
+Since `F6-50` (ADR 0061 amendment, owner's option (a)) an insurer whose 10-K
+tables the HTML reader does not recognize gets its financial base from the
+same 10-K's XBRL instance (`financial-xbrl-evidence-1.0.0`, one more metered
+request): parent `StockholdersEquity` only with preferred stock **published** at
+zero, `NetIncomeLoss` only if some basic EPS reproduces it, distributions from
+the cash flow (an unpublished one is zero only if clean surplus closes within 2 %
+of income), and statutory capital, claim reserves or credit allowance as dated
+diagnostics; JPM and PRU still read their HTML tables. Without a transcription
+or XBRL options the financial assembler uses `not_subtracted`, as FCFF does.
+Measured on a replica: BRK-B `excess_return` 393.38 against 577.21, `screening`.
+
 Company logos are loaded by the **browser** from logo.dev
 ([ADR 0062](docs/architecture/adr/0062-company-logos-browser-loaded.md)): the
 free plan forbids storing them, so the CSP opens `img-src` to

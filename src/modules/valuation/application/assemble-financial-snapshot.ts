@@ -7,6 +7,7 @@ import {
   employeeOptionMarketAt,
   deriveEmployeeEquity,
   EMPLOYEE_EQUITY_CLAIM_VERSION,
+  EMPLOYEE_OPTIONS_NOT_SUBTRACTED_VERSION,
   type EmployeeEquityDecision,
   type EmployeeOptionMarket,
 } from "../domain/employee-equity-claim";
@@ -85,8 +86,8 @@ export function assembleFinancialSnapshot(
     knownAt,
     sourceId: request.fundamentalsSourceId,
   });
-  if (accepted === null && xbrl === null)
-    return { status: "not_assembled", gap: "employee_equity_not_proposed" };
+  // Sin transcripción ni XBRL las opciones no se restan y se dice, como en el
+  // FCFF (`F6-16`): Berkshire no paga en acciones (`F6-50`).
   const decision: EmployeeEquityDecision =
     accepted !== null
       ? {
@@ -102,11 +103,16 @@ export function assembleFinancialSnapshot(
           evidenceSha256: accepted.evidence.sha256,
           transcription: accepted.proposal.transcription!,
         }
-      : xbrl!;
+      : (xbrl ?? {
+          basis: "not_subtracted",
+          version: EMPLOYEE_OPTIONS_NOT_SUBTRACTED_VERSION,
+          fiscalYearEnd: equity.fiscalYearEnd,
+          reason: "no_transcription_or_xbrl",
+        });
   const outstanding =
     decision.basis === "ai_proposal"
       ? decision.transcription.optionsStatus === "outstanding"
-      : decision.weightedStrike !== null;
+      : decision.basis === "xbrl_same_10k" && decision.weightedStrike !== null;
   let market: EmployeeOptionMarket | null = null;
   if (outstanding) {
     const result = employeeOptionMarketAt({
@@ -205,8 +211,11 @@ export function assembleFinancialSnapshot(
     },
     risk: risk.risk,
     employeeEquity,
+    // Sin opciones que leer, lo que se sabe es lo que el 10-K del ejercicio dijo.
     employeeEquityAvailableAt:
-      accepted?.proposal.proposedAt ?? xbrl!.optionsOutstanding.availableAt,
+      accepted?.proposal.proposedAt ??
+      xbrl?.optionsOutstanding.availableAt ??
+      filing.availableAt,
     financialReview: {
       regulatoryCapital: filing.regulatoryCapital,
       assetQuality: filing.assetQuality,
