@@ -70,6 +70,7 @@ describe("method selection 0.2.0", () => {
     ["bank", "excess_return", "bank_regulated"],
     ["insurer", "excess_return", "insurer_regulated"],
     ["reit", "affo_nav", "reit_structure"],
+    ["broker_dealer", "excess_return", "broker_dealer_regulated"],
   ] as const)(
     "recognizes %s and names the financial snapshot missing or unimplemented method",
     (profile, method, rule) => {
@@ -79,7 +80,9 @@ describe("method selection 0.2.0", () => {
         version:
           profile === "reit"
             ? "method-selection-0.6.0"
-            : "method-selection-0.3.0",
+            : profile === "broker_dealer"
+              ? "method-selection-0.7.0"
+              : "method-selection-0.3.0",
         status: "unsupported_method",
         assetProfile: profile,
         recommendedMethod: method,
@@ -96,6 +99,39 @@ describe("method selection 0.2.0", () => {
       assetProfile: null,
       recommendedMethod: null,
       requiredInputs: SIGNALS.map((profile) => "profile_evidence." + profile),
+      unsupportedReasons: ["missing_classification_evidence"],
+    });
+  });
+
+  it("selects a broker-dealer's equity model once its inputs are measured (F6-53)", () => {
+    expect(
+      select(allDecided("broker_dealer"), { excessReturnMissingInputs: [] }),
+    ).toMatchObject({
+      version: "method-selection-0.7.0",
+      status: "selected",
+      assetProfile: "broker_dealer",
+      recommendedMethod: "excess_return",
+      activatedRules: ["broker_dealer_regulated"],
+      confidence: "high",
+    });
+  });
+
+  it("reads evidence from a SIC rule that knew no broker profile as ruling it out with the bank", () => {
+    // `sec-sic-profile-2.0.0` negaba banco, aseguradora, REIT y holding juntos.
+    const legacy = allDecided("cyclical").filter(
+      (item) => item.profile !== "broker_dealer",
+    );
+    const current = allDecided("cyclical");
+    expect(select(legacy)).toStrictEqual(select(current));
+
+    // Con el banco sin evidencia, el broker-dealer tampoco tiene.
+    const undecided = legacy.filter((item) => item.profile !== "bank");
+    expect(select(undecided)).toMatchObject({
+      status: "unsupported_method",
+      requiredInputs: [
+        "profile_evidence.bank",
+        "profile_evidence.broker_dealer",
+      ],
       unsupportedReasons: ["missing_classification_evidence"],
     });
   });

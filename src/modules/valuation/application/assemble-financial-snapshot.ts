@@ -204,6 +204,9 @@ export function assembleFinancialSnapshot(
       commonDividends: filing.commonDividends,
       netRepurchases: filing.netRepurchases,
       payout: filing.payout,
+      ...(filing.payoutBasis === undefined
+        ? {}
+        : { payoutBasis: filing.payoutBasis }),
       roe: equity.roe,
       equityBeta: risk.equityBeta,
       filingSourceDocumentId: filing.sourceDocumentId,
@@ -222,7 +225,10 @@ export function assembleFinancialSnapshot(
       cleanSurplus: filing.cleanSurplus,
     },
     assumptions: {
-      rationale: `Ten-year convergence of reported common ROE to equity cost; filing distributions imply payout ${filing.payout}.`,
+      rationale:
+        filing.payoutBasis === undefined
+          ? `Ten-year convergence of reported common ROE to equity cost; filing distributions imply payout ${filing.payout}.`
+          : `Ten-year convergence of reported common ROE to equity cost; three fiscal years of filing distributions imply payout ${filing.payoutBasis.ratio}${filing.payoutBasis.payoutCapped ? ", capped at 1" : ""}.`,
       periods,
       terminal: { roe: ke.toString(), growth: terminalGrowth, equityBeta: "1" },
     },

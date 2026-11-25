@@ -767,6 +767,26 @@ diagnostics; JPM and PRU still read their HTML tables. Without a transcription
 or XBRL options the financial assembler uses `not_subtracted`, as FCFF does.
 Measured on a replica: BRK-B `excess_return` 393.38 against 577.21, `screening`.
 
+Since `F6-53` (ADR 0061 amendment, owner's decisions) SIC 6211 is the
+`broker_dealer` profile (`sec-sic-profile-3.0.0`), valued with the same
+`excess_return` model and its own selection version (`method-selection-0.7.0`);
+a `broker_dealer` without evidence reads absent when `bank` is absent, so
+`2.0.0` snapshots replay. Migration `0058` lets `valuation_jobs` store it. A
+broker-dealer goes straight to the 10-K XBRL: `financial-xbrl-evidence-1.1.0`
+takes parent equity (or the total less `MinorityInterest`), subtracts preferred
+stock published at both closes —`us-gaap` or the same name in the filer's
+extension (MS)—, reads income available to common through the basic-EPS bridge
+(within 1 % naming `participating_allocation_unpublished`, GS), and the payout
+of the 10-K's three fiscal years capped at one
+(`financial-payout-three-years-1.0.0`, frozen in the optional
+`derivedFinancial.payoutBasis` and recomputed by the policy). A year the 10-K no
+longer tags comes from `companyconcept` (one more request); undisclosed
+dividends are zero only if retained earnings roll exactly with income (HOOD).
+Missing regulatory capital or allowances are named, not blocking, for a
+broker-dealer only. Measured on a replica: HOOD 15.23 (P/V 4.32), SCHW 34.50,
+GS 456.43 (payout 100.6 % → 100 %), MS 82.82, RJF 93.45; IBKR stays without
+repurchase evidence (Up-C).
+
 Company logos are loaded by the **browser** from logo.dev
 ([ADR 0062](docs/architecture/adr/0062-company-logos-browser-loaded.md)): the
 free plan forbids storing them, so the CSP opens `img-src` to

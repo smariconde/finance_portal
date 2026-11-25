@@ -6,6 +6,7 @@ import { utcTimestampSchema } from "@/modules/temporal/domain/temporal-version";
 
 import { decimalPolicySchema, engineDecimalSchema } from "./decimal-policy";
 import { employeeEquityClaimSchema } from "./employee-equity-claim";
+import { payoutBasisSchema } from "./financial-payout";
 import { profileEvidenceSchema } from "./method-selection";
 import {
   currencySchema,
@@ -64,7 +65,7 @@ export const excessReturnInputSchema = z.strictObject({
   asOf: z.iso.date(),
   currency: currencySchema,
   knowledge: pointInTimeQuerySchema,
-  assetProfile: z.enum(["bank", "insurer"]),
+  assetProfile: z.enum(["bank", "insurer", "broker_dealer"]),
   profileEvidence: z.array(profileEvidenceSchema).min(1).max(100),
   /** Common equity, after preferred equity and noncontrolling interests. */
   commonBookEquity: monetaryFactSchema.nullable(),
@@ -77,6 +78,12 @@ export const excessReturnInputSchema = z.strictObject({
       commonDividends: monetaryFactSchema,
       netRepurchases: monetaryFactSchema,
       payout: engineDecimalSchema,
+      /**
+       * `F6-53`: el trienio del que sale `payout`, sólo cuando se usó; sin él
+       * el payout es el del ejercicio base y los snapshots previos conservan su
+       * hash.
+       */
+      payoutBasis: payoutBasisSchema.optional(),
       roe: engineDecimalSchema,
       equityBeta: financialRateFactSchema,
       filingSourceDocumentId: z.string().trim().min(1).max(256),

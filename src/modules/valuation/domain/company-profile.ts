@@ -275,6 +275,7 @@ export function companyProfile(input: CompanyProfileInput): CompanyProfile {
       break;
     case "bank":
     case "insurer":
+    case "broker_dealer":
       metrics = [
         m("pb", "P/B", "Capitalización / patrimonio común", "multiple", () =>
           ratio(cap(), a("equity")),

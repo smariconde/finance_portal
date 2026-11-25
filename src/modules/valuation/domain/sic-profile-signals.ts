@@ -18,18 +18,25 @@ import {
  *
  * - Un SIC **fuera de la división financiera** (6000–6799) es evidencia de que
  *   la empresa no es banco, aseguradora, REIT ni holding financiero. Uno
- *   **dentro** que no está mapeado —brokers, servicios financieros, planes
- *   médicos— no prueba nada sobre esos cuatro perfiles: quedan sin evidencia y
+ *   **dentro** que no está mapeado —servicios financieros, planes médicos— no
+ *   prueba nada sobre esos perfiles: quedan sin evidencia y
  *   el selector se abstiene.
  * - Holding no tiene regla positiva: la lista de la SEC no publica el 6719 de
  *   «offices of holding companies», y Loews o Berkshire figuran como
  *   aseguradoras. Sólo se descarta.
  * - Commodity y ciclo se deciden por industria, que es como Damodaran agrupa
  *   empresas: un SIC conocido fuera de las listas es evidencia negativa.
+ *
+ * La 3.0.0 (`F6-53`, decisión del owner del 2026-11-25) agrega el perfil
+ * `broker_dealer` para el 6211 —«Security Brokers, Dealers & Flotation
+ * Companies»: HOOD, SCHW, GS, MS, RJF, IBKR—, que Damodaran agrupa en
+ * «Brokerage & Investment Banking» y trata como financiera: no publica un ROC
+ * para la industria. Lo niega donde niega a los demás perfiles financieros.
  */
-export const SEC_SIC_PROFILE_RULE_VERSION = "sec-sic-profile-2.0.0";
+export const SEC_SIC_PROFILE_RULE_VERSION = "sec-sic-profile-3.0.0";
 
 const BANK_SIC = new Set(["6021", "6022", "6029", "6035", "6036"]);
+const BROKER_DEALER_SIC = new Set(["6211"]);
 const INSURER_SIC = new Set(["6311", "6321", "6331", "6351", "6361", "6399"]);
 const REIT_SIC = new Set(["6798"]);
 
@@ -83,6 +90,7 @@ const FINANCE_PROFILES: readonly SignalProfile[] = [
   "bank",
   "insurer",
   "reit",
+  "broker_dealer",
   "holding",
 ];
 
@@ -108,7 +116,9 @@ export function assessSicProfiles(sic: string): SicProfileAssessment {
       ? "insurer"
       : REIT_SIC.has(sic)
         ? "reit"
-        : null;
+        : BROKER_DEALER_SIC.has(sic)
+          ? "broker_dealer"
+          : null;
 
   if (financeProfile !== null || !isFinanceDivision(sic)) {
     for (const profile of FINANCE_PROFILES) {

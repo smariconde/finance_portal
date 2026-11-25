@@ -146,3 +146,84 @@ residuo de −53 M (0,08 % de la utilidad); ROE 9,8 % contra un costo de 8,4 %;
 393,38 por acción B contra un cierre de 577,21, rigor `screening`. JPM y PRU no
 cambian de camino. El instance de BRK pesa 13,5 MB y bajó en 12 s; el
 `deadline_exceeded` del primer intento fue una SEC lenta, no el tamaño.
+
+## Enmienda del 2026-11-25: corredores y bancos de inversión (`F6-53`)
+
+**Problema.** El SIC 6211 («Security Brokers, Dealers & Flotation
+Companies») no tenía perfil: `sec-sic-profile-2.0.0` dejaba sin evidencia a los
+perfiles financieros de un código de la división financiera que no mapeaba, y
+HOOD, SCHW, GS, MS, RJF e IBKR frenaban en `missing_classification_evidence`.
+Medido con doce pedidos a la SEC: los seis mapean a «Brokerage & Investment
+Banking», para la que Damodaran no publica un ROC (la trata como financiera);
+ninguno publica `CommonStockholdersEquity`; tres tienen preferentes (GS, SCHW,
+MS) y GS y SCHW devolvieron más que su utilidad en 2025 (103 % y 110 %).
+
+**Decisión 1 del owner — perfil `broker_dealer` con exceso de retorno.**
+`sec-sic-profile-3.0.0` afirma `broker_dealer` para el 6211 y lo niega donde
+niega a los demás perfiles financieros; comparte el primer nivel de precedencia
+con banco, aseguradora y REIT y se valúa con este mismo modelo, experimental y
+`screening`. Su selección lleva versión propia (`method-selection-0.7.0`) para
+que las de los demás perfiles conserven su hash, y un `broker_dealer` sin
+evidencia se lee ausente cuando la de `bank` es negativa: es lo que afirmaba la
+`2.0.0`, y así los snapshots guardados con ella se reproducen igual. Un
+broker-dealer va directo al XBRL del 10-K; el lector HTML sigue siendo de JPM y
+PRU. Migración `0058`: el check de `valuation_jobs` admite el perfil.
+
+**Decisión 2 del owner — payout del trienio con tope en uno**
+(`financial-payout-three-years-1.0.0`). Dividendos comunes y recompras de los
+tres ejercicios del 10-K sobre su utilidad común; por encima de uno se lleva a
+uno y se nombra (`payoutCapped`), porque más que toda la utilidad achicaría el
+patrimonio sin fin. Se congela en `derivedFinancial.payoutBasis` sólo cuando se
+usa —los snapshots anteriores conservan su hash— y el policy check exige que su
+primer ejercicio sean los hechos del año base y que el payout sea el que el
+trienio implica. Aplica a la lectura XBRL; las tablas HTML de JPM y PRU siguen
+con el año base.
+
+**`financial-xbrl-evidence-1.1.0`.** Generaliza la `1.0.0`, siempre con
+evidencia en vez de ausencias:
+
+- patrimonio de la controlante como `StockholdersEquity` o, sin él, el total
+  con no controlantes menos `MinorityInterest` del mismo cierre (HOOD);
+- preferentes publicadas a los dos cierres —`us-gaap` o el mismo nombre en la
+  extensión del filer, como los 9.750 M de `ms:PreferredStockCarryingValue`— y
+  restadas; cero con acciones publicadas en cero o con un estado de patrimonio
+  cuyos componentes suman la controlante sin columna de preferentes;
+- utilidad común `NetIncomeLossAvailableToCommonStockholdersBasic` (la neta,
+  sólo sin preferentes) que el EPS básico reproduce dentro del redondeo impreso,
+  o a 1 % o menos nombrando el desvío (`participating_allocation_unpublished`):
+  GS no etiqueta su asignación a valores participantes y deja 55,2 M;
+- distribuciones por escaleras de conceptos con nombre. Un concepto que el 10-K
+  usa otros años es evidencia de que la partida existe: el ejercicio que falta
+  se lee de `companyconcept` (`sec-companyconcept-1.0.0`, un pedido más) desde un
+  10-K presentado antes del último —MS etiqueta sus recompras de 2023 sólo en el
+  de 2024—. Sin concepto en ningún año, los dividendos son cero si los
+  resultados acumulados ruedan exactamente con la utilidad (HOOD), y dividendos o
+  recompras si el patrimonio limpio cierra a 2 % (BRK);
+- capital regulatorio: estatutario (aseguradoras) o CET1 con su mínimo, por
+  miembro y hasta dos ejes (GS lo publica por entidad y por método). Para un banco
+  o una aseguradora sus diagnósticos siguen siendo exigidos; para un
+  broker-dealer la ausencia se nombra en el texto, porque HOOD no etiqueta el net
+  capital de sus subsidiarias.
+
+**Fuera.** IBKR queda en `distribution_unsupported`: no recompra, no publica
+concepto de recompras y los canjes de su estructura Up-C (la sociedad cotizante
+tiene el 25 % de IBG LLC) mueven el patrimonio de la controlante sin pasar por
+el resultado, así que el patrimonio limpio no cierra. Otros códigos de la
+división financiera sin perfil (6199, 6282, 6411, 6200) siguen sin evidencia.
+
+**Medido en una réplica de la base personal con el worker real** (descarga e
+IA; cierre del 2026-11-25, Ke 9,13 % con la beta de la industria, 1,17):
+
+| Ticker | Patrimonio común (M) | ROE    | Payout del trienio | Valor  | Cierre | P/V  |
+| ------ | -------------------- | ------ | ------------------ | ------ | ------ | ---- |
+| HOOD   | 9.140                | 22,0 % | 55,1 %             | 15,23  | 65,78  | 4,32 |
+| SCHW   | 42.662               | 20,6 % | 85,3 %             | 34,50  | 93,45  | 2,71 |
+| GS     | 109.819              | 14,9 % | 100,6 % → 100 %    | 456,43 | 801,03 | 1,76 |
+| MS     | 101.882              | 16,5 % | 80,9 %             | 82,82  | 167,55 | 2,02 |
+| RJF    | 13.128               | 18,5 % | 69,4 %             | 93,45  | 162,84 | 1,74 |
+
+Las cinco quedan `requires_review` por el rótulo experimental y el riesgo país
+por domicilio, como JPM y PRU. El modelo converge el ROE al costo en diez años y
+no paga una franquicia perpetua: el precio de los cinco descuenta más, y HOOD
+—seis veces su patrimonio— es el caso extremo. Un `EgressBlockedError` en
+SCHW y en MS durante una segunda tanda fue transitorio y pasó al repetirlo.

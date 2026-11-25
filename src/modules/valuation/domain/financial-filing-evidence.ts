@@ -14,12 +14,16 @@ import {
   ZERO,
   ONE,
 } from "./decimal-policy";
+import { payoutBasisSchema } from "./financial-payout";
 import { monetaryFactSchema, type MonetaryFact } from "./valuation-facts";
 
 export const FINANCIAL_FILING_EVIDENCE_VERSION =
   "financial-filing-evidence-1.1.0";
 /** La misma evidencia leída del XBRL del 10-K (`F6-50`). */
-export const FINANCIAL_XBRL_EVIDENCE_VERSION = "financial-xbrl-evidence-1.0.0";
+export const LEGACY_FINANCIAL_XBRL_EVIDENCE_VERSION =
+  "financial-xbrl-evidence-1.0.0";
+/** `F6-53`: preferentes restadas, payout del trienio y broker-dealers. */
+export const FINANCIAL_XBRL_EVIDENCE_VERSION = "financial-xbrl-evidence-1.1.0";
 
 type Row = { readonly label: string; readonly numbers: readonly string[] };
 type Table = { readonly text: string; readonly rows: readonly Row[] };
@@ -27,6 +31,7 @@ type Table = { readonly text: string; readonly rows: readonly Row[] };
 export const financialFilingEvidenceSchema = z.strictObject({
   version: z.enum([
     FINANCIAL_FILING_EVIDENCE_VERSION,
+    LEGACY_FINANCIAL_XBRL_EVIDENCE_VERSION,
     FINANCIAL_XBRL_EVIDENCE_VERSION,
   ]),
   fiscalYearEnd: calendarDateSchema,
@@ -36,6 +41,8 @@ export const financialFilingEvidenceSchema = z.strictObject({
   commonDividends: monetaryFactSchema,
   netRepurchases: monetaryFactSchema,
   payout: engineDecimalSchema,
+  /** `F6-53`: el trienio del que sale `payout`; sin él, el del año base. */
+  payoutBasis: payoutBasisSchema.optional(),
   regulatoryCapital: z.string().trim().min(1).max(1024),
   assetQuality: z.string().trim().min(1).max(1024),
   cleanSurplus: z.string().trim().min(1).max(1024),
