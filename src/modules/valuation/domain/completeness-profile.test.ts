@@ -8,9 +8,15 @@ import type {
 } from "./annual-fundamentals";
 import {
   completenessCheck,
+  COMPLETENESS_PROFILE_RECONCILED_SHARES_VERSION,
   COMPLETENESS_PROFILE_VERSION,
+  completenessProfileSchema,
   measureCompleteness,
 } from "./completeness-profile";
+import {
+  DILUTED_SHARES_RECONCILED_VERSION,
+  type DilutedSharesReconciled,
+} from "./diluted-shares-reconciled";
 
 function value(item: LineItemId, end: string): LineItemValue {
   return {
@@ -53,7 +59,7 @@ const COMPLETE: LineItemId[] = [
 ];
 
 function series(...years: FiscalYear[]): AnnualFundamentals {
-  return { version: "annual-fundamentals-1.8.0", fiscalYears: years };
+  return { version: "annual-fundamentals-1.9.0", fiscalYears: years };
 }
 
 function fiveYears(items: readonly LineItemId[]): AnnualFundamentals {
@@ -224,5 +230,78 @@ describe(COMPLETENESS_PROFILE_VERSION, () => {
       status: "partial",
       missing: ["debt"],
     });
+  });
+});
+
+describe(COMPLETENESS_PROFILE_RECONCILED_SHARES_VERSION, () => {
+  const WITHOUT_DILUTED = COMPLETE.filter((item) => item !== "diluted_shares");
+  const reconciled = (
+    fiscalYearEnd = "2025-12-31",
+  ): DilutedSharesReconciled => ({
+    version: DILUTED_SHARES_RECONCILED_VERSION,
+    basis: "class_diluted",
+    member: "CommonClassAMember",
+    fiscalYearEnd,
+    shares: "80000000",
+    dilutedEps: "12.50",
+    netIncome: "1000000000",
+    netIncomeConcept: "us-gaap:NetIncomeLoss",
+    residual: "0",
+    tolerance: "7150000",
+    accessionNumber: "0000000042-26-000001",
+    availableAt: "2026-02-10T21:00:00.000Z",
+  });
+
+  it("counts reconciled diluted shares of the latest year and freezes them", () => {
+    const profile = measureCompleteness(fiveYears(WITHOUT_DILUTED), {
+      industryMapping: "mapped",
+      dilutedShares: reconciled(),
+    });
+    expect(profile.version).toBe(
+      COMPLETENESS_PROFILE_RECONCILED_SHARES_VERSION,
+    );
+    expect(profile.dilutedShares).toEqual(reconciled());
+    expect(completenessCheck(profile, "structural_inputs")).toMatchObject({
+      status: "met",
+      missing: [],
+    });
+    expect(completenessProfileSchema.parse(profile)).toEqual(profile);
+  });
+
+  it("stays 1.3.0 byte for byte when the series has the count or the year differs", () => {
+    const withCount = measureCompleteness(fiveYears(COMPLETE), {
+      industryMapping: "mapped",
+      dilutedShares: reconciled(),
+    });
+    expect(withCount).toEqual(
+      measureCompleteness(fiveYears(COMPLETE), { industryMapping: "mapped" }),
+    );
+    const otherYear = measureCompleteness(fiveYears(WITHOUT_DILUTED), {
+      industryMapping: "mapped",
+      dilutedShares: reconciled("2024-12-31"),
+    });
+    expect(otherYear.version).toBe(COMPLETENESS_PROFILE_VERSION);
+    expect(otherYear).not.toHaveProperty("dilutedShares");
+    expect(completenessCheck(otherYear, "structural_inputs")).toMatchObject({
+      status: "partial",
+      missing: ["diluted_shares"],
+    });
+  });
+
+  it("refuses the frozen count without its version, and the version without it", () => {
+    const profile = measureCompleteness(fiveYears(WITHOUT_DILUTED), {
+      industryMapping: "mapped",
+      dilutedShares: reconciled(),
+    });
+    expect(
+      completenessProfileSchema.safeParse({
+        ...profile,
+        version: COMPLETENESS_PROFILE_VERSION,
+      }).success,
+    ).toBe(false);
+    const withoutCount = { ...profile, dilutedShares: undefined };
+    expect(completenessProfileSchema.safeParse(withoutCount).success).toBe(
+      false,
+    );
   });
 });

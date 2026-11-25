@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   readCoverShares,
   readXbrlInstance,
+  readXbrlShareFacts,
   segmentFacts,
 } from "./sec-xbrl-instance";
 
@@ -289,6 +290,117 @@ ${facts}
 
   it("rejects a document with a DOCTYPE", () => {
     expect(readCoverShares(cover("", "<!DOCTYPE x>"))).toEqual({
+      status: "rejected",
+      reason: "doctype_present",
+    });
+  });
+});
+
+describe("sec-xbrl-share-facts-1.0.0", () => {
+  const CLASS_A: [string, string] = [
+    "us-gaap:StatementClassOfStockAxis",
+    "gaap:CommonClassAMember",
+  ];
+  const SHARE_UNITS = `${UNITS}
+<unit id="shares"><measure>shares</measure></unit>
+<unit id="pure"><measure>pure</measure></unit>
+<unit id="usdPerShare"><divide><unitNumerator><measure>iso4217:USD</measure></unitNumerator><unitDenominator><measure>shares</measure></unitDenominator></divide></unit>
+<unit id="eurPerShare"><divide><unitNumerator><measure>iso4217:EUR</measure></unitNumerator><unitDenominator><measure>shares</measure></unitDenominator></divide></unit>`;
+  const DOC = instance(`${SHARE_UNITS}
+${context("fy", duration("2025-01-01", "2025-12-31"))}
+${context("fy-a", duration("2025-01-01", "2025-12-31"), [CLASS_A])}
+${context("close-a", instant("2025-12-31"), [CLASS_A])}
+<gaap:NetIncomeLoss contextRef="fy" unitRef="usd" decimals="-6">1000000000</gaap:NetIncomeLoss>
+<gaap:WeightedAverageNumberOfDilutedSharesOutstanding contextRef="fy-a" unitRef="shares" decimals="-6">80000000</gaap:WeightedAverageNumberOfDilutedSharesOutstanding>
+<gaap:EarningsPerShareDiluted contextRef="fy-a" unitRef="usdPerShare" decimals="2">12.50</gaap:EarningsPerShareDiluted>
+<gaap:EarningsPerShareDiluted contextRef="fy" unitRef="eurPerShare" decimals="2">11.00</gaap:EarningsPerShareDiluted>
+<gaap:WeightedAverageNumberOfSharesOutstandingBasic contextRef="fy" unitRef="shares">79000000</gaap:WeightedAverageNumberOfSharesOutstandingBasic>
+<acme:CommonStockConversionRate contextRef="close-a" unitRef="pure" decimals="4">1.5400</acme:CommonStockConversionRate>
+<acme:Unrequested contextRef="close-a" unitRef="pure" decimals="4">2</acme:Unrequested>`);
+  const read = (xml: string) =>
+    readXbrlShareFacts(xml, {
+      usGaap: [
+        "NetIncomeLoss",
+        "WeightedAverageNumberOfDilutedSharesOutstanding",
+        "EarningsPerShareDiluted",
+        "WeightedAverageNumberOfSharesOutstandingBasic",
+      ],
+      extension: ["CommonStockConversionRate"],
+    });
+
+  it("reads shares, USD, USD per share and pure, with the printed rounding", () => {
+    const result = read(DOC);
+    expect(result.status).toBe("read");
+    if (result.status !== "read") return;
+    expect(
+      result.read.facts.map(({ concept, contextId, unit, value, decimals }) => [
+        concept,
+        contextId,
+        unit,
+        value,
+        decimals,
+      ]),
+    ).toEqual([
+      ["us-gaap:NetIncomeLoss", "fy", "usd", "1000000000", -6],
+      [
+        "us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding",
+        "fy-a",
+        "shares",
+        "80000000",
+        -6,
+      ],
+      ["us-gaap:EarningsPerShareDiluted", "fy-a", "usd_per_share", "12.50", 2],
+      ["extension:CommonStockConversionRate", "close-a", "pure", "1.5400", 4],
+    ]);
+  });
+
+  it("leaves out a per-share amount in another currency, a fact without decimals and an unrequested concept", () => {
+    const result = read(DOC);
+    if (result.status !== "read") throw new Error("expected read");
+    const concepts = result.read.facts.map((fact) => fact.concept);
+    expect(concepts).not.toContain(
+      "us-gaap:WeightedAverageNumberOfSharesOutstandingBasic",
+    );
+    expect(concepts).not.toContain("extension:Unrequested");
+    expect(
+      result.read.facts.filter(
+        (fact) => fact.concept === "us-gaap:EarningsPerShareDiluted",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("reads INF as exact and drops a concept with two values in one context", () => {
+    const result = read(
+      instance(`${SHARE_UNITS}
+${context("fy", duration("2025-01-01", "2025-12-31"))}
+<gaap:WeightedAverageNumberOfSharesOutstandingBasic contextRef="fy" unitRef="shares" decimals="INF">79000000</gaap:WeightedAverageNumberOfSharesOutstandingBasic>
+<gaap:NetIncomeLoss contextRef="fy" unitRef="usd" decimals="-6">1</gaap:NetIncomeLoss>
+<gaap:NetIncomeLoss contextRef="fy" unitRef="usd" decimals="-6">2</gaap:NetIncomeLoss>`),
+    );
+    if (result.status !== "read") throw new Error("expected read");
+    expect(result.read.facts).toEqual([
+      {
+        concept: "us-gaap:WeightedAverageNumberOfSharesOutstandingBasic",
+        contextId: "fy",
+        unit: "shares",
+        value: "79000000",
+        decimals: null,
+      },
+    ]);
+    expect(result.read.conflicting).toEqual(["us-gaap:NetIncomeLoss"]);
+  });
+
+  it("never reads a standard taxonomy as the filer's extension", () => {
+    const result = readXbrlShareFacts(DOC, {
+      usGaap: [],
+      extension: ["NetIncomeLoss"],
+    });
+    if (result.status !== "read") throw new Error("expected read");
+    expect(result.read.facts).toEqual([]);
+  });
+
+  it("rejects a DOCTYPE", () => {
+    expect(read(`<!DOCTYPE x>${DOC}`)).toEqual({
       status: "rejected",
       reason: "doctype_present",
     });

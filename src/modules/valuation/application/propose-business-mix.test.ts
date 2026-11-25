@@ -75,7 +75,7 @@ const TWO_LINES: [string, string][] = [
 
 function series(value = "400000000"): AnnualFundamentals {
   return {
-    version: "annual-fundamentals-1.8.0",
+    version: "annual-fundamentals-1.9.0",
     fiscalYears: [
       {
         fiscalYearEnd: "2025-12-31",

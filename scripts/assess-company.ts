@@ -54,6 +54,10 @@ import { DAMODARAN_INDUSTRY_TAXONOMY } from "@/modules/valuation/domain/industry
 import { financeDebtOf } from "@/modules/valuation/domain/captive-finance";
 import { getSourceEgressFetch } from "@/server/egress/get-source-egress-fetch";
 import { readCaptiveFinanceFiling } from "@/server/jobs/captive-finance-filing";
+import { readDilutedSharesFiling } from "@/server/jobs/diluted-shares-filing";
+import { DECLARED_SUCCESSIONS } from "@/modules/corporate-actions/application/declared-successions";
+import type { DilutedSharesFilingResult } from "@/modules/valuation/application/read-diluted-shares-filing";
+import { completenessCheck } from "@/modules/valuation/domain/completeness-profile";
 import { getClassificationRepository } from "@/server/persistence/get-classification-repository";
 import { getIndustryResolutionRepository } from "@/server/persistence/get-industry-resolution-repository";
 import { getBusinessMixRepository } from "@/server/persistence/get-business-mix-repository";
@@ -212,9 +216,18 @@ type Report = {
     readonly change: "opened" | "superseded" | "unchanged" | null;
   };
   readonly assessment: CompanyAssessment;
+  /** La lectura del instance cuando faltaban las diluidas (`F6-49`). */
+  readonly dilutedShares: DilutedSharesFilingResult | null;
 };
 
 const reports: Report[] = [];
+
+/** Antecesores declarados del CIK: su 10-K puede ser el del último ejercicio. */
+function predecessorCiksOf(cik: string): string[] {
+  return DECLARED_SUCCESSIONS.filter(
+    (succession) => succession.successorCik === cik,
+  ).map((succession) => succession.predecessorCik);
+}
 
 for (const ticker of values.ticker) {
   const resolution = await identity.resolve({ symbol: ticker }, query);
@@ -296,7 +309,7 @@ for (const ticker of values.ticker) {
     }
   }
 
-  const assessmentRequest = {
+  let assessmentRequest: Parameters<typeof assessCompany>[0] = {
     legalEntityId,
     query: queryAt(new Date().toISOString()),
     fundamentalsSourceId: SEC_SOURCE_ID,
@@ -379,6 +392,35 @@ for (const ticker of values.ticker) {
   };
   let assessment = await assessCompany(assessmentRequest, assessmentReaders);
 
+  // Acciones diluidas sólo por clase o sólo básicas (`F6-49`): fuera de
+  // `--offline`, dos pedidos leen el instance del 10-K del último ejercicio.
+  const sharesBase = assessment.fundamentals.series?.fiscalYears[0];
+  const structural = completenessCheck(
+    assessment.completeness,
+    "structural_inputs",
+  );
+  let dilutedShares: DilutedSharesFilingResult | null = null;
+  if (
+    !values.offline &&
+    sharesBase !== undefined &&
+    cik !== null &&
+    structural.missing.length === 1 &&
+    structural.missing[0] === "diluted_shares"
+  ) {
+    dilutedShares = await readDilutedSharesFiling({
+      ciks: [cik, ...predecessorCiksOf(cik)],
+      knownAt: assessmentRequest.query.knownAt ?? NOW,
+      fiscalYearEnd: sharesBase.fiscalYearEnd,
+    });
+    if (dilutedShares?.status === "reconciled") {
+      assessmentRequest = {
+        ...assessmentRequest,
+        dilutedShares: dilutedShares.reconciled,
+      };
+      assessment = await assessCompany(assessmentRequest, assessmentReaders);
+    }
+  }
+
   // Una financiera cautiva declarada (`F6-23`, ADR 0082): fuera de
   // `--offline`, dos pedidos más leen la apertura del 10-K del ejercicio base.
   const captiveBase = assessment.fundamentals.series?.fiscalYears[0];
@@ -402,7 +444,7 @@ for (const ticker of values.ticker) {
     );
   }
 
-  reports.push({ ticker, cik, sicObservation, assessment });
+  reports.push({ ticker, cik, sicObservation, assessment, dilutedShares });
 }
 
 if (values.json) {
@@ -469,6 +511,15 @@ for (const report of reports) {
     );
   }
   log("completitud", assessment.completeness.version);
+  if (report.dilutedShares !== null) {
+    const shares = report.dilutedShares;
+    log(
+      "  diluidas (10-K)",
+      shares.status === "reconciled"
+        ? `${shares.reconciled.shares} · ${shares.reconciled.basis}${shares.reconciled.member === null ? "" : ` ${shares.reconciled.member}`} · EPS ${shares.reconciled.dilutedEps} · residuo ${shares.reconciled.residual} ≤ ${shares.reconciled.tolerance}`
+        : `sin conciliar · ${shares.reason}`,
+    );
+  }
   for (const item of assessment.completeness.checks) {
     const measures = Object.entries(item.measures)
       .map(([key, value]) => `${key} ${value}`)

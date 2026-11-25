@@ -7,6 +7,11 @@ import {
 } from "@/modules/valuation/domain/derived-assumptions";
 import { DEMO_VALUATION_INPUT } from "@/modules/valuation/infrastructure/demo-valuation-fixtures";
 
+import {
+  NONCONTROLLING_INTEREST_EVIDENCE_VERSION,
+  noncontrollingInterestRationale,
+} from "@/modules/valuation/domain/noncontrolling-interest-evidence";
+
 import { storedTextEs } from "./stored-text";
 
 describe("storedTextEs", () => {
@@ -27,6 +32,23 @@ describe("storedTextEs", () => {
       ),
     ).toBe(
       "Ninguna receta separa activos no operativos; se valúan en cero y se dice. (derived-assumptions-2.0.0)",
+    );
+  });
+
+  it("translates the noncontrolling-interest evidence the rule writes", () => {
+    expect(
+      storedTextEs(
+        noncontrollingInterestRationale({
+          status: "zero",
+          version: NONCONTROLLING_INTEREST_EVIDENCE_VERSION,
+          accessionNumber: "0001403161-26-000134",
+          asOf: "2026-09-30",
+          total: "36111000000",
+          components: 5,
+        }),
+      ),
+    ).toBe(
+      "El estado de patrimonio del filing 0001403161-26-000134 al 2026-09-30 suma 5 componentes hasta el total, sin participaciones no controlantes; se valúan en cero y se dice. (noncontrolling-interest-evidence-1.0.0)",
     );
   });
 

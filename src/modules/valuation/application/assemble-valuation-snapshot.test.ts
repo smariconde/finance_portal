@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { marginalTaxRateOf } from "../domain/cost-of-capital";
-import { buildNormalization } from "../domain/normalization";
+import {
+  buildNormalization,
+  EQUITY_INCLUDING_MINORITY,
+} from "../domain/normalization";
+import { NONCONTROLLING_INTEREST_EVIDENCE_VERSION } from "../domain/noncontrolling-interest-evidence";
 import { zeroDebtEvidenceFixture } from "../infrastructure/zero-debt-evidence-fixtures";
 
 import { DEMO_VALUATION_INPUT } from "../infrastructure/demo-valuation-fixtures";
@@ -87,7 +91,7 @@ function revenue(fiscalYearEnd: string, value: string) {
 }
 
 const SERIES: AnnualFundamentals = {
-  version: "annual-fundamentals-1.8.0",
+  version: "annual-fundamentals-1.9.0",
   fiscalYears: [
     revenue("2024-12-31", demo.baseRevenue.value),
     revenue("2023-12-31", "90000000"),
@@ -317,6 +321,60 @@ describe("valuation-snapshot-1.0.0", () => {
         (check) => check.id === "zero_debt_evidence_consistent",
       )?.status,
     ).toBe("passed");
+  });
+
+  it("declares no noncontrolling interest only with the equity statement of the same close (F6-49)", () => {
+    const facts = structuredClone(demo.normalization.facts);
+    facts.balance.equity = {
+      ...facts.balance.equity!,
+      concept: EQUITY_INCLUDING_MINORITY,
+    };
+    facts.balance.minorityInterest = null;
+    const normalization = buildNormalization(facts, {
+      baseRevenue: demo.baseRevenue.value,
+      marginalTaxRate: marginalTaxRateOf(demo.costOfCapital),
+      capitalization: demo.capitalization,
+    });
+    const assessment = { ...ASSESSMENT, normalization };
+    const evidence = {
+      status: "zero",
+      version: NONCONTROLLING_INTEREST_EVIDENCE_VERSION,
+      accessionNumber: "0000000001-25-000010",
+      asOf: facts.balance.equity.asOf,
+      total: facts.balance.equity.value,
+      components: 4,
+    } as const;
+
+    const without = assembleValuationSnapshot(request({ assessment }));
+    expect(without.status).toBe("assembled");
+    if (without.status !== "assembled") return;
+    expect(without.input.bridge.minorityInterest.status).toBe("missing");
+
+    const otherClose = assembleValuationSnapshot(
+      request({
+        assessment,
+        noncontrollingInterest: { ...evidence, asOf: "2023-12-31" },
+      }),
+    );
+    if (otherClose.status !== "assembled") throw new Error("not assembled");
+    expect(otherClose.input.bridge.minorityInterest.status).toBe("missing");
+
+    const result = assembleValuationSnapshot(
+      request({ assessment, noncontrollingInterest: evidence }),
+    );
+    if (result.status !== "assembled") throw new Error("not assembled");
+    expect(result.input.bridge.minorityInterest).toMatchObject({
+      status: "declared_absent",
+      amount: null,
+    });
+    expect(result.input.bridge.minorityInterest.rationale).toContain(
+      "0000000001-25-000010",
+    );
+    const run = runValuation(result.input, {
+      now: () => "2026-10-21T00:00:00.000Z",
+      newValuationRunId: () => "00000000-0000-4000-8000-0000000000fc",
+    });
+    expect(run.status).not.toBe("rejected");
   });
 
   it("freezes the industry's ROC and bounds the terminal return with it", () => {
@@ -652,7 +710,7 @@ describe("valuation-snapshot-1.0.0", () => {
       };
     };
     const cycleSeries = {
-      version: "annual-fundamentals-1.8.0",
+      version: "annual-fundamentals-1.9.0",
       fiscalYears: [
         withEbit("2024-12-31", demo.baseRevenue.value, "1"),
         withEbit("2023-12-31", "90000000", "18000000"),

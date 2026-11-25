@@ -22,7 +22,7 @@ function series(
   ...years: Array<{ end: string; items: YearSpec }>
 ): AnnualFundamentals {
   return {
-    version: "annual-fundamentals-1.8.0",
+    version: "annual-fundamentals-1.9.0",
     fiscalYears: years.map(({ end, items }) => ({
       fiscalYearEnd: end,
       items: Object.fromEntries(
@@ -480,7 +480,7 @@ describe("evidence from fundamentals", () => {
     expect(
       assessFundamentalProfileSignals(
         SUBJECT,
-        { version: "annual-fundamentals-1.8.0", fiscalYears: [] },
+        { version: "annual-fundamentals-1.9.0", fiscalYears: [] },
         "sec-edgar",
       ).evidence,
     ).toEqual([]);

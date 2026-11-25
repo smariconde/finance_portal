@@ -118,6 +118,49 @@ describe("annual fundamentals 1.1.0", () => {
     });
   });
 
+  it("reads capex published under another name, after PP&E and never summed (1.9.0)", () => {
+    const productive = buildAnnualFundamentals(
+      [
+        row("PaymentsToAcquireProductiveAssets", "2025-12-31", "131819"),
+        row("PaymentsForCapitalImprovements", "2025-12-31", "50"),
+      ],
+      "2025-12-31",
+      "2026-06-30",
+    );
+    expect(productive.fiscalYears[0]?.items.capital_expenditure).toMatchObject({
+      concept: "us-gaap:PaymentsToAcquireProductiveAssets",
+      value: "131819",
+    });
+
+    const both = buildAnnualFundamentals(
+      [
+        row("PaymentsToAcquirePropertyPlantAndEquipment", "2025-12-31", "900"),
+        row("PaymentsToAcquireProductiveAssets", "2025-12-31", "1000"),
+      ],
+      "2025-12-31",
+      "2026-06-30",
+    );
+    expect(both.fiscalYears[0]?.items.capital_expenditure).toMatchObject({
+      concept: "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      value: "900",
+    });
+
+    const lilly = buildAnnualFundamentals(
+      [
+        row(
+          "PaymentsToAcquireOtherPropertyPlantAndEquipment",
+          "2025-12-31",
+          "7841",
+        ),
+      ],
+      "2025-12-31",
+      "2026-06-30",
+    );
+    expect(lilly.fiscalYears[0]?.items.capital_expenditure).toMatchObject({
+      concept: "us-gaap:PaymentsToAcquireOtherPropertyPlantAndEquipment",
+    });
+  });
+
   it("does not take the noncurrent lease liability for the total (1.1.0)", () => {
     const series = buildAnnualFundamentals(
       [

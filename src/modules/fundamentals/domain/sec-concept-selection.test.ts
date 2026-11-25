@@ -15,10 +15,18 @@ describe("sec concept selection", () => {
     // Cambiar la lista, la ventana o los conceptos de evidencia sin subir la
     // versión rompe este test: la corrida diría haber ingerido otra cosa.
     expect(SEC_CONCEPT_SELECTION).toEqual({
-      version: "sec-core-concepts-11.0.0",
+      version: "sec-core-concepts-12.0.0",
       components: { historyWindow: "sec-history-5fy-2.0.0" },
     });
-    expect(listSelectedSecConcepts()).toHaveLength(101);
+    expect(listSelectedSecConcepts()).toHaveLength(104);
+    // El capex con otro nombre (12.0.0, `F6-49`).
+    for (const concept of [
+      "PaymentsToAcquireProductiveAssets",
+      "PaymentsToAcquireOtherPropertyPlantAndEquipment",
+      "PaymentsForCapitalImprovements",
+    ]) {
+      expect(isSelectedSecConcept("us-gaap", concept)).toBe(true);
+    }
     expect(
       listSelectedSecConcepts().filter((qualified) => {
         const [taxonomy, concept] = qualified.split(":") as [string, string];

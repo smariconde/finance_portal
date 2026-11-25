@@ -4,6 +4,10 @@ import type {
   ReturnEvent,
 } from "@/modules/metrics/domain/total-return";
 
+import {
+  noncontrollingInterestRationale,
+  type NoncontrollingInterestEvidence,
+} from "../domain/noncontrolling-interest-evidence";
 import type { ReferenceDatasetReading } from "@/modules/reference-data/application/read-reference-dataset";
 
 import { ZERO_DEBT_FISCAL_YEARS } from "../domain/zero-debt-evidence";
@@ -122,6 +126,15 @@ export type ValuationSnapshotRequest = {
   readonly industryCapital?: ReferenceDatasetReading | null;
   /** Builds common FCFF inputs for the separate growth assembler. */
   readonly growthFoundation?: boolean;
+  /**
+   * Evidencia de no controlantes en cero (`F6-49`) cuando el patrimonio sólo se
+   * publica incluyéndolos: el estado de patrimonio del filing del cierre del
+   * balance. Sin ella el reclamo queda `missing`.
+   */
+  readonly noncontrollingInterest?:
+    | NoncontrollingInterestEvidence
+    | { readonly status: "unavailable"; readonly reason: string }
+    | null;
   /**
    * El consenso de ventas vigente al corte (`F6-39`, ADR 0085): los ejercicios
    * no retirados y la última captura visible. Sólo lo lee `fcff_base`; sin él
@@ -447,6 +460,14 @@ export function assembleValuationSnapshot(
     riskFree: costOfCapital.derived.riskFree,
   });
   const balance = normalization.facts.balance;
+  // Cero sólo con el estado de patrimonio del filing de ese mismo cierre.
+  const evidence = request.noncontrollingInterest ?? null;
+  const noncontrollingZero =
+    evidence?.status === "zero" &&
+    balance.equity !== null &&
+    evidence.asOf === balance.equity.asOf
+      ? evidence
+      : null;
   // Cada claim del puente lleva la fecha de su bloque de balance.
   const atDate =
     (asOf: string) =>
@@ -536,7 +557,11 @@ export function assembleValuationSnapshot(
           : normalization.investedCapital.status === "resolved" &&
               normalization.investedCapital.minorityInterestBasis ===
                 "included_in_equity"
-            ? missing
+            ? noncontrollingZero !== null
+              ? declaredAbsent(
+                  noncontrollingInterestRationale(noncontrollingZero),
+                )
+              : missing
             : declaredAbsent(
                 "No noncontrolling interest is reported in the base-year balance sheet.",
               ),

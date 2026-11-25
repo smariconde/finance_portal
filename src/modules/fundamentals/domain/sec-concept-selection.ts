@@ -24,7 +24,7 @@ import { SEC_HISTORY_WINDOW_VERSION } from "./sec-history-window";
  *   a correr el CIK publica sólo lo nuevo. No sube la versión del parser, porque
  *   filtrar no cambia el contenido de un hecho ya publicado.
  */
-export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-11.0.0";
+export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-12.0.0";
 
 /**
  * Qué decide la versión. La 1.0.0 eran los mismos conceptos con toda la historia
@@ -52,6 +52,11 @@ export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-11.0.0";
  * La 11.0.0 suma los títulos de deuda disponibles para la venta corrientes
  * (F6-41): Datadog publica sus inversiones de corto plazo (4.074 M en 2025)
  * sólo como `AvailableForSaleSecuritiesDebtSecuritiesCurrent`.
+ * La 12.0.0 suma el capex con que lo publican 31 de los 43 filers guardados sin
+ * `PaymentsToAcquirePropertyPlantAndEquipment` (F6-49, medido el 2026-11-25):
+ * `PaymentsToAcquireProductiveAssets` (27: Amazon, NVIDIA, Home Depot, PepsiCo,
+ * Visa…), `PaymentsForCapitalImprovements` (Corning, Gartner) y
+ * `PaymentsToAcquireOtherPropertyPlantAndEquipment` (Eli Lilly).
  * Con la versión y el ancla,
  * un período anterior al corte sigue siendo «no se fue a buscar». El test fija
  * los componentes: cambiar uno sin subir la versión lo rompe.
@@ -128,6 +133,11 @@ const US_GAAP = [
   // Flujo de fondos: reinversión y retorno al accionista.
   "NetCashProvidedByUsedInOperatingActivities",
   "PaymentsToAcquirePropertyPlantAndEquipment",
+  // El capex con otro nombre (12.0.0): la serie los lee en este orden y nunca
+  // los suma.
+  "PaymentsToAcquireProductiveAssets",
+  "PaymentsToAcquireOtherPropertyPlantAndEquipment",
+  "PaymentsForCapitalImprovements",
   "DepreciationDepletionAndAmortization",
   "DepreciationAndAmortization",
   // La D&A de Walmart (6.0.0).
