@@ -24,7 +24,7 @@ describe("projectValuationResult", () => {
     const projected = projectValuationResult(reading, DEMO_SOURCE_REGISTRY);
 
     expect(projected).toMatchObject({
-      catalogVersion: "portal-mcp-tools-1.1.0",
+      catalogVersion: "portal-mcp-tools-1.2.0",
       state: "run",
       run: {
         withheld: null,
@@ -35,6 +35,58 @@ describe("projectValuationResult", () => {
         scenarios: {
           bearValuePerShare: run.result?.scenarios?.bear.valuePerShare,
         },
+      },
+    });
+  });
+
+  it("un control que sólo falló en bull se nombra con su caso (GOOGL, `F6-51`)", async () => {
+    const { reading } = await fixtureValuationReading("fcff");
+    if (reading.state !== "run") throw new Error("expected an FCFF run");
+    const result = reading.run.result;
+    if (result?.scenarios == null) throw new Error("expected scenarios");
+    const terminal = {
+      id: "terminal_value_share",
+      mode: "require_review" as const,
+      status: "failed" as const,
+      message: "Terminal value share above the review threshold.",
+      subjects: ["terminal"],
+    };
+    const projected = projectValuationResult(
+      {
+        ...reading,
+        run: {
+          ...reading.run,
+          status: "requires_review",
+          result: {
+            ...result,
+            scenarios: {
+              ...result.scenarios,
+              bull: {
+                ...result.scenarios.bull,
+                checks: [...result.scenarios.bull.checks, terminal],
+              },
+            },
+          },
+        },
+      },
+      DEMO_SOURCE_REGISTRY,
+    );
+
+    expect(projected).toMatchObject({
+      run: {
+        status: "requires_review",
+        review: {
+          version: "run-review-1.0.0",
+          marks: ["requires_review"],
+          reviewChecks: [{ id: "terminal_value_share", origins: ["bull"] }],
+        },
+        failedChecks: [
+          {
+            id: "terminal_value_share",
+            mode: "require_review",
+            origins: ["bull"],
+          },
+        ],
       },
     });
   });

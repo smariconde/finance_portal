@@ -7,7 +7,7 @@ red, no escribe, no encola jobs y no lee la cuenta en vivo de Schwab.
 
 ## Qué expone
 
-Catálogo `portal-mcp-tools-1.1.0`:
+Catálogo `portal-mcp-tools-1.2.0`:
 
 | Herramienta       | Lee                                                                | Entrada                                 |
 | ----------------- | ------------------------------------------------------------------ | --------------------------------------- |
@@ -27,6 +27,14 @@ si se calculó, o el código, el mensaje del motor —que nombra las reglas que
 fallaron— y los campos que esas reglas señalan. `failedChecks` sigue listando
 los controles `require_review` de una corrida calculada; un rechazo no tiene
 `result`, así que sus reglas están en `failure`.
+
+Desde `1.2.0` (`F6-51`), cada corrida de `list_valuations` y `get_valuation`
+trae `review` (`run-review-1.0.0`): `marks` (`computed`, `experimental`,
+`requires_review`, `rejected`), `experimentalModel` (el rótulo del método o
+`null`) y `reviewChecks`, los controles de revisión que fallaron con `origins`
+(`base`, `bear`, `bull`). «Experimental» es el rótulo fijo del método, no una
+falla de esa corrida. `failedChecks` de una corrida FCFF suma bear y bull con
+su `origins`; `status` sigue siendo el guardado.
 
 Nunca sale: tokens ni claves, URLs de base, el número de cuenta ni su HMAC
 (sólo los últimos cuatro dígitos), IDs internos de entidades o corridas, el

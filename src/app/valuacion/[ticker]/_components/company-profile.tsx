@@ -164,7 +164,7 @@ export function CompanyProfile({
             Este arquetipo aún no tiene múltiplos comparables definidos.
           </p>
         ) : (
-          <Table>
+          <Table containerLabel="Múltiplos de la empresa, tabla desplazable">
             <TableHeader>
               <TableRow>
                 <TableHead scope="col">Métrica</TableHead>
@@ -255,7 +255,7 @@ export function CompanyProfile({
                   summary={<>Ver ejercicios y ausencias</>}
                 >
                   <div className="overflow-x-auto">
-                    <Table>
+                    <Table containerLabel="P/E por ejercicio, tabla desplazable">
                       <TableHeader>
                         <TableRow>
                           <TableHead scope="col">Ejercicio</TableHead>

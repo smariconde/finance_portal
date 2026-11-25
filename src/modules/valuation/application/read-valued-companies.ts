@@ -7,6 +7,7 @@ import {
   compareWithMarketPrice,
   type MarketPriceComparisonUnavailableReason,
 } from "../domain/market-implied";
+import { reviewOfRun, type RunReview } from "../domain/run-review";
 import { valuationRunSchema, type ValuationRun } from "../domain/valuation-run";
 import { financialMarketAt, subjectAt } from "./read-valuation-result";
 import type { ValuationRunRepository } from "./valuation-run-repository";
@@ -17,8 +18,11 @@ import type { ValuationRunRepository } from "./valuation-run-repository";
  * última—, con cualquier estado, y su cierre crudo **al `as_of` de esa
  * corrida** con la misma regla que la página del ticker. Sólo lee: no encola,
  * no recalcula y no sale a la red.
+ *
+ * `1.1.0` (`F6-51`): cada fila trae `review` (`run-review-1.0.0`), el estado
+ * separado en método experimental y controles fallados con su caso.
  */
-export const VALUED_COMPANIES_VERSION = "valued-companies-1.0.0";
+export const VALUED_COMPANIES_VERSION = "valued-companies-1.1.0";
 
 /** Los métodos que la página del ticker sabe leer. */
 const LISTED_METHODS = [
@@ -47,6 +51,8 @@ export type ValuedCompany = {
   readonly legalName: string | null;
   readonly method: ValuedCompanyMethod;
   readonly status: ValuationRun["status"];
+  /** El estado separado en método experimental y controles (`F6-51`). */
+  readonly review: RunReview;
   readonly asOf: string;
   readonly currency: string;
   readonly valuePerShare: string | null;
@@ -133,6 +139,7 @@ export async function readValuedCompanies(
           legalName: subject?.legalName ?? null,
           method: "excess_return",
           status: run.status,
+          review: reviewOfRun(run),
           asOf: run.asOf,
           currency: run.currency,
           valuePerShare: market.value,
@@ -166,6 +173,7 @@ export async function readValuedCompanies(
         legalName: subject?.legalName ?? null,
         method: run.method,
         status: run.status,
+        review: reviewOfRun(run),
         asOf: run.asOf,
         currency: run.currency,
         valuePerShare: run.result?.valuePerShare ?? null,

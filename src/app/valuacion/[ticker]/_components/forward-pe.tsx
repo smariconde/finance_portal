@@ -190,7 +190,7 @@ export function ForwardPe({
 
         {view.years.length === 0 ? null : (
           <div className="overflow-x-auto">
-            <Table>
+            <Table containerLabel="Consenso por ejercicio, tabla desplazable">
               <caption className="sr-only">
                 Consenso de EPS por ejercicio, capturado de Alpha Vantage
               </caption>
@@ -291,7 +291,7 @@ export function ForwardPe({
           {view.history.length === 0 ? null : (
             <Fold divided={false} summary={<>Ver cierres</>}>
               <div className="max-h-72 overflow-auto">
-                <Table>
+                <Table containerLabel="Forward P/E por cierre, tabla desplazable">
                   <caption className="sr-only">
                     Forward P/E por cierre desde la primera captura
                   </caption>

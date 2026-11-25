@@ -262,7 +262,7 @@ export function PeerContext({ context }: { context: PeerContextReading }) {
           <>
             {!sectorReadable ? null : (
               <div className="overflow-x-auto">
-                <Table>
+                <Table containerLabel="La empresa frente a sus pares, tabla desplazable">
                   <caption className="sr-only">
                     La empresa frente a la mediana de {label} y de todo lo
                     valuado
@@ -350,7 +350,7 @@ export function PeerContext({ context }: { context: PeerContextReading }) {
                 }
               >
                 <div className="overflow-x-auto">
-                  <Table>
+                  <Table containerLabel="Pares valuados del sector, tabla desplazable">
                     <caption className="sr-only">
                       Empresas de {label} valuadas en la ventana
                     </caption>

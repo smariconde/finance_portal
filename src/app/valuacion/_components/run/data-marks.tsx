@@ -5,6 +5,7 @@ import {
   CircleSlash,
   Clock3,
   FileText,
+  FlaskConical,
   OctagonX,
   ScanText,
   Sliders,
@@ -17,6 +18,10 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { ClaimStatus } from "@/modules/valuation/domain/valuation-input";
 import type { FreshnessLevel } from "@/modules/valuation/domain/valuation-report";
+import type {
+  RunReview,
+  RunReviewMark,
+} from "@/modules/valuation/domain/run-review";
 import type { ValuationRunStatus } from "@/modules/valuation/domain/valuation-run";
 
 /**
@@ -86,6 +91,39 @@ const RUN_STATUS: Record<ValuationRunStatus, MarkConfig> = {
 
 export function RunStatusMark({ status }: { status: ValuationRunStatus }) {
   return <Mark config={RUN_STATUS[status]} prefix="Estado de la corrida" />;
+}
+
+/**
+ * «Experimental» rotula el método, no el resultado (`F6-51`): falla siempre,
+ * así que no comparte el ámbar de un control que falló en esta corrida.
+ */
+const REVIEW_MARK: Record<RunReviewMark, MarkConfig> = {
+  ...RUN_STATUS,
+  experimental: {
+    label: "Experimental",
+    icon: FlaskConical,
+    className: NEUTRAL,
+  },
+};
+
+/** Un control que rotula el método: no pasó ni falló en esta corrida. */
+export function ExperimentalMark() {
+  return <Mark config={REVIEW_MARK.experimental} prefix="Resultado" />;
+}
+
+/** El estado leído por `run-review-1.0.0`: una o dos marcas, en orden. */
+export function RunReviewMarks({ review }: { review: RunReview }) {
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1">
+      {review.marks.map((mark) => (
+        <Mark
+          key={mark}
+          config={REVIEW_MARK[mark]}
+          prefix="Estado de la corrida"
+        />
+      ))}
+    </span>
+  );
 }
 
 const EVIDENCE_KIND = {

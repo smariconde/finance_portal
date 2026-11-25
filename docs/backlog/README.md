@@ -162,7 +162,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   134 | `F6-48`    | `done`        | Beta por mezcla de negocios (ADR 0086): líneas de ingresos del XBRL del 10-K mapeadas por la IA a industrias de Damodaran, pesos por ventas × EV/Sales, declaración del owner por CIK; sin mezcla la corrida queda igual. | `F6-47`            |
 |   135 | `F6-49`    | `done`        | Acciones sólo por clase (V): diluidas de la clase que concilia utilidad y EPS en el instance del 10-K, carátula ponderada por las tasas de conversión del filing y capex alternativo.                                     | `F6-48`            |
 |   136 | `F6-50`    | `done`        | Aseguradora sin patrimonio común publicado (BRK, opción (a)): el total como común sólo con evidencia del 10-K de que no hay preferentes; corrida de screening con su límite nombrado.                                     | `F6-49`            |
-|   137 | `F6-51`    | `ready`       | «Experimental» separado de «Requiere revisión» en la lista, la página y el MCP, con los controles de bear y bull a la vista (GOOGL); sin tocar snapshot ni hashes.                                                        | `F6-50`            |
+|   137 | `F6-51`    | `done`        | «Experimental» separado de «Requiere revisión» en la lista, la página y el MCP, con los controles de bear y bull a la vista (GOOGL); sin tocar snapshot ni hashes.                                                        | `F6-50`            |
 |   138 | `F6-52`    | `queued`      | GE evaluable: la lectura de linaje deja de cortar en 1.000 revisiones por segmento; PSX re-medido con la selección vigente.                                                                                               | `F6-51`            |
 |   139 | `F6-53`    | `queued`      | Corredores y bancos de inversión con SIC 6211 (HOOD, SCHW, GS, MS): medir sus conceptos y traer al owner perfil y método antes de codificar.                                                                              | `F6-52`            |
 |   140 | `F6-54`    | `queued`      | Emisores con 20-F o 40-F (TSM, ASML, NVO, SPOT, NU): medición y ADR —IFRS, moneda, ratio del ADS, sin 10-Q, secciones para la IA—; el código sale de la ADR.                                                              | `F6-53`            |
@@ -4804,7 +4804,7 @@ revisión». Medido sobre Production (Neon y MCP) con `valuation:assess
 | ------------------------ | --------------------------------------------------------------------------------------------------------------- | -------------------- |
 | V                        | `structural_inputs` sin `diluted_shares`: desde 2009 publica acciones y EPS sólo por clase                      | `F6-49`              |
 | BRK-B                    | `insurer` (SIC 6331) sin `common_book_equity, roe`; `financial-filing-evidence` da `table_missing_or_ambiguous` | `F6-50`              |
-| GOOGL                    | `requires_review` sin control visible: lo trae `terminal_value_share` del escenario bull                        | `F6-51`              |
+| GOOGL                    | `requires_review` sin control visible: lo trae `terminal_value_share` del escenario bull                        | `F6-51` (hecho)      |
 | GE                       | `LineageReadLimitError`: un segmento de linaje pasa las 1.000 revisiones y la evaluación no termina             | `F6-52`              |
 | PSX                      | `commodity` sin `operating_income` con una ventana bajada el 2026-10-29 con otra selección                      | `F6-52`              |
 | HOOD                     | SIC 6211 dentro del rango financiero sin perfil: `missing_classification_evidence`                              | `F6-53`              |
@@ -4909,26 +4909,49 @@ revisión». Medido sobre Production (Neon y MCP) con `valuation:assess
 - Replay: 19 de 19 corridas de la réplica reproducidas.
 - Gates: 4.902 unit, 256 de integración, lint, tipos, formato y build.
 
-#### `F6-51` — «Experimental» no es «Requiere revisión»
+#### `F6-51` — «Experimental» no es «Requiere revisión» (cerrado el 2026-11-25)
 
-- Estado: `ready`
-- Fase y dependencia: Fase 6, después de `F6-50`.
-- Alcance incluido:
-  - La lista de valuadas, `/valuacion/[ticker]` y el MCP distinguen el rótulo
-    del método (`growth_model_experimental`, `cycle_model_experimental`) de un
-    control que falló en esa corrida.
-  - Los controles de bear y bull se leen junto con los del base: hoy el
-    estado los cuenta (`run-valuation.ts`) y la página y el MCP sólo leen
-    `result.checks`, así que GOOGL dice «Requiere revisión» sin motivo.
-  - `portal-mcp-tools-1.2.0` con el origen de cada control.
-- Fuera de alcance: cambiar el estado guardado, el snapshot o los hashes;
-  graduar un método.
-- Controles: `TM-05`, `TM-12`, `UI-02`, `UI-03`; `impeccable` y
-  `financial-visualization-review` antes de tocar la UI.
-- Criterios de aceptación: GOOGL muestra el control del escenario bull; las
-  once corridas experimentales dicen «Experimental» y sólo marcan revisión si
-  además falló otro control; E2E con axe.
-- Evidencia: tests, capturas, E2E.
+- Estado: `done`
+- `run-review-1.0.0` (`src/modules/valuation/domain/run-review.ts`): una lectura
+  pura del estado guardado que separa el rótulo del método
+  (`growth_model_experimental`, `cycle_model_experimental`,
+  `financial_model_experimental`, `reit_model_experimental`, tomado del control
+  que la corrida guardó, no del nombre del método) de los controles de revisión
+  que fallaron, cada uno una vez con sus casos (`base`, `bear`, `bull`). Marcas:
+  `computed`, `experimental`, `requires_review` (o las dos últimas juntas) y
+  `rejected`. Un `requires_review` guardado sin causa legible conserva la marca.
+  No toca el estado guardado, el snapshot ni los hashes.
+- Lista (`valued-companies-1.1.0`): cada fila trae `review`; la columna Estado
+  muestra «Experimental» (neutro, ícono de matraz) y «Requiere revisión» (ámbar)
+  por separado.
+- `/valuacion/[ticker]`: el encabezado usa las mismas marcas; el aviso dice
+  «Método experimental» cuando es la única causa y, si hay controles, los nombra
+  con su caso («Peso del valor terminal (bull)»). La tabla de policy checks une
+  base, bear y bull en una fila por control («No pasó en bull») y los rótulos
+  del método se leen «Rotula el método · Experimental». Se nombraron los
+  controles de crecimiento que faltaban en `labels.ts`.
+- MCP (`portal-mcp-tools-1.2.0`): `review` en la lista y en el detalle (marcas,
+  `experimentalModel`, controles con `origins`); `failedChecks` del detalle FCFF
+  suma bear y bull con `origins`. `status` sigue siendo el guardado.
+- Accesibilidad de paso: seis tablas de la página (múltiplos, P/E por ejercicio,
+  consenso, forward P/E por cierre y las dos del contexto de pares) se volvían
+  región desplazable sin nombre en mobile (`landmark-unique`); ahora llevan
+  `containerLabel`.
+- Medido en Production antes de codificar (23 últimas corridas, 13 en revisión):
+  7 sólo experimentales (TSLA, MSFT, MU, CAT, DDOG, META, PLTR), 4
+  experimentales con otro control (F, LLY y MELI por valor terminal; NVDA por
+  margen terminal), y AMZN (valor terminal en base y bull) y GOOGL (sólo bull)
+  sin método experimental. Los escenarios de crecimiento no repiten el rótulo.
+- Revisión renderizada sobre Neon con el walkthrough y Playwright, todo `POST`
+  bloqueado (sin Server Actions ni gasto): la lista coincide con la medición;
+  GOOGL «1 control en revisión: Peso del valor terminal (bull)», MSFT «Método
+  experimental», F «No pasó en base y bear». 0 violaciones de axe y sin overflow
+  en `/valuacion`, GOOGL, MSFT, F, LLY, AMZN y AAPL a 1440 (también con lo
+  plegado abierto) y 390 px.
+- Fuera: el historial de corridas, el contexto de pares («n en revisión») y
+  `/cuenta` siguen leyendo el estado guardado.
+- Gates: 4.919 unit, 256 de integración, 393 E2E con axe, lint, tipos, formato y
+  build.
 
 #### `F6-52` — GE y PSX
 

@@ -30,7 +30,7 @@ import {
 import type { MarketPriceComparisonUnavailableReason } from "@/modules/valuation/domain/market-implied";
 
 import { methodCopy } from "./method-copy";
-import { RunStatusMark } from "./run/data-marks";
+import { RunReviewMarks } from "./run/data-marks";
 
 export type ValuedCompanyRow = ValuedCompany & {
   readonly logoUrl: string | null;
@@ -214,7 +214,7 @@ export function ValuedCompaniesTable({
                 )}
               </TableCell>
               <TableCell>
-                <RunStatusMark status={company.status} />
+                <RunReviewMarks review={company.review} />
               </TableCell>
               <TableCell className="text-muted-foreground">
                 {methodCopy(company.method)}

@@ -802,6 +802,14 @@ cost of capital and that may need the AI's industry. Cycle runs are `screening` 
 always `requires_review` (`cycle_model_experimental`). CAT and DE still stop on debt
 with no recipe (captive finance arms, `F6-23`).
 
+Since `F6-51` the status reads in two causes (`run-review-1.0.0`, read time,
+never stored): a method's fixed label (`growth_`, `cycle_`, `financial_`,
+`reit_model_experimental`, taken from the stored check) shows as «Experimental»,
+apart from «Requiere revisión», which only a review check that failed in that
+run raises, named with its case (base, bear, bull). The list
+(`valued-companies-1.1.0`), the page's header, alert and checks table, and the
+MCP read it; the stored status, snapshot and hashes do not move.
+
 Since `F6-19` ([ADR 0060](docs/architecture/adr/0060-valuation-peer-context.md))
 the result reads the gap against what else was valued (`valuation-peer-context-1.0.0`),
 at render time and never in the snapshot: the model (median price/value of every
@@ -1791,7 +1799,7 @@ each source. Since `F11-17` (done; migration `0052`, connected from Production, 
 `Host` outside the deployment's own domains, `401` unless the `Bearer`'s
 SHA-256 matches in constant time, and counts every request in `portal-mcp`
 (500/day, kill switch through `pnpm ingestion:sources`).
-`portal-mcp-tools-1.1.0` (a rejected run carries `failure` with the engine's rules and fields since `F6-45`) holds `list_valuations`, `get_valuation`,
+`portal-mcp-tools-1.2.0` (a rejected run carries `failure` with the engine's rules and fields since `F6-45`; every run carries `review` since `F6-51`) holds `list_valuations`, `get_valuation`,
 `list_trades` and `get_trade` over the pages' own readers, projected in
 `src/modules/owner-mcp/` with no internal IDs and never the account HMAC; a
 section whose source denies `ownerAssistant` is `withheld` with its reason,
