@@ -101,3 +101,48 @@ sin valor hasta ampliar el parser con evidencia propia.
 No se agrega proveedor, modelo, Route Handler, Server Action ni secreto. El
 egress SEC existente y sus derechos controlan las dos peticiones. Los
 filings completos se usan en memoria y no se guardan como payload crudo.
+
+## Enmienda del 2026-11-25: la base desde el XBRL del 10-K (`F6-50`)
+
+**Problema.** Berkshire Hathaway se clasifica aseguradora (SIC 6331) y no llegaba
+a una corrida: no publica `CommonStockholdersEquity` ni la utilidad disponible
+a comunes, y `financial-filing-evidence-1.1.0`, que lee las tablas HTML de JPM y
+PRU por sus rótulos, devuelve `table_missing_or_ambiguous`. Tampoco paga en
+acciones, así que el armado se detenía en `employee_equity_not_proposed`.
+Decisión del owner (2026-11-25): opción (a), aseguradora en modo screening;
+holding/SOTP sigue diferido.
+
+**Decisión 1 — `financial-xbrl-evidence-1.0.0`.** Si el lector HTML no reconoce
+el filing, la misma evidencia sale del instance XBRL del mismo 10-K (una lectura
+medida más), con evidencia y nunca por ausencia:
+
+- patrimonio común = `StockholdersEquity` de la controlante a los dos cierres,
+  sólo si el filing publica las preferentes en cero
+  (`preferred_not_evidenced`, `preferred_outstanding`);
+- utilidad común = `NetIncomeLoss`, sólo si algún EPS básico por sus acciones la
+  reproduce dentro del redondeo impreso: dividendos preferentes o una
+  asignación a valores participantes la romperían;
+- dividendos y recompras del flujo de fondos; uno no publicado es cero sólo si
+  el patrimonio limpio cierra a 2 % de la utilidad o menos
+  (`distribution_unsupported`);
+- capital y superávit estatutario, pasivo por siniestros o previsión de pérdidas
+  crediticias y el residuo del patrimonio limpio, como diagnósticos fechados
+  (`regulatory_capital_missing`, `asset_quality_missing` sin ellos). El texto del
+  capital dice que es de las aseguradoras y que el patrimonio valuado es el
+  consolidado del grupo.
+
+Los hechos congelados llevan la regla en sus `qualityFlags`; el motor, la
+metodología y el snapshot no cambian. JPM y PRU siguen por las tablas HTML.
+
+**Decisión 2 — opciones no restadas, nombradas.** Sin transcripción aceptada ni
+opciones en el XBRL, el armado financiero usa la misma base `not_subtracted` que
+el FCFF (`F6-16`, ADR 0055): el valor por acción es un techo y se dice. Su
+disponibilidad es la del 10-K del ejercicio.
+
+**Medido en una réplica con el worker real.** BRK-B: patrimonio 717.419 M
+(649.368 M el previo), utilidad 66.968 M (46.563 × 1.438.223 acciones
+equivalentes A), sin dividendos ni recompras en 2025 y patrimonio limpio con un
+residuo de −53 M (0,08 % de la utilidad); ROE 9,8 % contra un costo de 8,4 %;
+393,38 por acción B contra un cierre de 577,21, rigor `screening`. JPM y PRU no
+cambian de camino. El instance de BRK pesa 13,5 MB y bajó en 12 s; el
+`deadline_exceeded` del primer intento fue una SEC lenta, no el tamaño.

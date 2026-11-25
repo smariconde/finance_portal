@@ -18,12 +18,17 @@ import { monetaryFactSchema, type MonetaryFact } from "./valuation-facts";
 
 export const FINANCIAL_FILING_EVIDENCE_VERSION =
   "financial-filing-evidence-1.1.0";
+/** La misma evidencia leída del XBRL del 10-K (`F6-50`). */
+export const FINANCIAL_XBRL_EVIDENCE_VERSION = "financial-xbrl-evidence-1.0.0";
 
 type Row = { readonly label: string; readonly numbers: readonly string[] };
 type Table = { readonly text: string; readonly rows: readonly Row[] };
 
 export const financialFilingEvidenceSchema = z.strictObject({
-  version: z.literal(FINANCIAL_FILING_EVIDENCE_VERSION),
+  version: z.enum([
+    FINANCIAL_FILING_EVIDENCE_VERSION,
+    FINANCIAL_XBRL_EVIDENCE_VERSION,
+  ]),
   fiscalYearEnd: calendarDateSchema,
   commonBook: monetaryFactSchema,
   priorBook: monetaryFactSchema,

@@ -161,8 +161,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   133 | `F6-47`    | `done`        | Medir de dónde sale el sesgo precio/valor (mediana ≈ 1,9) por componente —crecimiento, margen, reinversión, WACC, terminal— y traer la tabla al owner antes de tocar reglas.                                              | `F6-46`            |
 |   134 | `F6-48`    | `done`        | Beta por mezcla de negocios (ADR 0086): líneas de ingresos del XBRL del 10-K mapeadas por la IA a industrias de Damodaran, pesos por ventas × EV/Sales, declaración del owner por CIK; sin mezcla la corrida queda igual. | `F6-47`            |
 |   135 | `F6-49`    | `done`        | Acciones sólo por clase (V): diluidas de la clase que concilia utilidad y EPS en el instance del 10-K, carátula ponderada por las tasas de conversión del filing y capex alternativo.                                     | `F6-48`            |
-|   136 | `F6-50`    | `ready`       | Aseguradora sin patrimonio común publicado (BRK, opción (a)): el total como común sólo con evidencia del 10-K de que no hay preferentes; corrida de screening con su límite nombrado.                                     | `F6-49`            |
-|   137 | `F6-51`    | `queued`      | «Experimental» separado de «Requiere revisión» en la lista, la página y el MCP, con los controles de bear y bull a la vista (GOOGL); sin tocar snapshot ni hashes.                                                        | `F6-50`            |
+|   136 | `F6-50`    | `done`        | Aseguradora sin patrimonio común publicado (BRK, opción (a)): el total como común sólo con evidencia del 10-K de que no hay preferentes; corrida de screening con su límite nombrado.                                     | `F6-49`            |
+|   137 | `F6-51`    | `ready`       | «Experimental» separado de «Requiere revisión» en la lista, la página y el MCP, con los controles de bear y bull a la vista (GOOGL); sin tocar snapshot ni hashes.                                                        | `F6-50`            |
 |   138 | `F6-52`    | `queued`      | GE evaluable: la lectura de linaje deja de cortar en 1.000 revisiones por segmento; PSX re-medido con la selección vigente.                                                                                               | `F6-51`            |
 |   139 | `F6-53`    | `queued`      | Corredores y bancos de inversión con SIC 6211 (HOOD, SCHW, GS, MS): medir sus conceptos y traer al owner perfil y método antes de codificar.                                                                              | `F6-52`            |
 |   140 | `F6-54`    | `queued`      | Emisores con 20-F o 40-F (TSM, ASML, NVO, SPOT, NU): medición y ADR —IFRS, moneda, ratio del ADS, sin 10-Q, secciones para la IA—; el código sale de la ADR.                                                              | `F6-53`            |
@@ -4876,37 +4876,42 @@ revisión». Medido sobre Production (Neon y MCP) con `valuation:assess
 - Replay: 21 de 21 corridas de la réplica reproducidas.
 - Gates: 4.894 unit, 256 de integración, lint, tipos, formato y build.
 
-#### `F6-50` — aseguradora sin patrimonio común publicado (BRK)
+#### `F6-50` — aseguradora sin patrimonio común publicado (BRK) (cerrado el 2026-11-25)
 
-- Estado: `ready`
-- Fase y dependencia: Fase 6, después de `F6-49`.
+- Estado: `done`
 - Decisión del owner (2026-11-25): opción (a), BRK como aseguradora en modo
   screening; holding/SOTP sigue diferido.
-- Alcance incluido:
-  - BRK publica `StockholdersEquity` (717.419 M en 2025) y `NetIncomeLoss`
-    (66.968 M), sin `CommonStockholdersEquity` ni
-    `NetIncomeLossAvailableToCommonStockholdersBasic`.
-  - Patrimonio común = patrimonio de la controlante, y utilidad común =
-    utilidad de la controlante, sólo con evidencia del mismo 10-K: ningún
-    concepto de preferentes ni dividendos preferentes en el instance, y ninguna
-    asignación a valores participantes. Sin evidencia sigue el faltante, como
-    exige la ADR 0061.
-  - El instance de BRK excedió el deadline del egress
-    (`deadline_exceeded`): medir su tamaño y resolverlo sin subir el límite de
-    todas las fuentes.
-  - La corrida queda `screening` y nombra el límite: el patrimonio incluye
-    BNSF, BHE, la industria y la cartera, no sólo el negocio asegurador.
-  - JPM y PRU corridos en Production como control del camino financiero.
-- Fuera de alcance: SOTP, cartera a mercado y la regla de recompras de BRK.
-- Controles: `TM-05`, `TM-06`, `TM-10`, `TM-16`.
-- Criterios de aceptación: BRK-B registra una corrida `excess_return` con la
-  evidencia de «sin preferentes» congelada en el snapshot y recalculada por el
-  motor; JPM y PRU no cambian de hash.
-- Evidencia: tests de dominio, corrida en réplica y en Production, replay.
+- `financial-xbrl-evidence-1.0.0` (enmienda del 2026-11-25 a la ADR 0061): si el
+  lector HTML de JPM y PRU no reconoce el 10-K, la base sale de su instance
+  XBRL. Patrimonio de la controlante con las preferentes **publicadas** en cero,
+  utilidad que un EPS básico reproduce, distribuciones del flujo de fondos (una
+  no publicada es cero sólo si el patrimonio limpio cierra a 2 % de la utilidad)
+  y capital estatutario, siniestros o previsión como diagnósticos fechados. El
+  texto del capital dice que el patrimonio valuado es el consolidado del grupo.
+- El armado financiero ya no se detiene en `employee_equity_not_proposed`: sin
+  transcripción ni XBRL, las opciones quedan `not_subtracted`, como en el FCFF.
+- El `deadline_exceeded` del instance de BRK fue una SEC lenta: 13,5 MB en 12 s
+  al repetirlo, dentro de los 30 s del egress. No se tocó el límite.
+- Medido en una réplica de la base personal con el worker real:
+
+  | Ticker | Camino            | Valor  | Cierre 11-24 | P/V  | Revisión por                                   |
+  | ------ | ----------------- | ------ | ------------ | ---- | ---------------------------------------------- |
+  | BRK-B  | XBRL (nuevo)      | 393,38 | 577,21       | 1,47 | modelo experimental, riesgo país por domicilio |
+  | JPM    | HTML (sin cambio) | 171,28 | 317,10       | 1,85 | ídem                                           |
+  | PRU    | HTML (sin cambio) | 109,91 | 119,14       | 1,08 | ídem                                           |
+
+  BRK: patrimonio 717.419 M (649.368 M), utilidad 66.968 M, payout 0, residuo
+  del patrimonio limpio −53 M, ROE 9,8 % contra un costo de 8,4 %, rigor
+  `screening`, opciones `not_subtracted`. Es la primera vez que un banco o una
+  aseguradora llega a una corrida por el job; en Production no había ninguna.
+
+- `/valuacion/BRK-B` y `/valuacion/JPM` renderizan sus corridas sobre la réplica.
+- Replay: 19 de 19 corridas de la réplica reproducidas.
+- Gates: 4.902 unit, 256 de integración, lint, tipos, formato y build.
 
 #### `F6-51` — «Experimental» no es «Requiere revisión»
 
-- Estado: `queued`
+- Estado: `ready`
 - Fase y dependencia: Fase 6, después de `F6-50`.
 - Alcance incluido:
   - La lista de valuadas, `/valuacion/[ticker]` y el MCP distinguen el rótulo
