@@ -718,6 +718,29 @@ without → with: GOOGL 12.00 → 8.70 % (P/V 1.18 → 0.87), AAPL 10.78 → 8.9
 `telecom-equipment`, cloud as `computer-services`); the owner corrects it by
 declaration.
 
+Since `F6-49` a filer that publishes shares and EPS only by class is valued.
+Without an undimensioned diluted count in the series, the job reads the
+10-K's XBRL instance (`sec-xbrl-share-facts-1.0.0`: shares, USD, USD/share and
+`pure`, with `decimals`, two metered requests, the current CIK and then its
+declared predecessors) and `diluted-shares-reconciled-1.0.0` takes the **one**
+count whose diluted EPS reproduces net income within the printed rounding —a
+class's diluted shares (Visa's class A: 23,504 / 1,907 = 12.32; HSY, STZ), or
+basic shares that reconcile the undimensioned diluted EPS (ExxonMobil)—; none or
+two are named, classes are never summed. `completeness-profile-1.4.0` counts and
+freezes it only when used; otherwise the profile is `1.3.0` byte for byte. A CIK
+that declares its conversion (`DECLARED_SHARE_CLASS_CONVERSIONS`, Visa) gets
+`shares-outstanding-classes-1.1.0`: each cover class weighed by the rate its own
+filing tags in its extension, the valued class at one, preferreds at their
+as-converted shares, and the total within 1 % of the filing's as-converted
+total (measured −0.19 %). Equity published only including noncontrolling
+interests is zero NCI only with evidence (`noncontrolling-interest-evidence-1.0.0`,
+ADR 0054 amendment): the equity statement of the balance's own filing adds up
+with no NCI component. Capex also reads `PaymentsToAcquireProductiveAssets`,
+`…OtherPropertyPlantAndEquipment` and `PaymentsForCapitalImprovements`
+(`sec-core-concepts-12.0.0`, `annual-fundamentals-1.9.0`; 31 of the 43 filers
+without the PP&E concept). Measured on a replica: V `requires_review` 524.03
+(61 % terminal margin), HSY and STZ `computed`, XOM `requires_review`.
+
 Company logos are loaded by the **browser** from logo.dev
 ([ADR 0062](docs/architecture/adr/0062-company-logos-browser-loaded.md)): the
 free plan forbids storing them, so the CSP opens `img-src` to

@@ -84,6 +84,7 @@ import {
   measureCompleteness,
   type CompletenessProfile,
 } from "../domain/completeness-profile";
+import type { DilutedSharesReconciled } from "../domain/diluted-shares-reconciled";
 import {
   mapIndustry,
   type IndustryDeclaration,
@@ -228,6 +229,11 @@ export type CompanyAssessmentRequest = {
    * evaluación no abre red.
    */
   readonly captiveFinanceFiling?: CaptiveFinanceFiling | null;
+  /**
+   * Acciones diluidas conciliadas en el instance del 10-K (`F6-49`), cuando la
+   * serie no las trae. La evaluación no abre red: las lee quien la llama.
+   */
+  readonly dilutedShares?: DilutedSharesReconciled | null;
 };
 
 export type CompanyAssessment = {
@@ -469,6 +475,7 @@ export async function assessCompany(
   const completeness = measureCompleteness(series, {
     industryMapping: industry.status,
     operationsMix: operationsMix?.source ?? null,
+    dilutedShares: request.dilutedShares ?? null,
   });
 
   const selection = selectValuationMethod({

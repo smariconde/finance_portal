@@ -19,7 +19,9 @@ import {
   assessCompany,
   seriesFact,
   type CompanyAssessment,
+  type CompanyAssessmentRequest,
 } from "@/modules/valuation/application/assess-company";
+import { completenessCheck } from "@/modules/valuation/domain/completeness-profile";
 import { DECLARED_INDUSTRY_ASSIGNMENTS } from "@/modules/valuation/application/declared-industry-assignments";
 import { DECLARED_BUSINESS_MIXES } from "@/modules/valuation/application/declared-business-mixes";
 import { DECLARED_OPERATIONS_MIXES } from "@/modules/valuation/application/declared-operations-mixes";
@@ -143,6 +145,8 @@ import type { CaptiveFinanceUnavailableReason } from "@/modules/valuation/domain
 import { readCaptiveFinanceFiling } from "./captive-finance-filing";
 import { readFinancialFiling } from "./financial-filing";
 import { readCoverShareClasses } from "./cover-share-classes-filing";
+import { readDilutedSharesFiling } from "./diluted-shares-filing";
+import { readNoncontrollingInterestFiling } from "./noncontrolling-interest-filing";
 import { constituteFollowedFiler } from "./followed-filer-constitution";
 import { readGrowthTaxFiling } from "./growth-tax-filing";
 import { runReitAffoStep } from "./reit-affo-step";
@@ -476,7 +480,7 @@ export async function prepareValuationRun(
   }
 
   const cik = facts.cik;
-  const assessmentRequest = {
+  let assessmentRequest: CompanyAssessmentRequest = {
     legalEntityId,
     query,
     fundamentalsSourceId: SEC_SOURCE_ID,
@@ -584,6 +588,40 @@ export async function prepareValuationRun(
         kind: "outcome",
         outcome: outcomeForDataStep(subject, "data_ingested", dataStep),
       };
+    }
+  }
+
+  // Acciones diluidas sólo por clase o sólo básicas (`F6-49`): si es lo único
+  // que le falta al año base, el instance del 10-K de ese ejercicio dice qué
+  // conteo usa el propio EPS diluido, y la evaluación se rehace con él.
+  const sharesBase = assessment.fundamentals.series?.fiscalYears[0];
+  const structural = completenessCheck(
+    assessment.completeness,
+    "structural_inputs",
+  );
+  if (
+    sharesBase !== undefined &&
+    !financialProfile &&
+    assessment.selection.assetProfile !== "reit" &&
+    structural.missing.length === 1 &&
+    structural.missing[0] === "diluted_shares"
+  ) {
+    const shares = await readDilutedSharesFiling({
+      ciks: lineageCiks,
+      knownAt: job.knownAt,
+      fiscalYearEnd: sharesBase.fiscalYearEnd,
+    });
+    if (shares?.status === "reconciled") {
+      assessmentRequest = {
+        ...assessmentRequest,
+        dilutedShares: shares.reconciled,
+      };
+      assessment = await assessCompany(
+        assessmentRequest,
+        await assessmentReaders(cik, query, state.graph),
+      );
+      selected = assessment.selection.status === "selected";
+      reading = readingOf(assessment);
     }
   }
 
@@ -944,8 +982,26 @@ export async function prepareValuationRun(
       ? await readCoverShareClasses({ cik, knownAt: job.knownAt })
       : null;
 
+  // Patrimonio publicado sólo con los no controlantes adentro (`F6-49`): el
+  // estado de patrimonio del filing de ese cierre dice si son cero.
+  const normalizedBalance = assessment.normalization?.facts.balance ?? null;
+  const noncontrollingInterest =
+    assessment.normalization?.investedCapital.status === "resolved" &&
+    assessment.normalization.investedCapital.minorityInterestBasis ===
+      "included_in_equity" &&
+    normalizedBalance !== null &&
+    normalizedBalance.minorityInterest === null &&
+    normalizedBalance.equity !== null
+      ? await readNoncontrollingInterestFiling({
+          cik,
+          knownAt: job.knownAt,
+          asOf: normalizedBalance.equity.asOf,
+        })
+      : null;
+
   const snapshotRequest = {
     subject: { legalEntityId, securityId, listingId: resolution.listingId },
+    noncontrollingInterest,
     query,
     assessment,
     fundamentalsSourceId: SEC_SOURCE_ID,

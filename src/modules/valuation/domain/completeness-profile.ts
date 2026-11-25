@@ -5,6 +5,10 @@ import type {
   FiscalYear,
   LineItemId,
 } from "./annual-fundamentals";
+import {
+  type DilutedSharesReconciled,
+  dilutedSharesReconciledSchema,
+} from "./diluted-shares-reconciled";
 import { netInterestForEbit } from "./interest-expense";
 
 /**
@@ -32,11 +36,19 @@ import { netInterestForEbit } from "./interest-expense";
  * antes de impuestos con los intereses de `interest-expense-1.0.0`.
  */
 export const COMPLETENESS_PROFILE_VERSION = "completeness-profile-1.3.0";
+/**
+ * Con acciones diluidas conciliadas en el instance del 10-K (`F6-49`): la única
+ * diferencia es que `structural_inputs` las cuenta y el perfil las congela. Sin
+ * ellas el perfil sigue siendo `1.3.0` byte por byte.
+ */
+export const COMPLETENESS_PROFILE_RECONCILED_SHARES_VERSION =
+  "completeness-profile-1.4.0";
 const COMPLETENESS_PROFILE_VERSIONS = [
   "completeness-profile-1.0.0",
   "completeness-profile-1.1.0",
   "completeness-profile-1.2.0",
   COMPLETENESS_PROFILE_VERSION,
+  COMPLETENESS_PROFILE_RECONCILED_SHARES_VERSION,
 ] as const;
 
 export const completenessCheckIds = [
@@ -91,6 +103,11 @@ export type CompletenessContext = {
   readonly industryMapping: IndustryMappingStatus | null;
   /** De dónde salió el mix de operaciones visible al corte, o `null` si no hay. */
   readonly operationsMix?: "owner_declaration" | "ai_proposal" | null;
+  /**
+   * Acciones diluidas conciliadas en el instance del 10-K (`F6-49`). Cuentan
+   * sólo si la serie no las trae y son del último ejercicio.
+   */
+  readonly dilutedShares?: DilutedSharesReconciled | null;
 };
 
 export const completenessProfileSchema = z
@@ -100,8 +117,20 @@ export const completenessProfileSchema = z
     checks: z
       .array(completenessCheckSchema)
       .length(completenessCheckIds.length),
+    /** Sólo en `1.4.0`: de dónde salieron las acciones diluidas. */
+    dilutedShares: dilutedSharesReconciledSchema.optional(),
   })
   .superRefine((profile, context) => {
+    if (
+      (profile.dilutedShares !== undefined) !==
+      (profile.version === COMPLETENESS_PROFILE_RECONCILED_SHARES_VERSION)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["dilutedShares"],
+        message: "Reconciled diluted shares travel exactly with version 1.4.0.",
+      });
+    }
     // Una comprobación por id, en el orden declarado: un perfil con una de menos
     // no puede derivar un rigor que dependa de ella.
     profile.checks.forEach((item, index) => {
@@ -201,6 +230,13 @@ export function measureCompleteness(
 ): CompletenessProfile {
   const latest = series?.fiscalYears[0];
   const years = series === null ? 0 : consecutiveYears(series);
+  const reconciledShares =
+    latest !== undefined &&
+    !has(latest, "diluted_shares") &&
+    context.dilutedShares != null &&
+    context.dilutedShares.fiscalYearEnd === latest.fiscalYearEnd
+      ? context.dilutedShares
+      : null;
   const researchYears =
     series?.fiscalYears.filter((year) => has(year, "research_development"))
       .length ?? 0;
@@ -212,7 +248,10 @@ export function measureCompleteness(
           ["revenue", has(latest, "revenue")],
           ["operating_income", hasEbit(latest)],
           ["income_tax", has(latest, "income_tax")],
-          ["diluted_shares", has(latest, "diluted_shares")],
+          [
+            "diluted_shares",
+            has(latest, "diluted_shares") || reconciledShares !== null,
+          ],
         ]),
     check(
       "history_years",
@@ -287,11 +326,18 @@ export function measureCompleteness(
       : check("geographic_revenue_mix", "met"),
   ];
 
-  return {
-    version: COMPLETENESS_PROFILE_VERSION,
-    latestFiscalYearEnd: latest?.fiscalYearEnd ?? null,
-    checks,
-  };
+  return reconciledShares === null
+    ? {
+        version: COMPLETENESS_PROFILE_VERSION,
+        latestFiscalYearEnd: latest?.fiscalYearEnd ?? null,
+        checks,
+      }
+    : {
+        version: COMPLETENESS_PROFILE_RECONCILED_SHARES_VERSION,
+        latestFiscalYearEnd: latest?.fiscalYearEnd ?? null,
+        checks,
+        dilutedShares: reconciledShares,
+      };
 }
 
 export function completenessCheck(

@@ -44,7 +44,7 @@ function series(
   items: Partial<Record<LineItemId, string>>,
 ): AnnualFundamentals {
   return {
-    version: "annual-fundamentals-1.8.0",
+    version: "annual-fundamentals-1.9.0",
     fiscalYears: [
       {
         fiscalYearEnd: BASE,

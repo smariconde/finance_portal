@@ -510,3 +510,258 @@ export function readCoverShares(xml: string): ReadCoverSharesResult {
     conflicting: [...conflicting].sort(),
   };
 }
+
+/**
+ * Hechos de acciones con su unidad (`sec-xbrl-share-facts-1.0.0`, `F6-49`).
+ *
+ * Un filer con varias clases publica acciones diluidas y EPS sólo por clase
+ * (Visa desde 2009), y las tasas de conversión entre clases en conceptos de su
+ * propia extensión (`v:CommonStockConversionRate`). `readXbrlInstance` sólo lee
+ * `us-gaap` en USD; éste lee los conceptos pedidos en cuatro unidades:
+ *
+ * - `usd`: una medida `USD` del namespace ISO 4217.
+ * - `shares` y `pure`: una medida del namespace del instance (con o sin
+ *   prefijo, porque Visa declara ese namespace por defecto).
+ * - `usd_per_share`: un `divide` de `USD` sobre `shares`.
+ *
+ * Otra unidad no se lee. Un concepto de extensión es uno de un namespace que no
+ * es de un emisor de taxonomías estándar (XBRL International, FASB, la SEC o el
+ * W3C): el filer lo nombra en su propio namespace y el pedido sólo da el nombre
+ * local. Cada hecho conserva `decimals` —el redondeo impreso—, `null` cuando es
+ * `INF`; un hecho sin `decimals` no se lee. Las mismas defensas que los otros
+ * lectores: sin `DOCTYPE`, prefijos por namespace, contextos del CIK, y un
+ * concepto con dos valores en el mismo contexto se descarta y se nombra.
+ */
+export const SEC_XBRL_SHARE_FACTS_VERSION = "sec-xbrl-share-facts-1.0.0";
+
+export type XbrlUnitKind = "usd" | "shares" | "pure" | "usd_per_share";
+
+export type XbrlShareFact = {
+  /** `us-gaap:<local>` o `extension:<local>`. */
+  readonly concept: string;
+  readonly contextId: string;
+  readonly unit: XbrlUnitKind;
+  /** El texto publicado, nunca un `number`. */
+  readonly value: string;
+  /** Potencia de diez del redondeo impreso; `null` si es exacto (`INF`). */
+  readonly decimals: number | null;
+};
+
+export type XbrlShareFacts = {
+  readonly version: typeof SEC_XBRL_SHARE_FACTS_VERSION;
+  readonly contexts: ReadonlyMap<string, XbrlContext>;
+  readonly facts: readonly XbrlShareFact[];
+  /** Conceptos con dos valores distintos en un mismo contexto: descartados. */
+  readonly conflicting: readonly string[];
+};
+
+export type ReadXbrlShareFactsResult =
+  | { readonly status: "read"; readonly read: XbrlShareFacts }
+  | { readonly status: "rejected"; readonly reason: XbrlInstanceRejection };
+
+export type XbrlShareFactSelection = {
+  /** Nombres locales de `us-gaap`. */
+  readonly usGaap: readonly string[];
+  /** Nombres locales en la extensión del filer. */
+  readonly extension: readonly string[];
+};
+
+const STANDARD_NAMESPACE_PREFIXES = [
+  "http://www.xbrl.org/",
+  "http://xbrl.org/",
+  "http://fasb.org/",
+  "http://xbrl.sec.gov/",
+  "http://www.w3.org/",
+] as const;
+
+const DECIMALS = /^-?[0-9]{1,2}$/u;
+
+function unitKinds(
+  xml: string,
+  instance: string,
+  namespaces: ReadonlyMap<string, string>,
+): Map<string, XbrlUnitKind> {
+  const units = new Map<string, XbrlUnitKind>();
+  const instancePrefixes = prefixesFor(
+    namespaces,
+    (namespace) => namespace === INSTANCE_NAMESPACE,
+  );
+  const isoPrefixes = prefixesFor(
+    namespaces,
+    (namespace) => namespace === ISO4217_NAMESPACE,
+  );
+  const measure = (body: string): string | null => {
+    const match = new RegExp(
+      `^\\s*<${instance}measure>\\s*((?:${NAME}:)?${NAME})\\s*</${instance}measure>\\s*$`,
+      "u",
+    ).exec(body);
+    return match === null ? null : match[1]!;
+  };
+  const kindOf = (qname: string): "usd" | "shares" | "pure" | null => {
+    const colon = qname.indexOf(":");
+    const prefix = colon === -1 ? "" : qname.slice(0, colon);
+    const local = colon === -1 ? qname : qname.slice(colon + 1);
+    if (local === "USD" && isoPrefixes.includes(prefix)) return "usd";
+    if (local === "shares" && instancePrefixes.includes(prefix)) {
+      return "shares";
+    }
+    if (local === "pure" && instancePrefixes.includes(prefix)) return "pure";
+    return null;
+  };
+  const pattern = new RegExp(
+    `<${instance}unit\\b([^>]*)>([\\s\\S]*?)</${instance}unit>`,
+    "gu",
+  );
+  const divide = new RegExp(
+    `^\\s*<${instance}divide>\\s*<${instance}unitNumerator>([\\s\\S]*?)</${instance}unitNumerator>\\s*<${instance}unitDenominator>([\\s\\S]*?)</${instance}unitDenominator>\\s*</${instance}divide>\\s*$`,
+    "u",
+  );
+
+  for (const match of xml.matchAll(pattern)) {
+    const id = attribute(match[1]!, "id");
+    if (id === null) continue;
+    const body = match[2]!;
+    const single = measure(body);
+    if (single !== null) {
+      const kind = kindOf(single);
+      if (kind !== null) units.set(id, kind);
+      continue;
+    }
+    const parts = divide.exec(body);
+    if (parts === null) continue;
+    const numerator = measure(parts[1]!);
+    const denominator = measure(parts[2]!);
+    if (
+      numerator !== null &&
+      denominator !== null &&
+      kindOf(numerator) === "usd" &&
+      kindOf(denominator) === "shares"
+    ) {
+      units.set(id, "usd_per_share");
+    }
+  }
+
+  return units;
+}
+
+/** Lee los hechos de acciones pedidos. Puro: no abre red. */
+export function readXbrlShareFacts(
+  xml: string,
+  selection: XbrlShareFactSelection,
+): ReadXbrlShareFactsResult {
+  if (/<!DOCTYPE/iu.test(xml)) {
+    return { status: "rejected", reason: "doctype_present" };
+  }
+
+  const root = /<((?:[A-Za-z_][A-Za-z0-9_.-]*:)?)xbrl\b[^>]*>/u.exec(xml);
+
+  if (root === null) {
+    return { status: "rejected", reason: "instance_root_missing" };
+  }
+
+  const namespaces = namespacesOf(root[0]);
+  const rootPrefix = root[1]!.replace(/:$/u, "");
+
+  if (namespaces.get(rootPrefix) !== INSTANCE_NAMESPACE) {
+    return { status: "rejected", reason: "instance_root_missing" };
+  }
+
+  const instance = qualified(rootPrefix);
+  const contexts = readContexts(
+    xml,
+    instance,
+    prefixesFor(namespaces, (namespace) => namespace === DIMENSION_NAMESPACE),
+  );
+
+  if (contexts.size === 0) {
+    return { status: "rejected", reason: "no_contexts" };
+  }
+
+  const units = unitKinds(xml, instance, namespaces);
+  const groups: {
+    readonly label: string;
+    readonly prefixes: string[];
+    readonly locals: readonly string[];
+  }[] = [
+    {
+      label: "us-gaap",
+      prefixes: prefixesFor(namespaces, (namespace) =>
+        namespace.startsWith(US_GAAP_NAMESPACE_PREFIX),
+      ).filter((prefix) => prefix !== ""),
+      locals: selection.usGaap,
+    },
+    {
+      label: "extension",
+      prefixes: prefixesFor(
+        namespaces,
+        (namespace) =>
+          !STANDARD_NAMESPACE_PREFIXES.some((standard) =>
+            namespace.startsWith(standard),
+          ),
+      ).filter((prefix) => prefix !== ""),
+      locals: selection.extension,
+    },
+  ];
+  const values = new Map<string, XbrlShareFact>();
+  const conflicting = new Set<string>();
+
+  for (const group of groups) {
+    for (const local of group.locals) {
+      if (!new RegExp(`^${NAME}$`, "u").test(local)) continue;
+      for (const prefix of group.prefixes) {
+        const pattern = new RegExp(
+          `<${qualified(prefix)}${escape(local)}\\b([^>]*?)>([^<]*)</${qualified(prefix)}${escape(local)}>`,
+          "gu",
+        );
+
+        for (const match of xml.matchAll(pattern)) {
+          const attributes = match[1]!;
+          const contextId = attribute(attributes, "contextRef");
+          const unitId = attribute(attributes, "unitRef");
+          const decimals = attribute(attributes, "decimals");
+          const value = match[2]!.trim();
+          const unit = unitId === null ? undefined : units.get(unitId);
+
+          if (
+            contextId === null ||
+            unit === undefined ||
+            !contexts.has(contextId) ||
+            decimals === null ||
+            (decimals !== "INF" && !DECIMALS.test(decimals)) ||
+            !DECIMAL.test(value)
+          ) {
+            continue;
+          }
+
+          const concept = `${group.label}:${local}`;
+          const key = `${concept}\u0000${contextId}\u0000${unit}`;
+          const previous = values.get(key);
+
+          if (previous === undefined) {
+            values.set(key, {
+              concept,
+              contextId,
+              unit,
+              value,
+              decimals: decimals === "INF" ? null : Number(decimals),
+            });
+          } else if (previous.value !== value) {
+            conflicting.add(concept);
+          }
+        }
+      }
+    }
+  }
+
+  return {
+    status: "read",
+    read: {
+      version: SEC_XBRL_SHARE_FACTS_VERSION,
+      contexts,
+      facts: [...values.values()].filter(
+        (fact) => !conflicting.has(fact.concept),
+      ),
+      conflicting: [...conflicting].sort(),
+    },
+  };
+}

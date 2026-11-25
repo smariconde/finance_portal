@@ -76,6 +76,10 @@ const BODIES: readonly (readonly [RegExp, string])[] = [
     "sin préstamos ni vencimientos de deuda en los últimos $1 ejercicios, e intereses ausentes o en la mejor banda de calificación; se valúa en cero y se dice.",
   ],
   [
+    /^the equity statement of filing ([0-9-]+) at ([0-9-]+) adds (\d+) components to the total with no noncontrolling interest; valued at zero and named\.$/u,
+    "el estado de patrimonio del filing $1 al $2 suma $3 componentes hasta el total, sin participaciones no controlantes; se valúan en cero y se dice.",
+  ],
+  [
     /^No noncontrolling interest is reported in the base-year balance sheet\.$/u,
     "El balance del ejercicio base no reporta participaciones no controlantes.",
   ],

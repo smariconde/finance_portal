@@ -65,7 +65,7 @@ function series(
   years = ENDS,
 ): AnnualFundamentals {
   return {
-    version: "annual-fundamentals-1.8.0",
+    version: "annual-fundamentals-1.9.0",
     fiscalYears: years.map((end, index) => {
       const items: Partial<Record<LineItemId, string>> = {
         revenue: "1000",

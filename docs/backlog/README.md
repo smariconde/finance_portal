@@ -160,8 +160,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   132 | `F6-46`    | `done`        | Deuda como no corriente más préstamos de corto plazo cuando ésa es la única deuda corriente publicada (NFLX, PEP, JNJ, MSI, TRMB), nombrada en el snapshot.                                                               | `F6-45`            |
 |   133 | `F6-47`    | `done`        | Medir de dónde sale el sesgo precio/valor (mediana ≈ 1,9) por componente —crecimiento, margen, reinversión, WACC, terminal— y traer la tabla al owner antes de tocar reglas.                                              | `F6-46`            |
 |   134 | `F6-48`    | `done`        | Beta por mezcla de negocios (ADR 0086): líneas de ingresos del XBRL del 10-K mapeadas por la IA a industrias de Damodaran, pesos por ventas × EV/Sales, declaración del owner por CIK; sin mezcla la corrida queda igual. | `F6-47`            |
-|   135 | `F6-49`    | `ready`       | Acciones sólo por clase (V): diluidas de la clase que concilia utilidad y EPS en el instance del 10-K, carátula ponderada por las tasas de conversión del filing y capex alternativo.                                     | `F6-48`            |
-|   136 | `F6-50`    | `queued`      | Aseguradora sin patrimonio común publicado (BRK, opción (a)): el total como común sólo con evidencia del 10-K de que no hay preferentes; corrida de screening con su límite nombrado.                                     | `F6-49`            |
+|   135 | `F6-49`    | `done`        | Acciones sólo por clase (V): diluidas de la clase que concilia utilidad y EPS en el instance del 10-K, carátula ponderada por las tasas de conversión del filing y capex alternativo.                                     | `F6-48`            |
+|   136 | `F6-50`    | `ready`       | Aseguradora sin patrimonio común publicado (BRK, opción (a)): el total como común sólo con evidencia del 10-K de que no hay preferentes; corrida de screening con su límite nombrado.                                     | `F6-49`            |
 |   137 | `F6-51`    | `queued`      | «Experimental» separado de «Requiere revisión» en la lista, la página y el MCP, con los controles de bear y bull a la vista (GOOGL); sin tocar snapshot ni hashes.                                                        | `F6-50`            |
 |   138 | `F6-52`    | `queued`      | GE evaluable: la lectura de linaje deja de cortar en 1.000 revisiones por segmento; PSX re-medido con la selección vigente.                                                                                               | `F6-51`            |
 |   139 | `F6-53`    | `queued`      | Corredores y bancos de inversión con SIC 6211 (HOOD, SCHW, GS, MS): medir sus conceptos y traer al owner perfil y método antes de codificar.                                                                              | `F6-52`            |
@@ -4823,41 +4823,62 @@ revisión». Medido sobre Production (Neon y MCP) con `valuation:assess
   distress, y para BRK el owner eligió la opción (a), aseguradora en modo
   screening, el 2026-11-25.
 
-#### `F6-49` — acciones por clase y base «as-converted»
+#### `F6-49` — acciones por clase y base «as-converted» (cerrado el 2026-11-25)
 
-- Estado: `ready`
-- Fase y dependencia: Fase 6, después de `F6-48`.
-- Alcance incluido:
-  - Sin `WeightedAverageNumberOfDilutedSharesOutstanding` sin dimensiones, las
-    acciones diluidas salen del instance del 10-K: la clase de
-    `StatementClassOfStockAxis` cuyo `EarningsPerShareDiluted` reproduce
-    `NetIncomeLoss / acciones diluidas` dentro del redondeo impreso. Ninguna o
-    dos que concilian se nombran; nunca se suman clases.
-  - Medido en el 10-K FY2026 de V: clase A diluida 1.907 M; 23.504 / 1.907 =
-    12,32, su EPS diluido. La clase C da 1.958 contra 49,30.
-  - La carátula por clase de `F6-32` se pondera con las tasas de conversión
-    que el mismo filing etiqueta (`v:CommonStockConversionRate`: B-1 1,5400,
-    B-2 1,4924, B-3 1,4773, C 4,0000) y las preferentes convertibles
-    (`v:PreferredStockConversionRate`), con el concepto declarado por CIK
-    porque es una extensión del filer. Hoy F6-32 sumaría 1.797 M sin
-    ponderar; ponderadas sin preferentes dan unas 1.854 M.
-  - `PaymentsToAcquireProductiveAssets` como alternativa de capex, después de
-    `PaymentsToAcquirePropertyPlantAndEquipment` (precedencia, nunca suma),
-    con versión nueva de la selección SEC.
-- Fuera de alcance: declarar tasas de conversión a mano; clases sin EPS por
-  clase.
-- Controles: `TM-05`, `TM-06`, `TM-10`, `TM-16`.
-- Criterios de aceptación:
-  - V llega a una corrida en una réplica, con la base de acciones nombrada y
-    la carátula convertida cerrando contra las diluidas dentro de una
-    tolerancia medida antes de fijarla.
-  - GOOGL, META y BRK conservan su carátula; las corridas guardadas replayan.
-  - Medir cuántos filers del índice publican acciones sólo por clase.
-- Evidencia: tests de dominio con instance sintético, tabla medida, replay.
+- Estado: `done`
+- Acciones diluidas (`diluted-shares-reconciled-1.0.0`): sin un conteo sin
+  dimensiones en la serie, el job lee el instance del 10-K del último ejercicio
+  (`sec-xbrl-share-facts-1.0.0`: acciones, USD, USD por acción y `pure`, con su
+  `decimals`) y toma el único conteo cuyo EPS diluido reproduce la utilidad
+  dentro del redondeo impreso: las diluidas de una clase (`class_diluted`), las
+  sin dimensiones, o las básicas cuando el EPS diluido sin dimensiones las
+  concilia (`basic_reconciles_diluted_eps`, ExxonMobil). Ninguno o dos se
+  nombran. Prueba el CIK vigente y después sus antecesores declarados: el 10-K de
+  FY2025 de ExxonMobil es de la sociedad anterior. El perfil de completitud las
+  cuenta y las congela sólo cuando se usan (`completeness-profile-1.4.0`); sin
+  ellas sigue `1.3.0` byte por byte. `pnpm valuation:assess` sin `--offline`
+  muestra la conciliación o su motivo.
+- Carátula convertida (`shares-outstanding-classes-1.1.0`): para un CIK que
+  declara su conversión (Visa, en `DECLARED_SHARE_CLASS_CONVERSIONS`), cada clase
+  pesa la tasa que el mismo filing etiqueta en su extensión, la clase valuada pesa
+  uno, lo que convierte fuera de la carátula (las preferentes) entra con sus
+  acciones «as-converted», y el total tiene que quedar a 1 % o menos del total
+  «as-converted» del filing. Sin declaración, `1.0.0` no cambia.
+- No controlantes en cero con evidencia (`noncontrolling-interest-evidence-1.0.0`,
+  enmienda del 2026-11-25 a la ADR 0054): con el patrimonio sólo publicado
+  incluyéndolos, el estado de patrimonio del filing del cierre del balance tiene
+  que sumar el total sin componente de no controlantes. Apareció al correr V: sin
+  esto su corrida era `rejected` por `required_inputs_present`.
+- Capex (`sec-core-concepts-12.0.0`, `annual-fundamentals-1.9.0`):
+  `PaymentsToAcquireProductiveAssets`, `PaymentsToAcquireOtherPropertyPlantAndEquipment`
+  y `PaymentsForCapitalImprovements`, después de
+  `PaymentsToAcquirePropertyPlantAndEquipment`, sin sumar.
+- Medido antes de codificar, en Production (187 filers): 7 sin diluidas sin
+  dimensiones (V, BRK, HSY, STZ, SJM, XOM y su holding) y 43 sin el capex de
+  PP&E; las alternativas cubren 31 (27 con `ProductiveAssets`: AMZN, NVDA, HD,
+  PEP, GE…); los otros 12 son sobre todo bancos y aseguradoras. Carátula
+  convertida de V contra su total: −0,19 % (10-K) y −0,16 % (10-Q), la recompra
+  entre el cierre y la carátula.
+- Medido en una réplica de la base personal con el worker real (descarga e IA):
+
+  | Ticker | Antes                    | Después                                  | Valor  | Cierre 11-24 | P/V  |
+  | ------ | ------------------------ | ---------------------------------------- | ------ | ------------ | ---- |
+  | V      | `missing_required_input` | `requires_review` (margen terminal 61 %) | 524,03 | 416,78       | 0,80 |
+  | HSY    | sin diluidas             | `computed`                               | 117,89 | 176,56       | 1,50 |
+  | STZ    | sin diluidas             | `computed`                               | 211,66 | 137,33       | 0,65 |
+  | XOM    | sin diluidas             | `requires_review` (ciclo experimental)   | 75,24  | 158,23       | 2,10 |
+
+  V: clase A, 1.907 M diluidas (residuo 9,76 M contra 16,2 M de redondeo),
+  carátula convertida 1.863,4 M, industria `financial-svcs-non-bank-and-insurance`
+  resuelta por la IA, rigor `standard`; bear 508, bull 2.324. SJM queda
+  `distressed` sin método: no es un problema de acciones.
+
+- Replay: 21 de 21 corridas de la réplica reproducidas.
+- Gates: 4.894 unit, 256 de integración, lint, tipos, formato y build.
 
 #### `F6-50` — aseguradora sin patrimonio común publicado (BRK)
 
-- Estado: `queued`
+- Estado: `ready`
 - Fase y dependencia: Fase 6, después de `F6-49`.
 - Decisión del owner (2026-11-25): opción (a), BRK como aseguradora en modo
   screening; holding/SOTP sigue diferido.

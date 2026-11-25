@@ -65,8 +65,14 @@ import { z } from "zod";
  * la misma línea del balance). Entran **después** de `MarketableSecuritiesCurrent`
  * y `ShortTermInvestments`: la precedencia no suma, y sin ellas la caja de
  * Datadog era sólo su efectivo (401 M).
+ * `1.9.0` (`F6-49`): el capex con que lo publican Amazon, NVIDIA, PepsiCo,
+ * Visa, Corning o Eli Lilly, después de
+ * `PaymentsToAcquirePropertyPlantAndEquipment`: `PaymentsToAcquireProductiveAssets`
+ * (PP&E más software e intangibles productivos, el renglón de capex de esos
+ * estados de flujo), `PaymentsToAcquireOtherPropertyPlantAndEquipment` y
+ * `PaymentsForCapitalImprovements`. La precedencia no suma.
  */
-export const ANNUAL_FUNDAMENTALS_VERSION = "annual-fundamentals-1.8.0";
+export const ANNUAL_FUNDAMENTALS_VERSION = "annual-fundamentals-1.9.0";
 
 export const lineItemIdSchema = z.enum([
   "revenue",
@@ -199,7 +205,12 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
   {
     item: "capital_expenditure",
     periodType: "annual",
-    concepts: ["us-gaap:PaymentsToAcquirePropertyPlantAndEquipment"],
+    concepts: [
+      "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+      "us-gaap:PaymentsToAcquireProductiveAssets",
+      "us-gaap:PaymentsToAcquireOtherPropertyPlantAndEquipment",
+      "us-gaap:PaymentsForCapitalImprovements",
+    ],
   },
   {
     item: "operating_cash_flow",

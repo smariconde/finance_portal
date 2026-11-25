@@ -132,3 +132,36 @@ uno publicado. Con resultado operativo, ninguno de los dos campos existe.
   la réplica es que D.R. Horton no pasa.
 - Una empresa sin deuda pero clasificada `high_growth` o `loss_making` (Moderna)
   sigue sin método: eso no es deuda.
+
+## Enmienda del 2026-11-25: no controlantes en cero con evidencia (`F6-49`)
+
+**Problema.** Visa sólo publica el patrimonio **incluyendo** a los no
+controlantes (`StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest`)
+desde 2011, y ningún `MinorityInterest`. El puente deja ese reclamo en `missing`
+—una ausencia no es un cero— y `required_inputs_present` rechazó su corrida en una
+réplica. Medido en Production el 2026-11-25: 7 de 187 filers tienen su último
+patrimonio sólo con los no controlantes adentro; Visa, Broadcom, F5 y Qualcomm
+nunca publican el de la controlante.
+
+**Decisión — `noncontrolling-interest-evidence-1.0.0`.** El mismo principio que la
+deuda: cero sólo con evidencia del filing. La evidencia es el estado de patrimonio
+del 10-Q o 10-K cuyo cierre es el del balance de la corrida, leído del instance
+XBRL (`sec-xbrl-share-facts-1.0.0`, dos pedidos SEC medidos): el total sin
+dimensiones y sus componentes en `StatementEquityComponentsAxis` a esa fecha.
+
+- Hacen falta dos componentes o más y que sumen el total dentro del redondeo
+  impreso de cada número; un estado incompleto no prueba nada
+  (`components_missing`, `components_do_not_add_up`).
+- Un componente de no controlantes publicado en cero es evidencia; uno con monto,
+  o un `MinorityInterest` distinto de cero, no lo es (`noncontrolling_reported`).
+- Con evidencia, el reclamo es `declared_absent` con la regla, el filing y la
+  cantidad de componentes en el texto; sin ella sigue `missing`.
+
+Medido en Visa: el 10-K al 2026-09-30 suma cinco componentes a 36.111 M y el 10-Q
+al 2026-06-30 cinco a 35.178 M, ninguno de no controlantes. Las preferentes de
+Visa están en el patrimonio y convierten en clase A: cuentan en las acciones
+«as-converted» (`shares-outstanding-classes-1.1.0`), no como reclamo.
+
+**Consecuencias.** Ni el motor ni la metodología cambian de versión: el reclamo
+declarado ausente ya existía y su texto sólo aparece cuando se usa, así que toda
+corrida anterior se reproduce igual (21 de 21 en la réplica).

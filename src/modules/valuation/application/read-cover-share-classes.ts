@@ -3,9 +3,13 @@ import {
   buildAnnualReportUrl,
   locateLatestPeriodicReport,
 } from "@/modules/fundamentals/domain/sec-annual-report";
-import { readCoverShares } from "@/modules/fundamentals/domain/sec-xbrl-instance";
+import {
+  readCoverShares,
+  readXbrlShareFacts,
+} from "@/modules/fundamentals/domain/sec-xbrl-instance";
 
 import {
+  DECLARED_SHARE_CLASS_CONVERSIONS,
   sumCoverShareClasses,
   type CoverShareClassesReading,
 } from "../domain/cover-share-classes";
@@ -47,9 +51,20 @@ export async function readCoverShareClassesEvidence(
   if (xml === null) return null;
   const read = readCoverShares(xml);
   if (read.status !== "read") return null;
+  // Las tasas de conversión viven en el mismo instance (`F6-49`).
+  const conversion = DECLARED_SHARE_CLASS_CONVERSIONS[input.cik];
+  const conversionRead =
+    conversion === undefined
+      ? null
+      : readXbrlShareFacts(xml, {
+          usGaap: [],
+          extension: [conversion.conversionRate, conversion.asConvertedShares],
+        });
   return sumCoverShareClasses({
     cik: input.cik,
     facts: read.facts,
+    conversionFacts:
+      conversionRead?.status === "read" ? conversionRead.read : null,
     accessionNumber: located.report.accessionNumber,
     acceptedAt: located.report.acceptedAt,
   });
