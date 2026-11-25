@@ -87,6 +87,13 @@ const CHECK_LABELS: Record<string, string> = {
   share_count_positive: "Cantidad de acciones positiva",
   method_versions_match: "Versiones del método coherentes",
   cycle_model_experimental: "Modelo de ciclo experimental",
+  growth_model_experimental: "Modelo de crecimiento experimental",
+  financial_model_experimental: "Patrimonio financiero experimental",
+  reit_model_experimental: "Modelo REIT experimental",
+  revenue_margin_recomputed: "Ventas y margen recalculados",
+  growth_snapshot_known_at_cutoff: "Snapshot de crecimiento visible al corte",
+  growth_scenario_margin_target:
+    "Escenarios de crecimiento por margen objetivo",
   cycle_normalization_recomputed: "Normalización de ciclo recalculada",
   cycle_scenario_margin_target: "Escenarios de ciclo por margen objetivo",
   cycle_snapshot_known_at_cutoff: "Snapshot de ciclo visible al corte",
@@ -155,6 +162,12 @@ const CHECK_RULES: Record<string, string> = {
     "Pesimista, base y optimista quedan ordenados; lo contrario contradice sus nombres.",
   cycle_model_experimental:
     "El modelo de ciclo es experimental: si la ventana cubre un ciclo, si la contabilidad es comparable y cuánto habrá que reinvertir lo revisa el owner.",
+  growth_model_experimental:
+    "El modelo de crecimiento es experimental: tamaño de mercado, margen objetivo, acceso a financiamiento y uso de pérdidas los revisa el owner.",
+  financial_model_experimental:
+    "El modelo de patrimonio financiero es experimental: lee la corrida como screening.",
+  reit_model_experimental:
+    "El modelo REIT es experimental: lee la corrida como screening.",
   cycle_normalization_recomputed:
     "La historia del ciclo, la clasificación y la trayectoria del margen explican el flujo normalizado.",
   cycle_scenario_margin_target:
@@ -236,3 +249,20 @@ export const ASSET_PROFILE_LABELS: Record<string, string> = {
   holding: "Holding",
   distressed: "Distress",
 };
+
+/** Los casos de una corrida, como los nombra la página. */
+export const CHECK_ORIGIN_LABELS = {
+  base: "base",
+  bear: "bear",
+  bull: "bull",
+} as const;
+
+/** «base», «bull», «base y bull», «base, bear y bull». */
+export function originList(
+  origins: readonly (keyof typeof CHECK_ORIGIN_LABELS)[],
+): string {
+  const names = origins.map((origin) => CHECK_ORIGIN_LABELS[origin]);
+  return names.length <= 1
+    ? (names[0] ?? "")
+    : `${names.slice(0, -1).join(", ")} y ${names.at(-1)}`;
+}

@@ -12,9 +12,10 @@ import {
   formatPercent,
   formatUtcTimestamp,
 } from "@/modules/valuation/domain/display-format";
+import { reviewOfRun } from "@/modules/valuation/domain/run-review";
 import type { ValuationRun } from "@/modules/valuation/domain/valuation-run";
 
-import { RunStatusMark } from "./data-marks";
+import { RunReviewMarks } from "./data-marks";
 import { CodeValue, Field, FieldList, HashValue } from "./field";
 import {
   ADJUSTMENT_POLICY_LABELS,
@@ -88,7 +89,7 @@ export function RunHeadline({ run }: { run: ValuationRun }) {
           )}
 
           <div className="flex flex-wrap items-center gap-2">
-            <RunStatusMark status={run.status} />
+            <RunReviewMarks review={reviewOfRun(run)} />
             {result?.terminalValueShare == null ? null : (
               <span className="numeric text-xs text-muted-foreground">
                 Valor terminal:{" "}

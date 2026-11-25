@@ -14,10 +14,65 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  isExperimentalModelCheck,
+  RUN_CHECK_ORIGINS,
+  type RunCheckOrigin,
+} from "@/modules/valuation/domain/run-review";
 import { listTransformations } from "@/modules/valuation/domain/valuation-report";
 import type { ValuationRun } from "@/modules/valuation/domain/valuation-run";
 
-import { checkLabel, checkRule, TRANSFORMATION_LABELS } from "./labels";
+import { ExperimentalMark } from "./data-marks";
+import {
+  checkLabel,
+  checkRule,
+  originList,
+  TRANSFORMATION_LABELS,
+} from "./labels";
+
+type CheckRow = {
+  readonly id: string;
+  readonly mode: "reject" | "require_review";
+  readonly message: string;
+  readonly failedIn: RunCheckOrigin[];
+};
+
+/**
+ * Los controles de base, bear y bull en una fila por control (`F6-51`): los
+ * escenarios repiten los del caso base, y el estado de la corrida cuenta los
+ * tres, así que la tabla dice en qué caso falló cada uno.
+ */
+function checkRows(run: ValuationRun): CheckRow[] {
+  const byCase = {
+    base: run.result?.checks ?? [],
+    bear: run.result?.scenarios?.bear.checks ?? [],
+    bull: run.result?.scenarios?.bull.checks ?? [],
+  };
+  const rows = new Map<string, CheckRow>();
+
+  for (const origin of RUN_CHECK_ORIGINS) {
+    for (const check of byCase[origin]) {
+      const key = `${check.mode}:${check.id}`;
+      const row = rows.get(key) ?? {
+        id: check.id,
+        mode: check.mode,
+        message: check.message,
+        failedIn: [],
+      };
+      if (check.status === "failed" && !row.failedIn.includes(origin))
+        row.failedIn.push(origin);
+      rows.set(key, row);
+    }
+  }
+
+  return [...rows.values()];
+}
+
+function outcomeLabel(failedIn: readonly RunCheckOrigin[]): string {
+  if (failedIn.length === 0) return "Pasó";
+  if (failedIn.length === 1 && failedIn[0] === "base") return "No pasó";
+  return `No pasó en ${originList(failedIn)}`;
+}
 
 /**
  * Las fórmulas que la corrida aplicó y los controles que el motor ejecutó
@@ -26,7 +81,7 @@ import { checkLabel, checkRule, TRANSFORMATION_LABELS } from "./labels";
  */
 export function RunChecks({ run }: { run: ValuationRun }) {
   const transformations = listTransformations(run);
-  const checks = run.result?.checks ?? [];
+  const checks = checkRows(run);
 
   return (
     <Card>
@@ -88,27 +143,39 @@ export function RunChecks({ run }: { run: ValuationRun }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {checks.map((check) => (
-                <TableRow key={check.id}>
-                  <TableHead scope="row" className="font-medium">
-                    {checkLabel(check.id)}
-                  </TableHead>
-                  <TableCell className="text-muted-foreground">
-                    {check.mode === "reject"
-                      ? "Rechaza la corrida"
-                      : "Exige revisión"}
-                  </TableCell>
-                  <TableCell>
-                    <StatusMark
-                      status={check.status === "passed" ? "ready" : "degraded"}
-                      label={check.status === "passed" ? "Pasó" : "No pasó"}
-                    />
-                  </TableCell>
-                  <TableCell className="text-muted-foreground whitespace-normal">
-                    {checkRule(check.id, check.message)}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {checks.map((check) => {
+                const label = isExperimentalModelCheck(check.id);
+
+                return (
+                  <TableRow key={`${check.mode}:${check.id}`}>
+                    <TableHead scope="row" className="font-medium">
+                      {checkLabel(check.id)}
+                    </TableHead>
+                    <TableCell className="text-muted-foreground">
+                      {label
+                        ? "Rotula el método"
+                        : check.mode === "reject"
+                          ? "Rechaza la corrida"
+                          : "Exige revisión"}
+                    </TableCell>
+                    <TableCell>
+                      {label && check.failedIn.length > 0 ? (
+                        <ExperimentalMark />
+                      ) : (
+                        <StatusMark
+                          status={
+                            check.failedIn.length === 0 ? "ready" : "degraded"
+                          }
+                          label={outcomeLabel(check.failedIn)}
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground whitespace-normal">
+                      {checkRule(check.id, check.message)}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         )}

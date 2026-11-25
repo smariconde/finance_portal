@@ -1,6 +1,12 @@
 import type { SourceRegistryEntry } from "@/modules/ingestion/domain/source-registry-entry";
 import type { ValuationResultReading } from "@/modules/valuation/application/read-valuation-result";
 import type { ValuedCompaniesReading } from "@/modules/valuation/application/read-valued-companies";
+import {
+  RUN_CHECK_ORIGINS,
+  reviewOfRun,
+  type RunCheckOrigin,
+  type RunReview,
+} from "@/modules/valuation/domain/run-review";
 import { valuationVerdict } from "@/modules/valuation/domain/valuation-verdict";
 
 import {
@@ -16,7 +22,7 @@ import {
 
 /**
  * Las valuaciones como las lee la página, proyectadas para el asistente del
- * owner (`portal-mcp-tools-1.1.0`). Montos en texto decimal, nunca `number`;
+ * owner (`portal-mcp-tools-1.2.0`). Montos en texto decimal, nunca `number`;
  * ningún ID interno (entidad, security, corrida o job): el ticker y las
  * fechas alcanzan para volver a la página.
  */
@@ -54,6 +60,7 @@ export function projectValuedCompanies(
         legalName: company.legalName,
         method: company.method,
         status: company.status,
+        review: reviewSection(company.review),
         asOf: company.asOf,
         currency: company.currency,
         valuePerShare: company.valuePerShare,
@@ -104,16 +111,51 @@ function runSection(run: RunRecord, valuePerShare: string | null) {
   };
 }
 
+function reviewSection(review: RunReview) {
+  return {
+    version: review.version,
+    marks: review.marks,
+    experimentalModel: review.experimentalModel,
+    reviewChecks: review.reviewChecks,
+  };
+}
+
+type ProjectedCheck = {
+  readonly id: string;
+  readonly mode: string;
+  readonly status: string;
+};
+
+/**
+ * Los controles que no pasaron, uno por `id` y modo, con los casos donde
+ * fallaron: un escenario que pide revisión deja la corrida en revisión y el
+ * asistente tiene que poder decir cuál (`F6-51`).
+ */
 function failedChecks(
-  checks: readonly {
-    readonly id: string;
-    readonly mode: string;
-    readonly status: string;
-  }[],
+  checks: Partial<
+    Record<RunCheckOrigin, readonly ProjectedCheck[] | undefined>
+  >,
 ) {
-  return checks
-    .filter((check) => check.status === "failed")
-    .map((check) => ({ id: check.id, mode: check.mode }));
+  const failed = new Map<
+    string,
+    { id: string; mode: string; origins: RunCheckOrigin[] }
+  >();
+
+  for (const origin of RUN_CHECK_ORIGINS) {
+    for (const check of checks[origin] ?? []) {
+      if (check.status !== "failed") continue;
+      const key = `${check.mode}:${check.id}`;
+      const entry = failed.get(key) ?? {
+        id: check.id,
+        mode: check.mode,
+        origins: [],
+      };
+      if (!entry.origins.includes(origin)) entry.origins.push(origin);
+      failed.set(key, entry);
+    }
+  }
+
+  return [...failed.values()];
 }
 
 function subjectSection(
@@ -194,7 +236,8 @@ export function projectValuationResult(
                   },
             modelStatus: result?.modelStatus ?? null,
             rigor: result?.rigor ?? null,
-            failedChecks: failedChecks(result?.checks ?? []),
+            review: reviewSection(reviewOfRun(reading.run)),
+            failedChecks: failedChecks({ base: result?.checks }),
           };
         }),
         market: gate(VALUATION_MARKET_SOURCES, registry, () => ({
@@ -242,7 +285,12 @@ export function projectValuationResult(
             level: run.input.assessment.rigor.level,
             degradedBy: run.input.assessment.rigor.degradedBy,
           },
-          failedChecks: failedChecks(run.result?.checks ?? []),
+          review: reviewSection(reviewOfRun(run)),
+          failedChecks: failedChecks({
+            base: run.result?.checks,
+            bear: run.result?.scenarios?.bear.checks,
+            bull: run.result?.scenarios?.bull.checks,
+          }),
         })),
         market: gate(VALUATION_MARKET_SOURCES, registry, () => ({
           comparison:

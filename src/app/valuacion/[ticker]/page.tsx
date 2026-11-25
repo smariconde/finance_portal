@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import {
   Calculator,
   DatabaseZap,
+  FlaskConical,
   History,
   Info,
   ShieldCheck,
@@ -49,6 +50,10 @@ import {
   formatPercent,
   formatUtcTimestamp,
 } from "@/modules/valuation/domain/display-format";
+import {
+  reviewOfRun,
+  type RunReview,
+} from "@/modules/valuation/domain/run-review";
 import { valuationTickerSchema } from "@/modules/valuation/domain/valuation-job";
 import { valuationVerdict } from "@/modules/valuation/domain/valuation-verdict";
 import {
@@ -80,7 +85,7 @@ import {
 import { EquityBridgeTable } from "../_components/run/equity-bridge-table";
 import { methodCopy } from "../_components/method-copy";
 import { EvidenceTable } from "../_components/run/evidence-table";
-import { checkLabel } from "../_components/run/labels";
+import { checkLabel, originList } from "../_components/run/labels";
 import { RunChecks } from "../_components/run/run-checks";
 import { RunHeadline } from "../_components/run/run-headline";
 import { ScenariosTable } from "../_components/run/scenarios-table";
@@ -298,18 +303,54 @@ function RunFacts({
   );
 }
 
-/** El aviso de revisión: los controles por nombre, una vez cada uno. */
-function ReviewAlert({ labels }: { labels: readonly string[] }) {
-  if (labels.length === 0) return null;
+/**
+ * El aviso de revisión (`F6-51`): el rótulo del método aparte de los controles
+ * que fallaron en esta corrida, cada uno una vez con los casos donde falló.
+ * Una corrida sólo experimental no dice «revisión»: lo dice su método.
+ */
+function ReviewAlert({
+  review,
+  labelOf = checkLabel,
+}: {
+  review: RunReview;
+  labelOf?: (id: string) => string;
+}) {
+  const checks = review.reviewChecks;
+  if (checks.length === 0 && review.experimentalModel === null) return null;
+
+  const named = checks.map((check) =>
+    check.origins.length === 1 && check.origins[0] === "base"
+      ? labelOf(check.id)
+      : `${labelOf(check.id)} (${originList(check.origins)})`,
+  );
+  const experimental =
+    review.experimentalModel === null
+      ? null
+      : checkLabel(review.experimentalModel);
 
   return (
     <Alert>
-      <Info aria-hidden="true" />
-      <AlertTitle>La corrida quedó marcada para revisión</AlertTitle>
+      {checks.length === 0 ? (
+        <FlaskConical aria-hidden="true" />
+      ) : (
+        <Info aria-hidden="true" />
+      )}
+      <AlertTitle>
+        {checks.length === 0
+          ? "Método experimental"
+          : "La corrida quedó marcada para revisión"}
+      </AlertTitle>
       <AlertDescription>
-        {labels.length} control{labels.length === 1 ? "" : "es"} en revisión:{" "}
-        {labels.join(", ")}. El valor se calculó igual; el detalle está en la
-        auditoría.
+        {checks.length === 0 ? (
+          <>{experimental}: el valor es un screening.</>
+        ) : (
+          <>
+            {experimental === null ? null : <>{experimental}, y </>}
+            {checks.length} control{checks.length === 1 ? "" : "es"} en
+            revisión: {named.join(", ")}. El valor se calculó igual; el detalle
+            está en la auditoría.
+          </>
+        )}
       </AlertDescription>
     </Alert>
   );
@@ -477,13 +518,7 @@ function FinancialRunView({
   const risk = run.input.risk;
   const failedChecks =
     run.result?.checks.filter((check) => check.status === "failed") ?? [];
-  const reviewLabels = [
-    ...new Set(
-      failedChecks
-        .filter((check) => check.mode === "require_review")
-        .map(financialCheckCopy),
-    ),
-  ];
+  const review = reviewOfRun(run);
   const knownAt =
     run.provenance.knowledge.knownAt ?? run.provenance.knowledge.effectiveAt;
   const bookEquity =
@@ -517,7 +552,10 @@ function FinancialRunView({
           </AlertDescription>
         </Alert>
       ) : (
-        <ReviewAlert labels={reviewLabels} />
+        <ReviewAlert
+          review={review}
+          labelOf={(id) => financialCheckCopy({ id })}
+        />
       )}
 
       <SectionIndex
@@ -959,19 +997,9 @@ export default async function ValuationResultPage({ params }: PageProps) {
   const { run, subject } = reading;
   const scenarios = readScenarios(run);
   const sensitivity = annotateSensitivity(run);
-  // Un escenario que pide revisión deja la corrida en revisión: el aviso los
-  // cuenta igual que a los de la base.
-  const reviewChecks = [
-    ...(run.result?.checks ?? []),
-    ...(run.result?.scenarios?.bear.checks ?? []),
-    ...(run.result?.scenarios?.bull.checks ?? []),
-  ].filter(
-    (check) => check.mode === "require_review" && check.status === "failed",
-  );
-  // Base, bear y bull repiten el mismo control: se nombra una vez.
-  const reviewLabels = [
-    ...new Set(reviewChecks.map((check) => checkLabel(check.id))),
-  ];
+  // Un escenario que pide revisión deja la corrida en revisión: el aviso lo
+  // nombra con su caso, aparte del rótulo del método (`F6-51`).
+  const review = reviewOfRun(run);
   const attributionOf = (sourceId: string) =>
     DEMO_SOURCE_REGISTRY.find((entry) => entry.sourceId === sourceId)
       ?.attribution ?? null;
@@ -996,7 +1024,7 @@ export default async function ValuationResultPage({ params }: PageProps) {
         <NewerGapAlert gap={reading.newerGap} />
       )}
 
-      <ReviewAlert labels={reviewLabels} />
+      <ReviewAlert review={review} />
 
       <SectionIndex
         label="Secciones del resultado"
