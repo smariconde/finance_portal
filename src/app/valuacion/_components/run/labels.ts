@@ -200,6 +200,7 @@ const QUALITY_FLAG_LABELS: Record<string, string> = {
   not_provided: "No provisto",
   license_restricted: "Restringido por licencia",
   estimated: "Estimado",
+  pretax_domestic_plus_foreign: "Doméstica más extranjera",
 };
 
 export function qualityFlagLabel(flag: string): string {

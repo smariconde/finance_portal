@@ -32,6 +32,10 @@ import {
   type Normalization,
   type NormalizationFacts,
 } from "../domain/normalization";
+import {
+  COMPOSED_PRETAX_CONCEPT,
+  COMPOSED_PRETAX_FLAG,
+} from "../domain/pretax-income";
 import { resolveReportedDebt } from "../domain/reported-debt";
 import {
   assessNetCashCoverage,
@@ -992,7 +996,9 @@ export function seriesFact(
     sourceId,
     sourceDocumentId: item.sourceDocumentId,
     observationId: item.observationId,
-    qualityFlags: [],
+    // Una utilidad antes de impuestos compuesta lo dice en el hecho (`F6-52`).
+    qualityFlags:
+      item.concept === COMPOSED_PRETAX_CONCEPT ? [COMPOSED_PRETAX_FLAG] : [],
   };
 }
 

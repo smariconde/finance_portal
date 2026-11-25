@@ -244,3 +244,37 @@ describe("sujetos publicados en el doble en memoria", () => {
     ).resolves.toEqual([]);
   });
 });
+
+describe("lectura paginada en el doble en memoria (`F6-52`)", () => {
+  it("sigue después del cursor y reconstruye la lectura entera", async () => {
+    const repository = seeded();
+    const whole = await repository.list({
+      subjectType: "legal_entity",
+      subjectId: SUBJECT_ID,
+      limit: 1000,
+    });
+    const paged: Observation[] = [];
+    let after: { revisionGroupId: string; revisionNumber: number } | undefined;
+
+    for (;;) {
+      const page = await repository.list({
+        subjectType: "legal_entity",
+        subjectId: SUBJECT_ID,
+        limit: 2,
+        after,
+      });
+      if (page.length === 0) break;
+      paged.push(...page);
+      const last = page.at(-1)!;
+      after = {
+        revisionGroupId: last.revisionGroupId,
+        revisionNumber: last.revisionNumber,
+      };
+    }
+
+    expect(whole.length).toBeGreaterThan(2);
+    expect(paged.map((row) => row.observationId)).toStrictEqual(
+      whole.map((row) => row.observationId),
+    );
+  });
+});

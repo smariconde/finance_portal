@@ -18,6 +18,7 @@ import {
 import { createInMemoryCorporateActionRepository } from "../infrastructure/in-memory-corporate-action-repository";
 import {
   LineageReadLimitError,
+  MAX_ROWS_PER_SEGMENT,
   readLineageObservations,
 } from "./read-lineage-observations";
 
@@ -150,10 +151,65 @@ describe("readLineageObservations", () => {
     ]);
   });
 
-  it("falla en vez de truncar un segmento que llena el techo", async () => {
+  it("lee un segmento de más de 1.000 revisiones en páginas, sin perder ninguna (GE, `F6-52`)", async () => {
+    const [template] = buildSplitFixtureObservations();
+    const total = 2345;
+    const stored = Array.from({ length: total }, (_, index) => ({
+      ...template!,
+      observationId: `00000000-0000-4000-8000-${index.toString(16).padStart(12, "0")}`,
+      subjectId: NEW,
+      // Un concepto por fila: el dominio junta las revisiones de un mismo
+      // hecho, y acá cada fila tiene que llegar como un hecho propio.
+      concept: `${template!.concept}${index}`,
+      revisionGroupId: index.toString(16).padStart(64, "0"),
+      revisionNumber: 1,
+      supersededAt: null,
+    }));
+    const list = vi.fn<ObservationRepository["list"]>(async (query) => {
+      const after = query.after;
+      return stored
+        .filter(
+          (row) =>
+            after === undefined ||
+            row.revisionGroupId > after.revisionGroupId ||
+            (row.revisionGroupId === after.revisionGroupId &&
+              row.revisionNumber > after.revisionNumber),
+        )
+        .slice(0, query.limit);
+    });
+    const observations = {
+      ...createInMemoryObservationRepository(),
+      list,
+    } as ObservationRepository;
+
+    const selection = await readLineageObservations(
+      { legalEntityId: NEW, metricIds: [template!.metricId] },
+      QUERY,
+      {
+        corporateActions: createInMemoryCorporateActionRepository(),
+        observations,
+      },
+    );
+
+    expect(list.mock.calls.map(([query]) => query.after)).toStrictEqual([
+      undefined,
+      { revisionGroupId: stored[999]!.revisionGroupId, revisionNumber: 1 },
+      { revisionGroupId: stored[1999]!.revisionGroupId, revisionNumber: 1 },
+    ]);
+    expect(selection.rows).toHaveLength(total);
+  });
+
+  it("falla en vez de truncar un segmento que llena el techo total", async () => {
+    let page = 0;
     const saturated = {
       ...createInMemoryObservationRepository(),
-      list: vi.fn(async () => Array.from({ length: 1000 })),
+      list: vi.fn(async () => {
+        page += 1;
+        return Array.from({ length: 1000 }, (_, index) => ({
+          revisionGroupId: (page * 1000 + index).toString(16).padStart(64, "0"),
+          revisionNumber: 1,
+        }));
+      }),
     } as unknown as ObservationRepository;
 
     await expect(
@@ -166,6 +222,7 @@ describe("readLineageObservations", () => {
         },
       ),
     ).rejects.toBeInstanceOf(LineageReadLimitError);
+    expect(page).toBe(MAX_ROWS_PER_SEGMENT / 1000);
   });
 
   it("exige métricas: un linaje sin filtro multiplica la lectura sin techo", async () => {

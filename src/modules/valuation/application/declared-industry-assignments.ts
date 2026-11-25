@@ -27,6 +27,17 @@ export const DECLARED_INDUSTRY_ASSIGNMENTS: readonly IndustryDeclaration[] =
           rationale:
             "Decisión delegada por el owner el 2026-11-19. Marketplace y retail online: la misma industria que la IA eligió para AMZN (SIC 5961). La release de enero de 2026 no tiene «Retail (Online)», y «financiera no bancaria» describiría sólo a Mercado Pago, no al comercio.",
         },
+        {
+          // SIC 3600 es el encabezado del grupo 36 y no tiene fila en el
+          // mapeo; ninguna industria del grupo es aeroespacial (`F6-52`).
+          cik: "0000040545",
+          ticker: "GE",
+          industryKey: "aerospace-defense",
+          decidedBy: "owner",
+          decidedOn: "2026-11-25",
+          rationale:
+            "Decisión del owner el 2026-11-25. Desde la escisión de GE HealthCare (2023) y GE Vernova (2024), GE es GE Aerospace: motores de aviación comercial y de defensa y sus servicios. Su SIC 3600 quedó de la General Electric diversificada.",
+        },
       ] as const satisfies readonly unknown[]
     ).map((entry) => industryDeclarationSchema.parse(entry)),
   );

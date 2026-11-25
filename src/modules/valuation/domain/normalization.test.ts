@@ -13,6 +13,7 @@ import {
   type NormalizationContext,
   type NormalizationFacts,
 } from "./normalization";
+import { COMPOSED_PRETAX_CONCEPT, COMPOSED_PRETAX_FLAG } from "./pretax-income";
 import type { MonetaryFact } from "./valuation-facts";
 import { zeroDebtEvidenceFixture } from "../infrastructure/zero-debt-evidence-fixtures";
 
@@ -567,6 +568,151 @@ describe("normalization with published debt totals (reported-debt-1.3.0)", () =>
   });
 });
 
+describe("normalization with a composed pretax income (pretax-income-1.0.0)", () => {
+  const composition = {
+    version: "pretax-income-1.0.0" as const,
+    domestic: fact(
+      "200",
+      "IncomeLossFromContinuingOperationsBeforeIncomeTaxesDomestic",
+    ),
+    foreign: fact(
+      "700",
+      "IncomeLossFromContinuingOperationsBeforeIncomeTaxesForeign",
+    ),
+    statutoryTax: fact(
+      "189",
+      "IncomeTaxReconciliationIncomeTaxExpenseBenefitAtFederalStatutoryIncomeTaxRate",
+    ),
+  };
+  const composed = (draft: NormalizationFacts) => {
+    draft.income.pretaxIncome = {
+      ...money("900"),
+      concept: COMPOSED_PRETAX_CONCEPT,
+      qualityFlags: [COMPOSED_PRETAX_FLAG],
+    };
+    draft.pretaxComposition = composition;
+  };
+
+  it("carries the three parts, dates them and recomputes the total", () => {
+    const normalization = buildNormalization(facts(composed), CONTEXT);
+
+    expect(normalization.taxRate).toMatchObject({
+      effective: "0.2",
+      basis: "effective",
+    });
+    expect(normalizationMismatches(normalization, CONTEXT)).toEqual([]);
+    expect(
+      listNormalizationFacts(normalization).map((entry) => entry.path),
+    ).toEqual(
+      expect.arrayContaining([
+        "normalization.facts.pretaxComposition.domestic",
+        "normalization.facts.pretaxComposition.foreign",
+        "normalization.facts.pretaxComposition.statutoryTax",
+      ]),
+    );
+  });
+
+  it("rejects a total the parts do not compose, a part of another year and a missing part list", () => {
+    const edited = buildNormalization(
+      facts((draft) => {
+        composed(draft);
+        draft.income.pretaxIncome = {
+          ...draft.income.pretaxIncome!,
+          value: "950",
+        };
+      }),
+      CONTEXT,
+    );
+    const stale = buildNormalization(
+      facts((draft) => {
+        composed(draft);
+        draft.pretaxComposition = {
+          ...composition,
+          foreign: { ...composition.foreign, asOf: "2024-12-31" },
+        };
+      }),
+      CONTEXT,
+    );
+    const orphan = buildNormalization(
+      facts((draft) => {
+        composed(draft);
+        delete draft.pretaxComposition;
+      }),
+      CONTEXT,
+    );
+    const stray = buildNormalization(
+      facts((draft) => {
+        draft.pretaxComposition = composition;
+      }),
+      CONTEXT,
+    );
+
+    for (const normalization of [edited, stale, orphan, stray]) {
+      expect(normalizationMismatches(normalization, CONTEXT)).toContain(
+        "normalization.facts.pretaxComposition",
+      );
+    }
+  });
+
+  it("freezes the composition from the series only when the series composed it", () => {
+    const pretax = {
+      item: "pretax_income" as const,
+      concept: COMPOSED_PRETAX_CONCEPT,
+      value: "900",
+      unit: "monetary",
+      currency: "USD",
+      asOf: BASE,
+      observationId: null,
+      availableAt: "2026-02-15T21:00:00.000Z",
+      recordedAt: "2026-02-16T00:00:00.000Z",
+      sourceDocumentId: "0000000000-26-000001",
+      composition: {
+        version: "pretax-income-1.0.0" as const,
+        domestic: {
+          ...composition.domestic,
+          item: "pretax_income_domestic" as const,
+          unit: "monetary",
+          observationId: "00000000-0000-4000-8000-000000000011",
+          recordedAt: "2026-02-16T00:00:00.000Z",
+        },
+        foreign: {
+          ...composition.foreign,
+          item: "pretax_income_foreign" as const,
+          unit: "monetary",
+          observationId: "00000000-0000-4000-8000-000000000012",
+          recordedAt: "2026-02-16T00:00:00.000Z",
+        },
+        statutoryTax: {
+          ...composition.statutoryTax,
+          item: "statutory_federal_income_tax" as const,
+          unit: "monetary",
+          observationId: "00000000-0000-4000-8000-000000000013",
+          recordedAt: "2026-02-16T00:00:00.000Z",
+        },
+      },
+    };
+    const series = {
+      version: "annual-fundamentals-1.10.0",
+      fiscalYears: [{ fiscalYearEnd: BASE, items: { pretax_income: pretax } }],
+    } as unknown as AnnualFundamentals;
+
+    const result = normalizationFactsFromSeries(series, (value) => ({
+      ...money(value.value, value.asOf),
+      observationId: value.observationId,
+    }))!;
+
+    expect(result.income.pretaxIncome?.concept).toBe(COMPOSED_PRETAX_CONCEPT);
+    expect(result.pretaxComposition).toMatchObject({
+      version: "pretax-income-1.0.0",
+      domestic: {
+        value: "200",
+        observationId: "00000000-0000-4000-8000-000000000011",
+      },
+      statutoryTax: { value: "189" },
+    });
+  });
+});
+
 describe("normalizationFactsFromSeries", () => {
   function item(item: string, concept: string, value: string, asOf: string) {
     return {
@@ -585,7 +731,7 @@ describe("normalizationFactsFromSeries", () => {
 
   it("keeps the concept the series chose and up to four previous years", () => {
     const series = {
-      version: "annual-fundamentals-1.9.0",
+      version: "annual-fundamentals-1.10.0",
       fiscalYears: [...ENDS, "2020-12-31", "2019-12-31"].map((end) => ({
         fiscalYearEnd: end,
         items: {
@@ -626,7 +772,7 @@ describe("normalizationFactsFromSeries", () => {
   it("has nothing to normalize without a fiscal year", () => {
     expect(
       normalizationFactsFromSeries(
-        { version: "annual-fundamentals-1.9.0", fiscalYears: [] },
+        { version: "annual-fundamentals-1.10.0", fiscalYears: [] },
         (value) => money(value.value),
       ),
     ).toBeNull();

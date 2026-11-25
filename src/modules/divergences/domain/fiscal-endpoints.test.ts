@@ -243,7 +243,7 @@ describe("selectFiscalEndpoints", () => {
     const selectedRows: FundamentalRow[] = [
       eps(old, "8", published),
       ...[shares, diluted].map((item) => ({
-        observationId: item.observationId,
+        observationId: item.observationId!,
         subjectId: securityId,
         concept: item.concept,
         periodType: item.item === "shares_outstanding" ? "instant" : "annual",

@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+import {
+  COMPOSED_PRETAX_CONCEPT,
+  composePretaxIncome,
+  type PretaxComposition,
+} from "./pretax-income";
+
 /**
  * Serie anual de fundamentals de un emisor, armada sobre lo que el contrato
  * point-in-time deja ver (`F3-01` a `F3-06`).
@@ -71,13 +77,22 @@ import { z } from "zod";
  * (PP&E más software e intangibles productivos, el renglón de capex de esos
  * estados de flujo), `PaymentsToAcquireOtherPropertyPlantAndEquipment` y
  * `PaymentsForCapitalImprovements`. La precedencia no suma.
+ * `1.10.0` (`F6-52`): la utilidad antes de impuestos de quien no publica el
+ * total. La doméstica, la extranjera y el impuesto a la tasa federal legal de
+ * la conciliación son partidas propias, y es la única partida que la serie
+ * compone: sin total publicado, `pretax-income-1.0.0` suma las dos partes sólo
+ * si la conciliación las corrobora, con el concepto derivado que la nombra y
+ * las tres partidas adjuntas. Con el total publicado, nada cambia.
  */
-export const ANNUAL_FUNDAMENTALS_VERSION = "annual-fundamentals-1.9.0";
+export const ANNUAL_FUNDAMENTALS_VERSION = "annual-fundamentals-1.10.0";
 
 export const lineItemIdSchema = z.enum([
   "revenue",
   "operating_income",
   "pretax_income",
+  "pretax_income_domestic",
+  "pretax_income_foreign",
+  "statutory_federal_income_tax",
   "interest_expense",
   "income_tax",
   "net_income",
@@ -168,6 +183,28 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
     concepts: [
       "us-gaap:IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
       "us-gaap:IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments",
+    ],
+  },
+  // `1.10.0`: las dos partes y su control, para `pretax-income-1.0.0`.
+  {
+    item: "pretax_income_domestic",
+    periodType: "annual",
+    concepts: [
+      "us-gaap:IncomeLossFromContinuingOperationsBeforeIncomeTaxesDomestic",
+    ],
+  },
+  {
+    item: "pretax_income_foreign",
+    periodType: "annual",
+    concepts: [
+      "us-gaap:IncomeLossFromContinuingOperationsBeforeIncomeTaxesForeign",
+    ],
+  },
+  {
+    item: "statutory_federal_income_tax",
+    periodType: "annual",
+    concepts: [
+      "us-gaap:IncomeTaxReconciliationIncomeTaxExpenseBenefitAtFederalStatutoryIncomeTaxRate",
     ],
   },
   {
@@ -555,10 +592,13 @@ export type LineItemValue = {
   readonly unit: string;
   readonly currency: string | null;
   readonly asOf: string;
-  readonly observationId: string;
+  /** `null` sólo en una partida compuesta: no hay una observación que la diga. */
+  readonly observationId: string | null;
   readonly availableAt: string;
   readonly recordedAt: string;
   readonly sourceDocumentId: string | null;
+  /** Sólo en la utilidad antes de impuestos compuesta (`1.10.0`). */
+  readonly composition?: PretaxComposition;
 };
 
 export type FiscalYear = {
@@ -782,8 +822,57 @@ export function buildAnnualFundamentals(
       }
     }
 
+    if (items.pretax_income === undefined) {
+      const composed = composedPretaxItem(fiscalYearEnd, items);
+      if (composed !== null) items.pretax_income = composed;
+    }
+
     return { fiscalYearEnd, items };
   });
 
   return { version: ANNUAL_FUNDAMENTALS_VERSION, fiscalYears };
+}
+
+/**
+ * La utilidad antes de impuestos compuesta (`1.10.0`): disponible cuando lo
+ * está la última de sus tres partidas, del documento de las tres si es uno.
+ */
+function composedPretaxItem(
+  fiscalYearEnd: string,
+  items: Partial<Record<LineItemId, LineItemValue>>,
+): LineItemValue | null {
+  const reading = composePretaxIncome({
+    fiscalYearEnd,
+    domestic: items.pretax_income_domestic,
+    foreign: items.pretax_income_foreign,
+    statutoryTax: items.statutory_federal_income_tax,
+  });
+
+  if (reading.status !== "composed") return null;
+
+  const parts = [
+    reading.composition.domestic,
+    reading.composition.foreign,
+    reading.composition.statutoryTax,
+  ];
+  const latest = (key: "availableAt" | "recordedAt") =>
+    parts
+      .map((part) => part[key])
+      .sort()
+      .at(-1)!;
+  const documents = new Set(parts.map((part) => part.sourceDocumentId));
+
+  return {
+    item: "pretax_income",
+    concept: COMPOSED_PRETAX_CONCEPT,
+    value: reading.value,
+    unit: reading.composition.domestic.unit,
+    currency: reading.composition.domestic.currency,
+    asOf: fiscalYearEnd,
+    observationId: null,
+    availableAt: latest("availableAt"),
+    recordedAt: latest("recordedAt"),
+    sourceDocumentId: documents.size === 1 ? [...documents][0]! : null,
+    composition: reading.composition,
+  };
 }

@@ -24,7 +24,7 @@ import { SEC_HISTORY_WINDOW_VERSION } from "./sec-history-window";
  *   a correr el CIK publica sólo lo nuevo. No sube la versión del parser, porque
  *   filtrar no cambia el contenido de un hecho ya publicado.
  */
-export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-12.0.0";
+export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-13.0.0";
 
 /**
  * Qué decide la versión. La 1.0.0 eran los mismos conceptos con toda la historia
@@ -57,6 +57,11 @@ export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-12.0.0";
  * `PaymentsToAcquireProductiveAssets` (27: Amazon, NVIDIA, Home Depot, PepsiCo,
  * Visa…), `PaymentsForCapitalImprovements` (Corning, Gartner) y
  * `PaymentsToAcquireOtherPropertyPlantAndEquipment` (Eli Lilly).
+ * La 13.0.0 suma la utilidad antes de impuestos doméstica y extranjera y el
+ * impuesto a la tasa federal legal de la conciliación (F6-52, medido el
+ * 2026-11-25): 28 de las 502 entidades del índice no publican el total, 11 de
+ * ellas sí las dos partes (Phillips 66, Oracle, McDonald's…), y la regla
+ * `pretax-income-1.0.0` las suma sólo si la conciliación las corrobora.
  * Con la versión y el ancla,
  * un período anterior al corte sigue siendo «no se fue a buscar». El test fija
  * los componentes: cambiar uno sin subir la versión lo rompe.
@@ -109,6 +114,10 @@ const US_GAAP = [
   "InterestIncomeExpenseNet",
   "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
   "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments",
+  // Las dos partes y su control (13.0.0): sólo las suma `pretax-income-1.0.0`.
+  "IncomeLossFromContinuingOperationsBeforeIncomeTaxesDomestic",
+  "IncomeLossFromContinuingOperationsBeforeIncomeTaxesForeign",
+  "IncomeTaxReconciliationIncomeTaxExpenseBenefitAtFederalStatutoryIncomeTaxRate",
   "IncomeTaxExpenseBenefit",
   "NetIncomeLoss",
   "ProfitLoss",
