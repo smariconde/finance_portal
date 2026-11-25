@@ -160,6 +160,12 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   132 | `F6-46`    | `done`        | Deuda como no corriente más préstamos de corto plazo cuando ésa es la única deuda corriente publicada (NFLX, PEP, JNJ, MSI, TRMB), nombrada en el snapshot.                                                               | `F6-45`            |
 |   133 | `F6-47`    | `done`        | Medir de dónde sale el sesgo precio/valor (mediana ≈ 1,9) por componente —crecimiento, margen, reinversión, WACC, terminal— y traer la tabla al owner antes de tocar reglas.                                              | `F6-46`            |
 |   134 | `F6-48`    | `done`        | Beta por mezcla de negocios (ADR 0086): líneas de ingresos del XBRL del 10-K mapeadas por la IA a industrias de Damodaran, pesos por ventas × EV/Sales, declaración del owner por CIK; sin mezcla la corrida queda igual. | `F6-47`            |
+|   135 | `F6-49`    | `ready`       | Acciones sólo por clase (V): diluidas de la clase que concilia utilidad y EPS en el instance del 10-K, carátula ponderada por las tasas de conversión del filing y capex alternativo.                                     | `F6-48`            |
+|   136 | `F6-50`    | `queued`      | Aseguradora sin patrimonio común publicado (BRK, opción (a)): el total como común sólo con evidencia del 10-K de que no hay preferentes; corrida de screening con su límite nombrado.                                     | `F6-49`            |
+|   137 | `F6-51`    | `queued`      | «Experimental» separado de «Requiere revisión» en la lista, la página y el MCP, con los controles de bear y bull a la vista (GOOGL); sin tocar snapshot ni hashes.                                                        | `F6-50`            |
+|   138 | `F6-52`    | `queued`      | GE evaluable: la lectura de linaje deja de cortar en 1.000 revisiones por segmento; PSX re-medido con la selección vigente.                                                                                               | `F6-51`            |
+|   139 | `F6-53`    | `queued`      | Corredores y bancos de inversión con SIC 6211 (HOOD, SCHW, GS, MS): medir sus conceptos y traer al owner perfil y método antes de codificar.                                                                              | `F6-52`            |
+|   140 | `F6-54`    | `queued`      | Emisores con 20-F o 40-F (TSM, ASML, NVO, SPOT, NU): medición y ADR —IFRS, moneda, ratio del ADS, sin 10-Q, secciones para la IA—; el código sale de la ADR.                                                              | `F6-53`            |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -4786,6 +4792,162 @@ Decisión delegada por el owner («tomá la mejor decisión»).
   contra un cierre de 705,27. El ciclo 2021–2025 incluye el −20 % de 2023.
 - Replay: 42 de 42 en la réplica y 56 de 57 en Neon (la de GOOGL ya conocida).
 - Gates: 4.719 unit, 251 de integración, lint, tipos, formato y build.
+
+#### Cobertura de valuación — plan del 2026-11-25
+
+Pedido del owner: resolver por qué V y BRK-B no se valúan, si todos los
+métodos están cubiertos y por qué tantas corridas quedan en «Requiere
+revisión». Medido sobre Production (Neon y MCP) con `valuation:assess
+--offline` y siete pedidos SEC; sin código.
+
+| Ticker                   | Dónde frena hoy                                                                                                 | Slice                |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------- | -------------------- |
+| V                        | `structural_inputs` sin `diluted_shares`: desde 2009 publica acciones y EPS sólo por clase                      | `F6-49`              |
+| BRK-B                    | `insurer` (SIC 6331) sin `common_book_equity, roe`; `financial-filing-evidence` da `table_missing_or_ambiguous` | `F6-50`              |
+| GOOGL                    | `requires_review` sin control visible: lo trae `terminal_value_share` del escenario bull                        | `F6-51`              |
+| GE                       | `LineageReadLimitError`: un segmento de linaje pasa las 1.000 revisiones y la evaluación no termina             | `F6-52`              |
+| PSX                      | `commodity` sin `operating_income` con una ventana bajada el 2026-10-29 con otra selección                      | `F6-52`              |
+| HOOD                     | SIC 6211 dentro del rango financiero sin perfil: `missing_classification_evidence`                              | `F6-53`              |
+| TSM, ASML, NVO, SPOT, NU | `unresolved_ticker`: 20-F o 40-F negados por la ADR 0084                                                        | `F6-54`              |
+| CRWD, MRNA               | la última negativa (`distressed`, `method_not_implemented`) es vieja: hoy evalúan `loss_making`                 | revaluar, sin código |
+
+- «Requiere revisión» en Production: 13 de las 23 últimas corridas. Once son
+  estructurales: `growth_model_experimental` (LLY, MELI, PLTR, DDOG, META,
+  NVDA, MU, MSFT) y `cycle_model_experimental` (CAT, F, TSLA) se registran
+  siempre fallados. Las otras dos pasan el 85 % de valor terminal: AMZN en el
+  caso base y GOOGL sólo en bull (LLY y MELI también lo pasan). Graduar los métodos experimentales exige medirlos contra
+  algo y no se planifica acá.
+- Ningún banco ni aseguradora tiene corrida en Production; `F6-50` mide JPM y
+  PRU como control.
+- Distress (APV) y holdings (SOTP) siguen diferidos: CRWD y MRNA ya no son
+  distress, y para BRK el owner eligió la opción (a), aseguradora en modo
+  screening, el 2026-11-25.
+
+#### `F6-49` — acciones por clase y base «as-converted»
+
+- Estado: `ready`
+- Fase y dependencia: Fase 6, después de `F6-48`.
+- Alcance incluido:
+  - Sin `WeightedAverageNumberOfDilutedSharesOutstanding` sin dimensiones, las
+    acciones diluidas salen del instance del 10-K: la clase de
+    `StatementClassOfStockAxis` cuyo `EarningsPerShareDiluted` reproduce
+    `NetIncomeLoss / acciones diluidas` dentro del redondeo impreso. Ninguna o
+    dos que concilian se nombran; nunca se suman clases.
+  - Medido en el 10-K FY2026 de V: clase A diluida 1.907 M; 23.504 / 1.907 =
+    12,32, su EPS diluido. La clase C da 1.958 contra 49,30.
+  - La carátula por clase de `F6-32` se pondera con las tasas de conversión
+    que el mismo filing etiqueta (`v:CommonStockConversionRate`: B-1 1,5400,
+    B-2 1,4924, B-3 1,4773, C 4,0000) y las preferentes convertibles
+    (`v:PreferredStockConversionRate`), con el concepto declarado por CIK
+    porque es una extensión del filer. Hoy F6-32 sumaría 1.797 M sin
+    ponderar; ponderadas sin preferentes dan unas 1.854 M.
+  - `PaymentsToAcquireProductiveAssets` como alternativa de capex, después de
+    `PaymentsToAcquirePropertyPlantAndEquipment` (precedencia, nunca suma),
+    con versión nueva de la selección SEC.
+- Fuera de alcance: declarar tasas de conversión a mano; clases sin EPS por
+  clase.
+- Controles: `TM-05`, `TM-06`, `TM-10`, `TM-16`.
+- Criterios de aceptación:
+  - V llega a una corrida en una réplica, con la base de acciones nombrada y
+    la carátula convertida cerrando contra las diluidas dentro de una
+    tolerancia medida antes de fijarla.
+  - GOOGL, META y BRK conservan su carátula; las corridas guardadas replayan.
+  - Medir cuántos filers del índice publican acciones sólo por clase.
+- Evidencia: tests de dominio con instance sintético, tabla medida, replay.
+
+#### `F6-50` — aseguradora sin patrimonio común publicado (BRK)
+
+- Estado: `queued`
+- Fase y dependencia: Fase 6, después de `F6-49`.
+- Decisión del owner (2026-11-25): opción (a), BRK como aseguradora en modo
+  screening; holding/SOTP sigue diferido.
+- Alcance incluido:
+  - BRK publica `StockholdersEquity` (717.419 M en 2025) y `NetIncomeLoss`
+    (66.968 M), sin `CommonStockholdersEquity` ni
+    `NetIncomeLossAvailableToCommonStockholdersBasic`.
+  - Patrimonio común = patrimonio de la controlante, y utilidad común =
+    utilidad de la controlante, sólo con evidencia del mismo 10-K: ningún
+    concepto de preferentes ni dividendos preferentes en el instance, y ninguna
+    asignación a valores participantes. Sin evidencia sigue el faltante, como
+    exige la ADR 0061.
+  - El instance de BRK excedió el deadline del egress
+    (`deadline_exceeded`): medir su tamaño y resolverlo sin subir el límite de
+    todas las fuentes.
+  - La corrida queda `screening` y nombra el límite: el patrimonio incluye
+    BNSF, BHE, la industria y la cartera, no sólo el negocio asegurador.
+  - JPM y PRU corridos en Production como control del camino financiero.
+- Fuera de alcance: SOTP, cartera a mercado y la regla de recompras de BRK.
+- Controles: `TM-05`, `TM-06`, `TM-10`, `TM-16`.
+- Criterios de aceptación: BRK-B registra una corrida `excess_return` con la
+  evidencia de «sin preferentes» congelada en el snapshot y recalculada por el
+  motor; JPM y PRU no cambian de hash.
+- Evidencia: tests de dominio, corrida en réplica y en Production, replay.
+
+#### `F6-51` — «Experimental» no es «Requiere revisión»
+
+- Estado: `queued`
+- Fase y dependencia: Fase 6, después de `F6-50`.
+- Alcance incluido:
+  - La lista de valuadas, `/valuacion/[ticker]` y el MCP distinguen el rótulo
+    del método (`growth_model_experimental`, `cycle_model_experimental`) de un
+    control que falló en esa corrida.
+  - Los controles de bear y bull se leen junto con los del base: hoy el
+    estado los cuenta (`run-valuation.ts`) y la página y el MCP sólo leen
+    `result.checks`, así que GOOGL dice «Requiere revisión» sin motivo.
+  - `portal-mcp-tools-1.2.0` con el origen de cada control.
+- Fuera de alcance: cambiar el estado guardado, el snapshot o los hashes;
+  graduar un método.
+- Controles: `TM-05`, `TM-12`, `UI-02`, `UI-03`; `impeccable` y
+  `financial-visualization-review` antes de tocar la UI.
+- Criterios de aceptación: GOOGL muestra el control del escenario bull; las
+  once corridas experimentales dicen «Experimental» y sólo marcan revisión si
+  además falló otro control; E2E con axe.
+- Evidencia: tests, capturas, E2E.
+
+#### `F6-52` — GE y PSX
+
+- Estado: `queued`
+- Fase y dependencia: Fase 6, después de `F6-51`.
+- Alcance incluido:
+  - GE: `valuation:assess --offline` contra Neon termina en
+    `LineageReadLimitError` (1.000 revisiones en un segmento). Medir qué
+    conceptos acumulan revisiones y paginar la lectura sin truncar.
+  - PSX: su ventana es de una selección vieja (job del 2026-10-29). Revaluar
+    con la selección vigente y, si sigue sin `operating_income`, medir qué
+    publica una refinadora antes de proponer receta.
+- Controles: `TM-05`, `TM-06`, `TM-16`.
+- Criterios de aceptación: GE evalúa y nombra su método o su faltante; PSX
+  registra corrida o un faltante medido.
+- Evidencia: test del lector con más de 1.000 revisiones, medición.
+
+#### `F6-53` — corredores y bancos de inversión (SIC 6211)
+
+- Estado: `queued`
+- Fase y dependencia: Fase 6, después de `F6-52`.
+- Alcance incluido: `sec-sic-profile-2.0.0` deja 6211 sin perfil, y HOOD
+  queda en `missing_classification_evidence`. Medir HOOD, SCHW, GS y MS
+  —conceptos de patrimonio común, capital regulatorio e industria de
+  Damodaran— y traer al owner la tabla con el perfil y el método antes de
+  codificar.
+- Controles: `TM-05`, `TM-06`, `TM-16`.
+- Criterios de aceptación: tabla medida y decisión del owner registrada; el
+  código sale en el mismo slice sólo si la decisión no pide ADR.
+
+#### `F6-54` — emisores extranjeros (20-F y 40-F)
+
+- Estado: `queued`
+- Fase y dependencia: Fase 6, después de `F6-53`; necesita ADR antes del
+  código.
+- Demanda observada: TSM, ASML, NVO, SPOT y NU pedidos desde `/valuacion` y
+  negados como `foreign_private_issuer` (ADR 0084).
+- Alcance incluido: medir companyfacts `ifrs-full` de los cinco, moneda de
+  reporte frente a la de cotización, ratio del ADS, períodos intermedios sin
+  10-Q (6-K), secciones del 20-F para las tareas de IA, y escribir la ADR con
+  las opciones.
+- Fuera de alcance: código; los slices de implementación salen de la ADR.
+- Controles: `TM-05`, `TM-06`, `TM-08`, `TM-10`, `TM-16`.
+- Criterios de aceptación: ADR propuesta con la tabla medida y la decisión del
+  owner.
 
 #### `F6-48` — beta por mezcla de negocios (cerrado el 2026-11-24)
 
