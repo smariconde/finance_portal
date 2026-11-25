@@ -102,3 +102,21 @@ publica con hasta una semana de atraso.
   los ADS en USD, que no es la moneda de valuación): el camino de crecimiento de
   años 1 y 2 sigue siendo la tendencia histórica cuando el consenso no está en la
   moneda de reporte.
+
+## Enmienda del 2026-11-25: la tasa libre de riesgo y TSM (`F6-55`)
+
+Damodaran no publica tasas por moneda como archivo estable (ni en su página de
+datos ni en el workbook de riesgo país). Medido:
+
+| Moneda | Fuente                                           | Valor            | Frecuencia |
+| ------ | ------------------------------------------------ | ---------------- | ---------- |
+| EUR    | ECB Data Portal, curva AAA del euro a 10 años    | 3,31 % (11-24)   | diaria     |
+| EUR    | ECB, bono alemán a 10 años (`IRS`)               | 3,42 % (octubre) | mensual    |
+| DKK    | ECB, bono danés a 10 años (`IRS`), Aaa, spread 0 | 3,23 % (octubre) | mensual    |
+| TWD    | ninguna legible por máquina                      | —                | —          |
+
+La API DataMapper del FMI responde 403 a un cliente automatizado, la OpenAPI de
+TPEx no publica las tasas benchmark y el banco central de Taiwán publica
+promedios en PDF. **Decisión del owner:** EUR con la curva AAA diaria (la del
+mismo día que la valuación), DKK con el bono mensual, y TSM fuera de `F6-55`
+hasta tener una fuente para TWD.

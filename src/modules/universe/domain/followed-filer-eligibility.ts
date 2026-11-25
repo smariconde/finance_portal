@@ -7,6 +7,7 @@ import {
   resolveConstituents,
   type ResolvedConstituent,
 } from "./resolve-constituents";
+import { declaredForeignFiler } from "./declared-foreign-filers";
 import type { CompanyTickerAssignment } from "./universe-source-records";
 
 /**
@@ -28,9 +29,14 @@ import type { CompanyTickerAssignment } from "./universe-source-records";
  * Las enmiendas (`/A`) no cuentan: corrigen un informe, no dicen qué presenta
  * el emisor. Un trust de commodities o cripto presenta 10-K y pasa: el
  * selector de método es el que lo niega, nunca esta regla.
+ *
+ * La 1.1.0 (`F6-55`, ADR 0087) admite un `20-F` sólo si su CIK está en
+ * `DECLARED_FOREIGN_FILERS`: el owner decide a quién seguir y en qué moneda se
+ * lo valúa. Un 20-F no declarado y cualquier 40-F siguen siendo
+ * `foreign_private_issuer`.
  */
 export const FOLLOWED_FILER_ELIGIBILITY_VERSION =
-  "followed-filer-eligibility-1.0.0";
+  "followed-filer-eligibility-1.1.0";
 
 /** El índice declarado del owner: nunca se cierra por un rebalanceo ajeno. */
 export const OWNER_FOLLOWED_INDEX_ID = "owner-followed";
@@ -101,6 +107,7 @@ export type AnnualReportReading =
 export function judgeAnnualReports(
   filings: readonly SecFiling[],
   observedOn: string,
+  cik: string | null = null,
 ): AnnualReportReading {
   const annual = filings
     .filter(
@@ -119,7 +126,11 @@ export function judgeAnnualReports(
     return { status: "refused", reason: "no_annual_report" };
   }
 
-  if (FOREIGN_ANNUAL_FORMS.has(latest.form)) {
+  const declared = cik === null ? null : declaredForeignFiler(cik);
+  if (
+    FOREIGN_ANNUAL_FORMS.has(latest.form) &&
+    latest.form !== declared?.annualForm
+  ) {
     return { status: "refused", reason: "foreign_private_issuer" };
   }
 
