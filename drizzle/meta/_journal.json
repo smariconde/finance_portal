@@ -407,6 +407,13 @@
       "when": 1795573028971,
       "tag": "0057_business_mix_proposals",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1795643889870,
+      "tag": "0058_broker_dealer_profile",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,26 @@
+-- Manual rollback for 0058_broker_dealer_profile.sql.
+-- Run only against the intended database after verifying backups and dependants.
+-- Restores the method check as 0057 left it, without the `broker_dealer`
+-- profile (F6-53). Refuses while a job records that profile: it says how the
+-- company was classified (TM-16). Delete those jobs deliberately first.
+BEGIN;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM "valuation_jobs" WHERE "asset_profile" = 'broker_dealer'
+  ) THEN
+    RAISE EXCEPTION 'a job records the broker_dealer profile; remove it deliberately before rolling back 0058';
+  END IF;
+END
+$$;
+ALTER TABLE "valuation_jobs" DROP CONSTRAINT "valuation_jobs_method_check";
+ALTER TABLE "valuation_jobs" ADD CONSTRAINT "valuation_jobs_method_check" CHECK (("valuation_jobs"."method_status" is null or "valuation_jobs"."method_status" in ('selected', 'unsupported_method'))
+        and ("valuation_jobs"."asset_profile" is null or "valuation_jobs"."asset_profile" in ('non_financial_mature', 'high_growth', 'loss_making', 'bank', 'insurer', 'reit', 'cyclical', 'commodity', 'holding', 'distressed'))
+        and ("valuation_jobs"."method" is null or "valuation_jobs"."method" in ('fcff_base', 'fcff_three_stage', 'revenue_margin_survival', 'excess_return', 'affo_nav', 'normalized_fcff', 'sotp_nav', 'apv_scenarios'))
+        and ("valuation_jobs"."rigor" is null or "valuation_jobs"."rigor" in ('full', 'standard', 'screening', 'unsupported'))
+        and ("valuation_jobs"."unsupported_reason" is null or "valuation_jobs"."unsupported_reason" in ('missing_classification_evidence', 'conflicting_evidence', 'method_not_implemented', 'missing_required_input'))
+        and (("valuation_jobs"."gap" = 'snapshot_not_assembled') is not distinct from ("valuation_jobs"."method_status" = 'selected' and "valuation_jobs"."method" is not null and "valuation_jobs"."asset_profile" is not null and "valuation_jobs"."rigor" is not null and "valuation_jobs"."unsupported_reason" is null) or "valuation_jobs"."gap" is distinct from 'snapshot_not_assembled')
+        and (("valuation_jobs"."gap" = 'unsupported_method') is not distinct from ("valuation_jobs"."method_status" = 'unsupported_method' and "valuation_jobs"."unsupported_reason" is not null) or "valuation_jobs"."gap" is distinct from 'unsupported_method')
+        and ("valuation_jobs"."method_status" is null or "valuation_jobs"."gap"::text in ('snapshot_not_assembled', 'unsupported_method', 'annual_fundamentals', 'run_recorded'))
+        and ("valuation_jobs"."method_status" is not null or ("valuation_jobs"."method" is null and "valuation_jobs"."asset_profile" is null and "valuation_jobs"."rigor" is null and "valuation_jobs"."unsupported_reason" is null)));
+COMMIT;

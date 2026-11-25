@@ -21,6 +21,7 @@ import {
   type CompanyAssessment,
   type CompanyAssessmentRequest,
 } from "@/modules/valuation/application/assess-company";
+import { isExcessReturnProfile } from "@/modules/valuation/domain/asset-profile";
 import { completenessCheck } from "@/modules/valuation/domain/completeness-profile";
 import { DECLARED_INDUSTRY_ASSIGNMENTS } from "@/modules/valuation/application/declared-industry-assignments";
 import { DECLARED_BUSINESS_MIXES } from "@/modules/valuation/application/declared-business-mixes";
@@ -492,9 +493,9 @@ export async function prepareValuationRun(
     assessmentRequest,
     await assessmentReaders(cik, query, state.graph),
   );
-  const financialProfile =
-    assessment.selection.assetProfile === "bank" ||
-    assessment.selection.assetProfile === "insurer";
+  const financialProfile = isExcessReturnProfile(
+    assessment.selection.assetProfile,
+  );
   const readingOf = (
     evaluated: CompanyAssessment,
   ): ValuationAssessmentReading => {
@@ -755,8 +756,9 @@ export async function prepareValuationRun(
   }
 
   const financialYears = assessment.fundamentals.series?.fiscalYears;
+  const excessReturnProfile = assessment.selection.assetProfile;
   const financialFiling =
-    financialProfile &&
+    isExcessReturnProfile(excessReturnProfile) &&
     financialYears?.[0] !== undefined &&
     financialYears[1] !== undefined
       ? await readFinancialFiling({
@@ -764,6 +766,7 @@ export async function prepareValuationRun(
           knownAt: job.knownAt,
           fiscalYearEnd: financialYears[0].fiscalYearEnd,
           priorFiscalYearEnd: financialYears[1].fiscalYearEnd,
+          assetProfile: excessReturnProfile,
         })
       : null;
   if (financialProfile && financialFiling !== null) {

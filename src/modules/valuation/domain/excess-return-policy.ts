@@ -7,6 +7,7 @@ import type {
   ExcessReturnInput,
   FinancialAssumptions,
 } from "./excess-return-input";
+import { payoutOfBasis } from "./financial-payout";
 import { selectValuationMethod } from "./method-selection";
 import {
   DERIVED_EXCESS_RETURN_ENGINE_VERSION,
@@ -170,14 +171,7 @@ export function checkExcessReturnInput(
       input.assumptions.periods.some(
         (period) => period.payout !== derivation.payout,
       ) ||
-      !divide(
-        sum([
-          parseDecimal(derivation.commonDividends.value, "commonDividends"),
-          parseDecimal(derivation.netRepurchases.value, "netRepurchases"),
-        ]),
-        parseDecimal(derivation.commonIncome.value, "commonIncome"),
-        "payout",
-      ).eq(parseDecimal(derivation.payout, "derivedFinancial.payout")) ||
+      !derivedPayoutHolds(derivation) ||
       input.assumptions.periods[0]?.equityBeta !== derivation.equityBeta.value);
   if (
     input.employeeEquityAvailableAt !== null &&
@@ -408,4 +402,38 @@ export function checkFinancialScenarioCoherence(
       "Scenarios must change economic assumptions and cover the same annual horizon.",
     ),
   ];
+}
+
+type DerivedFinancial = NonNullable<ExcessReturnInput["derivedFinancial"]>;
+
+/**
+ * El payout congelado es el que implican las distribuciones: las del año base
+ * o, con `payoutBasis` (`F6-53`), las del trienio con tope en uno, cuyo primer
+ * ejercicio tiene que ser exactamente el del año base.
+ */
+function derivedPayoutHolds(derivation: DerivedFinancial): boolean {
+  const payout = parseDecimal(derivation.payout, "derivedFinancial.payout");
+  const basis = derivation.payoutBasis;
+  if (basis === undefined) {
+    return divide(
+      sum([
+        parseDecimal(derivation.commonDividends.value, "commonDividends"),
+        parseDecimal(derivation.netRepurchases.value, "netRepurchases"),
+      ]),
+      parseDecimal(derivation.commonIncome.value, "commonIncome"),
+      "payout",
+    ).eq(payout);
+  }
+  const base = basis.years[0]!;
+  const same = (left: string, right: string) =>
+    parseDecimal(left, "payoutBasis").eq(parseDecimal(right, "derived"));
+  const recomputed = payoutOfBasis(basis);
+  return (
+    base.fiscalYearEnd === derivation.commonIncome.asOf &&
+    same(base.commonIncome, derivation.commonIncome.value) &&
+    same(base.commonDividends, derivation.commonDividends.value) &&
+    same(base.netRepurchases, derivation.netRepurchases.value) &&
+    recomputed !== null &&
+    recomputed.eq(payout)
+  );
 }

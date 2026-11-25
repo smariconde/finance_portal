@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { isExcessReturnProfile } from "./asset-profile";
 import type { MethodSelection } from "./method-selection";
 
 /**
@@ -154,8 +155,7 @@ export function awaitsGrowthInputs(
 export function asksQualitativeDecisions(
   selection: SelectionForQualitative,
 ): boolean {
-  const financialProfile =
-    selection.assetProfile === "bank" || selection.assetProfile === "insurer";
+  const financialProfile = isExcessReturnProfile(selection.assetProfile);
 
   if (awaitsGrowthInputs(selection)) {
     return true;

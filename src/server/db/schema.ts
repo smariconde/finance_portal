@@ -2166,7 +2166,7 @@ export const valuationJobs = pgTable(
     check(
       "valuation_jobs_method_check",
       sql`(${table.methodStatus} is null or ${table.methodStatus} in ('selected', 'unsupported_method'))
-        and (${table.assetProfile} is null or ${table.assetProfile} in ('non_financial_mature', 'high_growth', 'loss_making', 'bank', 'insurer', 'reit', 'cyclical', 'commodity', 'holding', 'distressed'))
+        and (${table.assetProfile} is null or ${table.assetProfile} in ('non_financial_mature', 'high_growth', 'loss_making', 'bank', 'insurer', 'reit', 'cyclical', 'commodity', 'holding', 'distressed', 'broker_dealer'))
         and (${table.method} is null or ${table.method} in ('fcff_base', 'fcff_three_stage', 'revenue_margin_survival', 'excess_return', 'affo_nav', 'normalized_fcff', 'sotp_nav', 'apv_scenarios'))
         and (${table.rigor} is null or ${table.rigor} in ('full', 'standard', 'screening', 'unsupported'))
         and (${table.unsupportedReason} is null or ${table.unsupportedReason} in ('missing_classification_evidence', 'conflicting_evidence', 'method_not_implemented', 'missing_required_input'))

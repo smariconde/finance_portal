@@ -327,6 +327,7 @@ export const PROFILE_COPY: Record<AssetProfile, string> = {
   bank: "Banco",
   insurer: "Aseguradora",
   reit: "REIT",
+  broker_dealer: "Broker-dealer",
   cyclical: "Cíclica",
   commodity: "Commodity",
   holding: "Holding",

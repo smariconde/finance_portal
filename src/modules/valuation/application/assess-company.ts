@@ -1,3 +1,4 @@
+import { isExcessReturnProfile } from "../domain/asset-profile";
 import { buildFailureRisk, type FailureRisk } from "../domain/failure-risk";
 import { DECLARED_FAILURE_PROBABILITIES } from "./declared-failure-probabilities";
 import { DECLARED_RATINGS } from "./declared-ratings";
@@ -326,6 +327,7 @@ const CYCLE_PROFILES: ReadonlySet<string> = new Set(["cyclical", "commodity"]);
 const FINANCIAL_PROFILES: ReadonlySet<string> = new Set([
   "bank",
   "insurer",
+  "broker_dealer",
   "reit",
 ]);
 
@@ -491,8 +493,7 @@ export async function assessCompany(
   });
 
   const readings = await dependencies.costOfCapitalReadings(query);
-  const financialProfile =
-    selection.assetProfile === "bank" || selection.assetProfile === "insurer";
+  const financialProfile = isExcessReturnProfile(selection.assetProfile);
   const financialEquity = financialProfile
     ? deriveFinancialEquity(series, (item) =>
         seriesFact(item, request.fundamentalsSourceId),

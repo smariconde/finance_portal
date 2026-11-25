@@ -35,13 +35,20 @@ describe(SEC_SIC_PROFILE_RULE_VERSION, () => {
     ["6331", "insurer"],
     ["6399", "insurer"],
     ["6798", "reit"],
+    ["6211", "broker_dealer"],
   ] as const)(
     "maps SEC SIC %s to %s and rules out the other financial profiles",
     (sic, profile) => {
       const assessment = assessSicProfiles(sic);
 
       expect(assessment[profile]).toBe(true);
-      for (const other of ["bank", "insurer", "reit", "holding"] as const) {
+      for (const other of [
+        "bank",
+        "insurer",
+        "reit",
+        "broker_dealer",
+        "holding",
+      ] as const) {
         if (other !== profile) expect(assessment[other]).toBe(false);
       }
     },
@@ -54,12 +61,13 @@ describe(SEC_SIC_PROFILE_RULE_VERSION, () => {
       bank: false,
       insurer: false,
       reit: false,
+      broker_dealer: false,
       holding: false,
     });
   });
 
   it("proves nothing about financial profiles for an unmapped finance code", () => {
-    for (const sic of ["6211", "6199", "6324", "6500"]) {
+    for (const sic of ["6199", "6221", "6282", "6324", "6500"]) {
       expect(assessSicProfiles(sic)).toStrictEqual({
         commodity: false,
         cyclical: false,
@@ -81,7 +89,7 @@ describe(SEC_SIC_PROFILE_RULE_VERSION, () => {
   it("dates every signal with the assertion it came from", () => {
     const evidence = sicProfileEvidence(assertion("6021"));
 
-    expect(evidence).toHaveLength(6);
+    expect(evidence).toHaveLength(7);
     for (const item of evidence) {
       expect(item).toMatchObject({
         legalEntityId: LEGAL_ENTITY_ID,

@@ -187,6 +187,72 @@ describe("financial-snapshot-1.0.0", () => {
     expect(run.failure?.code).toBe("policy_check_failed");
   });
 
+  it("freezes a capped three-year payout and rejects one that the basis does not imply (F6-53)", () => {
+    const capped: FinancialFilingEvidence = {
+      ...filing,
+      version: "financial-xbrl-evidence-1.1.0",
+      payout: "1",
+      payoutBasis: {
+        version: "financial-payout-three-years-1.0.0",
+        years: [
+          {
+            fiscalYearEnd: "2024-12-31",
+            commonIncome: "11",
+            commonDividends: "5.5",
+            netRepurchases: "0",
+          },
+          {
+            fiscalYearEnd: "2023-12-31",
+            commonIncome: "10",
+            commonDividends: "5",
+            netRepurchases: "8",
+          },
+          {
+            fiscalYearEnd: "2022-12-31",
+            commonIncome: "9",
+            commonDividends: "5",
+            netRepurchases: "8",
+          },
+        ],
+        ratio: "1.05",
+        payoutCapped: true,
+      },
+    };
+    const snapshot = assembleFinancialSnapshot(request({ filing: capped }));
+    expect(snapshot.status).toBe("assembled");
+    if (snapshot.status !== "assembled") return;
+    expect(snapshot.input.derivedFinancial).toMatchObject({
+      payout: "1",
+      payoutBasis: { ratio: "1.05", payoutCapped: true },
+    });
+    expect(snapshot.input.assumptions.rationale).toContain("capped at 1");
+    const run = (input: typeof snapshot.input) =>
+      runExcessReturn(input, {
+        now: () => knownAt,
+        newValuationRunId: () => observationId,
+      });
+    expect(run(snapshot.input).status).toBe("requires_review");
+    // Un trienio escrito a mano, o uno cuyo año base no es el de los hechos.
+    const derived = snapshot.input.derivedFinancial!;
+    const basis = derived.payoutBasis!;
+    for (const payoutBasis of [
+      { ...basis, payoutCapped: false },
+      {
+        ...basis,
+        years: [
+          { ...basis.years[0]!, netRepurchases: "1" },
+          ...basis.years.slice(1),
+        ],
+      },
+    ]) {
+      const rejected = run({
+        ...snapshot.input,
+        derivedFinancial: { ...derived, payoutBasis },
+      });
+      expect(rejected.status).toBe("rejected");
+    }
+  });
+
   it("refuses a stale balance and a stale share count", () => {
     expect(
       assembleFinancialSnapshot(

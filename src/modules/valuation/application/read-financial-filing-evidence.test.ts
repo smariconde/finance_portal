@@ -89,43 +89,128 @@ describe("financial filing source contract", () => {
   });
 
   it("falls back to the XBRL of the same 10-K when the tables are not recognized (F6-50)", async () => {
-    const ctx = (id: string, period: string, member = "") =>
-      `<context id="${id}"><entity><identifier scheme="http://www.sec.gov/CIK">0000019617</identifier>${member === "" ? "" : `<segment><xbrldi:explicitMember dimension="us-gaap:StatementClassOfStockAxis">us-gaap:${member}</xbrldi:explicitMember></segment>`}</entity><period>${period}</period></context>`;
-    const usd = (
-      concept: string,
-      id: string,
-      value: string,
-      unit = "usd",
-      decimals = "-6",
-    ) =>
-      `<us-gaap:${concept} contextRef="${id}" unitRef="${unit}" decimals="${decimals}">${value}</us-gaap:${concept}>`;
-    const instance = `<xbrl xmlns="http://www.xbrl.org/2003/instance" xmlns:us-gaap="http://fasb.org/us-gaap/2025" xmlns:iso4217="http://www.xbrl.org/2003/iso4217" xmlns:xbrldi="http://xbrl.org/2006/xbrldi">
-<unit id="usd"><measure>iso4217:USD</measure></unit>
-<unit id="shares"><measure>shares</measure></unit>
-<unit id="eps"><divide><unitNumerator><measure>iso4217:USD</measure></unitNumerator><unitDenominator><measure>shares</measure></unitDenominator></divide></unit>
-${ctx("close", "<instant>2025-12-31</instant>")}
-${ctx("prior", "<instant>2024-12-31</instant>")}
-${ctx("fy", "<startDate>2025-01-01</startDate><endDate>2025-12-31</endDate>")}
-${usd("StockholdersEquity", "close", "1100")}
-${usd("StockholdersEquity", "prior", "1000")}
-${usd("PreferredStockValue", "close", "0")}
-${usd("NetIncomeLoss", "fy", "100")}
-${usd("EarningsPerShareBasic", "fy", "10", "eps", "0")}
-${usd("WeightedAverageNumberOfSharesOutstandingBasic", "fy", "10", "shares", "0")}
-${usd("ComprehensiveIncomeNetOfTax", "fy", "100")}
-${usd("StatutoryAccountingPracticesStatutoryCapitalAndSurplusBalance", "close", "500")}
-${usd("FinancingReceivableAllowanceForCreditLosses", "close", "7")}
-</xbrl>`;
-    const source = reader([submissions, "<table></table>", instance]);
+    const source = reader([submissions, "<table></table>", instance()]);
     const result = await readFinancialFilingEvidence(input, source.read);
     expect(source.calls.at(-1)).toEqual([
       "https://www.sec.gov/Archives/edgar/data/19617/000162828026008131/jpm-20251231_htm.xml",
       "application/xml",
     ]);
     expect(result).toMatchObject({
-      version: "financial-xbrl-evidence-1.0.0",
+      version: "financial-xbrl-evidence-1.1.0",
       commonIncome: { value: "100" },
       payout: "0",
     });
   });
+
+  it("reads a broker-dealer's XBRL directly and asks companyconcept for a year the 10-K no longer tags (F6-53)", async () => {
+    const concept = JSON.stringify({
+      cik: 19617,
+      taxonomy: "us-gaap",
+      tag: "PaymentsForRepurchaseOfCommonStock",
+      label: "Payments for Repurchase of Common Stock",
+      description: "synthetic",
+      entityName: "Synthetic Dealer",
+      units: {
+        USD: [
+          {
+            start: "2023-01-01",
+            end: "2023-12-31",
+            val: 20,
+            accn: "0001628280-25-000001",
+            fy: 2024,
+            fp: "FY",
+            form: "10-K",
+            filed: "2025-02-14",
+          },
+        ],
+      },
+    });
+    const source = reader([
+      submissions,
+      instance({ repurchases: ["20", "20", null] }),
+      concept,
+    ]);
+    const result = await readFinancialFilingEvidence(
+      { ...input, assetProfile: "broker_dealer" },
+      source.read,
+    );
+    expect(source.calls.map(([url]) => url)).toEqual([
+      "https://data.sec.gov/submissions/CIK0000019617.json",
+      "https://www.sec.gov/Archives/edgar/data/19617/000162828026008131/jpm-20251231_htm.xml",
+      "https://data.sec.gov/api/xbrl/companyconcept/CIK0000019617/us-gaap/PaymentsForRepurchaseOfCommonStock.json",
+    ]);
+    expect(
+      result?.payoutBasis?.years.map((year) => year.netRepurchases),
+    ).toEqual(["20", "20", "20"]);
+    expect(result?.payout).toBe("0.2");
+  });
+
+  it("refuses a companyconcept document of another filer", async () => {
+    const concept = JSON.stringify({
+      cik: 42,
+      taxonomy: "us-gaap",
+      tag: "PaymentsForRepurchaseOfCommonStock",
+      units: { USD: [] },
+    });
+    const source = reader([
+      submissions,
+      instance({ repurchases: ["20", "20", null] }),
+      concept,
+    ]);
+    expect(
+      await readFinancialFilingEvidence(
+        { ...input, assetProfile: "broker_dealer" },
+        source.read,
+      ),
+    ).toBeNull();
+  });
 });
+
+/** Un instance sintético de tres ejercicios con el patrimonio limpio cerrando. */
+function instance(
+  options: { readonly repurchases?: readonly (string | null)[] } = {},
+): string {
+  const ctx = (id: string, period: string) =>
+    `<context id="${id}"><entity><identifier scheme="http://www.sec.gov/CIK">0000019617</identifier></entity><period>${period}</period></context>`;
+  const usd = (
+    concept: string,
+    id: string,
+    value: string,
+    unit = "usd",
+    decimals = "-6",
+  ) =>
+    `<us-gaap:${concept} contextRef="${id}" unitRef="${unit}" decimals="${decimals}">${value}</us-gaap:${concept}>`;
+  const years = [2025, 2024, 2023];
+  const repurchases = options.repurchases ?? [null, null, null];
+  return `<xbrl xmlns="http://www.xbrl.org/2003/instance" xmlns:us-gaap="http://fasb.org/us-gaap/2025" xmlns:iso4217="http://www.xbrl.org/2003/iso4217" xmlns:xbrldi="http://xbrl.org/2006/xbrldi">
+<unit id="usd"><measure>iso4217:USD</measure></unit>
+<unit id="shares"><measure>shares</measure></unit>
+<unit id="eps"><divide><unitNumerator><measure>iso4217:USD</measure></unitNumerator><unitDenominator><measure>shares</measure></unitDenominator></divide></unit>
+${[2025, 2024, 2023, 2022].map((year) => ctx(`c${year}`, `<instant>${year}-12-31</instant>`)).join("\n")}
+${years.map((year) => ctx(`y${year}`, `<startDate>${year}-01-01</startDate><endDate>${year}-12-31</endDate>`)).join("\n")}
+${usd("StockholdersEquity", "c2025", "1100")}
+${usd("StockholdersEquity", "c2024", "1000")}
+${usd("StockholdersEquity", "c2023", "900")}
+${usd("StockholdersEquity", "c2022", "800")}
+${usd("PreferredStockValue", "c2025", "0")}
+${usd("PreferredStockValue", "c2024", "0")}
+${years.map((year) => usd("NetIncomeLoss", `y${year}`, "100")).join("\n")}
+${years.map((year) => usd("ComprehensiveIncomeNetOfTax", `y${year}`, "100")).join("\n")}
+${years.map((year) => usd("PaymentsOfDividendsCommonStock", `y${year}`, "0")).join("\n")}
+${years
+  .map((year, index) =>
+    repurchases[index] === null
+      ? ""
+      : usd(
+          "PaymentsForRepurchaseOfCommonStock",
+          `y${year}`,
+          repurchases[index]!,
+        ),
+  )
+  .join("\n")}
+${usd("EarningsPerShareBasic", "y2025", "10", "eps", "0")}
+${usd("WeightedAverageNumberOfSharesOutstandingBasic", "y2025", "10", "shares", "0")}
+${usd("StatutoryAccountingPracticesStatutoryCapitalAndSurplusBalance", "c2025", "500")}
+${usd("FinancingReceivableAllowanceForCreditLosses", "c2025", "7")}
+</xbrl>`;
+}

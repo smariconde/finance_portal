@@ -85,7 +85,11 @@ import {
 import { EquityBridgeTable } from "../_components/run/equity-bridge-table";
 import { methodCopy } from "../_components/method-copy";
 import { EvidenceTable } from "../_components/run/evidence-table";
-import { checkLabel, originList } from "../_components/run/labels";
+import {
+  ASSET_PROFILE_LABELS,
+  checkLabel,
+  originList,
+} from "../_components/run/labels";
 import { RunChecks } from "../_components/run/run-checks";
 import { RunHeadline } from "../_components/run/run-headline";
 import { ScenariosTable } from "../_components/run/scenarios-table";
@@ -536,7 +540,7 @@ function FinancialRunView({
       <RunFacts asOf={run.asOf} method={run.method}>
         <div className="flex gap-1.5">
           <dt className="text-muted-foreground">Perfil</dt>
-          <dd>{run.assetProfile === "bank" ? "Banco" : "Aseguradora"}</dd>
+          <dd>{ASSET_PROFILE_LABELS[run.assetProfile] ?? run.assetProfile}</dd>
         </div>
       </RunFacts>
 
@@ -577,8 +581,8 @@ function FinancialRunView({
                   aprender, no una recomendación.
                 </p>
                 <p>
-                  El modelo de bancos y aseguradoras es experimental: toda
-                  corrida queda en revisión.
+                  El modelo de bancos, aseguradoras y broker-dealers es
+                  experimental: toda corrida queda en revisión.
                 </p>
               </InfoTip>
             </div>
@@ -710,7 +714,13 @@ function FinancialRunView({
                 size="sm"
                 label="Payout"
                 value={formatPercent(run.input.assumptions.periods[0]!.payout)}
-                detail="distribución reportada"
+                detail={
+                  run.input.derivedFinancial?.payoutBasis === undefined
+                    ? "distribución reportada"
+                    : run.input.derivedFinancial.payoutBasis.payoutCapped
+                      ? `tres ejercicios: ${formatPercent(run.input.derivedFinancial.payoutBasis.ratio)}, tope 100 %`
+                      : "tres ejercicios reportados"
+                }
               />
             </div>
             {base === undefined ? null : (

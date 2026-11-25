@@ -12,7 +12,11 @@ import type { FinancialFilingEvidence } from "@/modules/valuation/domain/financi
 import { getSourceEgressFetch } from "@/server/egress/get-source-egress-fetch";
 import { getSourceRegistryRepository } from "@/server/persistence/get-source-registry-repository";
 
-/** Two metered SEC requests at most; the 10-K is never retained as a job row. */
+/**
+ * Up to four metered SEC requests —submissions, the 10-K, its XBRL instance
+ * and, only for a payout year it no longer tags, the previous instance—; the
+ * filing is never retained as a job row.
+ */
 export async function readFinancialFiling(
   input: FinancialFilingRequest,
 ): Promise<FinancialFilingEvidence | null> {

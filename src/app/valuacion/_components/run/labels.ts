@@ -245,6 +245,7 @@ export const ASSET_PROFILE_LABELS: Record<string, string> = {
   bank: "Banco",
   insurer: "Aseguradora",
   reit: "REIT",
+  broker_dealer: "Broker-dealer",
   cyclical: "Cíclica",
   commodity: "Commodity",
   holding: "Holding",

@@ -338,7 +338,7 @@ export function CompanyHistory({
           <InfoTip title="Por qué mirar esto primero">
             <p>
               {focus === "financial"
-                ? "Ventas, ganancia por acción y cantidad de acciones muestran la trayectoria reportada del banco o la aseguradora."
+                ? "Ventas, ganancia por acción y cantidad de acciones muestran la trayectoria reportada de la financiera."
                 : "Antes de la valuación conviene saber si la empresa vende más, si le queda más de cada venta, si genera caja y qué hace con sus acciones."}
             </p>
             <p>

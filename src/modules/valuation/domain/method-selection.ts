@@ -20,8 +20,9 @@ import { assetProfileSchema, type AssetProfile } from "./asset-profile";
  * rápido es cíclica —normalizar el margen va antes que extrapolar el
  * crecimiento—, y la señal de menor precedencia queda como alternativa.
  *
- * Sólo los tres perfiles financieros comparten nivel: un banco que también es
- * REIT no tiene un orden defendible y sigue siendo `conflicting_evidence`.
+ * Sólo los perfiles financieros comparten nivel —banco, aseguradora, REIT y,
+ * desde `F6-53`, corredor o banco de inversión—: un banco que también es REIT no
+ * tiene un orden defendible y sigue siendo `conflicting_evidence`.
  *
  * `non_financial_mature` **no es una señal**: es el residuo. Se elige cuando cada
  * perfil de mayor precedencia tiene evidencia negativa explícita, y por eso una
@@ -34,6 +35,12 @@ export const FINANCIAL_METHOD_SELECTION_VERSION = "method-selection-0.3.0";
 export const GROWTH_METHOD_SELECTION_VERSION = "method-selection-0.5.0";
 export const CYCLE_METHOD_SELECTION_VERSION = "method-selection-0.4.0";
 export const REIT_METHOD_SELECTION_VERSION = "method-selection-0.6.0";
+/**
+ * `F6-53`: corredores y bancos de inversión (SIC 6211) se valúan sobre el
+ * patrimonio con el mismo modelo que bancos y aseguradoras. Versión propia para
+ * que las selecciones de los demás perfiles conserven su hash.
+ */
+export const BROKER_DEALER_METHOD_SELECTION_VERSION = "method-selection-0.7.0";
 
 export const signalProfileSchema = assetProfileSchema.exclude([
   "non_financial_mature",
@@ -134,6 +141,7 @@ export const methodSelectionSchema = z.object({
     CYCLE_METHOD_SELECTION_VERSION,
     GROWTH_METHOD_SELECTION_VERSION,
     REIT_METHOD_SELECTION_VERSION,
+    BROKER_DEALER_METHOD_SELECTION_VERSION,
   ]),
   status: z.enum(["selected", "unsupported_method"]),
   assetProfile: assetProfileSchema.nullable(),
@@ -179,6 +187,11 @@ export const PROFILE_METHODS: Readonly<
     rule: "insurer_regulated",
     requiredInputs: ["book_equity", "roe", "cost_of_equity"],
   },
+  broker_dealer: {
+    method: "excess_return",
+    rule: "broker_dealer_regulated",
+    requiredInputs: ["book_equity", "roe", "cost_of_equity"],
+  },
   reit: {
     method: "affo_nav",
     rule: "reit_structure",
@@ -209,7 +222,7 @@ export const PROFILE_METHODS: Readonly<
 /** Niveles de precedencia, del que manda al que cede. */
 export const PROFILE_PRECEDENCE: readonly (readonly SignalProfile[])[] =
   Object.freeze([
-    ["bank", "insurer", "reit"],
+    ["bank", "insurer", "reit", "broker_dealer"],
     ["holding"],
     ["distressed"],
     ["commodity"],
@@ -286,11 +299,16 @@ export function selectValuationMethod(
     profile: SignalProfile,
   ): "present" | "absent" | "unknown" => {
     const match = byProfile.get(profile)?.[0];
-    return match === undefined
-      ? "unknown"
-      : match.present
-        ? "present"
-        : "absent";
+    if (match === undefined) {
+      // `sec-sic-profile-2.0.0` no conocía el perfil: sólo negaba `bank` para un
+      // SIC fuera de la división financiera o con otro perfil financiero, y
+      // ninguno de los dos es un 6211. Así se reproducen sus snapshots.
+      return profile === "broker_dealer" &&
+        byProfile.get("bank")?.[0]?.present === false
+        ? "absent"
+        : "unknown";
+    }
+    return match.present ? "present" : "absent";
   };
 
   const unknownAbove: SignalProfile[] = [];
@@ -359,7 +377,11 @@ export function selectValuationMethod(
         };
       }
 
-      if (selected === "bank" || selected === "insurer") {
+      if (
+        selected === "bank" ||
+        selected === "insurer" ||
+        selected === "broker_dealer"
+      ) {
         const missing =
           input.excessReturnMissingInputs ?? descriptor.requiredInputs;
         return {
@@ -371,7 +393,10 @@ export function selectValuationMethod(
             alternatives,
             confidenceOf(deciding, yielded.length),
           ),
-          version: FINANCIAL_METHOD_SELECTION_VERSION,
+          version:
+            selected === "broker_dealer"
+              ? BROKER_DEALER_METHOD_SELECTION_VERSION
+              : FINANCIAL_METHOD_SELECTION_VERSION,
         };
       }
 
