@@ -18,6 +18,7 @@ import {
 import {
   formatAmount,
   formatCalendarDate,
+  formatCompactAmount,
   formatPercent,
   formatUtcTimestamp,
 } from "@/modules/valuation/domain/display-format";
@@ -56,6 +57,7 @@ export function CostOfCapitalTable({
 }) {
   const capital = run.input.costOfCapital;
   const derived = capital.derived;
+  const mix = capital.businessExposure;
 
   const derivedRows: readonly {
     term: FinancialTermKey;
@@ -70,7 +72,10 @@ export function CostOfCapitalTable({
     {
       term: "leveredBeta",
       value: formatAmount(derived.leveredBeta, { scale: 2 }),
-      hint: "Hamada sobre la deuda/equity de la industria",
+      hint:
+        mix === undefined
+          ? "Hamada sobre la deuda/equity de la industria"
+          : "Hamada sobre la beta y la deuda/equity de la mezcla de negocios",
     },
     {
       term: "costOfEquity",
@@ -165,6 +170,8 @@ export function CostOfCapitalTable({
         </Table>
       </CardContent>
 
+      {mix === undefined ? null : <BusinessMixTable mix={mix} />}
+
       <CardContent className="grid gap-6 border-t pt-(--card-spacing) lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -208,5 +215,103 @@ export function CostOfCapitalTable({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+type BusinessExposure = NonNullable<
+  ValuationRun["input"]["costOfCapital"]["businessExposure"]
+>;
+
+/**
+ * La beta por mezcla de negocios (`F6-48`, ADR 0086): cada industria con las
+ * ventas del ejercicio que la IA le asignó desde el XBRL —o el peso que
+ * declaró el owner—, el EV/Sales de su industria, el peso por valor y su beta
+ * y D/E. La fila final es lo que entró a Hamada.
+ */
+function BusinessMixTable({ mix }: { mix: BusinessExposure }) {
+  const declared = mix.source === "owner_declaration";
+
+  return (
+    <CardContent className="border-t px-0 pt-(--card-spacing)">
+      <div className="flex flex-wrap items-center gap-2 px-(--card-spacing) pb-3">
+        <h3 className="text-sm font-medium">Mezcla de negocios</h3>
+        <EvidenceKindMark
+          kind={declared ? "owner_declaration" : "ai_proposal"}
+        />
+        <EvidenceKindMark kind="reference_data" />
+      </div>
+      <Table containerLabel="Mezcla de negocios de la beta, tabla desplazable">
+        <TableHeader>
+          <TableRow>
+            <TableHead scope="col">Industria</TableHead>
+            <TableHead scope="col" className="text-right">
+              Ventas (USD)
+            </TableHead>
+            <TableHead scope="col" className="text-right">
+              EV/Sales
+            </TableHead>
+            <TableHead scope="col" className="text-right">
+              Peso por valor
+            </TableHead>
+            <TableHead scope="col" className="text-right">
+              Beta desapalancada
+            </TableHead>
+            <TableHead scope="col" className="text-right">
+              Deuda/equity
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {mix.businesses.map((business) => (
+            <TableRow key={business.industryKey}>
+              <TableHead scope="row" className="font-medium">
+                <CodeValue>{business.industryKey}</CodeValue>
+              </TableHead>
+              <TableCell className="numeric text-right">
+                {business.revenue === null
+                  ? "Declarado"
+                  : formatCompactAmount(business.revenue)}
+              </TableCell>
+              <TableCell className="numeric text-right">
+                {business.evToSales === null
+                  ? "—"
+                  : `${formatAmount(business.evToSales, { scale: 2 })}×`}
+              </TableCell>
+              <TableCell className="numeric text-right">
+                {formatPercent(business.weight, { scale: 1 })}
+              </TableCell>
+              <TableCell className="numeric text-right">
+                {formatAmount(business.unleveredBeta, { scale: 2 })}
+              </TableCell>
+              <TableCell className="numeric text-right">
+                {formatAmount(business.debtToEquity, { scale: 2 })}
+              </TableCell>
+            </TableRow>
+          ))}
+          <TableRow>
+            <TableHead scope="row" className="font-medium">
+              Combinada
+            </TableHead>
+            <TableCell />
+            <TableCell />
+            <TableCell className="numeric text-right">
+              {formatPercent("1", { scale: 1 })}
+            </TableCell>
+            <TableCell className="numeric text-right font-medium">
+              {formatAmount(mix.unleveredBeta, { scale: 2 })}
+            </TableCell>
+            <TableCell className="numeric text-right font-medium">
+              {formatAmount(mix.debtToEquity, { scale: 2 })}
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+      <p className="px-(--card-spacing) pt-3 text-xs text-muted-foreground">
+        {declared
+          ? "Pesos declarados por el owner."
+          : "Peso = ventas × EV/Sales de la industria, sobre el total."}{" "}
+        Betas y EV/Sales de Damodaran (EE. UU.) al corte de la corrida.
+      </p>
+    </CardContent>
   );
 }

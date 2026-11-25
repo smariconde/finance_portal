@@ -59,8 +59,8 @@ describe("web search evidence", () => {
     ).toBe(false);
   });
 
-  it("keeps reading a 1.0.0 snapshot while writing 1.1.0", () => {
-    expect(QUALITATIVE_DECISIONS_VERSION).toBe("qualitative-decisions-1.1.0");
+  it("keeps reading a 1.0.0 snapshot while writing 1.2.0", () => {
+    expect(QUALITATIVE_DECISIONS_VERSION).toBe("qualitative-decisions-1.2.0");
     expect(DEMO_QUALITATIVE_DECISIONS.version).toBe(
       "qualitative-decisions-1.0.0",
     );

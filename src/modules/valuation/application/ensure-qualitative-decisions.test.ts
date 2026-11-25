@@ -12,10 +12,16 @@ import {
   type QualitativeDecisionDependencies,
 } from "./ensure-qualitative-decisions";
 import type { ProposeEmployeeEquityResult } from "./propose-employee-equity";
+import type { ProposeBusinessMixResult } from "./propose-business-mix";
 import type { ProposeOperationsMixResult } from "./propose-operations-mix";
 import type { ResolveCompanyIndustryResult } from "./resolve-company-industry";
 
-const ALL = { industry: true, employeeEquity: true, operationsMix: true };
+const ALL = {
+  industry: true,
+  employeeEquity: true,
+  operationsMix: true,
+  businessMix: true,
+};
 
 function attempt(chargedNanoUsd: number | null): LadderAttempt {
   return { chargedNanoUsd } as LadderAttempt;
@@ -95,6 +101,9 @@ function dependencies(
     proposeOperationsMix: vi.fn(async () =>
       proposalAsked<ProposeOperationsMixResult>("abstained"),
     ),
+    proposeBusinessMix: vi.fn(async () =>
+      proposalAsked<ProposeBusinessMixResult>("accepted"),
+    ),
     ...overrides,
   };
 }
@@ -103,7 +112,12 @@ describe("ensureQualitativeDecisions", () => {
   it("asks only for what the assessment lacks", async () => {
     const deps = dependencies();
     const step = await ensureQualitativeDecisions(
-      { industry: false, employeeEquity: true, operationsMix: false },
+      {
+        industry: false,
+        employeeEquity: true,
+        operationsMix: false,
+        businessMix: false,
+      },
       deps,
     );
 
@@ -121,11 +135,12 @@ describe("ensureQualitativeDecisions", () => {
     const step = await ensureQualitativeDecisions(ALL, dependencies());
 
     expect(step).toMatchObject({
-      ruleVersion: "valuation-qualitative-1.0.0",
+      ruleVersion: "valuation-qualitative-1.1.0",
       industry: { status: "accepted", rung: 2 },
       employeeEquity: { status: "accepted", rung: 2 },
       operationsMix: { status: "abstained", reason: "insufficient_evidence" },
-      chargedNanoUsd: 3_000,
+      businessMix: { status: "accepted", rung: 2 },
+      chargedNanoUsd: 4_000,
     });
   });
 
@@ -161,7 +176,12 @@ describe("ensureQualitativeDecisions", () => {
 
   it("names a skip with the task's own reason", async () => {
     const step = await ensureQualitativeDecisions(
-      { industry: true, employeeEquity: false, operationsMix: false },
+      {
+        industry: true,
+        employeeEquity: false,
+        operationsMix: false,
+        businessMix: false,
+      },
       dependencies({
         resolveIndustry: vi.fn(
           async () =>
@@ -181,7 +201,12 @@ describe("ensureQualitativeDecisions", () => {
 
   it("does not call an accepted answer that was not written a decision", async () => {
     const step = await ensureQualitativeDecisions(
-      { industry: false, employeeEquity: true, operationsMix: false },
+      {
+        industry: false,
+        employeeEquity: true,
+        operationsMix: false,
+        businessMix: false,
+      },
       dependencies({
         proposeEmployeeEquity: vi.fn(async () =>
           proposalAsked<ProposeEmployeeEquityResult>("accepted", false),

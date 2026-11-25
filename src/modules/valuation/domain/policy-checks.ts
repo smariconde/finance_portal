@@ -170,6 +170,7 @@ function checkCostOfCapital(input: ValuationInput): PolicyCheck[] {
     costOfCapital.parameters,
     costOfCapital.derived.syntheticRating,
     costOfCapital.operationsExposure ?? null,
+    costOfCapital.businessExposure ?? null,
   );
   const wacc = parseDecimal(costOfCapital.derived.wacc, "costOfCapital.wacc");
   const terminal = parseDecimal(

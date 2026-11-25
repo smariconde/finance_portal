@@ -18,6 +18,12 @@ import {
   ZERO,
   type Dec,
 } from "./decimal-policy";
+import {
+  businessExposureSchema,
+  resolveBusinessExposure,
+  type BusinessExposure,
+  type BusinessMixReading,
+} from "./business-exposure";
 import { declaredRatingSchema } from "./declared-rating";
 import { netCashCoverageSchema } from "./net-cash-coverage";
 import type { CoverageFloor } from "./zero-debt-evidence";
@@ -50,9 +56,20 @@ import type { CoverageFloor } from "./zero-debt-evidence";
  * y la tasa marginal siguen siendo del domicilio. Sin mix, todo queda como en
  * `1.0.0`: la falta de mix nunca es un CRP cero.
  */
-export const COST_OF_CAPITAL_VERSION = "cost-of-capital-1.1.0";
+/**
+ * `1.2.0` (`F6-48`, [ADR 0086](../../../../docs/architecture/adr/0086-business-mix-beta.md)):
+ * con una mezcla de dos o más negocios —declarada por el owner o propuesta por
+ * la IA y aceptada— la beta desapalancada y la D/E objetivo son las de cada
+ * industria ponderadas por el valor estimado del negocio (ventas × EV/Sales de
+ * la industria). Los nueve parámetros no cambian: la beta y la D/E de la
+ * industria propia quedan como referencia. Sin mezcla, la corrida queda como
+ * en `1.1.0`, versión incluida.
+ */
+export const COST_OF_CAPITAL_VERSION = "cost-of-capital-1.2.0";
+const WITHOUT_BUSINESS_MIX_VERSION = "cost-of-capital-1.1.0";
 const COST_OF_CAPITAL_VERSIONS = [
   "cost-of-capital-1.0.0",
+  WITHOUT_BUSINESS_MIX_VERSION,
   COST_OF_CAPITAL_VERSION,
 ] as const;
 
@@ -61,6 +78,7 @@ export const COUNTRY_RISK_DATASET = "damodaran.country-risk";
 export const COUNTRY_RISK_REGIONS_DATASET = "damodaran.country-risk-regions";
 export const IMPLIED_ERP_DATASET = "damodaran.implied-erp";
 export const RATINGS_DATASET = "damodaran.synthetic-ratings";
+export const EV_SALES_DATASET = "damodaran.ev-sales-us";
 
 /** La beta de estado estable hacia la que converge la empresa. */
 export const TERMINAL_BETA = "1";
@@ -206,6 +224,8 @@ export const costOfCapitalDeclarationSchema = z.enum([
   "country_risk_by_operations",
   "regions_combined_by_gdp",
   "rest_of_world_as_global",
+  "beta_by_business_mix",
+  "target_structure_business_mix",
 ]);
 
 /** Una fila de riesgo país o de región que entra al CRP de una exposición. */
@@ -273,6 +293,11 @@ export const costOfCapitalSchema = z.object({
   declarations: z.array(costOfCapitalDeclarationSchema).max(12),
   /** Ausente en `1.0.0`; `null` en `1.1.0` cuando no hubo mix. */
   operationsExposure: operationsExposureSchema.nullable().optional(),
+  /**
+   * La mezcla de negocios (`1.2.0`). Ausente sin mezcla, así una corrida de
+   * una sola industria conserva la forma de `1.1.0`.
+   */
+  businessExposure: businessExposureSchema.optional(),
 });
 
 export type CostOfCapital = z.infer<typeof costOfCapitalSchema>;
@@ -310,6 +335,10 @@ export type CostOfCapitalRequest = {
   readonly regions?: ReferenceReading | null;
   /** El mix de operaciones visible al corte, o `null` (`1.1.0`). */
   readonly operationsMix?: OperationsMixReading | null;
+  /** La mezcla de negocios de dos o más industrias, o `null` (`1.2.0`). */
+  readonly businessMix?: BusinessMixReading | null;
+  /** EV/Sales por industria de la misma fecha que las betas (`1.2.0`). */
+  readonly evToSales?: ReferenceReading | null;
 };
 
 /** El mix que entra al costo de capital, ya con sus pesos calculados. */
@@ -645,6 +674,17 @@ export function buildCostOfCapital(
 
   missing.push(...(operations?.missing ?? []));
 
+  const business =
+    request.businessMix === undefined || request.businessMix === null
+      ? null
+      : resolveBusinessExposure(
+          request.businessMix,
+          request.betas,
+          request.evToSales ?? null,
+        );
+
+  missing.push(...(business?.missing ?? []));
+
   if (
     missing.length > 0 ||
     industryRow === null ||
@@ -722,23 +762,36 @@ export function buildCostOfCapital(
   const rating =
     typeof band.values.rating === "string" ? band.values.rating : "unrated";
   const exposure = operations?.exposure ?? null;
+  const businessExposure = business?.exposure ?? null;
 
   return {
     status: "computed",
     costOfCapital: costOfCapitalSchema.parse({
-      version: COST_OF_CAPITAL_VERSION,
+      // Sin mezcla la corrida es `1.1.0` byte a byte, versión incluida: su
+      // hash no se mueve por una regla que no la tocó.
+      version:
+        businessExposure === null
+          ? WITHOUT_BUSINESS_MIX_VERSION
+          : COST_OF_CAPITAL_VERSION,
       currency: SUPPORTED_CURRENCY,
       industryKey: industryRow.key,
       countryKey: domicileRow.key,
       parameters,
       coverage,
-      derived: deriveCostOfCapital(parameters, rating, exposure),
+      derived: deriveCostOfCapital(
+        parameters,
+        rating,
+        exposure,
+        businessExposure,
+      ),
       operationsExposure: exposure,
+      ...(businessExposure === null ? {} : { businessExposure }),
       declarations: [
         "riskfree_net_of_sovereign_default_spread",
         "erp_implied_at_start_of_year",
-        "industry_beta_us",
-        "target_structure_industry_average",
+        ...(businessExposure === null
+          ? ["industry_beta_us", "target_structure_industry_average"]
+          : ["beta_by_business_mix", "target_structure_business_mix"]),
         ...(exposure === null
           ? ["country_risk_by_primary_listing"]
           : [
@@ -774,6 +827,8 @@ export function deriveCostOfCapital(
   syntheticRating: string,
   /** El mix de `1.1.0`: reemplaza el CRP del domicilio en la prima del equity. */
   operationsExposure: OperationsExposure | null = null,
+  /** La mezcla de `1.2.0`: reemplaza la beta y la D/E de la industria propia. */
+  businessExposure: BusinessExposure | null = null,
 ): CostOfCapitalDerived {
   const value = (name: CostOfCapitalParameterName): Dec => {
     const found = parameters.find((candidate) => candidate.name === name);
@@ -789,13 +844,20 @@ export function deriveCostOfCapital(
     value("sovereign_default_spread"),
   );
   const tax = value("marginal_tax_rate");
-  const debtToEquity = value("target_debt_to_equity");
+  const debtToEquity =
+    businessExposure === null
+      ? value("target_debt_to_equity")
+      : parseDecimal(businessExposure.debtToEquity, "business_debt_to_equity");
+  const unleveredBeta =
+    businessExposure === null
+      ? value("unlevered_beta")
+      : parseDecimal(businessExposure.unleveredBeta, "business_unlevered_beta");
   const premium = value("implied_erp").plus(
     operationsExposure === null
       ? value("country_risk_premium")
       : operationsCountryRiskPremium(operationsExposure),
   );
-  const leveredBeta = value("unlevered_beta").times(
+  const leveredBeta = unleveredBeta.times(
     ONE.plus(ONE.minus(tax).times(debtToEquity)),
   );
   const costOfEquity = riskFree.plus(leveredBeta.times(premium));

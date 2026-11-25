@@ -37,13 +37,16 @@ import {
 } from "@/modules/valuation/application/assess-company";
 import { readReferenceDataset } from "@/modules/reference-data/application/read-reference-dataset";
 import { DECLARED_INDUSTRY_ASSIGNMENTS } from "@/modules/valuation/application/declared-industry-assignments";
+import { DECLARED_BUSINESS_MIXES } from "@/modules/valuation/application/declared-business-mixes";
 import { DECLARED_OPERATIONS_MIXES } from "@/modules/valuation/application/declared-operations-mixes";
+import { readBusinessMix } from "@/modules/valuation/application/read-business-mix";
 import { readOperationsMix } from "@/modules/valuation/application/read-operations-mix";
 import { operationsCountryRiskPremium } from "@/modules/valuation/domain/cost-of-capital";
 import {
   BETAS_DATASET,
   COUNTRY_RISK_DATASET,
   COUNTRY_RISK_REGIONS_DATASET,
+  EV_SALES_DATASET,
   IMPLIED_ERP_DATASET,
   RATINGS_DATASET,
 } from "@/modules/valuation/domain/cost-of-capital";
@@ -53,6 +56,7 @@ import { getSourceEgressFetch } from "@/server/egress/get-source-egress-fetch";
 import { readCaptiveFinanceFiling } from "@/server/jobs/captive-finance-filing";
 import { getClassificationRepository } from "@/server/persistence/get-classification-repository";
 import { getIndustryResolutionRepository } from "@/server/persistence/get-industry-resolution-repository";
+import { getBusinessMixRepository } from "@/server/persistence/get-business-mix-repository";
 import { getOperationsMixRepository } from "@/server/persistence/get-operations-mix-repository";
 import { getReferenceDatasetRepository } from "@/server/persistence/get-reference-dataset-repository";
 import { getSourceBudgetStore } from "@/server/persistence/get-source-budget-store";
@@ -114,6 +118,7 @@ const classifications = getClassificationRepository();
 const referenceDatasets = getReferenceDatasetRepository();
 const industryResolutions = getIndustryResolutionRepository();
 const operationsMixes = getOperationsMixRepository();
+const businessMixes = getBusinessMixRepository();
 const state = await getUniverseRepository().loadState({
   indexId: SP500_INDEX_ID,
   versions: "all",
@@ -314,7 +319,7 @@ for (const ticker of values.ticker) {
         referenceDatasets,
       ),
     costOfCapitalReadings: async (pointInTime) => {
-      const [betas, countryRisk, impliedErp, ratings, regions] =
+      const [betas, countryRisk, impliedErp, ratings, regions, evToSales] =
         await Promise.all(
           [
             BETAS_DATASET,
@@ -322,6 +327,7 @@ for (const ticker of values.ticker) {
             IMPLIED_ERP_DATASET,
             RATINGS_DATASET,
             COUNTRY_RISK_REGIONS_DATASET,
+            EV_SALES_DATASET,
           ].map((datasetId) =>
             readReferenceDataset(datasetId, pointInTime, referenceDatasets),
           ),
@@ -333,6 +339,7 @@ for (const ticker of values.ticker) {
         impliedErp: impliedErp ?? null,
         ratings: ratings ?? null,
         regions: regions ?? null,
+        evToSales: evToSales ?? null,
       };
     },
     // Lo guardado por `valuation:operations-mix` o declarado por el owner:
@@ -346,6 +353,17 @@ for (const ticker of values.ticker) {
           declarations: DECLARED_OPERATIONS_MIXES,
         },
         operationsMixes,
+      ),
+    // La mezcla de negocios (`F6-48`): leerla no llama a un modelo.
+    loadBusinessMix: (subjectId, pointInTime) =>
+      readBusinessMix(
+        {
+          legalEntityId: subjectId,
+          cik,
+          query: pointInTime,
+          declarations: DECLARED_BUSINESS_MIXES,
+        },
+        businessMixes,
       ),
     industryRelease: async (pointInTime) => {
       const reading = await readReferenceDataset(

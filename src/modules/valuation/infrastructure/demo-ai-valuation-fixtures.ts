@@ -5,7 +5,6 @@ import {
 import { lineRecordsOf } from "../domain/operations-mix";
 import {
   operationsMixReadingOf,
-  QUALITATIVE_DECISIONS_VERSION,
   qualitativeDecisionsSchema,
 } from "../domain/qualitative-decisions";
 import {
@@ -37,7 +36,9 @@ const ACCESSION = "0000000042-25-000007";
 const ACCEPTED_AT = "2025-02-14T21:05:00.000Z";
 
 export const DEMO_AI_QUALITATIVE_DECISIONS = qualitativeDecisionsSchema.parse({
-  version: QUALITATIVE_DECISIONS_VERSION,
+  // Un snapshot guardado conserva su versión: escribir `1.2.0` le cambiaría
+  // el hash (`F6-48`).
+  version: "qualitative-decisions-1.1.0",
   industry: {
     basis: "ai_resolution",
     mappingVersion: "sic-damodaran-industry-1.1.0",

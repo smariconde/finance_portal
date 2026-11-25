@@ -309,6 +309,27 @@ export const DAMODARAN_DATASETS: readonly DamodaranDataset[] = Object.freeze([
     ],
   },
   {
+    // `F6-48` (ADR 0086): EV/Sales por industria, el multiplicador con que
+    // Damodaran estima el valor de cada negocio para ponderar su beta.
+    datasetId: "damodaran.ev-sales-us",
+    url: `${BASE}psdata.html`,
+    shape: "table",
+    keyHeader: "industry name",
+    requiredKey: "total-market",
+    minimumRows: 50,
+    fields: [
+      { field: "firms", header: "number of firms", kind: "integer" },
+      { field: "price_sales", header: "price/sales", kind: "verified" },
+      { field: "net_margin", header: "net margin", kind: "verified" },
+      { field: "ev_sales", header: "ev/sales", kind: "decimal" },
+      {
+        field: "pretax_operating_margin",
+        header: "pre-tax operating margin",
+        kind: "verified",
+      },
+    ],
+  },
+  {
     datasetId: "damodaran.country-risk",
     url: DAMODARAN_COUNTRY_RISK_WORKBOOK.url,
     shape: "workbook",

@@ -11,21 +11,34 @@ import type { MethodSelection } from "./method-selection";
  * encontró el job y qué hizo. Es un registro, no un plan. La IA propone y la
  * policy de cada tarea decide; este archivo no lee un reloj ni sale a la red.
  */
-export const VALUATION_QUALITATIVE_RULE_VERSION = "valuation-qualitative-1.0.0";
+/**
+ * `1.1.0` (`F6-48`, ADR 0086): una cuarta tarea, la mezcla de negocios, después
+ * del mix de operaciones. Un registro `1.0.0` no la trae y se sigue leyendo.
+ */
+export const VALUATION_QUALITATIVE_RULE_VERSION = "valuation-qualitative-1.1.0";
+const READABLE_RULE_VERSIONS = [
+  "valuation-qualitative-1.0.0",
+  VALUATION_QUALITATIVE_RULE_VERSION,
+] as const;
 
 export const qualitativeTaskSchema = z.enum([
   "industry",
   "employeeEquity",
   "operationsMix",
+  "businessMix",
 ]);
 
 export type QualitativeTask = z.infer<typeof qualitativeTaskSchema>;
 
-/** El orden en que se pregunta: la industria mueve el WACC, el mix lo afina. */
+/**
+ * El orden en que se pregunta: la industria mueve el WACC, el mix de
+ * operaciones afina el CRP y la mezcla de negocios la beta.
+ */
 export const QUALITATIVE_TASK_ORDER: readonly QualitativeTask[] = [
   "industry",
   "employeeEquity",
   "operationsMix",
+  "businessMix",
 ];
 
 const codeSchema = z.string().regex(/^[a-z][a-z0-9_]{0,63}$/u);
@@ -53,11 +66,13 @@ export const qualitativeTaskStepSchema = z.discriminatedUnion("status", [
 export type QualitativeTaskStep = z.infer<typeof qualitativeTaskStepSchema>;
 
 export const valuationQualitativeStepSchema = z.object({
-  ruleVersion: z.literal(VALUATION_QUALITATIVE_RULE_VERSION),
+  ruleVersion: z.enum(READABLE_RULE_VERSIONS),
   industry: qualitativeTaskStepSchema,
   employeeEquity: qualitativeTaskStepSchema,
   operationsMix: qualitativeTaskStepSchema,
-  /** Lo cobrado por las tres tareas, en nano-dólares; el libro de gasto tiene el detalle. */
+  /** Ausente en un registro `1.0.0`. */
+  businessMix: qualitativeTaskStepSchema.optional(),
+  /** Lo cobrado por las tareas, en nano-dólares; el libro de gasto tiene el detalle. */
   chargedNanoUsd: z.number().int().min(0),
 });
 
@@ -74,7 +89,7 @@ export function qualitativeStepAccepted(
   step: ValuationQualitativeStep,
 ): boolean {
   return QUALITATIVE_TASK_ORDER.some(
-    (task) => step[task].status === "accepted",
+    (task) => step[task]?.status === "accepted",
   );
 }
 

@@ -86,6 +86,7 @@ const DATASET_LABELS: Record<string, string> = {
     "Damodaran · retorno sobre el capital por industria (EE. UU.)",
   "damodaran.synthetic-ratings": "Damodaran · rating sintético",
   "damodaran.failure-rates": "Damodaran · tasas de default por rating",
+  "damodaran.ev-sales-us": "Damodaran · EV/Sales por industria (EE. UU.)",
 };
 
 export function datasetLabel(code: string): string {
@@ -124,6 +125,10 @@ const COST_DECLARATION_LABELS: Record<string, string> = {
   regions_combined_by_gdp: "Las regiones se combinan por PBI.",
   rest_of_world_as_global:
     "El resto del mundo pesa como las nueve regiones juntas.",
+  beta_by_business_mix:
+    "Beta de la mezcla de negocios: la de cada industria, pesada por el valor estimado del negocio.",
+  target_structure_business_mix:
+    "Estructura de capital objetivo: la de cada industria de la mezcla, con los mismos pesos.",
 };
 
 export function costDeclarationLabel(code: string): string {

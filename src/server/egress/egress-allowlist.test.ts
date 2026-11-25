@@ -477,7 +477,7 @@ describe("egress allowlist", () => {
     }
   });
 
-  it("reaches the seven Damodaran files one by one, never the whole site", () => {
+  it("reaches the nine Damodaran files one by one, never the whole site", () => {
     const entry = findEgressAllowlistEntry("damodaran-current-data");
 
     expect(entry?.origins).toEqual([
@@ -492,6 +492,7 @@ describe("egress allowlist", () => {
           "/~adamodar/New_Home_Page/datafile/EVA.html",
           "/~adamodar/New_Home_Page/datafile/margin.html",
           "/~adamodar/New_Home_Page/datafile/capex.html",
+          "/~adamodar/New_Home_Page/datafile/psdata.html",
         ],
       },
     ]);

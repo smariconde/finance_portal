@@ -685,6 +685,39 @@ blocking; a fresh capture asks for a follow-up), and `market-implied-1.1.0`
 solves growth on that shape too. Measured first: the consensus does **not**
 explain the price/value bias (median 1.92 → 1.91 over 11 Production runs).
 
+```bash
+pnpm valuation:business-mix --ticker GOOGL             # offers the 10-K's XBRL revenue lines to the ladder and reports (it spends)
+pnpm valuation:business-mix --ticker GOOGL --apply     # also stores the proposal, its lines and evidence
+```
+
+Since `F6-48` ([ADR 0086](docs/architecture/adr/0086-business-mix-beta.md),
+migration `0057`) a company with more than one business gets a **business-mix
+beta**, as Damodaran weights a multibusiness firm. `sec-xbrl-business-lines-1.0.0`
+reads from the 10-K's XBRL instance the fiscal year's revenue on
+`StatementBusinessSegmentsAxis` and `ProductOrServiceAxis` (alone or with
+`OperatingSegmentsMember`), because neither axis is enough: Apple segments by
+geography and Corning tags its segments as products. The AI (`business-mix-1.0.0`)
+picks one axis, lines that partition revenue, and one Damodaran industry per line
+with an Item 1 quote; it never writes an amount, and `business-mix-policy-1.0.0`
+rejects unoffered, repeated or cross-axis lines, keys outside the betas release,
+quotes outside Item 1 and lines more than 2 % off the year's revenue. An answer
+with one industry is stored but never enters a run. `business-mix-weights-1.0.0`
+weights each industry by revenue × its EV/Sales (`damodaran.ev-sales-us`, the
+`psdata.html` page) and blends the cash-corrected unlevered beta and the target
+D/E with those weights; Hamada relevers as usual. Only beta and structure move:
+margins, terminal ROC, R&D life and sales-to-capital keep the company's own
+industry. An owner declaration by CIK in `declared-business-mixes.ts` (empty) is
+the lock. `costOfCapital.businessExposure` and `qualitativeDecisions.businessMix`
+are frozen **only with a mix** (`cost-of-capital-1.2.0`,
+`qualitative-decisions-1.2.0`); without one the run is `1.1.0` byte for byte.
+The job asks it as the fourth qualitative task (`valuation-qualitative-1.1.0`),
+one more SEC request for the instance. Measured on a replica at one cutoff,
+without → with: GOOGL 12.00 → 8.70 % (P/V 1.18 → 0.87), AAPL 10.78 → 8.93 %, AMZN
+7.49 → 7.64 % (worth more: the mix's D/E lowers the terminal WACC), GLW 8.36 →
+8.69 %; USD 0.044 for the four. The mapping decides the number (the iPhone as
+`telecom-equipment`, cloud as `computer-services`); the owner corrects it by
+declaration.
+
 Company logos are loaded by the **browser** from logo.dev
 ([ADR 0062](docs/architecture/adr/0062-company-logos-browser-loaded.md)): the
 free plan forbids storing them, so the CSP opens `img-src` to

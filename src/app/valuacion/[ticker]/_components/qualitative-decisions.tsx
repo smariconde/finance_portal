@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/table";
 import {
   formatCalendarDate,
+  formatCompactAmount,
   formatPercent,
   formatShares,
   formatUtcTimestamp,
@@ -37,7 +38,8 @@ import { CONFIDENCE_LABELS } from "./labels";
 
 /**
  * Lo cualitativo de la corrida: la industria de Damodaran, el mix geográfico
- * que pondera el riesgo país y las opciones y unidades de empleados.
+ * que pondera el riesgo país, la mezcla de negocios que pondera la beta y las
+ * opciones y unidades de empleados.
  *
  * Cada decisión dice **quién la tomó** —una regla sobre el SIC, el owner o la
  * IA— y qué la sostiene. Una propuesta de IA se muestra con su modelo, sus
@@ -272,6 +274,79 @@ function OperationsMixDecision({ run }: { run: ValuationRun }) {
   );
 }
 
+/**
+ * La mezcla de negocios (`F6-48`, ADR 0086): qué línea del XBRL mapeó la IA a
+ * qué industria, con su cita del Item 1. Los montos son del XBRL y los pesos
+ * los calculó el código; se ven en el costo de capital.
+ */
+function BusinessMixDecision({ run }: { run: ValuationRun }) {
+  const decision = run.input.qualitativeDecisions.businessMix;
+
+  if (decision === undefined) {
+    return (
+      <section className="flex flex-col gap-3">
+        <DecisionHeading title="Mezcla de negocios" kind="declared_absent" />
+        <p className="text-sm text-muted-foreground">
+          Sin una mezcla de dos o más industrias a este corte: la beta es la de
+          la industria de la empresa.
+        </p>
+      </section>
+    );
+  }
+
+  if (decision.source === "owner_declaration") {
+    return (
+      <section className="flex flex-col gap-3">
+        <DecisionHeading title="Mezcla de negocios" kind="owner_declaration" />
+        <p className="text-sm text-muted-foreground">
+          Declarada por el owner el{" "}
+          <time dateTime={decision.declaredOn}>
+            {formatCalendarDate(decision.declaredOn)}
+          </time>
+          : {decision.rationale}
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="flex flex-col gap-3">
+      <DecisionHeading title="Mezcla de negocios" kind="ai_proposal" />
+      <p className="text-sm text-muted-foreground">
+        Líneas del XBRL del 10-K{" "}
+        <CodeValue>{decision.proposal.accessionNumber}</CodeValue>, eje{" "}
+        <CodeValue>{decision.proposal.axis}</CodeValue>. Modelo{" "}
+        <CodeValue>{decision.proposal.respondedModel}</CodeValue>, confianza{" "}
+        {CONFIDENCE_LABELS[decision.proposal.confidence]}.
+      </p>
+      <Fold
+        divided={false}
+        summary={<>Líneas e industrias ({decision.lines.length})</>}
+      >
+        <ol className="flex flex-col gap-2 text-sm">
+          {decision.lines.map((line) => (
+            <li key={line.ordinal} className="rounded-lg border p-2">
+              <p className="flex flex-wrap items-baseline justify-between gap-2">
+                <span className="font-medium">
+                  <CodeValue>{line.member}</CodeValue> →{" "}
+                  <CodeValue>{line.industryKey}</CodeValue>
+                </span>
+                <span className="numeric">
+                  USD {formatCompactAmount(line.amount)}
+                </span>
+              </p>
+              <blockquote className="mt-1 text-xs text-muted-foreground">
+                «{line.quote}»
+              </blockquote>
+            </li>
+          ))}
+        </ol>
+      </Fold>
+      <EvidenceList evidence={decision.evidence} />
+    </section>
+  );
+}
+
 function EmployeeEquityDecision({ run }: { run: ValuationRun }) {
   const claim = run.input.employeeEquity;
   const { decision, derived } = claim;
@@ -424,6 +499,7 @@ export function QualitativeDecisions({ run }: { run: ValuationRun }) {
       <CardContent className="flex flex-col gap-6 divide-y [&>*:not(:last-child)]:pb-6">
         <IndustryDecision run={run} />
         <OperationsMixDecision run={run} />
+        <BusinessMixDecision run={run} />
         <EmployeeEquityDecision run={run} />
       </CardContent>
     </Card>

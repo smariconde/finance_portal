@@ -159,6 +159,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   131 | `F6-45`    | `done`        | El MCP dice por qué se rechazó una corrida: código, reglas que fallaron y campos (`portal-mcp-tools-1.1.0`).                                                                                                              | `F11-17`           |
 |   132 | `F6-46`    | `done`        | Deuda como no corriente más préstamos de corto plazo cuando ésa es la única deuda corriente publicada (NFLX, PEP, JNJ, MSI, TRMB), nombrada en el snapshot.                                                               | `F6-45`            |
 |   133 | `F6-47`    | `done`        | Medir de dónde sale el sesgo precio/valor (mediana ≈ 1,9) por componente —crecimiento, margen, reinversión, WACC, terminal— y traer la tabla al owner antes de tocar reglas.                                              | `F6-46`            |
+|   134 | `F6-48`    | `done`        | Beta por mezcla de negocios (ADR 0086): líneas de ingresos del XBRL del 10-K mapeadas por la IA a industrias de Damodaran, pesos por ventas × EV/Sales, declaración del owner por CIK; sin mezcla la corrida queda igual. | `F6-47`            |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -4785,6 +4786,57 @@ Decisión delegada por el owner («tomá la mejor decisión»).
   contra un cierre de 705,27. El ciclo 2021–2025 incluye el −20 % de 2023.
 - Replay: 42 de 42 en la réplica y 56 de 57 en Neon (la de GOOGL ya conocida).
 - Gates: 4.719 unit, 251 de integración, lint, tipos, formato y build.
+
+#### `F6-48` — beta por mezcla de negocios (cerrado el 2026-11-24)
+
+[ADR 0086](../architecture/adr/0086-business-mix-beta.md), migración `0057`.
+
+- Decisión del owner sobre la tabla de `F6-47`: opción (a), con la IA mapeando
+  y el owner decidiendo, y pesos por valor estimado.
+- Medido antes de codificar (instance XBRL del último 10-K de las 11
+  `fcff_base` de Production, dos pedidos SEC cada una, WACC recalculado con los
+  parámetros de cada corrida): la mezcla sólo mueve GLW, GOOGL, AAPL y AMZN;
+  WMT, COST, SBUX, KO, MCD y ADBE segmentan por geografía o son una industria,
+  y LRCX tiene un segmento. El número lo decide el mapeo: GOOGL 9,5–11,7 %
+  según Google Services sea `advertising` o `software-internet`.
+- `sec-xbrl-business-lines-1.0.0` lee del instance las líneas de
+  `StatementBusinessSegmentsAxis` y `ProductOrServiceAxis` (solas o con
+  `OperatingSegmentsMember`) del ejercicio completo; `business-mix-1.0.0` /
+  `business-mix-policy-1.0.0` le pide a la escalera un eje, líneas que no se
+  solapen y una industria por línea con cita del Item 1 (rechaza líneas no
+  ofrecidas, de otro eje, repetidas, claves fuera de la release, citas fuera
+  del Item 1 y una suma a más de 2 % de las ventas). Montos siempre del XBRL.
+- `damodaran.ev-sales-us` (`psdata.html`); `business-mix-weights-1.0.0`: peso
+  = ventas × EV/Sales sobre el total, beta desapalancada corregida por caja y
+  D/E ponderadas; `cost-of-capital-1.2.0` sólo con mezcla (sin ella la corrida
+  es `1.1.0` byte a byte), `qualitative-decisions-1.2.0` congela la decisión, y
+  `wacc_built_from_components` y `qualitative_decisions_drive_cost_of_capital`
+  la recalculan. Paso cualitativo `valuation-qualitative-1.1.0` con la cuarta
+  tarea; `pnpm valuation:business-mix --ticker <T> [--apply]`;
+  `declared-business-mixes.ts` vacío.
+- Medido en réplica con el job real, mismo corte (2026-11-24), sin → con
+  mezcla, por USD 0,044 en total:
+
+| Ticker | WACC           | Valor/acción    | P/V         | Mezcla por valor                                                                         |
+| ------ | -------------- | --------------- | ----------- | ---------------------------------------------------------------------------------------- |
+| GOOGL  | 12,00 → 8,70 % | 236,55 → 320,14 | 1,18 → 0,87 | advertising 89 %, computer-services 10,6 %, transportation 0,3 %                         |
+| AAPL   | 10,78 → 8,93 % | 181,75 → 208,10 | 1,95 → 1,70 | telecom-equipment 71,8 % (iPhone), computers-peripherals 18,9 %, computer-services 7,9 % |
+| AMZN   | 7,49 → 7,64 %  | 140,50 → 149,26 | 1,80 → 1,69 | retail-general 75,1 %, computer-services 13,6 %, advertising 10,4 %                      |
+| GLW    | 8,36 → 8,69 %  | 33,97 → 32,91   | 3,00 → 3,10 | telecom-equipment 51,9 %, semiconductor 19,0 % (Hemlock), electronics-general 12,1 %     |
+
+- Lo que dice: GOOGL y AAPL bajan su WACC; AMZN lo sube pero vale más, porque
+  la D/E objetivo de la mezcla es mayor y baja el WACC terminal; GLW sube
+  porque en la réplica su industria propia (IA) era `electronics-general` y en
+  Production `electrical-equipment` (9,52 %): con la mezcla el número deja de
+  depender de esa resolución. Mapeos discutibles que el owner puede declarar:
+  el iPhone como `telecom-equipment` y la nube (AWS, Google Cloud, servicios
+  de Apple) como `computer-services` (EV/Sales 1,48, que los subpondera).
+- Evidencia: 4.863 unit, 256 integración, lint, tipos, formato, build, E2E;
+  replay de las 20 corridas de la réplica con las tablas de propuestas
+  alteradas; revisión renderizada de `/valuacion/GOOGL` desktop y mobile sin
+  overflow ni violaciones de axe.
+- Pendiente: cargar `damodaran.ev-sales-us` y migrar `0057` en Neon antes del
+  merge; evals de la tarea sobre un corpus congelado.
 
 #### `F6-47` — de dónde sale el sesgo precio/valor (medido el 2026-11-24, sin código)
 

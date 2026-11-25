@@ -8,6 +8,8 @@ import {
   fixtureEvaPage,
   FIXTURE_CAPEX_HEADERS,
   fixtureCapexPage,
+  FIXTURE_EV_SALES_HEADERS,
+  fixtureEvSalesPage,
   FIXTURE_MARGIN_HEADERS,
   fixtureMarginPage,
   FIXTURE_BREAKDOWN_HEADERS,
@@ -111,6 +113,35 @@ describe("damodaran-html-1.1.0: industry sales to invested capital", () => {
     expect(
       result.rows.find((row) => row.key === "total-market")?.values
         .sales_to_invested_capital,
+    ).toBeNull();
+  });
+});
+
+describe("damodaran-html-1.1.0: industry EV/Sales", () => {
+  it("keeps only the EV/Sales multiple and its row count", () => {
+    const result = parse("damodaran.ev-sales-us", fixtureEvSalesPage());
+    if (!result.ok) throw new Error(result.code);
+    expect(
+      result.rows.find((row) => row.key === "total-market")?.values,
+    ).toEqual({ firms: "12", ev_sales: "3.10" });
+  });
+
+  it("rejects price/sales read in place of EV/Sales", () => {
+    const headers = [...FIXTURE_EV_SALES_HEADERS];
+    [headers[2], headers[4]] = [headers[4]!, headers[2]!];
+    expect(
+      parse("damodaran.ev-sales-us", fixtureEvSalesPage({ headers })),
+    ).toMatchObject({ ok: false });
+  });
+
+  it("keeps a missing multiple as null, never zero", () => {
+    const result = parse(
+      "damodaran.ev-sales-us",
+      fixtureEvSalesPage({ totalEvSales: "NA" }),
+    );
+    if (!result.ok) throw new Error(result.code);
+    expect(
+      result.rows.find((row) => row.key === "total-market")?.values.ev_sales,
     ).toBeNull();
   });
 });

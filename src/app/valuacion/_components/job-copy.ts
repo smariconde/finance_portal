@@ -109,6 +109,7 @@ const TASK_COPY: Record<QualitativeTask, string> = {
   industry: "la industria",
   employeeEquity: "las opciones de empleados",
   operationsMix: "el mix geográfico de ingresos",
+  businessMix: "la mezcla de negocios",
 };
 
 /** Por qué una tarea no dejó una decisión, sin el código como mensaje. */
@@ -148,7 +149,8 @@ export function describeQualitativeStep(
   }
 
   const misses = QUALITATIVE_TASK_ORDER.flatMap((task) => {
-    const copy = taskOutcomeCopy(step[task]);
+    const taskStep = step[task];
+    const copy = taskStep === undefined ? null : taskOutcomeCopy(taskStep);
 
     return copy === null ? [] : [`${TASK_COPY[task]}: ${copy}`];
   });
