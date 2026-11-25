@@ -30,6 +30,17 @@ export const observationListQuerySchema = z.object({
   subjectId: z.uuid(),
   metricIds: z.array(z.string().trim().min(1).max(128)).max(64).optional(),
   limit: z.number().int().min(1).max(1000).default(500),
+  /**
+   * Cursor por clave (`F6-52`): la página sigue estrictamente después de esta
+   * revisión en el orden `(revision_group_id, revision_number)`, el mismo que
+   * ordena la lectura. Sin él, la primera página.
+   */
+  after: z
+    .object({
+      revisionGroupId: contentHashSchema,
+      revisionNumber: z.number().int().min(1),
+    })
+    .optional(),
 });
 
 export type ObservationListQuery = z.input<typeof observationListQuerySchema>;

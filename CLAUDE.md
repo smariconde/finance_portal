@@ -741,6 +741,21 @@ with no NCI component. Capex also reads `PaymentsToAcquireProductiveAssets`,
 without the PP&E concept). Measured on a replica: V `requires_review` 524.03
 (61 % terminal margin), HSY and STZ `computed`, XOM `requires_review`.
 
+Since `F6-52` a lineage segment is read in pages of 1,000 through a keyset
+cursor (`after`: revision group, revision number) up to 20,000 revisions
+(`lineage-read-pages-1.0.0`), still failing instead of truncating: GE held
+1,598. GE is declared `aerospace-defense` by the owner (SIC 3600 has no row).
+A filer that publishes only domestic and foreign pretax income gets
+`pretax-income-1.0.0` (`sec-core-concepts-13.0.0`, `annual-fundamentals-1.10.0`,
+owner's decision with the measured table): their sum, only without a published
+total, for a full fiscal year at 21 % and when the federal statutory tax of the
+rate reconciliation ÷ 0.21 is within 0.5 % (Quest, Iron Mountain and Tesla
+publish parts that do not add up to the total). The item carries the concept
+`derived:PretaxIncomeDomesticPlusForeign`, no observation and the flag
+`pretax_domestic_plus_foreign`; `normalization.facts.pretaxComposition` freezes
+the three parts only when used. Measured on a replica: PSX `normalized_fcff`
+73.60 against 236.95, GE `fcff_three_stage` 193.83 against 318.03.
+
 Since `F6-50` (ADR 0061 amendment, owner's option (a)) an insurer whose 10-K
 tables the HTML reader does not recognize gets its financial base from the
 same 10-K's XBRL instance (`financial-xbrl-evidence-1.0.0`, one more metered

@@ -243,7 +243,10 @@ describe(INDUSTRY_MAPPING_VERSION, () => {
         ticker,
         industryKey,
       ]),
-    ).toEqual([["MELI", "retail-general"]]);
+    ).toEqual([
+      ["MELI", "retail-general"],
+      ["GE", "aerospace-defense"],
+    ]);
     for (const declaration of DECLARED_INDUSTRY_ASSIGNMENTS)
       expect(mappedIndustryKeys()).toContain(declaration.industryKey);
   });

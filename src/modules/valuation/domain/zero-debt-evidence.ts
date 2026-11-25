@@ -294,8 +294,10 @@ export function assessZeroDebtEvidence(
     const reported = [...BORROWING_ITEMS, ...DEBT_GUARD_ITEMS]
       .map((id) => year.items[id])
       .filter((line): line is LineItemValue => {
-        if (line === undefined || seen.has(line.observationId)) return false;
-        seen.add(line.observationId);
+        // Las partidas de deuda vienen siempre de una observación.
+        const key = line?.observationId ?? `${line?.item}:${line?.concept}`;
+        if (line === undefined || seen.has(key)) return false;
+        seen.add(key);
         return true;
       });
     const interest = interestExpenseOf(year);

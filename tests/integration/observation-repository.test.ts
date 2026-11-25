@@ -367,6 +367,31 @@ describe("PostgreSQL point-in-time observations", () => {
     ).toBe(current!.supersededAt);
   });
 
+  it("pages by (revision group, revision number) and rebuilds the whole read (`F6-52`)", async () => {
+    const observations = createPostgresObservationRepository(database);
+    const whole = await observations.list({ ...SUBJECT, limit: 1000 });
+    expect(whole.length).toBeGreaterThan(2);
+    // Hay al menos una cadena con más de una revisión: el cursor tiene que
+    // seguir dentro del mismo grupo, no saltar al siguiente.
+    expect(whole.some((row) => row.revisionNumber > 1)).toBe(true);
+
+    const paged: Observation[] = [];
+    let after: { revisionGroupId: string; revisionNumber: number } | undefined;
+    for (;;) {
+      const page = await observations.list({ ...SUBJECT, limit: 1, after });
+      if (page.length === 0) break;
+      paged.push(...page);
+      after = {
+        revisionGroupId: page[0]!.revisionGroupId,
+        revisionNumber: page[0]!.revisionNumber,
+      };
+    }
+
+    expect(paged.map((row) => row.observationId)).toStrictEqual(
+      whole.map((row) => row.observationId),
+    );
+  });
+
   it("round-trips exact decimals, nulls and their reason", async () => {
     const observations = createPostgresObservationRepository(database);
     const stored = await observations.list(SUBJECT);

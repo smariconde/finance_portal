@@ -748,7 +748,10 @@ export function ttmNormalizationFacts(
     return value === undefined ? null : toFact(value);
   };
   const atQuarter = basePeriod.balance.core.basis === "quarter";
-  const { zeroDebtEvidence, debtControls, ...rest } = annual;
+  // La composición de la utilidad antes de impuestos es del ejercicio anual: un
+  // año TTM lee la suya de sus tres tramos (`F6-52`).
+  const { zeroDebtEvidence, debtControls, pretaxComposition, ...rest } = annual;
+  void pretaxComposition;
 
   const facts: NormalizationFacts = {
     ...rest,

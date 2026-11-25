@@ -91,7 +91,7 @@ function revenue(fiscalYearEnd: string, value: string) {
 }
 
 const SERIES: AnnualFundamentals = {
-  version: "annual-fundamentals-1.9.0",
+  version: "annual-fundamentals-1.10.0",
   fiscalYears: [
     revenue("2024-12-31", demo.baseRevenue.value),
     revenue("2023-12-31", "90000000"),
@@ -710,7 +710,7 @@ describe("valuation-snapshot-1.0.0", () => {
       };
     };
     const cycleSeries = {
-      version: "annual-fundamentals-1.9.0",
+      version: "annual-fundamentals-1.10.0",
       fiscalYears: [
         withEbit("2024-12-31", demo.baseRevenue.value, "1"),
         withEbit("2023-12-31", "90000000", "18000000"),

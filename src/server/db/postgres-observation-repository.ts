@@ -6,8 +6,10 @@ import {
   desc,
   eq,
   getTableColumns,
+  gt,
   inArray,
   isNull,
+  or,
   sql,
   type SQL,
 } from "drizzle-orm";
@@ -326,6 +328,24 @@ export function createPostgresObservationRepository(
             parsedQuery.metricIds === undefined
               ? undefined
               : inArray(metricOf, parsedQuery.metricIds),
+            parsedQuery.after === undefined
+              ? undefined
+              : or(
+                  gt(
+                    schema.observations.revisionGroupId,
+                    parsedQuery.after.revisionGroupId,
+                  ),
+                  and(
+                    eq(
+                      schema.observations.revisionGroupId,
+                      parsedQuery.after.revisionGroupId,
+                    ),
+                    gt(
+                      schema.observations.revisionNumber,
+                      parsedQuery.after.revisionNumber,
+                    ),
+                  ),
+                ),
           ),
         )
         .orderBy(

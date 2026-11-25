@@ -163,7 +163,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   135 | `F6-49`    | `done`        | Acciones sólo por clase (V): diluidas de la clase que concilia utilidad y EPS en el instance del 10-K, carátula ponderada por las tasas de conversión del filing y capex alternativo.                                     | `F6-48`            |
 |   136 | `F6-50`    | `done`        | Aseguradora sin patrimonio común publicado (BRK, opción (a)): el total como común sólo con evidencia del 10-K de que no hay preferentes; corrida de screening con su límite nombrado.                                     | `F6-49`            |
 |   137 | `F6-51`    | `done`        | «Experimental» separado de «Requiere revisión» en la lista, la página y el MCP, con los controles de bear y bull a la vista (GOOGL); sin tocar snapshot ni hashes.                                                        | `F6-50`            |
-|   138 | `F6-52`    | `queued`      | GE evaluable: la lectura de linaje deja de cortar en 1.000 revisiones por segmento; PSX re-medido con la selección vigente.                                                                                               | `F6-51`            |
+|   138 | `F6-52`    | `done`        | GE evaluable: la lectura de linaje deja de cortar en 1.000 revisiones por segmento; PSX re-medido con la selección vigente.                                                                                               | `F6-51`            |
 |   139 | `F6-53`    | `queued`      | Corredores y bancos de inversión con SIC 6211 (HOOD, SCHW, GS, MS): medir sus conceptos y traer al owner perfil y método antes de codificar.                                                                              | `F6-52`            |
 |   140 | `F6-54`    | `queued`      | Emisores con 20-F o 40-F (TSM, ASML, NVO, SPOT, NU): medición y ADR —IFRS, moneda, ratio del ADS, sin 10-Q, secciones para la IA—; el código sale de la ADR.                                                              | `F6-53`            |
 
@@ -4805,8 +4805,8 @@ revisión». Medido sobre Production (Neon y MCP) con `valuation:assess
 | V                        | `structural_inputs` sin `diluted_shares`: desde 2009 publica acciones y EPS sólo por clase                      | `F6-49`              |
 | BRK-B                    | `insurer` (SIC 6331) sin `common_book_equity, roe`; `financial-filing-evidence` da `table_missing_or_ambiguous` | `F6-50`              |
 | GOOGL                    | `requires_review` sin control visible: lo trae `terminal_value_share` del escenario bull                        | `F6-51` (hecho)      |
-| GE                       | `LineageReadLimitError`: un segmento de linaje pasa las 1.000 revisiones y la evaluación no termina             | `F6-52`              |
-| PSX                      | `commodity` sin `operating_income` con una ventana bajada el 2026-10-29 con otra selección                      | `F6-52`              |
+| GE                       | `LineageReadLimitError`: un segmento de linaje pasa las 1.000 revisiones y la evaluación no termina             | `F6-52` (hecho)      |
+| PSX                      | `commodity` sin `operating_income` con una ventana bajada el 2026-10-29 con otra selección                      | `F6-52` (hecho)      |
 | HOOD                     | SIC 6211 dentro del rango financiero sin perfil: `missing_classification_evidence`                              | `F6-53`              |
 | TSM, ASML, NVO, SPOT, NU | `unresolved_ticker`: 20-F o 40-F negados por la ADR 0084                                                        | `F6-54`              |
 | CRWD, MRNA               | la última negativa (`distressed`, `method_not_implemented`) es vieja: hoy evalúan `loss_making`                 | revaluar, sin código |
@@ -4953,21 +4953,60 @@ revisión». Medido sobre Production (Neon y MCP) con `valuation:assess
 - Gates: 4.919 unit, 256 de integración, 393 E2E con axe, lint, tipos, formato y
   build.
 
-#### `F6-52` — GE y PSX
+#### `F6-52` — GE y PSX (cerrado el 2026-11-25)
 
-- Estado: `queued`
-- Fase y dependencia: Fase 6, después de `F6-51`.
-- Alcance incluido:
-  - GE: `valuation:assess --offline` contra Neon termina en
-    `LineageReadLimitError` (1.000 revisiones en un segmento). Medir qué
-    conceptos acumulan revisiones y paginar la lectura sin truncar.
-  - PSX: su ventana es de una selección vieja (job del 2026-10-29). Revaluar
-    con la selección vigente y, si sigue sin `operating_income`, medir qué
-    publica una refinadora antes de proponer receta.
-- Controles: `TM-05`, `TM-06`, `TM-16`.
-- Criterios de aceptación: GE evalúa y nombra su método o su faltante; PSX
-  registra corrida o un faltante medido.
-- Evidencia: test del lector con más de 1.000 revisiones, medición.
+- Estado: `done`
+- Lectura de linaje paginada (`lineage-read-pages-1.0.0`): `ObservationRepository.list`
+  acepta un cursor por clave `after` (`revision_group_id`, `revision_number`),
+  el mismo orden de la lectura, en PostgreSQL y en el doble en memoria. Cada
+  segmento se lee en páginas de 1.000 hasta un techo de 20.000 revisiones
+  (`MAX_ROWS_PER_SEGMENT`), que sigue fallando con `LineageReadLimitError` en
+  vez de truncar. Medido en Neon: GE tiene 1.598 revisiones en 58 conceptos y una
+  tanda de 64 pasaba las 1.000; Dell, ON, RCL, TSLA, Broadcom e IBM están entre
+  1.400 y 1.600.
+- GE (decisión del owner del 2026-11-25): evalúa `high_growth` →
+  `fcff_three_stage` y frenaba en `industry_mapping.unmapped` porque su SIC 3600
+  —el encabezado del grupo 36— no tiene fila, y ninguna industria del grupo es
+  aeroespacial. Declaración del owner por CIK en
+  `declared-industry-assignments.ts`: `aerospace-defense` (GE Aerospace desde las
+  escisiones de 2023 y 2024). El mapeo del SIC no cambia.
+- PSX (decisión del owner del 2026-11-25, opción «suma con control»): su ventana
+  era de `sec-core-concepts-9.0.0`. Reprocesada, sigue sin utilidad antes de
+  impuestos total ni `OperatingIncomeLoss`: publica sólo la doméstica y la
+  extranjera, y el capex en una extensión propia («Capital expenditures and
+  investments») que companyfacts no trae. `sec-core-concepts-13.0.0` y
+  `annual-fundamentals-1.10.0` leen las dos partes y el impuesto a la tasa federal
+  legal de la conciliación como partidas propias; `pretax-income-1.0.0` las suma
+  sólo sin total publicado, con un ejercicio entero al 21 % y la conciliación
+  ÷ 0,21 a 0,5 % o menos de la suma (si no, `control_missing`,
+  `control_mismatch`, `pre_federal_rate_21`, `zero_total`, `currency_mismatch` o
+  `legs_missing`). La partida compuesta lleva el concepto
+  `derived:PretaxIncomeDomesticPlusForeign`, sin observación propia, la marca
+  `pretax_domestic_plus_foreign` y la disponibilidad de la última de sus partes.
+  `normalization.facts.pretaxComposition` congela las tres partes sólo cuando se
+  usa, `normalization_recomputed` la recalcula y exige que un EBIT derivado de
+  ella sea el mismo; un año TTM no la hereda.
+- Medido antes de codificar (frames CY2024 de la SEC, 6 pedidos, sobre las 502
+  entidades del índice): 28 sin total; 11 con las dos partes, 7 corroboradas por
+  la conciliación a menos de 0,05 % (PSX, ORCL, DECK, LH, BR, BK, RJF) y 4 sin
+  conciliación (MCD, ITW, PYPL, PFG). Donde hay total y partes (345), la suma da
+  exacta en 335; Quest, Iron Mountain y Tesla no, y en los tres la conciliación
+  da el total y no la suma.
+- Medido en una réplica de la base personal con el worker real (descarga e IA):
+
+  | Ticker | Antes                                     | Después                                         | Valor  | Cierre 11-24 | P/V  |
+  | ------ | ----------------------------------------- | ----------------------------------------------- | ------ | ------------ | ---- |
+  | GE     | `LineageReadLimitError`                   | `fcff_three_stage`, «Experimental», `screening` | 193,83 | 318,03       | 1,64 |
+  | PSX    | sin `operating_income` ni `pretax_income` | `normalized_fcff`, «Experimental»               | 73,60  | 236,95       | 3,22 |
+
+  PSX: utilidad antes de impuestos 2025 compuesta en 5.420 M (1.035 + 4.385;
+  conciliación 1.138 M), industria `oil-gas-integrated` resuelta por la IA con
+  Tavily, bear 21,08 y bull 373,00; el único control fallado es el rótulo del
+  ciclo. GE: industria por declaración; sólo falla el rótulo de crecimiento.
+
+- Replay: 18 de 18 corridas de la réplica reproducidas, las dos nuevas incluidas.
+- Gates: 4.936 unit, 257 de integración (el del cursor incluido), lint, tipos,
+  formato y build; E2E en CI (sin cambios de UI salvo el rótulo de la marca).
 
 #### `F6-53` — corredores y bancos de inversión (SIC 6211)
 

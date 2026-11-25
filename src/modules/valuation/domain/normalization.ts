@@ -10,6 +10,13 @@ import type {
 } from "./annual-fundamentals";
 import type { Capitalization } from "./capitalization-bridge";
 import {
+  COMPOSED_PRETAX_CONCEPT,
+  COMPOSED_PRETAX_FLAG,
+  frozenPretaxCompositionSchema,
+  frozenPretaxValue,
+  type FrozenPretaxComposition,
+} from "./pretax-income";
+import {
   divide,
   engineDecimalSchema,
   formatDecimal,
@@ -150,6 +157,12 @@ export const normalizationFactsSchema = z.object({
    * conserva su hash.
    */
   debtControls: z.object(debtControlFactsShape).optional(),
+  /**
+   * Las tres partidas de la utilidad antes de impuestos compuesta (`F6-52`,
+   * `pretax-income-1.0.0`). Sólo viajan cuando el filer no publicó el total y
+   * la serie lo compuso: un snapshot anterior no las tiene y conserva su hash.
+   */
+  pretaxComposition: frozenPretaxCompositionSchema.optional(),
 });
 
 export type NormalizationFacts = z.infer<typeof normalizationFactsSchema>;
@@ -809,6 +822,15 @@ export function listNormalizationFacts(
           facts.captiveFinance,
           "normalization.facts.captiveFinance",
         ).map((entry) => ({ ...entry, asOf: base }))),
+    // Las partes de la utilidad antes de impuestos compuesta son del ejercicio
+    // base, como ella (`F6-52`).
+    ...(facts.pretaxComposition === undefined
+      ? []
+      : (["domestic", "foreign", "statutoryTax"] as const).map((key) => ({
+          path: `normalization.facts.pretaxComposition.${key}`,
+          fact: facts.pretaxComposition![key],
+          asOf: facts.baseFiscalYearEnd,
+        }))),
   ];
 }
 
@@ -903,6 +925,43 @@ export function normalizationMismatches(
     mismatches.push("normalization.facts.debtControls");
   }
 
+  // La utilidad antes de impuestos compuesta viaja con sus tres partidas, del
+  // mismo ejercicio, y vale lo que ellas componen (`F6-52`).
+  const pretax = facts.income.pretaxIncome;
+  const composed = pretax?.concept === COMPOSED_PRETAX_CONCEPT;
+  const composition = facts.pretaxComposition;
+
+  if (composed !== (composition !== undefined)) {
+    mismatches.push("normalization.facts.pretaxComposition");
+  } else if (composition !== undefined) {
+    const parts = [
+      composition.domestic,
+      composition.foreign,
+      composition.statutoryTax,
+    ];
+    if (
+      parts.some((part) => part.asOf !== facts.baseFiscalYearEnd) ||
+      pretax!.asOf !== facts.baseFiscalYearEnd ||
+      frozenPretaxValue(facts.baseFiscalYearEnd, composition) !==
+        pretax!.value ||
+      !pretax!.qualityFlags.includes(COMPOSED_PRETAX_FLAG)
+    ) {
+      mismatches.push("normalization.facts.pretaxComposition");
+    }
+  }
+
+  // Un EBIT derivado de la utilidad compuesta usa la misma que la normalización
+  // congela con sus partes: no hay otra composición que la respalde.
+  const derived = context.capitalization.ebitDerivation?.pretaxIncome;
+  if (
+    derived?.concept === COMPOSED_PRETAX_CONCEPT &&
+    (pretax?.concept !== COMPOSED_PRETAX_CONCEPT ||
+      derived.value !== pretax.value ||
+      derived.asOf !== pretax.asOf)
+  ) {
+    mismatches.push("capitalization.facts.ebitDerivation.pretaxIncome");
+  }
+
   const rebuilt = buildNormalization(facts, context);
 
   for (const key of [
@@ -993,9 +1052,33 @@ export function normalizationFactsFromSeries(
         impairment: read(year.items, "impairment_charges"),
       })),
     ...(zeroDebtEvidence === null ? {} : { zeroDebtEvidence }),
+    ...frozenPretaxCompositionOf(base.items.pretax_income, toFact),
   };
 
   return withDebtControls(facts, debtControlsAt(base.items, read));
+}
+
+/** La composición de la partida, congelada con su provenance (`F6-52`). */
+export function frozenPretaxCompositionOf(
+  pretax: LineItemValue | undefined,
+  toFact: (item: LineItemValue) => MonetaryFact,
+): { pretaxComposition?: FrozenPretaxComposition } {
+  const composition = pretax?.composition;
+  if (composition === undefined) return {};
+
+  const fact = (value: LineItemValue): ConceptFact => ({
+    ...toFact(value),
+    concept: value.concept,
+  });
+
+  return {
+    pretaxComposition: {
+      version: composition.version,
+      domestic: fact(composition.domestic),
+      foreign: fact(composition.foreign),
+      statutoryTax: fact(composition.statutoryTax),
+    },
+  };
 }
 
 /** Los totales de deuda publicados entre unas partidas de un cierre. */

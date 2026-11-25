@@ -130,7 +130,12 @@ export function createInMemoryObservationRepository(
           (observation) =>
             observation.subjectType === parsedQuery.subjectType &&
             observation.subjectId === parsedQuery.subjectId &&
-            (metricIds === null || metricIds.has(observation.metricId)),
+            (metricIds === null || metricIds.has(observation.metricId)) &&
+            (parsedQuery.after === undefined ||
+              observation.revisionGroupId > parsedQuery.after.revisionGroupId ||
+              (observation.revisionGroupId ===
+                parsedQuery.after.revisionGroupId &&
+                observation.revisionNumber > parsedQuery.after.revisionNumber)),
         )
         .sort(
           (left, right) =>
