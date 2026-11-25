@@ -787,6 +787,14 @@ broker-dealer only. Measured on a replica: HOOD 15.23 (P/V 4.32), SCHW 34.50,
 GS 456.43 (payout 100.6 % → 100 %), MS 82.82, RJF 93.45; IBKR stays without
 repurchase evidence (Up-C).
 
+`F6-54` ([ADR 0087](docs/architecture/adr/0087-foreign-private-issuers.md),
+measurement only) decided how 20-F filers enter: value in the reporting
+currency with that currency's risk-free and convert only the value per share at
+the same day's Yahoo FX pair; SPOT, NVO and TSM first (`F6-55`), ASML next, NU
+out. Measured: `companyfacts` lacked the April 2026 20-Fs of TSM and NU (the
+filing's instance has them), no 6-K carries XBRL since 2021 (annual base only),
+and the ADS ratio is not in the XBRL.
+
 Company logos are loaded by the **browser** from logo.dev
 ([ADR 0062](docs/architecture/adr/0062-company-logos-browser-loaded.md)): the
 free plan forbids storing them, so the CSP opens `img-src` to

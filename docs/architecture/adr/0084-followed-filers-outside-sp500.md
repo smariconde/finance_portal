@@ -98,6 +98,8 @@ un rebalanceo del S&P 500. Ninguna lectura del S&P 500 la ve:
   `sp-500` para resolver identidad tienen que nombrar qué índice quieren.
 - Pendiente con su propia ADR: 20-F en IFRS y en US GAAP, empezando por los que
   el owner pida (NU, VIST, TSM, MELI ya entra por 10-K).
+  Medido y decidido en la [ADR 0087](0087-foreign-private-issuers.md)
+  (`F6-54`).
 
 ## Implementación (`F6-33`)
 
