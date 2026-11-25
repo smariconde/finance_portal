@@ -1,5 +1,19 @@
 import { z } from "zod";
 
+import {
+  businessExposureMismatches,
+  type BusinessMixReading,
+} from "./business-exposure";
+import {
+  BUSINESS_MIX_WEIGHTS_VERSION,
+  businessMixDeclarationSchema,
+  businessMixLineRecordSchema,
+  revenueByIndustry,
+  type BusinessMixDeclaration,
+  type BusinessMixEvidenceRecord,
+  type BusinessMixLineRecord,
+  type BusinessMixProposal,
+} from "./business-mix";
 import type { CostOfCapital, OperationsMixReading } from "./cost-of-capital";
 import {
   engineDecimalSchema,
@@ -51,9 +65,14 @@ import { parsePrintedAmount, quoteHolds } from "./operations-mix-task";
  * `1.1.0` (`F5-04`): la evidencia puede ser un resultado de búsqueda web, sin
  * `accession`. Un snapshot `1.0.0` se sigue leyendo igual y su hash no cambia.
  */
-export const QUALITATIVE_DECISIONS_VERSION = "qualitative-decisions-1.1.0";
+/**
+ * `1.2.0` (`F6-48`, ADR 0086): la mezcla de negocios, opcional. Un snapshot
+ * anterior no la trae y su hash no cambia.
+ */
+export const QUALITATIVE_DECISIONS_VERSION = "qualitative-decisions-1.2.0";
 const READABLE_VERSIONS = [
   "qualitative-decisions-1.0.0",
+  "qualitative-decisions-1.1.0",
   QUALITATIVE_DECISIONS_VERSION,
 ] as const;
 
@@ -73,6 +92,7 @@ export const evidenceDigestSchema = z
       "segment_note",
       "geographic_revenue",
       "web_search",
+      "xbrl_business_lines",
     ]),
     documentUrl: z.url(),
     accessionNumber: accessionSchema.nullable(),
@@ -263,12 +283,100 @@ export const operationsMixDecisionSchema = z
 
 export type OperationsMixDecision = z.infer<typeof operationsMixDecisionSchema>;
 
+export const businessMixDecisionSchema = z
+  .discriminatedUnion("source", [
+    z.object({
+      source: z.literal("owner_declaration"),
+      weightsVersion: versionSchema,
+      declaredOn: z.iso.date(),
+      rationale: z.string().min(20).max(2000),
+      businesses: z
+        .array(
+          z.object({ industryKey: keySchema, weight: engineDecimalSchema }),
+        )
+        .min(1)
+        .max(20),
+    }),
+    z.object({
+      source: z.literal("ai_proposal"),
+      weightsVersion: versionSchema,
+      proposal: z.object({
+        proposalId: z.uuid(),
+        taskVersion: versionSchema,
+        promptVersion: versionSchema,
+        policyVersion: versionSchema,
+        ladderVersion: versionSchema,
+        linesVersion: versionSchema,
+        sectionsVersion: versionSchema,
+        accessionNumber: accessionSchema,
+        fiscalYearEnd: z.iso.date(),
+        betasReleaseId: z.uuid(),
+        axis: z.enum(["StatementBusinessSegmentsAxis", "ProductOrServiceAxis"]),
+        expectedRevenue: engineDecimalSchema,
+        confidence: z.enum(["high", "medium"]),
+        respondedModel: z.string().min(1).max(128),
+        acceptedRung: z.number().int().min(1).max(16),
+        proposedAt: timestampSchema,
+      }),
+      lines: z.array(businessMixLineRecordSchema).min(1).max(40),
+      evidence: evidenceListSchema,
+    }),
+  ])
+  .superRefine((decision, context) => {
+    if (decision.source === "owner_declaration") {
+      const weights = decision.businesses.map((business) =>
+        parseDecimal(business.weight, "weight"),
+      );
+
+      if (
+        weights.some((weight) => !weight.greaterThan(ZERO)) ||
+        !sum(weights).equals(ONE)
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["businesses"],
+          message: "Declared weights are positive and add up to exactly 1.",
+        });
+      }
+
+      return;
+    }
+
+    const ids = new Set(decision.evidence.map((item) => item.evidenceId));
+
+    decision.lines.forEach((line, index) => {
+      if (line.ordinal !== index + 1) {
+        context.addIssue({
+          code: "custom",
+          path: ["lines", index, "ordinal"],
+          message: "Lines are numbered consecutively from one.",
+        });
+      }
+
+      if (!ids.has(line.evidenceId) || line.axis !== decision.proposal.axis) {
+        context.addIssue({
+          code: "custom",
+          path: ["lines", index],
+          message:
+            "Every line is of the proposal's axis and cites evidence carried with it.",
+        });
+      }
+    });
+  });
+
+export type BusinessMixDecision = z.infer<typeof businessMixDecisionSchema>;
+
 export const qualitativeDecisionsSchema = z.object({
   version: z.enum(READABLE_VERSIONS),
   /** `null` cuando la industria no quedó mapeada: entonces no hay WACC. */
   industry: industryDecisionSchema.nullable(),
   /** `null` sin mix: el CRP es el del domicilio, nunca cero. */
   operationsMix: operationsMixDecisionSchema.nullable(),
+  /**
+   * La mezcla de negocios (`1.2.0`). Ausente cuando no hay una de dos o más
+   * industrias: la beta es la de la industria propia.
+   */
+  businessMix: businessMixDecisionSchema.optional(),
 });
 
 export type QualitativeDecisions = z.infer<typeof qualitativeDecisionsSchema>;
@@ -470,6 +578,136 @@ export function operationsMixReadingOf(
   };
 }
 
+/** La mezcla declarada por el owner, tal como entra al snapshot. */
+export function businessMixDecisionOfDeclaration(
+  declaration: BusinessMixDeclaration,
+): BusinessMixDecision {
+  const parsed = businessMixDeclarationSchema.parse(declaration);
+
+  return businessMixDecisionSchema.parse({
+    source: "owner_declaration",
+    weightsVersion: BUSINESS_MIX_WEIGHTS_VERSION,
+    declaredOn: parsed.declaredOn,
+    rationale: parsed.rationale,
+    businesses: parsed.businesses,
+  });
+}
+
+/** La propuesta aceptada de la IA, tal como entra al snapshot. */
+export function businessMixDecisionOfProposal(stored: {
+  readonly proposal: BusinessMixProposal;
+  readonly lines: readonly BusinessMixLineRecord[];
+  readonly evidence: readonly BusinessMixEvidenceRecord[];
+}): BusinessMixDecision {
+  const { proposal } = stored;
+
+  if (proposal.outcome !== "accepted") {
+    throw new Error("Only an accepted business mix enters a run.");
+  }
+
+  return businessMixDecisionSchema.parse({
+    source: "ai_proposal",
+    weightsVersion: BUSINESS_MIX_WEIGHTS_VERSION,
+    proposal: {
+      proposalId: proposal.proposalId,
+      taskVersion: proposal.taskVersion,
+      promptVersion: proposal.promptVersion,
+      policyVersion: proposal.policyVersion,
+      ladderVersion: proposal.ladderVersion,
+      linesVersion: proposal.linesVersion,
+      sectionsVersion: proposal.sectionsVersion,
+      accessionNumber: proposal.accessionNumber,
+      fiscalYearEnd: proposal.fiscalYearEnd,
+      betasReleaseId: proposal.betasReleaseId,
+      axis: proposal.axis,
+      expectedRevenue: proposal.expectedRevenue,
+      confidence: proposal.confidence,
+      respondedModel: proposal.respondedModel,
+      acceptedRung: proposal.acceptedRung,
+      proposedAt: proposal.proposedAt,
+    },
+    lines: [...stored.lines],
+    evidence: stored.evidence.map(digestOf),
+  });
+}
+
+/**
+ * Las industrias que el costo de capital pondera, derivadas de la decisión con
+ * la misma regla versionada. `null` cuando la decisión es de una sola
+ * industria (ADR 0086, decisión 4): eso no es una mezcla.
+ */
+export function businessMixReadingOf(
+  decision: BusinessMixDecision,
+): BusinessMixReading | null {
+  if (decision.weightsVersion !== BUSINESS_MIX_WEIGHTS_VERSION) {
+    throw new Error(`unknown weights version ${decision.weightsVersion}`);
+  }
+
+  const businesses =
+    decision.source === "owner_declaration"
+      ? decision.businesses.map((business) => ({
+          industryKey: business.industryKey,
+          revenue: null,
+          declaredWeight: business.weight,
+        }))
+      : revenueByIndustry(decision.lines).map((business) => ({
+          industryKey: business.industryKey,
+          revenue: business.revenue,
+          declaredWeight: null,
+        }));
+
+  if (businesses.length < 2) {
+    return null;
+  }
+
+  return {
+    source: decision.source,
+    proposalId:
+      decision.source === "ai_proposal" ? decision.proposal.proposalId : null,
+    weightsVersion: decision.weightsVersion,
+    businesses,
+  };
+}
+
+function businessMixMismatches(
+  decision: BusinessMixDecision | undefined,
+  costOfCapital: CostOfCapital,
+): string[] {
+  const exposure = costOfCapital.businessExposure;
+  const reading =
+    decision === undefined ? null : businessMixReadingOf(decision);
+
+  if (reading === null || exposure === undefined) {
+    return (reading === null) === (exposure === undefined)
+      ? []
+      : ["qualitativeDecisions.businessMix", "costOfCapital.businessExposure"];
+  }
+
+  const sameBusinesses =
+    reading.businesses.length === exposure.businesses.length &&
+    reading.businesses.every((expected, index) => {
+      const actual = exposure.businesses[index]!;
+
+      return (
+        expected.industryKey === actual.industryKey &&
+        expected.revenue === actual.revenue &&
+        (expected.declaredWeight === null ||
+          expected.declaredWeight === actual.weight)
+      );
+    });
+
+  if (
+    reading.source !== exposure.source ||
+    reading.proposalId !== exposure.proposalId ||
+    reading.weightsVersion !== exposure.weightsVersion ||
+    !sameBusinesses
+  ) {
+    return ["costOfCapital.businessExposure"];
+  }
+
+  return businessExposureMismatches(exposure);
+}
+
 function industryMismatches(
   decision: IndustryDecision | null,
   costOfCapital: CostOfCapital,
@@ -577,5 +815,6 @@ export function qualitativeDecisionMismatches(
   return [
     ...industryMismatches(decisions.industry, costOfCapital),
     ...mixMismatches(decisions.operationsMix, costOfCapital),
+    ...businessMixMismatches(decisions.businessMix, costOfCapital),
   ];
 }

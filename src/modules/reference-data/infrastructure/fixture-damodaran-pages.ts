@@ -528,3 +528,36 @@ export function fixtureCapexPage(
     ]),
   );
 }
+
+export const FIXTURE_EV_SALES_HEADERS = [
+  "Industry Name",
+  "Number of firms",
+  "Price/Sales",
+  "Net Margin",
+  "EV/Sales",
+  "Pre-tax Operating Margin",
+];
+
+/** Estructura sintética de la tabla de EV/Sales; no contiene cifras de NYU. */
+export function fixtureEvSalesPage(
+  options: { headers?: readonly string[]; totalEvSales?: string } = {},
+): string {
+  const row = (label: string, evSales: string) => [
+    label,
+    "12",
+    "2.00",
+    "5.00%",
+    evSales,
+    "10.00%",
+  ];
+  return page(
+    "<p>Date of Analysis: Data used is as of January 2026</p>",
+    table([
+      options.headers ?? FIXTURE_EV_SALES_HEADERS,
+      ...Array.from({ length: 51 }, (_, index) =>
+        row(`Industry ${String(index + 1).padStart(2, "0")}`, "2.50"),
+      ),
+      row("Total Market", options.totalEvSales ?? "3.10"),
+    ]),
+  );
+}

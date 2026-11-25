@@ -400,6 +400,13 @@
       "when": 1795057284539,
       "tag": "0056_followed_filer_constitution",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1795573028971,
+      "tag": "0057_business_mix_proposals",
+      "breakpoints": true
     }
   ]
 }

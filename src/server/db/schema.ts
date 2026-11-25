@@ -1106,6 +1106,142 @@ export const operationsMixEvidence = pgTable(
   ],
 );
 
+export const businessMixOutcome = pgEnum("business_mix_outcome", [
+  "accepted",
+  "abstained",
+  "stopped",
+]);
+
+/**
+ * Propuestas de mezcla de negocios de la capa IA (`F6-48`, ADR 0086): una fila
+ * por vez que se le preguntó a la escalera qué industria vende cada línea de
+ * ingresos del XBRL de un 10-K.
+ *
+ * Como los mixes de operaciones, se guarda también la abstención y el freno.
+ * `proposal_id` es el `task_run_id` de sus intentos en `ai_spend_ledger`. La
+ * evaluación lee la aceptada más reciente al corte. No se borra.
+ */
+export const businessMixProposals = pgTable(
+  "business_mix_proposals",
+  {
+    proposalId: uuid("proposal_id").primaryKey(),
+    legalEntityId: uuid("legal_entity_id").notNull(),
+    cik: char("cik", { length: 10 }).notNull(),
+    accessionNumber: varchar("accession_number", { length: 20 }).notNull(),
+    fiscalYearEnd: date("fiscal_year_end", { mode: "string" }).notNull(),
+    taskVersion: varchar("task_version", { length: 64 }).notNull(),
+    promptVersion: varchar("prompt_version", { length: 64 }).notNull(),
+    policyVersion: varchar("policy_version", { length: 64 }).notNull(),
+    ladderVersion: varchar("ladder_version", { length: 64 }).notNull(),
+    linesVersion: varchar("lines_version", { length: 64 }).notNull(),
+    sectionsVersion: varchar("sections_version", { length: 64 }).notNull(),
+    betasReleaseId: uuid("betas_release_id").notNull(),
+    outcome: businessMixOutcome("outcome").notNull(),
+    axis: varchar("axis", { length: 40 }),
+    expectedRevenue: numeric("expected_revenue", { mode: "string" }).notNull(),
+    confidence: varchar("confidence", { length: 8 }),
+    rationale: text("rationale"),
+    reason: varchar("reason", { length: 64 }),
+    acceptedRung: integer("accepted_rung"),
+    respondedModel: varchar("responded_model", { length: 128 }),
+    proposedAt: instant("proposed_at").notNull(),
+    recordedAt: instant("recorded_at").notNull(),
+  },
+  (table) => [
+    index("business_mix_proposals_subject_idx").on(
+      table.legalEntityId,
+      table.proposedAt,
+    ),
+    check(
+      "business_mix_proposals_outcome_check",
+      sql`(${table.outcome} = 'accepted') = (${table.reason} is null) and (${table.outcome} = 'accepted') = (${table.axis} is not null)`,
+    ),
+    check(
+      "business_mix_proposals_axis_check",
+      sql`${table.axis} is null or ${table.axis} in ('StatementBusinessSegmentsAxis', 'ProductOrServiceAxis')`,
+    ),
+    check(
+      "business_mix_proposals_confidence_check",
+      sql`${table.confidence} is null or ${table.confidence} in ('high', 'medium', 'low')`,
+    ),
+    check(
+      "business_mix_proposals_accession_check",
+      sql`${table.accessionNumber} ~ '^[0-9]{10}-[0-9]{2}-[0-9]{6}$'`,
+    ),
+    check(
+      "business_mix_proposals_timeline_check",
+      sql`${table.recordedAt} >= ${table.proposedAt}`,
+    ),
+  ],
+);
+
+/**
+ * Las líneas de una propuesta aceptada: el miembro y el monto del XBRL, nunca
+ * del modelo, y la industria que la IA le asignó con su cita. Los pesos no se
+ * guardan: se recalculan con el EV/Sales de la release al corte.
+ */
+export const businessMixLines = pgTable(
+  "business_mix_lines",
+  {
+    proposalId: uuid("proposal_id").notNull(),
+    ordinal: integer("ordinal").notNull(),
+    lineId: varchar("line_id", { length: 8 }).notNull(),
+    axis: varchar("axis", { length: 40 }).notNull(),
+    member: varchar("member", { length: 160 }).notNull(),
+    concept: varchar("concept", { length: 160 }).notNull(),
+    amount: numeric("amount", { mode: "string" }).notNull(),
+    industryKey: varchar("industry_key", { length: 64 }).notNull(),
+    quote: text("quote").notNull(),
+    evidenceId: varchar("evidence_id", { length: 8 }).notNull(),
+  },
+  (table) => [
+    primaryKey({
+      name: "business_mix_lines_pkey",
+      columns: [table.proposalId, table.ordinal],
+    }),
+    foreignKey({
+      name: "business_mix_lines_proposal_fk",
+      columns: [table.proposalId],
+      foreignColumns: [businessMixProposals.proposalId],
+    }),
+    check("business_mix_lines_amount_check", sql`${table.amount} > 0`),
+  ],
+);
+
+/** Cada extracto que se le mandó al modelo: el Item 1 y las líneas del XBRL. */
+export const businessMixEvidence = pgTable(
+  "business_mix_evidence",
+  {
+    proposalId: uuid("proposal_id").notNull(),
+    evidenceId: varchar("evidence_id", { length: 8 }).notNull(),
+    sourceId: varchar("source_id", { length: 64 }).notNull(),
+    section: varchar("section", { length: 32 }).notNull(),
+    documentUrl: text("document_url").notNull(),
+    accessionNumber: varchar("accession_number", { length: 20 }).notNull(),
+    documentAcceptedAt: instant("document_accepted_at").notNull(),
+    sha256: char("sha256", { length: 64 }).notNull(),
+    byteLength: integer("byte_length").notNull(),
+    truncated: boolean("truncated").notNull(),
+    excerpt: text("excerpt").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      name: "business_mix_evidence_pkey",
+      columns: [table.proposalId, table.evidenceId],
+    }),
+    foreignKey({
+      name: "business_mix_evidence_proposal_fk",
+      columns: [table.proposalId],
+      foreignColumns: [businessMixProposals.proposalId],
+    }),
+    check(
+      "business_mix_evidence_section_check",
+      sql`${table.section} in ('item_1_business', 'xbrl_business_lines')`,
+    ),
+    check("business_mix_evidence_bytes_check", sql`${table.byteLength} > 0`),
+  ],
+);
+
 export const employeeEquityOutcome = pgEnum("employee_equity_outcome", [
   "accepted",
   "abstained",

@@ -22,6 +22,7 @@ import { DEMO_SOURCE_REGISTRY } from "@/modules/ingestion/infrastructure/demo-so
 import { readReferenceDataset } from "@/modules/reference-data/application/read-reference-dataset";
 import type { PointInTimeQuery } from "@/modules/temporal/domain/point-in-time-query";
 import { readAnnualFundamentals } from "@/modules/valuation/application/assess-company";
+import { DECLARED_BUSINESS_MIXES } from "@/modules/valuation/application/declared-business-mixes";
 import { DECLARED_INDUSTRY_ASSIGNMENTS } from "@/modules/valuation/application/declared-industry-assignments";
 import { DECLARED_OPERATIONS_MIXES } from "@/modules/valuation/application/declared-operations-mixes";
 import {
@@ -29,10 +30,12 @@ import {
   type QualitativeNeeds,
 } from "@/modules/valuation/application/ensure-qualitative-decisions";
 import { issuerFactsAt } from "@/modules/valuation/application/issuer-facts";
+import { proposeBusinessMix } from "@/modules/valuation/application/propose-business-mix";
 import { proposeEmployeeEquity } from "@/modules/valuation/application/propose-employee-equity";
 import { proposeOperationsMix } from "@/modules/valuation/application/propose-operations-mix";
 import { resolveCompanyIndustry } from "@/modules/valuation/application/resolve-company-industry";
 import {
+  BETAS_DATASET,
   COUNTRY_RISK_DATASET,
   COUNTRY_RISK_REGIONS_DATASET,
 } from "@/modules/valuation/domain/cost-of-capital";
@@ -40,6 +43,7 @@ import { DAMODARAN_INDUSTRY_TAXONOMY } from "@/modules/valuation/domain/industry
 import type { ValuationQualitativeStep } from "@/modules/valuation/domain/valuation-qualitative-step";
 import { getAiLayer } from "@/server/ai/get-ai-layer";
 import { getSourceEgressFetch } from "@/server/egress/get-source-egress-fetch";
+import { getBusinessMixRepository } from "@/server/persistence/get-business-mix-repository";
 import { getClassificationRepository } from "@/server/persistence/get-classification-repository";
 import { getEmployeeEquityRepository } from "@/server/persistence/get-employee-equity-repository";
 import { getIndustryResolutionRepository } from "@/server/persistence/get-industry-resolution-repository";
@@ -52,13 +56,13 @@ import { createFundamentalReaders } from "@/server/valuation/fundamental-readers
  * Raíz de composición del paso cualitativo de la corrida (`F6-13`,
  * [ADR 0052](../../../docs/architecture/adr/0052-qualitative-decisions-in-valuation-job.md)).
  *
- * Arma las tres tareas como las arman sus comandos —`valuation:resolve-industry`,
- * `valuation:employee-equity` y `valuation:operations-mix`— y las guarda con
- * `apply`. Es el único camino de la app hacia un modelo, y lo toma el worker
+ * Arma las cuatro tareas como las arman sus comandos —`valuation:resolve-industry`,
+ * `valuation:employee-equity`, `valuation:operations-mix` y
+ * `valuation:business-mix` (`F6-48`)— y las guarda con `apply`. Es el único camino de la app hacia un modelo, y lo toma el worker
  * después de responder: la acción no ve la capa IA ni su gasto.
  *
- * Las tres tareas leen el mismo `submissions` y el mismo 10-K: cada URL se pide
- * una vez por job. Una corrida comparte breaker y techo de proceso, como un
+ * Las tareas leen el mismo `submissions` y el mismo 10-K: cada URL se pide una
+ * vez por job. La mezcla de negocios suma el instance XBRL del 10-K. Una corrida comparte breaker y techo de proceso, como un
  * comando con varias empresas.
  */
 export type QualitativeStepRequest = {
@@ -300,6 +304,28 @@ export async function runQualitativeStep(
           runLadder: (definition, input) =>
             runModelLadder(definition, input, run),
           repository: getOperationsMixRepository(),
+        },
+      ),
+    ),
+    proposeBusinessMix: guard(() =>
+      proposeBusinessMix(
+        { ...task, declarations: DECLARED_BUSINESS_MIXES },
+        {
+          ...common,
+          betasRelease: (pointInTime) =>
+            releaseKeys(BETAS_DATASET, pointInTime),
+          annualFundamentals: async (subjectId, pointInTime) =>
+            (
+              await readAnnualFundamentals(
+                subjectId,
+                pointInTime,
+                fundamentalReaders,
+              )
+            ).series,
+          loadInstance: (url) => fetchText(url, "application/xml"),
+          runLadder: (definition, input) =>
+            runModelLadder(definition, input, run),
+          repository: getBusinessMixRepository(),
         },
       ),
     ),

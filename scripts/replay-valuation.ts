@@ -101,7 +101,8 @@ function describeDecisions(run: ValuationRun): string {
     return `REIT · AFFO/NAV · ${run.result?.rigor ?? "unsupported"} · experimental`;
   if (run.method === "excess_return")
     return `equity financiero · ${run.assetProfile} · ${run.result?.rigor ?? "unsupported"} · experimental`;
-  const { industry, operationsMix } = run.input.qualitativeDecisions;
+  const { industry, operationsMix, businessMix } =
+    run.input.qualitativeDecisions;
   const industryText =
     industry === null
       ? "sin industria"
@@ -115,7 +116,14 @@ function describeDecisions(run: ValuationRun): string {
         ? `mix IA ${operationsMix.lines.length} líneas (${operationsMix.proposal.respondedModel})`
         : "mix del owner";
 
-  return `${industryText} · ${mixText}`;
+  const businessText =
+    businessMix === undefined
+      ? ""
+      : businessMix.source === "ai_proposal"
+        ? ` · mezcla IA ${businessMix.lines.length} líneas (${businessMix.proposal.respondedModel})`
+        : " · mezcla del owner";
+
+  return `${industryText} · ${mixText}${businessText}`;
 }
 
 function describe(replay: ValuationReplay): string {

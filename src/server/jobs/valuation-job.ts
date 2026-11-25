@@ -21,6 +21,7 @@ import {
   type CompanyAssessment,
 } from "@/modules/valuation/application/assess-company";
 import { DECLARED_INDUSTRY_ASSIGNMENTS } from "@/modules/valuation/application/declared-industry-assignments";
+import { DECLARED_BUSINESS_MIXES } from "@/modules/valuation/application/declared-business-mixes";
 import { DECLARED_OPERATIONS_MIXES } from "@/modules/valuation/application/declared-operations-mixes";
 import { declaredReitPropertyBasis } from "@/modules/valuation/application/declared-reit-property-basis";
 import { issuerFactsAt } from "@/modules/valuation/application/issuer-facts";
@@ -30,6 +31,7 @@ import {
   type ValuationJobRequest,
   type ValuationJobRequestResult,
 } from "@/modules/valuation/application/request-valuation-job";
+import { readBusinessMix } from "@/modules/valuation/application/read-business-mix";
 import { readOperationsMix } from "@/modules/valuation/application/read-operations-mix";
 import {
   readValuedCompanies,
@@ -113,6 +115,7 @@ import {
   BETAS_DATASET,
   COUNTRY_RISK_DATASET,
   COUNTRY_RISK_REGIONS_DATASET,
+  EV_SALES_DATASET,
   IMPLIED_ERP_DATASET,
   RATINGS_DATASET,
 } from "@/modules/valuation/domain/cost-of-capital";
@@ -126,6 +129,7 @@ import {
 } from "@/modules/valuation/domain/valuation-qualitative-step";
 import { getClassificationRepository } from "@/server/persistence/get-classification-repository";
 import { getIndustryResolutionRepository } from "@/server/persistence/get-industry-resolution-repository";
+import { getBusinessMixRepository } from "@/server/persistence/get-business-mix-repository";
 import { getOperationsMixRepository } from "@/server/persistence/get-operations-mix-repository";
 import { getReferenceDatasetRepository } from "@/server/persistence/get-reference-dataset-repository";
 import { getReitAffoRepository } from "@/server/persistence/get-reit-affo-repository";
@@ -811,9 +815,19 @@ export async function prepareValuationRun(
       operationsMix:
         !financialProfile &&
         assessment.qualitativeDecisions.operationsMix === null,
+      // Una mezcla de una sola industria no entra al snapshot: la tarea lo
+      // sabe por `already_asked` y no vuelve a gastar (`F6-48`).
+      businessMix:
+        !financialProfile &&
+        assessment.qualitativeDecisions.businessMix === undefined,
     };
 
-    if (needs.industry || needs.employeeEquity || needs.operationsMix) {
+    if (
+      needs.industry ||
+      needs.employeeEquity ||
+      needs.operationsMix ||
+      needs.businessMix
+    ) {
       qualitativeStep = await runQualitativeStep({
         graph: state.graph,
         legalEntityId,
@@ -1222,6 +1236,7 @@ async function assessmentReaders(
   const classifications = getClassificationRepository();
   const industryResolutions = getIndustryResolutionRepository();
   const operationsMixes = getOperationsMixRepository();
+  const businessMixes = getBusinessMixRepository();
   const referenceDatasets = getReferenceDatasetRepository();
   const stored = await classifications.loadClassifications({
     taxonomyId: SEC_SIC_TAXONOMY_ID,
@@ -1245,7 +1260,7 @@ async function assessmentReaders(
         referenceDatasets,
       ),
     costOfCapitalReadings: async (pointInTime: PointInTimeQuery) => {
-      const [betas, countryRisk, impliedErp, ratings, regions] =
+      const [betas, countryRisk, impliedErp, ratings, regions, evToSales] =
         await Promise.all(
           [
             BETAS_DATASET,
@@ -1253,6 +1268,7 @@ async function assessmentReaders(
             IMPLIED_ERP_DATASET,
             RATINGS_DATASET,
             COUNTRY_RISK_REGIONS_DATASET,
+            EV_SALES_DATASET,
           ].map((datasetId) =>
             readReferenceDataset(datasetId, pointInTime, referenceDatasets),
           ),
@@ -1264,6 +1280,7 @@ async function assessmentReaders(
         impliedErp: impliedErp ?? null,
         ratings: ratings ?? null,
         regions: regions ?? null,
+        evToSales: evToSales ?? null,
       };
     },
     loadOperationsMix: (subjectId: string, pointInTime: PointInTimeQuery) =>
@@ -1275,6 +1292,17 @@ async function assessmentReaders(
           declarations: DECLARED_OPERATIONS_MIXES,
         },
         operationsMixes,
+      ),
+    // La mezcla de negocios (`F6-48`): leerla no llama a un modelo.
+    loadBusinessMix: (subjectId: string, pointInTime: PointInTimeQuery) =>
+      readBusinessMix(
+        {
+          legalEntityId: subjectId,
+          cik,
+          query: pointInTime,
+          declarations: DECLARED_BUSINESS_MIXES,
+        },
+        businessMixes,
       ),
     industryRelease: async (pointInTime: PointInTimeQuery) => {
       const reading = await readReferenceDataset(

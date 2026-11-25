@@ -107,9 +107,11 @@ import {
 import type { ConceptFact, MonetaryFact } from "../domain/valuation-facts";
 import { parseDecimal } from "../domain/decimal-policy";
 import {
+  businessMixReadingOf,
   industryDecisionOf,
   operationsMixReadingOf,
   QUALITATIVE_DECISIONS_VERSION,
+  type BusinessMixDecision,
   type OperationsMixDecision,
   type QualitativeDecisions,
 } from "../domain/qualitative-decisions";
@@ -187,6 +189,8 @@ export type CompanyAssessmentDependencies = {
     readonly ratings: ReferenceReading | null;
     /** Las nueve regiones de la misma descarga que el riesgo país (`F5-05`). */
     readonly regions?: ReferenceReading | null;
+    /** EV/Sales por industria, para pesar una mezcla de negocios (`F6-48`). */
+    readonly evToSales?: ReferenceReading | null;
   }>;
   /**
    * El mix de operaciones visible al corte —la declaración del owner, o la
@@ -197,6 +201,14 @@ export type CompanyAssessmentDependencies = {
     legalEntityId: string,
     query: PointInTimeQuery,
   ) => Promise<OperationsMixDecision | null>;
+  /**
+   * La mezcla de negocios visible al corte como decisión, o `null` (`F6-48`,
+   * ADR 0086). Una de una sola industria no entra a la corrida.
+   */
+  readonly loadBusinessMix?: (
+    legalEntityId: string,
+    query: PointInTimeQuery,
+  ) => Promise<BusinessMixDecision | null>;
 };
 
 export type CompanyAssessmentRequest = {
@@ -423,8 +435,18 @@ export async function assessCompany(
     operationsMixDecision === null
       ? null
       : operationsMixReadingOf(operationsMixDecision);
+  const loadedBusinessMix =
+    (await dependencies.loadBusinessMix?.(legalEntityId, query)) ?? null;
+  const businessMix =
+    loadedBusinessMix === null ? null : businessMixReadingOf(loadedBusinessMix);
+  // Sólo una mezcla de dos o más industrias se congela: sin ella el snapshot
+  // es `1.1.0` byte a byte y su hash no se mueve.
+  const businessMixDecision = businessMix === null ? null : loadedBusinessMix;
   const qualitativeDecisions: QualitativeDecisions = {
-    version: QUALITATIVE_DECISIONS_VERSION,
+    version:
+      businessMixDecision === null
+        ? "qualitative-decisions-1.1.0"
+        : QUALITATIVE_DECISIONS_VERSION,
     industry: industryDecisionOf(industry, {
       declaration:
         industry.status === "mapped" && industry.basis === "owner_declaration"
@@ -440,6 +462,9 @@ export async function assessCompany(
           : null,
     }),
     operationsMix: operationsMixDecision,
+    ...(businessMixDecision === null
+      ? {}
+      : { businessMix: businessMixDecision }),
   };
   const completeness = measureCompleteness(series, {
     industryMapping: industry.status,
@@ -564,6 +589,7 @@ export async function assessCompany(
                       }),
                     ),
         operationsMix,
+        businessMix,
       });
 
   const capitalization = assessCapitalization(

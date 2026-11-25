@@ -9,6 +9,7 @@ import {
   type ValuationQualitativeStep,
 } from "../domain/valuation-qualitative-step";
 
+import type { ProposeBusinessMixResult } from "./propose-business-mix";
 import type { ProposeEmployeeEquityResult } from "./propose-employee-equity";
 import type { ProposeOperationsMixResult } from "./propose-operations-mix";
 import type { ResolveCompanyIndustryResult } from "./resolve-company-industry";
@@ -18,7 +19,8 @@ import type { ResolveCompanyIndustryResult } from "./resolve-company-industry";
  * [ADR 0052](../../../../docs/architecture/adr/0052-qualitative-decisions-in-valuation-job.md)).
  *
  * Pregunta a la IA lo que la evaluación dijo que falta: la industria de un SIC
- * ambiguo, la transcripción de opciones de empleados y el mix de operaciones.
+ * ambiguo, la transcripción de opciones de empleados, el mix de operaciones y
+ * la mezcla de negocios (`F6-48`).
  * Cada tarea es la misma que corre su comando, con su policy, su evidencia y su
  * tope en dólares; este paso sólo decide cuáles correr, en qué orden, y qué
  * registra el job. Una tarea que lanza no tira el job: queda `failed` con su
@@ -30,6 +32,7 @@ export type QualitativeDecisionDependencies = {
   readonly resolveIndustry: () => Promise<ResolveCompanyIndustryResult>;
   readonly proposeEmployeeEquity: () => Promise<ProposeEmployeeEquityResult>;
   readonly proposeOperationsMix: () => Promise<ProposeOperationsMixResult>;
+  readonly proposeBusinessMix: () => Promise<ProposeBusinessMixResult>;
 };
 
 type TaskReading = {
@@ -49,6 +52,8 @@ export async function ensureQualitativeDecisions(
       readProposal(await dependencies.proposeEmployeeEquity()),
     operationsMix: async () =>
       readProposal(await dependencies.proposeOperationsMix()),
+    businessMix: async () =>
+      readProposal(await dependencies.proposeBusinessMix()),
   };
   const steps = {} as Record<QualitativeTask, QualitativeTaskStep>;
   let chargedNanoUsd = 0;
@@ -138,7 +143,10 @@ function readIndustry(result: ResolveCompanyIndustryResult): TaskReading {
 }
 
 function readProposal(
-  result: ProposeEmployeeEquityResult | ProposeOperationsMixResult,
+  result:
+    | ProposeEmployeeEquityResult
+    | ProposeOperationsMixResult
+    | ProposeBusinessMixResult,
 ): TaskReading {
   if (result.status === "skipped") {
     return {
