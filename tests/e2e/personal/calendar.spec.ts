@@ -30,7 +30,10 @@ test.describe("calendario", () => {
       page.getByRole("heading", { level: 2, name: "Lo que viene" }),
     ).toBeVisible();
 
-    const title = page.locator("[aria-live=polite]").first();
+    // El título del mes («noviembre 2026»); la marca de Schwab también es `aria-live`.
+    const title = page.locator("span[aria-live=polite]", {
+      hasText: /^[a-z]+ \d{4}$/u,
+    });
     const before = await title.textContent();
     await page.getByRole("button", { name: "Mes siguiente" }).click();
     await expect(title).not.toHaveText(before ?? "");

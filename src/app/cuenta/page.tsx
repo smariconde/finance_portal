@@ -364,7 +364,7 @@ export default async function AccountPage({
   return (
     <PageContainer>
       <PageHeader id="cuenta-title" title="Cuenta" />
-      <MarketStrip />
+      <MarketStrip corroborate />
       {outcome !== null ? (
         <Alert role="status">
           {outcome.tone === "ok" ? (

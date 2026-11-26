@@ -8781,8 +8781,8 @@ probar el control; fases posteriores pueden volver a verificarlo.
 
 ## `F12-01` — sesiones de Nueva York y `/calendario`
 
-- Estado: `in_progress`. El primer incremento está hecho; falta la
-  corroboración con Schwab.
+- Estado: `in_progress`. Incrementos 1 y 2 hechos; falta medir la respuesta
+  real de Schwab en Production.
 - Autorización: [ADR 0088](../architecture/adr/0088-market-calendar-agenda.md),
   aceptada por el owner el 2026-11-26.
 - Hecho en el incremento 1:
@@ -8796,13 +8796,25 @@ probar el control; fases posteriores pueden volver a verificarlo.
   - `/calendario` al lado de Inicio: grilla mensual, «Lo que viene» a 120 días y
     procedencia. Se lee en cualquier modo porque es código.
   - `MarketStrip` («Hoy · Mañana») en Inicio, `/cuenta` y `/plan`.
-- Pendiente:
-  - Schwab (`/marketdata/v1/markets`) comparado al abrir `/cuenta` y
-    `/calendario`, sin guardar la respuesta.
-  - Medirlo con la cuenta del owner. Desde el host local no se pudo: la
-    `TRADING_SECRET_KEY` local no abre los tokens de Production, y los dos
-    intentos dejaron dos eventos `refresh_failed` (`envelope_authentication`)
-    en el registro de conexión de Production, sin tocar ningún token.
+- Hecho en el incremento 2 (sin medir todavía):
+  - `schwab-market-hours-1.0.0`, parser cerrado de
+    `/marketdata/v1/markets?markets=equity&date=`, armado desde el esquema de un
+    cliente de terceros: un rechazo nombra el camino de claves, sin valores, en
+    la página y en el log.
+  - `session-corroboration-1.0.0`: coincide si los dos dicen cerrado o si la
+    sesión regular abre y cierra en el mismo instante; si no, nombra la
+    diferencia y para ese día vale Schwab. El horario extendido es el de Schwab.
+  - `checkMarketHours`, Server Action sin entrada (`TM-03`): uno o dos `GET`
+    (hoy y la próxima sesión), nada guardado; la marca va en la franja de
+    `/calendario` y `/cuenta`, y sin Schwab configurado no aparece.
+  - 14 unitarios nuevos (parser, comparación y servicio) con respuestas
+    sintéticas; 5.078 en total, build y gate E2E.
+- Pendiente: la primera respuesta real, medida en Production al abrir
+  `/calendario`; con ella se ajusta el parser si hace falta y se cierra el
+  slice. Desde el host local no se pudo medir: la
+  `TRADING_SECRET_KEY` local no abre los tokens de Production, y los dos
+  intentos dejaron dos eventos `refresh_failed` (`envelope_authentication`)
+  en el registro de conexión de Production, sin tocar ningún token.
 - Evidencia local:
   - 28 unitarios del dominio: Thanksgiving, el cierre temprano a las 15:00 de
     Buenos Aires, los domingos de cambio de 2026 y 2027, el 1 de enero de 2028

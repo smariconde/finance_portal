@@ -834,8 +834,15 @@ declaration is `undeclared`, never an assumed session. It is repository code: it
 opens no database or network and renders in any mode. `/calendario` sits next
 to Inicio (month grid, «Lo que viene» with holidays, early closes and the clock
 shift, provenance), and `MarketStrip` puts «Hoy · Mañana» on Inicio, `/cuenta`
-and `/plan`. Extended hours depend on the broker and are not declared; Schwab's
-`/marketdata/v1/markets` corroboration is the slice's pending increment.
+and `/plan`. Extended hours depend on the broker and are not declared. Increment 2 asks
+Schwab (`/marketdata/v1/markets?markets=equity&date=`, one `GET` per date, today
+and the next session, never stored) through `checkMarketHours`, a Server Action
+with no input, on `/calendario` and `/cuenta`: `schwab-market-hours-1.0.0` is a
+closed parser built from a third-party schema, unmeasured with the owner's
+account, so a refusal names the key path (no values) in the page and the log;
+`session-corroboration-1.0.0` compares the regular session to the instant, says
+«Schwab coincide» with Schwab's extended hours, or names the difference (for
+that day Schwab wins). The first real response is measured in Production.
 
 Company logos are loaded by the **browser** from logo.dev
 ([ADR 0062](docs/architecture/adr/0062-company-logos-browser-loaded.md)): the
