@@ -174,7 +174,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   146 | `F9-22`    | `done`        | `/argentina` dice qué cifra está verificada, buscándose, sin verificar o cargada a mano; la tira de novedades lleva la cifra y el antes → después; tarjetas de lo diario a lo mensual.                                    | Pedido del owner   |
 |   147 | `F12-01`   | `in_progress` | Sesiones de NYSE/Nasdaq 2026–2028 declaradas y corroboradas por Schwab, en hora de Nueva York y de Buenos Aires con el cambio de horario marcado; `/calendario` al lado de Inicio y la franja «Hoy · Mañana».             | ADR 0088           |
 |   148 | `F12-02`   | `in_progress` | Fechas de resultados de todo el mercado desde Alpha Vantage como revisiones: riesgo a 5 sesiones en las swing, «Reporta hoy» en day y links a Finviz para el resto del mercado.                                           | `F12-01`           |
-|   149 | `F12-03`   | `queued`      | Agenda de Estados Unidos: publicaciones declaradas desde FRED con su hora y su importancia, y reuniones del FOMC declaradas.                                                                                              | `F12-01`           |
+|   149 | `F12-03`   | `in_progress` | Agenda de Estados Unidos: publicaciones declaradas desde FRED con su hora y su importancia, y reuniones del FOMC declaradas.                                                                                              | `F12-01`           |
 |   150 | `F12-04`   | `queued`      | Agenda argentina: calendario de informes del BCRA y del INDEC (IPC, EMAE, comercio, REM y fiscal), y «esperado hoy» junto a las marcas de `/argentina`.                                                                   | `F12-01`, `F9-20`  |
 |   151 | `F12-05`   | `queued`      | Reglas de frescura de precios y sesión de trading en versiones nuevas que saben qué días opera Nueva York.                                                                                                                | `F12-01`           |
 |   152 | `F9-23`    | `done`        | Guía ⓘ junto al título de cada bloque de `/argentina`: para qué sirve, cómo leerlo, con qué cruzarlo y qué puede confundir, en líneas cortas y sin consejos.                                                              | Pedido del owner   |
@@ -8526,6 +8526,19 @@ solo job y un solo commit por fecha; el corte histórico vio la revisión
 anterior. El plan y la cuenta muestran el riesgo swing y la marca day con
 los horarios declarados. Pendiente la revisión de la cuenta y el plan con
 posiciones e ideas coincidentes y el gate de PR.
+
+**`F12-03`, 2026-11-26.** FOMC transcripto con la revisión oficial del
+2026-11-12. La puerta agrega `FRED_API_KEY`. La primera consulta autenticada
+sin horizonte explícito agotó el deadline. El rango de siete días hacia
+atrás y 98 hacia adelante respondió 200. La primera página trajo 1.000
+filas de 1.148, 134.903 bytes, en 1,1 s. El job reencolado recorrió las
+dos páginas y publicó 12 fechas futuras de las ocho series declaradas,
+entre el 1 y el 31 de diciembre. JOLTS se vio el 1 de diciembre a las
+12:00 habituales de Buenos Aires, con atribución y filtro. Verificado a
+1440 y 390 px, sin desborde, hallazgos bloqueantes de axe, errores de
+cliente ni presencia de la clave en el HTML. Importancia inicial alta
+para IPC, empleo, PIB y PCE, pendiente de confirmación del owner.
+Queda el gate de PR.
 
 **Validación local.** Gate Playwright con axe, integración PostgreSQL y pruebas unitarias. Los checks de GitHub cierran el gate de PR.
 

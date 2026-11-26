@@ -9,7 +9,10 @@ import {
   type MarketHoursCheck,
 } from "@/modules/trading/application/market-hours-service";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
-import { refreshEarningsCalendar } from "@/server/jobs/market-calendar-refresh";
+import {
+  refreshEarningsCalendar,
+  refreshFredCalendar,
+} from "@/server/jobs/market-calendar-refresh";
 import { getLiveAccountDependencies } from "@/server/trading/live-account";
 import { safeErrorSummary } from "@/server/trading/safe-error";
 
@@ -46,7 +49,13 @@ export async function checkMarketHours(): Promise<MarketHoursResult> {
 export async function refreshCalendarOnOpen(): Promise<boolean> {
   if (!servesRealData(await getRequestConfigHealth())) return false;
   try {
-    return await refreshEarningsCalendar();
+    const results = await Promise.allSettled([
+      refreshEarningsCalendar(),
+      refreshFredCalendar(),
+    ]);
+    return results.some(
+      (result) => result.status === "fulfilled" && result.value,
+    );
   } catch (error) {
     console.error("earnings calendar refresh failed", safeErrorSummary(error));
     return false;

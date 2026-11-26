@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 
+import type { CalendarRevision } from "./calendar-publication";
 import {
   type EarningsReport,
   parseEarningsCalendar,
 } from "./earnings-calendar";
 import { earningsExposureAt, reportsToday } from "./earnings-exposure";
+import {
+  fredCalendarPageUrl,
+  parseFredCalendarPage,
+  reconcileFredDates,
+} from "./fred-release-calendar";
 
 const HEADER =
   "symbol,name,reportDate,fiscalDateEnding,estimate,currency,timeOfTheDay";
@@ -64,5 +70,80 @@ describe("earnings calendar", () => {
     expect(
       reportsToday(report("2026-11-26", "pre-market"), "2026-11-26T16:00:00Z"),
     ).toBe(false);
+  });
+});
+
+const fredDate = (date: string) => ({
+  release_id: 10,
+  release_name: "Consumer Price Index",
+  date,
+});
+const oldDate = (date: string): CalendarRevision => ({
+  key: `fred:10:${date}`,
+  observedAt: "2026-11-26T14:00:00Z",
+  previous: null,
+  event: {
+    kind: "economic",
+    publication: {
+      id: "10",
+      date,
+      title: "IPC",
+      status: "scheduled",
+      period: null,
+    },
+  },
+});
+
+describe("FRED release dates", () => {
+  it("requests unpublished releases, omits credentials and refuses truncated pages", () => {
+    const day = "2026-11-26";
+    const url = new URL(fredCalendarPageUrl(day, 0));
+    expect(url.searchParams.get("include_release_dates_with_no_data")).toBe(
+      "true",
+    );
+    expect(url.searchParams.has("api_key")).toBe(false);
+    expect(url.searchParams.get("realtime_start")).toBe("2026-11-19");
+    expect(url.searchParams.get("realtime_end")).toBe("2027-03-04");
+    const page = {
+      realtime_start: "2026-11-19",
+      realtime_end: "2027-03-04",
+      order_by: "release_date",
+      sort_order: "desc",
+      offset: 0,
+      limit: 1000,
+      count: 1,
+      release_dates: [fredDate("2026-12-10")],
+    };
+    expect(parseFredCalendarPage(JSON.stringify(page), day, 0).last).toBe(true);
+    expect(() =>
+      parseFredCalendarPage(JSON.stringify({ ...page, count: 2 }), day, 0),
+    ).toThrow();
+  });
+
+  it("keeps the chain when a date moves and marks withdrawals inside confirmed coverage", () => {
+    const rows = [fredDate("2026-12-11"), fredDate("2027-02-10")];
+    const result = reconcileFredDates(
+      rows,
+      [oldDate("2026-12-10"), oldDate("2027-01-12"), oldDate("2027-03-09")],
+      "2026-11-26",
+    );
+    expect(result).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "fred:10:2026-12-10",
+          publication: expect.objectContaining({
+            date: "2026-12-11",
+            status: "scheduled",
+          }),
+        }),
+        expect.objectContaining({
+          key: "fred:10:2027-01-12",
+          publication: expect.objectContaining({ status: "cancelled" }),
+        }),
+      ]),
+    );
+    expect(
+      result.find(({ key }) => key === "fred:10:2027-03-09"),
+    ).toBeUndefined();
   });
 });

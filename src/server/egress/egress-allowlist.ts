@@ -276,6 +276,21 @@ const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
     deadlineMs: 30_000,
     maxRedirects: 0,
   }),
+  egressAllowlistEntrySchema.parse({
+    sourceId: "fred",
+    origins: [
+      { host: "api.stlouisfed.org", pathPrefixes: ["/fred/releases/dates"] },
+    ],
+    identification: "project",
+    credential: {
+      kind: "env_query",
+      variable: "FRED_API_KEY",
+      parameter: "api_key",
+    },
+    maxResponseBytes: 512 * 1024,
+    deadlineMs: 15_000,
+    maxRedirects: 0,
+  }),
   // Tasa libre de riesgo en EUR (ADR 0087): una sola serie del ECB, el
   // rendimiento par a 10 años de la curva AAA. El resto del portal de datos
   // queda cerrado.

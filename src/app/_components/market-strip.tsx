@@ -7,6 +7,7 @@ import { servesRealData } from "@/modules/configuration/domain/config-health";
 import { buildFinvizScreenerUrl } from "@/modules/finviz-screener/domain/finviz-screener-url";
 import { reportsToday } from "@/modules/market-calendar/domain/earnings-exposure";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
+import { readUnitedStatesCalendar } from "@/server/persistence/read-economic-calendar";
 import { readEarningsCalendar } from "@/server/persistence/read-earnings-calendar";
 import { CalendarRefreshOnOpen } from "./calendar-refresh-on-open";
 import { cn } from "@/lib/utils";
@@ -93,11 +94,12 @@ export async function MarketStrip({
   const at = new Date().toISOString();
   const moment = marketMomentAt(at);
   const personal = servesRealData(await getRequestConfigHealth());
-  const calendar = personal
-    ? await readEarningsCalendar(at, { includeFollowed: true }).catch(
-        () => null,
-      )
-    : null;
+  const [calendar, us] = await Promise.all([
+    personal
+      ? readEarningsCalendar(at, { includeFollowed: true }).catch(() => null)
+      : null,
+    readUnitedStatesCalendar(at, personal),
+  ]);
   const todayReports = [
     ...new Set(
       calendar?.reports
@@ -110,6 +112,13 @@ export async function MarketStrip({
   const next = nextSession(moment);
   const shift = nextClockShift(moment.today.date, SHIFT_NOTICE_DAYS);
   const tomorrow = addCalendarDays(moment.today.date, 1);
+  const macro = us.filter(
+    (event) =>
+      event.important &&
+      event.status === "scheduled" &&
+      (event.date === moment.today.date || event.date === tomorrow),
+  );
+
   return (
     <section
       aria-label="Bolsa de Nueva York, en hora de Buenos Aires"
@@ -204,6 +213,23 @@ export async function MarketStrip({
             Finviz · hoy pre-apertura
           </a>
         </div>
+      ) : null}
+
+      {macro.length > 0 ? (
+        <ul
+          aria-label="Publicaciones económicas"
+          className="flex w-full flex-wrap gap-x-4 gap-y-1 border-t pt-1.5 text-xs"
+        >
+          {macro.map((event) => (
+            <li key={event.key}>
+              <strong>{event.date === tomorrow ? "Mañana" : "Hoy"}</strong> ·{" "}
+              {event.title}
+              {event.time
+                ? ` · ${event.time}${event.usualTime ? " habitual" : ""}`
+                : ""}
+            </li>
+          ))}
+        </ul>
       ) : null}
 
       {withLink ? (
