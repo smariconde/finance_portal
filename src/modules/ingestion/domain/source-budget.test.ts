@@ -72,6 +72,7 @@ describe("topes declarados", () => {
       "ambito-riesgo-pais",
       "argentina-series-tiempo",
       "bcr-cac-pizarra",
+      "bcra-calendario-informes",
       "bcra-cambiarias-v1",
       "bcra-itcrm-xlsx",
       "bcra-monetarias-v4",

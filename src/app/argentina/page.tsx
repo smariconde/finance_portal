@@ -1,3 +1,11 @@
+import { CalendarRefreshOnOpen } from "@/app/_components/calendar-refresh-on-open";
+import { expectedArgentinePublications } from "@/modules/market-calendar/domain/expected-argentina-publications";
+import {
+  BUENOS_AIRES,
+  calendarDateIn,
+} from "@/modules/market-calendar/domain/zoned-time";
+import { readArgentinaCalendar } from "@/server/persistence/read-economic-calendar";
+
 import type { Metadata } from "next";
 
 import { DataUnavailableNotice } from "@/app/_components/data-unavailable-notice";
@@ -109,6 +117,7 @@ export default async function ArgentinaPage() {
   // visit, read side by side: the news never delays nor breaks the page.
   const readAt = new Date().toISOString();
   const newsRead = readNewsSafely(readAt);
+  const calendarRead = readArgentinaCalendar(readAt, true).catch(() => []);
 
   try {
     dashboard = await loadArgentinaDashboard({
@@ -143,6 +152,19 @@ export default async function ArgentinaPage() {
 
   const news = await newsRead;
   const blockMarks = markedBlocks(news);
+  const expected = expectedArgentinePublications(
+    await calendarRead,
+    calendarDateIn(readAt, BUENOS_AIRES),
+    {
+      activity: dashboard.activity.latest?.on,
+      monetary: dashboard.monetary.monthlyInflation.at(-1)?.on,
+      trade: dashboard.external.months.findLast(
+        (month) => month.exports !== null && month.imports !== null,
+      )?.on,
+      fiscal: dashboard.fiscal.yearToDate?.lastOn,
+      rem: remComparison?.[0]?.forecast.roundMonth,
+    },
+  );
 
   return (
     <PageContainer>
@@ -184,8 +206,10 @@ export default async function ArgentinaPage() {
         needsRefresh={readiness?.needsRefresh ?? false}
         failedSources={readiness?.failedSources ?? []}
         blockMarks={blockMarks}
+        expected={expected}
       >
         <ArgentinaRefresh />
+        <CalendarRefreshOnOpen argentina />
 
         <VisitRecorder readAt={dashboard.readAt} />
         <NewsStrip news={news} />

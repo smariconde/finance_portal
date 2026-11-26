@@ -26,8 +26,15 @@ import {
   parseFredCalendarPage,
   reconcileFredDates,
 } from "@/modules/market-calendar/domain/fred-release-calendar";
+import {
+  BCRA_CALENDAR_DATASET,
+  BCRA_CALENDAR_PARSER,
+  BCRA_CALENDAR_URL,
+  parseBcraReportCalendar,
+} from "@/modules/market-calendar/domain/bcra-report-calendar";
 import type { CalendarEvent } from "@/modules/market-calendar/domain/calendar-publication";
 import {
+  BUENOS_AIRES,
   calendarDateIn,
   NEW_YORK,
 } from "@/modules/market-calendar/domain/zoned-time";
@@ -201,4 +208,26 @@ export async function refreshFredCalendar(): Promise<boolean> {
     }
     throw new Error("fred_calendar_page_limit");
   });
+}
+
+export async function refreshBcraCalendar(): Promise<boolean> {
+  return refreshDailyCalendar(
+    {
+      sourceId: "bcra-calendario-informes",
+      datasetId: BCRA_CALENDAR_DATASET,
+      parserVersion: BCRA_CALENDAR_PARSER,
+      url: BCRA_CALENDAR_URL,
+      zone: BUENOS_AIRES,
+    },
+    async ({ read }) => {
+      const { text, observedAt } = await read();
+      return {
+        observedAt,
+        events: parseBcraReportCalendar(text).map(({ key, publication }) => ({
+          key,
+          event: { kind: "economic", publication },
+        })),
+      };
+    },
+  );
 }

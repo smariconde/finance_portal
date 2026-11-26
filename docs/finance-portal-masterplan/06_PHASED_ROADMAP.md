@@ -603,3 +603,6 @@ Agregar una fila al cerrar cada sesion. No borrar historia; corregir con una fil
 
 | 2026-11-26 | Fase 12 / `F12-02` | Resultados con revisiones, exposición a cinco sesiones y enlaces Finviz | in_progress | 634 filas publicadas con el job local; migración 0059 aplicada; concurrencia y corte histórico verificados en PostgreSQL de prueba | Revisión renderizada con posiciones e ideas coincidentes y gate de PR |
 | 2026-11-26 | Fase 12 / `F12-03` | Fechas de FRED y reuniones declaradas del FOMC | in_progress | Job autenticado: dos páginas, 12 fechas futuras de ocho series; JOLTS verificado en 1440 y 390 px con hora de BA, fuente y filtro; casos sintéticos de reprogramación y baja; FOMC contrastado con la revisión del 12 de noviembre | Importancia inicial a confirmar y gate de PR |
+| 2026-11-26 | Fase 12 / `F12-04` | Agenda BCRA, INDEC y Hacienda con «Esperado hoy» | in_progress | 96 filas publicadas por el job del BCRA; PDF del INDEC y fechas fiscales declarados; IPC sintético pasó de «Esperado hoy» a «Nuevo» al releer, a 1440 y 390 px | Gate de PR |
+
+| 2026-11-26 | Fase 12 / `F12-02` a `F12-04` | Gate local con el build en modo personal y trabado | in_progress | 5.091 unitarios, 259 integraciones, Playwright y axe 410 aprobadas y 4 omitidas; sin centinelas en el artefacto | Gate de PR |

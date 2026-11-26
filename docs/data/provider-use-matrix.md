@@ -252,6 +252,11 @@ cita «Alpha Vantage».
   oficiales, con atribución y el aviso de FRED. La puerta agrega
   `FRED_API_KEY` y el límite interno es de ocho pedidos al día. El payload,
   la redistribución, la exportación y la transferencia a IA quedan restringidos.
+- `bcra-calendario-informes` conserva fechas normalizadas del [calendario
+  oficial](https://www.bcra.gob.ar/calendario-de-informes/) para uso no comercial
+  con atribución al BCRA, según su [aviso legal](https://www.bcra.gob.ar/aviso-legal/).
+  Dos pedidos por día UTC como tope interno. La vista programa uno por día de
+  Buenos Aires.
 
 ## Riesgo país
 
