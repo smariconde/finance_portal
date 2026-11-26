@@ -136,7 +136,7 @@ export default async function CalendarPage() {
         }
       />
 
-      <MarketStrip withLink={false} />
+      <MarketStrip withLink={false} corroborate />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">

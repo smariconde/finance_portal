@@ -12,6 +12,7 @@ import {
 } from "@/modules/market-calendar/domain/market-sessions";
 import { addCalendarDays } from "@/modules/market-calendar/domain/zoned-time";
 
+import { BrokerSessionMark } from "./broker-session-mark";
 import { shortMarketDate } from "./market-format";
 
 /** Un cambio de horario se anuncia con tres semanas de anticipación. */
@@ -74,9 +75,12 @@ function nextSession(moment: MarketMoment): MarketDay | null {
  */
 export async function MarketStrip({
   withLink = true,
+  corroborate = false,
   className,
 }: {
   readonly withLink?: boolean;
+  /** Pregunta a Schwab al dibujarse (`/calendario` y `/cuenta`). */
+  readonly corroborate?: boolean;
   readonly className?: string;
 }) {
   await connection();
@@ -143,6 +147,8 @@ export async function MarketStrip({
           </span>
         </span>
       )}
+
+      {corroborate ? <BrokerSessionMark /> : null}
 
       {withLink ? (
         <Link
