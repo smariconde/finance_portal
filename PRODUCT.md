@@ -45,7 +45,8 @@ financiera.
   protección de plataforma.
 - No hay demo pública: fuera de un runtime personal la app se traba y no sirve
   datos ([ADR 0004](docs/architecture/adr/0004-personal-first-runtime.md)).
-- La navegación tiene dos secciones. **Análisis**: valuación por ticker con su
+- Arriba de todo, Inicio y el **Calendario** de la bolsa de Nueva York en hora
+  de Buenos Aires. Después, dos secciones. **Análisis**: valuación por ticker con su
   ficha, matrices de riesgo y divergencias por sector, y el tablero argentino
   con la soja. **Trading**: cuenta Schwab en vivo, plan antes de la rueda,
   diario con estadísticas y lecciones. No incluye un screener general: el

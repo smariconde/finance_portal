@@ -104,6 +104,7 @@ export const MOBILE_VIEWPORT = { width: 390, height: 844 } as const;
 /** Las rutas que el portal sirve hoy, más la 404. */
 export const ROUTES = {
   home: "/",
+  calendar: "/calendario",
   configuration: "/configuracion",
   reference: "/valuacion/referencia",
   valuation: "/valuacion",
