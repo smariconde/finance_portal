@@ -21,6 +21,7 @@ export function InfoTip({
   children,
   className,
   label,
+  wide = false,
 }: {
   /** Nombra el ⓘ para lectores de pantalla y encabeza el panel. */
   readonly title: string;
@@ -28,6 +29,11 @@ export function InfoTip({
   readonly className?: string;
   /** Con rótulo, el disparador es texto («Fuente») en vez del ícono solo. */
   readonly label?: string;
+  /**
+   * Un panel más ancho, con su propio scroll si no entra en la pantalla: una
+   * guía con secciones, no una definición.
+   */
+  readonly wide?: boolean;
 }) {
   return (
     <Popover>
@@ -43,7 +49,13 @@ export function InfoTip({
         <Info aria-hidden="true" className="size-3.5" />
         {label}
       </PopoverTrigger>
-      <PopoverContent>
+      <PopoverContent
+        className={
+          wide
+            ? "w-96 max-h-[calc(var(--available-height)-0.5rem)] overflow-y-auto overscroll-contain"
+            : undefined
+        }
+      >
         <PopoverTitle>{title}</PopoverTitle>
         <div className="flex flex-col gap-2 text-muted-foreground [&_strong]:font-medium [&_strong]:text-foreground">
           {children}
