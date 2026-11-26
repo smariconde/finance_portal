@@ -25,8 +25,13 @@ import {
  *
  * La cuenta es `CASH`, así que sólo se miden largos de acciones y ETFs; un corto
  * u otro activo se nombra. Las acciones son enteras, hacia abajo.
+ *
+ * `2.0.0` (`F11-18`): el planner dimensiona un day trade o un swing. Cada tipo
+ * usa su riesgo por trade (0,5 % y 2 % del valor de liquidación entero) y lo que
+ * le queda a su capital (`trading-rules-2.0.0`); el tope del 6 % sólo rige para
+ * swing, porque el riesgo abierto se mide en las posiciones swing.
  */
-export const POSITION_SIZE_RISK_VERSION = "position-size-risk-1.0.0";
+export const POSITION_SIZE_RISK_VERSION = "position-size-risk-2.0.0";
 
 const { parseDecimal, divide, formatDecimal } = createDecimalOperations(
   (code, message) => new Error(`${code}: ${message}`),
@@ -324,7 +329,8 @@ export function openRisk(
   };
 }
 
-export type PlannerCap = "risk_per_trade" | "buying_power" | "open_risk";
+export type PlannerCap =
+  "risk_per_trade" | "buying_power" | "capital" | "open_risk";
 
 export type PlannerInvalidReason =
   "no_equity" | "stop_on_wrong_side" | "zero_risk";
@@ -338,7 +344,9 @@ export type PositionPlan =
       readonly caps: {
         readonly riskPerTrade: string;
         readonly buyingPower: string;
-        /** `null` si el riesgo abierto no se conoce entero. */
+        /** `null` si lo que le queda al capital del tipo no se conoce. */
+        readonly capital: string | null;
+        /** `null` si el riesgo abierto no se conoce entero o no rige (day). */
         readonly openRisk: string | null;
       };
       readonly riskPerShare: string;
@@ -353,7 +361,7 @@ export type PositionPlan =
             readonly value: null;
             readonly reason: "no_target" | "target_on_wrong_side";
           };
-      /** El riesgo abierto si entra este trade; `null` si no se conoce. */
+      /** El riesgo abierto si entra este trade; `null` si no se conoce o no rige. */
       readonly openRiskAfterPercent: string | null;
     }
   | { readonly state: "invalid"; readonly reason: PlannerInvalidReason };
@@ -364,16 +372,21 @@ function wholeShares(budget: Dec, perShare: Dec): Dec {
 }
 
 /**
- * Cuántas acciones comprar: el mínimo entre lo que permite el 2 %, el buying
- * power y lo que le queda al 6 %. Sin riesgo abierto conocido, el tope del 6 %
- * no se calcula y no decide.
+ * Cuántas acciones comprar: el mínimo entre lo que permite el riesgo por trade,
+ * el buying power, lo que le queda al capital del tipo y, en un swing, lo que le
+ * queda al 6 %. Un tope que no se conoce no decide.
  */
 export function planPosition(input: {
   readonly liquidationValue: string;
   readonly buyingPower: string;
   readonly riskPerTradePercent: string;
-  readonly openRiskPercent: string;
-  readonly openRisk: string | null;
+  /** Lo que le queda al capital del tipo; `null` si no se conoce. */
+  readonly capitalLeft: string | null;
+  /** Sólo swing: el tope de riesgo abierto y lo usado (`null`: sin medir). */
+  readonly openRisk: {
+    readonly percent: string;
+    readonly value: string | null;
+  } | null;
   readonly entry: string;
   readonly stop: string;
   readonly target: string | null;
@@ -394,17 +407,27 @@ export function planPosition(input: {
     .div(HUNDRED);
   const byRisk = wholeShares(riskBudget, perShare);
   const byBuyingPower = wholeShares(parse(input.buyingPower), entry);
-  const open = input.openRisk === null ? null : parse(input.openRisk);
-  const openLimit = equity.times(parse(input.openRiskPercent)).div(HUNDRED);
+  const byCapital =
+    input.capitalLeft === null
+      ? null
+      : wholeShares(parse(input.capitalLeft), entry);
+  const open =
+    input.openRisk?.value == null ? null : parse(input.openRisk.value);
   const byOpenRisk =
-    open === null ? null : wholeShares(openLimit.minus(open), perShare);
+    open === null || input.openRisk === null
+      ? null
+      : wholeShares(
+          equity.times(parse(input.openRisk.percent)).div(HUNDRED).minus(open),
+          perShare,
+        );
 
   const candidates: [PlannerCap, Dec][] = [
     ["risk_per_trade", byRisk],
     ["buying_power", byBuyingPower],
   ];
+  if (byCapital !== null) candidates.push(["capital", byCapital]);
   if (byOpenRisk !== null) candidates.push(["open_risk", byOpenRisk]);
-  // Empate: decide el primero de la lista, el 2 % antes que el resto.
+  // Empate: decide el primero de la lista, el riesgo por trade antes que el resto.
   const [binding, shares] = candidates.reduce((best, candidate) =>
     candidate[1].lessThan(best[1]) ? candidate : best,
   );
@@ -430,6 +453,7 @@ export function planPosition(input: {
     caps: {
       riskPerTrade: format(byRisk),
       buyingPower: format(byBuyingPower),
+      capital: byCapital === null ? null : format(byCapital),
       openRisk: byOpenRisk === null ? null : format(byOpenRisk),
     },
     riskPerShare: format(perShare),
@@ -451,8 +475,10 @@ export function planPosition(input: {
  * nunca se pasa del monto. El stop es opcional; con él se mide el riesgo de esa
  * cantidad contra el presupuesto por trade y se dice cuántas acciones permitía.
  * Nada se recorta: pasarse del riesgo o del buying power se marca, no se corrige.
+ * `1.1.0` (`F11-18`): el riesgo es el del tipo (day o swing) y pasarse de lo
+ * que le queda a su capital también se marca.
  */
-export const POSITION_SIZE_AMOUNT_VERSION = "position-size-amount-1.0.0";
+export const POSITION_SIZE_AMOUNT_VERSION = "position-size-amount-1.1.0";
 
 export type AmountPlan =
   | {
@@ -463,6 +489,8 @@ export type AmountPlan =
       /** Lo que sobra del monto por redondear hacia abajo. */
       readonly leftover: string;
       readonly overBuyingPower: boolean;
+      /** Supera lo que le queda al capital del tipo; `false` si no se conoce. */
+      readonly overCapital: boolean;
       /** `null` sin stop: no hay riesgo que medir. */
       readonly risk: {
         readonly amount: string;
@@ -485,6 +513,8 @@ export function planByAmount(input: {
   readonly liquidationValue: string;
   readonly buyingPower: string;
   readonly riskPerTradePercent: string;
+  /** Lo que le queda al capital del tipo; `null` si no se conoce. */
+  readonly capitalLeft: string | null;
   readonly amount: string;
   readonly entry: string;
   readonly stop: string | null;
@@ -539,6 +569,9 @@ export function planByAmount(input: {
     positionPercent: percentOf(positionValue),
     leftover: format(amount.minus(positionValue)),
     overBuyingPower: positionValue.greaterThan(parse(input.buyingPower)),
+    overCapital:
+      input.capitalLeft !== null &&
+      positionValue.greaterThan(parse(input.capitalLeft)),
     risk,
     rewardRisk,
   };

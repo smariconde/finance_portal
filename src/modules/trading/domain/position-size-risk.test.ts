@@ -265,8 +265,8 @@ describe("planPosition", () => {
     liquidationValue: "20000",
     buyingPower: "20000",
     riskPerTradePercent: "2",
-    openRiskPercent: "6",
-    openRisk: "0",
+    capitalLeft: null,
+    openRisk: { percent: "6", value: "0" },
     entry: "50",
     stop: "48",
     target: "56",
@@ -278,7 +278,12 @@ describe("planPosition", () => {
       // 400 / 2
       shares: "200",
       binding: "risk_per_trade",
-      caps: { riskPerTrade: "200", buyingPower: "400", openRisk: "600" },
+      caps: {
+        riskPerTrade: "200",
+        buyingPower: "400",
+        capital: null,
+        openRisk: "600",
+      },
       riskPerShare: "2",
       riskBudget: "400",
       riskAmount: "400",
@@ -305,12 +310,16 @@ describe("planPosition", () => {
 
   it("is capped by what is left of the open-risk budget", () => {
     // 1200 − 1000 = 200 → 100 shares
-    expect(planPosition({ ...base, openRisk: "1000" })).toMatchObject({
+    expect(
+      planPosition({ ...base, openRisk: { percent: "6", value: "1000" } }),
+    ).toMatchObject({
       shares: "100",
       binding: "open_risk",
       openRiskAfterPercent: "6",
     });
-    expect(planPosition({ ...base, openRisk: "1300" })).toMatchObject({
+    expect(
+      planPosition({ ...base, openRisk: { percent: "6", value: "1300" } }),
+    ).toMatchObject({
       shares: "0",
       binding: "open_risk",
       riskAmount: "0",
@@ -318,11 +327,38 @@ describe("planPosition", () => {
   });
 
   it("leaves the open-risk cap out when the open risk is unknown", () => {
-    expect(planPosition({ ...base, openRisk: null })).toMatchObject({
+    expect(
+      planPosition({ ...base, openRisk: { percent: "6", value: null } }),
+    ).toMatchObject({
       shares: "200",
       binding: "risk_per_trade",
       caps: { openRisk: null },
       openRiskAfterPercent: null,
+    });
+  });
+
+  it("sizes a day trade without the open-risk cap", () => {
+    // 0,5 % de 20.000 = 100 → 50 acciones; sin tope de open risk aunque esté lleno.
+    expect(
+      planPosition({ ...base, riskPerTradePercent: "0.5", openRisk: null }),
+    ).toMatchObject({
+      shares: "50",
+      binding: "risk_per_trade",
+      caps: { openRisk: null },
+      openRiskAfterPercent: null,
+    });
+  });
+
+  it("is capped by what is left of the book's capital", () => {
+    // 3.000 / 50 = 60 acciones, menos que las 200 del riesgo.
+    expect(planPosition({ ...base, capitalLeft: "3000" })).toMatchObject({
+      shares: "60",
+      binding: "capital",
+      caps: { capital: "60" },
+    });
+    expect(planPosition({ ...base, capitalLeft: "0" })).toMatchObject({
+      shares: "0",
+      binding: "capital",
     });
   });
 
@@ -366,6 +402,7 @@ describe("planByAmount", () => {
     liquidationValue: "10000",
     buyingPower: "4000",
     riskPerTradePercent: "2",
+    capitalLeft: null,
     amount: "1000",
     entry: "62.15",
     stop: null,
@@ -416,6 +453,17 @@ describe("planByAmount", () => {
     expect(planByAmount({ ...base, amount: "5000" })).toMatchObject({
       shares: "80",
       overBuyingPower: true,
+    });
+  });
+
+  it("flags an amount above what is left of the book's capital", () => {
+    expect(planByAmount({ ...base, capitalLeft: "900" })).toMatchObject({
+      shares: "16",
+      overBuyingPower: false,
+      overCapital: true,
+    });
+    expect(planByAmount({ ...base, capitalLeft: "1000" })).toMatchObject({
+      overCapital: false,
     });
   });
 

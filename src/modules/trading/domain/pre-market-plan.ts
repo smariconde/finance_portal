@@ -15,8 +15,11 @@ import {
 import { setupCodeSchema } from "./trading-setups";
 
 /** Ideas fechadas antes de una ejecución. Los resultados se reconstruyen desde
- * entradas y versión; nunca se recalculan con el capital de una fecha posterior. */
-export const PRE_MARKET_PLAN_VERSION = "pre-market-plan-1.0.0";
+ * entradas y versión; nunca se recalculan con el capital de una fecha posterior.
+ * `1.1.0` (`F11-18`): cada idea dice si es day o swing, y el stop automático y
+ * el tamaño usan el riesgo y el capital de ese tipo. Una revisión anterior no
+ * lo decía y usaba el riesgo por trade de entonces, el del swing: se lee swing. */
+export const PRE_MARKET_PLAN_VERSION = "pre-market-plan-1.1.0";
 export const STOP_LOSS_CALC_VERSION = "stop-loss-calc-1.0.0";
 
 export const ideaIdSchema = z.uuid();
@@ -31,6 +34,7 @@ export const ideaFormSchema = z
     baseRevision: z.number().int().min(1).max(1_000_000).nullable(),
     symbol: ideaSymbolSchema,
     setupCode: setupCodeSchema.nullable(),
+    book: z.enum(["day", "swing"]),
     entry: priceInputSchema,
     quantity: quantityInputSchema,
     manualStop: priceInputSchema,

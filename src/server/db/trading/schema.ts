@@ -592,6 +592,13 @@ export const tradingRiskSettings = pgTable(
     dailyLossPercent: numeric("daily_loss_percent", { mode: "string" }),
     maxTradesPerSession: integer("max_trades_per_session"),
     maxConsecutiveLosses: integer("max_consecutive_losses"),
+    /** `trading-rules-2.0.0`; `null` en las revisiones de `1.0.0`. */
+    swingAllocationPercent: numeric("swing_allocation_percent", {
+      mode: "string",
+    }),
+    dayRiskPerTradePercent: numeric("day_risk_per_trade_percent", {
+      mode: "string",
+    }),
     recordedAt: instant("recorded_at").notNull(),
     supersededAt: instant("superseded_at"),
   },
@@ -608,6 +615,10 @@ export const tradingRiskSettings = pgTable(
     check(
       "trading_risk_settings_count_check",
       sql`(${table.maxTradesPerSession} is null or ${table.maxTradesPerSession} between 1 and 20) and (${table.maxConsecutiveLosses} is null or ${table.maxConsecutiveLosses} between 1 and 20)`,
+    ),
+    check(
+      "trading_risk_settings_books_check",
+      sql`(${table.swingAllocationPercent} is null) = (${table.dayRiskPerTradePercent} is null) and (${table.swingAllocationPercent} is null or (${table.swingAllocationPercent} >= 0 and ${table.swingAllocationPercent} <= 100 and ${table.dayRiskPerTradePercent} > 0 and ${table.dayRiskPerTradePercent} <= 100 and (${table.dailyLossPercent} is null or ${table.dayRiskPerTradePercent} <= ${table.dailyLossPercent})))`,
     ),
     check(
       "trading_risk_settings_superseded_check",
@@ -641,6 +652,8 @@ export const preMarketIdeas = pgTable(
       mode: "string",
     }).notNull(),
     riskPercent: numeric("risk_percent", { mode: "string" }).notNull(),
+    /** `pre-market-plan-1.1.0`; `null` en las revisiones anteriores: swing. */
+    book: varchar("book", { length: 8 }),
     notes: text("notes").notNull(),
     status: varchar("status", { length: 16 }).notNull(),
     recordedAt: instant("recorded_at").notNull(),
@@ -664,6 +677,10 @@ export const preMarketIdeas = pgTable(
     check(
       "pre_market_ideas_symbol_check",
       sql`${table.symbol} ~ '^[A-Z][A-Z0-9./-]{0,15}$'`,
+    ),
+    check(
+      "pre_market_ideas_book_check",
+      sql`${table.book} is null or ${table.book} in ('day', 'swing')`,
     ),
     check(
       "pre_market_ideas_values_check",

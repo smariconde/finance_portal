@@ -168,6 +168,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   140 | `F6-54`    | `done`        | Emisores con 20-F medidos y [ADR 0087](../architecture/adr/0087-foreign-private-issuers.md) aceptada: moneda de reporte, FX de Yahoo, SPOT, NVO y TSM primero.                                                            | `F6-53`            |
 |   141 | `F6-55`    | `in_progress` | SPOT, NVO y TSM valuados desde su 20-F en su moneda de reporte, con el valor por ADS en dólares al tipo de cambio del día.                                                                                                | `F6-54`            |
 |   142 | `F6-56`    | `queued`      | ASML: 20-F en US GAAP y EUR, con las secciones de su informe integrado leídas por el índice de referencias cruzadas.                                                                                                      | `F6-55`            |
+|   143 | `F11-18`   | `in_progress` | Day y swing en bolsillos separados: tipo automático, 70 % swing, reglas del día sólo con day trades, 0,5 % / 2 % por trade y 6 % de riesgo abierto en las swing, en `/cuenta` y `/plan`.                                  | Pedido del owner   |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -8558,6 +8559,35 @@ probar el control; fases posteriores pueden volver a verificarlo.
   porque las variables no existían en el shell; el runbook ahora los pide con
   `read -rs`. `portal-mcp` contó 3 pedidos en Neon (2026-11-17 UTC).
 - Operación: [runbook](../runbooks/owner-mcp.md).
+
+## `F11-18` — day y swing en bolsillos separados
+
+- Estado: `in_progress`. Código, migración de trading `0008` y pruebas locales
+  listos; se cierra cuando el owner abra `/cuenta` en Production con un day
+  trade real y el capital del día, la pérdida diaria y el conteo coincidan con
+  lo que hizo.
+- Autorización: pedido del owner del 2026-11-25, con sus decisiones en la
+  [enmienda de la ADR 0076](../architecture/adr/0076-schwab-read-only-account-trading-journal.md#enmienda-del-2026-11-25-day-y-swing-en-bolsillos-separados-f11-18).
+  Se abrió con `F11-05`, `F11-06`, `F11-08`, `F11-09` y `F11-10` todavía
+  `in_progress`: la misma excepción explícita de la Fase 11.
+- Alcance: `trading-book-1.0.0`, `trading-rules-2.0.0`,
+  `position-size-risk-2.0.0`, `position-size-amount-1.1.0`,
+  `pre-market-plan-1.1.0` y `accountRisk`, compartido por `/cuenta` y `/plan`;
+  migración de trading `0008` (reparto y riesgo day en
+  `trading_risk_settings`, `book` en `pre_market_ideas`) con su rollback.
+- Controles: `TM-03` (la acción de reglas toma un schema cerrado con los dos
+  campos nuevos), `TM-05` (el parser de la cuenta no cambia lo que acepta:
+  sólo expone `previousSessionLongQuantity`), `UI-03`.
+- Decisiones del slice: los topes de capital no tienen `warning`; la pérdida
+  diaria por defecto pasa a 1,5 % (tres stops day); un `42703` de una columna
+  faltante sigue sin leerse como parte atrasada (`F11-15` sólo toma `42P01`):
+  `0008` se aplica en Neon antes del merge.
+- Evidencia local: 4.975 unitarios sin red, 58 de integración de trading (una
+  revisión `1.0.0` leída con nulos y guardada completa, el check que rechaza
+  un reparto a medias y un riesgo day sobre la pérdida diaria, y el ciclo de
+  rollback de `0008`, `0006` y `0005`), 393 E2E, lint, tipos, formato y build.
+  El card de riesgo se miró renderizado a 1280 y 390 con datos de ejemplo: con
+  el capital day agotado el planner day da 0 acciones y nombra el tope.
 
 ## Plantilla para nuevos issues
 

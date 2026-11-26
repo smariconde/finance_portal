@@ -30,12 +30,23 @@ import {
   type OpenRisk,
   type PlannerCap,
   type PositionPlan,
-  type PositionRisk,
   type PositionRiskReason,
 } from "@/modules/trading/domain/position-size-risk";
 import { priceInputSchema } from "@/modules/trading/domain/trade-annotation";
 import {
+  bookCapitalLeft,
+  type BookedPositionRisk,
+} from "@/modules/trading/domain/account-risk";
+import {
+  TRADING_BOOK_VERSION,
+  TRADING_BOOKS,
+  type TradingBook,
+} from "@/modules/trading/domain/trading-book";
+import {
+  allocationOf,
   COUNT_RULE_MAX,
+  RULE_BOOK,
+  riskPerTradeOf,
   ruleUsage,
   TRADING_RULES_VERSION,
   type RiskSettings,
@@ -50,12 +61,26 @@ import type { TradingPart } from "@/server/trading/trading-parts";
 import { saveRiskSettings, type SaveRiskSettingsResult } from "../actions";
 
 /**
- * El riesgo de la cuenta (`F11-09`, ADR 0076): las cuatro reglas del día como
- * medidores, el planner 2 % / 6 % con precios que escribe el owner y el editor
- * de sus reglas. Nada bloquea: el portal no envía órdenes. El cálculo es
- * `position-size-risk-1.0.0` y `trading-rules-1.0.0`, en decimal; `number`
- * sólo para la geometría de las barras.
+ * El riesgo de la cuenta (`F11-09`, `F11-18`, ADR 0076): las reglas como
+ * medidores en dos bolsillos —day y swing, `trading-book-1.0.0`—, el planner de
+ * cada tipo con precios que escribe el owner y el editor de sus reglas. Nada
+ * bloquea: el portal no envía órdenes. El cálculo es `position-size-risk-2.0.0`
+ * y `trading-rules-2.0.0`, en decimal; `number` sólo para la geometría de las
+ * barras.
  */
+
+const BOOK_VIEW: Readonly<
+  Record<TradingBook, { readonly term: string; readonly hint: string }>
+> = {
+  day: {
+    term: "Day trading",
+    hint: "Trades que abren y cierran en la misma sesión de Nueva York; uno abierto hoy cuenta como day hasta que pasa la noche.",
+  },
+  swing: {
+    term: "Swing",
+    hint: "Posiciones que pasaron al menos una noche. Riesgo y open risk sobre el valor de liquidación entero.",
+  },
+};
 
 const formatPercent = (value: string) =>
   `${formatAmount(value, { scale: 1 })} %`;
@@ -63,10 +88,12 @@ const formatPercent = (value: string) =>
 const RULE_VIEW: Readonly<
   Record<TradingRule, { readonly term: string; readonly gloss: string }>
 > = {
-  open_risk: { term: "Open risk", gloss: "riesgo abierto" },
+  day_capital: { term: "Capital", gloss: "compras del día" },
   daily_loss: { term: "Daily loss", gloss: "pérdida del día" },
   trades: { term: "Trades", gloss: "abiertos hoy" },
   loss_streak: { term: "Loss streak", gloss: "pérdidas seguidas" },
+  swing_exposure: { term: "Exposure", gloss: "valor en swing" },
+  open_risk: { term: "Open risk", gloss: "riesgo abierto" },
 };
 
 const STATE_VIEW: Readonly<
@@ -119,13 +146,17 @@ const UNKNOWN_COPY: Readonly<Record<RuleUnknownReason, string>> = {
 };
 
 const STATE_HINT: Readonly<Record<TradingRule, string>> = {
-  open_risk:
-    "Lo que se pierde si todos los stops saltan ahora: (precio − stop) × cantidad. Atención cuando otro trade completo ya no entra; cortar al llegar al límite.",
+  day_capital:
+    "Lo comprado hoy en day trades, con comisiones, contra la parte day del valor de liquidación al abrir. Cuenta lo comprado y no lo neto: en una cuenta cash lo vendido se liquida en T+1, y recomprar con eso y vender en el día es una good faith violation.",
   daily_loss:
-    "Realizado en la sesión de Nueva York más el P&L abierto del día de Schwab, contra el valor de liquidación al abrir.",
-  trades: "Trades que abrieron en la sesión de Nueva York de hoy.",
+    "Realizado por day trades en la sesión de Nueva York más el P&L del día de Schwab de las posiciones day, contra el valor de liquidación al abrir. El gap de un swing no cuenta.",
+  trades: "Day trades que abrieron en la sesión de Nueva York de hoy.",
   loss_streak:
-    "Trades cerrados hoy con pérdida, seguidos; uno en cero o en ganancia corta la racha.",
+    "Day trades cerrados hoy con pérdida, seguidos; uno en cero o en ganancia corta la racha.",
+  swing_exposure:
+    "Valor de mercado de las posiciones swing contra su parte del valor de liquidación.",
+  open_risk:
+    "Lo que se pierde si saltan todos los stops de las posiciones swing: (precio − stop) × cantidad. Atención cuando otro swing completo ya no entra; cortar al llegar al límite.",
 };
 
 export type RiskView =
@@ -256,11 +287,83 @@ function RuleTile({
   );
 }
 
+/**
+ * Las reglas de un tipo en una fila: su nombre, la parte del capital que le
+ * toca y sus medidores, en las mismas columnas que la otra fila.
+ */
+function BookRules({
+  book,
+  settings,
+  rules,
+  openRisk,
+}: {
+  readonly book: TradingBook;
+  readonly settings: RiskSettings;
+  readonly rules: readonly RuleReading[];
+  readonly openRisk: OpenRisk;
+}) {
+  const ids = useId();
+  const readings = rules.filter((reading) => RULE_BOOK[reading.rule] === book);
+  const capital = readings.find(
+    (reading) =>
+      reading.rule === (book === "day" ? "day_capital" : "swing_exposure"),
+  );
+  return (
+    <section aria-labelledby={`${ids}-book`} className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-baseline gap-x-2">
+        <h3
+          id={`${ids}-book`}
+          className="flex items-center gap-0.5 text-sm font-semibold"
+        >
+          {BOOK_VIEW[book].term}
+          <InfoTip title={BOOK_VIEW[book].term}>
+            <p>{BOOK_VIEW[book].hint}</p>
+          </InfoTip>
+        </h3>
+        <span className="numeric text-xs text-muted-foreground">
+          {formatPercent(allocationOf(settings, book))}
+          {capital?.limit == null
+            ? null
+            : ` · US$ ${formatMoney(capital.limit)}`}
+          {" · risk "}
+          {formatPercent(riskPerTradeOf(settings, book))}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-5 lg:grid-cols-4">
+        {readings.map((reading) => (
+          <RuleTile
+            key={reading.rule}
+            reading={reading}
+            extra={
+              reading.rule === "open_risk" && openRisk.missing.length > 0 ? (
+                <span className="block text-amber-800 dark:text-amber-300">
+                  Sin stop: {openRisk.missing.join(", ")}
+                </span>
+              ) : reading.rule === "open_risk" && openRisk.percent !== null ? (
+                <span className="block">
+                  {formatPercent(openRisk.percent)} de{" "}
+                  {formatPercent(settings.openRiskPercent)}
+                </span>
+              ) : null
+            }
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 const CAP_COPY: Readonly<Record<PlannerCap, string>> = {
   risk_per_trade: "risk por trade",
   buying_power: "buying power",
+  capital: "capital del tipo",
   open_risk: "open risk",
 };
+
+const BOOK_OPTIONS: readonly { value: TradingBook; label: string }[] = [
+  { value: "day", label: "Day" },
+  { value: "swing", label: "Swing" },
+];
 
 const INVALID_COPY = {
   no_equity: "Sin valor de liquidación",
@@ -335,11 +438,12 @@ const PLANNER_MODES: readonly { value: PlannerMode; label: string }[] = [
 ];
 
 /**
- * El planner, en dos modos. Por riesgo: entrada, stop y target; sale cuántas
- * acciones comprar con el mínimo entre el 2 %, el buying power y lo que le queda
- * al 6 % (`position-size-risk-1.0.0`). Por monto: cuánto poner y la entrada;
- * sale cuántas acciones son y, con stop, si el riesgo entra en el 2 %
- * (`position-size-amount-1.0.0`). No cotiza nada: el cliente nunca nombra un
+ * El planner, por tipo y en dos modos. Por riesgo: entrada, stop y target; sale
+ * cuántas acciones comprar con el mínimo entre el riesgo por trade del tipo, el
+ * buying power, lo que le queda a su capital y, en un swing, lo que le queda al
+ * open risk (`position-size-risk-2.0.0`). Por monto: cuánto poner y la entrada;
+ * sale cuántas acciones son y, con stop, si el riesgo entra en el del tipo
+ * (`position-size-amount-1.1.0`). No cotiza nada: el cliente nunca nombra un
  * ticker ante Schwab.
  */
 function Planner({
@@ -347,14 +451,19 @@ function Planner({
   liquidationValue,
   buyingPower,
   openRisk,
+  rules,
 }: {
   readonly settings: RiskSettings;
   readonly liquidationValue: string;
   readonly buyingPower: string;
   readonly openRisk: OpenRisk;
+  readonly rules: readonly RuleReading[];
 }) {
   const ids = useId();
+  const [book, setBook] = useState<TradingBook>("swing");
   const [mode, setMode] = useState<PlannerMode>("risk");
+  const riskPercent = riskPerTradeOf(settings, book);
+  const left = bookCapitalLeft(rules, book);
   const [amountText, setAmount] = useState("");
   const [entryText, setEntry] = useState("");
   const [stopText, setStop] = useState("");
@@ -374,9 +483,12 @@ function Planner({
       ? planPosition({
           liquidationValue,
           buyingPower,
-          riskPerTradePercent: settings.riskPerTradePercent,
-          openRiskPercent: settings.openRiskPercent,
-          openRisk: openRisk.value,
+          riskPerTradePercent: riskPercent,
+          capitalLeft: left,
+          openRisk:
+            book === "swing"
+              ? { percent: settings.openRiskPercent, value: openRisk.value }
+              : null,
           entry,
           stop,
           target,
@@ -393,7 +505,8 @@ function Planner({
       ? planByAmount({
           liquidationValue,
           buyingPower,
-          riskPerTradePercent: settings.riskPerTradePercent,
+          riskPerTradePercent: riskPercent,
+          capitalLeft: left,
           amount,
           entry,
           stop,
@@ -420,14 +533,16 @@ function Planner({
           Position size
           <InfoTip title="Position size">
             <p>
-              Por riesgo: shares = el mínimo entre{" "}
+              Por riesgo: shares = el mínimo entre el risk por trade del tipo
+              (day {formatPercent(settings.dayRiskPerTradePercent)}, swing{" "}
               {formatPercent(settings.riskPerTradePercent)} del valor de
-              liquidación sobre (entrada − stop), el buying power y lo que le
-              queda al {formatPercent(settings.openRiskPercent)} de open risk.
+              liquidación) sobre (entrada − stop), el buying power, lo que le
+              queda al capital del tipo y, en swing, al{" "}
+              {formatPercent(settings.openRiskPercent)} de open risk.
             </p>
             <p>
               Por monto: shares = monto ÷ entrada. Con stop, el riesgo de esas
-              shares contra el {formatPercent(settings.riskPerTradePercent)}.
+              shares contra el del tipo.
             </p>
             <p>Enteras, hacia abajo.</p>
             <p className="font-mono text-xs">
@@ -435,12 +550,20 @@ function Planner({
             </p>
           </InfoTip>
         </h3>
-        <Segmented
-          label="Modo del position size"
-          options={PLANNER_MODES}
-          value={mode}
-          onChange={setMode}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Segmented
+            label="Tipo de trade"
+            options={BOOK_OPTIONS}
+            value={book}
+            onChange={setBook}
+          />
+          <Segmented
+            label="Modo del position size"
+            options={PLANNER_MODES}
+            value={mode}
+            onChange={setMode}
+          />
+        </div>
       </div>
       <div className="grid gap-4 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] lg:items-center">
         <div
@@ -490,12 +613,9 @@ function Planner({
               {INVALID_COPY[invalid]}
             </p>
           ) : byRisk?.state === "planned" ? (
-            <RiskResult plan={byRisk} />
+            <RiskResult plan={byRisk} book={book} />
           ) : byAmount?.state === "planned" ? (
-            <AmountResult
-              plan={byAmount}
-              riskPerTradePercent={settings.riskPerTradePercent}
-            />
+            <AmountResult plan={byAmount} riskPerTradePercent={riskPercent} />
           ) : (
             <p className="text-sm text-muted-foreground">
               {mode === "risk" ? "Entrada y stop." : "Monto y entrada."}
@@ -531,8 +651,10 @@ function rewardRiskText(value: string | null): string {
 
 function RiskResult({
   plan,
+  book,
 }: {
   readonly plan: Extract<PositionPlan, { state: "planned" }>;
+  readonly book: TradingBook;
 }) {
   return (
     <dl className="flex flex-wrap items-end gap-x-6 gap-y-3">
@@ -550,11 +672,19 @@ function RiskResult({
                 {formatAmount(plan.caps.buyingPower, { scale: 0 })}
               </li>
               <li>
-                Open risk:{" "}
-                {plan.caps.openRisk === null
-                  ? "sin medir (posiciones sin stop)"
-                  : formatAmount(plan.caps.openRisk, { scale: 0 })}
+                Capital {book}:{" "}
+                {plan.caps.capital === null
+                  ? "sin medir"
+                  : formatAmount(plan.caps.capital, { scale: 0 })}
               </li>
+              {book === "swing" ? (
+                <li>
+                  Open risk:{" "}
+                  {plan.caps.openRisk === null
+                    ? "sin medir (swings sin stop)"
+                    : formatAmount(plan.caps.openRisk, { scale: 0 })}
+                </li>
+              ) : null}
             </ul>
           </InfoTip>
         </dd>
@@ -570,14 +700,16 @@ function RiskResult({
         detail={formatPercent(plan.riskPercent)}
       />
       <Fact term="R:R" value={rewardRiskText(plan.rewardRisk.value)} />
-      <Fact
-        term="Open risk luego"
-        value={
-          plan.openRiskAfterPercent === null
-            ? "—"
-            : formatPercent(plan.openRiskAfterPercent)
-        }
-      />
+      {book === "swing" ? (
+        <Fact
+          term="Open risk luego"
+          value={
+            plan.openRiskAfterPercent === null
+              ? "—"
+              : formatPercent(plan.openRiskAfterPercent)
+          }
+        />
+      ) : null}
     </dl>
   );
 }
@@ -598,7 +730,7 @@ function AmountResult({
         <dd
           className={cn(
             "numeric text-sm font-semibold",
-            plan.overBuyingPower && warn,
+            (plan.overBuyingPower || plan.overCapital) && warn,
           )}
         >
           US$ {formatMoney(plan.positionValue)}
@@ -606,10 +738,12 @@ function AmountResult({
             {formatPercent(plan.positionPercent)}
           </span>
         </dd>
-        {plan.overBuyingPower ? (
+        {plan.overBuyingPower || plan.overCapital ? (
           <dd className={cn("flex items-center gap-1 text-xs", warn)}>
             <TriangleAlert className="size-3" aria-hidden="true" />
-            Supera el buying power
+            {plan.overBuyingPower
+              ? "Supera el buying power"
+              : "Supera el capital del tipo"}
           </dd>
         ) : (
           <dd className="numeric text-xs text-muted-foreground">
@@ -657,8 +791,10 @@ function AmountResult({
 }
 
 type SettingsFields = {
+  swingAllocationPercent: string;
   riskPerTradePercent: string;
   openRiskPercent: string;
+  dayRiskPerTradePercent: string;
   dailyLossPercent: string;
   maxTradesPerSession: string;
   maxConsecutiveLosses: string;
@@ -668,40 +804,66 @@ function fieldsOf(settings: RiskSettings): SettingsFields {
   const percent = (value: string | null) =>
     value === null ? "" : value.replace(".", ",");
   return {
+    swingAllocationPercent: percent(settings.swingAllocationPercent),
     riskPerTradePercent: percent(settings.riskPerTradePercent),
     openRiskPercent: percent(settings.openRiskPercent),
+    dayRiskPerTradePercent: percent(settings.dayRiskPerTradePercent),
     dailyLossPercent: percent(settings.dailyLossPercent),
     maxTradesPerSession: settings.maxTradesPerSession?.toString() ?? "",
     maxConsecutiveLosses: settings.maxConsecutiveLosses?.toString() ?? "",
   };
 }
 
-const FIELD_VIEW: readonly {
+type FieldView = {
   readonly key: keyof SettingsFields;
   readonly label: string;
   readonly unit: string;
   readonly optional: boolean;
-}[] = [
-  {
-    key: "riskPerTradePercent",
-    label: "Risk por trade",
-    unit: "%",
-    optional: false,
-  },
-  { key: "openRiskPercent", label: "Open risk", unit: "%", optional: false },
-  { key: "dailyLossPercent", label: "Daily loss", unit: "%", optional: true },
-  {
-    key: "maxTradesPerSession",
-    label: "Trades por sesión",
-    unit: "",
-    optional: true,
-  },
-  {
-    key: "maxConsecutiveLosses",
-    label: "Pérdidas seguidas",
-    unit: "",
-    optional: true,
-  },
+};
+
+/** Los campos por tipo: el reparto encabeza los de swing, el resto es day. */
+const FIELD_GROUPS: Readonly<Record<TradingBook, readonly FieldView[]>> = {
+  swing: [
+    {
+      key: "swingAllocationPercent",
+      label: "Capital swing",
+      unit: "%",
+      optional: false,
+    },
+    {
+      key: "riskPerTradePercent",
+      label: "Risk por trade",
+      unit: "%",
+      optional: false,
+    },
+    { key: "openRiskPercent", label: "Open risk", unit: "%", optional: false },
+  ],
+  day: [
+    {
+      key: "dayRiskPerTradePercent",
+      label: "Risk por trade",
+      unit: "%",
+      optional: false,
+    },
+    { key: "dailyLossPercent", label: "Daily loss", unit: "%", optional: true },
+    {
+      key: "maxTradesPerSession",
+      label: "Trades por sesión",
+      unit: "",
+      optional: true,
+    },
+    {
+      key: "maxConsecutiveLosses",
+      label: "Pérdidas seguidas",
+      unit: "",
+      optional: true,
+    },
+  ],
+};
+
+const FIELD_VIEW: readonly FieldView[] = [
+  ...FIELD_GROUPS.swing,
+  ...FIELD_GROUPS.day,
 ];
 
 const SAVE_ERROR_COPY: Readonly<Record<string, string>> = {
@@ -710,6 +872,7 @@ const SAVE_ERROR_COPY: Readonly<Record<string, string>> = {
   not_a_count: "Un entero",
   out_of_range: "Fuera de rango",
   per_trade_above_open: "No puede superar al open risk",
+  day_trade_above_daily_loss: "No puede superar al daily loss",
 };
 
 function SettingsEditor({
@@ -757,43 +920,62 @@ function SettingsEditor({
         void save();
       }}
     >
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        {FIELD_VIEW.map((field) => (
-          <label
-            key={field.key}
-            htmlFor={`${ids}-${field.key}`}
-            className="flex flex-col gap-1 text-xs font-medium"
-          >
-            {field.label}
-            <span className="relative">
-              <Input
-                id={`${ids}-${field.key}`}
-                inputMode={field.unit === "%" ? "decimal" : "numeric"}
-                autoComplete="off"
-                placeholder={field.optional ? "Apagada" : undefined}
-                value={fields[field.key]}
-                aria-invalid={invalidField === field.key || undefined}
-                aria-describedby={
-                  invalidField === field.key ? `${ids}-error` : undefined
-                }
-                onChange={(event) =>
-                  setFields((previous) => ({
-                    ...previous,
-                    [field.key]: event.target.value,
-                  }))
-                }
-                className={cn("numeric", field.unit === "" ? "" : "pr-7")}
-              />
-              {field.unit === "" ? null : (
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-muted-foreground"
-                >
-                  {field.unit}
+      <div className="grid gap-4 lg:grid-cols-[3fr_4fr]">
+        {(["swing", "day"] as const).map((book) => (
+          <fieldset key={book} className="flex flex-col gap-2">
+            <legend className="mb-2 text-xs font-semibold">
+              {BOOK_VIEW[book].term}
+              {book === "day" ? (
+                <span className="ml-1 font-normal text-muted-foreground">
+                  el resto del capital
                 </span>
+              ) : null}
+            </legend>
+            <div
+              className={cn(
+                "grid grid-cols-2 gap-3",
+                book === "day" ? "sm:grid-cols-4" : "sm:grid-cols-3",
               )}
-            </span>
-          </label>
+            >
+              {FIELD_GROUPS[book].map((field) => (
+                <label
+                  key={field.key}
+                  htmlFor={`${ids}-${field.key}`}
+                  className="flex flex-col gap-1 text-xs font-medium"
+                >
+                  {field.label}
+                  <span className="relative">
+                    <Input
+                      id={`${ids}-${field.key}`}
+                      inputMode={field.unit === "%" ? "decimal" : "numeric"}
+                      autoComplete="off"
+                      placeholder={field.optional ? "Apagada" : undefined}
+                      value={fields[field.key]}
+                      aria-invalid={invalidField === field.key || undefined}
+                      aria-describedby={
+                        invalidField === field.key ? `${ids}-error` : undefined
+                      }
+                      onChange={(event) =>
+                        setFields((previous) => ({
+                          ...previous,
+                          [field.key]: event.target.value,
+                        }))
+                      }
+                      className={cn("numeric", field.unit === "" ? "" : "pr-7")}
+                    />
+                    {field.unit === "" ? null : (
+                      <span
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-muted-foreground"
+                      >
+                        {field.unit}
+                      </span>
+                    )}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
         ))}
       </div>
       <div className="flex flex-wrap items-center gap-3">
@@ -848,7 +1030,13 @@ export function RiskCard({
               Alertas: ninguna regla bloquea nada. El stop de cada posición es
               el del plan del diario; sin plan, la orden stop viva de Schwab.
             </p>
-            <p className="font-mono text-xs">{TRADING_RULES_VERSION}</p>
+            <p>
+              Day o swing es automático: lo abierto hoy es day; lo que pasa la
+              noche, swing.
+            </p>
+            <p className="font-mono text-xs">
+              {TRADING_RULES_VERSION} · {TRADING_BOOK_VERSION}
+            </p>
           </InfoTip>
         </CardTitle>
         {view.state === "read" ? (
@@ -900,25 +1088,14 @@ export function RiskCard({
                 />
               </div>
             ) : null}
-            <div className="grid grid-cols-2 gap-x-4 gap-y-5 lg:grid-cols-4">
-              {view.rules.map((reading) => (
-                <RuleTile
-                  key={reading.rule}
-                  reading={reading}
-                  extra={
-                    reading.rule === "open_risk" &&
-                    view.openRisk.missing.length > 0 ? (
-                      <span className="block text-amber-800 dark:text-amber-300">
-                        Sin stop: {view.openRisk.missing.join(", ")}
-                      </span>
-                    ) : reading.rule === "open_risk" &&
-                      view.openRisk.percent !== null ? (
-                      <span className="block">
-                        {formatPercent(view.openRisk.percent)} de{" "}
-                        {formatPercent(view.settings.openRiskPercent)}
-                      </span>
-                    ) : null
-                  }
+            <div className="flex flex-col gap-5">
+              {TRADING_BOOKS.map((book) => (
+                <BookRules
+                  key={book}
+                  book={book}
+                  settings={view.settings}
+                  rules={view.rules}
+                  openRisk={view.openRisk}
                 />
               ))}
             </div>
@@ -934,6 +1111,7 @@ export function RiskCard({
               liquidationValue={liquidationValue}
               buyingPower={buyingPower}
               openRisk={view.openRisk}
+              rules={view.rules}
             />
           </>
         )}
@@ -972,7 +1150,11 @@ const LEVEL_LABEL: Readonly<Record<LevelKey, string>> = {
  * precio y el stop, lo que se arriesga ahora; entre el precio y el target, lo que
  * falta. La misma gramática que el plan del diario (`PlanLadder`).
  */
-export function PositionRiskCell({ risk }: { readonly risk: PositionRisk }) {
+export function PositionRiskCell({
+  risk,
+}: {
+  readonly risk: BookedPositionRisk;
+}) {
   const levels = (
     [
       ["stop", risk.stop],
@@ -1024,6 +1206,9 @@ export function PositionRiskCell({ risk }: { readonly risk: PositionRisk }) {
       </div>
       <span className="sr-only">{summary}.</span>
       <span className="flex flex-wrap items-center gap-x-2 text-xs">
+        <span className="rounded-sm bg-muted px-1 font-medium text-muted-foreground">
+          {risk.book}
+        </span>
         {risk.risk.value !== null ? (
           <span className="numeric font-medium">
             US$ {formatMoney(risk.risk.value)}

@@ -18,6 +18,10 @@ import { createPostgresTradingRiskSettingsStore } from "@/server/db/trading/post
 import { createPostgresTradingRoutineStore } from "@/server/db/trading/postgres-trading-routine-store";
 import { createPostgresPreMarketStore } from "@/server/db/trading/postgres-pre-market-store";
 import type { RoundTrip } from "@/modules/trading/domain/trade-round-trips";
+import {
+  DEFAULT_RISK_SETTINGS,
+  TRADING_RULES_VERSION,
+} from "@/modules/trading/domain/trading-rules";
 import * as schema from "@/server/db/trading/schema";
 
 /**
@@ -90,6 +94,61 @@ describeTradingRiskSettingsStoreContract("trading postgres", () =>
   createPostgresTradingRiskSettingsStore(database),
 );
 
+describe("trading rules 1.0.0 revisions, trading postgres", () => {
+  it("reads a revision without books as nulls and saves over it complete", async () => {
+    await client`
+      insert into trading_risk_settings (
+        revision_id, revision, version, risk_per_trade_percent,
+        open_risk_percent, daily_loss_percent, max_trades_per_session,
+        max_consecutive_losses, recorded_at
+      ) values (
+        gen_random_uuid(), 1, 'trading-rules-1.0.0', 2, 6, 4, 3, 3,
+        '2026-11-15T12:00:00Z'
+      )`;
+    const store = createPostgresTradingRiskSettingsStore(database);
+    expect(await store.readCurrent()).toMatchObject({
+      revision: 1,
+      riskPerTradePercent: "2",
+      swingAllocationPercent: null,
+      dayRiskPerTradePercent: null,
+    });
+    const saved = await store.save({
+      baseRevision: 1,
+      settings: { ...DEFAULT_RISK_SETTINGS, dailyLossPercent: "4" },
+      version: TRADING_RULES_VERSION,
+      recordedAt: "2026-11-25T12:00:00.000Z",
+    });
+    expect(saved).toMatchObject({
+      state: "saved",
+      settings: {
+        revision: 2,
+        swingAllocationPercent: "70",
+        dayRiskPerTradePercent: "0.5",
+      },
+    });
+  });
+
+  it("refuses half a split and a day risk above the daily loss", async () => {
+    for (const [allocation, dayRisk] of [
+      [70, null],
+      [null, 0.5],
+      [70, 5],
+    ] as const) {
+      await expect(
+        client`
+          insert into trading_risk_settings (
+            revision_id, revision, version, risk_per_trade_percent,
+            open_risk_percent, daily_loss_percent, swing_allocation_percent,
+            day_risk_per_trade_percent, recorded_at, superseded_at
+          ) values (
+            gen_random_uuid(), 90, 'trading-rules-2.0.0', 2, 6, 4,
+            ${allocation}, ${dayRisk}, now(), now()
+          )`,
+      ).rejects.toMatchObject({ code: "23514" });
+    }
+  });
+});
+
 describeFinvizStrategyStoreContract("trading postgres", () =>
   createPostgresFinvizStrategyStore(database),
 );
@@ -98,6 +157,7 @@ const accountKey = "a".repeat(64);
 const fields = {
   symbol: "AAPL",
   setupCode: "breakout",
+  book: "day" as const,
   entry: "100",
   quantity: "50",
   manualStop: null,

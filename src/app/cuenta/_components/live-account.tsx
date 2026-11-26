@@ -31,18 +31,12 @@ import {
   liveCadence,
   liveFreshness,
 } from "@/modules/trading/domain/live-cadence";
-import { openDayPnl } from "@/modules/trading/domain/open-day-pnl";
 import type { PositionContext } from "@/modules/trading/domain/position-context";
 import {
-  markOf,
-  openRisk,
-  positionRisk,
-  type PositionRisk,
-} from "@/modules/trading/domain/position-size-risk";
-import {
-  evaluateTradingRules,
-  type RiskSettings,
-} from "@/modules/trading/domain/trading-rules";
+  accountRisk,
+  type BookedPositionRisk,
+} from "@/modules/trading/domain/account-risk";
+import type { RiskSettings } from "@/modules/trading/domain/trading-rules";
 import type { SchwabQuote } from "@/modules/trading/domain/schwab-quotes";
 import {
   formatAmount,
@@ -438,9 +432,10 @@ export function LiveAccount({
 }
 
 /**
- * El riesgo de la lectura vigente (`position-size-risk-1.0.0`,
- * `trading-rules-1.0.0`): el precio de cada posición es su cotización si la hay
- * y, si no, el de Schwab en la cuenta. Sin los planes de la base de trading no
+ * El riesgo de la lectura vigente (`position-size-risk-2.0.0`,
+ * `trading-rules-2.0.0`): el precio de cada posición es su cotización si la hay
+ * y, si no, el de Schwab en la cuenta. Cada posición es day o swing
+ * (`trading-book-1.0.0`) y mide en su bolsillo. Sin los planes de la base de trading no
  * se calcula: una posición sin plan leído no es una posición sin stop.
  */
 function computeRisk(
@@ -449,7 +444,7 @@ function computeRisk(
   riskContext: RiskContextResult | null,
 ): {
   readonly view: RiskView;
-  readonly bySymbol: ReadonlyMap<string, PositionRisk> | null;
+  readonly bySymbol: ReadonlyMap<string, BookedPositionRisk> | null;
 } {
   if (reading === null || riskContext === null) {
     return { view: { state: "loading" }, bySymbol: null };
@@ -464,29 +459,18 @@ function computeRisk(
       bySymbol: null,
     };
   }
-  const plans = new Map(riskContext.plans.map((plan) => [plan.symbol, plan]));
-  const risks = reading.positions
-    .filter((position) => position.side !== "flat")
-    .map((position) =>
-      positionRisk({
-        position,
-        price:
-          quotes?.bySymbol.get(position.symbol)?.lastPrice ?? markOf(position),
-        plan: plans.get(position.symbol) ?? null,
-        orders: reading.openOrders,
-      }),
-    );
-  const open = openRisk(
+  const {
     risks,
-    reading.balances.liquidationValue,
-    riskContext.settings.openRiskPercent,
-  );
-  const rules = evaluateTradingRules({
+    openRisk: open,
+    rules,
+  } = accountRisk({
+    positions: reading.positions,
+    orders: reading.openOrders,
+    priceOf: (symbol) => quotes?.bySymbol.get(symbol)?.lastPrice ?? null,
+    plans: riskContext.plans,
     settings: riskContext.settings,
     liquidationValue: reading.balances.liquidationValue,
     liquidationValueAtOpen: reading.balances.liquidationValueAtOpen,
-    openRisk: open.value,
-    openDayPnl: openDayPnl(reading.positions).day.value,
     activity: riskContext.activity,
   });
   return {
@@ -779,7 +763,7 @@ function PositionsCard({
   readonly reading: Reading;
   readonly quotes: QuotesState | null;
   readonly context: PositionContextResult | null;
-  readonly risks: ReadonlyMap<string, PositionRisk> | null;
+  readonly risks: ReadonlyMap<string, BookedPositionRisk> | null;
 }) {
   const positions = reading.positions;
   return (

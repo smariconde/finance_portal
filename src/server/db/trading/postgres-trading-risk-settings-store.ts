@@ -5,11 +5,11 @@ import { randomUUID } from "node:crypto";
 import { isNull } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 
-import type {
-  StoredRiskSettings,
-  TradingRiskSettingsStore,
+import {
+  storedSettingsMatch,
+  type StoredRiskSettings,
+  type TradingRiskSettingsStore,
 } from "@/modules/trading/application/trading-risk-settings-store";
-import { sameRiskSettings } from "@/modules/trading/domain/trading-rules";
 
 import * as schema from "./schema";
 
@@ -29,6 +29,8 @@ function toStored(row: SettingsRow): StoredRiskSettings {
     dailyLossPercent: row.dailyLossPercent,
     maxTradesPerSession: row.maxTradesPerSession,
     maxConsecutiveLosses: row.maxConsecutiveLosses,
+    swingAllocationPercent: row.swingAllocationPercent,
+    dayRiskPerTradePercent: row.dayRiskPerTradePercent,
     revision: row.revision,
     version: row.version,
     recordedAt: row.recordedAt.toISOString(),
@@ -71,7 +73,10 @@ export function createPostgresTradingRiskSettingsStore(
           if ((current?.revision ?? null) !== input.baseRevision) {
             throw new Conflict();
           }
-          if (current !== null && sameRiskSettings(current, input.settings)) {
+          if (
+            current !== null &&
+            storedSettingsMatch(current, input.settings)
+          ) {
             return { state: "unchanged" as const, settings: current };
           }
           const recordedAt = new Date(input.recordedAt);

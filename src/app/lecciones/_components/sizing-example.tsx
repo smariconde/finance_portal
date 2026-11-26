@@ -12,7 +12,7 @@ import {
 
 /**
  * El ejemplo de la lección de riesgo, calculado con el mismo planner de
- * `/cuenta` (`position-size-risk-1.0.0`): la lección no repite la cuenta a mano.
+ * `/cuenta` (`position-size-risk-2.0.0`): la lección no repite la cuenta a mano.
  */
 export function SizingExampleCard({
   example,
@@ -23,8 +23,8 @@ export function SizingExampleCard({
     liquidationValue: example.liquidationValue,
     buyingPower: example.liquidationValue,
     riskPerTradePercent: example.riskPerTradePercent,
-    openRiskPercent: "6",
-    openRisk: "0",
+    capitalLeft: null,
+    openRisk: { percent: "6", value: "0" },
     entry: example.entry,
     stop: example.stop,
     target: example.target,

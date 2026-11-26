@@ -21,6 +21,8 @@ import { loadJournalState } from "@/server/trading/transactions";
  * vuelven a aplicar con su SQL, como el ciclo de `0000` en `runtime-role`.
  */
 const LAGGING = [
+  // `0008` agrega columnas a las dos tablas: se baja primero y vuelve última.
+  "0008_trading_books",
   "0006_pre_market_ideas",
   "0005_trading_risk_settings",
 ] as const;
