@@ -10,6 +10,7 @@ import {
   type ArgentinaDashboard,
 } from "@/modules/argentina-dashboard/application/load-argentina-dashboard";
 import type { ArgentinaRefreshReadiness } from "@/modules/argentina-dashboard/application/argentina-refresh";
+import { ARGENTINA_BLOCKS } from "@/modules/argentina-dashboard/domain/block-guides";
 import { readArgentinaNews } from "@/modules/argentina-dashboard/application/read-argentina-news";
 import type { ArgentinaNews } from "@/modules/argentina-dashboard/domain/argentina-news";
 import { servesRealData } from "@/modules/configuration/domain/config-health";
@@ -44,17 +45,7 @@ import { SummaryCards } from "./_components/summary-cards";
 import { VisitRecorder } from "./_components/visit-recorder";
 
 /** Los bloques en el orden de la página, con el nombre corto del índice. */
-const BLOCKS = [
-  { id: "actividad", label: "Actividad" },
-  { id: "dolar", label: "Dólar" },
-  { id: "itcrm", label: "ITCRM" },
-  { id: "riesgo-pais", label: "Riesgo país" },
-  { id: "monetario", label: "Inflación y reservas" },
-  { id: "rem-inflacion", label: "REM" },
-  { id: "fiscal", label: "Fiscal" },
-  { id: "externo", label: "Comercio" },
-  { id: "soja", label: "Soja" },
-] as const;
+const BLOCKS = ARGENTINA_BLOCKS;
 
 /** El índice de los bloques, con un punto en los que trajeron algo nuevo (ADR 0079). */
 function BlockIndex({

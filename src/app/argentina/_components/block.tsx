@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import { BlockGuide } from "./block-guide";
 import { BlockFreshness, BlockNewsBadge } from "./freshness-marks";
 
 /**
@@ -20,7 +21,9 @@ import { BlockFreshness, BlockNewsBadge } from "./freshness-marks";
  * siempre a la vista, junto al resultado (`The Evidence Travels With the
  * Result Rule`). Desde `F9-22`, al lado del título su marca de novedad y al
  * final de la procedencia si sus fuentes fueron consultadas, se están
- * consultando, no respondieron o se cargan a mano.
+ * consultando, no respondieron o se cargan a mano. Desde `F9-23`, un ⓘ junto
+ * al título abre la guía del bloque: para qué sirve, cómo leerlo, con qué
+ * cruzarlo y qué puede confundir.
  */
 export function DashboardBlock({
   id,
@@ -44,9 +47,12 @@ export function DashboardBlock({
       <Card>
         <CardHeader className="gap-2">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <CardTitle as="h2" id={`${id}-title`} className="text-lg">
-              {title}
-            </CardTitle>
+            <span className="inline-flex items-center gap-0.5">
+              <CardTitle as="h2" id={`${id}-title`} className="text-lg">
+                {title}
+              </CardTitle>
+              <BlockGuide blockId={id} title={title} />
+            </span>
             <BlockNewsBadge blockId={id} />
           </div>
           <p className="max-w-3xl text-sm">{reading}</p>
