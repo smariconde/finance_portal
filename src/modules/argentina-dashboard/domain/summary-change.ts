@@ -133,6 +133,32 @@ export type SummaryMetric =
   | "tradeBalance"
   | "soyGap";
 
+/** How often each headline gets a new reading. */
+export const SUMMARY_CADENCE: Readonly<Record<SummaryMetric, SummaryCadence>> =
+  {
+    fxGap: "daily",
+    countryRisk: "daily",
+    soyGap: "daily",
+    inflation: "monthly",
+    tradeBalance: "monthly",
+    activity: "monthly",
+  };
+
+/**
+ * The order of the tiles (owner's request of 2026-11-26): what moves every
+ * day on the left, what moves once a month on the right. Within the monthly
+ * ones, by how late the period is published —the CPI about two weeks after
+ * the month, trade about three, the EMAE about seven—.
+ */
+export const SUMMARY_ORDER: readonly SummaryMetric[] = [
+  "fxGap",
+  "countryRisk",
+  "soyGap",
+  "inflation",
+  "tradeBalance",
+  "activity",
+];
+
 /**
  * Declared per metric (owner's decision of 2026-11-16). The soy gap is
  * Rosario over Chicago minus one: less negative is more of Chicago's price

@@ -95,3 +95,20 @@ marca de «Nuevo»: no lee ni expone datos.
   cerrado y al check, con una migración.
 - Rollback: `drizzle/rollback/0053_surface_visits.down.sql` borra la tabla; se
   pierde sólo la marca de la próxima sesión.
+
+## Enmienda del 2026-11-26 — la marca con su cifra, y lo que cambia con la página abierta (`F9-22`)
+
+Pedido del owner: llamar la atención cuando hay un dato nuevo o cambia lo que
+había, sin confundir lo viejo con lo nuevo.
+
+- `argentina-news-1.1.0`: cada marca lleva la cifra que muestra la página —el
+  EMAE como variación mensual desestacionalizada, el IPC, el saldo comercial y
+  el resultado primario del mes; el REM no tiene una cifra única— leída a los
+  dos cortes. «Nuevo» se lee junto al período que había; «Revisado», con la
+  cifra de antes tachada y la de ahora. Lo que se marca se sigue decidiendo
+  sobre los valores guardados: la versión sólo agrega qué se muestra.
+- La marca también va junto al título de su bloque, no sólo en el índice.
+- Lo diario sigue sin marcarse como novedad. Si una cifra cambia con la página
+  abierta —porque la actualización de la ADR 0070 la trajo—, su tarjeta se
+  tiñe una vez y dice «Actualizado» hasta que se deja la página: no se guarda
+  y no sobrevive a la visita.

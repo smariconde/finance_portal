@@ -1,5 +1,3 @@
-import { CircleDot } from "lucide-react";
-
 import { InfoTip } from "@/app/_components/info-tip";
 import { cn } from "@/lib/utils";
 import type {
@@ -8,15 +6,17 @@ import type {
   NewsStatus,
 } from "@/modules/argentina-dashboard/domain/argentina-news";
 
-import { shortMonth } from "./format";
+import {
+  compactMillions,
+  points,
+  resultWord,
+  shortMonth,
+  signedAmount,
+  signedPoints,
+} from "./format";
+import { NewsBadge } from "./news-badge";
 
-/**
- * Lo que llegó desde la visita anterior (`argentina-news-1.0.0`, ADR 0079).
- * «Nuevo» lleva el azul de información del sistema —el bermellón es de
- * acción—, y siempre con su palabra: el color nunca va solo.
- */
-const NEW_TONE =
-  "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-300";
+export { NewsBadge } from "./news-badge";
 
 /** El bloque de la página que muestra cada métrica. */
 export const NEWS_BLOCK: Readonly<Record<NewsMetric, string>> = {
@@ -33,6 +33,21 @@ const NEWS_NAME: Readonly<Record<NewsMetric, string>> = {
   remRound: "REM",
   primaryBalance: "Fiscal",
   tradeBalance: "Comercio",
+};
+
+/**
+ * Cómo se escribe la cifra de cada métrica (`argentina-news-1.1.0`): la misma
+ * que muestra su tarjeta o su bloque. El EMAE, su variación mensual
+ * desestacionalizada; el IPC, la inflación del mes; el comercio, el saldo; el
+ * fiscal, el resultado primario del mes.
+ */
+const NEWS_FIGURE: Readonly<Record<NewsMetric, (value: string) => string>> = {
+  activity: (value) => signedPoints(value),
+  inflation: (value) => points(value),
+  remRound: (value) => points(value),
+  primaryBalance: (value) =>
+    `${resultWord(value) === "déficit" ? "−" : "+"}$ ${compactMillions(value)}`,
+  tradeBalance: (value) => `US$ ${signedAmount(value)} M`,
 };
 
 type Marked = Extract<NewsStatus, { status: "new_period" | "revised" }>;
@@ -56,31 +71,6 @@ export function markedBlocks(
       NEWS_BLOCK[metric],
       mark.status,
     ]),
-  );
-}
-
-export function NewsBadge({
-  status,
-  className,
-}: {
-  readonly status: Marked["status"];
-  readonly className?: string;
-}) {
-  return (
-    <span
-      className={cn(
-        "inline-flex h-5 shrink-0 items-center gap-1 rounded-4xl border px-1.5 text-xs leading-none font-medium whitespace-nowrap",
-        status === "new_period"
-          ? NEW_TONE
-          : "border-border bg-background text-muted-foreground",
-        className,
-      )}
-    >
-      {status === "new_period" ? (
-        <CircleDot aria-hidden="true" className="size-3" />
-      ) : null}
-      {status === "new_period" ? "Nuevo" : "Revisado"}
-    </span>
   );
 }
 
@@ -115,63 +105,130 @@ function sinceText(since: string): string {
   });
 }
 
+/** `2026-10-31` → `oct`; con el año sólo si no es el del período nuevo. */
+function periodText(on: string, reference: string): string {
+  return on.slice(0, 4) === reference.slice(0, 4)
+    ? shortMonth(on).slice(0, 3)
+    : shortMonth(on);
+}
+
+/** La cifra de un período nuevo y, debajo, la del que había antes. */
+function NewPeriodFigure({
+  metric,
+  mark,
+}: {
+  readonly metric: NewsMetric;
+  readonly mark: Extract<Marked, { status: "new_period" }>;
+}) {
+  const format = NEWS_FIGURE[metric];
+  const previous = mark.previous;
+  return (
+    <>
+      {mark.headline === null ? null : (
+        <span className="numeric text-base leading-5 font-semibold text-foreground">
+          {format(mark.headline)}
+        </span>
+      )}
+      {previous === null || previous.headline === null ? null : (
+        <span className="numeric text-xs text-muted-foreground">
+          <span className="sr-only">antes, </span>
+          {periodText(previous.on, mark.on)} {format(previous.headline)}
+        </span>
+      )}
+    </>
+  );
+}
+
+/** El mismo período, antes y después de la revisión. */
+function RevisedFigure({
+  metric,
+  mark,
+}: {
+  readonly metric: NewsMetric;
+  readonly mark: Extract<Marked, { status: "revised" }>;
+}) {
+  const format = NEWS_FIGURE[metric];
+  if (mark.headline === null) return null;
+  return (
+    <span className="numeric inline-flex flex-wrap items-baseline gap-x-1.5 text-base leading-5 font-semibold text-foreground">
+      {mark.previousHeadline === null ? null : (
+        <>
+          <span className="sr-only">antes </span>
+          <s className="text-sm font-normal text-muted-foreground decoration-muted-foreground/70">
+            {format(mark.previousHeadline)}
+          </s>
+          <span
+            aria-hidden="true"
+            className="text-sm font-normal text-muted-foreground"
+          >
+            →
+          </span>
+          <span className="sr-only">, ahora </span>
+        </>
+      )}
+      {format(mark.headline)}
+    </span>
+  );
+}
+
 /**
- * Una línea: qué llegó desde la visita anterior, agrupado en «Nuevo» y
- * «Revisado», cada métrica un vínculo a su bloque. Sin nada marcado no ocupa
- * lugar.
+ * Lo que llegó desde la visita anterior (`argentina-news-1.1.0`, ADR 0079):
+ * una fila de ítems, cada uno con su marca, su período, la cifra nueva y la
+ * que había —o, revisado, la de antes tachada y la de ahora—, y un vínculo a
+ * su bloque. Sin nada marcado no ocupa lugar.
  */
 export function NewsStrip({ news }: { readonly news: ArgentinaNews }) {
   const marked = markedMetrics(news);
   if (news.status !== "compared" || marked.length === 0) return null;
-  const groups = (["new_period", "revised"] as const)
-    .map((status) => ({
-      status,
-      items: marked.filter(({ mark }) => mark.status === status),
-    }))
-    .filter((group) => group.items.length > 0);
+  // Lo nuevo primero, después lo revisado.
+  const ordered = [
+    ...marked.filter(({ mark }) => mark.status === "new_period"),
+    ...marked.filter(({ mark }) => mark.status === "revised"),
+  ];
 
   return (
-    <section
-      aria-label="Datos nuevos"
-      className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm"
-    >
-      {groups.map((group) => (
-        <div
-          key={group.status}
-          className="flex flex-wrap items-center gap-x-2 gap-y-1"
-        >
-          <NewsBadge status={group.status} />
-          <ul className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            {group.items.map(({ metric, mark }) => (
-              <li key={metric}>
-                <a
-                  href={`#${NEWS_BLOCK[metric]}`}
-                  className="inline-flex items-baseline gap-1 rounded-sm underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
-                >
-                  <span className="font-medium">{NEWS_NAME[metric]}</span>
-                  <span className="numeric text-muted-foreground">
-                    {shortMonth(mark.on).slice(0, 3)}
-                  </span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
-      <span className="inline-flex items-center gap-1 text-muted-foreground">
-        desde tu visita del{" "}
+    <section aria-label="Datos nuevos" className="flex flex-col gap-2">
+      <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+        Desde tu visita del{" "}
         <time dateTime={news.since} className="numeric">
           {sinceText(news.since)}
         </time>
         <InfoTip title="Qué se marca como nuevo">
           <p>
             Un período que no estaba la última vez que abriste la página —IPC,
-            EMAE, REM, resultado fiscal o comercio— es nuevo; el mismo período
-            con otra cifra, revisado. El dólar, las reservas, el ITCRM y la soja
-            cambian todos los días y no se marcan.
+            EMAE, REM, resultado fiscal o comercio— es nuevo, al lado de la
+            cifra que había; el mismo período con otra cifra, revisado, con la
+            de antes tachada. El dólar, las reservas, el ITCRM y la soja cambian
+            todos los días y no se marcan: si cambian con la página abierta, su
+            tarjeta dice «Actualizado».
           </p>
         </InfoTip>
-      </span>
+      </p>
+      <ul className="flex flex-wrap gap-2">
+        {ordered.map(({ metric, mark }) => (
+          <li key={metric} className="flex">
+            <a
+              href={`#${NEWS_BLOCK[metric]}`}
+              className="flex min-h-11 flex-col justify-start gap-1 rounded-lg bg-card px-3 py-2 ring-1 ring-foreground/10 transition-[box-shadow] outline-none hover:ring-foreground/25 focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none"
+            >
+              <span className="flex items-center gap-1.5 text-xs">
+                <NewsBadge status={mark.status} />
+                <span className="font-medium">{NEWS_NAME[metric]}</span>
+                <span className="numeric text-muted-foreground">
+                  {shortMonth(mark.on)}
+                </span>
+              </span>
+              {mark.status === "new_period" ? (
+                <span className="flex flex-wrap items-baseline gap-x-2">
+                  <NewPeriodFigure metric={metric} mark={mark} />
+                </span>
+              ) : (
+                <RevisedFigure metric={metric} mark={mark} />
+              )}
+            </a>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
