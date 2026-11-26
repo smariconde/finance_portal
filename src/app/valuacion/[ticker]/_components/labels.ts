@@ -161,6 +161,7 @@ const NOT_APPLIED_REASON_LABELS: Record<string, string> = {
   expensed: "es un gasto: no se revierte",
   immaterial: "inmaterial",
   lease_liability_missing: "sin pasivo por arrendamientos",
+  ifrs16_lease_in_debt: "IFRS 16: ya en la deuda",
   lease_liability_partial: "pasivo por arrendamientos incompleto",
   lease_liability_negative: "pasivo por arrendamientos negativo",
   cost_of_debt_missing: "sin costo de deuda",

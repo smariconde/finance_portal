@@ -9,11 +9,13 @@ import {
   auditStepFromReport,
   dataStepBlock,
   valuationDataStepSchema,
+  VALUATION_DATA_CURRENCY_RULE_VERSION,
   VALUATION_DATA_RULE_VERSION,
   type DataPendingReason,
   type FundamentalsStep,
   type FilingsStep,
   type ConsensusStep,
+  type CurrencyMarketStep,
   type PricesStep,
   type SicStep,
   type ValuationDataStep,
@@ -70,6 +72,13 @@ export type ValuationDataDependencies = {
    * toca. Opcional: sin él el paso no lo registra.
    */
   readonly ensureConsensus?: (securityId: string) => Promise<ConsensusStep>;
+  /**
+   * La curva soberana y el tipo de cambio de una moneda que no es el USD
+   * (`F6-55`, ADR 0087), pedidos en línea si les toca. Opcional.
+   */
+  readonly ensureCurrencyMarket?: (
+    currency: string,
+  ) => Promise<CurrencyMarketStep>;
   readonly latestClose: (securityId: string) => Promise<string | null>;
   /** Cuándo un job de precios terminado revisó la security por última vez. */
   readonly lastPriceCheck: (securityId: string) => Promise<string | null>;
@@ -97,6 +106,11 @@ export type ValuationDataRequest = {
   readonly needsSic: boolean;
   /** `false` en un job que continúa a otro: nunca baja, sólo audita. */
   readonly mayDownload: boolean;
+  /**
+   * La moneda de los estados de un emisor extranjero declarado (`F6-55`), o
+   * `null`: uno de EE. UU. reporta en USD y no pide nada más.
+   */
+  readonly reportingCurrency?: string | null;
 };
 
 export async function ensureValuationData(
@@ -113,15 +127,27 @@ export async function ensureValuationData(
     dependencies.ensureConsensus !== undefined
       ? await dependencies.ensureConsensus(request.securityId)
       : undefined;
+  const currency = request.reportingCurrency ?? null;
+  const currencyMarket =
+    request.mayDownload &&
+    currency !== null &&
+    currency !== "USD" &&
+    dependencies.ensureCurrencyMarket !== undefined
+      ? await dependencies.ensureCurrencyMarket(currency)
+      : undefined;
   const blocked = dataStepBlock({ fundamentals, sic }) !== null;
 
   return valuationDataStepSchema.parse({
-    ruleVersion: VALUATION_DATA_RULE_VERSION,
+    ruleVersion:
+      currencyMarket === undefined
+        ? VALUATION_DATA_RULE_VERSION
+        : VALUATION_DATA_CURRENCY_RULE_VERSION,
     fundamentals,
     ...(filings === undefined ? {} : { filings }),
     sic,
     prices,
     ...(consensus === undefined ? {} : { consensus }),
+    ...(currencyMarket === undefined ? {} : { currencyMarket }),
     // Si una descarga quedó a medias, se audita cuando termine: auditar ahora
     // diría «pasó» sobre cadenas que todavía no llegaron.
     audit: blocked

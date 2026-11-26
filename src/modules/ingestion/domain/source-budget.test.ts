@@ -58,6 +58,7 @@ describe("topes declarados", () => {
     expect(declaredDailyBudget("indec-api")).toBe(60);
     expect(declaredDailyBudget("ambito-riesgo-pais")).toBe(10);
     expect(declaredDailyBudget("alpha-vantage")).toBe(25);
+    expect(declaredDailyBudget("ecb-data-portal")).toBe(20);
     expect(declaredDailyBudget("bcr-cac-pizarra")).toBe(20);
     expect(declaredDailyBudget("bna-fx")).toBe(20);
     expect(declaredDailyBudget("magyp-estimaciones")).toBe(20);
@@ -80,6 +81,7 @@ describe("topes declarados", () => {
       "comafi-cedear",
       "damodaran-current-data",
       "datahub-sp500-pddl",
+      "ecb-data-portal",
       "indec-api",
       "logo-dev",
       "magyp-datos-abiertos",

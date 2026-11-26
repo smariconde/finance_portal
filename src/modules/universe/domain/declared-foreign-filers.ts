@@ -21,6 +21,11 @@ export const foreignFilerDeclarationSchema = z.strictObject({
   annualForm: z.literal("20-F"),
   taxonomy: z.literal("ifrs-full"),
   reportingCurrency: z.string().regex(/^[A-Z]{3}$/u),
+  /**
+   * País ISO de incorporación, de la carátula del 20-F: el de la tasa marginal
+   * y del riesgo país del domicilio (decisión del owner del 2026-11-25).
+   */
+  domicileCountry: z.string().regex(/^[A-Z]{2}$/u),
   /** Lo que cotiza en EE. UU.: la acción misma, sin ratio que aplicar. */
   listedInstrument: z.literal("ordinary_shares"),
   decidedBy: z.literal("owner"),
@@ -41,6 +46,7 @@ export const DECLARED_FOREIGN_FILERS: readonly ForeignFilerDeclaration[] =
         annualForm: "20-F",
         taxonomy: "ifrs-full",
         reportingCurrency: "EUR",
+        domicileCountry: "LU",
         listedInstrument: "ordinary_shares",
         decidedBy: "owner",
         declaredAt: "2026-11-25T00:00:00.000Z",

@@ -14,7 +14,7 @@ import {
 } from "../domain/reference-release";
 
 import type { ReferenceDatasetRepository } from "./reference-dataset-repository";
-import type { ReferenceSourceProvider } from "./live-damodaran-source";
+import type { FetchedReferencePublication } from "./live-damodaran-source";
 
 /**
  * Registra la release vigente de un dataset de Damodaran (`F3-04`, ADR 0032).
@@ -23,8 +23,17 @@ import type { ReferenceSourceProvider } from "./live-damodaran-source";
  * caída no tiene por qué impedir registrar las otras. El plan se calcula contra
  * la release guardada: la misma publicación no escribe nada.
  */
-export type RecordReferenceDatasetDependencies = {
-  readonly source: ReferenceSourceProvider;
+export type RecordReferenceDatasetDependencies<
+  Dataset extends { readonly datasetId: string } = DamodaranDataset,
+> = {
+  readonly source: {
+    load(dataset: Dataset): Promise<FetchedReferencePublication>;
+  };
+  /**
+   * La fuente de la corrida. Damodaran por omisión; la tasa libre de riesgo
+   * del ECB usa el mismo modelo de releases (`F6-55`, ADR 0087).
+   */
+  readonly sourceId?: string;
   readonly repository: ReferenceDatasetRepository;
   readonly ingestionRuns: IngestionRunRepository;
   readonly now: () => string;
@@ -45,11 +54,14 @@ export type RecordReferenceDatasetOutcome = {
   readonly runStatus: string | null;
 };
 
-export async function recordReferenceDataset(
-  dataset: DamodaranDataset,
-  dependencies: RecordReferenceDatasetDependencies,
+export async function recordReferenceDataset<
+  Dataset extends { readonly datasetId: string } = DamodaranDataset,
+>(
+  dataset: Dataset,
+  dependencies: RecordReferenceDatasetDependencies<Dataset>,
 ): Promise<RecordReferenceDatasetOutcome> {
   const {
+    sourceId = DAMODARAN_SOURCE_ID,
     source,
     repository,
     ingestionRuns,
@@ -77,7 +89,7 @@ export async function recordReferenceDataset(
     current,
     observedAt: fetched.fetchedAt,
     recordedAt: now(),
-    sourceId: DAMODARAN_SOURCE_ID,
+    sourceId,
     sourceDocumentId: fetched.url,
     ingestionRunId: runId,
     contentHash,
@@ -111,7 +123,7 @@ export async function recordReferenceDataset(
   const run = await ingestionRuns.append(
     ingestionRunSchema.parse({
       runId,
-      sourceId: DAMODARAN_SOURCE_ID,
+      sourceId,
       datasetId: dataset.datasetId,
       parserVersion: publication.parserVersion,
       // La clave identifica la **transición**: el mismo contenido que vuelve

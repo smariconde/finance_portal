@@ -287,3 +287,124 @@ describe("chooseFiscalYearAnchor", () => {
     expect(chooseFiscalYearAnchor(["2026-06-30"], rows)).toBeNull();
   });
 });
+
+describe("annual fundamentals 1.11.0: IFRS filers", () => {
+  const ifrs = (
+    concept: string,
+    asOf: string,
+    value: string,
+    overrides: Partial<FundamentalRow> = {},
+  ) =>
+    row(concept, asOf, value, {
+      concept: `ifrs-full:${concept}`,
+      unit: "EUR",
+      currency: "EUR",
+      ...overrides,
+    });
+
+  it("reads each item's ifrs-full concept and takes IFRS 16 leases as finance leases", () => {
+    const series = buildAnnualFundamentals(
+      [
+        ifrs("Revenue", "2025-12-31", "17186"),
+        ifrs("ProfitLossFromOperatingActivities", "2025-12-31", "2198"),
+        ifrs("LeaseLiabilities", "2025-12-31", "498", {
+          periodType: "instant",
+        }),
+        ifrs(
+          "CurrentBorrowingsAndCurrentPortionOfNoncurrentBorrowings",
+          "2025-12-31",
+          "1458",
+          {
+            periodType: "instant",
+          },
+        ),
+        ifrs("InterestExpenseOnLeaseLiabilities", "2025-12-31", "31"),
+        // `FinanceCosts` mezcla cambio y valor razonable: no es una partida.
+        ifrs("FinanceCosts", "2025-12-31", "266"),
+      ],
+      "2025-12-31",
+      "2026-06-30",
+    );
+    const items = series.fiscalYears[0]!.items;
+
+    expect(series.version).toBe("annual-fundamentals-1.11.0");
+    expect(items.revenue?.currency).toBe("EUR");
+    expect(items.operating_income?.concept).toBe(
+      "ifrs-full:ProfitLossFromOperatingActivities",
+    );
+    expect(items.finance_lease_liability?.value).toBe("498");
+    expect(items.operating_lease_liability).toBeUndefined();
+    expect(items.debt_current_total?.value).toBe("1458");
+    expect(items.finance_lease_interest_expense?.value).toBe("31");
+    expect(items.interest_expense).toBeUndefined();
+  });
+
+  it("reads a monetary item only in the currency of the latest revenue", () => {
+    const series = buildAnnualFundamentals(
+      [
+        ifrs("Revenue", "2025-12-31", "309064", {
+          currency: "DKK",
+          unit: "DKK",
+        }),
+        ifrs("Borrowings", "2025-12-31", "10000", { periodType: "instant" }),
+        ifrs("Borrowings", "2025-12-31", "130958", {
+          periodType: "instant",
+          currency: "DKK",
+          unit: "DKK",
+          availableAt: "2026-01-01T00:00:00.000Z",
+        }),
+      ],
+      "2025-12-31",
+      "2026-06-30",
+    );
+    // El nominal en EUR, publicado después, no gana por disponibilidad.
+    expect(series.fiscalYears[0]!.items.debt_combined_total).toMatchObject({
+      value: "130958",
+      currency: "DKK",
+    });
+
+    const usd = buildAnnualFundamentals(
+      [
+        row("Revenues", "2024-12-31", "1000"),
+        row("CommercialPaper", "2024-12-31", "65", {
+          periodType: "instant",
+          currency: "EUR",
+          unit: "EUR",
+          availableAt: "2025-03-01T00:00:00.000Z",
+        }),
+        row("CommercialPaper", "2024-12-31", "70", { periodType: "instant" }),
+      ],
+      "2024-12-31",
+      "2025-06-30",
+    );
+    expect(usd.fiscalYears[0]!.items.debt_commercial_paper).toMatchObject({
+      value: "70",
+      currency: "USD",
+    });
+  });
+
+  it("composes D&A from depreciation and amortisation only without a total", () => {
+    const parts = [
+      ifrs("Revenue", "2025-12-31", "17186"),
+      ifrs("AdjustmentsForDepreciationExpense", "2025-12-31", "79"),
+      ifrs("AdjustmentsForAmortisationExpense", "2025-12-31", "23"),
+    ];
+    const composed = buildAnnualFundamentals(parts, "2025-12-31", "2026-06-30")
+      .fiscalYears[0]!.items.depreciation_amortization;
+    expect(composed).toMatchObject({
+      concept: "derived:DepreciationPlusAmortisation",
+      value: "102",
+      observationId: null,
+    });
+
+    const reported = buildAnnualFundamentals(
+      [
+        ...parts,
+        ifrs("DepreciationAndAmortisationExpense", "2025-12-31", "100"),
+      ],
+      "2025-12-31",
+      "2026-06-30",
+    ).fiscalYears[0]!.items.depreciation_amortization;
+    expect(reported?.value).toBe("100");
+  });
+});

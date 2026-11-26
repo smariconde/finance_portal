@@ -27,6 +27,7 @@ describe("egress allowlist", () => {
         "argentina-series-tiempo",
         "indec-api",
         "alpha-vantage",
+        "ecb-data-portal",
         "ambito-riesgo-pais",
         "bcr-cac-pizarra",
         "bna-fx",

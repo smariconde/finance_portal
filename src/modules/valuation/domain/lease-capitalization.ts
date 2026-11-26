@@ -23,6 +23,20 @@ import { formatDecimal, parseDecimal, ZERO } from "./decimal-policy";
  */
 export const LEASE_CAPITALIZATION_VERSION = "lease-capitalization-1.0.0";
 
+/**
+ * `1.1.0` (`F6-55`, ADR 0087): un emisor IFRS no tiene arrendamientos
+ * operativos. Bajo IFRS 16 todo arrendamiento es un pasivo financiero cuyo
+ * interés ya está en los costos financieros, debajo del EBIT: imputarle interés
+ * lo contaría dos veces. Su pasivo entra a la deuda reportada como un
+ * arrendamiento financiero (`reported-debt-1.0.0`), y esta regla lo nombra
+ * (`ifrs16_lease_in_debt`) en vez de decir que no hay pasivo. Sólo esa salida
+ * lleva `1.1.0`.
+ */
+export const IFRS16_LEASE_CAPITALIZATION_VERSION = "lease-capitalization-1.1.0";
+
+/** El pasivo por arrendamientos de IFRS 16, total corriente más no corriente. */
+export const IFRS16_LEASE_CONCEPT = "ifrs-full:LeaseLiabilities";
+
 export type LeaseCapitalizationInput = {
   /** `OperatingLeaseLiability` del cierre base. */
   readonly totalLiability: string | null;
@@ -32,6 +46,8 @@ export type LeaseCapitalizationInput = {
   readonly noncurrentLiability: string | null;
   /** `costOfCapital.preTaxCostOfDebt` de la corrida. */
   readonly preTaxCostOfDebt: string | null;
+  /** `ifrs-full:LeaseLiabilities` del cierre base, sólo de un emisor IFRS. */
+  readonly ifrs16Liability?: string | null;
 };
 
 export type LeaseLiabilityBasis =
@@ -48,7 +64,9 @@ export type LeaseNotCapitalizedReason =
   /** Un pasivo negativo no es un pasivo. */
   | "lease_liability_negative"
   /** Sin costo de deuda no hay interés que imputar. */
-  | "cost_of_debt_missing";
+  | "cost_of_debt_missing"
+  /** IFRS 16: el pasivo ya es deuda y su interés ya está debajo del EBIT. */
+  | "ifrs16_lease_in_debt";
 
 export type LeaseCapitalization =
   | {
@@ -63,7 +81,9 @@ export type LeaseCapitalization =
       readonly debtAdjustment: string;
     }
   | {
-      readonly version: typeof LEASE_CAPITALIZATION_VERSION;
+      readonly version:
+        | typeof LEASE_CAPITALIZATION_VERSION
+        | typeof IFRS16_LEASE_CAPITALIZATION_VERSION;
       readonly status: "not_capitalized";
       readonly reason: LeaseNotCapitalizedReason;
     };
@@ -96,6 +116,17 @@ export function capitalizeOperatingLeases(
     ).plus(
       parseDecimal(input.noncurrentLiability, "lease.noncurrentLiability"),
     );
+  } else if (
+    input.currentLiability === null &&
+    input.noncurrentLiability === null &&
+    input.ifrs16Liability !== undefined &&
+    input.ifrs16Liability !== null
+  ) {
+    return {
+      version: IFRS16_LEASE_CAPITALIZATION_VERSION,
+      status: "not_capitalized",
+      reason: "ifrs16_lease_in_debt",
+    };
   } else {
     return notCapitalized(
       input.currentLiability === null && input.noncurrentLiability === null

@@ -43,6 +43,16 @@ import type { ValuationRun } from "./valuation-run";
  */
 export const MARKET_PRICE_COMPARISON_VERSION = "market-price-comparison-1.0.0";
 /**
+ * `1.1.0` (`F6-55`, ADR 0087): una corrida en la moneda de sus estados (EUR)
+ * contra un precio listado en otra (USD). El cierre se pasa a la moneda de la
+ * corrida con el tipo de cambio **del mismo día** —nunca de otro—, y `price`
+ * es ese cierre convertido, así que todo lo que lee el precio lo lee en la
+ * moneda del valor; el cierre listado y el cambio viajan aparte. Sin cambio de
+ * ese día, `no_fx_at_as_of`. En la misma moneda el resultado es el de `1.0.0`.
+ */
+export const CONVERTED_PRICE_COMPARISON_VERSION =
+  "market-price-comparison-1.1.0";
+/**
  * `1.1.0` (`F6-39`, ADR 0085): el crecimiento también se resuelve sobre una
  * corrida `derived-assumptions-3.0.0`, cuyos años 1 y 2 vienen del consenso.
  * Sobre una `2.0.0` el resultado es el de `1.0.0`.
@@ -66,6 +76,8 @@ export type MarketPriceComparisonUnavailableReason =
   /** No hay cierre guardado en el día del `as_of`. */
   | "no_close_at_as_of"
   | "currency_mismatch"
+  /** En otra moneda y sin tipo de cambio guardado del día del cierre. */
+  | "no_fx_at_as_of"
   /** El cierre o el valor no son positivos: la proporción no significa nada. */
   | "non_positive_close"
   | "non_positive_value"
@@ -75,11 +87,22 @@ export type MarketPriceComparisonUnavailableReason =
    */
   | "split_after_share_basis";
 
+/** El cierre listado y el cambio con que se convirtió (`1.1.0`). */
+export type MarketPriceConversion = {
+  readonly listed: MarketClose;
+  /** Unidades de la moneda listada por unidad de la moneda de la corrida. */
+  readonly fx: MarketClose & { readonly baseCurrency: string };
+};
+
 export type MarketPriceComparison =
   | {
       readonly status: "compared";
-      readonly version: typeof MARKET_PRICE_COMPARISON_VERSION;
+      readonly version:
+        | typeof MARKET_PRICE_COMPARISON_VERSION
+        | typeof CONVERTED_PRICE_COMPARISON_VERSION;
+      /** En la moneda de la corrida: convertido en `1.1.0`. */
       readonly price: MarketClose;
+      readonly conversion?: MarketPriceConversion;
       readonly valuePerShare: string;
       /** `valor ÷ precio − 1`: negativo cuando el precio supera al valor. */
       readonly valueToPrice: string;
@@ -88,7 +111,9 @@ export type MarketPriceComparison =
     }
   | {
       readonly status: "unavailable";
-      readonly version: typeof MARKET_PRICE_COMPARISON_VERSION;
+      readonly version:
+        | typeof MARKET_PRICE_COMPARISON_VERSION
+        | typeof CONVERTED_PRICE_COMPARISON_VERSION;
       readonly reason: MarketPriceComparisonUnavailableReason;
       readonly price: MarketClose | null;
     };
@@ -109,29 +134,79 @@ export function compareWithMarketPrice(input: {
   readonly run: Pick<ValuationRun, "asOf" | "currency" | "input" | "result">;
   readonly closes: readonly MarketClose[];
   readonly events: readonly Pick<PriceEvent, "eventType" | "effectiveOn">[];
+  /**
+   * El tipo de cambio declarado de la moneda de la corrida a la del precio
+   * (`1.1.0`): sus cierres, en la moneda del precio, y su moneda base.
+   */
+  readonly fx?: {
+    readonly baseCurrency: string;
+    readonly closes: readonly MarketClose[];
+  } | null;
 }): MarketPriceComparison {
   const { run } = input;
-  const price =
+  const listed =
     input.closes.find((close) => close.marketDate === run.asOf) ?? null;
+  const converts = listed !== null && listed.currency !== run.currency;
+  const version = converts
+    ? CONVERTED_PRICE_COMPARISON_VERSION
+    : MARKET_PRICE_COMPARISON_VERSION;
   const unavailable = (
     reason: MarketPriceComparisonUnavailableReason,
   ): MarketPriceComparison => ({
     status: "unavailable",
-    version: MARKET_PRICE_COMPARISON_VERSION,
+    version,
     reason,
-    price,
+    price: listed,
   });
 
   if (run.result === null) {
     return unavailable("no_value_per_share");
   }
 
-  if (price === null) {
+  if (listed === null) {
     return unavailable("no_close_at_as_of");
   }
 
-  if (price.currency !== run.currency) {
-    return unavailable("currency_mismatch");
+  let price: MarketClose = listed;
+  let conversion: MarketPriceConversion | undefined;
+
+  if (converts) {
+    if (
+      input.fx === undefined ||
+      input.fx === null ||
+      input.fx.baseCurrency !== run.currency
+    ) {
+      return unavailable("currency_mismatch");
+    }
+
+    const fx = input.fx.closes.find(
+      (close) =>
+        close.marketDate === listed.marketDate &&
+        close.currency === listed.currency,
+    );
+
+    if (fx === undefined) {
+      return unavailable("no_fx_at_as_of");
+    }
+
+    const rate = parseDecimal(fx.close, "fx.close");
+
+    if (!rate.greaterThan(ZERO)) {
+      return unavailable("no_fx_at_as_of");
+    }
+
+    price = {
+      marketDate: listed.marketDate,
+      close: formatDecimal(
+        divide(parseDecimal(listed.close, "price.close"), rate, "fx.close"),
+        "price.converted",
+      ),
+      currency: run.currency,
+    };
+    conversion = {
+      listed,
+      fx: { ...fx, baseCurrency: input.fx.baseCurrency },
+    };
   }
 
   const basis = shareBasisDate(run.input);
@@ -160,8 +235,9 @@ export function compareWithMarketPrice(input: {
 
   return {
     status: "compared",
-    version: MARKET_PRICE_COMPARISON_VERSION,
+    version,
     price,
+    ...(conversion === undefined ? {} : { conversion }),
     valuePerShare: run.result.valuePerShare,
     valueToPrice: formatDecimal(
       divide(value, close, "price.close").minus(ONE),

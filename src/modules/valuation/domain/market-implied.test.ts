@@ -10,6 +10,8 @@ import {
 import { computeFcff } from "./fcff";
 import {
   compareWithMarketPrice,
+  CONVERTED_PRICE_COMPARISON_VERSION,
+  MARKET_PRICE_COMPARISON_VERSION,
   marketImpliedContext,
   marketImpliedExpectations,
   shareBasisDate,
@@ -349,5 +351,68 @@ describe("market-implied context", () => {
       marketImpliedContext({ ...input, derivedAssumptions: undefined })
         .historicalGrowth,
     ).toEqual([]);
+  });
+});
+
+describe(CONVERTED_PRICE_COMPARISON_VERSION, () => {
+  // Una corrida en EUR contra su cierre listado en USD.
+  const eurRun = { ...run, currency: "EUR" };
+  const listed = closeAt("616.46", { currency: "USD" });
+  const fx = (close: string, marketDate = input.asOf) => ({
+    baseCurrency: "EUR",
+    closes: [{ marketDate, close, currency: "USD" }],
+  });
+
+  it("converts the listed close at the same day's rate and keeps both", () => {
+    const comparison = compareWithMarketPrice({
+      run: eurRun,
+      closes: [listed],
+      events: [],
+      fx: fx("1.096227"),
+    });
+
+    expect(comparison).toMatchObject({
+      status: "compared",
+      version: CONVERTED_PRICE_COMPARISON_VERSION,
+      price: { marketDate: input.asOf, currency: "EUR" },
+      conversion: {
+        listed,
+        fx: { close: "1.096227", baseCurrency: "EUR", currency: "USD" },
+      },
+    });
+    if (comparison.status !== "compared") return;
+    expect(Number(comparison.price.close)).toBeCloseTo(562.35, 2);
+
+    const implied = marketImpliedExpectations({
+      run: eurRun,
+      comparison,
+    });
+    expect(implied).toMatchObject({ price: comparison.price.close });
+  });
+
+  it("never uses another day's rate", () => {
+    expect(
+      compareWithMarketPrice({
+        run: eurRun,
+        closes: [listed],
+        events: [],
+        fx: fx("1.09", "2000-01-03"),
+      }),
+    ).toMatchObject({
+      status: "unavailable",
+      version: CONVERTED_PRICE_COMPARISON_VERSION,
+      reason: "no_fx_at_as_of",
+      price: listed,
+    });
+    expect(
+      compareWithMarketPrice({ run: eurRun, closes: [listed], events: [] }),
+    ).toMatchObject({ reason: "currency_mismatch" });
+  });
+
+  it("leaves a same-currency comparison as 1.0.0", () => {
+    expect(compare("10")).toMatchObject({
+      version: MARKET_PRICE_COMPARISON_VERSION,
+    });
+    expect(compare("10")).not.toHaveProperty("conversion");
   });
 });

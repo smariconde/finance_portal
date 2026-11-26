@@ -2,6 +2,19 @@ import { cedearPriceTargets } from "@/modules/cedears/domain/cedear-price-target
 import { pointInTimeQuerySchema } from "@/modules/temporal/domain/point-in-time-query";
 import { getCedearRegistryRepository } from "@/server/persistence/get-cedear-registry-repository";
 import { captureConsensusForValuation } from "./consensus-refresh";
+import { fxRateFor } from "@/modules/prices/domain/declared-fx-rates";
+import { createLiveEcbSource } from "@/modules/reference-data/application/live-ecb-source";
+import { recordReferenceDataset } from "@/modules/reference-data/application/record-reference-datasets";
+import { isOpenRelease } from "@/modules/reference-data/domain/reference-release";
+import {
+  assessRiskFreeFreshness,
+  ECB_SOURCE_ID,
+  riskFreeCurveOf,
+} from "@/modules/reference-data/domain/risk-free-curves";
+import { LISTED_PRICE_CURRENCY } from "@/modules/valuation/application/market-fx";
+import type { CurrencyMarketStep } from "@/modules/valuation/domain/valuation-data-step";
+import { getReferenceDatasetRepository } from "@/server/persistence/get-reference-dataset-repository";
+import { getSourceEgressFetch } from "@/server/egress/get-source-egress-fetch";
 import "server-only";
 
 import { createHash, randomUUID } from "node:crypto";
@@ -40,6 +53,7 @@ import { createGraphIdentityResolver } from "@/modules/identity/application/iden
 import type { IdentityGraph } from "@/modules/identity/domain/identity-graph";
 import {
   createPacedEgressFetch,
+  ECB_REQUEST_PACING,
   SEC_REQUEST_PACING,
 } from "@/modules/ingestion/application/egress-fetch";
 import { checkSourceBudget } from "@/modules/ingestion/application/metered-egress-fetch";
@@ -343,6 +357,20 @@ export function createValuationDataDependencies(
       }
     },
     ensureConsensus: captureConsensusForValuation,
+    /**
+     * La curva y el cambio de una moneda que no es el USD (`F6-55`, ADR 0087).
+     * La curva es una request al ECB, en línea y sin lease; el cambio, un job
+     * de precios de un item en la fase de referencia, como `^SP500TR`.
+     */
+    async ensureCurrencyMarket(currency) {
+      await syncRegistry();
+      const [riskFree, fx] = [
+        await ensureRiskFreeCurve(currency),
+        await ensureFxRate(currency),
+      ];
+
+      return { currency, riskFree, fx };
+    },
     async ingestPrices(securityId) {
       const { job } = await jobs.createJob(
         buildPriceRefreshJobPlan("securities", [securityId]),
@@ -361,6 +389,109 @@ export function createValuationDataDependencies(
     },
     now,
   };
+
+  async function ensureRiskFreeCurve(
+    currency: string,
+  ): Promise<CurrencyMarketStep["riskFree"]> {
+    const curve = riskFreeCurveOf(currency);
+    if (curve === null)
+      return { status: "unavailable", reason: "not_declared" };
+
+    const references = getReferenceDatasetRepository();
+    const ingestionRuns = getIngestionRunRepository();
+    const at = now();
+    const open = (await references.listReleases(curve.datasetId)).filter(
+      isOpenRelease,
+    );
+    const rows =
+      open[0] === undefined ? [] : await references.loadRows(open[0].releaseId);
+    const lastRun = (
+      await ingestionRuns.list({
+        sourceId: ECB_SOURCE_ID,
+        datasetId: curve.datasetId,
+        limit: 5,
+      })
+    ).find((run) => run.status !== "failed");
+    const freshness = assessRiskFreeFreshness({
+      curve,
+      latestPeriod:
+        rows
+          .map((row) => row.key)
+          .sort()
+          .at(-1) ?? null,
+      lastCheckedAt: lastRun?.recordedAt ?? null,
+      now: at,
+    });
+
+    if (freshness === "current") return { status: "current" };
+
+    try {
+      const outcome = await recordReferenceDataset(curve, {
+        source: createLiveEcbSource({
+          sourceRegistry: registry,
+          fetch: getSourceEgressFetch(ECB_REQUEST_PACING),
+        }),
+        sourceId: ECB_SOURCE_ID,
+        repository: references,
+        ingestionRuns,
+        now,
+        newId: () => randomUUID(),
+      });
+
+      return outcome.plan.status === "unchanged"
+        ? { status: "current" }
+        : { status: "recorded" };
+    } catch (error) {
+      if (error instanceof SourceRequestRefusedError) {
+        return { status: "unavailable", reason: "source_disabled" };
+      }
+      console.error(
+        "risk-free curve refresh failed",
+        error instanceof Error ? error.name : typeof error,
+      );
+      return { status: "unavailable", reason: "failed" };
+    }
+  }
+
+  async function ensureFxRate(
+    currency: string,
+  ): Promise<CurrencyMarketStep["fx"]> {
+    const rate = fxRateFor(currency, LISTED_PRICE_CURRENCY);
+    if (rate === null) return { status: "unavailable", reason: "not_declared" };
+
+    const at = now();
+    const closes = await getPriceRepository().loadBenchmarkSeries({
+      benchmarkId: rate.benchmarkId,
+      from: subtractDays(at.slice(0, 10), 14),
+      limit: 30,
+    });
+    const checks = await loadRecentPriceChecks(jobs);
+    const freshness = assessReferenceFreshness({
+      latestClose: closes.at(-1)?.marketDate ?? null,
+      lastCheckedAt: checks.get(rate.benchmarkId)?.checkedAt ?? null,
+      now: at,
+    });
+
+    if (freshness.status === "fresh") return { status: "current" };
+
+    const { job } = await jobs.createJob(
+      buildPriceRefreshJobPlan("reference", [rate.benchmarkId]),
+      { now: now() },
+    );
+    const result = await runPriceRefreshJob(job.jobId, {
+      policy: ON_DEMAND_POLICY,
+    });
+    const download =
+      result === null
+        ? ({ status: "failed", code: "job_missing" } as const)
+        : await classify(result);
+
+    return download.status === "completed"
+      ? { status: "ingested" }
+      : download.status === "pending"
+        ? { status: "unavailable", reason: download.reason }
+        : { status: "unavailable", reason: "failed" };
+  }
 
   async function classify(
     result: RunIngestionJobResult,

@@ -5120,6 +5120,54 @@ real: SPOT se constituyó, bajó precios y `companyfacts` (182 hechos
 point-in-time (203 cadenas); el job termina en `annual_fundamentals` porque la
 serie todavía no lee IFRS. Gates: 4.956 unit, 257 de integración.
 
+**Incremento 2 (2026-11-26): SPOT valuado en EUR.** Decisiones del owner con lo
+medido: rendimiento par a 10 años de la curva AAA del ECB (no la spot continua),
+intereses sólo de conceptos de interés (`FinanceCosts` nunca), domicilio
+declarado para impuesto y CRP, y SPOT en `entertainment` (su SIC 4832 lo ponía
+en `broadcasting`, beta 0,32 y D/E 0,86).
+
+- `annual-fundamentals-1.11.0`: cada partida acepta su concepto `ifrs-full`
+  después de los `us-gaap`; `LeaseLiabilities` es una partida de arrendamientos
+  financieros (deuda, interés ya debajo del EBIT); `Borrowings` es el control
+  total de deuda; la D&A se compone de depreciación más amortización sólo sin
+  total (`derived:DepreciationPlusAmortisation`); y toda partida monetaria se lee
+  sólo en la moneda de los ingresos del último ejercicio. Esa regla también
+  corrige dos filers de EE. UU. con papeles comerciales o un instrumento de deuda
+  en EUR en la base personal.
+- `lease-capitalization-1.1.0` nombra `ifrs16_lease_in_debt` en vez de
+  «sin pasivo», y el puente lo declara así; `completeness-profile-1.5.0` cuenta
+  el pasivo IFRS 16 en `leases`. Sin IFRS, las dos salidas son las de antes.
+- Fuente `ecb-data-portal` (términos: uso libre citando al ECB; derechos
+  `allowed`, `approved_personal`, 20 pedidos/día), dataset de referencia
+  `ecb.eur-aaa-par-10y` con los últimos diez días por release
+  (`ecb-sdmx-csv-1.0.0`, cerrado) y `pnpm risk-free:record`. El registrador de
+  releases de Damodaran recibe la fuente como parámetro.
+- `cost-of-capital-1.3.0` sólo para una corrida que no es en USD: libre de riesgo
+  de la curva al `as_of` (el último dato en o antes, a lo sumo 7 días), neto del
+  diferencial de Alemania, y domicilio declarado
+  (`country_risk_by_declared_domicile`); `currency_risk_free` y
+  `currency_risk_free_stale` lo nombran.
+- Tipo de cambio `fx-eur-usd` (`EURUSD=X`) en `benchmark_prices`, ingerido como
+  una referencia más. `market-price-comparison-1.1.0` convierte el cierre listado
+  al cambio **del mismo día** (`no_fx_at_as_of` si falta) y `price` queda en la
+  moneda de la corrida; veredicto, pares y DCF inverso no cambian. El CEDEAR lee
+  el cierre listado y pasa el valor a dólares con el mismo cambio
+  (`cedear-peso-value-1.1.0`). La página muestra «USD 616,46 ÷ 1,0962».
+- `valuation-data-1.2.0`: el job pide la curva (`risk-free-freshness-1.0.0`) y
+  el cambio de un emisor declarado en otra moneda; nunca bloquea, y una curva
+  nueva pide un job siguiente.
+- Medido en una réplica con el worker real (SEC, Yahoo, ECB, Alpha Vantage, sin
+  IA porque no hay 10-K): SPOT de cero a corrida en 12 s; ECB 3,286 %,
+  Luxemburgo 24,94 % y CRP 0, deuda 1.956 M (notas + IFRS 16), cobertura 61×
+  AAA, rigor `screening` (sin mix geográfico, opciones sin restar). Con
+  `entertainment`: WACC 6,32 %, valor 427,18 EUR (298–505) contra 562,35 EUR
+  (USD 616,46 ÷ 1,0962), P/V 1,32, `computed`. Replay: 19 de 19 en la réplica y
+  79 de 80 en Production; la que diverge (GOOGL, rechazada, 2026-11-18) diverge
+  igual en `main`. Gates: 5.007 unit, 257 de integración, E2E 393; axe sin
+  violaciones en `/valuacion/SPOT` de escritorio y teléfono.
+- SPOT no tiene CEDEAR registrado: entró al grafo después del último
+  `pnpm cedears:record`.
+
 #### `F6-56` — ASML (20-F en US GAAP y EUR)
 
 - Estado: `queued`

@@ -146,6 +146,15 @@ export const CONSENSUS_REQUEST_PACING: RequestPacingPolicy = Object.freeze({
   maxRequests: 25,
 });
 
+/**
+ * Tasa libre de riesgo del ECB (ADR 0087): una request por curva. Sin cuota
+ * publicada; el tope diario manda.
+ */
+export const ECB_REQUEST_PACING: RequestPacingPolicy = Object.freeze({
+  minIntervalMs: 1000,
+  maxRequests: 4,
+});
+
 export class RequestBudgetExhaustedError extends Error {
   readonly sourceId: string;
   readonly maxRequests: number;

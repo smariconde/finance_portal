@@ -39,7 +39,9 @@ export const COMPARISON_GAP_COPY: Record<
   no_close_at_as_of:
     "No hay un cierre guardado en la fecha de valuación. El precio de otro día no se usa en su lugar.",
   currency_mismatch:
-    "El cierre guardado está en otra moneda que la valuación, y no se convierte.",
+    "El cierre guardado está en otra moneda que la valuación y no hay un tipo de cambio declarado para convertirlo.",
+  no_fx_at_as_of:
+    "El cierre está en otra moneda y no hay un tipo de cambio guardado del mismo día. El de otro día no se usa.",
   non_positive_close: "El cierre guardado no es positivo.",
   non_positive_value:
     "El valor por acción no es positivo: la proporción con el precio no significa nada.",

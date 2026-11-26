@@ -1,5 +1,6 @@
 import type { PriceRepository } from "@/modules/prices/application/price-repository";
 import type { UniverseRepository } from "@/modules/universe/application/universe-repository";
+import { loadRunFx } from "./market-fx";
 import { SP500_INDEX_ID } from "@/modules/universe/application/live-universe-source";
 
 import { excessReturnRunSchema } from "../domain/excess-return-run";
@@ -74,7 +75,10 @@ export type ValuedCompaniesReading = {
 export type ValuedCompaniesDependencies = {
   readonly runs: Pick<ValuationRunRepository, "listLatestInWindow">;
   readonly universe: Pick<UniverseRepository, "loadState">;
-  readonly prices: Pick<PriceRepository, "loadSeries" | "loadEvents">;
+  readonly prices: Pick<
+    PriceRepository,
+    "loadSeries" | "loadEvents" | "loadBenchmarkSeries"
+  >;
 };
 
 async function inBatches<T, R>(
@@ -165,6 +169,7 @@ export async function readValuedCompanies(
           currency,
         })),
         events,
+        fx: await loadRunFx(dependencies.prices, run),
       });
       const subject = subjectAt(state.graph, run);
 

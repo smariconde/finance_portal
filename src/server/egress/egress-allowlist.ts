@@ -277,6 +277,23 @@ const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
     deadlineMs: 30_000,
     maxRedirects: 0,
   }),
+  // Tasa libre de riesgo en EUR (ADR 0087): una sola serie del ECB, el
+  // rendimiento par a 10 años de la curva AAA. El resto del portal de datos
+  // queda cerrado.
+  egressAllowlistEntrySchema.parse({
+    sourceId: "ecb-data-portal",
+    origins: [
+      {
+        host: "data-api.ecb.europa.eu",
+        pathPrefixes: ["/service/data/YC/B.U2.EUR.4F.G_N_A.SV_C_YM.PY_10Y"],
+      },
+    ],
+    identification: "project",
+    // Diez días hábiles pesaron 1 KB el 2026-11-25.
+    maxResponseBytes: 256 * 1024,
+    deadlineMs: 30_000,
+    maxRedirects: 0,
+  }),
   // Riesgo país (ADR 0080): sólo el histórico de cierres. El valor del día
   // (`/riesgopais/variacion`) cambia durante la rueda y queda afuera.
   egressAllowlistEntrySchema.parse({

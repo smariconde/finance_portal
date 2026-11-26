@@ -1,3 +1,4 @@
+import { readRiskFreeCurves } from "@/modules/reference-data/application/read-reference-dataset";
 import { usMarketGraph } from "@/modules/identity/domain/us-market-graph";
 import {
   FAILURE_RATES_DATASET,
@@ -353,6 +354,10 @@ for (const ticker of values.ticker) {
         ratings: ratings ?? null,
         regions: regions ?? null,
         evToSales: evToSales ?? null,
+        riskFreeCurves: await readRiskFreeCurves(
+          pointInTime,
+          referenceDatasets,
+        ),
       };
     },
     // Lo guardado por `valuation:operations-mix` o declarado por el owner:

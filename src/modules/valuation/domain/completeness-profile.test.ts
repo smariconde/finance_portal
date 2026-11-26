@@ -8,6 +8,7 @@ import type {
 } from "./annual-fundamentals";
 import {
   completenessCheck,
+  COMPLETENESS_PROFILE_IFRS16_VERSION,
   COMPLETENESS_PROFILE_RECONCILED_SHARES_VERSION,
   COMPLETENESS_PROFILE_VERSION,
   completenessProfileSchema,
@@ -59,7 +60,7 @@ const COMPLETE: LineItemId[] = [
 ];
 
 function series(...years: FiscalYear[]): AnnualFundamentals {
-  return { version: "annual-fundamentals-1.10.0", fiscalYears: years };
+  return { version: "annual-fundamentals-1.11.0", fiscalYears: years };
 }
 
 function fiveYears(items: readonly LineItemId[]): AnnualFundamentals {
@@ -303,5 +304,44 @@ describe(COMPLETENESS_PROFILE_RECONCILED_SHARES_VERSION, () => {
     expect(completenessProfileSchema.safeParse(withoutCount).success).toBe(
       false,
     );
+  });
+});
+
+describe(COMPLETENESS_PROFILE_IFRS16_VERSION, () => {
+  const ifrsLease = (end: string): LineItemValue => ({
+    ...value("finance_lease_liability", end),
+    concept: "ifrs-full:LeaseLiabilities",
+  });
+  const withIfrsLease = (years: AnnualFundamentals): AnnualFundamentals => ({
+    ...years,
+    fiscalYears: years.fiscalYears.map((fiscalYear) => ({
+      ...fiscalYear,
+      items: {
+        ...fiscalYear.items,
+        finance_lease_liability: ifrsLease(fiscalYear.fiscalYearEnd),
+      },
+    })),
+  });
+  const withoutOperatingLease = COMPLETE.filter(
+    (item) => item !== "operating_lease_liability",
+  );
+
+  it("meets leases with an IFRS 16 liability and names the version", () => {
+    const profile = measureCompleteness(
+      withIfrsLease(fiveYears(withoutOperatingLease)),
+      { industryMapping: "mapped" },
+    );
+    expect(profile.version).toBe(COMPLETENESS_PROFILE_IFRS16_VERSION);
+    expect(completenessCheck(profile, "leases").status).toBe("met");
+    expect(completenessProfileSchema.safeParse(profile).success).toBe(true);
+  });
+
+  it("keeps a US finance lease out of the leases check, byte for byte", () => {
+    const profile = measureCompleteness(
+      fiveYears([...withoutOperatingLease, "finance_lease_liability"]),
+      { industryMapping: "mapped" },
+    );
+    expect(profile.version).toBe(COMPLETENESS_PROFILE_VERSION);
+    expect(completenessCheck(profile, "leases").status).toBe("missing");
   });
 });

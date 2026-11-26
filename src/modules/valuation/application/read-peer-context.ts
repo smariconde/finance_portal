@@ -1,3 +1,4 @@
+import { loadRunFx } from "./market-fx";
 import { baseFiscalYearEndOf } from "../domain/valuation-input";
 import type { ClassificationRepository } from "@/modules/classification/application/classification-repository";
 import { SP500_SECTOR_TAXONOMY_ID } from "@/modules/classification/domain/sector-taxonomy";
@@ -38,7 +39,10 @@ export type PeerContextDependencies = {
     ClassificationRepository,
     "loadClassifications"
   >;
-  readonly prices: Pick<PriceRepository, "loadSeries" | "loadEvents">;
+  readonly prices: Pick<
+    PriceRepository,
+    "loadSeries" | "loadEvents" | "loadBenchmarkSeries"
+  >;
   readonly fundamentals: ValuationResultDependencies["fundamentals"];
 };
 
@@ -133,7 +137,7 @@ export async function readPeerContext(
 
   const comparisonOf = async (peerRun: ValuationRun) => {
     const securityId = peerRun.subject.securityId;
-    const [closes, events] = await Promise.all([
+    const [closes, events, fx] = await Promise.all([
       dependencies.prices.loadSeries({
         securityId,
         from: peerRun.asOf,
@@ -141,6 +145,7 @@ export async function readPeerContext(
         limit: 2,
       }),
       dependencies.prices.loadEvents({ securityId }),
+      loadRunFx(dependencies.prices, peerRun),
     ]);
 
     return compareWithMarketPrice({
@@ -151,6 +156,7 @@ export async function readPeerContext(
         currency,
       })),
       events,
+      fx,
     });
   };
 

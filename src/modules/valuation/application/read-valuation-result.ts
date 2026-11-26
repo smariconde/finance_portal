@@ -1,3 +1,4 @@
+import { loadRunFx } from "./market-fx";
 import { baseFiscalYearEndOf } from "../domain/valuation-input";
 import { securityTickersAt } from "@/modules/identity/domain/resolve-identity";
 import {
@@ -57,7 +58,12 @@ import {
   excessReturnRunSchema,
   type ExcessReturnRun,
 } from "../domain/excess-return-run";
-import { divide, parseDecimal, ZERO } from "../domain/decimal-policy";
+import {
+  divide,
+  formatDecimal,
+  parseDecimal,
+  ZERO,
+} from "../domain/decimal-policy";
 import {
   readAnnualFundamentals,
   type CompanyAssessmentDependencies,
@@ -259,7 +265,10 @@ export type ValuationResultDependencies = {
   >;
   readonly universe: Pick<UniverseRepository, "loadState">;
   readonly cedears: Pick<CedearRegistryRepository, "loadRegistry">;
-  readonly prices: Pick<PriceRepository, "loadSeries" | "loadEvents">;
+  readonly prices: Pick<
+    PriceRepository,
+    "loadSeries" | "loadEvents" | "loadBenchmarkSeries"
+  >;
   readonly expectations: Pick<
     MarketExpectationsRepository,
     "acceptedForFiscalYear"
@@ -287,7 +296,7 @@ export async function marketAt(
 ): Promise<ValuationResultMarket> {
   const { prices } = dependencies;
   const securityId = run.subject.securityId;
-  const [closes, events, stored] = await Promise.all([
+  const [closes, events, stored, fx] = await Promise.all([
     prices.loadSeries({
       securityId,
       from: run.asOf,
@@ -299,13 +308,19 @@ export async function marketAt(
       run.subject.legalEntityId,
       baseFiscalYearEndOf(run.input),
     ),
+    loadRunFx(prices, run),
   ]);
   const readable = closes.map(({ marketDate, close, currency }) => ({
     marketDate,
     close,
     currency,
   }));
-  const comparison = compareWithMarketPrice({ run, closes: readable, events });
+  const comparison = compareWithMarketPrice({
+    run,
+    closes: readable,
+    events,
+    fx,
+  });
   const latest = readable.at(-1);
   const implied = marketImpliedExpectations({ run, comparison });
   const context = marketImpliedContext(run.input);
@@ -523,7 +538,26 @@ export async function cedearMarketAt(
   comparison: MarketPriceComparison,
   prices: ValuationResultDependencies["prices"],
 ): Promise<ValuationResultCedear> {
-  const cedear = cedearAccessAt(graph, registry, run);
+  // Una corrida convertida (`F6-55`): el valor por CEDEAR se lee en la moneda
+  // del cierre listado, con el cambio del mismo día que la comparación usó.
+  const conversion =
+    comparison.status === "compared" ? comparison.conversion : undefined;
+  const cedear = cedearAccessAt(
+    graph,
+    registry,
+    conversion === undefined || run.valuePerShare === null
+      ? run
+      : {
+          ...run,
+          currency: conversion.listed.currency,
+          valuePerShare: formatDecimal(
+            parseDecimal(run.valuePerShare, "valuePerShare").times(
+              parseDecimal(conversion.fx.close, "conversion.fx.close"),
+            ),
+            "valuePerShare.listed",
+          ),
+        },
+  );
   const access = resolveCedearAccess(registry, run.securityId, run.knowledge);
   const securityIds =
     access.status === "program"

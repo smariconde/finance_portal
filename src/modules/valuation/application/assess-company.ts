@@ -1,3 +1,8 @@
+import {
+  RISK_FREE_FIELD,
+  riskFreeCurveOf,
+} from "@/modules/reference-data/domain/risk-free-curves";
+import { declaredForeignFiler } from "@/modules/universe/domain/declared-foreign-filers";
 import { isExcessReturnProfile } from "../domain/asset-profile";
 import { buildFailureRisk, type FailureRisk } from "../domain/failure-risk";
 import { DECLARED_FAILURE_PROBABILITIES } from "./declared-failure-probabilities";
@@ -197,6 +202,11 @@ export type CompanyAssessmentDependencies = {
     readonly regions?: ReferenceReading | null;
     /** EV/Sales por industria, para pesar una mezcla de negocios (`F6-48`). */
     readonly evToSales?: ReferenceReading | null;
+    /**
+     * Las curvas soberanas declaradas visibles al corte, por dataset
+     * (`F6-55`): el libre de riesgo de una corrida que no es en USD.
+     */
+    readonly riskFreeCurves?: Readonly<Record<string, ReferenceReading | null>>;
   }>;
   /**
    * El mix de operaciones visible al corte —la declaración del owner, o la
@@ -563,6 +573,15 @@ export async function assessCompany(
       ? declaredRatingReading.declared
       : null;
 
+  const runCurrency =
+    series?.fiscalYears[0]?.items.revenue?.currency ?? "unknown";
+  // Un emisor extranjero declarado (`F6-55`): su domicilio y la curva de su
+  // moneda. Uno de EE. UU. no tiene ninguno de los dos.
+  const foreignFiler =
+    request.cik === null ? null : declaredForeignFiler(request.cik);
+  const riskFreeCurve =
+    runCurrency === "USD" ? null : riskFreeCurveOf(runCurrency);
+
   const costOfCapital: CostOfCapitalResult = FINANCIAL_PROFILES.has(
     selection.assetProfile ?? "",
   )
@@ -575,9 +594,21 @@ export async function assessCompany(
       }
     : buildCostOfCapital({
         // La moneda de los estados: la del libre de riesgo tiene que coincidir.
-        currency: series?.fiscalYears[0]?.items.revenue?.currency ?? "unknown",
+        currency: runCurrency,
         industryKey: industry.status === "mapped" ? industry.industryKey : null,
         listingCountry: request.listingCountry,
+        domicileCountry: foreignFiler?.domicileCountry ?? null,
+        currencyRiskFree:
+          riskFreeCurve === null
+            ? null
+            : {
+                reading:
+                  readings.riskFreeCurves?.[riskFreeCurve.datasetId] ?? null,
+                asOf: query.effectiveAt.slice(0, 10),
+                maxAgeDays: riskFreeCurve.maxAgeDays,
+                frequency: riskFreeCurve.frequency,
+                field: RISK_FREE_FIELD,
+              },
         ...readings,
         coverage:
           declaredRating !== null

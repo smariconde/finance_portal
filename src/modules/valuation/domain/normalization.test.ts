@@ -692,7 +692,7 @@ describe("normalization with a composed pretax income (pretax-income-1.0.0)", ()
       },
     };
     const series = {
-      version: "annual-fundamentals-1.10.0",
+      version: "annual-fundamentals-1.11.0",
       fiscalYears: [{ fiscalYearEnd: BASE, items: { pretax_income: pretax } }],
     } as unknown as AnnualFundamentals;
 
@@ -731,7 +731,7 @@ describe("normalizationFactsFromSeries", () => {
 
   it("keeps the concept the series chose and up to four previous years", () => {
     const series = {
-      version: "annual-fundamentals-1.10.0",
+      version: "annual-fundamentals-1.11.0",
       fiscalYears: [...ENDS, "2020-12-31", "2019-12-31"].map((end) => ({
         fiscalYearEnd: end,
         items: {
@@ -772,7 +772,7 @@ describe("normalizationFactsFromSeries", () => {
   it("has nothing to normalize without a fiscal year", () => {
     expect(
       normalizationFactsFromSeries(
-        { version: "annual-fundamentals-1.10.0", fiscalYears: [] },
+        { version: "annual-fundamentals-1.11.0", fiscalYears: [] },
         (value) => money(value.value),
       ),
     ).toBeNull();

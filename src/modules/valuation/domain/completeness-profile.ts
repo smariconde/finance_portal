@@ -43,13 +43,22 @@ export const COMPLETENESS_PROFILE_VERSION = "completeness-profile-1.3.0";
  */
 export const COMPLETENESS_PROFILE_RECONCILED_SHARES_VERSION =
   "completeness-profile-1.4.0";
+/**
+ * `1.5.0` (`F6-55`, ADR 0087): el pasivo por arrendamientos de IFRS 16
+ * (`ifrs-full:LeaseLiabilities`) también cumple `leases`, porque bajo IFRS no
+ * hay arrendamientos operativos. Sólo un perfil que lo usó lleva `1.5.0`.
+ */
+export const COMPLETENESS_PROFILE_IFRS16_VERSION = "completeness-profile-1.5.0";
 const COMPLETENESS_PROFILE_VERSIONS = [
   "completeness-profile-1.0.0",
   "completeness-profile-1.1.0",
   "completeness-profile-1.2.0",
   COMPLETENESS_PROFILE_VERSION,
   COMPLETENESS_PROFILE_RECONCILED_SHARES_VERSION,
+  COMPLETENESS_PROFILE_IFRS16_VERSION,
 ] as const;
+
+const IFRS16_LEASE_LIABILITY = "ifrs-full:LeaseLiabilities";
 
 export const completenessCheckIds = [
   /** Lo mínimo para que el motor FCFF empiece, en el último ejercicio. */
@@ -237,6 +246,15 @@ export function measureCompleteness(
     context.dilutedShares.fiscalYearEnd === latest.fiscalYearEnd
       ? context.dilutedShares
       : null;
+  // `1.5.0`: el arrendamiento de IFRS 16, sólo donde no hay operativo
+  // publicado y sin acciones conciliadas (que salen de un 10-K en us-gaap).
+  const ifrs16Leases =
+    reconciledShares === null &&
+    latest !== undefined &&
+    !has(latest, "operating_lease_liability") &&
+    !has(latest, "operating_lease_liability_current") &&
+    !has(latest, "operating_lease_liability_noncurrent") &&
+    latest.items.finance_lease_liability?.concept === IFRS16_LEASE_LIABILITY;
   const researchYears =
     series?.fiscalYears.filter((year) => has(year, "research_development"))
       .length ?? 0;
@@ -279,7 +297,8 @@ export function measureCompleteness(
         "operating_lease_liability",
         has(latest, "operating_lease_liability") ||
           (has(latest, "operating_lease_liability_current") &&
-            has(latest, "operating_lease_liability_noncurrent")),
+            has(latest, "operating_lease_liability_noncurrent")) ||
+          ifrs16Leases,
       ],
     ]),
     check(
@@ -328,7 +347,9 @@ export function measureCompleteness(
 
   return reconciledShares === null
     ? {
-        version: COMPLETENESS_PROFILE_VERSION,
+        version: ifrs16Leases
+          ? COMPLETENESS_PROFILE_IFRS16_VERSION
+          : COMPLETENESS_PROFILE_VERSION,
         latestFiscalYearEnd: latest?.fiscalYearEnd ?? null,
         checks,
       }
