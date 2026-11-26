@@ -98,6 +98,31 @@ describe("followed-filer-eligibility-1.0.0", () => {
     ).toEqual({ status: "refused", reason: "foreign_private_issuer" });
   });
 
+  it("acepta el 20-F sólo de un CIK que el owner declaró (F6-55)", () => {
+    const spotify = "0001639920";
+    expect(
+      judgeAnnualReports(
+        [filing("20-F", "2026-02-10"), filing("6-K", "2026-10-21")],
+        "2026-11-25",
+        spotify,
+      ),
+    ).toMatchObject({ status: "eligible", form: "20-F" });
+    expect(
+      judgeAnnualReports(
+        [filing("20-F", "2026-02-10")],
+        "2026-11-25",
+        "0000000042",
+      ),
+    ).toEqual({ status: "refused", reason: "foreign_private_issuer" });
+    // Declarar un 20-F no admite un 40-F, ni un 20-F viejo.
+    expect(
+      judgeAnnualReports([filing("40-F", "2026-02-10")], "2026-11-25", spotify),
+    ).toEqual({ status: "refused", reason: "foreign_private_issuer" });
+    expect(
+      judgeAnnualReports([filing("20-F", "2024-02-10")], "2026-11-25", spotify),
+    ).toEqual({ status: "refused", reason: "annual_report_stale" });
+  });
+
   it("acepta a quien pasó de 20-F a 10-K", () => {
     expect(
       judgeAnnualReports(

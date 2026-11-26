@@ -15,10 +15,20 @@ describe("sec concept selection", () => {
     // Cambiar la lista, la ventana o los conceptos de evidencia sin subir la
     // versión rompe este test: la corrida diría haber ingerido otra cosa.
     expect(SEC_CONCEPT_SELECTION).toEqual({
-      version: "sec-core-concepts-13.0.0",
+      version: "sec-core-concepts-14.0.0",
       components: { historyWindow: "sec-history-5fy-2.0.0" },
     });
-    expect(listSelectedSecConcepts()).toHaveLength(107);
+    expect(listSelectedSecConcepts()).toHaveLength(160);
+    // La taxonomía de los 20-F declarados (14.0.0, `F6-55`).
+    for (const concept of [
+      "Revenue",
+      "ProfitLossFromOperatingActivities",
+      "LeaseLiabilities",
+      "FinanceCosts",
+      "AdjustedWeightedAverageShares",
+    ]) {
+      expect(isSelectedSecConcept("ifrs-full", concept)).toBe(true);
+    }
     // El capex con otro nombre (12.0.0, `F6-49`) y las partes de la utilidad
     // antes de impuestos con su control (13.0.0, `F6-52`).
     for (const concept of [

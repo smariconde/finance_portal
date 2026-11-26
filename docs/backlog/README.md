@@ -166,7 +166,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   138 | `F6-52`    | `done`        | GE evaluable: la lectura de linaje deja de cortar en 1.000 revisiones por segmento; PSX re-medido con la selección vigente.                                                                                               | `F6-51`            |
 |   139 | `F6-53`    | `done`        | Corredores y bancos de inversión (SIC 6211) valuados como `broker_dealer` con exceso de retorno y payout del trienio con tope en uno; HOOD, SCHW, GS, MS y RJF llegan a corrida.                                          | `F6-52`            |
 |   140 | `F6-54`    | `done`        | Emisores con 20-F medidos y [ADR 0087](../architecture/adr/0087-foreign-private-issuers.md) aceptada: moneda de reporte, FX de Yahoo, SPOT, NVO y TSM primero.                                                            | `F6-53`            |
-|   141 | `F6-55`    | `ready`       | SPOT, NVO y TSM valuados desde su 20-F en su moneda de reporte, con el valor por ADS en dólares al tipo de cambio del día.                                                                                                | `F6-54`            |
+|   141 | `F6-55`    | `in_progress` | SPOT, NVO y TSM valuados desde su 20-F en su moneda de reporte, con el valor por ADS en dólares al tipo de cambio del día.                                                                                                | `F6-54`            |
 |   142 | `F6-56`    | `queued`      | ASML: 20-F en US GAAP y EUR, con las secciones de su informe integrado leídas por el índice de referencias cruzadas.                                                                                                      | `F6-55`            |
 |   143 | `F11-18`   | `in_progress` | Day y swing en bolsillos separados: tipo automático, 70 % swing, reglas del día sólo con day trades, 0,5 % / 2 % por trade y 6 % de riesgo abierto en las swing, en `/cuenta` y `/plan`.                                  | Pedido del owner   |
 
@@ -5079,11 +5079,11 @@ revisión». Medido sobre Production (Neon y MCP) con `valuation:assess
   después, NU fuera.
 - Sin código.
 
-#### `F6-55` — 20-F en IFRS: SPOT, NVO y TSM
+#### `F6-55` — 20-F en IFRS: SPOT y NVO
 
-- Estado: `ready`
+- Estado: `in_progress`
 - Fase y dependencia: Fase 6, después de `F6-54`.
-- Alcance incluido: medir antes de codificar la tasa libre de riesgo en EUR, DKK
+- Alcance original: medir antes de codificar la tasa libre de riesgo en EUR, DKK
   y TWD (Damodaran por moneda o diferencial de inflación) y traerla al owner;
   admitir el 20-F de los CIK declarados; selección `ifrs-full`; último ejercicio
   desde el instance del 20-F si `companyfacts` no lo tiene; base anual; ratio del
@@ -5092,6 +5092,33 @@ revisión». Medido sobre Production (Neon y MCP) con `valuation:assess
 - Controles: `TM-05`, `TM-06`, `TM-08`, `TM-10`, `TM-16`.
 - Criterios de aceptación: corrida registrada de los tres en una réplica con el
   worker real, replay de lo existente sin cambios.
+
+- Tasa libre de riesgo medida el 2026-11-25 y decidida por el owner: EUR de la
+  curva AAA diaria del ECB a 10 años (3,31 % al 2026-11-24) y DKK del bono
+  danés mensual del ECB (3,23 % a octubre; Dinamarca Aaa, spread 0). Para TWD no
+  hay fuente oficial legible por máquina: la API del FMI responde 403, la
+  OpenAPI de TPEx no publica las tasas benchmark y el banco central sólo
+  publica PDF. **TSM sale de este slice** hasta tener una fuente.
+- Incrementos: (1) admisión del 20-F declarado y ventana `ifrs-full`; (2) serie
+  anual con las reglas de IFRS 16, tasa del ECB, costo de capital en EUR, tipo
+  de cambio de Yahoo y valor de SPOT; (3) NVO con su ADS como recibo de
+  depósito, DKK y acciones por clase; (4) tareas de IA sobre Item 4 y 5.
+
+**Incremento 1 (2026-11-25).** `followed-filer-eligibility-1.1.0` admite un
+20-F sólo para un CIK de `DECLARED_FOREIGN_FILERS`
+(`declared-foreign-filers-1.0.0`: Spotify, EUR, acción ordinaria en NYSE); un
+20-F no declarado y todo 40-F siguen siendo `foreign_private_issuer`.
+`sec-core-concepts-14.0.0` suma 53 conceptos `ifrs-full` medidos en los 20-F de
+SPOT, NVO y TSM, guardados con su concepto original: equiparar
+`LeaseLiabilities` (IFRS 16, todos los arrendamientos, con su interés ya fuera
+del EBIT) o `FinanceCosts` a sus pares de US GAAP es una regla de la serie del
+incremento 2, porque capitalizar esos arrendamientos como operativos contaría
+dos veces su interés. Un filer de 10-K no cambia lo que guarda, pero su ventana
+se baja una vez más por la versión nueva. Medido en una réplica con el worker
+real: SPOT se constituyó, bajó precios y `companyfacts` (182 hechos
+`ifrs-full` en EUR sobre 32 conceptos, ancla 2025-12-31) y pasó la auditoría
+point-in-time (203 cadenas); el job termina en `annual_fundamentals` porque la
+serie todavía no lee IFRS. Gates: 4.956 unit, 257 de integración.
 
 #### `F6-56` — ASML (20-F en US GAAP y EUR)
 
