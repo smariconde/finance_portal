@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  CalendarDays,
   Calculator,
   ChartScatter,
   GraduationCap,
@@ -17,10 +18,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import {
-  HOME_ITEM,
   isWithin,
   NAV_SECTIONS,
   SETTINGS_ITEM,
+  TOP_ITEMS,
   type NavItem,
 } from "@/app/_components/navigation";
 import {
@@ -40,6 +41,7 @@ import {
 
 const ICONS: Readonly<Record<string, LucideIcon>> = {
   "/": Home,
+  "/calendario": CalendarDays,
   "/valuacion": Calculator,
   "/sectores": ChartScatter,
   "/argentina": Landmark,
@@ -115,11 +117,14 @@ export function AppSidebar() {
           <SidebarGroup className="pb-0">
             <SidebarGroupContent>
               <SidebarMenu>
-                <NavLink
-                  item={HOME_ITEM}
-                  pathname={pathname}
-                  onNavigate={closeMobileNavigation}
-                />
+                {TOP_ITEMS.map((item) => (
+                  <NavLink
+                    key={item.href}
+                    item={item}
+                    pathname={pathname}
+                    onNavigate={closeMobileNavigation}
+                  />
+                ))}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

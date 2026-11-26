@@ -129,6 +129,19 @@ test.describe("negativa del runtime trabado", () => {
     ).toHaveCount(0);
   });
 
+  test("el calendario de la NYSE es código y se lee también trabado", async ({
+    page,
+  }) => {
+    await page.goto(ROUTES.calendar);
+
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Calendario" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("table", { name: /Horario regular de la bolsa/u }),
+    ).toBeVisible();
+  });
+
   test("mantiene el diagnóstico disponible, que es la salida del estado", async ({
     page,
   }) => {

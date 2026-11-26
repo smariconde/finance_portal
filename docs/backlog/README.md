@@ -172,7 +172,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   144 | `F6-57`    | `queued`      | Opciones de un emisor IFRS con precio de ejercicio en otra moneda: transcripción del 20-F, corroboración `ifrs-full` y tipo de cambio congelado en el snapshot.                                                           | `F6-55`            |
 |   145 | `F6-58`    | `queued`      | NVO: el ADS como recibo de depósito (programa ADR 1:1 citado del 20-F), DKK, acciones A + B y patrimonio IFRS sin no controlantes.                                                                                        | `F6-55`            |
 |   146 | `F9-22`    | `done`        | `/argentina` dice qué cifra está verificada, buscándose, sin verificar o cargada a mano; la tira de novedades lleva la cifra y el antes → después; tarjetas de lo diario a lo mensual.                                    | Pedido del owner   |
-|   147 | `F12-01`   | `ready`       | Sesiones de NYSE/Nasdaq 2026–2028 declaradas y corroboradas por Schwab, en hora de Nueva York y de Buenos Aires con el cambio de horario marcado; `/calendario` al lado de Inicio y la franja «Hoy · Mañana».             | ADR 0088           |
+|   147 | `F12-01`   | `in_progress` | Sesiones de NYSE/Nasdaq 2026–2028 declaradas y corroboradas por Schwab, en hora de Nueva York y de Buenos Aires con el cambio de horario marcado; `/calendario` al lado de Inicio y la franja «Hoy · Mañana».             | ADR 0088           |
 |   148 | `F12-02`   | `queued`      | Fechas de resultados de todo el mercado desde Alpha Vantage como revisiones: riesgo a 5 sesiones en las swing, «Reporta hoy» en day y links a Finviz para el resto del mercado.                                           | `F12-01`           |
 |   149 | `F12-03`   | `queued`      | Agenda de Estados Unidos: publicaciones declaradas desde FRED con su hora y su importancia, y reuniones del FOMC declaradas.                                                                                              | `F12-01`           |
 |   150 | `F12-04`   | `queued`      | Agenda argentina: calendario de informes del BCRA y del INDEC (IPC, EMAE, comercio, REM y fiscal), y «esperado hoy» junto a las marcas de `/argentina`.                                                                   | `F12-01`, `F9-20`  |
@@ -8778,6 +8778,40 @@ probar el control; fases posteriores pueden volver a verificarlo.
   rollback de `0008`, `0006` y `0005`), 393 E2E, lint, tipos, formato y build.
   El card de riesgo se miró renderizado a 1280 y 390 con datos de ejemplo: con
   el capital day agotado el planner day da 0 acciones y nombra el tope.
+
+## `F12-01` — sesiones de Nueva York y `/calendario`
+
+- Estado: `in_progress`. El primer incremento está hecho; falta la
+  corroboración con Schwab.
+- Autorización: [ADR 0088](../architecture/adr/0088-market-calendar-agenda.md),
+  aceptada por el owner el 2026-11-26.
+- Hecho en el incremento 1:
+  - `declared-market-sessions.ts` con los 29 feriados y los 5 cierres tempranos
+    2026–2028 tal como los publica la NYSE (anuncio del 2025-12-23, página
+    consultada el 2026-11-26).
+  - `market-sessions-1.0.0`: si opera una fecha, horario regular en Nueva York
+    y Buenos Aires por `Intl`, el momento del día, la próxima sesión, el próximo
+    cambio de horario y la cobertura. Fuera de lo declarado una fecha es
+    `undeclared`. El horario extendido depende del broker y no se declara.
+  - `/calendario` al lado de Inicio: grilla mensual, «Lo que viene» a 120 días y
+    procedencia. Se lee en cualquier modo porque es código.
+  - `MarketStrip` («Hoy · Mañana») en Inicio, `/cuenta` y `/plan`.
+- Pendiente:
+  - Schwab (`/marketdata/v1/markets`) comparado al abrir `/cuenta` y
+    `/calendario`, sin guardar la respuesta.
+  - Medirlo con la cuenta del owner. Desde el host local no se pudo: la
+    `TRADING_SECRET_KEY` local no abre los tokens de Production, y los dos
+    intentos dejaron dos eventos `refresh_failed` (`envelope_authentication`)
+    en el registro de conexión de Production, sin tocar ningún token.
+- Evidencia local:
+  - 28 unitarios del dominio: Thanksgiving, el cierre temprano a las 15:00 de
+    Buenos Aires, los domingos de cambio de 2026 y 2027, el 1 de enero de 2028
+    sin feriado, Navidad 2027 observada el 24, la fecha de Nueva York a la 01:00
+    de Buenos Aires y 2029 sin calendario.
+  - 5.055 unitarios, lint, tipos, formato y build (`/calendario` dinámica).
+  - 410 E2E con `axe`, incluido `/calendario` en los modos personal y trabado.
+  - La página y la franja se miraron renderizadas a 1440 y 390, en claro y
+    oscuro.
 
 ## Plantilla para nuevos issues
 

@@ -14,6 +14,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { MarketStrip } from "@/app/_components/market-strip";
 import { PageContainer, PageHeader } from "@/app/_components/page-frame";
 import { StatusMark } from "@/app/_components/status-mark";
 import { ValuationRequestForm } from "@/app/valuacion/_components/valuation-request-form";
@@ -117,6 +118,7 @@ export default async function HomePage({
   return (
     <PageContainer>
       <PageHeader id="inicio-title" title="Inicio" />
+      <MarketStrip />
 
       <div className="grid items-start gap-6 lg:grid-cols-2">
         <section aria-labelledby="analysis-title">
