@@ -1,6 +1,6 @@
 # ADR 0088: calendario de mercado y agenda de publicaciones
 
-- Estado: propuesta
+- Estado: aceptada (2026-11-26)
 - Fecha: 2026-11-26
 - Alcance: Fase 12, `F12-01` a `F12-05`.
 - Relacionadas: [ADR 0009](0009-egress-boundary.md) (puerta de salida),
@@ -129,20 +129,13 @@ declarado, nombrando que no se corroboró.
 Lo declarado es código del repositorio: se puede leer en cualquier modo, como
 las lecciones de `F11-10`.
 
-## Decisión 3 — las sesiones de BYMA salen de los feriados nacionales
+## Decisión 3 — BYMA y los feriados argentinos quedan afuera (decisión del owner)
 
-El JSON anual de feriados de `argentina.gob.ar` es una fuente nueva
-(`argentina-feriados`, CC BY 4.0, citar a la Jefatura de Gabinete), bajada
-una vez por día de Buenos Aires al abrir, con cada fecha como cadena de
-revisiones. Un año sin publicar se informa como «sin publicar», nunca como un
-año sin feriados.
-
-`byma-sessions-1.0.0` cierra BYMA en `inamovible`, `trasladable` y
-`turistico`, y no lo cierra en `no_laborable`, que es optativo. Un día
-`especial` queda «a confirmar» hasta que una excepción declarada diga qué hizo
-BYMA. Antes de fijar la regla, `F12-01` la mide contra los cierres guardados de
-las patas locales de los ADR (`adr_pair_closes`) en 2026: si BYMA operó el
-2026-11-10 y los días `no_laborable`.
+El owner vive en la Argentina y conoce sus feriados; el calendario no los
+agrega. No entra la fuente `argentina-feriados` ni una regla de sesiones de
+BYMA, y la franja habla sólo de Nueva York. Lo medido (el JSON tipado de
+`argentina.gob.ar`, los días `no_laborable` optativos y los `especial` de una
+jurisdicción) queda como insumo si el owner lo reabre.
 
 ## Decisión 4 — las fechas de resultados salen de Alpha Vantage
 
@@ -173,7 +166,7 @@ mecanismo `env_query` de la ADR 0083). `fred/releases/dates` devuelve en pocos
 pedidos las fechas de todas las publicaciones; se guardan sólo las de
 `declared-macro-releases.ts`, cada una con su `release_id` de FRED, su nombre,
 su organismo, su hora habitual declarada (FRED no da hora) y una importancia
-que decide el owner. La propuesta inicial es CPI, Employment Situation, PPI,
+que decide el owner. La lista aceptada por el owner es CPI, Employment Situation, PPI,
 GDP, Personal Income and Outlays (PCE), Retail Sales, JOLTS y los pedidos
 iniciales de desempleo.
 
@@ -204,18 +197,42 @@ la ADR 0079 se completa: «esperado hoy» hasta que llega el período, y
 los mismos grupos de frescura de `argentina-freshness-1.0.0` con los que cada
 tarjeta y bloque dice si está verificado.
 
-## Decisión 7 — una página y una franja
+## Decisión 7 — una página, una franja y dos lecturas de los resultados
 
-- `/calendario` muestra la semana (y el mes en pantallas anchas) con las tres
-  clases de evento, filtrables por mercado, por «mis empresas» y por
-  importancia, con su tabla equivalente. Es visual: sin párrafos, la
-  explicación en `InfoTip`.
+- `/calendario` es un ítem propio de la navegación, al lado de Inicio
+  (decisión del owner). Muestra la semana (y el mes en pantallas anchas) con
+  las tres clases de evento, filtrables por «mis empresas» y por importancia,
+  con su tabla equivalente. Es visual: sin párrafos, la explicación en
+  `InfoTip`.
 - Una franja «Hoy · Mañana» en Inicio, `/cuenta` y `/plan` dice si opera
-  Nueva York y BYMA, el horario en hora de Buenos Aires y los eventos de
-  importancia alta.
-- En `/cuenta`, una posición swing que atraviesa una fecha de resultados en
-  las próximas sesiones es una alerta de `trading-rules`, que no bloquea nada
-  (`earnings-exposure-1.0.0`).
+  Nueva York, su horario en hora de Buenos Aires, las publicaciones de
+  importancia alta y las empresas seguidas que reportan.
+
+Una fecha de resultados se lee de dos maneras, según el libro de
+`trading-book-1.0.0` (decisión del owner):
+
+- **Swing: un riesgo.** `earnings-exposure-1.0.0` marca una posición swing
+  abierta, o una idea swing de `/plan`, cuyo próximo reporte cae dentro de las
+  próximas **5 sesiones** de Nueva York, contando la de hoy. En `/cuenta` la
+  fila de la posición lleva un chip ámbar («Resultados · jue 3/12 · post-cierre
+  · en 3 sesiones») y la fila swing de la tarjeta de riesgo suma una alerta
+  `warning` de `trading-rules`, que no bloquea nada. En `/plan` el chip va en
+  la idea, y el planner dice en un `InfoTip` que el stop no protege de un gap
+  de apertura: el riesgo real puede ser mayor que el calculado.
+- **Day: una oportunidad.** No es una alerta: es una marca neutra «Reporta
+  hoy» para las empresas seguidas cuyo reporte mueve la sesión de hoy —el de
+  anoche después del cierre o el de hoy antes de la apertura—, en la franja y
+  en `/plan`. Para el resto del mercado, la franja ofrece dos links al
+  screener de Finviz armados con `finviz-screener-url-1.0.0`
+  (`earningsdate_yesterdayafter` y `earningsdate_todaybefore`), porque Finviz
+  es el filtro de mercado del owner (ADR 0016) y el portal no le baja nada.
+
+Un reporte sin hora informada lleva «hora s/i» y nunca se ubica antes o
+después de la sesión por suposición: en swing cuenta como dentro de la
+ventana; en day no se marca «Reporta hoy» hasta saber la hora.
+
+No hay notificaciones fuera del portal: las marcas se ven al abrir la página,
+como las de la ADR 0079.
 
 ## Decisión 8 — las reglas de frescura usan el calendario
 
@@ -232,25 +249,26 @@ Nueva York, sin tocar lo que ya fecharon. Es el último slice de la fase.
 - Pronósticos del dato («se espera 0,3 %»): el portal no tiene una fuente de
   consenso macro gratuita con derechos.
 
-## Decisiones del owner pendientes
+## Decisiones del owner (2026-11-26)
 
-1. Dónde vive `/calendario` en la navegación: como ítem propio al lado de
-   Inicio (propuesta) o dentro de «Análisis».
-2. Cuántas sesiones antes de los resultados avisa la alerta de swing
-   (propuesta: 5), y si un day trade en un día de resultados también avisa.
-3. La lista y la importancia de las publicaciones de Estados Unidos y de la
+1. `/calendario` es un ítem propio al lado de Inicio.
+2. La ventana de resultados es de 5 sesiones para swing, como riesgo; en day
+   trading el reporte del día es una oportunidad de volatilidad y se marca sin
+   alerta.
+3. La lista propuesta de publicaciones se acepta: CPI, Employment Situation,
+   PPI, GDP, PCE, Retail Sales, JOLTS, pedidos iniciales de desempleo y FOMC en
+   Estados Unidos; IPC, EMAE, comercio exterior, REM y resultado fiscal en la
    Argentina.
-4. Qué hace BYMA un día `especial` hasta que haya excepción declarada
-   (propuesta: «a confirmar»).
+4. Los feriados argentinos y las sesiones de BYMA quedan afuera: el owner los
+   conoce.
 
 ## Consecuencias
 
 - El portal sabe qué días opera Nueva York y lo muestra en la hora del owner,
   con el cambio de horario marcado.
-- Tres fuentes nuevas (`argentina-feriados`, `fred`,
-  `bcra-calendario-informes`), cada una con su fila de derechos, su entrada en
-  la allowlist y su cuota diaria antes del primer pedido; Alpha Vantage gasta
-  uno de sus 25 pedidos diarios más.
+- Dos fuentes nuevas (`fred` y `bcra-calendario-informes`), cada una con su
+  fila de derechos, su entrada en la allowlist y su cuota diaria antes del
+  primer pedido; Alpha Vantage gasta uno de sus 25 pedidos diarios más.
 - Las sesiones de 2029 en adelante exigen declarar el anuncio de la NYSE
   cuando salga (el de 2026–2028 salió en diciembre de 2025): `/calendario`
   avisa cuando falta menos de un año para el final de lo declarado, y fuera de
