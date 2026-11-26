@@ -1231,6 +1231,13 @@ Since `F9-23` an ⓘ next to each block title opens its guide
 which blocks to cross it with (links) and traps, in short lines a test keeps
 free of advice or forecasts. `InfoTip wide` is the 24rem scrolling variant.
 
+Since `F9-24` (ADR 0075 amendment) the REM block's observed CPI is asked on
+open: `ipc_nacional` is the one expanded INDEC series in the INDEC refresh
+job. When the INDEC API lacks a month —it lagged October's CPI—
+`rem-observed-ipc-1.0.0` reads the BCRA's variable 27 and the row says «vía
+BCRA» (owner's decision); `rem-target-month-1.0.0` names a missing month «En
+curso», «Por venir» or «Pendiente».
+
 Country risk (`F9-19`/`F9-21`, [ADR 0080](docs/architecture/adr/0080-argentina-country-risk-source.md),
 no migration) is J.P. Morgan's sovereign spread read from Ámbito's history of
 closes (`ambito-riesgo-pais`, one request for everything since 1998), never

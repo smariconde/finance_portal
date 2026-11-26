@@ -13,6 +13,7 @@ import {
   ensureArgentinaRefresh,
   openRefreshJobs,
   readArgentinaRefreshReadiness,
+  REM_OBSERVED_IPC_ID,
   runIndependentRefreshJobs,
   RefreshSubjectRejectedError,
   type ArgentinaRefreshReadiness,
@@ -51,6 +52,7 @@ import {
 import { recordArgentinaIndicator } from "@/modules/macro-series/application/record-argentina-indicator";
 import { recordBcraSeries } from "@/modules/macro-series/application/record-bcra-series";
 import { declaredArgentinaIndicator } from "@/modules/macro-series/domain/declared-argentina-indicators";
+import { declaredIndecExpandedIndicator } from "@/modules/macro-series/domain/declared-indec-expanded-indicators";
 import { declaredSoyIndicator } from "@/modules/macro-series/domain/declared-soy-indicators";
 import { declaredCountryRisk } from "@/modules/macro-series/domain/declared-country-risk";
 import { createLiveCountryRiskSource } from "@/modules/macro-series/application/live-country-risk-source";
@@ -301,7 +303,12 @@ function recorderFor(
               fetch,
             });
       return async (_job, subjectKey) => {
-        const indicator = declaredArgentinaIndicator(subjectKey);
+        // The REM's observed CPI is the one expanded series asked on open.
+        const indicator =
+          declaredArgentinaIndicator(subjectKey) ??
+          (source.sourceId === "indec-api" && subjectKey === REM_OBSERVED_IPC_ID
+            ? declaredIndecExpandedIndicator(subjectKey)
+            : null);
         if (indicator === null) {
           throw new RefreshSubjectRejectedError("not_declared");
         }

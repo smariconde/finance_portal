@@ -132,6 +132,7 @@ export default async function ArgentinaPage() {
       knowledgeBasis: "public_availability",
       forecasts: getRemForecastRepository(),
       indicators: getArgentinaIndicatorRepository(),
+      macro: getMacroSeriesRepository(),
     });
   } catch (error) {
     console.error(
@@ -196,7 +197,7 @@ export default async function ArgentinaPage() {
         <ItcrmSection itcrm={dashboard.itcrm} />
         <CountryRiskSection countryRisk={dashboard.countryRisk} />
         <MonetarySection monetary={dashboard.monetary} />
-        <RemInflationSection rows={remComparison} />
+        <RemInflationSection rows={remComparison} readAt={dashboard.readAt} />
         <FiscalSection fiscal={dashboard.fiscal} />
         <ExternalSection external={dashboard.external} />
         <SoySection soy={dashboard.soy} />
