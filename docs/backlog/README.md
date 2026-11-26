@@ -178,6 +178,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   150 | `F12-04`   | `queued`      | Agenda argentina: calendario de informes del BCRA y del INDEC (IPC, EMAE, comercio, REM y fiscal), y «esperado hoy» junto a las marcas de `/argentina`.                                                                   | `F12-01`, `F9-20`  |
 |   151 | `F12-05`   | `queued`      | Reglas de frescura de precios y sesión de trading en versiones nuevas que saben qué días opera Nueva York.                                                                                                                | `F12-01`           |
 |   152 | `F9-23`    | `done`        | Guía ⓘ junto al título de cada bloque de `/argentina`: para qué sirve, cómo leerlo, con qué cruzarlo y qué puede confundir, en líneas cortas y sin consejos.                                                              | Pedido del owner   |
+|   153 | `F9-24`    | `done`        | El IPC observado del bloque REM se pide al abrir; si la API del INDEC no tiene el mes, se lee del BCRA «vía BCRA»; cada mes sin IPC dice por qué.                                                                         | Pedido del owner   |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -8034,6 +8035,24 @@ La organización sigue en Launch y el regreso a Free queda a cargo del owner.
   también como línea vertical.
 - Sin migración. En Production la serie se baja en la primera apertura de
   `/argentina`, con un pedido.
+
+#### `F9-24` — el IPC observado del REM
+
+- Estado: `done` el 2026-11-26. El owner vio en Production el bloque REM con
+  todos los meses «Pendiente», octubre incluido. Enmienda de la
+  [ADR 0075](../architecture/adr/0075-bcra-rem-release-forecasts.md).
+- Medido: `ipc_nacional` (catálogo ampliado de `F9-08`) no estaba en la
+  actualización al abrir; en la base local tenía datos hasta septiembre,
+  cargados a mano el 2026-11-07. Pedida, la API del INDEC tampoco traía
+  octubre (corrida `duplicate`), mientras la variable 27 del BCRA ya decía
+  2,2 %.
+- `ipc_nacional` entra en el job del INDEC (`REM_OBSERVED_IPC_ID`, dos
+  pedidos). `rem-observed-ipc-1.0.0` usa la variable 27 cuando el INDEC no
+  tiene el mes, por decisión del owner, y la fila dice «vía BCRA» con un
+  decimal. `rem-target-month-1.0.0`: «En curso», «Por venir» o «Pendiente».
+- Revisado en una réplica con la variable 27 cargada sólo ahí (10 pedidos al
+  BCRA): octubre 2,2 % vía BCRA, error +0,4 pp; noviembre «En curso»; axe sin
+  hallazgos en el bloque, sin errores de consola.
 
 #### `F9-23` — guía de cada bloque
 

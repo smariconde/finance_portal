@@ -68,9 +68,10 @@ import { DASHBOARD_BCRA_VARIABLES } from "./load-argentina-dashboard";
 export const ARGENTINA_REFRESH_KIND = "argentina_data_refresh";
 
 /**
- * Every item is one request: a page of a series or a chart of a leg. The
- * crop estimates are the exception that proves it: the first of the four
- * series asks two (the form and the CC BY file) and the other three none.
+ * Every item is one request: a page of a series or a chart of a leg. Two
+ * exceptions fit in their run's budget: the first of the four crop estimate
+ * series asks two (the form and the CC BY file) and the other three none,
+ * and the national CPI asks its level and the rate it reconciles with.
  */
 export const MAX_REQUESTS_PER_REFRESH_ITEM = 1;
 
@@ -108,6 +109,14 @@ export type RefreshSource = {
   readonly subjects: readonly string[];
 };
 
+/**
+ * The national CPI level of the expanded INDEC catalog (`F9-08`), which the
+ * REM block reads as the observed inflation (`F9-18`). It was left out of
+ * the refresh with the rest of that catalog, so October's CPI never arrived
+ * on its own (`F9-24`).
+ */
+export const REM_OBSERVED_IPC_ID = "ipc_nacional";
+
 /** Only what `/argentina` reads: the rest stays a hand-run command. */
 export const ARGENTINA_REFRESH_SOURCES: readonly RefreshSource[] = [
   {
@@ -141,9 +150,14 @@ export const ARGENTINA_REFRESH_SOURCES: readonly RefreshSource[] = [
     parserVersion: INDEC_API_PARSER_VERSION,
     cadence: "monthly",
     label: "INDEC",
-    subjects: DECLARED_ARGENTINA_INDICATORS.filter(
-      (item) => item.sourceId === "indec-api",
-    ).map((item) => item.id),
+    subjects: [
+      ...DECLARED_ARGENTINA_INDICATORS.filter(
+        (item) => item.sourceId === "indec-api",
+      ).map((item) => item.id),
+      // The observed CPI the REM block compares with (`F9-24`): the one
+      // series of the expanded catalog the page still reads.
+      REM_OBSERVED_IPC_ID,
+    ],
   },
   {
     sourceId: "argentina-series-tiempo",

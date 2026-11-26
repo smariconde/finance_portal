@@ -67,3 +67,28 @@ en las pruebas. La fecha de publicación y el valor de un informe archivado sól
 consideran defendibles con evidencia de esa edición, no por extrapolación del
 calendario mensual. Una revisión posterior del archivo oficial no cambia una
 consulta `as_known` anterior.
+
+## Enmienda del 2026-11-26 — el IPC observado se pide al abrir y, si falta, se lee del BCRA (`F9-24`)
+
+El owner vio en Production la ronda de octubre con todos los meses
+«Pendiente», octubre incluido, aunque el IPC de octubre ya se había difundido.
+Medido: `ipc_nacional` es una serie del catálogo ampliado del INDEC (`F9-08`),
+que quedó fuera de la actualización al abrir de la ADR 0070; se había cargado
+una sola vez a mano el 2026-11-07, con datos hasta septiembre. Al pedirla, la
+API del INDEC tampoco traía octubre: la corrida quedó `duplicate`.
+
+- `ipc_nacional` entra en el job del INDEC de la ADR 0070 como la única serie
+  ampliada que pide la página: dos pedidos (el nivel y la tasa con la que se
+  concilia) dentro del presupuesto de la corrida.
+- Decisión del owner: cuando la API del INDEC no tiene un mes, la comparación
+  usa la inflación mensual que republica el BCRA (variable 27, un decimal),
+  leída al mismo corte y con la misma base de conocimiento
+  (`rem-observed-ipc-1.0.0`). La fila lo dice («vía BCRA») y el error se
+  escribe con un decimal. El índice del INDEC reemplaza al BCRA en cuanto
+  tiene el mes; la regla del error (`rem-inflation-error-1.0.0`) no cambia.
+- `rem-target-month-1.0.0` separa por qué falta un IPC: un mes que no
+  terminó en Buenos Aires está «En curso» o «Por venir»; sólo un mes cerrado
+  sin dato es «Pendiente».
+
+Medido en una réplica con la variable 27: octubre 2,2 % vía BCRA contra una
+mediana de 1,80 %, error +0,4 pp.

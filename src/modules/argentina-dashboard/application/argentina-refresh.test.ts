@@ -21,8 +21,10 @@ import {
   openRefreshJobs,
   readArgentinaRefreshReadiness,
   refreshSourceOf,
+  REM_OBSERVED_IPC_ID,
   runIndependentRefreshJobs,
 } from "./argentina-refresh";
+import { declaredIndecExpandedIndicator } from "@/modules/macro-series/domain/declared-indec-expanded-indicators";
 import { FRESHNESS_GROUP_SOURCES } from "../domain/surface-freshness";
 
 // A Tuesday afternoon: the daily threshold is Monday 23:00 UTC.
@@ -454,6 +456,16 @@ describe("ensureArgentinaRefresh", () => {
         (source) => source.sourceId === "ambito-riesgo-pais",
       ),
     ).toMatchObject({ state: "failed" });
+  });
+
+  it("asks INDEC for the national CPI the REM block compares with (F9-24)", () => {
+    const indec = refreshSourceOf("indec-api");
+    expect(indec.subjects).toContain(REM_OBSERVED_IPC_ID);
+    expect(new Set(indec.subjects).size).toBe(indec.subjects.length);
+    expect(declaredIndecExpandedIndicator(REM_OBSERVED_IPC_ID)).toMatchObject({
+      id: REM_OBSERVED_IPC_ID,
+      sourceId: "indec-api",
+    });
   });
 
   it("declares every source a freshness group reads", () => {
