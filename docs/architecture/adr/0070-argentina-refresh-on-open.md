@@ -196,3 +196,33 @@ corrida manual siguen fuera del plan hasta su próxima cadencia.
   dibuja y deja un minuto de pantalla en blanco.
 - **Un cron diario.** El owner prefirió que la página se ocupe al abrirse; un cron
   suma un secreto y una frontera más.
+
+## Enmienda del 2026-11-26 — el estado de cada fuente llega a cada cifra (`F9-22`)
+
+La página mostraba lo guardado mientras la actualización corría, y nada decía
+qué cifra podía cambiar: la línea de estado nombraba fuentes, no tarjetas, y
+«Datos al día.» aparecía aunque una fuente mensual —consultada una vez por
+semana desde la enmienda del 2026-11-04— todavía no hubiera traído lo
+publicado.
+
+- La disponibilidad que lee el render y cada respuesta de
+  `refreshArgentinaData` llevan `freshness`: una entrada por fuente declarada,
+  en el orden del plan, con su estado (`checked`, `pending`, `failed`,
+  `blocked`) y la hora de su control más viejo. Una fuente vencida que no se
+  puede pedir —credencial, cuota, kill switch, job pausado— es `blocked` desde
+  el primer render. La respuesta sigue siendo de códigos, rótulos y horas: no
+  sale ningún mensaje de error (`TM-02`).
+- `argentina-freshness-1.0.0` declara qué fuentes lee cada tarjeta y cada
+  bloque, y el ITCRM y el REM como carga manual (ADR 0074 y 0075 no los suman
+  a esta actualización). Un grupo con una fuente pendiente está «buscando»;
+  con una fallida o frenada, «sin verificar»; si no, verificado. El estado
+  habla de controles, nunca de si el dato cambió.
+- El cliente relee la página apenas termina cada fuente, a lo sumo una vez
+  cada tres segundos, y otra vez al final; una relectura no inicia ni corta la
+  ronda. Lo que dijo la ronda manda hasta que la página se relee después de
+  terminar; desde ahí manda el render.
+- La línea de estado agrega un chip por fuente de la ronda y «Datos al día.»
+  pasa a «Fuentes consultadas a las hh:mm», en hora de Buenos Aires.
+
+Sin migración ni versión nueva de la regla de frescura: esta enmienda cambia
+qué se informa, no qué se pide.

@@ -2,11 +2,17 @@ import type { ArgentinaIndicatorRepository } from "@/modules/macro-series/applic
 import type { MacroSeriesRepository } from "@/modules/macro-series/application/macro-series-repository";
 import { readMacroSeries } from "@/modules/macro-series/application/read-macro-series";
 import type { RemForecastRepository } from "@/modules/macro-series/application/rem-forecast-repository";
-import { readIndicatorVintages } from "@/modules/macro-series/domain/argentina-indicator";
+import {
+  readIndicatorVintages,
+  seasonallyAdjustedMonthlyChange,
+  type ArgentinaIndicatorVintage,
+} from "@/modules/macro-series/domain/argentina-indicator";
 import { bcraSeriesKey } from "@/modules/macro-series/domain/bcra-monetary-source";
 import { declaredArgentinaIndicator } from "@/modules/macro-series/domain/declared-argentina-indicators";
 import type { RemForecastVintage } from "@/modules/macro-series/domain/plan-rem-release";
 import { pointInTimeQuerySchema } from "@/modules/temporal/domain/point-in-time-query";
+
+import { shiftMonth } from "../domain/chart-history";
 
 import {
   argentinaNews,
@@ -34,6 +40,36 @@ function remReading(round: readonly RemForecastVintage[]): NewsReading | null {
   return {
     on: sorted[0]!.roundMonth,
     values: sorted.map((forecast) => forecast.medianPercent),
+    // A round is seven medians: no single figure stands for it.
+    headline: null,
+  };
+}
+
+/**
+ * The EMAE's latest month, with the figure its tile shows: the seasonally
+ * adjusted change against the month before, `null` when that month is
+ * missing. The level still decides what is new or revised.
+ */
+function activityReading(
+  vintages: readonly ArgentinaIndicatorVintage[],
+): NewsReading | null {
+  const reading = latestReading(
+    vintages.map((point) => ({ on: point.periodOn, value: point.value })),
+  );
+  if (reading === null) return null;
+  const declared = declaredArgentinaIndicator(NEWS_INDICATORS.activity)!;
+  const current = vintages.find((point) => point.periodOn === reading.on);
+  const previous = vintages.find(
+    (point) => point.periodOn === shiftMonth(reading.on, -1),
+  );
+  const change = seasonallyAdjustedMonthlyChange({
+    indicator: declared,
+    previous: previous ?? null,
+    current: current ?? null,
+  });
+  return {
+    ...reading,
+    headline: change.status === "computed" ? change.value : null,
   };
 }
 
@@ -61,16 +97,21 @@ export async function readArgentinaNews(dependencies: {
   async function readingsAt(
     knownAt: string,
   ): Promise<Record<NewsMetric, NewsReading | null>> {
-    function points(id: string) {
+    function vintages(id: string) {
       const declared = declaredArgentinaIndicator(id);
       if (declared === null) throw new Error(`indicator_not_declared: ${id}`);
       return readIndicatorVintages(declared, stored.get(id) ?? [], {
         effectiveOn: knownAt.slice(0, 10),
         knownAt,
         knowledgeBasis: "system_recorded",
-      })
-        .filter((point) => point.missingReason !== "withdrawn")
-        .map((point) => ({ on: point.periodOn, value: point.value }));
+      }).filter((point) => point.missingReason !== "withdrawn");
+    }
+
+    function points(id: string) {
+      return vintages(id).map((point) => ({
+        on: point.periodOn,
+        value: point.value,
+      }));
     }
 
     const [inflation, round] = await Promise.all([
@@ -92,7 +133,7 @@ export async function readArgentinaNews(dependencies: {
     ]);
 
     return {
-      activity: latestReading(points(NEWS_INDICATORS.activity)),
+      activity: activityReading(vintages(NEWS_INDICATORS.activity)),
       inflation:
         inflation.status === "read"
           ? latestReading(

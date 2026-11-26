@@ -1,45 +1,30 @@
 "use client";
 
 import {
+  Check,
   CircleAlert,
   CircleCheck,
   CirclePause,
   Clock,
   RefreshCw,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { SourceFreshness } from "@/modules/argentina-dashboard/domain/surface-freshness";
 
-import { refreshArgentinaData, type ArgentinaRefreshResult } from "../actions";
+import type { ArgentinaRefreshResult } from "../actions";
+import { useRefreshRound } from "./freshness-provider";
 
 type RunningStatus = Extract<ArgentinaRefreshResult, { state: "running" }>;
 type BlockedStatus = Extract<ArgentinaRefreshResult, { state: "blocked" }>;
-type FreshStatus = Extract<ArgentinaRefreshResult, { state: "fresh" }>;
-
-type View =
-  | { readonly kind: "idle" }
-  | { readonly kind: "checking" }
-  | { readonly kind: "running"; readonly status: RunningStatus }
-  | { readonly kind: "blocked"; readonly status: BlockedStatus }
-  | { readonly kind: "unavailable" }
-  | { readonly kind: "done"; readonly status: FreshStatus };
-
-const POLL_MS = 2_000;
-const MAX_WAIT_POLL_MS = 30_000;
-
-function pollDelay(status: RunningStatus): number {
-  if (status.waitingUntil === null) return POLL_MS;
-  const remaining = Date.parse(status.waitingUntil) - Date.now();
-  return Math.min(Math.max(remaining, POLL_MS), MAX_WAIT_POLL_MS);
-}
 
 function formatClock(instant: string): string {
   return new Date(instant).toLocaleTimeString("es-AR", {
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
+    timeZone: "America/Argentina/Buenos_Aires",
   });
 }
 
@@ -48,137 +33,164 @@ function listOf(labels: readonly string[]): string {
   return `${labels.slice(0, -1).join(", ")} y ${labels.at(-1)}`;
 }
 
-/**
- * Asks the action until nothing is left to wait for. Only the first request
- * carries `retryFailures`: polling never replans a failure.
- */
-async function pollRefresh(options: {
-  readonly retryFailures: boolean;
-  readonly alive: () => boolean;
-  readonly onView: (view: View) => void;
-}): Promise<void> {
-  let retryFailures = options.retryFailures;
-  while (options.alive()) {
-    let result: ArgentinaRefreshResult;
-    try {
-      result = await refreshArgentinaData({ retryFailures });
-    } catch {
-      result = { state: "unavailable" };
-    }
-    retryFailures = false;
-    if (!options.alive()) return;
-    if (result.state === "running") {
-      options.onView({ kind: "running", status: result });
-      await new Promise((resolve) => setTimeout(resolve, pollDelay(result)));
-      continue;
-    }
-    options.onView(
-      result.state === "fresh"
-        ? { kind: "done", status: result }
-        : result.state === "blocked"
-          ? { kind: "blocked", status: result }
-          : { kind: "unavailable" },
-    );
-    return;
-  }
+/** The sources this round asked for, as they stand now. */
+function involvedSources(
+  sources: readonly SourceFreshness[] | null,
+  involved: readonly string[],
+): readonly SourceFreshness[] {
+  if (sources === null) return [];
+  const asked = new Set(involved);
+  return sources.filter(
+    (source) =>
+      asked.has(source.sourceId) ||
+      source.state === "failed" ||
+      source.state === "blocked",
+  );
 }
 
 /**
- * Refresh status of `/argentina` (`F9-12`, ADR 0070). When the server saw
- * something past its cadence, the page asks the Server Action on open and
- * follows it; when it ends, the page is read again with what was stored.
- * The blocks below keep showing the stored data meanwhile.
+ * Refresh status of `/argentina` (`F9-12`, ADR 0070): one line above the
+ * tiles while the sources are asked, with a chip per source that says what
+ * it is doing (`F9-22`). When the round ends the line says when, and which
+ * source could not be verified, with «Reintentar». Each tile and block says
+ * its own state; this line is the summary.
  */
-export function ArgentinaRefresh({
-  needsRefresh,
-  failedSources,
-}: {
-  /** The render saw something to ask for, or a refresh in progress. */
-  readonly needsRefresh: boolean;
-  /** Sources a job checked and could not bring. */
-  readonly failedSources: readonly string[];
-}) {
-  const router = useRouter();
-  const [view, setView] = useState<View>(
-    needsRefresh ? { kind: "checking" } : { kind: "idle" },
-  );
-  const [, startTransition] = useTransition();
-  const generation = useRef(0);
-  const sawRunning = useRef(false);
+export function ArgentinaRefresh() {
+  const { round, sources, involved, renderedFailures, retry } =
+    useRefreshRound();
+  const chips = involvedSources(sources, involved);
 
-  const run = useCallback(
-    (retryFailures: boolean) => {
-      // Each run invalidates the previous one: an unmount or a retry never
-      // leaves two loops polling at once.
-      const mine = ++generation.current;
-      void pollRefresh({
-        retryFailures,
-        alive: () => generation.current === mine,
-        onView: (next) => {
-          if (next.kind === "running") sawRunning.current = true;
-          setView(next);
-          if (
-            (next.kind === "done" || next.kind === "blocked") &&
-            sawRunning.current
-          ) {
-            startTransition(() => router.refresh());
-          }
-        },
-      });
-    },
-    [router],
-  );
-
-  const retry = (retryFailures: boolean) => {
-    setView({ kind: "checking" });
-    run(retryFailures);
-  };
-
-  useEffect(() => {
-    if (needsRefresh) run(false);
-    return () => {
-      generation.current += 1;
-    };
-  }, [needsRefresh, run]);
-
-  if (view.kind === "idle" || view.kind === "done") {
+  if (round.kind === "idle" || round.kind === "done") {
     const failed =
-      view.kind === "done" ? view.status.failedSources : failedSources;
-    if (failed.length === 0) {
-      return view.kind === "done" ? (
-        <StatusLine icon={CircleCheck} title="Datos al día." />
-      ) : null;
+      round.kind === "done" ? round.status.failedSources : renderedFailures;
+    if (failed.length > 0) {
+      return (
+        <StatusLine
+          icon={CircleAlert}
+          tone="warning"
+          title={`Sin verificar: ${listOf(failed)}`}
+          detail="Se consultó y no trajo datos. Sus cifras son las últimas guardadas."
+          action={<RetryButton onRetry={() => retry(true)} />}
+        >
+          <SourceChips sources={chips} />
+        </StatusLine>
+      );
     }
-    return (
+    return round.kind === "done" ? (
       <StatusLine
-        icon={CircleAlert}
-        title={`No se pudo actualizar todo de ${listOf(failed)}`}
-        detail="La fuente ya fue consultada y no respondió con datos nuevos. La página muestra lo último guardado."
-        action={<RetryButton onRetry={() => retry(true)} />}
-      />
-    );
+        icon={CircleCheck}
+        title={`Fuentes consultadas a las ${formatClock(round.at)}`}
+      >
+        <SourceChips sources={chips} />
+      </StatusLine>
+    ) : null;
   }
 
-  if (view.kind === "checking") {
+  if (round.kind === "checking") {
     return (
-      <StatusLine icon={RefreshCw} spinning title="Buscando datos nuevos…" />
+      <StatusLine icon={RefreshCw} spinning title="Buscando datos nuevos…">
+        <SourceChips sources={chips} />
+      </StatusLine>
     );
   }
 
-  if (view.kind === "running") return <RunningLine status={view.status} />;
-  if (view.kind === "blocked") return <BlockedLine status={view.status} />;
+  if (round.kind === "running") {
+    return <RunningLine status={round.status} chips={chips} />;
+  }
+  if (round.kind === "blocked") {
+    return <BlockedLine status={round.status} chips={chips} />;
+  }
 
   return (
     <StatusLine
       icon={CircleAlert}
+      tone="warning"
       title="No se pudieron actualizar los datos"
-      detail="La página muestra lo que ya estaba guardado."
+      detail="Las cifras son las últimas guardadas."
       action={<RetryButton onRetry={() => retry(false)} />}
-    />
+    >
+      <SourceChips sources={chips} />
+    </StatusLine>
   );
 }
 
-function RunningLine({ status }: { readonly status: RunningStatus }) {
+const CHIP_STATE: Readonly<
+  Record<
+    SourceFreshness["state"],
+    {
+      readonly icon: typeof Check;
+      readonly text: string;
+      readonly className: string;
+    }
+  >
+> = {
+  pending: {
+    icon: RefreshCw,
+    text: "consultando",
+    className: "text-muted-foreground",
+  },
+  checked: {
+    icon: Check,
+    text: "consultada",
+    className: "text-foreground",
+  },
+  failed: {
+    icon: CircleAlert,
+    text: "sin datos",
+    className:
+      "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
+  },
+  blocked: {
+    icon: CirclePause,
+    text: "frenada",
+    className:
+      "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
+  },
+};
+
+/** One capsule per source: its name and what it is doing, icon and word. */
+function SourceChips({
+  sources,
+}: {
+  readonly sources: readonly SourceFreshness[];
+}) {
+  if (sources.length === 0) return null;
+  return (
+    <ul aria-label="Fuentes" className="flex flex-wrap gap-1.5">
+      {sources.map((source) => {
+        const chip = CHIP_STATE[source.state];
+        const Icon = chip.icon;
+        return (
+          <li
+            key={source.sourceId}
+            className={cn(
+              "inline-flex h-6 items-center gap-1 rounded-4xl border bg-background px-2 text-xs whitespace-nowrap",
+              chip.className,
+            )}
+          >
+            <Icon
+              aria-hidden="true"
+              className={cn(
+                "size-3 shrink-0",
+                source.state === "pending" && "motion-safe:animate-spin",
+              )}
+            />
+            <span className="font-medium">{source.label}</span>
+            <span className="sr-only">: {chip.text}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function RunningLine({
+  status,
+  chips,
+}: {
+  readonly status: RunningStatus;
+  readonly chips: readonly SourceFreshness[];
+}) {
   const waiting = status.waitingUntil;
   return (
     <StatusLine
@@ -188,9 +200,10 @@ function RunningLine({ status }: { readonly status: RunningStatus }) {
       detail={
         waiting !== null
           ? `Una fuente pidió esperar; se retoma a las ${formatClock(waiting)}.`
-          : "Revisando cada fuente según su frecuencia. La página se actualiza al terminar."
+          : undefined
       }
     >
+      <SourceChips sources={chips} />
       <div className="flex items-center gap-3">
         <div
           role="progressbar"
@@ -217,48 +230,83 @@ function RunningLine({ status }: { readonly status: RunningStatus }) {
   );
 }
 
-function BlockedLine({ status }: { readonly status: BlockedStatus }) {
+function BlockedLine({
+  status,
+  chips,
+}: {
+  readonly status: BlockedStatus;
+  readonly chips: readonly SourceFreshness[];
+}) {
+  return (
+    <BlockedReason status={status}>
+      <SourceChips sources={chips} />
+    </BlockedReason>
+  );
+}
+
+function BlockedReason({
+  status,
+  children,
+}: {
+  readonly status: BlockedStatus;
+  readonly children: React.ReactNode;
+}) {
   switch (status.reason) {
     case "credential_missing":
     case "credential_invalid":
       return (
         <StatusLine
+          tone="warning"
           icon={CircleAlert}
           title={`${status.source} necesita un token válido`}
           detail="Configurá INDEC_API_TOKEN en el entorno privado y reiniciá la aplicación. Las demás fuentes pueden seguir actualizándose."
-        />
+        >
+          {children}
+        </StatusLine>
       );
     case "daily_budget_exhausted":
       return (
         <StatusLine
+          tone="warning"
           icon={CirclePause}
           title={`Se agotó la cuota diaria de ${status.source}`}
           detail={`${status.resumesAt === null ? "Se repone mañana" : `Se repone a las ${formatClock(status.resumesAt)}`}. La página muestra lo que ya estaba guardado.`}
-        />
+        >
+          {children}
+        </StatusLine>
       );
     case "source_disabled":
       return (
         <StatusLine
+          tone="warning"
           icon={CirclePause}
           title={`La descarga de ${status.source} está frenada`}
           detail="El kill switch de la fuente está activo; se reactiva con pnpm ingestion:sources."
-        />
+        >
+          {children}
+        </StatusLine>
       );
     case "budget_undeclared":
       return (
         <StatusLine
+          tone="warning"
           icon={CirclePause}
           title={`${status.source} no tiene cuota diaria declarada`}
           detail="Sin cuota declarada la fuente no hace ninguna llamada."
-        />
+        >
+          {children}
+        </StatusLine>
       );
     case "job_paused":
       return (
         <StatusLine
+          tone="warning"
           icon={CirclePause}
           title={`La actualización de ${status.source} está pausada`}
           detail="Se retoma con pnpm ingestion:jobs."
-        />
+        >
+          {children}
+        </StatusLine>
       );
   }
 }
@@ -278,6 +326,7 @@ function RetryButton({ onRetry }: { readonly onRetry: () => void }) {
 function StatusLine({
   icon: Icon,
   spinning = false,
+  tone = "neutral",
   title,
   detail,
   action,
@@ -285,6 +334,8 @@ function StatusLine({
 }: {
   readonly icon: typeof RefreshCw;
   readonly spinning?: boolean;
+  /** `warning`: some figures are not verified; the icon goes amber. */
+  readonly tone?: "neutral" | "warning";
   readonly title: string;
   readonly detail?: string;
   readonly action?: React.ReactNode;
@@ -299,7 +350,10 @@ function StatusLine({
         <Icon
           aria-hidden="true"
           className={cn(
-            "mt-0.5 size-4 shrink-0 text-muted-foreground",
+            "mt-0.5 size-4 shrink-0",
+            tone === "warning"
+              ? "text-amber-600 dark:text-amber-400"
+              : "text-muted-foreground",
             spinning && "motion-safe:animate-spin",
           )}
         />

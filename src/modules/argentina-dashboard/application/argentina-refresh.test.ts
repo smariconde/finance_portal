@@ -23,6 +23,7 @@ import {
   refreshSourceOf,
   runIndependentRefreshJobs,
 } from "./argentina-refresh";
+import { FRESHNESS_GROUP_SOURCES } from "../domain/surface-freshness";
 
 // A Tuesday afternoon: the daily threshold is Monday 23:00 UTC.
 const NOW = "2026-11-03T15:00:00.000Z";
@@ -169,15 +170,26 @@ describe("ensureArgentinaRefresh", () => {
     await ensureArgentinaRefresh({ retryFailures: false }, dependencies);
     await runOpen(() => recordsEverything);
 
-    expect(
-      await ensureArgentinaRefresh({ retryFailures: false }, dependencies),
-    ).toEqual({
+    const fresh = await ensureArgentinaRefresh(
+      { retryFailures: false },
+      dependencies,
+    );
+    expect(fresh).toMatchObject({
       status: { state: "fresh", failedSources: [] },
       runWorker: false,
     });
-    expect(
-      (await readArgentinaRefreshReadiness(dependencies)).needsRefresh,
-    ).toBe(false);
+    // Every source verified at the round's instant, in plan order.
+    expect(fresh.status.freshness).toEqual(
+      ARGENTINA_REFRESH_SOURCES.map((source) => ({
+        sourceId: source.sourceId,
+        label: source.label,
+        state: "checked",
+        checkedAt: NOW,
+      })),
+    );
+    const readiness = await readArgentinaRefreshReadiness(dependencies);
+    expect(readiness.needsRefresh).toBe(false);
+    expect(readiness.sources).toEqual(fresh.status.freshness);
 
     // Tuesday 23:30 UTC: only the daily sources are due again.
     setClock("2026-11-03T23:30:00.000Z");
@@ -353,7 +365,7 @@ describe("ensureArgentinaRefresh", () => {
       { retryFailures: false },
       dependencies,
     );
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       status: {
         state: "blocked",
         reason: "source_disabled",
@@ -362,7 +374,98 @@ describe("ensureArgentinaRefresh", () => {
       },
       runWorker: false,
     });
+    // No source is drawn as being verified: all of them are stopped.
+    expect(result.status.freshness.map((source) => source.state)).toEqual(
+      ARGENTINA_REFRESH_SOURCES.map(() => "blocked"),
+    );
+    expect(
+      (await readArgentinaRefreshReadiness(dependencies)).sources.map(
+        (source) => source.state,
+      ),
+    ).toEqual(ARGENTINA_REFRESH_SOURCES.map(() => "blocked"));
     expect(await openRefreshJobs(jobs)).toHaveLength(0);
+  });
+
+  it("draws every never-checked source as pending, and a missing token as blocked", async () => {
+    const { dependencies, setIndecCredentialProblem } = setup();
+    setIndecCredentialProblem("credential_missing");
+    const readiness = await readArgentinaRefreshReadiness(dependencies);
+    expect(readiness.needsRefresh).toBe(true);
+    expect(readiness.sources).toEqual(
+      ARGENTINA_REFRESH_SOURCES.map((source) => ({
+        sourceId: source.sourceId,
+        label: source.label,
+        state: source.sourceId === "indec-api" ? "blocked" : "pending",
+        checkedAt: null,
+      })),
+    );
+  });
+
+  it("reports each source as checked when its job finishes, while the others are pending", async () => {
+    const { dependencies, jobs, recordsEverything, setClock } = setup();
+    await ensureArgentinaRefresh({ retryFailures: false }, dependencies);
+    const first = (await openRefreshJobs(jobs)).find(
+      (job) => job.sourceId === "bcra-monetarias-v4",
+    )!;
+    setClock("2026-11-03T15:00:05.000Z");
+    await runIngestionJob(
+      { jobId: first.jobId, holder: "test-worker" },
+      {
+        store: jobs,
+        execute: recordsEverything,
+        now: () => "2026-11-03T15:00:05.000Z",
+        sleep: async () => {},
+        newLeaseToken: randomUUID,
+        startHeartbeat: () => () => {},
+      },
+    );
+    const { status } = await ensureArgentinaRefresh(
+      { retryFailures: false },
+      dependencies,
+    );
+    expect(status.state).toBe("running");
+    const states = Object.fromEntries(
+      status.freshness.map((source) => [source.sourceId, source]),
+    );
+    expect(states["bcra-monetarias-v4"]).toMatchObject({
+      state: "checked",
+      checkedAt: "2026-11-03T15:00:05.000Z",
+    });
+    expect(states["indec-api"]).toMatchObject({ state: "pending" });
+    expect(status.freshness).toHaveLength(ARGENTINA_REFRESH_SOURCES.length);
+  });
+
+  it("names a source whose job could not bring a subject as failed", async () => {
+    const { dependencies, runOpen, recordsEverything, rejectsEverything } =
+      setup();
+    await ensureArgentinaRefresh({ retryFailures: false }, dependencies);
+    await runOpen((job) =>
+      job.sourceId === "ambito-riesgo-pais"
+        ? rejectsEverything
+        : recordsEverything,
+    );
+    const { status } = await ensureArgentinaRefresh(
+      { retryFailures: false },
+      dependencies,
+    );
+    expect(status.state).toBe("fresh");
+    expect(
+      status.freshness.find(
+        (source) => source.sourceId === "ambito-riesgo-pais",
+      ),
+    ).toMatchObject({ state: "failed" });
+  });
+
+  it("declares every source a freshness group reads", () => {
+    const declared = new Set(
+      ARGENTINA_REFRESH_SOURCES.map((source) => source.sourceId),
+    );
+    for (const group of Object.values(FRESHNESS_GROUP_SOURCES)) {
+      if (group.kind === "manual") continue;
+      for (const sourceId of group.sources) {
+        expect(declared.has(sourceId as never)).toBe(true);
+      }
+    }
   });
 
   it("keeps the round's finished jobs in the progress", async () => {
@@ -478,7 +581,7 @@ describe("ensureArgentinaRefresh", () => {
       { retryFailures: false },
       dependencies,
     );
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       status: {
         state: "blocked",
         reason: "daily_budget_exhausted",
@@ -487,6 +590,21 @@ describe("ensureArgentinaRefresh", () => {
       },
       runWorker: false,
     });
+    expect(
+      Object.fromEntries(
+        result.status.freshness.map((source) => [
+          source.sourceId,
+          source.state,
+        ]),
+      ),
+    ).toEqual(
+      Object.fromEntries(
+        ARGENTINA_REFRESH_SOURCES.map((source) => [
+          source.sourceId,
+          source.sourceId === "indec-api" ? "blocked" : "checked",
+        ]),
+      ),
+    );
   });
 });
 

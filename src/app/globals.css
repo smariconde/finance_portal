@@ -281,3 +281,27 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/*
+ * `/argentina` (`F9-22`): a source being asked runs a short segment along the
+ * top edge of the tiles it feeds; a figure that changed with the page open is
+ * tinted once and fades. Both are off under `prefers-reduced-motion`, where
+ * the line is static and the tint simply stays for its time.
+ */
+@keyframes freshness-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+
+@keyframes freshness-arrive {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}

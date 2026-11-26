@@ -22,7 +22,14 @@ import { createDecimalOperations } from "@/modules/numeric/domain/decimal-policy
  *
  * Without a baseline —the owner's first session— nothing is marked.
  */
-export const ARGENTINA_NEWS_VERSION = "argentina-news-1.0.0";
+export const ARGENTINA_NEWS_VERSION = "argentina-news-1.1.0";
+
+/*
+ * `1.1.0` (`F9-22`): a marked metric also carries the figure the page shows
+ * for it —its **headline**— now and at the baseline, so a new period reads
+ * next to the one the owner saw last and a revision reads as before → after.
+ * What is marked does not change: it is still decided on the stored values.
+ */
 
 export const NEWS_METRICS = [
   "activity",
@@ -41,11 +48,32 @@ export type NewsMetric = (typeof NEWS_METRICS)[number];
 export type NewsReading = {
   readonly on: string;
   readonly values: readonly string[];
+  /**
+   * The figure the page shows for this period, as a decimal in the metric's
+   * own unit (the EMAE's monthly change in percent, the CPI in percent, the
+   * trade balance in US$ M); `null` when there is none to show.
+   */
+  readonly headline: string | null;
 };
 
 export type NewsStatus =
-  | { readonly status: "new_period"; readonly on: string }
-  | { readonly status: "revised"; readonly on: string }
+  | {
+      readonly status: "new_period";
+      readonly on: string;
+      readonly headline: string | null;
+      /** The latest period the owner had seen, if any. */
+      readonly previous: {
+        readonly on: string;
+        readonly headline: string | null;
+      } | null;
+    }
+  | {
+      readonly status: "revised";
+      readonly on: string;
+      readonly headline: string | null;
+      /** The same period's figure at the baseline. */
+      readonly previousHeadline: string | null;
+    }
   | { readonly status: "unchanged" };
 
 export type ArgentinaNews =
@@ -76,13 +104,26 @@ export function newsStatus(input: {
   const { current, baseline } = input;
   if (current === null) return { status: "unchanged" };
   if (baseline === null || current.on > baseline.on) {
-    return { status: "new_period", on: current.on };
+    return {
+      status: "new_period",
+      on: current.on,
+      headline: current.headline,
+      previous:
+        baseline === null
+          ? null
+          : { on: baseline.on, headline: baseline.headline },
+    };
   }
   if (
     current.on === baseline.on &&
     !sameValues(current.values, baseline.values)
   ) {
-    return { status: "revised", on: current.on };
+    return {
+      status: "revised",
+      on: current.on,
+      headline: current.headline,
+      previousHeadline: baseline.headline,
+    };
   }
   return { status: "unchanged" };
 }
@@ -112,7 +153,10 @@ export function argentinaNews(input: {
 
 type NewsPoint = { readonly on: string; readonly value: string | null };
 
-/** The latest period with a value, whatever the order of the points. */
+/**
+ * The latest period with a value, whatever the order of the points. Its
+ * headline is the value itself unless the caller says otherwise.
+ */
 export function latestReading(
   points: readonly NewsPoint[],
 ): NewsReading | null {
@@ -120,7 +164,7 @@ export function latestReading(
   for (const point of points) {
     if (point.value === null) continue;
     if (latest === null || point.on > latest.on) {
-      latest = { on: point.on, values: [point.value] };
+      latest = { on: point.on, values: [point.value], headline: point.value };
     }
   }
   return latest;
@@ -128,7 +172,8 @@ export function latestReading(
 
 /**
  * The latest period both series published, read together: a trade month is
- * new when its exports and imports are both there.
+ * new when its exports and imports are both there. Its headline is the
+ * first minus the second (exports − imports: the balance).
  */
 export function latestJointReading(
   first: readonly NewsPoint[],
@@ -143,7 +188,16 @@ export function latestJointReading(
     const pair = other.get(point.on);
     if (point.value === null || pair === undefined) continue;
     if (latest === null || point.on > latest.on) {
-      latest = { on: point.on, values: [point.value, pair] };
+      latest = {
+        on: point.on,
+        values: [point.value, pair],
+        headline: decimal.formatDecimal(
+          decimal
+            .parseDecimal(point.value, "news.first")
+            .minus(decimal.parseDecimal(pair, "news.second")),
+          "news.balance",
+        ),
+      };
     }
   }
   return latest;
