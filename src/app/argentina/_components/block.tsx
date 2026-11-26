@@ -12,11 +12,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import { BlockFreshness, BlockNewsBadge } from "./freshness-marks";
+
 /**
  * Un bloque de la página: la pregunta, su lectura en una frase, el gráfico y,
  * plegados, los números y la metodología. La fuente y la última fecha van
  * siempre a la vista, junto al resultado (`The Evidence Travels With the
- * Result Rule`).
+ * Result Rule`). Desde `F9-22`, al lado del título su marca de novedad y al
+ * final de la procedencia si sus fuentes fueron consultadas, se están
+ * consultando, no respondieron o se cargan a mano.
  */
 export function DashboardBlock({
   id,
@@ -39,11 +43,17 @@ export function DashboardBlock({
     <section id={id} className="scroll-mt-32" aria-labelledby={`${id}-title`}>
       <Card>
         <CardHeader className="gap-2">
-          <CardTitle as="h2" id={`${id}-title`} className="text-lg">
-            {title}
-          </CardTitle>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <CardTitle as="h2" id={`${id}-title`} className="text-lg">
+              {title}
+            </CardTitle>
+            <BlockNewsBadge blockId={id} />
+          </div>
           <p className="max-w-3xl text-sm">{reading}</p>
-          <p className="text-xs text-muted-foreground">{provenance}</p>
+          <p className="text-xs text-muted-foreground">
+            {provenance}
+            <BlockFreshness blockId={id} />
+          </p>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
           {children}

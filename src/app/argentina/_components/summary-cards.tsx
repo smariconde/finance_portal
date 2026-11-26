@@ -6,6 +6,8 @@ import type {
   NewsMetric,
 } from "@/modules/argentina-dashboard/domain/argentina-news";
 import {
+  SUMMARY_CADENCE,
+  SUMMARY_ORDER,
   SUMMARY_POLARITY,
   summaryChanges,
   type SummaryCadence,
@@ -25,7 +27,7 @@ import {
   signedAmount,
   signedPoints,
 } from "./format";
-import { NewsBadge } from "./news-mark";
+import { TileShell, TileStatus } from "./freshness-marks";
 
 type Summary = {
   readonly metric: SummaryMetric;
@@ -45,6 +47,15 @@ function monthAbbr(on: string): string {
 }
 
 function summariesOf(dashboard: ArgentinaDashboard): readonly Summary[] {
+  return headlinesOf(dashboard).map((headline) => ({
+    ...headline,
+    cadence: SUMMARY_CADENCE[headline.metric],
+  }));
+}
+
+function headlinesOf(
+  dashboard: ArgentinaDashboard,
+): readonly Omit<Summary, "cadence">[] {
   const { activity, dollar, monetary, countryRisk, external, soy } = dashboard;
   const inflation = monetary.monthlyInflation.at(-1);
   const trade = external.months.at(-1);
@@ -61,7 +72,6 @@ function summariesOf(dashboard: ArgentinaDashboard): readonly Summary[] {
         ? `${comparisonText(activity.latest.yearOverYear)} interanual`
         : "EMAE del INDEC",
       asOf: activity.latest ? shortMonth(activity.latest.on) : null,
-      cadence: "monthly",
     },
     {
       metric: "fxGap",
@@ -74,7 +84,6 @@ function summariesOf(dashboard: ArgentinaDashboard): readonly Summary[] {
         ? `Oficial $ ${amount(dollar.latestOfficial.value)}${dollar.latestCcl?.value ? ` · CCL $ ${amount(dollar.latestCcl.value)}` : ""}`
         : "Mayorista y CCL implícito",
       asOf: dollar.latestGap ? calendarDate(dollar.latestGap.on) : null,
-      cadence: "daily",
     },
     {
       metric: "inflation",
@@ -85,7 +94,6 @@ function summariesOf(dashboard: ArgentinaDashboard): readonly Summary[] {
         ? `${points(monetary.annualInflation.value)} interanual`
         : "IPC, vía BCRA",
       asOf: inflation ? shortMonth(inflation.on) : null,
-      cadence: "monthly",
     },
     {
       metric: "countryRisk",
@@ -98,7 +106,6 @@ function summariesOf(dashboard: ArgentinaDashboard): readonly Summary[] {
         ? `J.P. Morgan, ${countryRisk.latest.index.label}`
         : "J.P. Morgan, vía Ámbito",
       asOf: countryRisk.latest ? calendarDate(countryRisk.latest.on) : null,
-      cadence: "daily",
     },
     {
       metric: "tradeBalance",
@@ -114,7 +121,6 @@ function summariesOf(dashboard: ArgentinaDashboard): readonly Summary[] {
         ? `12 meses: US$ ${signedAmount(external.lastTwelve.balance)} M`
         : "Bienes, ICA",
       asOf: trade ? shortMonth(trade.on) : null,
-      cadence: "monthly",
     },
     {
       metric: "soyGap",
@@ -125,7 +131,6 @@ function summariesOf(dashboard: ArgentinaDashboard): readonly Summary[] {
         ? `US$ ${amount(soy.latest.rosarioUsd!, 0)} vs. US$ ${amount(soy.latest.chicagoUsd!, 0)} por t`
         : "Pizarra de Rosario y CBOT",
       asOf: soy.latest ? calendarDate(soy.latest.on) : null,
-      cadence: "daily",
     },
   ];
 }
@@ -188,6 +193,14 @@ function Change({
   );
 }
 
+const CADENCE_GROUPS: readonly {
+  readonly cadence: SummaryCadence;
+  readonly label: string;
+}[] = [
+  { cadence: "daily", label: "Cada día" },
+  { cadence: "monthly", label: "Cada mes" },
+];
+
 /**
  * Lectura rápida: una cifra por bloque con su fecha, que enlaza a la sección.
  * Debajo de la cifra, cuánto se movió contra su lectura anterior
@@ -196,6 +209,11 @@ function Change({
  * baje la inflación o la brecha cambiaria se pinta verde—, y reemplaza la
  * regla anterior de «sin flechas ni colores de bien o mal». El signo escrito
  * dice el sentido sin depender del color.
+ *
+ * Desde `F9-22` (pedido del owner del 2026-11-26) las tarjetas van de lo que
+ * cambia cada día, a la izquierda, a lo que cambia cada mes, a la derecha
+ * (`SUMMARY_ORDER`), en dos grupos rotulados; y cada una dice si su fuente
+ * está siendo consultada, fue verificada o no respondió (`TileShell`).
  */
 export function SummaryCards({
   dashboard,
@@ -206,6 +224,10 @@ export function SummaryCards({
   readonly news: ArgentinaNews;
 }) {
   const changes = summaryChanges(dashboard);
+  const byMetric = new Map(
+    summariesOf(dashboard).map((summary) => [summary.metric, summary]),
+  );
+  const ordered = SUMMARY_ORDER.map((metric) => byMetric.get(metric)!);
 
   function markOf(metric: SummaryMetric) {
     if (news.status !== "compared" || !(metric in news.metrics)) return null;
@@ -214,41 +236,64 @@ export function SummaryCards({
   }
 
   return (
-    <nav aria-label="Lectura rápida">
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {summariesOf(dashboard).map((summary) => {
-          const mark = markOf(summary.metric);
-          const date = summary.asOf === null ? "Sin fecha" : summary.asOf;
-          return (
-            <li key={summary.href} className="min-w-0">
-              <StatTile
-                href={summary.href}
-                className={cn(
-                  "h-full",
-                  mark === "new_period" && "ring-blue-300 dark:ring-blue-800",
-                )}
-                size="sm"
-                label={summary.label}
-                value={summary.value}
-                change={
-                  <Change change={changes[summary.metric]} summary={summary} />
-                }
-                detail={summary.detail}
-                footer={
-                  mark === null ? (
-                    date
-                  ) : (
-                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      {date}
-                      <NewsBadge status={mark} />
-                    </span>
-                  )
-                }
-              />
-            </li>
-          );
-        })}
-      </ul>
+    <nav
+      aria-label="Lectura rápida"
+      className="grid gap-x-3 gap-y-4 lg:grid-cols-2"
+    >
+      {CADENCE_GROUPS.map((group) => {
+        const summaries = ordered.filter(
+          (summary) => summary.cadence === group.cadence,
+        );
+        if (summaries.length === 0) return null;
+        const headingId = `lectura-${group.cadence}`;
+        return (
+          <div key={group.cadence} className="flex min-w-0 flex-col gap-2">
+            <p
+              id={headingId}
+              className="text-xs font-medium text-muted-foreground"
+            >
+              {group.label}
+            </p>
+            <ul
+              aria-labelledby={headingId}
+              className="grid grid-cols-2 gap-3 sm:grid-cols-3"
+            >
+              {summaries.map((summary) => {
+                const mark = markOf(summary.metric);
+                const date = summary.asOf === null ? "Sin fecha" : summary.asOf;
+                return (
+                  <li key={summary.href} className="min-w-0">
+                    <TileShell
+                      metric={summary.metric}
+                      token={`${summary.value}|${summary.detail}|${date}`}
+                    >
+                      <StatTile
+                        href={summary.href}
+                        className={cn(
+                          "h-full",
+                          mark === "new_period" &&
+                            "ring-blue-300 dark:ring-blue-800",
+                        )}
+                        size="sm"
+                        label={summary.label}
+                        value={summary.value}
+                        change={
+                          <Change
+                            change={changes[summary.metric]}
+                            summary={summary}
+                          />
+                        }
+                        detail={summary.detail}
+                        footer={<TileStatus date={date} mark={mark} />}
+                      />
+                    </TileShell>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        );
+      })}
     </nav>
   );
 }

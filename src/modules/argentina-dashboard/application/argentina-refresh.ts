@@ -50,6 +50,10 @@ import {
   selectStaleSubjects,
   type RefreshCadence,
 } from "../domain/refresh-freshness";
+import type {
+  SourceFreshness,
+  SourceFreshnessState,
+} from "../domain/surface-freshness";
 
 import { DASHBOARD_BCRA_VARIABLES } from "./load-argentina-dashboard";
 
@@ -238,6 +242,8 @@ type SourceAssessment = {
   readonly stale: readonly string[];
   /** Checked by a job since the threshold without a run to show for it. */
   readonly failed: readonly string[];
+  /** The oldest last check of a subject; `null` if one was never checked. */
+  readonly checkedAt: string | null;
 };
 
 /**
@@ -300,8 +306,12 @@ async function assessSource(
     }
   }
 
+  const checks = source.subjects.map((subject) => lastChecks.get(subject));
   return {
     source,
+    checkedAt: checks.some((checkedAt) => checkedAt === undefined)
+      ? null
+      : (checks as string[]).sort()[0]!,
     stale: selectStaleSubjects({
       subjects: source.subjects,
       lastChecks,
@@ -377,13 +387,17 @@ export async function runIndependentRefreshJobs(
 
 /**
  * What the page sees: counts, source labels and codes. Never an error
- * message, which can carry a host or a statement (`TM-02`).
+ * message, which can carry a host or a statement (`TM-02`). Every state also
+ * carries `freshness`: one entry per declared source, in plan order, so the
+ * page can say which figures are still being asked for
+ * (`argentina-freshness-1.0.0`, `F9-22`).
  */
 export type ArgentinaRefreshStatus =
   | {
       readonly state: "fresh";
       /** Sources with subjects a job checked and could not bring. */
       readonly failedSources: readonly string[];
+      readonly freshness: readonly SourceFreshness[];
     }
   | {
       readonly state: "running";
@@ -394,19 +408,25 @@ export type ArgentinaRefreshStatus =
       readonly sources: readonly string[];
       /** The latest backoff when all open sources are waiting. */
       readonly waitingUntil: string | null;
+      readonly freshness: readonly SourceFreshness[];
     }
-  | {
-      readonly state: "blocked";
-      readonly reason:
-        | "source_disabled"
-        | "daily_budget_exhausted"
-        | "job_paused"
-        | "budget_undeclared"
-        | "credential_missing"
-        | "credential_invalid";
-      readonly source: string;
-      readonly resumesAt: string | null;
-    };
+  | (ArgentinaRefreshRefusal & {
+      readonly freshness: readonly SourceFreshness[];
+    });
+
+/** Why a source cannot be asked now. */
+export type ArgentinaRefreshRefusal = {
+  readonly state: "blocked";
+  readonly reason:
+    | "source_disabled"
+    | "daily_budget_exhausted"
+    | "job_paused"
+    | "budget_undeclared"
+    | "credential_missing"
+    | "credential_invalid";
+  readonly source: string;
+  readonly resumesAt: string | null;
+};
 
 export type EnsureArgentinaRefreshResult = {
   readonly status: ArgentinaRefreshStatus;
@@ -418,7 +438,7 @@ export async function argentinaRefreshAdmissionBlock(
   budgets: SourceBudgetStore,
   source: RefreshSource,
   now: string,
-): Promise<Extract<ArgentinaRefreshStatus, { state: "blocked" }> | null> {
+): Promise<ArgentinaRefreshRefusal | null> {
   const verdict = await checkSourceBudget(
     budgets,
     source.sourceId,
@@ -446,13 +466,64 @@ export async function argentinaRefreshAdmissionBlock(
   }
 }
 
+/** A source that cannot be asked: its credential first, then its budget. */
+async function refusalOf(
+  source: RefreshSource,
+  dependencies: ArgentinaRefreshDependencies,
+  now: string,
+): Promise<ArgentinaRefreshRefusal | null> {
+  const credential = dependencies.credentialProblem?.(source.sourceId);
+  if (credential) {
+    return {
+      state: "blocked",
+      reason: credential,
+      source: source.label,
+      resumesAt: null,
+    };
+  }
+  return argentinaRefreshAdmissionBlock(dependencies.budgets, source, now);
+}
+
+function sourceFreshness(
+  source: RefreshSource,
+  state: SourceFreshnessState,
+  checkedAt: string | null,
+): SourceFreshness {
+  return {
+    sourceId: source.sourceId,
+    label: source.label,
+    state,
+    checkedAt,
+  };
+}
+
+/** A source without stale subjects: checked, or failed if a job could not bring one. */
+function settledFreshness(assessment: SourceAssessment): SourceFreshness {
+  return sourceFreshness(
+    assessment.source,
+    assessment.failed.length > 0 ? "failed" : "checked",
+    assessment.checkedAt,
+  );
+}
+
+function inPlanOrder(
+  bySource: ReadonlyMap<string, SourceFreshness>,
+): readonly SourceFreshness[] {
+  return ARGENTINA_REFRESH_SOURCES.flatMap((source) => {
+    const freshness = bySource.get(source.sourceId);
+    return freshness === undefined ? [] : [freshness];
+  });
+}
+
 async function describeOpenJobs(
   open: readonly IngestionJob[],
+  assessed: ReadonlyMap<string, SourceFreshness>,
   dependencies: ArgentinaRefreshDependencies & {
     readonly workerActive: () => boolean;
   },
 ): Promise<EnsureArgentinaRefreshResult> {
   const now = dependencies.now();
+  const freshness = new Map(assessed);
   // Jobs of the same round that already finished still count, so the
   // progress never moves backwards when one source completes.
   const roundStart = open
@@ -475,23 +546,21 @@ async function describeOpenJobs(
       (job) =>
         job.kind === ARGENTINA_REFRESH_KIND && job.createdAt >= roundStart,
     );
+  for (const job of open.filter((candidate) => candidate.status !== "open")) {
+    freshness.set(
+      job.sourceId,
+      sourceFreshness(refreshSourceOf(job.sourceId), "blocked", null),
+    );
+  }
   const runnable = open.filter((job) => job.status === "open");
   const availability = await Promise.all(
     runnable.map(async (job) => {
       const source = refreshSourceOf(job.sourceId);
-      const credential = dependencies.credentialProblem?.(source.sourceId);
-      const blocked = credential
-        ? ({
-            state: "blocked",
-            reason: credential,
-            source: source.label,
-            resumesAt: null,
-          } as const)
-        : await argentinaRefreshAdmissionBlock(
-            dependencies.budgets,
-            source,
-            now,
-          );
+      const blocked = await refusalOf(source, dependencies, now);
+      freshness.set(
+        source.sourceId,
+        sourceFreshness(source, blocked === null ? "pending" : "blocked", null),
+      );
       return { job, blocked };
     }),
   );
@@ -500,7 +569,10 @@ async function describeOpenJobs(
     .map((entry) => entry.job);
   if (eligible.length === 0 && runnable.length > 0) {
     return {
-      status: availability[0]!.blocked!,
+      status: {
+        ...availability[0]!.blocked!,
+        freshness: inPlanOrder(freshness),
+      },
       runWorker: false,
     };
   }
@@ -511,6 +583,7 @@ async function describeOpenJobs(
         reason: "job_paused",
         source: refreshSourceOf(open[0]!.sourceId).label,
         resumesAt: null,
+        freshness: inPlanOrder(freshness),
       },
       runWorker: false,
     };
@@ -554,6 +627,7 @@ async function describeOpenJobs(
       failed,
       sources: eligible.map((job) => refreshSourceOf(job.sourceId).label),
       waitingUntil: anyRunnableNow ? null : (waits.sort().at(-1) ?? null),
+      freshness: inPlanOrder(freshness),
     },
     runWorker: anyRunnableNow && !dependencies.workerActive(),
   };
@@ -581,43 +655,40 @@ export async function ensureArgentinaRefresh(
   );
   const now = dependencies.now();
   const planned: IngestionJob[] = [];
-  let blocked: Extract<ArgentinaRefreshStatus, { state: "blocked" }> | null =
-    null;
+  const freshness = new Map<string, SourceFreshness>();
+  let blocked: ArgentinaRefreshRefusal | null = null;
 
   for (const assessment of assessments) {
-    if (assessment.stale.length === 0) continue;
-    const credential = dependencies.credentialProblem?.(
-      assessment.source.sourceId,
-    );
-    if (credential) {
-      blocked ??= {
-        state: "blocked",
-        reason: credential,
-        source: assessment.source.label,
-        resumesAt: null,
-      };
+    const { source } = assessment;
+    if (assessment.stale.length === 0) {
+      freshness.set(source.sourceId, settledFreshness(assessment));
       continue;
     }
     // A stopped or exhausted source leaves no job that nobody can run.
-    const refusal = await argentinaRefreshAdmissionBlock(
-      dependencies.budgets,
-      assessment.source,
-      now,
-    );
+    const refusal = await refusalOf(source, dependencies, now);
     if (refusal !== null) {
       blocked ??= refusal;
+      freshness.set(
+        source.sourceId,
+        sourceFreshness(source, "blocked", assessment.checkedAt),
+      );
       continue;
     }
     const { job } = await dependencies.jobs.createJob(
-      buildArgentinaRefreshPlan(assessment.source, assessment.stale),
+      buildArgentinaRefreshPlan(source, assessment.stale),
       { now },
     );
     planned.push(job);
   }
 
   if (open.length > 0 || planned.length > 0)
-    return describeOpenJobs([...open, ...planned], dependencies);
-  if (blocked !== null) return { status: blocked, runWorker: false };
+    return describeOpenJobs([...open, ...planned], freshness, dependencies);
+  if (blocked !== null) {
+    return {
+      status: { ...blocked, freshness: inPlanOrder(freshness) },
+      runWorker: false,
+    };
+  }
 
   return {
     status: {
@@ -625,6 +696,7 @@ export async function ensureArgentinaRefresh(
       failedSources: assessments
         .filter((assessment) => assessment.failed.length > 0)
         .map((assessment) => assessment.source.label),
+      freshness: inPlanOrder(freshness),
     },
     runWorker: false,
   };
@@ -634,11 +706,15 @@ export type ArgentinaRefreshReadiness = {
   /** Something to ask for, or a refresh in progress to follow. */
   readonly needsRefresh: boolean;
   readonly failedSources: readonly string[];
+  /** Each declared source as the page is drawn (`argentina-freshness-1.0.0`). */
+  readonly sources: readonly SourceFreshness[];
 };
 
 /**
  * What the render needs, **without writing**: a page plans no job and opens
- * no socket while it draws. Asking is the Server Action's job.
+ * no socket while it draws. Asking is the Server Action's job. A due source
+ * that cannot be asked —a missing credential, a stopped or exhausted
+ * source— is drawn as blocked from the start, never as being verified.
  */
 export async function readArgentinaRefreshReadiness(
   dependencies: ArgentinaRefreshDependencies,
@@ -647,6 +723,27 @@ export async function readArgentinaRefreshReadiness(
     openRefreshJobs(dependencies.jobs),
     assessAll(dependencies, false),
   ]);
+  const now = dependencies.now();
+  const sources = await Promise.all(
+    assessments.map(async (assessment) => {
+      const { source } = assessment;
+      const job = open.find(
+        (candidate) => candidate.sourceId === source.sourceId,
+      );
+      if (job === undefined && assessment.stale.length === 0) {
+        return settledFreshness(assessment);
+      }
+      if (job !== undefined && job.status !== "open") {
+        return sourceFreshness(source, "blocked", assessment.checkedAt);
+      }
+      const refusal = await refusalOf(source, dependencies, now);
+      return sourceFreshness(
+        source,
+        refusal === null ? "pending" : "blocked",
+        assessment.checkedAt,
+      );
+    }),
+  );
   return {
     needsRefresh:
       open.some((job) => job.status === "open") ||
@@ -654,6 +751,7 @@ export async function readArgentinaRefreshReadiness(
     failedSources: assessments
       .filter((assessment) => assessment.failed.length > 0)
       .map((assessment) => assessment.source.label),
+    sources,
   };
 }
 

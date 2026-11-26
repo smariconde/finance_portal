@@ -1100,7 +1100,7 @@ Opening `/argentina` is asking for what it lacks (`F9-12`,
 checks, not data, because no source dates its publications: the seven BCRA
 series the page reads and the twenty CCL legs are due after 20:00 Buenos Aires
 (23:00 UTC) of each weekday, INDEC and Series de Tiempo once per Buenos Aires
-day. A check is the subject's latest ingestion run —a hand-run command counts—
+week since `argentina-refresh-freshness-1.1.0` (Monday 00:00). A check is the subject's latest ingestion run —a hand-run command counts—
 or the latest refresh job that finished it; indicator runs are keyed by
 indicator ID. `refreshArgentinaData`, the third downloading Server Action,
 takes one boolean (`retryFailures`) and plans one `argentina_data_refresh` job
@@ -1197,6 +1197,21 @@ re-read keeps the marks and the first session marks nothing. The render only
 reads it; `VisitRecorder` calls `recordArgentinaVisit` (no input) after the
 page shows and on each new cutoff. No notification outside the page: nothing
 arrives without a visit (ADR 0070).
+
+Since `F9-22` (ADR 0070 and 0079 amendments, no migration) every figure of
+`/argentina` says how current it is. `argentina-freshness-1.0.0`
+(`surface-freshness.ts`) maps each tile and block to the refresh sources it
+reads —the ITCRM and the REM are `manual`, never asked on open— and the
+readiness and every `refreshArgentinaData` answer carry `freshness` per source
+(`checked`, `pending`, `failed`, `blocked`; a due source that cannot be asked is
+`blocked` from the first render). `ArgentinaFreshnessProvider` owns the polling,
+re-reads the page as soon as each source finishes and shares the state:
+`TileShell` mutes a pending figure and runs a line along the tile, and tints a
+figure that changed with the page open («Actualizado», never stored);
+`BlockFreshness` ends the provenance line. `argentina-news-1.1.0` carries each
+mark's figure and the previous one (revised reads before → after). Tiles go
+daily → monthly (`SUMMARY_ORDER`). Clocks are written in Buenos Aires: the
+server runs in UTC and the marks hydrate.
 
 Country risk (`F9-19`/`F9-21`, [ADR 0080](docs/architecture/adr/0080-argentina-country-risk-source.md),
 no migration) is J.P. Morgan's sovereign spread read from Ámbito's history of

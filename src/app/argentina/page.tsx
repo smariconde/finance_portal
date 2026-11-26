@@ -27,6 +27,7 @@ import {
 } from "@/modules/macro-series/application/read-rem-inflation-comparison";
 
 import { ArgentinaRefresh } from "./_components/argentina-refresh";
+import { ArgentinaFreshnessProvider } from "./_components/freshness-provider";
 import { CountryRiskSection } from "./_components/country-risk-section";
 import { ItcrmSection } from "./_components/itcrm-section";
 import { markedBlocks, NewsDot, NewsStrip } from "./_components/news-mark";
@@ -149,6 +150,7 @@ export default async function ArgentinaPage() {
   }
 
   const news = await newsRead;
+  const blockMarks = markedBlocks(news);
 
   return (
     <PageContainer>
@@ -184,27 +186,30 @@ export default async function ArgentinaPage() {
         }
       />
 
-      {readiness === null ? null : (
-        <ArgentinaRefresh
-          needsRefresh={readiness.needsRefresh}
-          failedSources={readiness.failedSources}
-        />
-      )}
+      <ArgentinaFreshnessProvider
+        readAt={dashboard.readAt}
+        rendered={readiness?.sources ?? null}
+        needsRefresh={readiness?.needsRefresh ?? false}
+        failedSources={readiness?.failedSources ?? []}
+        blockMarks={blockMarks}
+      >
+        <ArgentinaRefresh />
 
-      <VisitRecorder readAt={dashboard.readAt} />
-      <NewsStrip news={news} />
-      <SummaryCards dashboard={dashboard} news={news} />
-      <BlockIndex marks={markedBlocks(news)} />
+        <VisitRecorder readAt={dashboard.readAt} />
+        <NewsStrip news={news} />
+        <SummaryCards dashboard={dashboard} news={news} />
+        <BlockIndex marks={blockMarks} />
 
-      <ActivitySection activity={dashboard.activity} />
-      <DollarSection dollar={dashboard.dollar} />
-      <ItcrmSection itcrm={dashboard.itcrm} />
-      <CountryRiskSection countryRisk={dashboard.countryRisk} />
-      <MonetarySection monetary={dashboard.monetary} />
-      <RemInflationSection rows={remComparison} />
-      <FiscalSection fiscal={dashboard.fiscal} />
-      <ExternalSection external={dashboard.external} />
-      <SoySection soy={dashboard.soy} />
+        <ActivitySection activity={dashboard.activity} />
+        <DollarSection dollar={dashboard.dollar} />
+        <ItcrmSection itcrm={dashboard.itcrm} />
+        <CountryRiskSection countryRisk={dashboard.countryRisk} />
+        <MonetarySection monetary={dashboard.monetary} />
+        <RemInflationSection rows={remComparison} />
+        <FiscalSection fiscal={dashboard.fiscal} />
+        <ExternalSection external={dashboard.external} />
+        <SoySection soy={dashboard.soy} />
+      </ArgentinaFreshnessProvider>
     </PageContainer>
   );
 }

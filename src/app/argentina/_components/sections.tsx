@@ -292,7 +292,8 @@ export function DollarSection({ dollar }: { readonly dollar: DollarBlock }) {
       provenance={
         <>
           BCRA (mayorista Com. A 3500 y bandas) · CCL implícito de diez pares
-          ADR · pesos por dólar
+          ADR · pesos por dólar · último dato{" "}
+          {latestOfficial ? calendarDate(latestOfficial.on) : NO_DATA}
         </>
       }
       methodology={
@@ -514,7 +515,9 @@ export function MonetarySection({
       provenance={
         <>
           BCRA, Estadísticas Monetarias v4 · inflación del INDEC publicada por
-          el BCRA · base monetaria en pesos constantes por IPC
+          el BCRA · base monetaria en pesos constantes por IPC · IPC{" "}
+          {lastMonthly ? shortMonth(lastMonthly.on) : NO_DATA}, reservas{" "}
+          {lastReserve ? calendarDate(lastReserve.on) : NO_DATA}
         </>
       }
       methodology={
@@ -749,7 +752,13 @@ export function FiscalSection({ fiscal }: { readonly fiscal: FiscalBlock }) {
       provenance={
         <>
           Secretaría de Hacienda (IMIG) y PIB a precios corrientes del INDEC,
-          vía Series de Tiempo · % del PIB del mismo año · años completos
+          vía Series de Tiempo · % del PIB del mismo año · años completos ·
+          último dato{" "}
+          {ytd
+            ? shortMonth(ytd.lastOn)
+            : lastYear
+              ? String(lastYear.year)
+              : NO_DATA}
         </>
       }
       methodology={
@@ -857,7 +866,8 @@ export function ExternalSection({
       provenance={
         <>
           INDEC, Intercambio Comercial Argentino, vía Series de Tiempo ·
-          millones de US$ · exportaciones FOB, importaciones CIF · toda la serie
+          millones de US$ · exportaciones FOB, importaciones CIF · último dato{" "}
+          {last ? shortMonth(last.on) : NO_DATA}
         </>
       }
       methodology={

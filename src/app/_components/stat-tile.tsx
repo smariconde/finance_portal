@@ -100,8 +100,9 @@ export function StatTile({
       </span>
       <span className="flex flex-wrap items-baseline gap-x-1.5">
         <span
+          data-slot="stat-value"
           className={cn(
-            "numeric leading-none font-semibold tracking-tight whitespace-nowrap text-foreground",
+            "numeric leading-none font-semibold tracking-tight whitespace-nowrap text-foreground transition-colors motion-reduce:transition-none",
             size === "lg" ? "text-3xl" : size === "sm" ? "text-xl" : "text-2xl",
           )}
         >

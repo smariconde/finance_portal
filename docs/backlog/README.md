@@ -171,6 +171,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   143 | `F11-18`   | `in_progress` | Day y swing en bolsillos separados: tipo automático, 70 % swing, reglas del día sólo con day trades, 0,5 % / 2 % por trade y 6 % de riesgo abierto en las swing, en `/cuenta` y `/plan`.                                  | Pedido del owner   |
 |   144 | `F6-57`    | `queued`      | Opciones de un emisor IFRS con precio de ejercicio en otra moneda: transcripción del 20-F, corroboración `ifrs-full` y tipo de cambio congelado en el snapshot.                                                           | `F6-55`            |
 |   145 | `F6-58`    | `queued`      | NVO: el ADS como recibo de depósito (programa ADR 1:1 citado del 20-F), DKK, acciones A + B y patrimonio IFRS sin no controlantes.                                                                                        | `F6-55`            |
+|   146 | `F9-22`    | `done`        | `/argentina` dice qué cifra está verificada, buscándose, sin verificar o cargada a mano; la tira de novedades lleva la cifra y el antes → después; tarjetas de lo diario a lo mensual.                                    | Pedido del owner   |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -8027,6 +8028,49 @@ La organización sigue en Launch y el regreso a Free queda a cargo del owner.
   también como línea vertical.
 - Sin migración. En Production la serie se baja en la primera apertura de
   `/argentina`, con un pedido.
+
+#### `F9-22` — frescura de cada cifra y novedades con su cifra
+
+- Estado: `done` el 2026-11-26, abierto el mismo día a pedido del owner: «hasta
+  que se muestra lo nuevo, se muestra lo viejo» y «llamar la atención con algo
+  visual cuando hay un dato nuevo». Enmiendas de la
+  [ADR 0070](../architecture/adr/0070-argentina-refresh-on-open.md) y la
+  [ADR 0079](../architecture/adr/0079-new-data-since-last-visit.md).
+- Medido antes en el código: el render ya calculaba qué fuente estaba vencida
+  pero sólo pasaba un booleano; INDEC, Series de Tiempo y Estimaciones se
+  consultan una vez por semana (`argentina-refresh-freshness-1.1.0`), así que
+  «Datos al día.» podía convivir con un IPC de la semana pasada; el ITCRM
+  (ADR 0074) y el REM (ADR 0075) nunca se buscan al abrir y se veían igual que
+  el resto; «Revisado» no decía qué cambió.
+- `argentina-freshness-1.0.0`: cada tarjeta y cada bloque lee un grupo de
+  fuentes y está `verified` (con la hora del control más viejo), `verifying`,
+  `unverified` (falló o está frenada) o `manual` (ITCRM y REM). La
+  disponibilidad y cada estado del refresco llevan `freshness` por fuente; una
+  fuente vencida que no se puede pedir (token, cuota, kill switch) se dibuja
+  frenada desde el primer render, nunca «buscando».
+- La página relee el servidor apenas termina cada fuente, no al final de la
+  ronda; una tarjeta cuya cifra cambió con la página abierta se tiñe una vez y
+  queda «Actualizado» durante la visita. Los chips de la línea de estado dicen
+  qué hace cada fuente; «Datos al día.» pasa a «Fuentes consultadas a las hh:mm».
+- `argentina-news-1.1.0`: cada marca lleva la cifra que muestra la página
+  (EMAE en variación mensual, IPC, saldo comercial, resultado primario) y la
+  anterior; revisado, tachada la de antes. La marca también va junto al título
+  del bloque. Lo marcado no cambia.
+- Tarjetas de lo diario a lo mensual en dos grupos, «Cada día» y «Cada mes»
+  (`SUMMARY_ORDER`, pedido del owner); fecha del último dato en la procedencia
+  de dólar, monetario, fiscal y comercio. La hora se escribe siempre en Buenos
+  Aires: el servidor de Vercel corre en UTC.
+- Revisado con un build servido contra una réplica de la base personal, con el
+  BCRA frenado por el kill switch (la base local no tiene su historia): la
+  ronda real terminó en 40 s, siete fuentes pasaron de «consultando» a
+  «consultada», el riesgo país llegó a mitad de ronda (855 → 1.067 pb) con
+  «Actualizado», las tarjetas del BCRA quedaron «sin verificar». 1440 px claro
+  y 390 px oscuro: 0 px de desborde, axe sin hallazgos serios ni críticos, sin
+  errores de consola; servidor en UTC y navegador en Buenos Aires sin
+  desajuste de hidratación. 5.027 unit tests.
+- Sin migración. Sigue el calendario de publicaciones (`F12-04`, ADR 0088
+  propuesta por otra sesión): con él, «esperado hoy» y la consulta del día de
+  la publicación en vez de una vez por semana.
 
 #### `F9-20` — lo nuevo desde la visita anterior
 
