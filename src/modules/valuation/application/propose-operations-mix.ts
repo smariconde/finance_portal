@@ -1,3 +1,4 @@
+import { declaredForeignFiler } from "@/modules/universe/domain/declared-foreign-filers";
 import { assertAiTransferable } from "@/modules/ai/domain/ai-transfer";
 import type { LadderResult } from "@/modules/ai/application/run-model-ladder";
 import type { AiTask } from "@/modules/ai/domain/ai-task";
@@ -123,10 +124,15 @@ function daysApart(left: string, right: string): number {
   return Math.abs(Date.parse(left) - Date.parse(right)) / 86_400_000;
 }
 
-/** Los ingresos del ejercicio que cierra el 10-K, en USD, o `null`. */
+/**
+ * Los ingresos del ejercicio que cierra el informe anual, en la moneda de los
+ * estados —USD, o la declarada de un emisor extranjero (`F6-55`)—, o `null`.
+ * La tabla del filing está en esa moneda y la policy compara su total con esto.
+ */
 export function revenueForReport(
   series: AnnualFundamentals | null,
   reportDate: string,
+  currency = "USD",
 ): { readonly fiscalYearEnd: string; readonly value: string } | null {
   const year = series?.fiscalYears.find(
     (candidate) =>
@@ -138,7 +144,7 @@ export function revenueForReport(
   if (
     year === undefined ||
     revenue === undefined ||
-    revenue.currency !== "USD"
+    revenue.currency !== currency
   ) {
     return null;
   }
@@ -184,6 +190,9 @@ export async function proposeOperationsMix(
       await dependencies.loadSubmissions(cik),
       cik,
       query.knownAt ?? dependencies.now(),
+      // Un emisor extranjero declarado presenta 20-F (`F6-55`): su tabla de
+      // ingresos por país está en las notas igual que la de un 10-K.
+      declaredForeignFiler(request.cik)?.annualForm ?? "10-K",
     );
 
     if (located.status === "found") {
@@ -200,6 +209,7 @@ export async function proposeOperationsMix(
   const revenue = revenueForReport(
     await dependencies.annualFundamentals(request.legalEntityId, query),
     annualReport.reportDate,
+    declaredForeignFiler(request.cik)?.reportingCurrency ?? "USD",
   );
 
   if (revenue === null) return skip("revenue_unknown", annualReport);

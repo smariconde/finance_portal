@@ -147,3 +147,15 @@ interés. Una partida monetaria se lee sólo en la moneda de la serie. El tipo d
 cambio de Yahoo se guarda en `benchmark_prices` como `fx-eur-usd`, y la
 comparación con el precio convierte el cierre listado con el cambio del mismo
 día; el valor por acción, la corrida y sus hashes quedan en EUR.
+
+## Enmienda del 2026-11-26: las tareas de IA sobre el 20-F (`F6-55`, incremento 4)
+
+El localizador del informe anual toma el formulario que corresponde al CIK: el
+20-F original de un emisor declarado, nunca su enmienda ni un 10-K. Con eso, la
+tarea del mix de operaciones lee la tabla de ingresos por país del 20-F de SPOT
+con los extractores y prompts de siempre, y compara su total con los ingresos en
+la moneda de los estados. **Decisión del owner:** las opciones de un emisor IFRS
+van en un slice propio (`F6-57`): su precio de ejercicio está en USD contra una
+corrida en EUR, así que el snapshot tiene que congelar el tipo de cambio, y su
+corroboración necesita conceptos `ifrs-full`. Mientras tanto la corrida las
+declara no restadas, como cota superior.

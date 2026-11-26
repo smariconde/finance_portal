@@ -819,6 +819,10 @@ converts the listed close at the same day's rate (`no_fx_at_as_of` otherwise),
 (`risk-free-freshness-1.0.0`) and the rate, never blocking. SPOT is declared
 `entertainment` (SIC 4832 gave `broadcasting`). Measured on a replica: SPOT from
 nothing to `computed` in 12 s, 427.18 EUR against 562.35 EUR (P/V 1.32).
+Increment 4: `locateLatestAnnualReport` takes the form the CIK files (a declared
+filer's original 20-F, never a 10-K), so the operations-mix task reads SPOT's
+«Revenue by country» against its EUR revenue with the same prompts (359.17 EUR,
+rigor `standard`); IFRS options with a USD strike are `F6-57`.
 
 Company logos are loaded by the **browser** from logo.dev
 ([ADR 0062](docs/architecture/adr/0062-company-logos-browser-loaded.md)): the

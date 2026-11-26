@@ -166,9 +166,10 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   138 | `F6-52`    | `done`        | GE evaluable: la lectura de linaje deja de cortar en 1.000 revisiones por segmento; PSX re-medido con la selección vigente.                                                                                               | `F6-51`            |
 |   139 | `F6-53`    | `done`        | Corredores y bancos de inversión (SIC 6211) valuados como `broker_dealer` con exceso de retorno y payout del trienio con tope en uno; HOOD, SCHW, GS, MS y RJF llegan a corrida.                                          | `F6-52`            |
 |   140 | `F6-54`    | `done`        | Emisores con 20-F medidos y [ADR 0087](../architecture/adr/0087-foreign-private-issuers.md) aceptada: moneda de reporte, FX de Yahoo, SPOT, NVO y TSM primero.                                                            | `F6-53`            |
-|   141 | `F6-55`    | `in_progress` | SPOT, NVO y TSM valuados desde su 20-F en su moneda de reporte, con el valor por ADS en dólares al tipo de cambio del día.                                                                                                | `F6-54`            |
+|   141 | `F6-55`    | `in_progress` | SPOT y NVO valuados desde su 20-F en su moneda de reporte, con el precio listado convertido al tipo de cambio del día.                                                                                                    | `F6-54`            |
 |   142 | `F6-56`    | `queued`      | ASML: 20-F en US GAAP y EUR, con las secciones de su informe integrado leídas por el índice de referencias cruzadas.                                                                                                      | `F6-55`            |
 |   143 | `F11-18`   | `in_progress` | Day y swing en bolsillos separados: tipo automático, 70 % swing, reglas del día sólo con day trades, 0,5 % / 2 % por trade y 6 % de riesgo abierto en las swing, en `/cuenta` y `/plan`.                                  | Pedido del owner   |
+|   144 | `F6-57`    | `queued`      | Opciones de un emisor IFRS con precio de ejercicio en otra moneda: transcripción del 20-F, corroboración `ifrs-full` y tipo de cambio congelado en el snapshot.                                                           | `F6-55`            |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -5167,6 +5168,30 @@ en `broadcasting`, beta 0,32 y D/E 0,86).
   violaciones en `/valuacion/SPOT` de escritorio y teléfono.
 - SPOT no tiene CEDEAR registrado: entró al grafo después del último
   `pnpm cedears:record`.
+
+**Incremento 4 (2026-11-26): el mix geográfico desde el 20-F.** Decisión del
+owner con lo medido: el mix ahora y las opciones después (`F6-57`), porque las
+de SPOT tienen precio de ejercicio en USD contra una corrida en EUR y su
+corroboración usa conceptos `us-gaap`. `locateLatestAnnualReport` toma el
+formulario que corresponde al CIK —el 20-F original de un emisor declarado,
+nunca su enmienda ni un 10-K— y la tarea del mix compara su tabla con los
+ingresos en la moneda de los estados. Los extractores del 10-K ya encontraban la
+tabla «Revenue by country» de SPOT y los prompts no cambian. No hizo falta cortar
+el Item 4 ni el Item 5: ninguna tarea que corre hoy sobre un 20-F los lee (SPOT
+tiene industria declarada) y quedan para `F6-57` y NVO. Medido en la réplica con
+el job real: mix aceptado en el primer escalón por USD 0,0011 (EE. UU. 37,6 %,
+Luxemburgo 0,1 %, otros países 62,3 % como el resto del mundo ponderado por PIB);
+WACC 6,32 → 6,98 %, valor 427,18 → 359,17 EUR (P/V 1,57), rigor `screening` →
+`standard`. Replay 22 de 22; gates: 5.010 unit, 257 de integración.
+
+#### `F6-57` — opciones de un emisor IFRS en otra moneda
+
+- Estado: `queued`
+- Alcance: transcribir las opciones y unidades del 20-F (nota de pagos en
+  acciones), corroborarlas contra `ifrs-full` (`NumberOfOutstandingShareOptions`
+  y su precio de ejercicio promedio) y valuarlas en la moneda de la corrida con
+  el tipo de cambio del día congelado en el snapshot. Medido en SPOT: 4,67 M de
+  opciones a USD 198 contra USD 616, del orden del 2 % del valor.
 
 #### `F6-56` — ASML (20-F en US GAAP y EUR)
 
