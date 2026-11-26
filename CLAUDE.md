@@ -793,7 +793,7 @@ currency with that currency's risk-free and convert only the value per share at
 the same day's Yahoo FX pair; SPOT, NVO and TSM first (`F6-55`), ASML next, NU
 out. Measured: `companyfacts` lacked the April 2026 20-Fs of TSM and NU (the
 filing's instance has them), no 6-K carries XBRL since 2021 (annual base only),
-and the ADS ratio is not in the XBRL. Since `F6-55` increment 1 (in progress)
+and the ADS ratio is not in the XBRL. Since `F6-55` (done 2026-11-26; NVO is `F6-58`) increment 1
 `followed-filer-eligibility-1.1.0` admits a 20-F only for a CIK in
 `DECLARED_FOREIGN_FILERS` (Spotify, EUR) and `sec-core-concepts-14.0.0` stores
 53 `ifrs-full` concepts with their original names. The risk-free rate is the

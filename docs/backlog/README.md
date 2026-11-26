@@ -166,10 +166,11 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   138 | `F6-52`    | `done`        | GE evaluable: la lectura de linaje deja de cortar en 1.000 revisiones por segmento; PSX re-medido con la selección vigente.                                                                                               | `F6-51`            |
 |   139 | `F6-53`    | `done`        | Corredores y bancos de inversión (SIC 6211) valuados como `broker_dealer` con exceso de retorno y payout del trienio con tope en uno; HOOD, SCHW, GS, MS y RJF llegan a corrida.                                          | `F6-52`            |
 |   140 | `F6-54`    | `done`        | Emisores con 20-F medidos y [ADR 0087](../architecture/adr/0087-foreign-private-issuers.md) aceptada: moneda de reporte, FX de Yahoo, SPOT, NVO y TSM primero.                                                            | `F6-53`            |
-|   141 | `F6-55`    | `in_progress` | SPOT y NVO valuados desde su 20-F en su moneda de reporte, con el precio listado convertido al tipo de cambio del día.                                                                                                    | `F6-54`            |
+|   141 | `F6-55`    | `done`        | SPOT valuado desde su 20-F en EUR, con el precio listado convertido al tipo de cambio del día y su mix geográfico.                                                                                                        | `F6-54`            |
 |   142 | `F6-56`    | `queued`      | ASML: 20-F en US GAAP y EUR, con las secciones de su informe integrado leídas por el índice de referencias cruzadas.                                                                                                      | `F6-55`            |
 |   143 | `F11-18`   | `in_progress` | Day y swing en bolsillos separados: tipo automático, 70 % swing, reglas del día sólo con day trades, 0,5 % / 2 % por trade y 6 % de riesgo abierto en las swing, en `/cuenta` y `/plan`.                                  | Pedido del owner   |
 |   144 | `F6-57`    | `queued`      | Opciones de un emisor IFRS con precio de ejercicio en otra moneda: transcripción del 20-F, corroboración `ifrs-full` y tipo de cambio congelado en el snapshot.                                                           | `F6-55`            |
+|   145 | `F6-58`    | `queued`      | NVO: el ADS como recibo de depósito (programa ADR 1:1 citado del 20-F), DKK, acciones A + B y patrimonio IFRS sin no controlantes.                                                                                        | `F6-55`            |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -5080,9 +5081,10 @@ revisión». Medido sobre Production (Neon y MCP) con `valuation:assess
   después, NU fuera.
 - Sin código.
 
-#### `F6-55` — 20-F en IFRS: SPOT y NVO
+#### `F6-55` — 20-F en IFRS: SPOT (cerrado el 2026-11-26)
 
-- Estado: `in_progress`
+- Estado: `done`. NVO pasó a `F6-58` (decisión del owner del 2026-11-26): su
+  ADS es un recibo de depósito y pide una constitución propia.
 - Fase y dependencia: Fase 6, después de `F6-54`.
 - Alcance original: medir antes de codificar la tasa libre de riesgo en EUR, DKK
   y TWD (Damodaran por moneda o diferencial de inflación) y traerla al owner;
@@ -5183,6 +5185,19 @@ el job real: mix aceptado en el primer escalón por USD 0,0011 (EE. UU. 37,6 %,
 Luxemburgo 0,1 %, otros países 62,3 % como el resto del mundo ponderado por PIB);
 WACC 6,32 → 6,98 %, valor 427,18 → 359,17 EUR (P/V 1,57), rigor `screening` →
 `standard`. Replay 22 de 22; gates: 5.010 unit, 257 de integración.
+
+#### `F6-58` — NVO: el ADS como recibo de depósito
+
+- Estado: `queued`
+- Alcance, medido en `F6-55`: «NVO» en NYSE es un ADS emitido por JPMorgan
+  Chase Bank, N.A. («Each ADR represents one deposited Novo Nordisk B share»).
+  Constituir a Novo, su acción B, el ADS como `depositary_receipt` del
+  depositario y el programa `adr` 1:1 con su cita; el job pasa del ticker del ADS
+  a la acción B por el programa (`subject.depositaryProgramId`) y lee el precio
+  del ADS dividido por la razón. DKK con el bono danés mensual del ECB y
+  `DKKUSD=X`; acciones A + B (no hay conteo de carátula sin clase); patrimonio
+  publicado sólo con no controlantes, que hoy se prueban en cero desde un 10-K.
+  Sirve después para TSM (5 acciones por ADS) cuando haya tasa en TWD.
 
 #### `F6-57` — opciones de un emisor IFRS en otra moneda
 
