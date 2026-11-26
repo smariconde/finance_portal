@@ -35,11 +35,12 @@ import {
   purchaseTotal,
 } from "@/modules/trading/domain/pre-market-plan";
 import {
-  markOf,
-  openRisk,
-  planPosition,
-  positionRisk,
-} from "@/modules/trading/domain/position-size-risk";
+  accountRisk,
+  bookCapitalLeft,
+} from "@/modules/trading/domain/account-risk";
+import { planPosition } from "@/modules/trading/domain/position-size-risk";
+import type { TradingBook } from "@/modules/trading/domain/trading-book";
+import { riskPerTradeOf } from "@/modules/trading/domain/trading-rules";
 import {
   priceInputSchema,
   quantityInputSchema,
@@ -56,6 +57,7 @@ type Draft = {
   baseRevision: number | null;
   symbol: string;
   setupCode: string | null;
+  book: TradingBook;
   entry: string;
   quantity: string;
   manualStop: string;
@@ -65,11 +67,17 @@ type Draft = {
   notes: string;
   status: "active" | "archived";
 };
+const BOOK_OPTIONS: readonly { value: TradingBook; label: string }[] = [
+  { value: "day", label: "Day" },
+  { value: "swing", label: "Swing" },
+];
+
 const emptyDraft: Draft = {
   ideaId: null,
   baseRevision: null,
   symbol: "",
   setupCode: null,
+  book: "swing",
   entry: "",
   quantity: "",
   manualStop: "",
@@ -300,37 +308,41 @@ export function PlanWorkspace({
           stopMode: draft.stopMode,
           targetMode: draft.targetMode,
           liquidationValue: equity,
-          riskPercent: settings.riskPerTradePercent,
+          riskPercent: riskPerTradeOf(settings, draft.book),
         })
       : null;
-  const plans = new Map(
-    risk?.state === "read" ? risk.plans.map((plan) => [plan.symbol, plan]) : [],
-  );
-  const open =
+  // El mismo riesgo que `/cuenta`, con el precio de Schwab: el plan no cotiza
+  // las posiciones.
+  const account =
     live?.state === "read" && risk?.state === "read"
-      ? openRisk(
-          live.positions
-            .filter((position) => position.side !== "flat")
-            .map((position) =>
-              positionRisk({
-                position,
-                price: markOf(position),
-                plan: plans.get(position.symbol) ?? null,
-                orders: live.openOrders,
-              }),
-            ),
-          live.balances.liquidationValue,
-          risk.settings.openRiskPercent,
-        )
+      ? accountRisk({
+          positions: live.positions,
+          orders: live.openOrders,
+          priceOf: () => null,
+          plans: risk.plans,
+          settings: risk.settings,
+          liquidationValue: live.balances.liquidationValue,
+          liquidationValueAtOpen: live.balances.liquidationValueAtOpen,
+          activity: risk.activity,
+        })
       : null;
+  const open = account?.openRisk ?? null;
+  const left =
+    account === null ? null : bookCapitalLeft(account.rules, draft.book);
   const size =
     levels?.state === "valid" && live?.state === "read" && settings !== null
       ? planPosition({
           liquidationValue: live.balances.liquidationValue,
           buyingPower: live.balances.cashAvailableForTrading,
-          openRiskPercent: settings.openRiskPercent,
-          riskPerTradePercent: settings.riskPerTradePercent,
-          openRisk: open?.value ?? null,
+          riskPerTradePercent: riskPerTradeOf(settings, draft.book),
+          capitalLeft: left,
+          openRisk:
+            draft.book === "swing"
+              ? {
+                  percent: settings.openRiskPercent,
+                  value: open?.value ?? null,
+                }
+              : null,
           entry: entry.data!,
           stop: levels.stop,
           target: levels.target,
@@ -413,6 +425,7 @@ export function PlanWorkspace({
       baseRevision: idea.revision,
       symbol: idea.symbol,
       setupCode: idea.setupCode,
+      book: idea.book,
       entry: idea.entry,
       quantity: idea.quantity,
       manualStop: idea.manualStop ?? "",
@@ -438,6 +451,7 @@ export function PlanWorkspace({
         baseRevision: idea.revision,
         symbol: idea.symbol,
         setupCode: idea.setupCode,
+        book: idea.book,
         entry: idea.entry,
         quantity: idea.quantity,
         manualStop: idea.manualStop ?? "",
@@ -525,6 +539,15 @@ export function PlanWorkspace({
           ) : null}
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-medium">Tipo</span>
+            <Segmented
+              label="Tipo de trade"
+              options={BOOK_OPTIONS}
+              value={draft.book}
+              onChange={(value) => change("book", value)}
+            />
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <Field
               label="Ticker"
@@ -636,6 +659,8 @@ export function PlanWorkspace({
           entry={entry.success ? entry.data : null}
           stopMode={draft.stopMode}
           targetMode={draft.targetMode}
+          book={draft.book}
+          capitalLeft={left}
           onUseSuggested={(shares) => change("quantity", shares)}
         />
         <div className="lg:hidden">{actions}</div>

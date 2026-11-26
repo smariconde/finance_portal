@@ -1828,6 +1828,25 @@ down: annotations, rules and pre-market plans are parts (`trading-parts.ts`)
 read empty or as the defaults **only** on SQLSTATE `42P01`, and named by
 `UnreadTradingParts`; connection or permission failures keep the reference.
 
+Since `F11-18` (in progress, ADR 0076 amendment, trading migration `0008`,
+owner's decisions) the account is two books. `trading-book-1.0.0` is
+automatic: a trade is day while it lives inside one New York session, swing
+once it spends a night (a position the journal lacks falls back on Schwab's
+previous-session quantity, then day). `trading-rules-2.0.0` reads six rules in
+two rows: day —**capital** (what day trades **bought** today, fees included,
+against 30 % of the liquidation value at the open: bought, not net, because a
+`CASH` account settles T+1 and re-buying with unsettled proceeds is a good
+faith violation), daily loss (default 1.5 %, day trades and day positions
+only), trades per session and loss streak— and swing —**exposure** (market
+value against 70 %) and the 6 % open risk, measured on swing positions only.
+Risk per trade is 0.5 % day and 2 % swing, both on the whole account; capital
+caps have no `warning`. A `1.0.0` revision reads with the defaults for the two
+new fields (`settingsOf`) and never matches, so saving writes a complete one.
+`accountRisk` is the one computation `/cuenta` and `/plan` share;
+`position-size-risk-2.0.0` sizes a day or swing trade against its book's capital
+(and the 6 % only for swing), and every `/plan` idea is day or swing
+(`pre-market-plan-1.1.0`, older revisions read swing).
+
 [ADR 0078](docs/architecture/adr/0078-owner-read-only-mcp.md) (`F11-14`,
 accepted; built in `F11-17`) decides a read-only MCP for the owner's own
 assistant: `POST /mcp` in Production, stateless `createMcpHandler` from

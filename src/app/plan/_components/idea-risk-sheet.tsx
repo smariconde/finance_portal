@@ -23,6 +23,11 @@ import {
   type PlannerCap,
   type PositionPlan,
 } from "@/modules/trading/domain/position-size-risk";
+import type { TradingBook } from "@/modules/trading/domain/trading-book";
+import {
+  allocationOf,
+  riskPerTradeOf,
+} from "@/modules/trading/domain/trading-rules";
 import { formatAmount } from "@/modules/valuation/domain/display-format";
 
 import { planMarkers, type PlanMarker } from "./idea-risk-levels";
@@ -30,8 +35,8 @@ import { planMarkers, type PlanMarker } from "./idea-risk-levels";
 /**
  * El riesgo de la idea que se está escribiendo (`F11-12`): primero cuánto se
  * compra, después los niveles y al final la cantidad elegida contra la que
- * sugiere el riesgo de la cuenta. Las cifras salen de `pre-market-plan-1.0.0` y
- * `position-size-risk-1.0.0` en decimal; acá sólo se escriben, y `number` no
+ * sugiere el riesgo de la cuenta. Las cifras salen de `pre-market-plan-1.1.0` y
+ * `position-size-risk-2.0.0` en decimal; acá sólo se escriben, y `number` no
  * toca ninguna.
  */
 
@@ -41,6 +46,7 @@ type PlannedSize = Extract<PositionPlan, { readonly state: "planned" }>;
 const CAP_COPY: Readonly<Record<PlannerCap, string>> = {
   risk_per_trade: "riesgo por trade",
   buying_power: "poder de compra",
+  capital: "capital del tipo",
   open_risk: "riesgo abierto",
 };
 
@@ -337,6 +343,8 @@ export function IdeaRiskSheet({
   entry,
   stopMode,
   targetMode,
+  book,
+  capitalLeft,
   onUseSuggested,
 }: {
   readonly live: LiveAccountResult | null;
@@ -349,6 +357,9 @@ export function IdeaRiskSheet({
   readonly entry: string | null;
   readonly stopMode: "manual" | "automatic";
   readonly targetMode: "manual" | "one_to_two" | "one_to_three";
+  readonly book: TradingBook;
+  /** Lo que le queda al capital del tipo hoy; `null` sin medir. */
+  readonly capitalLeft: string | null;
   readonly onUseSuggested: (shares: string) => void;
 }) {
   const valid = levels?.state === "valid" ? levels : null;
@@ -365,10 +376,10 @@ export function IdeaRiskSheet({
           Riesgo de la idea
           <InfoTip title="Riesgo de la idea">
             <p>
-              Stop automático: entrada − riesgo por trade ÷ shares. El sugerido
-              es el mínimo entre el riesgo por trade, el buying power y lo que
-              le queda al riesgo abierto; no cambia tu cantidad ni envía
-              órdenes.
+              Stop automático: entrada − riesgo por trade del tipo ÷ shares. El
+              sugerido es el mínimo entre el riesgo por trade, el buying power,
+              lo que le queda al capital del tipo y, en swing, al riesgo
+              abierto; no cambia tu cantidad ni envía órdenes.
             </p>
             {valid !== null &&
             stopMode === "manual" &&
@@ -405,21 +416,30 @@ export function IdeaRiskSheet({
               value={money(live.balances.liquidationValue)}
             />
             <Fact
-              label="Riesgo por trade"
-              value={percent(risk.settings.riskPerTradePercent)}
+              label={`Riesgo ${book}`}
+              value={percent(riskPerTradeOf(risk.settings, book))}
             />
-            <Fact
-              label="Riesgo abierto"
-              value={open?.value == null ? "Sin medir" : money(open.value)}
-              detail={
-                open?.value != null && open.percent !== null
-                  ? `${percent(open.percent)} de ${percent(risk.settings.openRiskPercent)}`
-                  : open !== null && open.missing.length > 0
-                    ? `sin stop: ${open.missing.join(", ")}`
-                    : undefined
-              }
-              muted={open?.value == null}
-            />
+            {book === "day" ? (
+              <Fact
+                label="Capital day libre"
+                value={capitalLeft === null ? "Sin medir" : money(capitalLeft)}
+                detail={`${percent(allocationOf(risk.settings, "day"))} del capital`}
+                muted={capitalLeft === null}
+              />
+            ) : (
+              <Fact
+                label="Riesgo abierto"
+                value={open?.value == null ? "Sin medir" : money(open.value)}
+                detail={
+                  open?.value != null && open.percent !== null
+                    ? `${percent(open.percent)} de ${percent(risk.settings.openRiskPercent)}`
+                    : open !== null && open.missing.length > 0
+                      ? `sin stop: ${open.missing.join(", ")}`
+                      : undefined
+                }
+                muted={open?.value == null}
+              />
+            )}
           </dl>
         )}
 

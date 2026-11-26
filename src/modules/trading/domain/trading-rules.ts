@@ -9,34 +9,44 @@ import {
 } from "@/modules/numeric/domain/decimal-policy";
 
 import type { RoundTrip } from "./trade-round-trips";
+import { bookOfTrade, type TradingBook } from "./trading-book";
 import { tradingSessionOf } from "./trading-session";
 
 /**
- * Las reglas propias del owner como alertas (`trading-rules-1.0.0`, ADR 0076,
- * sección 9; `F11-09`). Ninguna bloquea nada: el portal no envía órdenes, así
- * que una regla sólo dice en qué estado está el día.
+ * Las reglas propias del owner como alertas (ADR 0076, sección 9; `F11-09`,
+ * `F11-18`). Ninguna bloquea nada: el portal no envía órdenes, así que una
+ * regla sólo dice en qué estado está el día.
  *
- * Las editables viven en la base de trading como revisiones; sin ninguna
- * guardada rigen estos valores por defecto, elegidos el 2026-11-15 contra los
- * 47 trades reales y la práctica publicada (la regla del 2 % y del 6 % de
- * Elder, límites diarios del 2 al 5 % del capital, la «regla de los tres
- * strikes»):
+ * `trading-rules-2.0.0` (`F11-18`, decisiones del owner del 2026-11-25) parte
+ * la cuenta en dos bolsillos según el tipo de cada trade (`trading-book-1.0.0`,
+ * automático):
  *
- * - **2 % por trade y 6 % de riesgo abierto:** el planner del Flask del owner.
- * - **Pérdida diaria 4 %:** dos stops completos al 2 %. Sobre el valor de
- *   liquidación al abrir, con lo realizado en la sesión más lo abierto del día
- *   según Schwab. El peor día medido (−1.319, dos swings) está por debajo.
- * - **3 trades por sesión:** 38 de 39 sesiones con entradas tuvieron una o
- *   dos; el máximo fue tres.
- * - **Corte tras 3 pérdidas seguidas:** la única sesión que lo pasó fueron
- *   seis pérdidas chicas seguidas en TSLA el 2024-06-06.
+ * - **Swing, 70 % del valor de liquidación:** el valor de mercado de las
+ *   posiciones swing contra ese tope; 2 % de riesgo por trade y 6 % de riesgo
+ *   abierto, los dos sobre la cartera entera y medidos sólo en las swing.
+ * - **Day, el resto:** lo **comprado** hoy en day trades contra el 30 % del
+ *   valor de liquidación al abrir. Se cuenta lo comprado y no lo neto porque la
+ *   cuenta es `CASH`: lo vendido hoy se liquida en T+1, y volver a comprar con
+ *   eso y vender en el día es una good faith violation. 0,5 % de riesgo por
+ *   trade. La pérdida diaria, los trades por sesión y la racha cuentan sólo
+ *   day trades: el gap de una swing no corta el day trading.
  *
- * Los estados son tres. `stop`: la regla dice no abrir otro trade. `warning`:
- * un paso más llega a `stop` (otro stop completo no entra en lo que queda, o
- * falta un trade o una pérdida). `ok`, el resto. Una regla apagada es `off`, y
- * una que no se puede medir, `unknown` con motivo: nunca `ok` por falta de dato.
+ * Por defecto rigen 70 / 2 / 6 y 0,5, más los límites del día de `1.0.0` (3
+ * trades por sesión, corte tras 3 pérdidas) y una pérdida diaria de 1,5 %: tres
+ * stops completos de day trading, el máximo de trades por sesión. La `1.0.0`
+ * medía 4 % como dos stops al 2 %, que ya no es el riesgo de un day trade.
+ * Una revisión guardada con `1.0.0` se lee con sus valores para swing y el día,
+ * y con los por defecto para el reparto y el riesgo day, que no tenía.
+ *
+ * Los estados son tres. `stop`: la regla dice no abrir otro trade de ese tipo.
+ * `warning`: un paso más llega a `stop` (otro stop completo no entra en lo que
+ * queda, o falta un trade o una pérdida). `ok`, el resto. Los topes de capital
+ * no tienen `warning`: ningún monto es «un trade más». Una regla apagada es
+ * `off`, y una que no se puede medir, `unknown` con motivo: nunca `ok` por
+ * falta de dato.
  */
-export const TRADING_RULES_VERSION = "trading-rules-1.0.0";
+export const TRADING_RULES_VERSION = "trading-rules-2.0.0";
+export const TRADING_RULES_V1 = "trading-rules-1.0.0";
 
 const { parseDecimal, divide, formatDecimal } = createDecimalOperations(
   (code, message) => new Error(`${code}: ${message}`),
@@ -47,38 +57,56 @@ const parse = (value: string) => parseDecimal(value, PATH);
 const format = (value: Dec) => formatDecimal(value, PATH);
 
 export type RiskSettings = {
+  /** El tope de las posiciones swing; el resto es capital de day trading. */
+  readonly swingAllocationPercent: string;
+  /** Riesgo de un swing, sobre el valor de liquidación entero. */
   readonly riskPerTradePercent: string;
+  /** Riesgo abierto de las swing, sobre el valor de liquidación entero. */
   readonly openRiskPercent: string;
-  /** `null`: la regla está apagada. */
+  /** Riesgo de un day trade, sobre el valor de liquidación entero. */
+  readonly dayRiskPerTradePercent: string;
+  /** Day trades. `null`: la regla está apagada. */
   readonly dailyLossPercent: string | null;
   readonly maxTradesPerSession: number | null;
   readonly maxConsecutiveLosses: number | null;
 };
 
 export const DEFAULT_RISK_SETTINGS: RiskSettings = Object.freeze({
+  swingAllocationPercent: "70",
   riskPerTradePercent: "2",
   openRiskPercent: "6",
-  dailyLossPercent: "4",
+  dayRiskPerTradePercent: "0.5",
+  dailyLossPercent: "1.5",
   maxTradesPerSession: 3,
   maxConsecutiveLosses: 3,
 });
 
 export const COUNT_RULE_MAX = 20;
 
+const CANONICAL_PERCENT = /^(?:[1-9][0-9]?|100|0)(?:\.[0-9]{0,1}[1-9])?$/u;
+
 const canonicalPercent = z
   .string()
-  .regex(/^(?:[1-9][0-9]?|100|0)(?:\.[0-9]{0,1}[1-9])?$/u)
+  .regex(CANONICAL_PERCENT)
   .refine((value) => {
     const parsed = Number(value);
     return parsed > 0 && parsed <= 100;
   });
 
+/** El reparto admite 0 (todo day) y 100 (todo swing). */
+const canonicalShare = z
+  .string()
+  .regex(CANONICAL_PERCENT)
+  .refine((value) => Number(value) <= 100);
+
 const countRule = z.number().int().min(1).max(COUNT_RULE_MAX);
 
 export const riskSettingsSchema = z
   .object({
+    swingAllocationPercent: canonicalShare,
     riskPerTradePercent: canonicalPercent,
     openRiskPercent: canonicalPercent,
+    dayRiskPerTradePercent: canonicalPercent,
     dailyLossPercent: canonicalPercent.nullable(),
     maxTradesPerSession: countRule.nullable(),
     maxConsecutiveLosses: countRule.nullable(),
@@ -90,10 +118,21 @@ export const riskSettingsSchema = z
         parse(settings.openRiskPercent),
       ),
     { message: "per_trade_above_open", path: ["riskPerTradePercent"] },
+  )
+  .refine(
+    (settings) =>
+      settings.dailyLossPercent === null ||
+      parse(settings.dayRiskPerTradePercent).lessThanOrEqualTo(
+        parse(settings.dailyLossPercent),
+      ),
+    {
+      message: "day_trade_above_daily_loss",
+      path: ["dayRiskPerTradePercent"],
+    },
   );
 
 /** Un porcentaje como lo escribe el owner: coma o punto, hasta dos decimales. */
-function percentInput(required: boolean) {
+function percentInput(required: boolean, allowZero = false) {
   return z
     .string()
     .max(8)
@@ -111,7 +150,11 @@ function percentInput(required: boolean) {
         return z.NEVER;
       }
       const decimal = parse(trimmed.replace(",", "."));
-      if (!decimal.greaterThan(ZERO) || decimal.greaterThan(HUNDRED)) {
+      if (
+        decimal.lessThan(ZERO) ||
+        (!allowZero && decimal.isZero()) ||
+        decimal.greaterThan(HUNDRED)
+      ) {
         context.addIssue({ code: "custom", message: "out_of_range" });
         return z.NEVER;
       }
@@ -142,8 +185,10 @@ function countInput() {
 /** El formulario de las reglas, campo por campo; vacío apaga una regla. */
 export const riskSettingsFormSchema = z
   .object({
+    swingAllocationPercent: percentInput(true, true),
     riskPerTradePercent: percentInput(true),
     openRiskPercent: percentInput(true),
+    dayRiskPerTradePercent: percentInput(true),
     dailyLossPercent: percentInput(false),
     maxTradesPerSession: countInput(),
     maxConsecutiveLosses: countInput(),
@@ -153,54 +198,79 @@ export const riskSettingsFormSchema = z
 
 export function sameRiskSettings(a: RiskSettings, b: RiskSettings): boolean {
   return (
+    a.swingAllocationPercent === b.swingAllocationPercent &&
     a.riskPerTradePercent === b.riskPerTradePercent &&
     a.openRiskPercent === b.openRiskPercent &&
+    a.dayRiskPerTradePercent === b.dayRiskPerTradePercent &&
     a.dailyLossPercent === b.dailyLossPercent &&
     a.maxTradesPerSession === b.maxTradesPerSession &&
     a.maxConsecutiveLosses === b.maxConsecutiveLosses
   );
 }
 
-/** Lo que hizo la sesión de Nueva York de hoy, de la base de trading. */
+/** El riesgo por trade de cada tipo. */
+export function riskPerTradeOf(
+  settings: RiskSettings,
+  book: TradingBook,
+): string {
+  return book === "day"
+    ? settings.dayRiskPerTradePercent
+    : settings.riskPerTradePercent;
+}
+
+/** La parte del valor de liquidación que le toca a un tipo, en porcentaje. */
+export function allocationOf(
+  settings: RiskSettings,
+  book: TradingBook,
+): string {
+  const swing = parse(settings.swingAllocationPercent);
+  return format(book === "swing" ? swing : HUNDRED.minus(swing));
+}
+
+/** Los day trades de la sesión de Nueva York de hoy, de la base de trading. */
 export type SessionActivity = {
   readonly session: string;
-  /** Trades que abrieron en la sesión. */
+  /** Day trades que abrieron en la sesión. */
   readonly tradesOpened: number;
-  /** Lo realizado por las salidas de la sesión que lo conocen. */
+  /** Lo realizado por las salidas de day trades. */
   readonly realized: string;
-  /** Salidas de trades abiertos antes de la historia: no suman. */
-  readonly unknownExits: number;
-  /** Las pérdidas seguidas con que termina la sesión, por trade cerrado. */
+  /** Las pérdidas seguidas con que termina la sesión, por day trade cerrado. */
   readonly lossStreak: number;
+  /** Lo que costaron las compras de day trades de la sesión, con comisiones. */
+  readonly dayBuys: string;
 };
 
 /**
- * La actividad de una sesión. Un trade cuenta en la racha cuando cierra: con
- * P&L negativo suma, con cero o positivo la corta. Un trade abierto antes de la
- * historia no se sabe si perdió, así que tampoco la corta ni la suma.
+ * Los day trades de una sesión (`trading-book-1.0.0`): los que abrieron en
+ * ella, cerrados o todavía abiertos. Un trade cuenta en la racha cuando cierra:
+ * con P&L negativo suma, con cero o positivo la corta. Las salidas de un swing
+ * no cuentan: tienen su propio bolsillo.
  */
 export function sessionActivity(
   trades: readonly RoundTrip[],
   now: string,
 ): SessionActivity {
   const session = tradingSessionOf(now);
-  let unknownExits = 0;
+  const day = trades.filter(
+    (trade) =>
+      trade.status !== "opened_before_history" &&
+      trade.openedSession === session &&
+      bookOfTrade(trade, session) === "day",
+  );
   const realized: Dec[] = [];
-  for (const trade of trades) {
+  const buys: Dec[] = [];
+  for (const trade of day) {
     for (const portion of trade.portions) {
-      if (portion.role !== "close") continue;
-      if (tradingSessionOf(portion.executedAt) !== session) continue;
-      if (portion.realizedPnl === null) unknownExits += 1;
-      else realized.push(parse(portion.realizedPnl));
+      if (portion.role === "close") {
+        if (portion.realizedPnl !== null)
+          realized.push(parse(portion.realizedPnl));
+      } else if (portion.side === "buy") {
+        buys.push(parse(portion.netAmount).negated());
+      }
     }
   }
-  const closed = trades
-    .filter(
-      (trade) =>
-        trade.status === "closed" &&
-        trade.closedSession === session &&
-        trade.realizedPnl !== null,
-    )
+  const closed = day
+    .filter((trade) => trade.status === "closed" && trade.realizedPnl !== null)
     .sort((a, b) => Date.parse(a.closedAt!) - Date.parse(b.closedAt!));
   let lossStreak = 0;
   for (const trade of closed) {
@@ -208,18 +278,30 @@ export function sessionActivity(
   }
   return {
     session,
-    tradesOpened: trades.filter(
-      (trade) =>
-        trade.status !== "opened_before_history" &&
-        trade.openedSession === session,
-    ).length,
+    tradesOpened: day.length,
     realized: format(sum(realized)),
-    unknownExits,
     lossStreak,
+    dayBuys: format(sum(buys)),
   };
 }
 
-export type TradingRule = "open_risk" | "daily_loss" | "trades" | "loss_streak";
+export type TradingRule =
+  | "day_capital"
+  | "daily_loss"
+  | "trades"
+  | "loss_streak"
+  | "swing_exposure"
+  | "open_risk";
+
+export const RULE_BOOK: Readonly<Record<TradingRule, TradingBook>> = {
+  day_capital: "day",
+  daily_loss: "day",
+  trades: "day",
+  loss_streak: "day",
+  swing_exposure: "swing",
+  open_risk: "swing",
+};
+
 export type RuleState = "ok" | "warning" | "stop" | "off" | "unknown";
 export type RuleUnknownReason =
   "open_risk_incomplete" | "open_day_pnl_unknown" | "no_equity";
@@ -233,15 +315,16 @@ export type RuleReading = {
   readonly reason: RuleUnknownReason | null;
 };
 
+/** `oneTrade` `null`: un tope sin `warning`. */
 function moneyRule(
   rule: TradingRule,
   used: Dec,
   limit: Dec,
-  oneTrade: Dec,
+  oneTrade: Dec | null,
 ): RuleReading {
   const state: RuleState = used.greaterThanOrEqualTo(limit)
     ? "stop"
-    : limit.minus(used).lessThan(oneTrade)
+    : oneTrade !== null && limit.minus(used).lessThan(oneTrade)
       ? "warning"
       : "ok";
   return {
@@ -275,19 +358,34 @@ const unknown = (
   limit: string | null = null,
 ): RuleReading => ({ rule, state: "unknown", used: null, limit, reason });
 
+const off = (rule: TradingRule): RuleReading => ({
+  rule,
+  state: "off",
+  used: null,
+  limit: null,
+  reason: null,
+});
+
 /**
- * Las cuatro alertas del día. El riesgo abierto y la pérdida diaria se miden en
- * dinero contra el capital; su `warning` es que otro stop completo al riesgo
- * por trade ya no entra en lo que queda.
+ * Las seis alertas, primero las del día y después las de swing. El riesgo
+ * abierto y la pérdida diaria se miden en dinero contra el capital; su
+ * `warning` es que otro stop completo del tipo ya no entra en lo que queda.
  */
 export function evaluateTradingRules(input: {
   readonly settings: RiskSettings;
   readonly liquidationValue: string;
   readonly liquidationValueAtOpen: string;
-  /** `null` si alguna posición no tiene riesgo medido. */
-  readonly openRisk: string | null;
-  /** `null` si a alguna posición le falta el P&L del día de Schwab. */
-  readonly openDayPnl: string | null;
+  /** Lo que mide el día: el P&L del día de Schwab de las posiciones day. */
+  readonly day: {
+    /** `null` si a alguna posición day le falta la cifra. */
+    readonly openDayPnl: string | null;
+  };
+  readonly swing: {
+    /** `null` si alguna posición swing no tiene riesgo medido. */
+    readonly openRisk: string | null;
+    /** El valor de mercado de las posiciones swing. */
+    readonly exposure: string;
+  };
   readonly activity: SessionActivity;
 }): RuleReading[] {
   const { settings, activity } = input;
@@ -298,40 +396,31 @@ export function evaluateTradingRules(input: {
 
   const readings: RuleReading[] = [];
 
-  if (!equity.greaterThan(ZERO)) {
-    readings.push(unknown("open_risk", "no_equity"));
+  if (!equityAtOpen.greaterThan(ZERO)) {
+    readings.push(unknown("day_capital", "no_equity"));
   } else {
-    const limit = share(equity, settings.openRiskPercent);
     readings.push(
-      input.openRisk === null
-        ? unknown("open_risk", "open_risk_incomplete", format(limit))
-        : moneyRule(
-            "open_risk",
-            parse(input.openRisk),
-            limit,
-            share(equity, settings.riskPerTradePercent),
-          ),
+      moneyRule(
+        "day_capital",
+        parse(activity.dayBuys),
+        share(equityAtOpen, allocationOf(settings, "day")),
+        null,
+      ),
     );
   }
 
   if (settings.dailyLossPercent === null) {
-    readings.push({
-      rule: "daily_loss",
-      state: "off",
-      used: null,
-      limit: null,
-      reason: null,
-    });
+    readings.push(off("daily_loss"));
   } else if (!equityAtOpen.greaterThan(ZERO)) {
     readings.push(unknown("daily_loss", "no_equity"));
   } else {
     const limit = share(equityAtOpen, settings.dailyLossPercent);
-    if (input.openDayPnl === null) {
+    if (input.day.openDayPnl === null) {
       readings.push(
         unknown("daily_loss", "open_day_pnl_unknown", format(limit)),
       );
     } else {
-      const day = parse(activity.realized).plus(parse(input.openDayPnl));
+      const day = parse(activity.realized).plus(parse(input.day.openDayPnl));
       // Lo usado es la pérdida; un día en ganancia no usa nada.
       const loss = day.lessThan(ZERO) ? day.negated() : ZERO;
       readings.push(
@@ -339,7 +428,7 @@ export function evaluateTradingRules(input: {
           "daily_loss",
           loss,
           limit,
-          share(equityAtOpen, settings.riskPerTradePercent),
+          share(equityAtOpen, settings.dayRiskPerTradePercent),
         ),
       );
     }
@@ -347,7 +436,7 @@ export function evaluateTradingRules(input: {
 
   readings.push(
     settings.maxTradesPerSession === null
-      ? { rule: "trades", state: "off", used: null, limit: null, reason: null }
+      ? off("trades")
       : countRuleReading(
           "trades",
           activity.tradesOpened,
@@ -356,26 +445,56 @@ export function evaluateTradingRules(input: {
   );
   readings.push(
     settings.maxConsecutiveLosses === null
-      ? {
-          rule: "loss_streak",
-          state: "off",
-          used: null,
-          limit: null,
-          reason: null,
-        }
+      ? off("loss_streak")
       : countRuleReading(
           "loss_streak",
           activity.lossStreak,
           settings.maxConsecutiveLosses,
         ),
   );
+
+  if (!equity.greaterThan(ZERO)) {
+    readings.push(unknown("swing_exposure", "no_equity"));
+    readings.push(unknown("open_risk", "no_equity"));
+    return readings;
+  }
+  readings.push(
+    moneyRule(
+      "swing_exposure",
+      parse(input.swing.exposure),
+      share(equity, allocationOf(settings, "swing")),
+      null,
+    ),
+  );
+  const limit = share(equity, settings.openRiskPercent);
+  readings.push(
+    input.swing.openRisk === null
+      ? unknown("open_risk", "open_risk_incomplete", format(limit))
+      : moneyRule(
+          "open_risk",
+          parse(input.swing.openRisk),
+          limit,
+          share(equity, settings.riskPerTradePercent),
+        ),
+  );
   return readings;
 }
 
-/** Lo usado sobre el límite, de 0 a 1 o más; `null` sin los dos. */
+/** Lo usado sobre el límite, de 0 a 1 o más; `null` sin los dos o sin límite. */
 export function ruleUsage(reading: RuleReading): number | null {
   if (reading.used === null || reading.limit === null) return null;
   const limit = parse(reading.limit);
   if (!limit.greaterThan(ZERO)) return null;
   return divide(parse(reading.used), limit, PATH).toNumber();
+}
+
+/**
+ * Lo que le queda a un tope de capital, nunca negativo; `null` si la regla no
+ * se midió.
+ */
+export function capitalLeft(reading: RuleReading | undefined): string | null {
+  if (reading === undefined || reading.used === null || reading.limit === null)
+    return null;
+  const left = parse(reading.limit).minus(parse(reading.used));
+  return format(left.lessThan(ZERO) ? ZERO : left);
 }

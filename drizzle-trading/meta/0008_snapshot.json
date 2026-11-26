@@ -1,0 +1,2116 @@
+{
+  "id": "3be7e447-d1cb-48aa-99ab-13e2ba20755c",
+  "prevId": "fd2e33f8-4b0a-4183-8b77-a9a606349d93",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.finviz_screener_strategies": {
+      "name": "finviz_screener_strategies",
+      "schema": "",
+      "columns": {
+        "revision_id": {
+          "name": "revision_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "strategy_id": {
+          "name": "strategy_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "catalog_version": {
+          "name": "catalog_version",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(80)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "view": {
+          "name": "view",
+          "type": "varchar(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "signal": {
+          "name": "signal",
+          "type": "varchar(48)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "filters": {
+          "name": "filters",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "recorded_at": {
+          "name": "recorded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "superseded_at": {
+          "name": "superseded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "finviz_screener_strategies_revision_uidx": {
+          "name": "finviz_screener_strategies_revision_uidx",
+          "columns": [
+            {
+              "expression": "strategy_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "revision",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "finviz_screener_strategies_current_uidx": {
+          "name": "finviz_screener_strategies_current_uidx",
+          "columns": [
+            {
+              "expression": "strategy_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"finviz_screener_strategies\".\"superseded_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "finviz_screener_strategies_name_uidx": {
+          "name": "finviz_screener_strategies_name_uidx",
+          "columns": [
+            {
+              "expression": "lower(\"name\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"finviz_screener_strategies\".\"superseded_at\" is null and \"finviz_screener_strategies\".\"status\" = 'active'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "finviz_screener_strategies_revision_check": {
+          "name": "finviz_screener_strategies_revision_check",
+          "value": "\"finviz_screener_strategies\".\"revision\" >= 1"
+        },
+        "finviz_screener_strategies_name_check": {
+          "name": "finviz_screener_strategies_name_check",
+          "value": "char_length(\"finviz_screener_strategies\".\"name\") between 1 and 80 and \"finviz_screener_strategies\".\"name\" = btrim(\"finviz_screener_strategies\".\"name\")"
+        },
+        "finviz_screener_strategies_query_check": {
+          "name": "finviz_screener_strategies_query_check",
+          "value": "\"finviz_screener_strategies\".\"view\" ~ '^[0-9]{3}$' and (\"finviz_screener_strategies\".\"signal\" is null or \"finviz_screener_strategies\".\"signal\" ~ '^[a-z][a-z0-9_]{1,47}$') and \"finviz_screener_strategies\".\"filters\" ~ '^([a-z][a-z0-9_]*_[a-z0-9._-]+(,[a-z][a-z0-9_]*_[a-z0-9._-]+)*)?$' and char_length(\"finviz_screener_strategies\".\"filters\") <= 4000"
+        },
+        "finviz_screener_strategies_status_check": {
+          "name": "finviz_screener_strategies_status_check",
+          "value": "\"finviz_screener_strategies\".\"status\" in ('active', 'archived')"
+        },
+        "finviz_screener_strategies_superseded_check": {
+          "name": "finviz_screener_strategies_superseded_check",
+          "value": "\"finviz_screener_strategies\".\"superseded_at\" is null or \"finviz_screener_strategies\".\"superseded_at\" >= \"finviz_screener_strategies\".\"recorded_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.pre_market_ideas": {
+      "name": "pre_market_ideas",
+      "schema": "",
+      "columns": {
+        "revision_id": {
+          "name": "revision_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "idea_id": {
+          "name": "idea_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_key": {
+          "name": "account_key",
+          "type": "bytea",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "formula_version": {
+          "name": "formula_version",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "symbol": {
+          "name": "symbol",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "setup_code": {
+          "name": "setup_code",
+          "type": "varchar(48)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "entry": {
+          "name": "entry",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "manual_stop": {
+          "name": "manual_stop",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "manual_target": {
+          "name": "manual_target",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "stop_mode": {
+          "name": "stop_mode",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "target_mode": {
+          "name": "target_mode",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "liquidation_value": {
+          "name": "liquidation_value",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "risk_percent": {
+          "name": "risk_percent",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "book": {
+          "name": "book",
+          "type": "varchar(8)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "recorded_at": {
+          "name": "recorded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "superseded_at": {
+          "name": "superseded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "pre_market_ideas_revision_uidx": {
+          "name": "pre_market_ideas_revision_uidx",
+          "columns": [
+            {
+              "expression": "account_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "idea_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "revision",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "pre_market_ideas_current_uidx": {
+          "name": "pre_market_ideas_current_uidx",
+          "columns": [
+            {
+              "expression": "account_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "idea_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"pre_market_ideas\".\"superseded_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "pre_market_ideas_symbol_idx": {
+          "name": "pre_market_ideas_symbol_idx",
+          "columns": [
+            {
+              "expression": "account_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "symbol",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "recorded_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "pre_market_ideas_account_key_schwab_accounts_account_key_fk": {
+          "name": "pre_market_ideas_account_key_schwab_accounts_account_key_fk",
+          "tableFrom": "pre_market_ideas",
+          "tableTo": "schwab_accounts",
+          "columnsFrom": ["account_key"],
+          "columnsTo": ["account_key"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "pre_market_ideas_revision_check": {
+          "name": "pre_market_ideas_revision_check",
+          "value": "\"pre_market_ideas\".\"revision\" >= 1"
+        },
+        "pre_market_ideas_symbol_check": {
+          "name": "pre_market_ideas_symbol_check",
+          "value": "\"pre_market_ideas\".\"symbol\" ~ '^[A-Z][A-Z0-9./-]{0,15}$'"
+        },
+        "pre_market_ideas_book_check": {
+          "name": "pre_market_ideas_book_check",
+          "value": "\"pre_market_ideas\".\"book\" is null or \"pre_market_ideas\".\"book\" in ('day', 'swing')"
+        },
+        "pre_market_ideas_values_check": {
+          "name": "pre_market_ideas_values_check",
+          "value": "\"pre_market_ideas\".\"entry\" > 0 and \"pre_market_ideas\".\"quantity\" > 0 and \"pre_market_ideas\".\"liquidation_value\" > 0 and \"pre_market_ideas\".\"risk_percent\" > 0 and \"pre_market_ideas\".\"risk_percent\" <= 100"
+        },
+        "pre_market_ideas_modes_check": {
+          "name": "pre_market_ideas_modes_check",
+          "value": "\"pre_market_ideas\".\"stop_mode\" in ('manual', 'automatic') and \"pre_market_ideas\".\"target_mode\" in ('manual', 'one_to_two', 'one_to_three') and \"pre_market_ideas\".\"status\" in ('active', 'archived')"
+        },
+        "pre_market_ideas_manual_check": {
+          "name": "pre_market_ideas_manual_check",
+          "value": "(\"pre_market_ideas\".\"manual_stop\" is null or \"pre_market_ideas\".\"manual_stop\" > 0) and (\"pre_market_ideas\".\"manual_target\" is null or \"pre_market_ideas\".\"manual_target\" > 0) and (\"pre_market_ideas\".\"stop_mode\" <> 'manual' or \"pre_market_ideas\".\"manual_stop\" > 0) and (\"pre_market_ideas\".\"target_mode\" <> 'manual' or \"pre_market_ideas\".\"manual_target\" > 0)"
+        },
+        "pre_market_ideas_notes_check": {
+          "name": "pre_market_ideas_notes_check",
+          "value": "char_length(\"pre_market_ideas\".\"notes\") <= 4000"
+        },
+        "pre_market_ideas_superseded_check": {
+          "name": "pre_market_ideas_superseded_check",
+          "value": "\"pre_market_ideas\".\"superseded_at\" is null or \"pre_market_ideas\".\"superseded_at\" >= \"pre_market_ideas\".\"recorded_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.pre_market_trade_links": {
+      "name": "pre_market_trade_links",
+      "schema": "",
+      "columns": {
+        "link_id": {
+          "name": "link_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "account_key": {
+          "name": "account_key",
+          "type": "bytea",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "idea_id": {
+          "name": "idea_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plan_revision_id": {
+          "name": "plan_revision_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "trade_key": {
+          "name": "trade_key",
+          "type": "varchar(80)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "opened_at": {
+          "name": "opened_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "linked_at": {
+          "name": "linked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "pre_market_trade_links_idea_uidx": {
+          "name": "pre_market_trade_links_idea_uidx",
+          "columns": [
+            {
+              "expression": "account_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "idea_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "pre_market_trade_links_trade_uidx": {
+          "name": "pre_market_trade_links_trade_uidx",
+          "columns": [
+            {
+              "expression": "account_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "trade_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "pre_market_trade_links_account_key_schwab_accounts_account_key_fk": {
+          "name": "pre_market_trade_links_account_key_schwab_accounts_account_key_fk",
+          "tableFrom": "pre_market_trade_links",
+          "tableTo": "schwab_accounts",
+          "columnsFrom": ["account_key"],
+          "columnsTo": ["account_key"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pre_market_trade_links_plan_revision_id_pre_market_ideas_revision_id_fk": {
+          "name": "pre_market_trade_links_plan_revision_id_pre_market_ideas_revision_id_fk",
+          "tableFrom": "pre_market_trade_links",
+          "tableTo": "pre_market_ideas",
+          "columnsFrom": ["plan_revision_id"],
+          "columnsTo": ["revision_id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "pre_market_trade_links_trade_key_check": {
+          "name": "pre_market_trade_links_trade_key_check",
+          "value": "\"pre_market_trade_links\".\"trade_key\" ~ '^schwab:[0-9]{1,32}:[0-9]{1,32}(:before)?$'"
+        },
+        "pre_market_trade_links_timeline_check": {
+          "name": "pre_market_trade_links_timeline_check",
+          "value": "\"pre_market_trade_links\".\"linked_at\" >= \"pre_market_trade_links\".\"opened_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.routine_items": {
+      "name": "routine_items",
+      "schema": "",
+      "columns": {
+        "item_id": {
+          "name": "item_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "phase": {
+          "name": "phase",
+          "type": "routine_phase",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "varchar(80)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "retired_at": {
+          "name": "retired_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "routine_items_created_idx": {
+          "name": "routine_items_created_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "routine_items_label_check": {
+          "name": "routine_items_label_check",
+          "value": "char_length(\"routine_items\".\"label\") between 2 and 80"
+        },
+        "routine_items_retired_check": {
+          "name": "routine_items_retired_check",
+          "value": "\"routine_items\".\"retired_at\" is null or \"routine_items\".\"retired_at\" >= \"routine_items\".\"created_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.schwab_accounts": {
+      "name": "schwab_accounts",
+      "schema": "",
+      "columns": {
+        "account_key": {
+          "name": "account_key",
+          "type": "bytea",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "last_four": {
+          "name": "last_four",
+          "type": "varchar(4)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "first_seen_at": {
+          "name": "first_seen_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_seen_at": {
+          "name": "last_seen_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "schwab_accounts_key_check": {
+          "name": "schwab_accounts_key_check",
+          "value": "octet_length(\"schwab_accounts\".\"account_key\") = 32"
+        },
+        "schwab_accounts_last_four_check": {
+          "name": "schwab_accounts_last_four_check",
+          "value": "\"schwab_accounts\".\"last_four\" ~ '^[0-9]{4}$'"
+        },
+        "schwab_accounts_seen_check": {
+          "name": "schwab_accounts_seen_check",
+          "value": "\"schwab_accounts\".\"last_seen_at\" >= \"schwab_accounts\".\"first_seen_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.schwab_connection_events": {
+      "name": "schwab_connection_events",
+      "schema": "",
+      "columns": {
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "schwab_connection_event_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "request_id": {
+          "name": "request_id",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "occurred_at": {
+          "name": "occurred_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "detail": {
+          "name": "detail",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "schwab_connection_events_occurred_idx": {
+          "name": "schwab_connection_events_occurred_idx",
+          "columns": [
+            {
+              "expression": "occurred_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "schwab_connection_events_code_check": {
+          "name": "schwab_connection_events_code_check",
+          "value": "\"schwab_connection_events\".\"code\" ~ '^[a-z0-9_:.-]{1,64}$'"
+        },
+        "schwab_connection_events_detail_check": {
+          "name": "schwab_connection_events_detail_check",
+          "value": "\"schwab_connection_events\".\"detail\" is null or length(\"schwab_connection_events\".\"detail\") <= 512"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.schwab_connections": {
+      "name": "schwab_connections",
+      "schema": "",
+      "columns": {
+        "connection_id": {
+          "name": "connection_id",
+          "type": "varchar(16)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "access_envelope": {
+          "name": "access_envelope",
+          "type": "bytea",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "access_expires_at": {
+          "name": "access_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "refresh_envelope": {
+          "name": "refresh_envelope",
+          "type": "bytea",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "authorized_at": {
+          "name": "authorized_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "refresh_expires_at": {
+          "name": "refresh_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "envelope_version": {
+          "name": "envelope_version",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "refresh_claimed_until": {
+          "name": "refresh_claimed_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "schwab_connections_owner_check": {
+          "name": "schwab_connections_owner_check",
+          "value": "\"schwab_connections\".\"connection_id\" = 'owner'"
+        },
+        "schwab_connections_refresh_lifetime_check": {
+          "name": "schwab_connections_refresh_lifetime_check",
+          "value": "\"schwab_connections\".\"refresh_expires_at\" > \"schwab_connections\".\"authorized_at\""
+        },
+        "schwab_connections_timeline_check": {
+          "name": "schwab_connections_timeline_check",
+          "value": "\"schwab_connections\".\"updated_at\" >= \"schwab_connections\".\"authorized_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.schwab_oauth_states": {
+      "name": "schwab_oauth_states",
+      "schema": "",
+      "columns": {
+        "state_hash": {
+          "name": "state_hash",
+          "type": "bytea",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "consumed_at": {
+          "name": "consumed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "schwab_oauth_states_expires_idx": {
+          "name": "schwab_oauth_states_expires_idx",
+          "columns": [
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "schwab_oauth_states_hash_check": {
+          "name": "schwab_oauth_states_hash_check",
+          "value": "octet_length(\"schwab_oauth_states\".\"state_hash\") = 32"
+        },
+        "schwab_oauth_states_lifetime_check": {
+          "name": "schwab_oauth_states_lifetime_check",
+          "value": "\"schwab_oauth_states\".\"expires_at\" > \"schwab_oauth_states\".\"created_at\""
+        },
+        "schwab_oauth_states_consumed_check": {
+          "name": "schwab_oauth_states_consumed_check",
+          "value": "\"schwab_oauth_states\".\"consumed_at\" is null or \"schwab_oauth_states\".\"consumed_at\" >= \"schwab_oauth_states\".\"created_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.schwab_transaction_runs": {
+      "name": "schwab_transaction_runs",
+      "schema": "",
+      "columns": {
+        "run_id": {
+          "name": "run_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "account_key": {
+          "name": "account_key",
+          "type": "bytea",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "finished_at": {
+          "name": "finished_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "window_from": {
+          "name": "window_from",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "window_to": {
+          "name": "window_to",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "requests": {
+          "name": "requests",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "schwab_transaction_run_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "inserted": {
+          "name": "inserted",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revised": {
+          "name": "revised",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "withdrawn": {
+          "name": "withdrawn",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unchanged": {
+          "name": "unchanged",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "parser_version": {
+          "name": "parser_version",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "schwab_transaction_runs_finished_idx": {
+          "name": "schwab_transaction_runs_finished_idx",
+          "columns": [
+            {
+              "expression": "finished_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "schwab_transaction_runs_account_fk": {
+          "name": "schwab_transaction_runs_account_fk",
+          "tableFrom": "schwab_transaction_runs",
+          "tableTo": "schwab_accounts",
+          "columnsFrom": ["account_key"],
+          "columnsTo": ["account_key"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "schwab_transaction_runs_counts_check": {
+          "name": "schwab_transaction_runs_counts_check",
+          "value": "\"schwab_transaction_runs\".\"requests\" >= 0 and \"schwab_transaction_runs\".\"inserted\" >= 0 and \"schwab_transaction_runs\".\"revised\" >= 0 and \"schwab_transaction_runs\".\"withdrawn\" >= 0 and \"schwab_transaction_runs\".\"unchanged\" >= 0"
+        },
+        "schwab_transaction_runs_code_check": {
+          "name": "schwab_transaction_runs_code_check",
+          "value": "(\"schwab_transaction_runs\".\"status\" = 'succeeded') = (\"schwab_transaction_runs\".\"code\" is null) and (\"schwab_transaction_runs\".\"code\" is null or \"schwab_transaction_runs\".\"code\" ~ '^[a-z0-9_:.-]{1,64}$')"
+        },
+        "schwab_transaction_runs_timeline_check": {
+          "name": "schwab_transaction_runs_timeline_check",
+          "value": "\"schwab_transaction_runs\".\"finished_at\" >= \"schwab_transaction_runs\".\"started_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.schwab_transaction_sync": {
+      "name": "schwab_transaction_sync",
+      "schema": "",
+      "columns": {
+        "account_key": {
+          "name": "account_key",
+          "type": "bytea",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "history_from": {
+          "name": "history_from",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "checked_through": {
+          "name": "checked_through",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "claimed_until": {
+          "name": "claimed_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "schwab_transaction_sync_account_fk": {
+          "name": "schwab_transaction_sync_account_fk",
+          "tableFrom": "schwab_transaction_sync",
+          "tableTo": "schwab_accounts",
+          "columnsFrom": ["account_key"],
+          "columnsTo": ["account_key"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "schwab_transaction_sync_window_check": {
+          "name": "schwab_transaction_sync_window_check",
+          "value": "(\"schwab_transaction_sync\".\"history_from\" is null) = (\"schwab_transaction_sync\".\"checked_through\" is null) and (\"schwab_transaction_sync\".\"checked_through\" is null or \"schwab_transaction_sync\".\"checked_through\" >= \"schwab_transaction_sync\".\"history_from\")"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.schwab_transactions": {
+      "name": "schwab_transactions",
+      "schema": "",
+      "columns": {
+        "revision_id": {
+          "name": "revision_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "account_key": {
+          "name": "account_key",
+          "type": "bytea",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "activity_id": {
+          "name": "activity_id",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "state": {
+          "name": "state",
+          "type": "schwab_transaction_state",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "executed_at": {
+          "name": "executed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "settled_at": {
+          "name": "settled_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description": {
+          "name": "description",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "order_id": {
+          "name": "order_id",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "position_id": {
+          "name": "position_id",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "net_amount": {
+          "name": "net_amount",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fees": {
+          "name": "fees",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "instrument_id": {
+          "name": "instrument_id",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "symbol": {
+          "name": "symbol",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "asset_type": {
+          "name": "asset_type",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "instrument_type": {
+          "name": "instrument_type",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "instrument_description": {
+          "name": "instrument_description",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price": {
+          "name": "price",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "position_effect": {
+          "name": "position_effect",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "content_hash": {
+          "name": "content_hash",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "recorded_at": {
+          "name": "recorded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "superseded_at": {
+          "name": "superseded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "schwab_transactions_revision_uidx": {
+          "name": "schwab_transactions_revision_uidx",
+          "columns": [
+            {
+              "expression": "account_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "activity_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "revision",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "schwab_transactions_current_uidx": {
+          "name": "schwab_transactions_current_uidx",
+          "columns": [
+            {
+              "expression": "account_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "activity_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"schwab_transactions\".\"superseded_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "schwab_transactions_executed_idx": {
+          "name": "schwab_transactions_executed_idx",
+          "columns": [
+            {
+              "expression": "account_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "executed_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "schwab_transactions_account_key_schwab_accounts_account_key_fk": {
+          "name": "schwab_transactions_account_key_schwab_accounts_account_key_fk",
+          "tableFrom": "schwab_transactions",
+          "tableTo": "schwab_accounts",
+          "columnsFrom": ["account_key"],
+          "columnsTo": ["account_key"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "schwab_transactions_revision_check": {
+          "name": "schwab_transactions_revision_check",
+          "value": "\"schwab_transactions\".\"revision\" >= 1"
+        },
+        "schwab_transactions_activity_check": {
+          "name": "schwab_transactions_activity_check",
+          "value": "\"schwab_transactions\".\"activity_id\" ~ '^[0-9]{1,32}$'"
+        },
+        "schwab_transactions_hash_check": {
+          "name": "schwab_transactions_hash_check",
+          "value": "\"schwab_transactions\".\"content_hash\" ~ '^[0-9a-f]{64}$'"
+        },
+        "schwab_transactions_instrument_check": {
+          "name": "schwab_transactions_instrument_check",
+          "value": "(\"schwab_transactions\".\"type\" = 'TRADE') = (\"schwab_transactions\".\"instrument_id\" is not null and \"schwab_transactions\".\"symbol\" is not null and \"schwab_transactions\".\"asset_type\" is not null and \"schwab_transactions\".\"quantity\" is not null and \"schwab_transactions\".\"fees\" is not null)"
+        },
+        "schwab_transactions_superseded_check": {
+          "name": "schwab_transactions_superseded_check",
+          "value": "\"schwab_transactions\".\"superseded_at\" is null or \"schwab_transactions\".\"superseded_at\" >= \"schwab_transactions\".\"recorded_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.session_routines": {
+      "name": "session_routines",
+      "schema": "",
+      "columns": {
+        "revision_id": {
+          "name": "revision_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "session": {
+          "name": "session",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "phase": {
+          "name": "phase",
+          "type": "routine_phase",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "checked": {
+          "name": "checked",
+          "type": "uuid[]",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "recorded_at": {
+          "name": "recorded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "superseded_at": {
+          "name": "superseded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "session_routines_revision_uidx": {
+          "name": "session_routines_revision_uidx",
+          "columns": [
+            {
+              "expression": "session",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "phase",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "revision",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "session_routines_current_uidx": {
+          "name": "session_routines_current_uidx",
+          "columns": [
+            {
+              "expression": "session",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "phase",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"session_routines\".\"superseded_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "session_routines_revision_check": {
+          "name": "session_routines_revision_check",
+          "value": "\"session_routines\".\"revision\" >= 1"
+        },
+        "session_routines_checked_check": {
+          "name": "session_routines_checked_check",
+          "value": "cardinality(\"session_routines\".\"checked\") <= 12"
+        },
+        "session_routines_note_check": {
+          "name": "session_routines_note_check",
+          "value": "char_length(\"session_routines\".\"note\") <= 2000"
+        },
+        "session_routines_superseded_check": {
+          "name": "session_routines_superseded_check",
+          "value": "\"session_routines\".\"superseded_at\" is null or \"session_routines\".\"superseded_at\" >= \"session_routines\".\"recorded_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.source_budgets": {
+      "name": "source_budgets",
+      "schema": "",
+      "columns": {
+        "source_id": {
+          "name": "source_id",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "usage_on": {
+          "name": "usage_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "requests": {
+          "name": "requests",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "first_request_at": {
+          "name": "first_request_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_request_at": {
+          "name": "last_request_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "source_budgets_pkey": {
+          "name": "source_budgets_pkey",
+          "columns": ["source_id", "usage_on"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "source_budgets_requests_check": {
+          "name": "source_budgets_requests_check",
+          "value": "\"source_budgets\".\"requests\" >= 0"
+        },
+        "source_budgets_timeline_check": {
+          "name": "source_budgets_timeline_check",
+          "value": "\"source_budgets\".\"last_request_at\" >= \"source_budgets\".\"first_request_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.source_controls": {
+      "name": "source_controls",
+      "schema": "",
+      "columns": {
+        "control_id": {
+          "name": "control_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "source_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "daily_request_limit": {
+          "name": "daily_request_limit",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "daily_spend_limit_nano_usd": {
+          "name": "daily_spend_limit_nano_usd",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "varchar(240)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor": {
+          "name": "actor",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "recorded_at": {
+          "name": "recorded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "superseded_at": {
+          "name": "superseded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "source_controls_current_uidx": {
+          "name": "source_controls_current_uidx",
+          "columns": [
+            {
+              "expression": "source_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"source_controls\".\"superseded_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "source_controls_source_idx": {
+          "name": "source_controls_source_idx",
+          "columns": [
+            {
+              "expression": "source_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "recorded_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "source_controls_limit_check": {
+          "name": "source_controls_limit_check",
+          "value": "\"source_controls\".\"daily_request_limit\" is null or \"source_controls\".\"daily_request_limit\" >= 0"
+        },
+        "source_controls_spend_limit_check": {
+          "name": "source_controls_spend_limit_check",
+          "value": "\"source_controls\".\"daily_spend_limit_nano_usd\" is null or \"source_controls\".\"daily_spend_limit_nano_usd\" >= 0"
+        },
+        "source_controls_timeline_check": {
+          "name": "source_controls_timeline_check",
+          "value": "\"source_controls\".\"superseded_at\" is null or \"source_controls\".\"superseded_at\" >= \"source_controls\".\"recorded_at\""
+        },
+        "source_controls_actor_check": {
+          "name": "source_controls_actor_check",
+          "value": "\"source_controls\".\"actor\" ~ '^[A-Za-z0-9._:@/-]{1,128}$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.trade_annotations": {
+      "name": "trade_annotations",
+      "schema": "",
+      "columns": {
+        "revision_id": {
+          "name": "revision_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "account_key": {
+          "name": "account_key",
+          "type": "bytea",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "trade_key": {
+          "name": "trade_key",
+          "type": "varchar(80)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "setup_code": {
+          "name": "setup_code",
+          "type": "varchar(48)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "plan_entry": {
+          "name": "plan_entry",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "plan_stop": {
+          "name": "plan_stop",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "plan_target": {
+          "name": "plan_target",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "plan_quantity": {
+          "name": "plan_quantity",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "adherence_entry": {
+          "name": "adherence_entry",
+          "type": "trade_adherence_mark",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "adherence_stop": {
+          "name": "adherence_stop",
+          "type": "trade_adherence_mark",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "adherence_target": {
+          "name": "adherence_target",
+          "type": "trade_adherence_mark",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "adherence_size": {
+          "name": "adherence_size",
+          "type": "trade_adherence_mark",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "emotion": {
+          "name": "emotion",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "review": {
+          "name": "review",
+          "type": "trade_review_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "recorded_at": {
+          "name": "recorded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "superseded_at": {
+          "name": "superseded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "trade_annotations_revision_uidx": {
+          "name": "trade_annotations_revision_uidx",
+          "columns": [
+            {
+              "expression": "account_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "trade_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "revision",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "trade_annotations_current_uidx": {
+          "name": "trade_annotations_current_uidx",
+          "columns": [
+            {
+              "expression": "account_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "trade_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"trade_annotations\".\"superseded_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "trade_annotations_account_fk": {
+          "name": "trade_annotations_account_fk",
+          "tableFrom": "trade_annotations",
+          "tableTo": "schwab_accounts",
+          "columnsFrom": ["account_key"],
+          "columnsTo": ["account_key"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "trade_annotations_revision_check": {
+          "name": "trade_annotations_revision_check",
+          "value": "\"trade_annotations\".\"revision\" >= 1"
+        },
+        "trade_annotations_trade_key_check": {
+          "name": "trade_annotations_trade_key_check",
+          "value": "\"trade_annotations\".\"trade_key\" ~ '^schwab:[0-9]{1,32}:[0-9]{1,32}(:before)?$'"
+        },
+        "trade_annotations_setup_check": {
+          "name": "trade_annotations_setup_check",
+          "value": "\"trade_annotations\".\"setup_code\" is null or \"trade_annotations\".\"setup_code\" ~ '^([a-z][a-z0-9_]{1,40}|own-[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?)$'"
+        },
+        "trade_annotations_plan_check": {
+          "name": "trade_annotations_plan_check",
+          "value": "(\"trade_annotations\".\"plan_entry\" is null or \"trade_annotations\".\"plan_entry\" > 0) and (\"trade_annotations\".\"plan_stop\" is null or \"trade_annotations\".\"plan_stop\" > 0) and (\"trade_annotations\".\"plan_target\" is null or \"trade_annotations\".\"plan_target\" > 0) and (\"trade_annotations\".\"plan_quantity\" is null or \"trade_annotations\".\"plan_quantity\" > 0)"
+        },
+        "trade_annotations_emotion_check": {
+          "name": "trade_annotations_emotion_check",
+          "value": "\"trade_annotations\".\"emotion\" is null or \"trade_annotations\".\"emotion\" in ('calm', 'focused', 'confident', 'anxious', 'fomo', 'revenge', 'tired', 'bored')"
+        },
+        "trade_annotations_notes_check": {
+          "name": "trade_annotations_notes_check",
+          "value": "char_length(\"trade_annotations\".\"notes\") <= 4000"
+        },
+        "trade_annotations_superseded_check": {
+          "name": "trade_annotations_superseded_check",
+          "value": "\"trade_annotations\".\"superseded_at\" is null or \"trade_annotations\".\"superseded_at\" >= \"trade_annotations\".\"recorded_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.trading_risk_settings": {
+      "name": "trading_risk_settings",
+      "schema": "",
+      "columns": {
+        "revision_id": {
+          "name": "revision_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "risk_per_trade_percent": {
+          "name": "risk_per_trade_percent",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "open_risk_percent": {
+          "name": "open_risk_percent",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "daily_loss_percent": {
+          "name": "daily_loss_percent",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "max_trades_per_session": {
+          "name": "max_trades_per_session",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "max_consecutive_losses": {
+          "name": "max_consecutive_losses",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "swing_allocation_percent": {
+          "name": "swing_allocation_percent",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "day_risk_per_trade_percent": {
+          "name": "day_risk_per_trade_percent",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "recorded_at": {
+          "name": "recorded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "superseded_at": {
+          "name": "superseded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "trading_risk_settings_revision_uidx": {
+          "name": "trading_risk_settings_revision_uidx",
+          "columns": [
+            {
+              "expression": "revision",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "trading_risk_settings_current_uidx": {
+          "name": "trading_risk_settings_current_uidx",
+          "columns": [
+            {
+              "expression": "(true)",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"trading_risk_settings\".\"superseded_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "trading_risk_settings_revision_check": {
+          "name": "trading_risk_settings_revision_check",
+          "value": "\"trading_risk_settings\".\"revision\" >= 1"
+        },
+        "trading_risk_settings_percent_check": {
+          "name": "trading_risk_settings_percent_check",
+          "value": "\"trading_risk_settings\".\"risk_per_trade_percent\" > 0 and \"trading_risk_settings\".\"risk_per_trade_percent\" <= \"trading_risk_settings\".\"open_risk_percent\" and \"trading_risk_settings\".\"open_risk_percent\" <= 100 and (\"trading_risk_settings\".\"daily_loss_percent\" is null or (\"trading_risk_settings\".\"daily_loss_percent\" > 0 and \"trading_risk_settings\".\"daily_loss_percent\" <= 100))"
+        },
+        "trading_risk_settings_count_check": {
+          "name": "trading_risk_settings_count_check",
+          "value": "(\"trading_risk_settings\".\"max_trades_per_session\" is null or \"trading_risk_settings\".\"max_trades_per_session\" between 1 and 20) and (\"trading_risk_settings\".\"max_consecutive_losses\" is null or \"trading_risk_settings\".\"max_consecutive_losses\" between 1 and 20)"
+        },
+        "trading_risk_settings_books_check": {
+          "name": "trading_risk_settings_books_check",
+          "value": "(\"trading_risk_settings\".\"swing_allocation_percent\" is null) = (\"trading_risk_settings\".\"day_risk_per_trade_percent\" is null) and (\"trading_risk_settings\".\"swing_allocation_percent\" is null or (\"trading_risk_settings\".\"swing_allocation_percent\" >= 0 and \"trading_risk_settings\".\"swing_allocation_percent\" <= 100 and \"trading_risk_settings\".\"day_risk_per_trade_percent\" > 0 and \"trading_risk_settings\".\"day_risk_per_trade_percent\" <= 100 and (\"trading_risk_settings\".\"daily_loss_percent\" is null or \"trading_risk_settings\".\"day_risk_per_trade_percent\" <= \"trading_risk_settings\".\"daily_loss_percent\")))"
+        },
+        "trading_risk_settings_superseded_check": {
+          "name": "trading_risk_settings_superseded_check",
+          "value": "\"trading_risk_settings\".\"superseded_at\" is null or \"trading_risk_settings\".\"superseded_at\" >= \"trading_risk_settings\".\"recorded_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.trading_setups": {
+      "name": "trading_setups",
+      "schema": "",
+      "columns": {
+        "code": {
+          "name": "code",
+          "type": "varchar(48)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "varchar(40)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "trading_setups_code_check": {
+          "name": "trading_setups_code_check",
+          "value": "\"trading_setups\".\"code\" ~ '^own-[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$'"
+        },
+        "trading_setups_label_check": {
+          "name": "trading_setups_label_check",
+          "value": "char_length(\"trading_setups\".\"label\") between 2 and 40"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.routine_phase": {
+      "name": "routine_phase",
+      "schema": "public",
+      "values": ["pre_open", "close"]
+    },
+    "public.schwab_connection_event_kind": {
+      "name": "schwab_connection_event_kind",
+      "schema": "public",
+      "values": [
+        "connected",
+        "access_refreshed",
+        "refresh_failed",
+        "exchange_failed",
+        "callback_rejected",
+        "disconnected"
+      ]
+    },
+    "public.schwab_transaction_run_status": {
+      "name": "schwab_transaction_run_status",
+      "schema": "public",
+      "values": ["succeeded", "failed", "quarantined"]
+    },
+    "public.schwab_transaction_state": {
+      "name": "schwab_transaction_state",
+      "schema": "public",
+      "values": ["recorded", "withdrawn"]
+    },
+    "public.source_status": {
+      "name": "source_status",
+      "schema": "public",
+      "values": ["enabled", "disabled"]
+    },
+    "public.trade_adherence_mark": {
+      "name": "trade_adherence_mark",
+      "schema": "public",
+      "values": ["kept", "broken"]
+    },
+    "public.trade_review_status": {
+      "name": "trade_review_status",
+      "schema": "public",
+      "values": ["pending", "reviewed"]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

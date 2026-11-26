@@ -36,6 +36,7 @@ function toStored(row: IdeaRow): StoredIdea {
     formulaVersion: row.formulaVersion,
     symbol: row.symbol,
     setupCode: row.setupCode,
+    book: row.book === "day" ? "day" : "swing",
     entry: canonical(row.entry)!,
     quantity: canonical(row.quantity)!,
     manualStop: canonical(row.manualStop),
@@ -241,6 +242,7 @@ export function createPostgresPreMarketStore(
                 [
                   "symbol",
                   "setupCode",
+                  "book",
                   "entry",
                   "quantity",
                   "manualStop",

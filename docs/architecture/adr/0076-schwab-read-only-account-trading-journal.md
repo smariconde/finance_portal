@@ -721,6 +721,63 @@ reconoce. **`finviz-screener-strategy-1.0.0`** guarda la consulta con nombre com
 revisiones en la base de trading (migración `0007`), sin la cuenta Schwab, y la
 vuelve a validar al leerla. Las acciones reciben la selección, nunca una URL.
 
+## Enmienda del 2026-11-25: day y swing en bolsillos separados (`F11-18`)
+
+**Lo que preguntó el owner.** `/cuenta` decía «3 trades» y no se sabía si eso
+contaba lo operado en el día. Contaba todo: las cuatro reglas de
+`trading-rules-1.0.0` mezclaban day y swing, y el gap de un swing consumía la
+pérdida del día. El owner quiere usar su cash en algunos swings y operar en el
+día con el resto.
+
+**Medido antes, sobre los 62 trades reales** (32 day, 30 swing): en noviembre
+de 2026 el límite de 3 se pasó con day trades solos (7 el 19/11, 4 el 25/11),
+de USD 3–5,5k cada uno; las compras brutas del día llegaron a USD 34,6k el
+19/11. Los swings, de USD 1–3k y hasta unos cinco a la vez, hicieron casi
+todo el resultado y todas las pérdidas grandes, ninguno con stop. La cuenta es
+`CASH`: el PDT no rige, pero lo vendido se liquida en T+1, así que recomprar
+con eso y vender en el día es una good faith violation.
+
+**Lo que decidió el owner** (2026-11-25):
+
+| Decisión                      | Valor                                                       |
+| ----------------------------- | ----------------------------------------------------------- |
+| Reparto                       | 70 % del valor de liquidación para swing; el resto para day |
+| Tipo de un trade              | automático: day si vive dentro de una sesión de Nueva York  |
+| Pérdida diaria, trades, racha | sólo day trades                                             |
+| Riesgo por trade              | day 0,5 %, swing 2 %, los dos sobre la cartera entera       |
+| Riesgo abierto                | 6 % de la cartera, medido en las posiciones swing           |
+
+**`trading-book-1.0.0`.** Un trade es day si cerró en la sesión en que abrió
+o, abierto, abrió en la de hoy; lo que pasa la noche es swing, también un
+trade anterior a la historia. Una posición sin trade en el diario usa la
+cantidad que Schwab publica al cierre de la sesión anterior y, sin ella, es
+day. Una compra pensada como swing usa el capital day el día que entra: es la
+consecuencia buscada de no declarar el tipo.
+
+**`trading-rules-2.0.0`.** Seis reglas en dos filas. Day: **capital** (lo
+comprado hoy en day trades, con comisiones, contra el 30 % del valor de
+liquidación al abrir; lo comprado y no lo neto, por la liquidación en T+1),
+pérdida diaria (realizado por day trades más el P&L del día de Schwab de las
+posiciones day), trades por sesión y racha. Swing: **exposición** (valor de
+mercado de las swing contra el 70 % del valor de liquidación) y riesgo abierto.
+Los topes de capital no tienen `warning`: ningún monto es «un trade más». La
+pérdida diaria por defecto pasa de 4 % a **1,5 %**, tres stops day completos, el
+máximo de trades por sesión; el resto de los defectos de `1.0.0` sigue. Una
+revisión guardada con `1.0.0` se lee con sus valores y los defectos para el
+reparto y el riesgo day, y guardar sobre ella escribe una completa (migración
+de trading `0008`, dos columnas nulas en las revisiones viejas y un check que
+exige las dos o ninguna).
+
+**`position-size-risk-2.0.0` y `position-size-amount-1.1.0`.** El planner
+elige day o swing: el riesgo por trade del tipo, el buying power, lo que le
+queda a su capital y, en swing, al 6 %. Por monto marca pasarse del capital del
+tipo, sin recortar.
+
+**`pre-market-plan-1.1.0`.** Cada idea de `/plan` dice day o swing; el stop
+automático y el tamaño usan los del tipo. Una revisión anterior se lee swing:
+usaba el riesgo por trade de entonces. `accountRisk` es el cálculo que leen
+`/cuenta` y `/plan`, así que las dos superficies dicen lo mismo.
+
 ## Controles del threat model
 
 | Control | Cómo se cierra en la Fase 11                                                                                                                                                      |

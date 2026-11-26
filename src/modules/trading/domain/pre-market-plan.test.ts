@@ -104,6 +104,7 @@ describe("Stop Loss Calc. y targets", () => {
       baseRevision: null,
       symbol: "AAPL",
       setupCode: null,
+      book: "swing",
       entry: "100",
       quantity: "50",
       manualStop: "",
@@ -120,6 +121,38 @@ describe("Stop Loss Calc. y targets", () => {
     expect(
       ideaFormSchema.safeParse({ ...form, symbol: "<script>" }).success,
     ).toBe(false);
+    expect(ideaFormSchema.safeParse(form).success).toBe(true);
+  });
+
+  it("pide day o swing en cada idea (`pre-market-plan-1.1.0`)", () => {
+    const form = {
+      ideaId: null,
+      baseRevision: null,
+      symbol: "TQQQ",
+      setupCode: null,
+      entry: "40",
+      quantity: "100",
+      manualStop: "",
+      manualTarget: "",
+      stopMode: "automatic",
+      targetMode: "one_to_two",
+      notes: "",
+      status: "active",
+    };
+    expect(ideaFormSchema.safeParse({ ...form, book: "day" }).success).toBe(
+      true,
+    );
+    for (const book of [undefined, "intraday", null])
+      expect(ideaFormSchema.safeParse({ ...form, book }).success).toBe(false);
+    // El stop automático del day arriesga su 0,5 %: 50 / 100 acciones.
+    expect(
+      ideaLevels({
+        ...base,
+        entry: "40",
+        quantity: "100",
+        riskPercent: "0.5",
+      }),
+    ).toMatchObject({ state: "valid", stop: "39.5" });
   });
 
   it("la fórmula no convierte null, negativos ni no finitos en cero", () => {

@@ -1,8 +1,8 @@
-import type {
-  StoredRiskSettings,
-  TradingRiskSettingsStore,
+import {
+  storedSettingsMatch,
+  type StoredRiskSettings,
+  type TradingRiskSettingsStore,
 } from "@/modules/trading/application/trading-risk-settings-store";
-import { sameRiskSettings } from "@/modules/trading/domain/trading-rules";
 
 /** Doble en memoria del almacén de las reglas: el mismo contrato que PostgreSQL. */
 export function createInMemoryTradingRiskSettingsStore(): TradingRiskSettingsStore {
@@ -19,7 +19,7 @@ export function createInMemoryTradingRiskSettingsStore(): TradingRiskSettingsSto
       if ((stored?.revision ?? null) !== input.baseRevision) {
         return { state: "conflict", current: stored };
       }
-      if (stored !== null && sameRiskSettings(stored, input.settings)) {
+      if (stored !== null && storedSettingsMatch(stored, input.settings)) {
         return { state: "unchanged", settings: stored };
       }
       const next: StoredRiskSettings = {

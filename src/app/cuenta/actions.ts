@@ -317,8 +317,10 @@ const riskSettingsRequestSchema = z
     baseRevision: z.number().int().min(1).max(1_000_000).nullable(),
     fields: z
       .object({
+        swingAllocationPercent: z.string(),
         riskPerTradePercent: z.string(),
         openRiskPercent: z.string(),
+        dayRiskPerTradePercent: z.string(),
         dailyLossPercent: z.string(),
         maxTradesPerSession: z.string(),
         maxConsecutiveLosses: z.string(),
@@ -344,7 +346,7 @@ export type SaveRiskSettingsResult =
   | { readonly state: "unavailable" };
 
 /**
- * Guarda las reglas propias (`trading-rules-1.0.0`) como revisión nueva contra
+ * Guarda las reglas propias (`trading-rules-2.0.0`) como revisión nueva contra
  * la que el owner editaba. Sólo escribe en la base de trading.
  */
 export async function saveRiskSettings(

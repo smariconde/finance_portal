@@ -19,6 +19,7 @@ function position(
     dayProfitLoss,
     dayProfitLossPercent: null,
     openProfitLoss,
+    previousSessionQuantity: null,
     optionMultiplier: null,
   };
 }
