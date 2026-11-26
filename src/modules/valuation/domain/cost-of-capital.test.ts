@@ -6,6 +6,7 @@ import {
 } from "../infrastructure/fixture-cost-of-capital-readings";
 import {
   buildCostOfCapital,
+  COST_OF_CAPITAL_CURRENCY_VERSION,
   COST_OF_CAPITAL_VERSION,
   COUNTRY_RISK_REGIONS_DATASET,
   deriveCostOfCapital,
@@ -131,7 +132,7 @@ describe(COST_OF_CAPITAL_VERSION, () => {
   it("names every missing component instead of filling one", () => {
     expect(
       build({
-        currency: "EUR",
+        currency: "JPY",
         industryKey: null,
         listingCountry: "AR",
         impliedErp: null,
@@ -360,5 +361,122 @@ describe(`${COST_OF_CAPITAL_VERSION}: country risk weighted by operations`, () =
     expect(operationsExposure).toBeNull();
     expect(declarations).toContain("country_risk_by_primary_listing");
     expect(derived.wacc).toBe("0.0974946327662014911106862932517683");
+  });
+});
+
+describe(`${COST_OF_CAPITAL_CURRENCY_VERSION}: a run in its statements' currency`, () => {
+  const readings = fixtureCostOfCapitalReadings(
+    FIXTURE_COST_OF_CAPITAL_VALUES,
+    "computers-peripherals",
+    "luxembourg",
+  );
+  const withGermany = {
+    ...readings,
+    countryRisk: {
+      ...readings.countryRisk,
+      rows: [
+        ...readings.countryRisk.rows,
+        {
+          key: "germany",
+          label: "Germany",
+          values: {
+            default_spread: "0",
+            country_risk_premium: "0",
+            corporate_tax_rate: "0.2993",
+          },
+        },
+      ],
+    },
+  };
+  const curve = (rows: readonly [string, string][], asOf = "2026-11-25") => ({
+    reading: {
+      release: {
+        ...readings.betas.release,
+        releaseId: "00000000-0000-4000-8000-0000000000e1",
+        datasetId: "ecb.eur-aaa-par-10y",
+      },
+      rows: rows.map(([key, value]) => ({
+        key,
+        label: key,
+        values: { yield: value },
+      })),
+    },
+    asOf,
+    maxAgeDays: 7,
+    frequency: "daily" as const,
+    field: "yield",
+  });
+  const eur = (
+    overrides: Parameters<typeof buildCostOfCapital>[0] | object = {},
+  ) =>
+    buildCostOfCapital({
+      currency: "EUR",
+      industryKey: "computers-peripherals",
+      listingCountry: "US",
+      domicileCountry: "LU",
+      ...withGermany,
+      coverage: coverage("29.06"),
+      currencyRiskFree: curve([
+        ["2026-11-23", "0.032952019029"],
+        ["2026-11-24", "0.032857872114"],
+        // Un dato posterior al as_of no se conocía todavía.
+        ["2026-11-26", "0.05"],
+      ]),
+      ...overrides,
+    });
+
+  it("takes the curve's last point on or before the as_of, net of Germany's spread", () => {
+    const result = eur();
+    if (result.status !== "computed") throw new Error(result.missing.join());
+    const { costOfCapital } = result;
+    expect(costOfCapital.version).toBe(COST_OF_CAPITAL_CURRENCY_VERSION);
+    expect(costOfCapital.currency).toBe("EUR");
+    expect(costOfCapital.countryKey).toBe("luxembourg");
+    expect(costOfCapital.derived.riskFree).toBe("0.032857872114");
+    const riskFree = costOfCapital.parameters.find(
+      (parameter) => parameter.name === "treasury_bond_rate",
+    )!;
+    expect(riskFree).toMatchObject({
+      datasetId: "ecb.eur-aaa-par-10y",
+      rowKey: "2026-11-24",
+      field: "yield",
+    });
+    expect(
+      costOfCapital.parameters.find(
+        (parameter) => parameter.name === "sovereign_default_spread",
+      )?.rowKey,
+    ).toBe("germany");
+    expect(costOfCapital.declarations).toEqual(
+      expect.arrayContaining([
+        "riskfree_from_currency_government_curve",
+        "country_risk_by_declared_domicile",
+      ]),
+    );
+    // La misma aritmética, desde los parámetros solos.
+    expect(deriveCostOfCapital(costOfCapital.parameters, "Aaa/AAA")).toEqual(
+      costOfCapital.derived,
+    );
+  });
+
+  it("names a curve that is missing, empty before the as_of or older than declared", () => {
+    expect(eur({ currencyRiskFree: null })).toMatchObject({
+      status: "unsupported",
+      missing: ["currency_risk_free"],
+    });
+    expect(
+      eur({ currencyRiskFree: curve([["2026-11-26", "0.03"]]) }),
+    ).toMatchObject({ missing: ["currency_risk_free"] });
+    expect(
+      eur({ currencyRiskFree: curve([["2026-11-17", "0.03"]]) }),
+    ).toMatchObject({ missing: ["currency_risk_free_stale"] });
+  });
+
+  it("leaves a dollar run without a declared domicile exactly as before", () => {
+    const dollar = computed();
+    expect(dollar.version).not.toBe(COST_OF_CAPITAL_CURRENCY_VERSION);
+    expect(dollar.declarations).toContain("country_risk_by_primary_listing");
+    expect(dollar.declarations).not.toContain(
+      "riskfree_from_currency_government_curve",
+    );
   });
 });

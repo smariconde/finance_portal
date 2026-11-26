@@ -550,7 +550,12 @@ export function assembleValuationSnapshot(
             ? declaredAbsent(
                 "No operating lease liability is reported in the base-year balance sheet.",
               )
-            : missing,
+            : leases.status === "not_capitalized" &&
+                leases.reason === "ifrs16_lease_in_debt"
+              ? declaredAbsent(
+                  `${leases.version}: under IFRS 16 the lease liability is part of the reported debt and its interest is already below EBIT; no operating lease is capitalized.`,
+                )
+              : missing,
       minorityInterest:
         balance.minorityInterest !== null
           ? reported(balance.minorityInterest)

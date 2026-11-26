@@ -8,6 +8,7 @@ import {
   findDeclaredBenchmark,
   type BenchmarkClose,
 } from "../domain/declared-benchmarks";
+import { findDeclaredFxRate } from "../domain/declared-fx-rates";
 import { settleSession } from "../domain/settled-session";
 
 import type { IngestPricesDependencies } from "./ingest-prices";
@@ -62,7 +63,10 @@ export async function ingestBenchmark(
   benchmarkId: string,
   dependencies: IngestPricesDependencies,
 ): Promise<IngestBenchmarkOutcome> {
-  const benchmark = findDeclaredBenchmark(benchmarkId);
+  // Un tipo de cambio declarado (`F6-55`) se guarda igual que un índice: una
+  // serie cruda sin eventos, en la moneda que la declaración dice.
+  const benchmark =
+    findDeclaredBenchmark(benchmarkId) ?? findDeclaredFxRate(benchmarkId);
 
   if (benchmark === null) {
     throw new BenchmarkIngestionError("benchmark_not_declared", benchmarkId);

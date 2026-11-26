@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   capitalizeOperatingLeases,
+  IFRS16_LEASE_CAPITALIZATION_VERSION,
   LEASE_CAPITALIZATION_VERSION,
 } from "./lease-capitalization";
 
@@ -100,5 +101,31 @@ describe("capitalizeOperatingLeases", () => {
     expect(() =>
       capitalizeOperatingLeases({ ...base, totalLiability: "NaN" }),
     ).toThrow();
+  });
+});
+
+describe(IFRS16_LEASE_CAPITALIZATION_VERSION, () => {
+  it("names an IFRS 16 liability as already in debt instead of imputing interest", () => {
+    expect(
+      capitalizeOperatingLeases({ ...base, ifrs16Liability: "498" }),
+    ).toEqual({
+      version: IFRS16_LEASE_CAPITALIZATION_VERSION,
+      status: "not_capitalized",
+      reason: "ifrs16_lease_in_debt",
+    });
+  });
+
+  it("still capitalizes an operating lease when one is published", () => {
+    expect(
+      capitalizeOperatingLeases({
+        ...base,
+        totalLiability: "100",
+        ifrs16Liability: "498",
+      }),
+    ).toMatchObject({ status: "capitalized", leaseDebt: "100" });
+    expect(capitalizeOperatingLeases(base)).toMatchObject({
+      version: LEASE_CAPITALIZATION_VERSION,
+      reason: "lease_liability_missing",
+    });
   });
 });

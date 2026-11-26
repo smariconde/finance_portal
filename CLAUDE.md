@@ -796,10 +796,29 @@ filing's instance has them), no 6-K carries XBRL since 2021 (annual base only),
 and the ADS ratio is not in the XBRL. Since `F6-55` increment 1 (in progress)
 `followed-filer-eligibility-1.1.0` admits a 20-F only for a CIK in
 `DECLARED_FOREIGN_FILERS` (Spotify, EUR) and `sec-core-concepts-14.0.0` stores
-53 `ifrs-full` concepts with their original names; reading them into the annual
-series (IFRS 16 leases already outside EBIT) is the next increment. The
-risk-free rate is the ECB's (EUR AAA curve daily, Danish 10-year monthly); TWD has
-no machine-readable official source, so TSM waits.
+53 `ifrs-full` concepts with their original names. The risk-free rate is the
+ECB's (EUR AAA curve daily, Danish 10-year monthly); TWD has no machine-readable
+official source, so TSM waits. Increment 2 values SPOT in EUR (owner decisions
+with the measured table): `annual-fundamentals-1.11.0` reads each item's
+`ifrs-full` concept after the `us-gaap` ones, takes `LeaseLiabilities` as a
+finance lease (IFRS 16: debt, interest already below EBIT, named
+`ifrs16_lease_in_debt` by `lease-capitalization-1.1.0`), never reads
+`FinanceCosts` as interest, composes D&A from its two lines only without a total,
+and reads a monetary item only in the currency of the latest revenue (which also
+fixed two US filers with EUR commercial paper or debt instruments).
+`ecb-data-portal` (free use citing the ECB, 20/day) feeds the reference dataset
+`ecb.eur-aaa-par-10y` —the AAA **par** yield, last ten days per release,
+`ecb-sdmx-csv-1.0.0`, `pnpm risk-free:record`—; `cost-of-capital-1.3.0`, only
+for a non-USD run, takes its last point on or before the `as_of` (7 days at
+most) net of Germany's spread and the **declared** domicile
+(`DECLARED_FOREIGN_FILERS.domicileCountry`) for tax and CRP. EUR/USD is
+`fx-eur-usd` (`EURUSD=X`) in `benchmark_prices`; `market-price-comparison-1.1.0`
+converts the listed close at the same day's rate (`no_fx_at_as_of` otherwise),
+`price` stays in the run currency, and the CEDEAR readings use the listed close
+(`cedear-peso-value-1.1.0`). `valuation-data-1.2.0` asks for the curve
+(`risk-free-freshness-1.0.0`) and the rate, never blocking. SPOT is declared
+`entertainment` (SIC 4832 gave `broadcasting`). Measured on a replica: SPOT from
+nothing to `computed` in 12 s, 427.18 EUR against 562.35 EUR (P/V 1.32).
 
 Company logos are loaded by the **browser** from logo.dev
 ([ADR 0062](docs/architecture/adr/0062-company-logos-browser-loaded.md)): the

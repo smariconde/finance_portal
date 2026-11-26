@@ -246,6 +246,7 @@ describe(INDUSTRY_MAPPING_VERSION, () => {
     ).toEqual([
       ["MELI", "retail-general"],
       ["GE", "aerospace-defense"],
+      ["SPOT", "entertainment"],
     ]);
     for (const declaration of DECLARED_INDUSTRY_ASSIGNMENTS)
       expect(mappedIndustryKeys()).toContain(declaration.industryKey);

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { formatDecimal, parseDecimal } from "./decimal-policy";
 import {
   COMPOSED_PRETAX_CONCEPT,
   composePretaxIncome,
@@ -83,8 +84,19 @@ import {
  * compone: sin total publicado, `pretax-income-1.0.0` suma las dos partes sólo
  * si la conciliación las corrobora, con el concepto derivado que la nombra y
  * las tres partidas adjuntas. Con el total publicado, nada cambia.
+ * `1.11.0` (`F6-55`, ADR 0087): los emisores que presentan 20-F en IFRS. Cada
+ * partida acepta su concepto `ifrs-full` **después** de los `us-gaap`, así que
+ * un filer de EE. UU. lee lo mismo. El pasivo por arrendamientos de IFRS 16
+ * (`LeaseLiabilities`) es una partida de arrendamientos **financieros**: bajo
+ * IFRS 16 todo arrendamiento es deuda y su interés ya está debajo del EBIT, así
+ * que entra a la deuda sin sumarle interés imputado al EBIT. `FinanceCosts` no es
+ * una partida de intereses: mezcla diferencias de cambio y valor razonable. Y
+ * cada partida monetaria se lee **sólo en la moneda de la serie** —la de los
+ * ingresos del último ejercicio—: Novo Nordisk publica `Borrowings` en DKK y el
+ * nominal de sus bonos en EUR con el mismo concepto, y dos filers de EE. UU.
+ * publicaban papeles comerciales o el valor de un instrumento de deuda en EUR.
  */
-export const ANNUAL_FUNDAMENTALS_VERSION = "annual-fundamentals-1.10.0";
+export const ANNUAL_FUNDAMENTALS_VERSION = "annual-fundamentals-1.11.0";
 
 export const lineItemIdSchema = z.enum([
   "revenue",
@@ -149,6 +161,8 @@ export const lineItemIdSchema = z.enum([
   "debt_instrument_carrying_amount",
   "debt_combined_total",
   "debt_including_finance_leases_total",
+  "depreciation_only",
+  "amortisation_only",
 ]);
 
 export type LineItemId = z.infer<typeof lineItemIdSchema>;
@@ -170,12 +184,16 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
       "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
       "us-gaap:RevenueFromContractWithCustomerIncludingAssessedTax",
       "us-gaap:SalesRevenueNet",
+      "ifrs-full:Revenue",
     ],
   },
   {
     item: "operating_income",
     periodType: "annual",
-    concepts: ["us-gaap:OperatingIncomeLoss"],
+    concepts: [
+      "us-gaap:OperatingIncomeLoss",
+      "ifrs-full:ProfitLossFromOperatingActivities",
+    ],
   },
   {
     item: "pretax_income",
@@ -183,6 +201,7 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
     concepts: [
       "us-gaap:IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
       "us-gaap:IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments",
+      "ifrs-full:ProfitLossBeforeTax",
     ],
   },
   // `1.10.0`: las dos partes y su control, para `pretax-income-1.0.0`.
@@ -213,17 +232,26 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
     concepts: [
       "us-gaap:InterestExpense",
       "us-gaap:InterestExpenseNonoperating",
+      "ifrs-full:InterestExpense",
     ],
   },
   {
     item: "income_tax",
     periodType: "annual",
-    concepts: ["us-gaap:IncomeTaxExpenseBenefit"],
+    concepts: [
+      "us-gaap:IncomeTaxExpenseBenefit",
+      "ifrs-full:IncomeTaxExpenseContinuingOperations",
+    ],
   },
   {
     item: "net_income",
     periodType: "annual",
-    concepts: ["us-gaap:NetIncomeLoss", "us-gaap:ProfitLoss"],
+    concepts: [
+      "us-gaap:NetIncomeLoss",
+      "us-gaap:ProfitLoss",
+      "ifrs-full:ProfitLossAttributableToOwnersOfParent",
+      "ifrs-full:ProfitLoss",
+    ],
   },
   {
     item: "common_net_income",
@@ -237,6 +265,8 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
       "us-gaap:DepreciationDepletionAndAmortization",
       "us-gaap:DepreciationAndAmortization",
       "us-gaap:DepreciationAmortizationAndAccretionNet",
+      "ifrs-full:DepreciationAndAmortisationExpense",
+      "ifrs-full:AdjustmentsForDepreciationAndAmortisationExpense",
     ],
   },
   {
@@ -247,12 +277,16 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
       "us-gaap:PaymentsToAcquireProductiveAssets",
       "us-gaap:PaymentsToAcquireOtherPropertyPlantAndEquipment",
       "us-gaap:PaymentsForCapitalImprovements",
+      "ifrs-full:PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities",
     ],
   },
   {
     item: "operating_cash_flow",
     periodType: "annual",
-    concepts: ["us-gaap:NetCashProvidedByUsedInOperatingActivities"],
+    concepts: [
+      "us-gaap:NetCashProvidedByUsedInOperatingActivities",
+      "ifrs-full:CashFlowsFromUsedInOperatingActivities",
+    ],
   },
   {
     item: "research_development",
@@ -260,12 +294,16 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
     concepts: [
       "us-gaap:ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost",
       "us-gaap:ResearchAndDevelopmentExpense",
+      "ifrs-full:ResearchAndDevelopmentExpense",
     ],
   },
   {
     item: "diluted_shares",
     periodType: "annual",
-    concepts: ["us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding"],
+    concepts: [
+      "us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding",
+      "ifrs-full:AdjustedWeightedAverageShares",
+    ],
   },
   {
     // El patrimonio de la controlante primero: el distress y la deuda se miden
@@ -275,6 +313,8 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
     concepts: [
       "us-gaap:StockholdersEquity",
       "us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+      "ifrs-full:EquityAttributableToOwnersOfParent",
+      "ifrs-full:Equity",
     ],
   },
   {
@@ -290,11 +330,15 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
       "us-gaap:PreferredStockValue",
     ],
   },
-  { item: "assets", periodType: "instant", concepts: ["us-gaap:Assets"] },
+  {
+    item: "assets",
+    periodType: "instant",
+    concepts: ["us-gaap:Assets", "ifrs-full:Assets"],
+  },
   {
     item: "liabilities",
     periodType: "instant",
-    concepts: ["us-gaap:Liabilities"],
+    concepts: ["us-gaap:Liabilities", "ifrs-full:Liabilities"],
   },
   {
     item: "cash",
@@ -302,6 +346,7 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
     concepts: [
       "us-gaap:CashAndCashEquivalentsAtCarryingValue",
       "us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
+      "ifrs-full:CashAndCashEquivalents",
     ],
   },
   {
@@ -311,12 +356,18 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
       "us-gaap:MarketableSecuritiesCurrent",
       "us-gaap:ShortTermInvestments",
       "us-gaap:AvailableForSaleSecuritiesDebtSecuritiesCurrent",
+      "ifrs-full:CurrentInvestments",
     ],
   },
   {
     item: "long_term_debt",
     periodType: "instant",
-    concepts: ["us-gaap:LongTermDebt", "us-gaap:LongTermDebtNoncurrent"],
+    concepts: [
+      "us-gaap:LongTermDebt",
+      "us-gaap:LongTermDebtNoncurrent",
+      "ifrs-full:NoncurrentPortionOfNoncurrentBorrowings",
+      "ifrs-full:LongtermBorrowings",
+    ],
   },
   {
     item: "debt_current",
@@ -325,12 +376,18 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
       "us-gaap:DebtCurrent",
       "us-gaap:LongTermDebtCurrent",
       "us-gaap:LongTermDebtAndCapitalLeaseObligationsCurrent",
+      "ifrs-full:CurrentBorrowingsAndCurrentPortionOfNoncurrentBorrowings",
+      "ifrs-full:CurrentPortionOfLongtermBorrowings",
     ],
   },
   {
     item: "short_term_borrowings",
     periodType: "instant",
-    concepts: ["us-gaap:ShortTermBorrowings", "us-gaap:CommercialPaper"],
+    concepts: [
+      "us-gaap:ShortTermBorrowings",
+      "us-gaap:CommercialPaper",
+      "ifrs-full:ShorttermBorrowings",
+    ],
   },
   {
     item: "operating_lease_liability",
@@ -350,7 +407,7 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
   {
     item: "minority_interest",
     periodType: "instant",
-    concepts: ["us-gaap:MinorityInterest"],
+    concepts: ["us-gaap:MinorityInterest", "ifrs-full:NoncontrollingInterests"],
   },
   {
     item: "shares_outstanding",
@@ -373,27 +430,39 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
       "us-gaap:GoodwillAndIntangibleAssetImpairment",
       "us-gaap:ImpairmentOfLongLivedAssetsHeldForUse",
       "us-gaap:GoodwillImpairmentLoss",
+      "ifrs-full:ImpairmentLossReversalOfImpairmentLossRecognisedInProfitOrLoss",
     ],
   },
   {
     item: "share_based_compensation",
     periodType: "annual",
-    concepts: ["us-gaap:ShareBasedCompensation"],
+    concepts: [
+      "us-gaap:ShareBasedCompensation",
+      "ifrs-full:AdjustmentsForSharebasedPayments",
+      "ifrs-full:ExpenseFromSharebasedPaymentTransactionsWithEmployees",
+    ],
   },
   {
     item: "dividends_paid",
     periodType: "annual",
-    concepts: ["us-gaap:PaymentsOfDividends"],
+    concepts: [
+      "us-gaap:PaymentsOfDividends",
+      "ifrs-full:DividendsPaidClassifiedAsFinancingActivities",
+      "ifrs-full:DividendsPaid",
+    ],
   },
   {
     item: "goodwill",
     periodType: "instant",
-    concepts: ["us-gaap:Goodwill"],
+    concepts: ["us-gaap:Goodwill", "ifrs-full:Goodwill"],
   },
   {
     item: "intangibles",
     periodType: "instant",
-    concepts: ["us-gaap:IntangibleAssetsNetExcludingGoodwill"],
+    concepts: [
+      "us-gaap:IntangibleAssetsNetExcludingGoodwill",
+      "ifrs-full:IntangibleAssetsOtherThanGoodwill",
+    ],
   },
   {
     item: "marketable_securities_noncurrent",
@@ -414,6 +483,8 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
       "us-gaap:LongTermDebtAndCapitalLeaseObligations",
       "us-gaap:ConvertibleDebtNoncurrent",
       "us-gaap:ConvertibleLongTermNotesPayable",
+      "ifrs-full:NoncurrentPortionOfNoncurrentBorrowings",
+      "ifrs-full:LongtermBorrowings",
     ],
   },
   {
@@ -424,18 +495,22 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
       "us-gaap:LongTermDebtAndCapitalLeaseObligationsCurrent",
       "us-gaap:ConvertibleDebtCurrent",
       "us-gaap:ConvertibleNotesPayableCurrent",
+      "ifrs-full:CurrentPortionOfLongtermBorrowings",
     ],
   },
   {
     // Toda la deuda corriente: vencimientos, préstamos y papeles.
     item: "debt_current_total",
     periodType: "instant",
-    concepts: ["us-gaap:DebtCurrent"],
+    concepts: [
+      "us-gaap:DebtCurrent",
+      "ifrs-full:CurrentBorrowingsAndCurrentPortionOfNoncurrentBorrowings",
+    ],
   },
   {
     item: "debt_short_term_borrowings",
     periodType: "instant",
-    concepts: ["us-gaap:ShortTermBorrowings"],
+    concepts: ["us-gaap:ShortTermBorrowings", "ifrs-full:ShorttermBorrowings"],
   },
   {
     item: "debt_commercial_paper",
@@ -445,18 +520,25 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
   {
     item: "finance_lease_liability",
     periodType: "instant",
-    concepts: ["us-gaap:FinanceLeaseLiability"],
+    concepts: ["us-gaap:FinanceLeaseLiability", "ifrs-full:LeaseLiabilities"],
   },
   // Desde acá, `1.3.0` (ADR 0053): las bases de `interest-expense-1.0.0`.
   {
     item: "interest_expense_debt",
     periodType: "annual",
-    concepts: ["us-gaap:InterestExpenseDebt"],
+    concepts: [
+      "us-gaap:InterestExpenseDebt",
+      "ifrs-full:InterestExpenseOnBorrowings",
+      "ifrs-full:InterestExpenseOnBonds",
+    ],
   },
   {
     item: "finance_lease_interest_expense",
     periodType: "annual",
-    concepts: ["us-gaap:FinanceLeaseInterestExpense"],
+    concepts: [
+      "us-gaap:FinanceLeaseInterestExpense",
+      "ifrs-full:InterestExpenseOnLeaseLiabilities",
+    ],
   },
   {
     // Con el signo de un ingreso: negativo es un gasto neto.
@@ -470,7 +552,11 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
   {
     item: "interest_paid",
     periodType: "annual",
-    concepts: ["us-gaap:InterestPaidNet"],
+    concepts: [
+      "us-gaap:InterestPaidNet",
+      "ifrs-full:InterestPaidClassifiedAsOperatingActivities",
+      "ifrs-full:InterestPaidClassifiedAsFinancingActivities",
+    ],
   },
   // Desde acá, `1.4.0` (ADR 0054): la guardia de deuda, un concepto por partida.
   ...(
@@ -514,9 +600,30 @@ export const LINE_ITEMS: readonly LineItemDefinition[] = Object.freeze([
   ).map(([item, concept]) => ({
     item,
     periodType: "instant" as const,
-    concepts: [`us-gaap:${concept}`],
+    // `1.11.0`: `Borrowings` es el total de préstamos de IFRS, corriente más
+    // no corriente; prueba deuda y corrobora una receta, nunca suma.
+    concepts:
+      item === "debt_combined_total"
+        ? [`us-gaap:${concept}`, "ifrs-full:Borrowings"]
+        : [`us-gaap:${concept}`],
   })),
+  // Desde acá, `1.11.0`: las dos partes de la D&A que un filer IFRS publica
+  // por separado en la conciliación del flujo de caja (Spotify).
+  {
+    item: "depreciation_only",
+    periodType: "annual",
+    concepts: ["ifrs-full:AdjustmentsForDepreciationExpense"],
+  },
+  {
+    item: "amortisation_only",
+    periodType: "annual",
+    concepts: ["ifrs-full:AdjustmentsForAmortisationExpense"],
+  },
 ]);
+
+/** El concepto de la D&A compuesta (`1.11.0`): nunca una observación. */
+export const COMPOSED_DEPRECIATION_CONCEPT =
+  "derived:DepreciationPlusAmortisation";
 
 /**
  * Las partidas que prueban deuda aunque ninguna receta la sume (`1.4.0`).
@@ -789,6 +896,7 @@ export function buildAnnualFundamentals(
   }
 
   const fiscalYearEnds = chooseFiscalYearEnds(latestPublication);
+  const currency = seriesCurrency(usable, fiscalYearEnds[0], anchor);
 
   const fiscalYears = fiscalYearEnds.map((fiscalYearEnd) => {
     const items: Partial<Record<LineItemId, LineItemValue>> = {};
@@ -799,6 +907,9 @@ export function buildAnnualFundamentals(
           (row) =>
             row.concept === concept &&
             row.asOf === fiscalYearEnd &&
+            (currency === null ||
+              row.currency === null ||
+              row.currency === currency) &&
             (definition.periodType === "instant"
               ? row.periodType === "instant"
               : isFiscalYearRow(row, anchor)),
@@ -827,10 +938,46 @@ export function buildAnnualFundamentals(
       if (composed !== null) items.pretax_income = composed;
     }
 
+    if (items.depreciation_amortization === undefined) {
+      const composed = composedDepreciationItem(fiscalYearEnd, items);
+      if (composed !== null) items.depreciation_amortization = composed;
+    }
+
     return { fiscalYearEnd, items };
   });
 
   return { version: ANNUAL_FUNDAMENTALS_VERSION, fiscalYears };
+}
+
+const REVENUE_CONCEPTS: readonly string[] = LINE_ITEMS.find(
+  (definition) => definition.item === "revenue",
+)!.concepts;
+
+/**
+ * La moneda de la serie (`1.11.0`): la de los ingresos del último ejercicio,
+ * elegidos con la misma precedencia que la partida. Sin ingresos, `null` y
+ * ninguna partida se filtra por moneda.
+ */
+function seriesCurrency(
+  usable: readonly FundamentalRow[],
+  latestFiscalYearEnd: string | undefined,
+  anchor: string,
+): string | null {
+  if (latestFiscalYearEnd === undefined) return null;
+
+  for (const concept of REVENUE_CONCEPTS) {
+    const match = usable.find(
+      (row) =>
+        row.concept === concept &&
+        row.asOf === latestFiscalYearEnd &&
+        row.currency !== null &&
+        isFiscalYearRow(row, anchor),
+    );
+
+    if (match !== undefined) return match.currency;
+  }
+
+  return null;
 }
 
 /**
@@ -874,5 +1021,51 @@ function composedPretaxItem(
     recordedAt: latest("recordedAt"),
     sourceDocumentId: documents.size === 1 ? [...documents][0]! : null,
     composition: reading.composition,
+  };
+}
+
+/**
+ * La D&A compuesta (`1.11.0`): depreciación más amortización, sólo sin un total
+ * publicado y con las dos partes del mismo ejercicio y moneda. Son dos renglones
+ * distintos de la misma conciliación, así que no se solapan.
+ */
+function composedDepreciationItem(
+  fiscalYearEnd: string,
+  items: Partial<Record<LineItemId, LineItemValue>>,
+): LineItemValue | null {
+  const depreciation = items.depreciation_only;
+  const amortisation = items.amortisation_only;
+
+  if (
+    depreciation === undefined ||
+    amortisation === undefined ||
+    depreciation.currency !== amortisation.currency ||
+    depreciation.unit !== amortisation.unit
+  ) {
+    return null;
+  }
+
+  const latest = (key: "availableAt" | "recordedAt") =>
+    [depreciation[key], amortisation[key]].sort().at(-1)!;
+
+  return {
+    item: "depreciation_amortization",
+    concept: COMPOSED_DEPRECIATION_CONCEPT,
+    value: formatDecimal(
+      parseDecimal(depreciation.value, "depreciation").plus(
+        parseDecimal(amortisation.value, "amortisation"),
+      ),
+      "depreciation_amortization.composed",
+    ),
+    unit: depreciation.unit,
+    currency: depreciation.currency,
+    asOf: fiscalYearEnd,
+    observationId: null,
+    availableAt: latest("availableAt"),
+    recordedAt: latest("recordedAt"),
+    sourceDocumentId:
+      depreciation.sourceDocumentId === amortisation.sourceDocumentId
+        ? depreciation.sourceDocumentId
+        : null,
   };
 }

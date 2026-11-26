@@ -103,3 +103,35 @@ describe("cedear-peso-value-1.0.0", () => {
     });
   });
 });
+
+describe("cedear-peso-value-1.1.0", () => {
+  it("reads the listed USD close and converts an EUR value at the same day's rate", () => {
+    // 200 USD listados al 1,25 USD/EUR: precio de la corrida 160 EUR, valor 120 EUR.
+    const converted: MarketPriceComparison = {
+      status: "compared",
+      version: "market-price-comparison-1.1.0",
+      price: { marketDate: "2026-10-23", close: "160", currency: "EUR" },
+      conversion: {
+        listed: { marketDate: "2026-10-23", close: "200", currency: "USD" },
+        fx: {
+          marketDate: "2026-10-23",
+          close: "1.25",
+          currency: "USD",
+          baseCurrency: "EUR",
+        },
+      },
+      valuePerShare: "120",
+      valueToPrice: "-0.25",
+      priceToValue: "1.33333333333333",
+    };
+
+    // El mismo CCL y el mismo valor en pesos que la corrida en dólares de arriba.
+    expect(cedearPesoValue({ ...input, comparison: converted })).toMatchObject({
+      status: "computed",
+      version: "cedear-peso-value-1.1.0",
+      implicitCcl: "1500",
+      valueArs: "11250",
+      underlyingPrice: { close: "200", currency: "USD" },
+    });
+  });
+});

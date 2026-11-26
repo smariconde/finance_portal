@@ -1,9 +1,22 @@
 import type { PriceEvent } from "@/modules/prices/domain/daily-close";
 import type { CedearRatio } from "@/modules/cedears/domain/cedear-claim";
-import { divide, formatDecimal, parseDecimal, ZERO } from "./decimal-policy";
+import {
+  divide,
+  formatDecimal,
+  ONE,
+  parseDecimal,
+  ZERO,
+} from "./decimal-policy";
 import type { MarketClose, MarketPriceComparison } from "./market-implied";
 
 export const CEDEAR_PESO_VALUE_VERSION = "cedear-peso-value-1.0.0";
+/**
+ * `1.1.0` (`F6-55`, ADR 0087): una corrida en EUR comparada con su cierre en
+ * USD (`market-price-comparison-1.1.0`). El CCL implícito sale del cierre
+ * **listado** en dólares, y el valor por acción pasa a dólares con el mismo
+ * cambio del día antes de multiplicarse por él. Sin conversión, `1.0.0`.
+ */
+export const CONVERTED_CEDEAR_PESO_VALUE_VERSION = "cedear-peso-value-1.1.0";
 export type CedearPesoUnavailable =
   | "no_byma_symbol"
   | "no_ratio"
@@ -16,7 +29,9 @@ export type CedearPesoUnavailable =
   | "ratio_after_price_date"
   | "split_after_ratio_basis";
 export type CedearPesoValue = {
-  readonly version: typeof CEDEAR_PESO_VALUE_VERSION;
+  readonly version:
+    | typeof CEDEAR_PESO_VALUE_VERSION
+    | typeof CONVERTED_CEDEAR_PESO_VALUE_VERSION;
 } & (
   | {
       readonly status: "computed";
@@ -65,7 +80,8 @@ export function cedearPesoValue(input: {
     close: storedPrice.close,
     currency: storedPrice.currency,
   };
-  const underlying = input.comparison.price;
+  const conversion = input.comparison.conversion;
+  const underlying = conversion?.listed ?? input.comparison.price;
   if (price.currency !== "ARS" || underlying.currency !== "USD")
     return unavailable("currency_mismatch");
   if (underlying.marketDate !== input.asOf)
@@ -83,16 +99,25 @@ export function cedearPesoValue(input: {
     if (!ars.gt(ZERO) || !usd.gt(ZERO))
       return unavailable("non_positive_close");
     const ccl = divide(ars.times(depositary), usd.times(units), "implicitCcl");
+    const valuePerShareUsd = parseDecimal(
+      input.comparison.valuePerShare,
+      "valuePerShare",
+    ).times(
+      conversion === undefined
+        ? ONE
+        : parseDecimal(conversion.fx.close, "conversion.fx.close"),
+    );
     const value = divide(
-      parseDecimal(input.comparison.valuePerShare, "valuePerShare").times(
-        units,
-      ),
+      valuePerShareUsd.times(units),
       depositary,
       "cedearUsd",
     ).times(ccl);
     return {
       status: "computed",
-      version: CEDEAR_PESO_VALUE_VERSION,
+      version:
+        conversion === undefined
+          ? CEDEAR_PESO_VALUE_VERSION
+          : CONVERTED_CEDEAR_PESO_VALUE_VERSION,
       price,
       underlyingPrice: underlying,
       implicitCcl: formatDecimal(ccl, "implicitCcl"),

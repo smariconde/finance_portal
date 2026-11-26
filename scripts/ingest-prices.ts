@@ -20,6 +20,7 @@ import {
   PRICES_SOURCE_ID,
 } from "@/modules/prices/application/live-price-source";
 import { findDeclaredBenchmark } from "@/modules/prices/domain/declared-benchmarks";
+import { findDeclaredFxRate } from "@/modules/prices/domain/declared-fx-rates";
 import { CHART_PARSER_VERSION } from "@/modules/prices/domain/parse-chart-payload";
 import { pointInTimeQuerySchema } from "@/modules/temporal/domain/point-in-time-query";
 import { SP500_INDEX_ID } from "@/modules/universe/application/live-universe-source";
@@ -43,6 +44,7 @@ import { getUniverseRepository } from "@/server/persistence/get-universe-reposit
  *   pnpm prices:ingest --sector information-technology --apply
  *   pnpm prices:ingest --sector information-technology --fiscal-history --apply
  *   pnpm prices:ingest --benchmark sp500-total-return --apply
+ *   pnpm prices:ingest --benchmark fx-eur-usd --apply      # tipo de cambio (ADR 0087)
  *
  * El ticker se resuelve contra el grafo persistido: lo que sale por la red es el
  * símbolo que el universo ya asignó. `--sector` toma la población del sector a
@@ -83,7 +85,10 @@ if (
 }
 
 for (const benchmarkId of values.benchmark) {
-  if (findDeclaredBenchmark(benchmarkId) === null) {
+  if (
+    findDeclaredBenchmark(benchmarkId) === null &&
+    findDeclaredFxRate(benchmarkId) === null
+  ) {
     console.error(`${benchmarkId}: no es una referencia declarada.`);
     process.exit(2);
   }

@@ -19,6 +19,8 @@ import {
 } from "./decimal-policy";
 import {
   capitalizeOperatingLeases,
+  IFRS16_LEASE_CAPITALIZATION_VERSION,
+  IFRS16_LEASE_CONCEPT,
   LEASE_CAPITALIZATION_VERSION,
   type LeaseCapitalization,
 } from "./lease-capitalization";
@@ -95,16 +97,28 @@ export const leaseCapitalizationSchema = z.discriminatedUnion("status", [
     investedCapitalAdjustment: amount,
     debtAdjustment: amount,
   }),
-  z.object({
-    version: z.literal(LEASE_CAPITALIZATION_VERSION),
-    status: z.literal("not_capitalized"),
-    reason: z.enum([
-      "lease_liability_missing",
-      "lease_liability_partial",
-      "lease_liability_negative",
-      "cost_of_debt_missing",
-    ]),
-  }),
+  z
+    .object({
+      version: z.enum([
+        LEASE_CAPITALIZATION_VERSION,
+        IFRS16_LEASE_CAPITALIZATION_VERSION,
+      ]),
+      status: z.literal("not_capitalized"),
+      reason: z.enum([
+        "lease_liability_missing",
+        "lease_liability_partial",
+        "lease_liability_negative",
+        "cost_of_debt_missing",
+        "ifrs16_lease_in_debt",
+      ]),
+    })
+    // Sólo el motivo de IFRS 16 lleva `1.1.0`: el resto es `1.0.0` byte por byte.
+    .refine(
+      (result) =>
+        (result.reason === "ifrs16_lease_in_debt") ===
+        (result.version === IFRS16_LEASE_CAPITALIZATION_VERSION),
+      { path: ["version"] },
+    ),
 ]);
 
 export const rdCapitalizationSchema = z.discriminatedUnion("status", [
@@ -194,6 +208,11 @@ export const capitalizationSchema = z.object({
     totalLiability: monetaryFactSchema.nullable(),
     currentLiability: monetaryFactSchema.nullable(),
     noncurrentLiability: monetaryFactSchema.nullable(),
+    /**
+     * `ifrs-full:LeaseLiabilities` del cierre base (`F6-55`): presente sólo en
+     * un emisor IFRS, así una corrida de EE. UU. conserva su forma.
+     */
+    ifrs16Liability: conceptFactSchema.optional(),
     result: leaseCapitalizationSchema,
   }),
   researchAndDevelopment: z.object({
@@ -218,7 +237,10 @@ export type CapitalizationFacts = Pick<
 > & {
   readonly leases: Pick<
     Capitalization["leases"],
-    "totalLiability" | "currentLiability" | "noncurrentLiability"
+    | "totalLiability"
+    | "currentLiability"
+    | "noncurrentLiability"
+    | "ifrs16Liability"
   >;
   readonly researchAndDevelopment: Pick<
     Capitalization["researchAndDevelopment"],
@@ -331,6 +353,7 @@ export function buildCapitalization(
     currentLiability: valueOf(facts.leases.currentLiability),
     noncurrentLiability: valueOf(facts.leases.noncurrentLiability),
     preTaxCostOfDebt: context.preTaxCostOfDebt,
+    ifrs16Liability: valueOf(facts.leases.ifrs16Liability ?? null),
   });
   const rd = capitalizeResearchAndDevelopment({
     fiscalYears: facts.researchAndDevelopment.fiscalYears.map((year) => ({
@@ -390,6 +413,11 @@ export function capitalizationMismatches(
     [
       "capitalization.leases.noncurrentLiability",
       capitalization.leases.noncurrentLiability,
+      leasesAsOf,
+    ],
+    [
+      "capitalization.leases.ifrs16Liability",
+      capitalization.leases.ifrs16Liability ?? null,
       leasesAsOf,
     ],
     ...ebitDerivationFacts(capitalization).map(
@@ -560,6 +588,11 @@ export function capitalizationFactsFromSeries(
       totalLiability: item("operating_lease_liability"),
       currentLiability: item("operating_lease_liability_current"),
       noncurrentLiability: item("operating_lease_liability_noncurrent"),
+      ...(base.items.finance_lease_liability?.concept === IFRS16_LEASE_CONCEPT
+        ? {
+            ifrs16Liability: toConceptFact(base.items.finance_lease_liability),
+          }
+        : {}),
     },
     researchAndDevelopment: {
       fiscalYears: series.fiscalYears.slice(0, 16).map((year) => ({

@@ -120,3 +120,30 @@ TPEx no publica las tasas benchmark y el banco central de Taiwán publica
 promedios en PDF. **Decisión del owner:** EUR con la curva AAA diaria (la del
 mismo día que la valuación), DKK con el bono mensual, y TSM fuera de `F6-55`
 hasta tener una fuente para TWD.
+
+## Enmienda del 2026-11-26: la serie IFRS, el costo de capital en EUR y el cambio (`F6-55`, incremento 2)
+
+Decisiones del owner con SPOT medido en una réplica:
+
+- **Libre de riesgo:** el **rendimiento par** a 10 años de la curva AAA del ECB
+  (3,286 % al 2026-11-24), no la tasa spot con capitalización continua (3,31 %,
+  3,37 % efectiva): es la misma clase de tasa que el T-bond de Damodaran. Se le
+  descuenta el diferencial de Alemania (Aaa, 0), como hace Damodaran con el
+  euro. Se usa el último dato en o antes del `as_of`, a lo sumo 7 días: el ECB
+  publica cada día hábil al mediodía del siguiente.
+- **Intereses:** sólo conceptos de interés, con el orden de
+  `interest-expense-1.0.0`. `FinanceCosts` nunca, porque mezcla diferencias de
+  cambio y valor razonable (SPOT: 266 M contra 31 M de interés de
+  arrendamientos y 36 M pagados).
+- **Domicilio:** el país de incorporación declarado (Luxemburgo para SPOT) da el
+  impuesto marginal y el CRP, no el país del listing.
+- **Industria:** SPOT se declara `entertainment`; su SIC 4832 lo ponía en
+  `broadcasting` (WACC 4,24 % y valor 781 EUR contra 6,32 % y 427 EUR).
+
+Reglas: bajo IFRS 16 todo arrendamiento es deuda y su interés ya está debajo del
+EBIT, así que `LeaseLiabilities` entra a la deuda reportada como arrendamiento
+financiero y la capitalización lo nombra (`ifrs16_lease_in_debt`) sin imputarle
+interés. Una partida monetaria se lee sólo en la moneda de la serie. El tipo de
+cambio de Yahoo se guarda en `benchmark_prices` como `fx-eur-usd`, y la
+comparación con el precio convierte el cierre listado con el cambio del mismo
+día; el valor por acción, la corrida y sus hashes quedan en EUR.

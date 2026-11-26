@@ -38,6 +38,17 @@ export const DECLARED_INDUSTRY_ASSIGNMENTS: readonly IndustryDeclaration[] =
           rationale:
             "Decisión del owner el 2026-11-25. Desde la escisión de GE HealthCare (2023) y GE Vernova (2024), GE es GE Aerospace: motores de aviación comercial y de defensa y sus servicios. Su SIC 3600 quedó de la General Electric diversificada.",
         },
+        {
+          // SIC 4832 es radiodifusión: «broadcasting» le daba la beta y la
+          // estructura de radio y TV (0,32 y D/E 0,86), medido en `F6-55`.
+          cik: "0001639920",
+          ticker: "SPOT",
+          industryKey: "entertainment",
+          decidedBy: "owner",
+          decidedOn: "2026-11-25",
+          rationale:
+            "Decisión del owner el 2026-11-25. Spotify es streaming de música, podcasts y audiolibros por suscripción y publicidad: la industria con que Damodaran la clasifica y la fila de su vida de I+D. Su SIC 4832 (radio) la ponía en «broadcasting».",
+        },
       ] as const satisfies readonly unknown[]
     ).map((entry) => industryDeclarationSchema.parse(entry)),
   );

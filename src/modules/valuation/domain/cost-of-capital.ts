@@ -67,10 +67,21 @@ import type { CoverageFloor } from "./zero-debt-evidence";
  */
 export const COST_OF_CAPITAL_VERSION = "cost-of-capital-1.2.0";
 const WITHOUT_BUSINESS_MIX_VERSION = "cost-of-capital-1.1.0";
+/**
+ * `1.3.0` (`F6-55`, ADR 0087): una corrida en la moneda de sus estados. El libre
+ * de riesgo es la curva soberana de esa moneda al `as_of` —el dato del día o el
+ * último publicado antes, dentro de lo que la curva declara—, neto del
+ * diferencial del soberano de referencia (Alemania para el EUR, Aaa en cero).
+ * La beta, la ERP implícita y la tabla de ratings son las de siempre, y el
+ * domicilio es el país **declarado** del emisor, no el de su listing (decisión
+ * del owner). Sólo una corrida en otra moneda que el USD lleva `1.3.0`.
+ */
+export const COST_OF_CAPITAL_CURRENCY_VERSION = "cost-of-capital-1.3.0";
 const COST_OF_CAPITAL_VERSIONS = [
   "cost-of-capital-1.0.0",
   WITHOUT_BUSINESS_MIX_VERSION,
   COST_OF_CAPITAL_VERSION,
+  COST_OF_CAPITAL_CURRENCY_VERSION,
 ] as const;
 
 export const BETAS_DATASET = "damodaran.betas-us";
@@ -85,12 +96,24 @@ export const TERMINAL_BETA = "1";
 
 /** La moneda cuyo libre de riesgo publica la tabla de ERP implícita. */
 const SUPPORTED_CURRENCY = "USD";
+/** Las monedas con curva declarada (`1.3.0`). */
+const CURVE_CURRENCIES = ["EUR"] as const;
+const RUN_CURRENCIES = [SUPPORTED_CURRENCY, ...CURVE_CURRENCIES] as const;
 const CURRENCY_SOVEREIGN: Readonly<Record<string, string>> = {
   USD: "united-states",
+  // Damodaran toma el Bund como libre de riesgo del euro: Aaa, diferencial 0.
+  EUR: "germany",
 };
 
-/** País de la tabla de Damodaran para cada país ISO del listing primario. */
-const COUNTRY_KEYS: Readonly<Record<string, string>> = { US: "united-states" };
+/**
+ * País de la tabla de Damodaran para cada país ISO del listing primario o del
+ * domicilio declarado (`1.3.0`).
+ */
+const COUNTRY_KEYS: Readonly<Record<string, string>> = {
+  US: "united-states",
+  LU: "luxembourg",
+  DK: "denmark",
+};
 
 export const costOfCapitalParameterNameSchema = z.enum([
   "treasury_bond_rate",
@@ -226,6 +249,8 @@ export const costOfCapitalDeclarationSchema = z.enum([
   "rest_of_world_as_global",
   "beta_by_business_mix",
   "target_structure_business_mix",
+  "riskfree_from_currency_government_curve",
+  "country_risk_by_declared_domicile",
 ]);
 
 /** Una fila de riesgo país o de región que entra al CRP de una exposición. */
@@ -284,7 +309,7 @@ export type OperationsExposure = z.infer<typeof operationsExposureSchema>;
 
 export const costOfCapitalSchema = z.object({
   version: z.enum(COST_OF_CAPITAL_VERSIONS),
-  currency: z.literal(SUPPORTED_CURRENCY),
+  currency: z.enum(RUN_CURRENCIES),
   industryKey: z.string().max(128),
   countryKey: z.string().max(128),
   parameters: z.array(costOfCapitalParameterSchema).length(9),
@@ -326,6 +351,23 @@ export type CostOfCapitalRequest = {
   readonly industryKey: string | null;
   /** País ISO del listing primario, que aproxima el domicilio. */
   readonly listingCountry: string | null;
+  /**
+   * País ISO de incorporación de un emisor extranjero declarado (`1.3.0`). Si
+   * está, manda sobre el del listing.
+   */
+  readonly domicileCountry?: string | null;
+  /**
+   * La curva soberana de la moneda, visible al corte, y el `as_of` de la
+   * corrida (`1.3.0`). Sólo en una corrida que no es en USD.
+   */
+  readonly currencyRiskFree?: {
+    readonly reading: ReferenceReading | null;
+    readonly asOf: string;
+    /** Días que puede tener el dato frente al `as_of`. */
+    readonly maxAgeDays: number;
+    readonly frequency: "daily" | "monthly";
+    readonly field: string;
+  } | null;
   readonly betas: ReferenceReading | null;
   readonly countryRisk: ReferenceReading | null;
   readonly impliedErp: ReferenceReading | null;
@@ -629,13 +671,22 @@ export function buildCostOfCapital(
     return value;
   };
 
-  if (request.currency !== SUPPORTED_CURRENCY) missing.push("currency_usd");
+  const curveCurrency = (CURVE_CURRENCIES as readonly string[]).includes(
+    request.currency,
+  );
+
+  if (request.currency !== SUPPORTED_CURRENCY && !curveCurrency) {
+    missing.push("currency_usd");
+  }
 
   const sovereignKey = CURRENCY_SOVEREIGN[request.currency] ?? null;
+  const domicile = request.domicileCountry ?? null;
+  const countryIso = domicile ?? request.listingCountry;
   const countryKey =
-    request.listingCountry === null
-      ? null
-      : (COUNTRY_KEYS[request.listingCountry] ?? null);
+    countryIso === null ? null : (COUNTRY_KEYS[countryIso] ?? null);
+  const curveRow = curveCurrency
+    ? currencyCurveRow(request.currencyRiskFree ?? null, missing)
+    : null;
 
   const industryRow = need(
     request.industryKey === null
@@ -692,18 +743,26 @@ export function buildCostOfCapital(
     sovereignRow === null ||
     marketRow === null ||
     coverage === null ||
-    band === null
+    band === null ||
+    (curveCurrency && curveRow === null)
   ) {
     return { status: "unsupported", version: COST_OF_CAPITAL_VERSION, missing };
   }
 
   const candidates = [
-    parameter(
-      "treasury_bond_rate",
-      request.impliedErp!,
-      marketRow,
-      "treasury_bond_rate",
-    ),
+    curveRow !== null
+      ? parameter(
+          "treasury_bond_rate",
+          request.currencyRiskFree!.reading!,
+          curveRow,
+          request.currencyRiskFree!.field,
+        )
+      : parameter(
+          "treasury_bond_rate",
+          request.impliedErp!,
+          marketRow,
+          "treasury_bond_rate",
+        ),
     parameter(
       "sovereign_default_spread",
       request.countryRisk!,
@@ -769,11 +828,12 @@ export function buildCostOfCapital(
     costOfCapital: costOfCapitalSchema.parse({
       // Sin mezcla la corrida es `1.1.0` byte a byte, versión incluida: su
       // hash no se mueve por una regla que no la tocó.
-      version:
-        businessExposure === null
+      version: curveCurrency
+        ? COST_OF_CAPITAL_CURRENCY_VERSION
+        : businessExposure === null
           ? WITHOUT_BUSINESS_MIX_VERSION
           : COST_OF_CAPITAL_VERSION,
-      currency: SUPPORTED_CURRENCY,
+      currency: request.currency,
       industryKey: industryRow.key,
       countryKey: domicileRow.key,
       parameters,
@@ -788,12 +848,17 @@ export function buildCostOfCapital(
       ...(businessExposure === null ? {} : { businessExposure }),
       declarations: [
         "riskfree_net_of_sovereign_default_spread",
+        ...(curveCurrency ? ["riskfree_from_currency_government_curve"] : []),
         "erp_implied_at_start_of_year",
         ...(businessExposure === null
           ? ["industry_beta_us", "target_structure_industry_average"]
           : ["beta_by_business_mix", "target_structure_business_mix"]),
         ...(exposure === null
-          ? ["country_risk_by_primary_listing"]
+          ? [
+              domicile === null
+                ? "country_risk_by_primary_listing"
+                : "country_risk_by_declared_domicile",
+            ]
           : [
               "country_risk_by_operations",
               ...(exposure.exposures.some((item) => item.components.length > 1)
@@ -816,6 +881,58 @@ export function buildCostOfCapital(
       ],
     }),
   };
+}
+
+const DAY_MS = 86_400_000;
+
+/** El último día de un período `aaaa-mm-dd` o `aaaa-mm`. */
+function periodEnd(key: string): string | null {
+  if (/^\d{4}-\d{2}-\d{2}$/u.test(key)) return key;
+  if (!/^\d{4}-\d{2}$/u.test(key)) return null;
+
+  const [year, month] = key.split("-").map(Number) as [number, number];
+  return new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+}
+
+/**
+ * La fila de la curva para el `as_of` (`1.3.0`): la última cuyo período cerró
+ * en o antes del `as_of` y no tiene más días que los que la curva declara.
+ * Nunca una posterior: el dato del día siguiente no se conocía.
+ */
+function currencyCurveRow(
+  curve: NonNullable<CostOfCapitalRequest["currencyRiskFree"]> | null,
+  missing: string[],
+): ReferenceRow | null {
+  if (curve === null || curve.reading === null) {
+    missing.push("currency_risk_free");
+    return null;
+  }
+
+  const candidates = curve.reading.rows
+    .map((row) => ({ row, end: periodEnd(row.key) }))
+    .filter(
+      (entry): entry is { row: ReferenceRow; end: string } =>
+        entry.end !== null && entry.end <= curve.asOf,
+    )
+    .sort((left, right) => right.end.localeCompare(left.end));
+  const latest = candidates[0];
+
+  if (latest === undefined) {
+    missing.push("currency_risk_free");
+    return null;
+  }
+
+  const age =
+    (Date.parse(`${curve.asOf}T00:00:00.000Z`) -
+      Date.parse(`${latest.end}T00:00:00.000Z`)) /
+    DAY_MS;
+
+  if (age > curve.maxAgeDays) {
+    missing.push("currency_risk_free_stale");
+    return null;
+  }
+
+  return latest.row;
 }
 
 /**

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { createInMemoryIngestionRunRepository } from "@/modules/ingestion/infrastructure/in-memory-ingestion-run-repository";
 
 import { SP500_TOTAL_RETURN_BENCHMARK_ID } from "../domain/declared-benchmarks";
+import { fxRateFor } from "../domain/declared-fx-rates";
 import { parseChartPayload } from "../domain/parse-chart-payload";
 import {
   FIXTURE_CHART_PAYLOAD,
@@ -176,5 +177,34 @@ describe("ingestBenchmark", () => {
         benchmarkId: SP500_TOTAL_RETURN_BENCHMARK_ID,
       }),
     ).toEqual([]);
+  });
+});
+
+describe("a declared exchange rate (F6-55)", () => {
+  it("stores EUR/USD like a benchmark: its symbol, its currency, no events", async () => {
+    const repository = new InMemoryPriceRepository();
+    const asked: string[] = [];
+    const source = sourceOf(FIXTURE_CHART_PAYLOAD_WITHOUT_EVENTS);
+
+    const outcome = await ingestBenchmark(
+      "fx-eur-usd",
+      deps(repository, {
+        ...source,
+        async load(symbol) {
+          asked.push(symbol);
+          return source.load(symbol);
+        },
+      }),
+    );
+
+    expect(asked).toEqual(["EURUSD=X"]);
+    expect(outcome.summary?.closesInserted).toBe(2);
+    expect(
+      (await repository.loadBenchmarkSeries({ benchmarkId: "fx-eur-usd" })).map(
+        (close) => close.currency,
+      ),
+    ).toEqual(["USD", "USD"]);
+    expect(fxRateFor("EUR", "USD")?.benchmarkId).toBe("fx-eur-usd");
+    expect(fxRateFor("DKK", "USD")).toBeNull();
   });
 });

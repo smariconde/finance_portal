@@ -16,7 +16,10 @@ import {
 import {
   dataStepBlock,
   dataStepIngested,
+  VALUATION_DATA_CURRENCY_RULE_VERSION,
+  VALUATION_DATA_RULE_VERSION,
   type ConsensusStep,
+  type CurrencyMarketStep,
   type FilingsStep,
 } from "../domain/valuation-data-step";
 
@@ -490,5 +493,78 @@ describe("filings after the last download (F6-44)", () => {
       expect(dataStepIngested(step)).toBe(false);
       expect(step.audit?.status).toBe("passed");
     }
+  });
+});
+
+describe("the currency market of a foreign filer (F6-55)", () => {
+  const withMarket = (step: CurrencyMarketStep) => {
+    const { dependencies } = fake();
+    const asked: string[] = [];
+    return {
+      asked,
+      dependencies: {
+        ...dependencies,
+        ensureCurrencyMarket: async (currency: string) => {
+          asked.push(currency);
+          return step;
+        },
+      },
+    };
+  };
+
+  it("asks for the curve and the rate of a non-dollar issuer under 1.2.0", async () => {
+    const { asked, dependencies } = withMarket({
+      currency: "EUR",
+      riskFree: { status: "recorded" },
+      fx: { status: "ingested" },
+    });
+    const step = await ensureValuationData(
+      request({ reportingCurrency: "EUR" }),
+      dependencies,
+    );
+
+    expect(asked).toEqual(["EUR"]);
+    expect(step.ruleVersion).toBe(VALUATION_DATA_CURRENCY_RULE_VERSION);
+    expect(step.currencyMarket?.riskFree.status).toBe("recorded");
+    // Una curva nueva entra al costo de capital: el siguiente job la ve.
+    expect(dataStepIngested(step)).toBe(true);
+    expect(dataStepBlock(step)).toBeNull();
+  });
+
+  it("asks nothing for a dollar issuer or in a follow-up job, and stays 1.1.0", async () => {
+    const { asked, dependencies } = withMarket({
+      currency: "EUR",
+      riskFree: { status: "current" },
+      fx: { status: "unavailable", reason: "failed" },
+    });
+
+    const dollar = await ensureValuationData(
+      request({ reportingCurrency: "USD" }),
+      dependencies,
+    );
+    const followUp = await ensureValuationData(
+      request({ reportingCurrency: "EUR", mayDownload: false }),
+      dependencies,
+    );
+
+    expect(asked).toEqual([]);
+    expect(dollar.ruleVersion).toBe(VALUATION_DATA_RULE_VERSION);
+    expect(dollar).not.toHaveProperty("currencyMarket");
+    expect(followUp).not.toHaveProperty("currencyMarket");
+  });
+
+  it("never blocks on a curve or a rate it could not bring", async () => {
+    const { dependencies } = withMarket({
+      currency: "EUR",
+      riskFree: { status: "unavailable", reason: "source_disabled" },
+      fx: { status: "unavailable", reason: "daily_budget_exhausted" },
+    });
+    const step = await ensureValuationData(
+      request({ reportingCurrency: "EUR" }),
+      dependencies,
+    );
+
+    expect(dataStepBlock(step)).toBeNull();
+    expect(dataStepIngested(step)).toBe(false);
   });
 });

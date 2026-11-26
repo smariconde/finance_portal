@@ -64,6 +64,7 @@
     "cedears:record": "tsx --conditions=react-server --env-file=.env.local scripts/record-cedears.ts",
     "valuation:assess": "tsx --conditions=react-server --env-file=.env.local scripts/assess-company.ts",
     "damodaran:record": "tsx --conditions=react-server --env-file=.env.local scripts/record-damodaran.ts",
+    "risk-free:record": "tsx --conditions=react-server --env-file=.env.local scripts/record-risk-free.ts",
     "bcra:catalog": "tsx --conditions=react-server --env-file=.env.local scripts/record-bcra-catalog.ts",
     "bcra:series": "tsx --conditions=react-server --env-file=.env.local scripts/record-bcra-series.ts",
     "bcra:fx": "tsx --conditions=react-server --env-file=.env.local scripts/record-bcra-fx.ts",

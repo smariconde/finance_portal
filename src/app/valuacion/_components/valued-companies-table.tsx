@@ -41,6 +41,7 @@ const GAP_COPY: Record<MarketPriceComparisonUnavailableReason, string> = {
   no_value_per_share: "sin valor",
   no_close_at_as_of: "sin cierre ese día",
   currency_mismatch: "otra moneda",
+  no_fx_at_as_of: "sin tipo de cambio del día",
   non_positive_close: "cierre no positivo",
   non_positive_value: "valor no positivo",
   split_after_share_basis: "split en el medio",

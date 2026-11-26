@@ -1,3 +1,5 @@
+import { declaredForeignFiler } from "@/modules/universe/domain/declared-foreign-filers";
+import { readRiskFreeCurves } from "@/modules/reference-data/application/read-reference-dataset";
 import { usMarketGraph } from "@/modules/identity/domain/us-market-graph";
 import "server-only";
 
@@ -555,6 +557,7 @@ export async function prepareValuationRun(
         mayDownload:
           (job.followsJobId ?? null) === null ||
           options.followsConstitution === true,
+        reportingCurrency: declaredForeignFiler(cik)?.reportingCurrency ?? null,
       },
       createValuationDataDependencies(state.graph),
     );
@@ -1340,6 +1343,10 @@ async function assessmentReaders(
         ratings: ratings ?? null,
         regions: regions ?? null,
         evToSales: evToSales ?? null,
+        riskFreeCurves: await readRiskFreeCurves(
+          pointInTime,
+          referenceDatasets,
+        ),
       };
     },
     loadOperationsMix: (subjectId: string, pointInTime: PointInTimeQuery) =>

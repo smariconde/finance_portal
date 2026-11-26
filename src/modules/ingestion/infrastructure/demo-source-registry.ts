@@ -1226,6 +1226,67 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
       recordedAt: CONSENSUS_RIGHTS_REVIEWED_AT,
     }),
     sourceRegistryEntrySchema.parse({
+      sourceId: "ecb-data-portal",
+      displayName: "ECB Data Portal — API de datos (SDMX)",
+      owner: "European Central Bank",
+      canonicalUrl: "https://data.ecb.europa.eu/help/api/overview",
+      documentationUrls: [
+        "https://data.ecb.europa.eu/help/api/data",
+        "https://www.ecb.europa.eu/services/using-our-site/disclaimer/html/index.en.html",
+        "https://www.ecb.europa.eu/stats/financial_markets_and_interest_rates/euro_area_yield_curves/html/index.en.html",
+      ],
+      datasets: ["ecb.eur-aaa-par-10y"],
+      endpoints: [
+        "https://data-api.ecb.europa.eu/service/data/YC/B.U2.EUR.4F.G_N_A.SV_C_YM.PY_10Y",
+      ],
+      authentication: "none",
+      applicablePlan: null,
+      rateLimit: "sin cuota publicada; el tope diario es interno",
+      attribution: "European Central Bank (ECB)",
+      expectedCadence:
+        "al valuar un emisor que reporta en EUR, una vez por día hábil",
+      freshnessTarget:
+        "el día hábil anterior (se publica al mediodía de Fráncfort)",
+      timezone: "Europe/Berlin",
+      units: ["Percent per annum"],
+      currencies: ["EUR"],
+      parserVersion: "ecb-sdmx-csv-1.0.0",
+      fixturePolicy:
+        "Fixture sintética: las tasas de los tests son inventadas, aunque los términos permiten reproducir los datos citando al ECB.",
+      fallbackSourceIds: [],
+      /**
+       * «Users of this website may make free use of the information obtained
+       * directly from it» citando al ECB como fuente y diciendo si se
+       * modificó (ADR 0087). La API de datos se ofrece para acceso
+       * automatizado. Medido y leído el 2026-11-25.
+       */
+      rights: {
+        personalUse: "allowed",
+        automatedAccess: "allowed",
+        rawStorage: "allowed",
+        normalizedStorage: "allowed",
+        derivedStorage: "allowed",
+        publicDisplay: "allowed",
+        export: "allowed",
+        aiTransfer: "allowed",
+        ownerAssistant: OWNER_ASSISTANT,
+      },
+      technicalStatus: "integrated",
+      approvalStatus: "approved_personal",
+      reviewedAt: "2026-11-25T00:00:00.000Z",
+      rightsReviewedAt: "2026-11-25T00:00:00.000Z",
+      rightsReviewDueAt: "2027-05-25T00:00:00.000Z",
+      reviewEvidence: [
+        "docs/architecture/adr/0087-foreign-private-issuers.md",
+        "docs/data/provider-use-matrix.md",
+      ],
+      retentionClasses: ["R2", "R3"],
+      quotaPolicyId: null,
+      ownerNotes:
+        "ADR 0087: tasa libre de riesgo en EUR, el rendimiento par a 10 años de la curva AAA del área del euro (modelo Svensson), decisión del owner del 2026-11-25. Se guardan los últimos diez días hábiles por release.",
+      recordedAt: "2026-11-25T00:00:00.000Z",
+    }),
+    sourceRegistryEntrySchema.parse({
       sourceId: "ambito-riesgo-pais",
       displayName: "Ámbito — riesgo país (J.P. Morgan EMBI)",
       owner: "Nefir S.A. (Ámbito); índice de J.P. Morgan",

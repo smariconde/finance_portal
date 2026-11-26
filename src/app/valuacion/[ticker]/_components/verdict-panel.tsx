@@ -136,6 +136,12 @@ export function VerdictPanel({
   const result = run.result;
   const currency = run.currency;
   const placed = verdict.status === "placed" ? verdict : null;
+  // Una corrida en otra moneda que la del listing (`F6-55`): de qué cierre y
+  // de qué cambio del día sale el precio.
+  const conversion =
+    market.comparison.status === "compared"
+      ? market.comparison.conversion
+      : undefined;
 
   return (
     <Card>
@@ -175,6 +181,13 @@ export function VerdictPanel({
               {attribution === null ? "la serie guardada" : attribution},
               descarga aceptada por el owner para uso personal.
             </p>
+            {conversion === undefined ? null : (
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <EvidenceKindMark kind="reference_data" />
+                Cambio {conversion.fx.baseCurrency}/{conversion.fx.currency}:
+                cierre de Yahoo del mismo día que el precio.
+              </p>
+            )}
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <EvidenceKindMark kind="derived_by_rule" />
               Valor, rango y múltiplos: la corrida registrada.
@@ -229,6 +242,16 @@ export function VerdictPanel({
                   <time dateTime={placed.marketDate}>
                     {formatCalendarDate(placed.marketDate)}
                   </time>
+                  {conversion === undefined ? null : (
+                    <>
+                      {" · "}
+                      <span className="numeric">
+                        {conversion.listed.currency}{" "}
+                        {formatAmount(conversion.listed.close)} ÷{" "}
+                        {formatAmount(conversion.fx.close, { scale: 4 })}
+                      </span>
+                    </>
+                  )}
                 </>
               )
             }

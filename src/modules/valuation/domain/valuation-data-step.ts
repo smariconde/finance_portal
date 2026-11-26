@@ -20,11 +20,20 @@ import { utcTimestampSchema } from "@/modules/temporal/domain/temporal-version";
  * algo después (el refresh de la ADR 0022).
  */
 export const VALUATION_DATA_RULE_VERSION = "valuation-data-1.1.0";
+/**
+ * `valuation-data-1.2.0` (`F6-55`, ADR 0087) suma `currencyMarket` para un
+ * emisor que reporta en otra moneda que el USD: la curva soberana de esa moneda
+ * (`risk-free-freshness-1.0.0`) y el tipo de cambio al dólar. Nunca bloquea:
+ * sin curva, el costo de capital lo nombra; sin cambio, la comparación con el
+ * precio. Sólo un paso con esa parte lleva `1.2.0`.
+ */
+export const VALUATION_DATA_CURRENCY_RULE_VERSION = "valuation-data-1.2.0";
 
 /** Las versiones que un `data_step` guardado puede traer. */
 export const VALUATION_DATA_RULE_VERSIONS = [
   "valuation-data-1.0.0",
   VALUATION_DATA_RULE_VERSION,
+  VALUATION_DATA_CURRENCY_RULE_VERSION,
 ] as const;
 
 /** La regla de la referencia de la ADR 0030 aplicada a una security. */
@@ -179,6 +188,39 @@ export const consensusStepSchema = z.discriminatedUnion("status", [
 
 export type ConsensusStep = z.infer<typeof consensusStepSchema>;
 
+const currencyMarketUnavailableSchema = z.object({
+  status: z.literal("unavailable"),
+  reason: z.enum([
+    /** No hay curva o par declarado para la moneda. */
+    "not_declared",
+    "source_disabled",
+    "daily_budget_exhausted",
+    "source_busy",
+    "source_backoff",
+    "job_paused",
+    "run_budget",
+    "failed",
+  ]),
+});
+
+/** La curva y el tipo de cambio de una corrida en otra moneda (`1.2.0`). */
+export const currencyMarketStepSchema = z.object({
+  currency: z.string().regex(/^[A-Z]{3}$/u),
+  riskFree: z.discriminatedUnion("status", [
+    z.object({ status: z.literal("current") }),
+    /** Este job registró una release nueva: el siguiente la ve. */
+    z.object({ status: z.literal("recorded") }),
+    currencyMarketUnavailableSchema,
+  ]),
+  fx: z.discriminatedUnion("status", [
+    z.object({ status: z.literal("current") }),
+    z.object({ status: z.literal("ingested") }),
+    currencyMarketUnavailableSchema,
+  ]),
+});
+
+export type CurrencyMarketStep = z.infer<typeof currencyMarketStepSchema>;
+
 export const auditStepSchema = z.discriminatedUnion("status", [
   z.object({
     status: z.literal("passed"),
@@ -214,6 +256,8 @@ export const valuationDataStepSchema = z.object({
    * continúa a otro no lo pide.
    */
   consensus: consensusStepSchema.optional(),
+  /** Sólo en `1.2.0`: la curva y el cambio de una corrida en otra moneda. */
+  currencyMarket: currencyMarketStepSchema.optional(),
   /** `null` cuando el job no llegó a auditar porque una descarga quedó pendiente o falló. */
   audit: auditStepSchema.nullable(),
 });
@@ -227,7 +271,9 @@ export function dataStepIngested(step: ValuationDataStep): boolean {
     step.filings?.status === "refreshed" ||
     step.sic.status === "observed" ||
     step.prices.status === "ingested" ||
-    step.consensus?.status === "captured"
+    step.consensus?.status === "captured" ||
+    // La curva entra al costo de capital; el cambio sólo a la lectura.
+    step.currencyMarket?.riskFree.status === "recorded"
   );
 }
 
