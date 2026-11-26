@@ -177,6 +177,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   149 | `F12-03`   | `queued`      | Agenda de Estados Unidos: publicaciones declaradas desde FRED con su hora y su importancia, y reuniones del FOMC declaradas.                                                                                              | `F12-01`           |
 |   150 | `F12-04`   | `queued`      | Agenda argentina: calendario de informes del BCRA y del INDEC (IPC, EMAE, comercio, REM y fiscal), y «esperado hoy» junto a las marcas de `/argentina`.                                                                   | `F12-01`, `F9-20`  |
 |   151 | `F12-05`   | `queued`      | Reglas de frescura de precios y sesión de trading en versiones nuevas que saben qué días opera Nueva York.                                                                                                                | `F12-01`           |
+|   152 | `F9-23`    | `done`        | Guía ⓘ junto al título de cada bloque de `/argentina`: para qué sirve, cómo leerlo, con qué cruzarlo y qué puede confundir, en líneas cortas y sin consejos.                                                              | Pedido del owner   |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -8033,6 +8034,27 @@ La organización sigue en Launch y el regreso a Free queda a cargo del owner.
   también como línea vertical.
 - Sin migración. En Production la serie se baja en la primera apertura de
   `/argentina`, con un pedido.
+
+#### `F9-23` — guía de cada bloque
+
+- Estado: `done` el 2026-11-26, abierto el mismo día a pedido del owner: «un
+  tooltip para qué sirve cada análisis, qué podemos inferir o datos que ayuden
+  a hacer un buen análisis con los datos que se ven». Numerada 152 porque las
+  filas 147–151 son de la Fase 12, en otra rama.
+- `argentina-block-guides-1.0.0` (`block-guides.ts`): una guía por bloque en
+  cuatro partes —para qué sirve, cómo leerlo, con qué cruzarlo (cada bloque un
+  vínculo a su sección) y qué puede confundir—. Los rangos de referencia son
+  los medidos en el proyecto (brecha CCL de la ADR 0068). La lista de bloques
+  pasa al dominio (`ARGENTINA_BLOCKS`) y la usa el índice.
+- Tests: una guía por bloque, los mismos bloques que la frescura de `F9-22`,
+  2–4 líneas de lectura, 2–3 cruces, 1–2 advertencias, ninguna línea de más de
+  150 caracteres, cruces sólo hacia otros bloques, y ningún consejo ni
+  pronóstico («conviene», «recomendá», «va a subir»…).
+- `InfoTip` gana `wide`: 24 rem y scroll propio dentro del alto disponible.
+- Revisado con un build contra una réplica de la base personal: diez ⓘ (la
+  página y nueve bloques), el cruce «ITCRM» lleva a `#itcrm`, 1440 px claro y
+  390 px oscuro sin desborde, axe sin hallazgos en la página ni en el panel, sin
+  errores de consola; en el teléfono el panel ocupa 376 px y se desplaza.
 
 #### `F9-22` — frescura de cada cifra y novedades con su cifra
 

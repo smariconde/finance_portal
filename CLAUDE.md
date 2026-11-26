@@ -1213,6 +1213,11 @@ mark's figure and the previous one (revised reads before → after). Tiles go
 daily → monthly (`SUMMARY_ORDER`). Clocks are written in Buenos Aires: the
 server runs in UTC and the marks hydrate.
 
+Since `F9-23` an ⓘ next to each block title opens its guide
+(`argentina-block-guides-1.0.0`, `block-guides.ts`): purpose, how to read it,
+which blocks to cross it with (links) and traps, in short lines a test keeps
+free of advice or forecasts. `InfoTip wide` is the 24rem scrolling variant.
+
 Country risk (`F9-19`/`F9-21`, [ADR 0080](docs/architecture/adr/0080-argentina-country-risk-source.md),
 no migration) is J.P. Morgan's sovereign spread read from Ámbito's history of
 closes (`ambito-riesgo-pais`, one request for everything since 1998), never
