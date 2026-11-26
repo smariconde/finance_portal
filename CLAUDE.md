@@ -793,7 +793,13 @@ currency with that currency's risk-free and convert only the value per share at
 the same day's Yahoo FX pair; SPOT, NVO and TSM first (`F6-55`), ASML next, NU
 out. Measured: `companyfacts` lacked the April 2026 20-Fs of TSM and NU (the
 filing's instance has them), no 6-K carries XBRL since 2021 (annual base only),
-and the ADS ratio is not in the XBRL.
+and the ADS ratio is not in the XBRL. Since `F6-55` increment 1 (in progress)
+`followed-filer-eligibility-1.1.0` admits a 20-F only for a CIK in
+`DECLARED_FOREIGN_FILERS` (Spotify, EUR) and `sec-core-concepts-14.0.0` stores
+53 `ifrs-full` concepts with their original names; reading them into the annual
+series (IFRS 16 leases already outside EBIT) is the next increment. The
+risk-free rate is the ECB's (EUR AAA curve daily, Danish 10-year monthly); TWD has
+no machine-readable official source, so TSM waits.
 
 Company logos are loaded by the **browser** from logo.dev
 ([ADR 0062](docs/architecture/adr/0062-company-logos-browser-loaded.md)): the

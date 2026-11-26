@@ -24,7 +24,7 @@ import { SEC_HISTORY_WINDOW_VERSION } from "./sec-history-window";
  *   a correr el CIK publica sólo lo nuevo. No sube la versión del parser, porque
  *   filtrar no cambia el contenido de un hecho ya publicado.
  */
-export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-13.0.0";
+export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-14.0.0";
 
 /**
  * Qué decide la versión. La 1.0.0 eran los mismos conceptos con toda la historia
@@ -62,6 +62,10 @@ export const SEC_CONCEPT_SELECTION_VERSION = "sec-core-concepts-13.0.0";
  * 2026-11-25): 28 de las 502 entidades del índice no publican el total, 11 de
  * ellas sí las dos partes (Phillips 66, Oracle, McDonald's…), y la regla
  * `pretax-income-1.0.0` las suma sólo si la conciliación las corrobora.
+ * La 14.0.0 suma la taxonomía `ifrs-full` (`F6-55`, ADR 0087) para los 20-F
+ * declarados: los conceptos que Spotify, Novo Nordisk y TSMC publican en sus
+ * 20-F de 2024 y 2025 (medido el 2026-11-25). Un filer de 10-K no publica
+ * `ifrs-full`, así que su selección no cambia; leerlos es de la serie anual.
  * Con la versión y el ancla,
  * un período anterior al corte sigue siendo «no se fue a buscar». El test fija
  * los componentes: cambiar uno sin subir la versión lo rompe.
@@ -229,6 +233,68 @@ const US_GAAP = [
   "ShareBasedCompensationArrangementByShareBasedPaymentAwardEquityInstrumentsOtherThanOptionsNonvestedNumber",
 ] as const;
 
+/**
+ * IFRS de los 20-F declarados (14.0.0). Se guardan con su concepto original:
+ * `LeaseLiabilities` bajo IFRS 16 incluye todos los arrendamientos y
+ * `FinanceCosts` su interés, así que equipararlos a los de US GAAP es una regla
+ * de la serie anual, no de esta selección.
+ */
+const IFRS_FULL = [
+  "Revenue",
+  "RevenueFromContractsWithCustomers",
+  "ProfitLossFromOperatingActivities",
+  "ProfitLossBeforeTax",
+  "IncomeTaxExpenseContinuingOperations",
+  "ProfitLoss",
+  "ProfitLossAttributableToOwnersOfParent",
+  "DepreciationAndAmortisationExpense",
+  "DepreciationAmortisationAndImpairmentLossReversalOfImpairmentLossRecognisedInProfitOrLoss",
+  "AdjustmentsForDepreciationAndAmortisationExpense",
+  "AdjustmentsForDepreciationExpense",
+  "AdjustmentsForAmortisationExpense",
+  "PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities",
+  "PurchaseOfIntangibleAssetsClassifiedAsInvestingActivities",
+  "CashFlowsFromUsedInOperatingActivities",
+  "ResearchAndDevelopmentExpense",
+  "AdjustedWeightedAverageShares",
+  "WeightedAverageShares",
+  "BasicEarningsLossPerShare",
+  "DilutedEarningsLossPerShare",
+  "Equity",
+  "EquityAttributableToOwnersOfParent",
+  "NoncontrollingInterests",
+  "Assets",
+  "Liabilities",
+  "CashAndCashEquivalents",
+  "CurrentInvestments",
+  "Borrowings",
+  "LongtermBorrowings",
+  "ShorttermBorrowings",
+  "CurrentBorrowingsAndCurrentPortionOfNoncurrentBorrowings",
+  "CurrentPortionOfLongtermBorrowings",
+  "NoncurrentPortionOfNoncurrentBorrowings",
+  "LeaseLiabilities",
+  "CurrentLeaseLiabilities",
+  "NoncurrentLeaseLiabilities",
+  "FinanceCosts",
+  "InterestExpense",
+  "InterestExpenseOnBorrowings",
+  "InterestExpenseOnBonds",
+  "InterestExpenseOnLeaseLiabilities",
+  "InterestPaidClassifiedAsOperatingActivities",
+  "InterestPaidClassifiedAsFinancingActivities",
+  "AdjustmentsForSharebasedPayments",
+  "ExpenseFromSharebasedPaymentTransactionsWithEmployees",
+  "DividendsPaid",
+  "DividendsPaidClassifiedAsFinancingActivities",
+  "Goodwill",
+  "IntangibleAssetsOtherThanGoodwill",
+  "ImpairmentLossReversalOfImpairmentLossRecognisedInProfitOrLoss",
+  "NumberOfSharesOutstanding",
+  "NumberOfShareOptionsOutstandingInSharebasedPaymentArrangement",
+  "WeightedAverageExercisePriceOfShareOptionsOutstandingInSharebasedPaymentArrangement",
+] as const;
+
 const DEI = [
   // Acciones en circulación a la fecha de la carátula: la cifra más reciente que
   // publica un filing, distinta del promedio ponderado del período.
@@ -238,6 +304,7 @@ const DEI = [
 
 const SELECTED: ReadonlyMap<string, ReadonlySet<string>> = new Map([
   ["us-gaap", new Set<string>(US_GAAP)],
+  ["ifrs-full", new Set<string>(IFRS_FULL)],
   ["dei", new Set<string>(DEI)],
 ]);
 

@@ -114,7 +114,11 @@ export async function constituteFollowedFiler(
       constituent.normalizedCik,
     );
     const observedAt = now();
-    const annual = judgeAnnualReports(probe.filings, observedAt.slice(0, 10));
+    const annual = judgeAnnualReports(
+      probe.filings,
+      observedAt.slice(0, 10),
+      constituent.normalizedCik,
+    );
 
     if (annual.status === "refused") {
       return annual;
