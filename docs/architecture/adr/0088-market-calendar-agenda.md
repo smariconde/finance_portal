@@ -193,9 +193,11 @@ hora si FRED y la hora declarada discrepan.
 
 Cuando la agenda dice que hoy sale un dato que `/argentina` lee, la marca de
 la ADR 0079 se completa: «esperado hoy» hasta que llega el período, y
-«Nuevo» cuando llega. Si `F9-22` está entregado, el «esperado hoy» se cuelga de
-los mismos grupos de frescura de `argentina-freshness-1.0.0` con los que cada
-tarjeta y bloque dice si está verificado.
+«Nuevo» cuando llega. Se cuelga de los grupos de frescura de
+`argentina-freshness-1.0.0` (`F9-22`, enmienda del 2026-11-26 de la
+[ADR 0070](0070-argentina-refresh-on-open.md): `FRESHNESS_GROUP_SOURCES` y
+`BLOCK_FRESHNESS_GROUP`), con los que cada tarjeta y bloque ya dice si está
+verificado.
 
 ## Decisión 7 — una página, una franja y dos lecturas de los resultados
 
