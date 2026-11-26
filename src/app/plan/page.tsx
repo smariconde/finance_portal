@@ -16,6 +16,7 @@ import {
 } from "@/modules/configuration/domain/config-health";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
 import { getPreMarketStore } from "@/server/persistence/trading/get-pre-market-store";
+import { readEarningsCalendar } from "@/server/persistence/read-earnings-calendar";
 import { safeErrorSummary } from "@/server/trading/safe-error";
 import { loadJournalState } from "@/server/trading/transactions";
 
@@ -108,8 +109,17 @@ async function PlanContent() {
         </CardContent>
       </Card>
     );
+  const at = new Date().toISOString();
+  const symbols = result.ideas
+    .filter((idea) => idea.status === "active")
+    .map((idea) => idea.symbol);
+  const earnings = await readEarningsCalendar(at, { symbols }).catch(
+    () => null,
+  );
   return (
     <PlanWorkspace
+      earnings={earnings?.reports ?? []}
+      calendarAt={at}
       ideas={result.ideas.map(({ accountKey, ...idea }) => {
         void accountKey;
         return idea;

@@ -39,6 +39,9 @@ import {
   bookCapitalLeft,
 } from "@/modules/trading/domain/account-risk";
 import { planPosition } from "@/modules/trading/domain/position-size-risk";
+import { EarningsMark } from "@/app/_components/earnings-mark";
+import type { EarningsReport } from "@/modules/market-calendar/domain/earnings-calendar";
+import { nextReportFor } from "@/modules/market-calendar/domain/earnings-exposure";
 import type { TradingBook } from "@/modules/trading/domain/trading-book";
 import { riskPerTradeOf } from "@/modules/trading/domain/trading-rules";
 import {
@@ -238,9 +241,13 @@ function FieldSelect<T extends string>({
 export function PlanWorkspace({
   ideas,
   setups,
+  earnings,
+  calendarAt,
 }: {
   ideas: readonly PublicIdea[];
   setups: readonly TradingSetup[];
+  earnings: readonly EarningsReport[];
+  calendarAt: string;
 }) {
   const router = useRouter();
   const [draft, setDraft] = useState<Draft>(emptyDraft);
@@ -665,6 +672,8 @@ export function PlanWorkspace({
         />
         <div className="lg:hidden">{actions}</div>
         <Watchlist
+          earnings={earnings}
+          calendarAt={calendarAt}
           ideas={shownIdeas}
           activeIdeas={activeIdeas}
           archivedCount={archivedCount}
@@ -760,6 +769,8 @@ function LevelChoice<T extends string>({
 }
 
 function Watchlist({
+  earnings,
+  calendarAt,
   ideas,
   activeIdeas,
   archivedCount,
@@ -776,6 +787,8 @@ function Watchlist({
   onEdit,
   onToggleIdea,
 }: {
+  readonly earnings: readonly EarningsReport[];
+  readonly calendarAt: string;
   readonly ideas: readonly PublicIdea[];
   readonly activeIdeas: readonly PublicIdea[];
   readonly archivedCount: number;
@@ -942,6 +955,18 @@ function Watchlist({
                                 <span className="sr-only"> (archivada)</span>
                               ) : null}
                             </span>
+                            {archived ? null : (
+                              <EarningsMark
+                                book={idea.book}
+                                at={calendarAt}
+                                report={nextReportFor(
+                                  earnings,
+                                  idea.symbol,
+                                  calendarAt,
+                                  idea.book,
+                                )}
+                              />
+                            )}
                             <span className="numeric text-xs whitespace-nowrap text-muted-foreground">
                               {setup === null ? "" : `${setup} · `}
                               <time

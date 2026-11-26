@@ -261,8 +261,7 @@ const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
     deadlineMs: 30_000,
     maxRedirects: 0,
   }),
-  // Consenso de analistas (ADR 0083): sólo `/query`, y el adaptador pide sólo
-  // `function=EARNINGS_ESTIMATES`. La clave la agrega la puerta como `apikey`.
+  // Consenso y calendario de resultados (ADR 0083 y 0088). La puerta agrega apikey.
   egressAllowlistEntrySchema.parse({
     sourceId: "alpha-vantage",
     origins: [{ host: "www.alphavantage.co", pathPrefixes: ["/query"] }],

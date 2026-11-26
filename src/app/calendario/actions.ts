@@ -1,11 +1,15 @@
 "use server";
 
-import { servesSchwabConnection } from "@/modules/configuration/domain/config-health";
+import {
+  servesRealData,
+  servesSchwabConnection,
+} from "@/modules/configuration/domain/config-health";
 import {
   readMarketHoursCheck,
   type MarketHoursCheck,
 } from "@/modules/trading/application/market-hours-service";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
+import { refreshEarningsCalendar } from "@/server/jobs/market-calendar-refresh";
 import { getLiveAccountDependencies } from "@/server/trading/live-account";
 import { safeErrorSummary } from "@/server/trading/safe-error";
 
@@ -35,5 +39,16 @@ export async function checkMarketHours(): Promise<MarketHoursResult> {
   } catch (error) {
     console.error("schwab market hours read failed", safeErrorSummary(error));
     return { state: "unavailable" };
+  }
+}
+
+/** Every source and date is selected server-side. */
+export async function refreshCalendarOnOpen(): Promise<boolean> {
+  if (!servesRealData(await getRequestConfigHealth())) return false;
+  try {
+    return await refreshEarningsCalendar();
+  } catch (error) {
+    console.error("earnings calendar refresh failed", safeErrorSummary(error));
+    return false;
   }
 }

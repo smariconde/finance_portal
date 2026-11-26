@@ -30,6 +30,8 @@ import { getRequestConfigHealth } from "@/server/config/app-environment";
 import { getLiveAccountDependencies } from "@/server/trading/live-account";
 import { reconcilePreMarketTrades } from "@/server/trading/pre-market";
 import { getTradingRiskSettingsStore } from "@/server/persistence/trading/get-trading-risk-settings-store";
+import type { EarningsCalendarView } from "@/modules/market-calendar/domain/calendar-publication";
+import { readEarningsCalendar } from "@/server/persistence/read-earnings-calendar";
 import { loadPositionContext } from "@/server/trading/position-context";
 import {
   readRiskContext,
@@ -183,6 +185,7 @@ export type PositionContextResult =
       readonly state: "read";
       readonly asOf: string;
       readonly contexts: readonly PositionContext[];
+      readonly earnings: EarningsCalendarView | null;
     }
   /** La base de análisis no respondió a tiempo; la cuenta sigue igual. */
   | { readonly state: "analysis_unavailable"; readonly reference: string }
@@ -225,8 +228,11 @@ export async function readPositionContext(
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    const contexts = await Promise.race([
-      loadPositionContext(symbols, now),
+    const [contexts, earnings] = await Promise.race([
+      Promise.all([
+        loadPositionContext(symbols, now),
+        readEarningsCalendar(now, { symbols }).catch(() => null),
+      ]),
       new Promise<never>((_, reject) => {
         timer = setTimeout(
           () => reject(new PositionContextTimeoutError()),
@@ -234,7 +240,7 @@ export async function readPositionContext(
         );
       }),
     ]);
-    return { state: "read", asOf: now, contexts };
+    return { state: "read", asOf: now, contexts, earnings };
   } catch (error) {
     const reference = randomUUID();
     console.error(

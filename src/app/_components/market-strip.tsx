@@ -3,6 +3,12 @@ import type { Route } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 
+import { servesRealData } from "@/modules/configuration/domain/config-health";
+import { buildFinvizScreenerUrl } from "@/modules/finviz-screener/domain/finviz-screener-url";
+import { reportsToday } from "@/modules/market-calendar/domain/earnings-exposure";
+import { getRequestConfigHealth } from "@/server/config/app-environment";
+import { readEarningsCalendar } from "@/server/persistence/read-earnings-calendar";
+import { CalendarRefreshOnOpen } from "./calendar-refresh-on-open";
 import { cn } from "@/lib/utils";
 import {
   marketMomentAt,
@@ -84,12 +90,26 @@ export async function MarketStrip({
   readonly className?: string;
 }) {
   await connection();
-  const moment = marketMomentAt(new Date().toISOString());
+  const at = new Date().toISOString();
+  const moment = marketMomentAt(at);
+  const personal = servesRealData(await getRequestConfigHealth());
+  const calendar = personal
+    ? await readEarningsCalendar(at, { includeFollowed: true }).catch(
+        () => null,
+      )
+    : null;
+  const todayReports = [
+    ...new Set(
+      calendar?.reports
+        .filter((report) => reportsToday(report, at))
+        .map((report) => report.symbol),
+    ),
+  ];
+
   const today = todayReading(moment);
   const next = nextSession(moment);
   const shift = nextClockShift(moment.today.date, SHIFT_NOTICE_DAYS);
   const tomorrow = addCalendarDays(moment.today.date, 1);
-
   return (
     <section
       aria-label="Bolsa de Nueva York, en hora de Buenos Aires"
@@ -149,6 +169,42 @@ export async function MarketStrip({
       )}
 
       {corroborate ? <BrokerSessionMark /> : null}
+
+      {personal ? <CalendarRefreshOnOpen /> : null}
+
+      {personal && moment.today.regular !== null ? (
+        <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-1.5 border-t pt-1.5 text-xs">
+          {todayReports.length ? (
+            <span>
+              <strong>Reporta hoy</strong> · {todayReports.join(" · ")}
+            </span>
+          ) : null}
+          <a
+            className="text-primary underline underline-offset-4"
+            target="_blank"
+            rel="noreferrer noopener"
+            href={buildFinvizScreenerUrl({
+              view: "111",
+              filters: { earningsdate: "yesterdayafter" },
+              signal: null,
+            })}
+          >
+            Finviz · ayer post-cierre
+          </a>
+          <a
+            className="text-primary underline underline-offset-4"
+            target="_blank"
+            rel="noreferrer noopener"
+            href={buildFinvizScreenerUrl({
+              view: "111",
+              filters: { earningsdate: "todaybefore" },
+              signal: null,
+            })}
+          >
+            Finviz · hoy pre-apertura
+          </a>
+        </div>
+      ) : null}
 
       {withLink ? (
         <Link

@@ -414,6 +414,13 @@
       "when": 1795643889870,
       "tag": "0058_broker_dealer_profile",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1795713222307,
+      "tag": "0059_market_calendar_revisions",
+      "breakpoints": true
     }
   ]
 }

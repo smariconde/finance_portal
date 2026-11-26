@@ -296,8 +296,10 @@ function BookRules({
   settings,
   rules,
   openRisk,
+  earningsWarnings,
 }: {
   readonly book: TradingBook;
+  readonly earningsWarnings: readonly string[];
   readonly settings: RiskSettings;
   readonly rules: readonly RuleReading[];
   readonly openRisk: OpenRisk;
@@ -329,6 +331,12 @@ function BookRules({
           {formatPercent(riskPerTradeOf(settings, book))}
         </span>
       </div>
+      {book === "swing" && earningsWarnings.length > 0 ? (
+        <p className="flex items-center gap-1.5 text-xs text-amber-800 dark:text-amber-300">
+          <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
+          Resultados dentro de 5 sesiones · {earningsWarnings.join(" · ")}
+        </p>
+      ) : null}
       <div className="grid grid-cols-2 gap-x-4 gap-y-5 lg:grid-cols-4">
         {readings.map((reading) => (
           <RuleTile
@@ -1007,11 +1015,13 @@ function SettingsEditor({
 
 /** La franja de riesgo de la cuenta: reglas, planner y editor. */
 export function RiskCard({
+  earningsWarnings = [],
   view,
   liquidationValue,
   buyingPower,
   onSettingsSaved,
 }: {
+  readonly earningsWarnings?: readonly string[];
   readonly view: RiskView;
   readonly liquidationValue: string;
   readonly buyingPower: string;
@@ -1093,6 +1103,7 @@ export function RiskCard({
                 <BookRules
                   key={book}
                   book={book}
+                  earningsWarnings={earningsWarnings}
                   settings={view.settings}
                   rules={view.rules}
                   openRisk={view.openRisk}

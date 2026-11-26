@@ -381,6 +381,10 @@ export function IdeaRiskSheet({
               lo que le queda al capital del tipo y, en swing, al riesgo
               abierto; no cambia tu cantidad ni envía órdenes.
             </p>
+            <p>
+              En swing, un gap de apertura tras los resultados puede ejecutar el
+              stop a otro precio y ampliar la pérdida.
+            </p>
             {valid !== null &&
             stopMode === "manual" &&
             valid.autoStop !== null ? (

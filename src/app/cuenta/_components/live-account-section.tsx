@@ -27,7 +27,9 @@ export async function LiveAccountSection() {
     console.error("schwab account read failed", safeErrorSummary(error));
     initial = { state: "unavailable" };
   }
-  return <LiveAccount initial={initial} />;
+  return (
+    <LiveAccount initial={initial} calendarReadAt={new Date().toISOString()} />
+  );
 }
 
 export function LiveAccountSkeleton() {

@@ -23,6 +23,11 @@ import {
   marketMomentAt,
 } from "@/modules/market-calendar/domain/market-sessions";
 
+import { servesRealData } from "@/modules/configuration/domain/config-health";
+import { getRequestConfigHealth } from "@/server/config/app-environment";
+import { readEarningsCalendar } from "@/server/persistence/read-earnings-calendar";
+
+import { CalendarAgenda } from "./_components/calendar-agenda";
 import { MarketMonthCard } from "./_components/market-month-card";
 
 export const metadata: Metadata = { title: "Calendario" };
@@ -107,7 +112,18 @@ function EventRow({ event }: { readonly event: UpcomingMarketEvent }) {
 
 export default async function CalendarPage() {
   await connection();
-  const moment = marketMomentAt(new Date().toISOString());
+  const at = new Date().toISOString();
+  const moment = marketMomentAt(at);
+  const personal = servesRealData(await getRequestConfigHealth());
+  const [earnings, followed] = personal
+    ? await Promise.all([
+        readEarningsCalendar(at, { includeMarket: true }).catch(() => ({
+          observedAt: null,
+          reports: [],
+        })),
+        readEarningsCalendar(at, { includeFollowed: true }).catch(() => null),
+      ])
+    : [null, null];
   const today = moment.today.date;
   const events = upcomingMarketEvents(today, UPCOMING_DAYS);
   const coverage = calendarCoverage(today);
@@ -137,6 +153,14 @@ export default async function CalendarPage() {
       />
 
       <MarketStrip withLink={false} corroborate />
+
+      <CalendarAgenda
+        today={today}
+        earnings={earnings}
+        followed={[
+          ...new Set(followed?.reports.map((report) => report.symbol)),
+        ]}
+      />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
