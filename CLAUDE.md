@@ -824,6 +824,19 @@ filer's original 20-F, never a 10-K), so the operations-mix task reads SPOT's
 «Revenue by country» against its EUR revenue with the same prompts (359.17 EUR,
 rigor `standard`); IFRS options with a USD strike are `F6-57`.
 
+Since `F12-01` (in progress, [ADR 0088](docs/architecture/adr/0088-market-calendar-agenda.md))
+the portal knows when New York trades. `declared-market-sessions.ts` holds the
+NYSE's 2026–2028 holidays and early closes as the exchange published them;
+`market-sessions-1.0.0` says whether a date trades and its regular hours in New
+York and Buenos Aires, the offset taken from `Intl` (Argentina has no daylight
+time, so the open moves between 10:30 and 11:30), and a date outside the
+declaration is `undeclared`, never an assumed session. It is repository code: it
+opens no database or network and renders in any mode. `/calendario` sits next
+to Inicio (month grid, «Lo que viene» with holidays, early closes and the clock
+shift, provenance), and `MarketStrip` puts «Hoy · Mañana» on Inicio, `/cuenta`
+and `/plan`. Extended hours depend on the broker and are not declared; Schwab's
+`/marketdata/v1/markets` corroboration is the slice's pending increment.
+
 Company logos are loaded by the **browser** from logo.dev
 ([ADR 0062](docs/architecture/adr/0062-company-logos-browser-loaded.md)): the
 free plan forbids storing them, so the CSP opens `img-src` to
@@ -1947,8 +1960,8 @@ shows the computed level; the suggested size has «Usar»; the watchlist hides
 archived ideas behind a toggle, greys them, and archives or restores per row
 (a new revision, never a delete).
 
-The shell reads one map, `src/app/_components/navigation.ts`: Inicio,
-«Análisis» (Valuación, Matrices, Argentina), «Trading» (Cuenta, Plan, Diario,
+The shell reads one map, `src/app/_components/navigation.ts`: Inicio and
+Calendario, «Análisis» (Valuación, Matrices, Argentina), «Trading» (Cuenta, Plan, Diario,
 Lecciones) and Configuración at the sidebar's foot. The header shows where the
 owner is (`PageLocation`, built by `breadcrumbsFor`), not the brand again, and
 the home page is one card per section with a row per page. Nothing planned is

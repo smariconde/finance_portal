@@ -16,8 +16,11 @@ describe("isWithin", () => {
 });
 
 describe("breadcrumbsFor", () => {
-  it("el inicio y la configuración no tienen sección", () => {
+  it("el inicio, el calendario y la configuración no tienen sección", () => {
     expect(breadcrumbsFor("/")).toEqual([{ label: "Inicio", href: null }]);
+    expect(breadcrumbsFor("/calendario")).toEqual([
+      { label: "Calendario", href: null },
+    ]);
     expect(breadcrumbsFor("/configuracion")).toEqual([
       { label: "Configuración", href: null },
     ]);

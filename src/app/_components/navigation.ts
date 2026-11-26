@@ -12,6 +12,15 @@ export type NavSection = {
 
 export const HOME_ITEM: NavItem = { href: "/", label: "Inicio" };
 
+/** Al lado de Inicio: el mercado es de las dos secciones (ADR 0088). */
+export const CALENDAR_ITEM: NavItem = {
+  href: "/calendario",
+  label: "Calendario",
+};
+
+/** Las páginas sin sección, arriba de las secciones. */
+export const TOP_ITEMS: readonly NavItem[] = [HOME_ITEM, CALENDAR_ITEM];
+
 export const SETTINGS_ITEM: NavItem = {
   href: "/configuracion",
   label: "Configuración",
@@ -91,8 +100,8 @@ export function breadcrumbsFor(pathname: string): readonly Crumb[] {
       : pathname;
 
   if (path === HOME_ITEM.href) return [{ label: HOME_ITEM.label, href: null }];
-  if (path === SETTINGS_ITEM.href) {
-    return [{ label: SETTINGS_ITEM.label, href: null }];
+  for (const item of [CALENDAR_ITEM, SETTINGS_ITEM]) {
+    if (path === item.href) return [{ label: item.label, href: null }];
   }
 
   for (const section of NAV_SECTIONS) {

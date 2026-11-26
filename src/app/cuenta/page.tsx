@@ -11,6 +11,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 import { InfoTip } from "@/app/_components/info-tip";
+import { MarketStrip } from "@/app/_components/market-strip";
 import { PageContainer, PageHeader } from "@/app/_components/page-frame";
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
 import {
@@ -363,6 +364,7 @@ export default async function AccountPage({
   return (
     <PageContainer>
       <PageHeader id="cuenta-title" title="Cuenta" />
+      <MarketStrip />
       {outcome !== null ? (
         <Alert role="status">
           {outcome.tone === "ok" ? (

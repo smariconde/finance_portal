@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { MarketStrip } from "@/app/_components/market-strip";
 import { PageContainer, PageHeader } from "@/app/_components/page-frame";
 import { RuntimeLockedNotice } from "@/app/_components/runtime-locked-notice";
 import type { StoredIdea } from "@/modules/trading/application/pre-market-store";
@@ -40,6 +41,7 @@ export default async function PlanPage() {
         title="Plan"
         nav={<PlanNav current="ideas" />}
       />
+      <MarketStrip />
       {!servesSchwabConnection(health) ? (
         <Card>
           <CardHeader>
