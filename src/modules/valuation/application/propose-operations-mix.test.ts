@@ -345,6 +345,24 @@ describe("proposeOperationsMix", () => {
   });
 });
 
+describe("a declared 20-F filer (F6-55)", () => {
+  it("is looked up by its 20-F, never by a 10-K", async () => {
+    const { dependencies, runLadder } = harness();
+    const spotify = "0001639920";
+
+    const result = await proposeOperationsMix(
+      request({ cik: spotify, annualReportCiks: [spotify] }),
+      dependencies,
+    );
+
+    expect(result).toMatchObject({
+      status: "skipped",
+      reason: "no_annual_report",
+    });
+    expect(runLadder).not.toHaveBeenCalled();
+  });
+});
+
 describe("revenueForReport", () => {
   it("matches a 52/53-week year within a week of the report date", () => {
     expect(revenueForReport(series("2025-09-27"), "2025-09-30")).toEqual({
@@ -352,5 +370,14 @@ describe("revenueForReport", () => {
       value: "1400000000",
     });
     expect(revenueForReport(series("2025-09-20"), "2025-09-30")).toBeNull();
+  });
+
+  it("reads revenue only in the currency of the statements the table is in (F6-55)", () => {
+    expect(
+      revenueForReport(series("2025-09-27"), "2025-09-30", "EUR"),
+    ).toBeNull();
+    expect(
+      revenueForReport(series("2025-09-27"), "2025-09-30", "USD"),
+    ).not.toBeNull();
   });
 });

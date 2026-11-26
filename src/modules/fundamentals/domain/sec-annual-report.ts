@@ -29,6 +29,14 @@ export const SEC_ANNUAL_REPORT_LOCATOR_VERSION =
 
 const ANNUAL_REPORT_FORM = "10-K";
 const ANNUAL_REPORT_FORMS: ReadonlySet<string> = new Set([ANNUAL_REPORT_FORM]);
+
+/**
+ * Los informes anuales que el localizador sabe leer (`F6-55`, ADR 0087). Un
+ * emisor extranjero declarado presenta `20-F`; el original, nunca la enmienda.
+ * Quien llama decide qué formulario corresponde al CIK: el localizador no
+ * adivina por lo que encuentra.
+ */
+export type AnnualReportForm = "10-K" | "20-F";
 const PERIODIC_REPORT_FORMS: ReadonlySet<string> = new Set([
   ANNUAL_REPORT_FORM,
   "10-Q",
@@ -92,8 +100,14 @@ export function locateLatestAnnualReport(
   payload: unknown,
   cik: string,
   knownAt: string,
+  form: AnnualReportForm = ANNUAL_REPORT_FORM,
 ): LocateAnnualReportResult {
-  return locateLatestReport(payload, cik, knownAt, ANNUAL_REPORT_FORMS);
+  return locateLatestReport(
+    payload,
+    cik,
+    knownAt,
+    form === ANNUAL_REPORT_FORM ? ANNUAL_REPORT_FORMS : new Set([form]),
+  );
 }
 
 /**

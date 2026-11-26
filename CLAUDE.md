@@ -793,7 +793,7 @@ currency with that currency's risk-free and convert only the value per share at
 the same day's Yahoo FX pair; SPOT, NVO and TSM first (`F6-55`), ASML next, NU
 out. Measured: `companyfacts` lacked the April 2026 20-Fs of TSM and NU (the
 filing's instance has them), no 6-K carries XBRL since 2021 (annual base only),
-and the ADS ratio is not in the XBRL. Since `F6-55` increment 1 (in progress)
+and the ADS ratio is not in the XBRL. Since `F6-55` (done 2026-11-26; NVO is `F6-58`) increment 1
 `followed-filer-eligibility-1.1.0` admits a 20-F only for a CIK in
 `DECLARED_FOREIGN_FILERS` (Spotify, EUR) and `sec-core-concepts-14.0.0` stores
 53 `ifrs-full` concepts with their original names. The risk-free rate is the
@@ -819,6 +819,10 @@ converts the listed close at the same day's rate (`no_fx_at_as_of` otherwise),
 (`risk-free-freshness-1.0.0`) and the rate, never blocking. SPOT is declared
 `entertainment` (SIC 4832 gave `broadcasting`). Measured on a replica: SPOT from
 nothing to `computed` in 12 s, 427.18 EUR against 562.35 EUR (P/V 1.32).
+Increment 4: `locateLatestAnnualReport` takes the form the CIK files (a declared
+filer's original 20-F, never a 10-K), so the operations-mix task reads SPOT's
+«Revenue by country» against its EUR revenue with the same prompts (359.17 EUR,
+rigor `standard`); IFRS options with a USD strike are `F6-57`.
 
 Company logos are loaded by the **browser** from logo.dev
 ([ADR 0062](docs/architecture/adr/0062-company-logos-browser-loaded.md)): the

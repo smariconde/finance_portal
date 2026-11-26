@@ -237,3 +237,32 @@ describe("locateLatestPeriodicReport", () => {
     });
   });
 });
+
+describe("locateLatestAnnualReport for a declared 20-F filer (F6-55)", () => {
+  const payload = submissions([
+    ["6-K", "0001639920-26-000020", "2026-04-28T10:00:00.000Z", "k.htm"],
+    ["20-F", "0001639920-26-000011", "2026-02-10T21:26:10.000Z", "spot.htm"],
+    ["20-F/A", "0001639920-26-000015", "2026-03-01T21:00:00.000Z", "a.htm"],
+  ]);
+
+  it("takes the latest original 20-F only when the caller asks for it", () => {
+    expect(
+      locateLatestAnnualReport(
+        payload,
+        "0001639920",
+        "2026-11-25T00:00:00.000Z",
+        "20-F",
+      ),
+    ).toMatchObject({
+      status: "found",
+      report: { accessionNumber: "0001639920-26-000011" },
+    });
+    expect(
+      locateLatestAnnualReport(
+        payload,
+        "0001639920",
+        "2026-11-25T00:00:00.000Z",
+      ),
+    ).toEqual({ status: "not_found", reason: "no_annual_report_known" });
+  });
+});
