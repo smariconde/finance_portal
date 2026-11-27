@@ -36,8 +36,12 @@ export const VALUATION_DATA_RULE_VERSIONS = [
   VALUATION_DATA_CURRENCY_RULE_VERSION,
 ] as const;
 
-/** La regla de la referencia de la ADR 0030 aplicada a una security. */
-export const TICKER_PRICE_FRESHNESS_VERSION = "ticker-price-freshness-1.0.0";
+/**
+ * La regla de la referencia de la ADR 0030 aplicada a una security. Desde
+ * `2.0.0` la última sesión asentada sale del calendario de la NYSE
+ * (`sector-price-freshness-2.0.0`, ADR 0088 decisión 8).
+ */
+export const TICKER_PRICE_FRESHNESS_VERSION = "ticker-price-freshness-2.0.0";
 
 /**
  * Por qué una descarga no terminó ahora. El job de ingesta queda abierto y el

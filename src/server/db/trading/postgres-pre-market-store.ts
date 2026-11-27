@@ -15,7 +15,7 @@ import {
   STOP_LOSS_CALC_VERSION,
 } from "@/modules/trading/domain/pre-market-plan";
 import { tradeKeyOf } from "@/modules/trading/domain/trade-annotation";
-import { tradingSessionOf } from "@/modules/trading/domain/trading-session";
+import { planPreparesSession } from "@/modules/trading/domain/trading-session";
 
 import * as schema from "./schema";
 
@@ -318,8 +318,10 @@ export function createPostgresPreMarketStore(
           const row = eligible(rows, trade);
           if (
             row === null ||
-            tradingSessionOf(row.recordedAt.toISOString()) !==
-              trade.openedSession
+            !planPreparesSession(
+              row.recordedAt.toISOString(),
+              trade.openedSession,
+            )
           )
             return [];
           return [ideaId];
