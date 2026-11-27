@@ -14,6 +14,11 @@ import { createInMemoryIngestionRunRepository } from "@/modules/ingestion/infras
 import { createInMemorySourceBudgetStore } from "@/modules/ingestion/infrastructure/in-memory-source-budget-store";
 
 import {
+  INDEC_CALENDAR,
+  INDEC_PUBLICATIONS,
+} from "@/modules/market-calendar/domain/declared-indec-calendar";
+import { argentinaPublicationChecks } from "./argentina-publication-checks";
+import {
   ARGENTINA_REFRESH_KIND,
   ARGENTINA_REFRESH_SOURCES,
   buildArgentinaRefreshPlan,
@@ -133,7 +138,7 @@ describe("country risk in the refresh (ADR 0080)", () => {
       datasetId: "ambito.riesgo-pais",
       recordedIn: ["ambito.riesgo-pais"],
       parserVersion: "ambito-riesgo-pais-1.0.0",
-      cadence: "monthly",
+      cadence: "local-day",
       subjects: ["ar_country_risk_embi"],
     });
   });
@@ -218,6 +223,7 @@ describe("ensureArgentinaRefresh", () => {
     if (nextDay.status.state === "running") {
       expect(nextDay.status.sources).not.toContain("INDEC");
       expect(nextDay.status.sources).not.toContain("Series de Tiempo");
+      expect(nextDay.status.sources).toContain("riesgo país");
     }
     await runOpen(() => recordsEverything);
     setClock("2026-11-09T15:00:00.000Z");
@@ -230,6 +236,77 @@ describe("ensureArgentinaRefresh", () => {
       expect(nextWeek.status.sources).toContain("INDEC");
       expect(nextWeek.status.sources).toContain("Series de Tiempo");
     }
+  });
+
+  it("checks only outstanding scheduled subjects after release and once per local day", async () => {
+    const { dependencies, jobs, runOpen, recordsEverything, setClock } =
+      setup();
+    const releases = INDEC_PUBLICATIONS.filter(
+      ({ date }) => date === "2026-11-24" || date === "2026-11-19",
+    ).map((event) => ({ ...event, time: INDEC_CALENDAR.usualTime }));
+    const published = new Map<string, string>(
+      ARGENTINA_REFRESH_SOURCES.flatMap(({ subjects }) =>
+        subjects.map((subject) => [subject, "2026-11-01"] as const),
+      ),
+    );
+    published.set("emae_sa", "2026-08-01");
+    published.set("trade_balance_reported", "2026-09-01");
+
+    const timedDependencies = {
+      ...dependencies,
+      publicationChecks: (now: string) =>
+        argentinaPublicationChecks(releases, now, {
+          latestPublishedPeriods: async () => published,
+        }),
+    };
+    const refresh = () =>
+      ensureArgentinaRefresh({ retryFailures: false }, timedDependencies);
+    const openSubjects = async () => {
+      const subjects = [];
+      for (const job of await openRefreshJobs(jobs)) {
+        const items = await jobs.listItems({ jobId: job.jobId, limit: 100 });
+        subjects.push(...items.map(({ subjectKey }) => subjectKey));
+      }
+      return subjects;
+    };
+
+    // Tuesday at 11:15 ART: ordinary weekly refresh, hours before the EMAE.
+    setClock("2026-11-24T14:15:00.000Z");
+    await refresh();
+    await runOpen(() => recordsEverything);
+    expect((await refresh()).status.state).toBe("fresh");
+
+    // Tuesday after 16:00 ART: another look at the EMAE, once.
+    setClock("2026-11-24T19:01:00.000Z");
+    expect(
+      (await readArgentinaRefreshReadiness(timedDependencies)).needsRefresh,
+    ).toBe(true);
+    await refresh();
+    expect(await openSubjects()).toEqual(["emae_sa"]);
+    await runOpen(() => recordsEverything);
+    expect((await refresh()).status.state).toBe("fresh");
+
+    // Wednesday at 00:05 ART: gaps persist, but every other subject keeps its cadence.
+    setClock("2026-11-25T03:05:00.000Z");
+    const next = await refresh();
+    expect(next.status.state).toBe("running");
+    expect(await openSubjects()).toEqual(
+      expect.arrayContaining([
+        "emae_sa",
+        "trade_balance_reported",
+        "ar_country_risk_embi",
+      ]),
+    );
+    expect(await openSubjects()).not.toContain("emae_original");
+    expect(await openSubjects()).not.toContain("exports_goods");
+    await runOpen(() => recordsEverything);
+    published.set("emae_sa", "2026-09-01");
+    published.set("trade_balance_reported", "2026-10-01");
+
+    setClock("2026-11-26T14:15:00.000Z");
+    await refresh();
+    expect(await openSubjects()).not.toContain("emae_sa");
+    expect(await openSubjects()).not.toContain("trade_balance_reported");
   });
 
   it("does not replan a failure on its own, only when the owner retries", async () => {

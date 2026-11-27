@@ -22,7 +22,10 @@ import {
   type SourceFreshness,
 } from "@/modules/argentina-dashboard/domain/surface-freshness";
 
-import type { ExpectedPublications } from "@/modules/market-calendar/domain/expected-argentina-publications";
+import type {
+  ExpectedPublication,
+  ExpectedPublications,
+} from "@/modules/market-calendar/domain/expected-argentina-publications";
 
 import { refreshArgentinaData, type ArgentinaRefreshResult } from "../actions";
 
@@ -303,6 +306,8 @@ export function useBlockMark(blockId: string): NewsMarkStatus | null {
   return useContext(FreshnessContext)?.blockMarks[blockId] ?? null;
 }
 
-export function useExpectedPublication(group: FreshnessGroup): string | null {
+export function useExpectedPublication(
+  group: FreshnessGroup,
+): ExpectedPublication | null {
   return useContext(FreshnessContext)?.expected[group] ?? null;
 }

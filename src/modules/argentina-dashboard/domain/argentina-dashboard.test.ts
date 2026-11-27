@@ -124,7 +124,12 @@ describe("buildDollarBlock", () => {
       ["2026-10-31", null],
       ["2026-11-02", null],
     ]);
-    expect(block.latestGap).toEqual({ on: "2026-10-30", gap: "0.1" });
+    expect(block.latestGap).toEqual({
+      on: "2026-10-30",
+      gap: "0.1",
+      official: "1000",
+      ccl: "1100",
+    });
     expect(block.latestCcl).toEqual({ on: "2026-10-31", value: "1105" });
     expect(block.latestBand).toEqual({
       on: "2026-11-02",

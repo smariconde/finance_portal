@@ -7,6 +7,12 @@ import type {
   ArgentinaIndicatorPlan,
 } from "../domain/plan-argentina-indicator";
 
+export type LatestPublishedPeriodsQuery = {
+  readonly indicatorIds: readonly string[];
+  readonly effectiveOn: string;
+  readonly knownAt: string;
+};
+
 export interface ArgentinaIndicatorRepository {
   readonly storage: "in-memory-fixture" | "personal-postgres";
   currentDefinition(
@@ -22,6 +28,10 @@ export interface ArgentinaIndicatorRepository {
   allObservationsOf(
     indicatorIds: readonly string[],
   ): Promise<ReadonlyMap<string, readonly ArgentinaIndicatorVintage[]>>;
+  /** Latest non-null period per indicator, as known by public availability. */
+  latestPublishedPeriods(
+    query: LatestPublishedPeriodsQuery,
+  ): Promise<ReadonlyMap<string, string>>;
   /** Visible daily points since a date, plus one published close per older month. */
   chartObservations(input: {
     indicatorId: string;

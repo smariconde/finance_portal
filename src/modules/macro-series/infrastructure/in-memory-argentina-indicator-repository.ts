@@ -1,4 +1,7 @@
-import type { ArgentinaIndicatorRepository } from "../application/argentina-indicator-repository";
+import type {
+  ArgentinaIndicatorRepository,
+  LatestPublishedPeriodsQuery,
+} from "../application/argentina-indicator-repository";
 import type { ArgentinaIndicatorVintage } from "../domain/argentina-indicator";
 import { readIndicatorVintages } from "../domain/argentina-indicator";
 import { declaredArgentinaIndicator } from "../domain/declared-argentina-indicators";
@@ -48,6 +51,27 @@ export class InMemoryArgentinaIndicatorRepository implements ArgentinaIndicatorR
     indicatorIds: readonly string[],
   ): Promise<ReadonlyMap<string, readonly ArgentinaIndicatorVintage[]>> {
     return new Map(indicatorIds.map((id) => [id, this.read(id, false)]));
+  }
+
+  async latestPublishedPeriods({
+    indicatorIds,
+    effectiveOn,
+    knownAt,
+  }: LatestPublishedPeriodsQuery): Promise<ReadonlyMap<string, string>> {
+    const latest = new Map<string, string>();
+    for (const row of this.observations) {
+      if (
+        indicatorIds.includes(row.indicatorId) &&
+        row.periodOn <= effectiveOn &&
+        row.availableAt <= knownAt &&
+        (row.supersededAt === null || row.supersededAt > knownAt) &&
+        row.value !== null &&
+        row.periodOn > (latest.get(row.indicatorId) ?? "")
+      ) {
+        latest.set(row.indicatorId, row.periodOn);
+      }
+    }
+    return latest;
   }
 
   async chartObservations(input: {

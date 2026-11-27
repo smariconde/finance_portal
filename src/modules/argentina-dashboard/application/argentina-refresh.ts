@@ -47,6 +47,7 @@ import { CHART_PARSER_VERSION } from "@/modules/prices/domain/parse-chart-payloa
 import {
   ARGENTINA_REFRESH_RULE_VERSION,
   freshSince,
+  laterCheckThreshold,
   selectStaleSubjects,
   type RefreshCadence,
 } from "../domain/refresh-freshness";
@@ -124,7 +125,7 @@ export const ARGENTINA_REFRESH_SOURCES: readonly RefreshSource[] = [
     datasetId: BCRA_MONETARY_PROFILE.observationsDatasetId,
     recordedIn: [BCRA_MONETARY_PROFILE.observationsDatasetId],
     parserVersion: BCRA_MONETARY_PROFILE.parserVersion,
-    cadence: "daily",
+    cadence: "market-close",
     label: "BCRA",
     subjects: Object.values(DASHBOARD_BCRA_VARIABLES).map(String),
   },
@@ -133,7 +134,7 @@ export const ARGENTINA_REFRESH_SOURCES: readonly RefreshSource[] = [
     datasetId: ADR_PAIR_DATASET_ID,
     recordedIn: [ADR_PAIR_DATASET_ID, YAHOO_FUTURES_DATASET_ID],
     parserVersion: CHART_PARSER_VERSION,
-    cadence: "daily",
+    cadence: "market-close",
     label: "Yahoo (CCL y Chicago)",
     subjects: [
       ...DECLARED_ADR_PAIRS.flatMap((pair) => [
@@ -148,7 +149,7 @@ export const ARGENTINA_REFRESH_SOURCES: readonly RefreshSource[] = [
     datasetId: INDEC_DATASET_ID,
     recordedIn: [INDEC_DATASET_ID],
     parserVersion: INDEC_API_PARSER_VERSION,
-    cadence: "monthly",
+    cadence: "local-week",
     label: "INDEC",
     subjects: [
       ...DECLARED_ARGENTINA_INDICATORS.filter(
@@ -164,7 +165,7 @@ export const ARGENTINA_REFRESH_SOURCES: readonly RefreshSource[] = [
     datasetId: ARGENTINA_SERIES_DATASET_ID,
     recordedIn: [ARGENTINA_SERIES_DATASET_ID],
     parserVersion: ARGENTINA_SERIES_PARSER_VERSION,
-    cadence: "monthly",
+    cadence: "local-week",
     label: "Series de Tiempo",
     subjects: DECLARED_ARGENTINA_INDICATORS.filter(
       (item) => item.sourceId === "argentina-series-tiempo",
@@ -175,7 +176,7 @@ export const ARGENTINA_REFRESH_SOURCES: readonly RefreshSource[] = [
     datasetId: CAC_PIZARRA_DATASET_ID,
     recordedIn: [CAC_PIZARRA_DATASET_ID],
     parserVersion: BCR_CAC_PIZARRA_PARSER_VERSION,
-    cadence: "daily",
+    cadence: "market-close",
     label: "pizarra de Rosario",
     subjects: soySubjectsOf("bcr-cac-pizarra"),
   },
@@ -184,7 +185,7 @@ export const ARGENTINA_REFRESH_SOURCES: readonly RefreshSource[] = [
     datasetId: BNA_DATASET_ID,
     recordedIn: [BNA_DATASET_ID],
     parserVersion: BNA_DIVISAS_PARSER_VERSION,
-    cadence: "daily",
+    cadence: "market-close",
     label: "BNA",
     subjects: soySubjectsOf("bna-fx"),
   },
@@ -193,8 +194,8 @@ export const ARGENTINA_REFRESH_SOURCES: readonly RefreshSource[] = [
     datasetId: MAGYP_ESTIMACIONES_DATASET_ID,
     recordedIn: [MAGYP_ESTIMACIONES_DATASET_ID],
     parserVersion: MAGYP_ESTIMACIONES_PARSER_VERSION,
-    // The estimates move monthly at most; once per Buenos Aires day.
-    cadence: "monthly",
+    // Published by campaign, checked once per Buenos Aires week.
+    cadence: "local-week",
     label: "Estimaciones Agrícolas",
     subjects: soySubjectsOf("magyp-estimaciones"),
   },
@@ -205,7 +206,7 @@ export const ARGENTINA_REFRESH_SOURCES: readonly RefreshSource[] = [
     parserVersion: AMBITO_COUNTRY_RISK_PARSER_VERSION,
     // J.P. Morgan publishes the previous close once a day (ADR 0080): once
     // per Buenos Aires day.
-    cadence: "monthly",
+    cadence: "local-day",
     label: "riesgo país",
     subjects: [DECLARED_COUNTRY_RISK.id],
   },
@@ -244,6 +245,10 @@ export type ArgentinaRefreshDependencies = {
   readonly ingestionRuns: IngestionRunRepository;
   readonly budgets: SourceBudgetStore;
   readonly now: () => string;
+  /** Server-declared release deadlines for subjects whose period is still missing. */
+  readonly publicationChecks?: (
+    now: string,
+  ) => Promise<ReadonlyMap<string, string>>;
   /** The same credential preflight as the egress door, without opening a socket. */
   readonly credentialProblem?: (
     sourceId: RefreshSourceId,
@@ -270,8 +275,9 @@ async function assessSource(
   completedJobs: readonly IngestionJob[],
   dependencies: ArgentinaRefreshDependencies,
   retryFailures: boolean,
+  now: string,
+  publicationChecks: ReadonlyMap<string, string> | undefined,
 ): Promise<SourceAssessment> {
-  const now = dependencies.now();
   const runs = (
     await Promise.all(
       source.recordedIn.map((datasetId) =>
@@ -331,14 +337,19 @@ async function assessSource(
       lastChecks,
       cadence: source.cadence,
       now,
+      publicationChecks,
     }),
     failed: source.subjects.filter((subject) => {
       const byJob = checkedByJob.get(subject);
       const byRun = recorded.get(subject);
+      const threshold = laterCheckThreshold(
+        since,
+        publicationChecks?.get(subject),
+      );
       return (
         byJob !== undefined &&
-        byJob >= since &&
-        (byRun === undefined || byRun < since)
+        byJob >= threshold &&
+        (byRun === undefined || byRun < threshold)
       );
     }),
   };
@@ -349,8 +360,9 @@ async function assessAll(
   retryFailures: boolean,
   sources: readonly RefreshSource[] = ARGENTINA_REFRESH_SOURCES,
 ): Promise<readonly SourceAssessment[]> {
-  const completed = (
-    await Promise.all(
+  const now = dependencies.now();
+  const [completed, publicationChecks] = await Promise.all([
+    Promise.all(
       sources.map((source) =>
         dependencies.jobs.listJobs({
           sourceId: source.sourceId,
@@ -358,13 +370,22 @@ async function assessAll(
           limit: RECENT_JOBS_LIMIT,
         }),
       ),
-    )
-  )
+    ),
+    dependencies.publicationChecks?.(now),
+  ]);
+  const refreshJobs = completed
     .flat()
     .filter((job) => job.kind === ARGENTINA_REFRESH_KIND);
   return Promise.all(
     sources.map((source) =>
-      assessSource(source, completed, dependencies, retryFailures),
+      assessSource(
+        source,
+        refreshJobs,
+        dependencies,
+        retryFailures,
+        now,
+        publicationChecks,
+      ),
     ),
   );
 }
@@ -776,7 +797,7 @@ export class ArgentinaRefreshJobMismatchError extends Error {
   }
 }
 
-/** A job planned under another rule or parser does not run with this code. */
+/** Validate the pinned dataset, parser and supported freshness rules. */
 export function assertArgentinaRefreshJob(job: IngestionJob): RefreshSource {
   const source = refreshSourceOf(job.sourceId);
   const expected = {
@@ -787,11 +808,12 @@ export function assertArgentinaRefreshJob(job: IngestionJob): RefreshSource {
   };
   for (const [field, value] of Object.entries(expected)) {
     const actual = job[field as keyof typeof expected];
-    // The prior freshness rule planned the same subjects, only more often.
+    // The prior freshness rules used the same subject and parser contracts.
     // Drain an already-open job after deployment; new jobs use the new rule.
     const legacyFreshnessJob =
       field === "selectionVersion" &&
-      actual === "argentina-refresh-freshness-1.0.0";
+      (actual === "argentina-refresh-freshness-1.0.0" ||
+        actual === "argentina-refresh-freshness-1.1.0");
     if (actual !== value && !legacyFreshnessJob) {
       throw new ArgentinaRefreshJobMismatchError(
         `Job ${job.jobId} was planned with ${field} ${String(actual)}; this code runs ${value}.`,

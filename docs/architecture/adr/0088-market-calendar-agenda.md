@@ -301,3 +301,11 @@ NYSE o ya fecharon lo que muestran.
   lo declarado una fecha es «sin calendario», nunca un día hábil supuesto.
 - Si una fuente cambia de forma, su corrida se rechaza por nombre y la página
   sigue con lo guardado, diciendo de cuándo es.
+
+## Enmienda del 2026-11-27 — el período pendiente sigue a la vista
+
+`F9-25` mantiene «Esperado hoy» hasta la hora declarada de difusión, o durante
+el día de publicación si el calendario no declara hora. A partir de ese
+momento, «Falta [mes]» sigue junto a la cifra y el bloque hasta que aparece el
+período. El calendario declarado adelanta la consulta de los sujetos
+automáticos según la [ADR 0070](0070-argentina-refresh-on-open.md).

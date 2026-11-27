@@ -4,6 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { hostname } from "node:os";
 import { setTimeout as sleep } from "node:timers/promises";
 
+import { argentinaPublicationChecks } from "@/modules/argentina-dashboard/application/argentina-publication-checks";
 import {
   ARGENTINA_REFRESH_SOURCES,
   argentinaRefreshAdmissionBlock,
@@ -64,6 +65,7 @@ import { getArgentinaIndicatorRepository } from "@/server/persistence/get-argent
 import { getIngestionJobStore } from "@/server/persistence/get-ingestion-job-store";
 import { getIngestionRunRepository } from "@/server/persistence/get-ingestion-run-repository";
 import { getMacroSeriesRepository } from "@/server/persistence/get-macro-series-repository";
+import { readDeclaredArgentinaCalendar } from "@/server/persistence/read-economic-calendar";
 import { getSourceBudgetStore } from "@/server/persistence/get-source-budget-store";
 import { getSourceRegistryRepository } from "@/server/persistence/get-source-registry-repository";
 
@@ -81,12 +83,18 @@ let activeWorker: Promise<void> | null = null;
 
 const now = () => new Date().toISOString();
 
-function dependencies() {
+function dependencies(clock: () => string = now) {
   return {
     jobs: getIngestionJobStore(),
     ingestionRuns: getIngestionRunRepository(),
     budgets: getSourceBudgetStore(),
-    now,
+    now: clock,
+    publicationChecks: (at: string) =>
+      argentinaPublicationChecks(
+        readDeclaredArgentinaCalendar(at),
+        at,
+        getArgentinaIndicatorRepository(),
+      ),
     credentialProblem: (sourceId: RefreshSourceId) =>
       sourceId === "indec-api"
         ? credentialProblem(process.env.INDEC_API_TOKEN)
@@ -94,8 +102,10 @@ function dependencies() {
   };
 }
 
-export async function readArgentinaRefreshReadinessForRender(): Promise<ArgentinaRefreshReadiness> {
-  return readArgentinaRefreshReadiness(dependencies());
+export async function readArgentinaRefreshReadinessForRender(
+  at: string,
+): Promise<ArgentinaRefreshReadiness> {
+  return readArgentinaRefreshReadiness(dependencies(() => at));
 }
 
 export async function ensureArgentinaRefreshForRequest(input: {

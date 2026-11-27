@@ -1,9 +1,5 @@
 import { CalendarRefreshOnOpen } from "@/app/_components/calendar-refresh-on-open";
 import { expectedArgentinePublications } from "@/modules/market-calendar/domain/expected-argentina-publications";
-import {
-  BUENOS_AIRES,
-  calendarDateIn,
-} from "@/modules/market-calendar/domain/zoned-time";
 import { readArgentinaCalendar } from "@/server/persistence/read-economic-calendar";
 
 import type { Metadata } from "next";
@@ -99,23 +95,20 @@ export default async function ArgentinaPage() {
     );
   }
 
+  const readAt = new Date().toISOString();
   let dashboard: ArgentinaDashboard;
-  let readiness: ArgentinaRefreshReadiness | null = null;
   let remComparison: readonly RemInflationComparisonRow[] | null = null;
 
-  try {
-    // Only reads: the render plans no job and opens no socket (ADR 0070).
-    readiness = await readArgentinaRefreshReadinessForRender();
-  } catch (error) {
-    console.error(
-      "argentina refresh readiness failed",
-      error instanceof Error ? error.name : typeof error,
-    );
-  }
-
-  // One cutoff for the dashboard and for what arrived since the previous
-  // visit, read side by side: the news never delays nor breaks the page.
-  const readAt = new Date().toISOString();
+  // All reads use the same cutoff. The render plans no job and opens no
+  // provider socket (ADR 0070).
+  const readinessRead: Promise<ArgentinaRefreshReadiness | null> =
+    readArgentinaRefreshReadinessForRender(readAt).catch((error: unknown) => {
+      console.error(
+        "argentina refresh readiness failed",
+        error instanceof Error ? error.name : typeof error,
+      );
+      return null;
+    });
   const newsRead = readNewsSafely(readAt);
   const calendarRead = readArgentinaCalendar(readAt, true).catch(() => []);
 
@@ -150,21 +143,24 @@ export default async function ArgentinaPage() {
     );
   }
 
-  const news = await newsRead;
+  const [news, readiness, calendar] = await Promise.all([
+    newsRead,
+    readinessRead,
+    calendarRead,
+  ]);
   const blockMarks = markedBlocks(news);
-  const expected = expectedArgentinePublications(
-    await calendarRead,
-    calendarDateIn(readAt, BUENOS_AIRES),
-    {
-      activity: dashboard.activity.latest?.on,
-      monetary: dashboard.monetary.monthlyInflation.at(-1)?.on,
-      trade: dashboard.external.months.findLast(
-        (month) => month.exports !== null && month.imports !== null,
-      )?.on,
-      fiscal: dashboard.fiscal.yearToDate?.lastOn,
-      rem: remComparison?.[0]?.forecast.roundMonth,
-    },
-  );
+  const expected = expectedArgentinePublications(calendar, readAt, {
+    activity:
+      dashboard.activity.latest?.level != null
+        ? dashboard.activity.latest.on
+        : null,
+    monetary: dashboard.monetary.monthlyInflation.at(-1)?.on,
+    trade: dashboard.external.months.findLast(
+      (month) => month.exports !== null && month.imports !== null,
+    )?.on,
+    fiscal: dashboard.fiscal.yearToDate?.lastOn,
+    rem: remComparison?.[0]?.forecast.roundMonth,
+  });
 
   return (
     <PageContainer>
@@ -177,16 +173,15 @@ export default async function ArgentinaPage() {
             con su fecha.
             <InfoTip title="Qué muestra el tablero">
               <p>
-                Lo último que publicaron el INDEC, el BCRA, la Secretaría de
-                Hacienda, la Bolsa de Comercio de Rosario y el Ministerio de
-                Agricultura. Al abrir la página se busca lo que pudo haberse
-                publicado desde la última revisión.
+                Cada tarjeta muestra el último dato guardado para esa lectura.
+                Al abrir la página se consultan las fuentes pendientes. Si la
+                agenda indica que falta un período, aparece junto a la fecha del
+                dato.
               </p>
               <p>
-                Cada serie tiene su propia fecha: la actividad sale con dos
-                meses de rezago y el dólar es diario. El REM muestra
-                expectativas para los meses siguientes, separadas del IPC
-                observado.
+                La actividad se publica con rezago y el dólar tiene cierres
+                diarios. El REM muestra expectativas para los meses siguientes,
+                separadas del IPC observado.
               </p>
               <p>
                 Debajo de cada cifra de arriba, su cambio contra la lectura

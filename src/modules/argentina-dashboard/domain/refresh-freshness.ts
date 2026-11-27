@@ -6,9 +6,9 @@
  * nothing; a holiday simply leaves the check in place until the next one.
  */
 export const ARGENTINA_REFRESH_RULE_VERSION =
-  "argentina-refresh-freshness-1.1.0";
+  "argentina-refresh-freshness-1.2.0";
 
-export type RefreshCadence = "daily" | "monthly";
+export type RefreshCadence = "market-close" | "local-day" | "local-week";
 
 const HOUR_MS = 3_600_000;
 const DAY_MS = 24 * HOUR_MS;
@@ -59,9 +59,14 @@ export function startOfBuenosAiresWeek(now: string): string {
 
 /** A check at or after this instant makes a subject fresh. */
 export function freshSince(cadence: RefreshCadence, now: string): string {
-  return cadence === "daily"
-    ? lastDailySettledAt(now)
-    : startOfBuenosAiresWeek(now);
+  switch (cadence) {
+    case "market-close":
+      return lastDailySettledAt(now);
+    case "local-day":
+      return startOfBuenosAiresDay(now);
+    case "local-week":
+      return startOfBuenosAiresWeek(now);
+  }
 }
 
 /** Subjects without a check since the cadence's threshold, in plan order. */
@@ -70,10 +75,23 @@ export function selectStaleSubjects(input: {
   readonly lastChecks: ReadonlyMap<string, string>;
   readonly cadence: RefreshCadence;
   readonly now: string;
+  readonly publicationChecks?: ReadonlyMap<string, string>;
 }): readonly string[] {
-  const since = Date.parse(freshSince(input.cadence, input.now));
+  const since = freshSince(input.cadence, input.now);
   return input.subjects.filter((subject) => {
     const checked = input.lastChecks.get(subject);
-    return checked === undefined || Date.parse(checked) < since;
+    const threshold = laterCheckThreshold(
+      since,
+      input.publicationChecks?.get(subject),
+    );
+    return checked === undefined || Date.parse(checked) < Date.parse(threshold);
   });
+}
+
+/** A scheduled publication may advance a subject's ordinary cadence. */
+export function laterCheckThreshold(
+  since: string,
+  publication: string | undefined,
+): string {
+  return publication !== undefined && publication > since ? publication : since;
 }

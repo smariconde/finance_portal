@@ -25,6 +25,7 @@ import {
   useGroupFreshness,
 } from "./freshness-provider";
 import { NewsBadge } from "./news-badge";
+import { shortMonth } from "./format";
 
 /** How long a figure that just changed stays tinted. */
 const ARRIVAL_MS = 2_400;
@@ -146,12 +147,15 @@ export function TileStatus({
   readonly mark: "new_period" | "revised" | null;
 }) {
   const { freshness, group, arrivedAt } = useContext(TileContext);
+  const publication = useExpectedPublication(group);
+  const showFreshness =
+    freshness?.state !== "verified" || publication?.state !== "pending";
   const badge = mark ?? (arrivedAt === null ? null : "arrived");
 
   return (
     <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
       <span>{date}</span>
-      <FreshnessGlyph freshness={freshness} compact />
+      {showFreshness ? <FreshnessGlyph freshness={freshness} compact /> : null}
       <ExpectedBadge group={group} />
       {badge === null ? null : (
         <span className="inline-flex items-center gap-1">
@@ -211,28 +215,35 @@ function FreshnessGlyph({
           </span>
         </span>
       );
-    case "verified":
+    case "verified": {
+      const checkedAt = freshness.checkedAt;
+      const checkTime =
+        checkedAt === null
+          ? "Fuente consultada"
+          : `Fuente consultada el ${new Date(checkedAt).toLocaleDateString(
+              "es-AR",
+              {
+                timeZone: "America/Argentina/Buenos_Aires",
+              },
+            )} a las ${clock(checkedAt)}`;
       return (
-        <span className="inline-flex items-center gap-1">
+        <span className="inline-flex items-center gap-1" title={checkTime}>
           <Check aria-hidden="true" className="size-3 shrink-0" />
           {compact ? (
-            <span className="sr-only">
-              {freshness.checkedAt === null
-                ? "verificada"
-                : `verificada a las ${clock(freshness.checkedAt)}`}
-            </span>
-          ) : freshness.checkedAt === null ? (
-            "Verificado"
+            <span className="sr-only">{checkTime}</span>
+          ) : checkedAt === null ? (
+            "Consultado"
           ) : (
             <>
-              Verificado{" "}
-              <time dateTime={freshness.checkedAt} className="numeric">
-                {clock(freshness.checkedAt)}
+              Consultado{" "}
+              <time dateTime={checkedAt} className="numeric">
+                {clock(checkedAt)}
               </time>
             </>
           )}
         </span>
       );
+    }
   }
 }
 
@@ -243,7 +254,14 @@ function FreshnessGlyph({
 export function BlockFreshness({ blockId }: { readonly blockId: string }) {
   const group = BLOCK_FRESHNESS_GROUP[blockId];
   const freshness = useGroupFreshness(group ?? "activity");
-  if (group === undefined || freshness === null) return null;
+  const publication = useExpectedPublication(group ?? "activity");
+  if (
+    group === undefined ||
+    freshness === null ||
+    (freshness.state === "verified" && publication?.state === "pending")
+  ) {
+    return null;
+  }
   return (
     <>
       <span aria-hidden="true"> · </span>
@@ -266,9 +284,17 @@ export function BlockNewsBadge({ blockId }: { readonly blockId: string }) {
 
 function ExpectedBadge({ group }: { readonly group: FreshnessGroup }) {
   const publication = useExpectedPublication(group);
-  return publication === null ? null : (
-    <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
-      <span className="sr-only">{publication} </span>Esperado hoy
+  if (publication === null) return null;
+  const pending = publication.state === "pending";
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 text-xs font-medium",
+        pending ? WARNING_TEXT : "text-muted-foreground",
+      )}
+    >
+      <span className="sr-only">{publication.title} </span>
+      {pending ? `Falta ${shortMonth(publication.period)}` : "Esperado hoy"}
     </span>
   );
 }

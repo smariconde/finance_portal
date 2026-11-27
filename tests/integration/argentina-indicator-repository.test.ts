@@ -149,6 +149,32 @@ describe("PostgreSQL Argentina indicator repository", () => {
     });
   });
 
+  it("reads the latest published period at the cutoff, including a later withdrawal", async () => {
+    const { repository, dependencies, setPoints } = setup();
+    await recordArgentinaIndicator(indicator, dependencies);
+    setPoints(months(24).slice(0, -1));
+    const withdrawal = await recordArgentinaIndicator(indicator, dependencies);
+    expect(withdrawal.plan.counts.withdrawn).toBe(1);
+
+    const query = {
+      indicatorIds: [indicator.id, "emae_sa"],
+      effectiveOn: "2025-12-31",
+    };
+    const periodsAt = (knownAt: string) =>
+      repository.latestPublishedPeriods({ ...query, knownAt });
+    expect(await periodsAt("2026-11-03T00:00:00.000Z")).toEqual(new Map());
+    const withdrawnAt = withdrawal.fetched.observedAt;
+    const beforeWithdrawal = new Date(
+      Date.parse(withdrawnAt) - 1,
+    ).toISOString();
+    expect(await periodsAt(beforeWithdrawal)).toEqual(
+      new Map([[indicator.id, "2025-12-01"]]),
+    );
+    expect(await periodsAt(withdrawnAt)).toEqual(
+      new Map([[indicator.id, "2025-11-01"]]),
+    );
+  });
+
   it("selects old monthly closes and recent daily points in PostgreSQL", async () => {
     const { repository, dependencies, setPoints } = setup();
     const base = months(24);
