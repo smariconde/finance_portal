@@ -643,11 +643,11 @@ export function CalendarWorkspace({
               value={filter.region}
               onChange={(region) => setFilter({ ...filter, region })}
             />
-            <div className="flex flex-wrap gap-x-4 gap-y-1">
-              <label className="flex items-center gap-1.5 text-xs">
+            <div className="flex flex-col gap-1">
+              <label className="flex min-h-7 items-center gap-2 text-xs">
                 <input
                   type="checkbox"
-                  className="accent-primary"
+                  className="size-4 accent-primary"
                   checked={filter.onlyImportant}
                   onChange={(event) =>
                     setFilter({
@@ -659,10 +659,10 @@ export function CalendarWorkspace({
                 Sólo importancia alta
               </label>
               {earnings !== null ? (
-                <label className="flex items-center gap-1.5 text-xs">
+                <label className="flex min-h-7 items-center gap-2 text-xs">
                   <input
                     type="checkbox"
-                    className="accent-primary"
+                    className="size-4 accent-primary"
                     checked={filter.onlyFollowed}
                     onChange={(event) =>
                       setFilter({
