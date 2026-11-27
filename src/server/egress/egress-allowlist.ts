@@ -17,7 +17,7 @@ import {
  * `www.sec.gov` no sirven los mismos recursos, y acotar el path evita que un bug
  * de construcción de URL termine paseando por el sitio entero de la SEC.
  */
-export const EGRESS_ALLOWLIST_VERSION = "egress-allowlist-1.7.0";
+export const EGRESS_ALLOWLIST_VERSION = "egress-allowlist-1.8.0";
 
 const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
   egressAllowlistEntrySchema.parse({
@@ -318,8 +318,7 @@ const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
     deadlineMs: 30_000,
     maxRedirects: 0,
   }),
-  // Riesgo país (ADR 0080): sólo el histórico de cierres. El valor del día
-  // (`/riesgopais/variacion`) cambia durante la rueda y queda afuera.
+  // Riesgo país (ADR 0080): el histórico y la cotización tienen cuotas propias.
   egressAllowlistEntrySchema.parse({
     sourceId: "ambito-riesgo-pais",
     origins: [
@@ -332,6 +331,20 @@ const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
     // 7.206 cierres desde 1998 pesaron 176 KB el 2026-11-17.
     maxResponseBytes: 2 * 1024 * 1024,
     deadlineMs: 30_000,
+    maxRedirects: 0,
+  }),
+  egressAllowlistEntrySchema.parse({
+    sourceId: "ambito-riesgo-pais-cotizacion",
+    origins: [
+      {
+        host: "mercados.ambito.com",
+        pathPrefixes: [],
+        exactPaths: ["/riesgopais/variacion"],
+      },
+    ],
+    identification: "project",
+    maxResponseBytes: 4 * 1024,
+    deadlineMs: 5_000,
     maxRedirects: 0,
   }),
   // Soja (ADR 0071): un recurso por fuente. Cada host sirve mucho más —el

@@ -376,12 +376,3 @@
     transform: translateX(300%);
   }
 }
-
-@keyframes freshness-arrive {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
-}

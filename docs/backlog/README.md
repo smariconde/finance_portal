@@ -189,7 +189,8 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   161 | `F13-08`   | `queued`      | Cinco casos a grandes rasgos —cocheras, flip, vivir, renta y desarrollo— con costos en porcentajes, obra anclada al ICC-Córdoba y pesos al oficial.                                                                       | `F13-07`           |
 |   162 | `F13-09`   | `queued`      | Registro de negociación y palancas con su cifra: días publicado, bajas, republicaciones, dispersión entre duplicados y percentil.                                                                                         | `F13-08`           |
 |   163 | `F13-10`   | `queued`      | `/inmuebles`: lo nuevo desde la visita, mapa PMTiles, ficha completa, notas de visita y cartera; runbook y revisión del owner sobre diez avisos.                                                                          | `F13-09`           |
-|   164 | `F9-25`    | `in_progress` | Riesgo país a diario, patas del CCL de la misma fecha y seguimiento de publicaciones mensuales pendientes.                                                                                                                | ADR 0070, 0088     |
+|   164 | `F9-25`    | `done`        | Riesgo país a diario, patas del CCL de la misma fecha y seguimiento de publicaciones mensuales pendientes.                                                                                                                | ADR 0070, 0088     |
+|   165 | `F9-26`    | `in_progress` | Cotización del día para riesgo país y contorno azul en tarjetas con novedades.                                                                                                                                            | `F9-25`            |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -8047,6 +8048,25 @@ La organización sigue en Launch y el regreso a Free queda a cargo del owner.
 - Sin migración. En Production la serie se baja en la primera apertura de
   `/argentina`, con un pedido.
 
+#### `F9-26` — riesgo país del día y contorno de novedades
+
+- Usar la cotización fechada de Ámbito en la tarjeta, con fecha y hora de
+  consulta local y diferencia en pb contra el último cierre comparable. Una
+  respuesta vencida o inválida deja la tarjeta en el último cierre fechado.
+- Los cierres siguen siendo la base del gráfico y la tabla. Cotización en
+  memoria, egress fijo y medido, runtime personal y respuesta mínima
+  (`TM-01`, `TM-03`, `TM-05`, `TM-08`, `TM-10`).
+- Contorno azul de dos píxeles para datos nuevos, revisados o que cambiaron
+  en la visita. Estados accesibles sin píldora visible, con foco de teclado
+  (`UI-02`).
+- Evidencia de origen: Production registró como último cierre el del 26/11
+  y el endpoint de Ámbito ya daba la cotización del 27/11.
+- Evidencia local: 5.265 unitarias, tipos, formato, lint y build. Con una
+  consulta medida para dos tamaños, la tarjeta mostró el valor del día y
+  el histórico de prueba quedó intacto. A 1440 claro y 390 oscuro se vieron
+  los contornos, el foco y el fondo conservado, con 0 desborde, errores de
+  página o hallazgos bloqueantes de axe. Pendiente de integrar.
+
 #### `F9-25` — frescura de `/argentina` según publicación
 
 - Ámbito se vuelve a consultar en el día de Buenos Aires. Los jobs abiertos
@@ -8072,7 +8092,9 @@ La organización sigue en Launch y el regreso a Free queda a cargo del owner.
   reproducido localmente. La prueba ahora toma los estilos de los contenedores
   dentro de `main` en una sola evaluación, sin recorrer índices que pueden
   desaparecer al terminar el streaming.
-  Pendiente de integrar y comprobar la siguiente consulta en Production.
+  [PR #213](https://github.com/smariconde/finance_portal/pull/213) integrado.
+  Production completó la primera ronda con la regla nueva el 27/11.
+  Ámbito 1/1, INDEC 20/20 y Series de Tiempo 5/5.
 
 #### `F9-24` — el IPC observado del REM
 

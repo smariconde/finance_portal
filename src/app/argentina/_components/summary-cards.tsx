@@ -1,5 +1,4 @@
-import { ChangeIndicator, StatTile } from "@/app/_components/stat-tile";
-import { cn } from "@/lib/utils";
+import { ChangeIndicator } from "@/app/_components/stat-tile";
 import type { ArgentinaDashboard } from "@/modules/argentina-dashboard/application/load-argentina-dashboard";
 import type {
   ArgentinaNews,
@@ -27,7 +26,8 @@ import {
   signedAmount,
   signedPoints,
 } from "./format";
-import { TileShell, TileStatus } from "./freshness-marks";
+import { CountryRiskQuoteTile } from "./country-risk-quote-tile";
+import { SummaryTile, type SummaryTileProps } from "./freshness-marks";
 
 type Summary = {
   readonly metric: SummaryMetric;
@@ -112,7 +112,9 @@ function headlinesOf(
       detail: countryRisk.latest?.index
         ? `J.P. Morgan, ${countryRisk.latest.index.label}`
         : "J.P. Morgan, vía Ámbito",
-      asOf: countryRisk.latest ? calendarDate(countryRisk.latest.on) : null,
+      asOf: countryRisk.latest
+        ? `Cierre ${calendarDate(countryRisk.latest.on)}`
+        : null,
     },
     {
       metric: "tradeBalance",
@@ -223,7 +225,7 @@ const CADENCE_GROUPS: readonly {
  * Desde `F9-22` (pedido del owner del 2026-11-26) las tarjetas van de lo que
  * cambia cada día, a la izquierda, a lo que cambia cada mes, a la derecha
  * (`SUMMARY_ORDER`), en dos grupos rotulados; y cada una dice si su fuente
- * está siendo consultada, fue verificada o no respondió (`TileShell`).
+ * está siendo consultada, fue verificada o no respondió (`SummaryTile`).
  */
 export function SummaryCards({
   dashboard,
@@ -269,37 +271,32 @@ export function SummaryCards({
               className="grid grid-cols-2 gap-3 sm:grid-cols-3"
             >
               {summaries.map((summary) => {
-                const mark = markOf(summary.metric);
-                const date = summary.asOf === null ? "Sin fecha" : summary.asOf;
+                const tile: SummaryTileProps = {
+                  metric: summary.metric,
+                  href: summary.href,
+                  label: summary.label,
+                  value: summary.value,
+                  date: summary.asOf ?? "Sin fecha",
+                  mark: markOf(summary.metric),
+                  detail: summary.detail,
+                  note: summary.note,
+                  change: (
+                    <Change
+                      change={changes[summary.metric]}
+                      summary={summary}
+                    />
+                  ),
+                };
                 return (
                   <li key={summary.href} className="min-w-0">
-                    <TileShell
-                      metric={summary.metric}
-                      token={`${summary.value}|${summary.detail}|${date}`}
-                    >
-                      <StatTile
-                        href={summary.href}
-                        className={cn(
-                          "h-full",
-                          mark === "new_period" && "ring-info-border",
-                        )}
-                        size="sm"
-                        label={summary.label}
-                        value={summary.value}
-                        change={
-                          <Change
-                            change={changes[summary.metric]}
-                            summary={summary}
-                          />
-                        }
-                        detail={
-                          summary.note
-                            ? `${summary.detail} · ${summary.note}`
-                            : summary.detail
-                        }
-                        footer={<TileStatus date={date} mark={mark} />}
+                    {summary.metric === "countryRisk" ? (
+                      <CountryRiskQuoteTile
+                        tile={tile}
+                        close={dashboard.countryRisk.latest}
                       />
-                    </TileShell>
+                    ) : (
+                      <SummaryTile {...tile} />
+                    )}
                   </li>
                 );
               })}

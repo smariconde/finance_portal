@@ -31,6 +31,7 @@ describe("egress allowlist", () => {
         "bcra-calendario-informes",
         "ecb-data-portal",
         "ambito-riesgo-pais",
+        "ambito-riesgo-pais-cotizacion",
         "bcr-cac-pizarra",
         "bna-fx",
         "magyp-estimaciones",
@@ -458,6 +459,25 @@ describe("egress allowlist", () => {
       "https://www.ambito.com/contenidos/riesgo-pais.html",
     ]) {
       expect(authorizeEgressUrl(refused, entry).allowed).toBe(false);
+    }
+  });
+
+  it("allows only the fixed Ámbito quote endpoint, with no search or redirects", () => {
+    const source = findEgressAllowlistEntry("ambito-riesgo-pais-cotizacion")!;
+    const url = "https://mercados.ambito.com/riesgopais/variacion";
+    expect(source).toMatchObject({
+      maxRedirects: 0,
+      deadlineMs: 5_000,
+      maxResponseBytes: 4 * 1024,
+    });
+    expect(authorizeEgressUrl(url, source).allowed).toBe(true);
+    for (const refused of [
+      `${url}/historico`,
+      `${url}-otra`,
+      `${url}?fecha=2026-11-26`,
+      "https://mercados.ambito.com/riesgopais/historico-general/2026-11-26/2026-11-27",
+    ]) {
+      expect(authorizeEgressUrl(refused, source).allowed).toBe(false);
     }
   });
 

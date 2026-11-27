@@ -14,9 +14,6 @@ import {
   signedAmount,
   signedPoints,
 } from "./format";
-import { NewsBadge } from "./news-badge";
-
-export { NewsBadge } from "./news-badge";
 
 /** El bloque de la página que muestra cada métrica. */
 export const NEWS_BLOCK: Readonly<Record<NewsMetric, string>> = {
@@ -198,7 +195,7 @@ export function NewsStrip({ news }: { readonly news: ArgentinaNews }) {
             cifra que había; el mismo período con otra cifra, revisado, con la
             de antes tachada. El dólar, las reservas, el ITCRM y la soja cambian
             todos los días y no se marcan: si cambian con la página abierta, su
-            tarjeta dice «Actualizado».
+            tarjeta se marca con un contorno azul.
           </p>
         </InfoTip>
       </p>
@@ -207,10 +204,14 @@ export function NewsStrip({ news }: { readonly news: ArgentinaNews }) {
           <li key={metric} className="flex">
             <a
               href={`#${NEWS_BLOCK[metric]}`}
-              className="flex min-h-11 flex-col justify-start gap-1 rounded-lg bg-card px-3 py-2 ring-1 ring-foreground/10 transition-[box-shadow] outline-none hover:ring-foreground/25 focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none"
+              className="flex min-h-11 flex-col justify-start gap-1 rounded-lg bg-card px-3 py-2 ring-2 ring-info-fill transition-[box-shadow] outline-none hover:ring-info-fill focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none"
             >
               <span className="flex items-center gap-1.5 text-xs">
-                <NewsBadge status={mark.status} />
+                <span className="sr-only">
+                  {mark.status === "new_period"
+                    ? "Dato nuevo"
+                    : "Dato revisado"}
+                </span>
                 <span className="font-medium">{NEWS_NAME[metric]}</span>
                 <span className="numeric text-muted-foreground">
                   {shortMonth(mark.on)}

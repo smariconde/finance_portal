@@ -268,6 +268,12 @@ de cierres de Ámbito. ArgentinaDatos se descartó por calidad: es una copia de
 sus términos no cambian la licencia de la serie de terceros. Se cita «J.P.
 Morgan (EMBI), vía Ámbito»; nada de la serie sale del portal personal.
 
+`F9-26` lee el valor del día desde `/riesgopais/variacion` para la tarjeta
+personal, con fecha de Ámbito y hora de consulta. La cache en memoria vence en
+cinco minutos. La cotización tiene su propio presupuesto de 24 pedidos por
+día UTC y comparte el freno del histórico. Los valores intradiarios quedan
+fuera de almacenamiento permanente y de exportación.
+
 ## Servicios que reciben datos del portal
 
 ### OpenRouter

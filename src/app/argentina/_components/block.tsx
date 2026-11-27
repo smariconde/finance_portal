@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 
 import { BlockGuide } from "./block-guide";
-import { BlockFreshness, BlockNewsBadge } from "./freshness-marks";
+import { BlockFreshness, BlockPublicationMark } from "./freshness-marks";
 
 /**
  * Un bloque de la página: la pregunta, su lectura en una frase, el gráfico y,
@@ -44,7 +44,7 @@ export function DashboardBlock({
 }) {
   return (
     <section id={id} className="scroll-mt-32" aria-labelledby={`${id}-title`}>
-      <Card>
+      <Card className="has-[[data-block-news]]:ring-2 has-[[data-block-news]]:ring-info-fill">
         <CardHeader className="gap-2">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="inline-flex items-center gap-0.5">
@@ -53,7 +53,7 @@ export function DashboardBlock({
               </CardTitle>
               <BlockGuide blockId={id} title={title} />
             </span>
-            <BlockNewsBadge blockId={id} />
+            <BlockPublicationMark blockId={id} />
           </div>
           <p className="max-w-3xl text-sm">{reading}</p>
           <p className="text-xs text-muted-foreground">

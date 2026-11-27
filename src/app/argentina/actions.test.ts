@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   start: vi.fn(),
   after: vi.fn(),
   record: vi.fn(),
+  quote: vi.fn(),
 }));
 
 vi.mock("next/server", () => ({ after: mocks.after }));
@@ -21,7 +22,15 @@ vi.mock("@/server/persistence/get-surface-visit-repository", () => ({
   getSurfaceVisitRepository: () => ({ record: mocks.record }),
 }));
 
-import { recordArgentinaVisit, refreshArgentinaData } from "./actions";
+vi.mock("@/server/persistence/read-argentina-country-risk-quote", () => ({
+  readArgentinaCountryRiskQuote: mocks.quote,
+}));
+
+import {
+  readArgentinaCountryRiskQuote,
+  recordArgentinaVisit,
+  refreshArgentinaData,
+} from "./actions";
 
 /**
  * Tested as a public endpoint (`TM-03`): invoked without the UI, with what
@@ -86,6 +95,50 @@ describe("refreshArgentinaData", () => {
     });
     expect(JSON.stringify(spy.mock.calls)).not.toContain("10.0.0.1");
     spy.mockRestore();
+  });
+});
+
+describe("readArgentinaCountryRiskQuote", () => {
+  beforeEach(() => {
+    mocks.mode = "personal";
+    mocks.quote.mockReset();
+  });
+
+  it("leaves the quote dependency untouched in locked mode or with caller input", async () => {
+    expect(
+      await readArgentinaCountryRiskQuote({ on: "2026-11-27" }),
+    ).toMatchObject({ quote: null });
+    mocks.mode = "locked";
+    expect(await readArgentinaCountryRiskQuote()).toMatchObject({
+      quote: null,
+    });
+    expect(mocks.quote).not.toHaveBeenCalled();
+  });
+
+  it("returns a normalized quote with its request ID in personal mode", async () => {
+    const quote = {
+      on: "2026-11-27",
+      value: "988",
+      observedAt: "2026-11-27T19:54:00.000Z",
+    };
+    mocks.quote.mockResolvedValueOnce(quote);
+    expect(await readArgentinaCountryRiskQuote()).toEqual({
+      quote,
+      requestId: expect.any(String),
+    });
+  });
+
+  it("keeps provider errors inside the server", async () => {
+    mocks.quote.mockRejectedValueOnce(new Error("private details"));
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect(await readArgentinaCountryRiskQuote()).toMatchObject({
+        quote: null,
+      });
+      expect(JSON.stringify(log.mock.calls)).not.toContain("private details");
+    } finally {
+      log.mockRestore();
+    }
   });
 });
 
