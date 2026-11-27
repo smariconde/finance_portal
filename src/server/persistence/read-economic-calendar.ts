@@ -1,6 +1,16 @@
 import "server-only";
 
+import {
+  BCRA_CALENDAR_DATASET,
+  BCRA_CALENDAR_URL,
+} from "@/modules/market-calendar/domain/bcra-report-calendar";
 import type { EconomicPublication } from "@/modules/market-calendar/domain/calendar-publication";
+import {
+  FISCAL_CALENDAR,
+  FISCAL_PUBLICATIONS,
+  INDEC_CALENDAR,
+  INDEC_PUBLICATIONS,
+} from "@/modules/market-calendar/domain/declared-indec-calendar";
 import {
   DECLARED_MACRO_RELEASES,
   FOMC_CONSULTED_ON,
@@ -32,6 +42,75 @@ export type EconomicAgendaRow = EconomicPublication & {
 
 function repository() {
   return createPostgresCalendarRepository(getRuntimeDatabase());
+}
+
+export async function readArgentinaCalendar(
+  at: string,
+  personal: boolean,
+): Promise<EconomicAgendaRow[]> {
+  const today = calendarDateIn(at, BUENOS_AIRES);
+  const captured = personal
+    ? await repository()
+        .read(BCRA_CALENDAR_DATASET, at)
+        .catch(() => null)
+    : null;
+  const declared = (
+    publications: readonly EconomicPublication[],
+    source: string,
+    sourceUrl: string,
+    observedOn: string,
+    time: string | null,
+  ) =>
+    today < observedOn
+      ? []
+      : publications.map((event): EconomicAgendaRow => ({
+          ...event,
+          key: `${event.id}:${event.period}`,
+          source,
+          sourceUrl,
+          observedOn,
+          time,
+          usualTime: time !== null,
+          previousDate: null,
+          important: true,
+        }));
+  return [
+    ...declared(
+      INDEC_PUBLICATIONS,
+      "INDEC",
+      INDEC_CALENDAR.source,
+      INDEC_CALENDAR.publishedOn,
+      INDEC_CALENDAR.usualTime,
+    ),
+    ...declared(
+      FISCAL_PUBLICATIONS,
+      "Secretaría de Hacienda",
+      FISCAL_CALENDAR.source,
+      FISCAL_CALENDAR.consultedOn,
+      null,
+    ),
+    ...(captured?.events ?? []).flatMap(
+      ({ key, event, previous, observedAt }) =>
+        event.kind === "economic"
+          ? [
+              {
+                ...event.publication,
+                key,
+                source: "BCRA",
+                sourceUrl: BCRA_CALENDAR_URL,
+                observedOn: calendarDateIn(observedAt, BUENOS_AIRES),
+                time: null,
+                usualTime: false,
+                previousDate:
+                  previous?.kind === "economic"
+                    ? previous.publication.date
+                    : null,
+                important: event.publication.id === "rem",
+              },
+            ]
+          : [],
+    ),
+  ];
 }
 
 function easternTimeInBuenosAires(date: string, time: string): string {

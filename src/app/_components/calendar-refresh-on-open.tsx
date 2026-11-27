@@ -3,14 +3,24 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-import { refreshCalendarOnOpen } from "@/app/calendario/actions";
+import {
+  refreshArgentinaCalendarOnOpen,
+  refreshCalendarOnOpen,
+} from "@/app/calendario/actions";
 
-export function CalendarRefreshOnOpen() {
+export function CalendarRefreshOnOpen({
+  argentina = false,
+}: {
+  readonly argentina?: boolean;
+}) {
   const router = useRouter();
 
   useEffect(() => {
     let active = true;
-    void refreshCalendarOnOpen()
+    const refresh = argentina
+      ? refreshArgentinaCalendarOnOpen
+      : refreshCalendarOnOpen;
+    void refresh()
       .then((changed) => {
         if (active && changed) router.refresh();
       })
@@ -18,7 +28,7 @@ export function CalendarRefreshOnOpen() {
     return () => {
       active = false;
     };
-  }, [router]);
+  }, [argentina, router]);
 
   return null;
 }

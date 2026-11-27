@@ -22,6 +22,8 @@ import {
   type SourceFreshness,
 } from "@/modules/argentina-dashboard/domain/surface-freshness";
 
+import type { ExpectedPublications } from "@/modules/market-calendar/domain/expected-argentina-publications";
+
 import { refreshArgentinaData, type ArgentinaRefreshResult } from "../actions";
 
 type RunningStatus = Extract<ArgentinaRefreshResult, { state: "running" }>;
@@ -54,6 +56,7 @@ type FreshnessContextValue = {
   /** Failures the render saw from an earlier round. */
   readonly renderedFailures: readonly string[];
   readonly blockMarks: Readonly<Record<string, NewsMarkStatus>>;
+  readonly expected: ExpectedPublications;
   readonly retry: (retryFailures: boolean) => void;
 };
 
@@ -93,6 +96,7 @@ export function ArgentinaFreshnessProvider({
   needsRefresh,
   failedSources,
   blockMarks,
+  expected,
   children,
 }: {
   /** The page's cutoff: it changes every time the server reads it again. */
@@ -102,6 +106,7 @@ export function ArgentinaFreshnessProvider({
   readonly needsRefresh: boolean;
   readonly failedSources: readonly string[];
   readonly blockMarks: Readonly<Record<string, NewsMarkStatus>>;
+  readonly expected: ExpectedPublications;
   readonly children: ReactNode;
 }) {
   const router = useRouter();
@@ -255,9 +260,10 @@ export function ArgentinaFreshnessProvider({
       involved,
       renderedFailures: failedSources,
       blockMarks,
+      expected,
       retry,
     }),
-    [round, sources, involved, failedSources, blockMarks, retry],
+    [round, sources, involved, failedSources, blockMarks, expected, retry],
   );
 
   return (
@@ -295,4 +301,8 @@ export function useGroupFreshness(
 
 export function useBlockMark(blockId: string): NewsMarkStatus | null {
   return useContext(FreshnessContext)?.blockMarks[blockId] ?? null;
+}
+
+export function useExpectedPublication(group: FreshnessGroup): string | null {
+  return useContext(FreshnessContext)?.expected[group] ?? null;
 }

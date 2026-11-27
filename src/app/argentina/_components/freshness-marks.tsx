@@ -15,10 +15,15 @@ import {
   BLOCK_FRESHNESS_GROUP,
   SUMMARY_FRESHNESS_GROUP,
   type GroupFreshness,
+  type FreshnessGroup,
 } from "@/modules/argentina-dashboard/domain/surface-freshness";
 import type { SummaryMetric } from "@/modules/argentina-dashboard/domain/summary-change";
 
-import { useBlockMark, useGroupFreshness } from "./freshness-provider";
+import {
+  useBlockMark,
+  useExpectedPublication,
+  useGroupFreshness,
+} from "./freshness-provider";
 import { NewsBadge } from "./news-badge";
 
 /** How long a figure that just changed stays tinted. */
@@ -46,12 +51,14 @@ function listOf(labels: readonly string[]): string {
 
 type TileState = {
   readonly freshness: GroupFreshness | null;
+  readonly group: FreshnessGroup;
   /** When the figure changed with the page open, on this device's clock. */
   readonly arrivedAt: string | null;
 };
 
 const TileContext = createContext<TileState>({
   freshness: null,
+  group: "activity",
   arrivedAt: null,
 });
 
@@ -73,7 +80,8 @@ export function TileShell({
   readonly token: string;
   readonly children: ReactNode;
 }) {
-  const freshness = useGroupFreshness(SUMMARY_FRESHNESS_GROUP[metric]);
+  const group = SUMMARY_FRESHNESS_GROUP[metric];
+  const freshness = useGroupFreshness(group);
   const [arrival, setArrival] = useState<{
     readonly at: string;
     readonly key: number;
@@ -96,7 +104,9 @@ export function TileShell({
   const verifying = freshness?.state === "verifying";
 
   return (
-    <TileContext.Provider value={{ freshness, arrivedAt: arrival?.at ?? null }}>
+    <TileContext.Provider
+      value={{ freshness, group, arrivedAt: arrival?.at ?? null }}
+    >
       <div
         className="relative h-full data-pending:[&_[data-slot=stat-value]]:text-muted-foreground"
         data-pending={verifying ? "" : undefined}
@@ -135,13 +145,14 @@ export function TileStatus({
   readonly date: string;
   readonly mark: "new_period" | "revised" | null;
 }) {
-  const { freshness, arrivedAt } = useContext(TileContext);
+  const { freshness, group, arrivedAt } = useContext(TileContext);
   const badge = mark ?? (arrivedAt === null ? null : "arrived");
 
   return (
     <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
       <span>{date}</span>
       <FreshnessGlyph freshness={freshness} compact />
+      <ExpectedBadge group={group} />
       {badge === null ? null : (
         <span className="inline-flex items-center gap-1">
           <NewsBadge status={badge} />
@@ -244,5 +255,20 @@ export function BlockFreshness({ blockId }: { readonly blockId: string }) {
 /** «Nuevo» or «Revisado» next to a block's title (ADR 0079). */
 export function BlockNewsBadge({ blockId }: { readonly blockId: string }) {
   const mark = useBlockMark(blockId);
-  return mark === null ? null : <NewsBadge status={mark} />;
+  const group = BLOCK_FRESHNESS_GROUP[blockId];
+  return (
+    <>
+      {mark === null ? null : <NewsBadge status={mark} />}
+      {group === undefined ? null : <ExpectedBadge group={group} />}
+    </>
+  );
+}
+
+function ExpectedBadge({ group }: { readonly group: FreshnessGroup }) {
+  const publication = useExpectedPublication(group);
+  return publication === null ? null : (
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+      <span className="sr-only">{publication} </span>Esperado hoy
+    </span>
+  );
 }

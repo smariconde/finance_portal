@@ -7,7 +7,10 @@ import { servesRealData } from "@/modules/configuration/domain/config-health";
 import { buildFinvizScreenerUrl } from "@/modules/finviz-screener/domain/finviz-screener-url";
 import { reportsToday } from "@/modules/market-calendar/domain/earnings-exposure";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
-import { readUnitedStatesCalendar } from "@/server/persistence/read-economic-calendar";
+import {
+  readArgentinaCalendar,
+  readUnitedStatesCalendar,
+} from "@/server/persistence/read-economic-calendar";
 import { readEarningsCalendar } from "@/server/persistence/read-earnings-calendar";
 import { CalendarRefreshOnOpen } from "./calendar-refresh-on-open";
 import { cn } from "@/lib/utils";
@@ -94,11 +97,12 @@ export async function MarketStrip({
   const at = new Date().toISOString();
   const moment = marketMomentAt(at);
   const personal = servesRealData(await getRequestConfigHealth());
-  const [calendar, us] = await Promise.all([
+  const [calendar, us, argentina] = await Promise.all([
     personal
       ? readEarningsCalendar(at, { includeFollowed: true }).catch(() => null)
       : null,
     readUnitedStatesCalendar(at, personal),
+    readArgentinaCalendar(at, personal),
   ]);
   const todayReports = [
     ...new Set(
@@ -112,7 +116,7 @@ export async function MarketStrip({
   const next = nextSession(moment);
   const shift = nextClockShift(moment.today.date, SHIFT_NOTICE_DAYS);
   const tomorrow = addCalendarDays(moment.today.date, 1);
-  const macro = us.filter(
+  const macro = [...us, ...argentina].filter(
     (event) =>
       event.important &&
       event.status === "scheduled" &&

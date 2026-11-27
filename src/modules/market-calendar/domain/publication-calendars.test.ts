@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import type { CalendarRevision } from "./calendar-publication";
+import { parseBcraReportCalendar } from "./bcra-report-calendar";
+import type {
+  CalendarRevision,
+  EconomicPublication,
+} from "./calendar-publication";
 import {
   type EarningsReport,
   parseEarningsCalendar,
 } from "./earnings-calendar";
 import { earningsExposureAt, reportsToday } from "./earnings-exposure";
+import { expectedArgentinePublications } from "./expected-argentina-publications";
 import {
   fredCalendarPageUrl,
   parseFredCalendarPage,
@@ -145,5 +150,53 @@ describe("FRED release dates", () => {
     expect(
       result.find(({ key }) => key === "fred:10:2027-03-09"),
     ).toBeUndefined();
+  });
+});
+
+describe("Argentine release dates", () => {
+  it("accepts the identified BCRA table only, with a previous-year REM period in January", () => {
+    const html =
+      "<h1>Calendario de informes 2027</h1><table><tr><th>Publicaciones</th><th>Fecha</th></tr><tr><td>Relevamiento de Expectativas de Mercado (REM)</td><td>07 ene 2027</td></tr></table>";
+    expect(parseBcraReportCalendar(html)).toMatchObject([
+      { publication: { id: "rem", date: "2027-01-07", period: "2026-12-01" } },
+    ]);
+    expect(() =>
+      parseBcraReportCalendar(
+        html.replace("Calendario de informes", "Comunicados"),
+      ),
+    ).toThrow("bcra_calendar_title_changed");
+    expect(() =>
+      parseBcraReportCalendar(html.replace("Publicaciones", "Cuadros")),
+    ).toThrow("bcra_calendar_table_changed");
+  });
+
+  it("removes Esperado hoy when the exact period arrives, including end-of-month dates", () => {
+    const publication: EconomicPublication = {
+      id: "ipc",
+      title: "IPC nacional",
+      date: "2026-12-15",
+      period: "2026-11-01",
+      status: "scheduled",
+    };
+    expect(
+      expectedArgentinePublications([publication], "2026-12-15", {
+        monetary: "2026-10-31",
+      }),
+    ).toEqual({ monetary: "IPC nacional" });
+    expect(
+      expectedArgentinePublications([publication], "2026-12-15", {
+        monetary: "2026-11-30",
+      }),
+    ).toEqual({});
+    expect(
+      expectedArgentinePublications([publication], "2026-12-16", {}),
+    ).toEqual({});
+    expect(
+      expectedArgentinePublications(
+        [{ ...publication, status: "cancelled" }],
+        "2026-12-15",
+        {},
+      ),
+    ).toEqual({});
   });
 });

@@ -77,7 +77,7 @@ export const SOURCE_DAILY_REQUEST_BUDGETS: Readonly<Record<string, number>> =
     // valuación una vez por día de Nueva York; es la cuota del plan gratis.
     "alpha-vantage": 25,
     fred: 8,
-
+    "bcra-calendario-informes": 2,
     // Soja (ADR 0071): cada corrida pide la historia entera en una request por
     // serie —dos en el Ministerio, que concilia—. Veinte cubren la actualización
     // al abrir y varias corridas a mano el mismo día.

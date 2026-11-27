@@ -28,6 +28,7 @@ describe("egress allowlist", () => {
         "indec-api",
         "alpha-vantage",
         "fred",
+        "bcra-calendario-informes",
         "ecb-data-portal",
         "ambito-riesgo-pais",
         "bcr-cac-pizarra",

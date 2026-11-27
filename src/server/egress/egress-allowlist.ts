@@ -291,6 +291,16 @@ const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
     deadlineMs: 15_000,
     maxRedirects: 0,
   }),
+  egressAllowlistEntrySchema.parse({
+    sourceId: "bcra-calendario-informes",
+    origins: [
+      { host: "www.bcra.gob.ar", pathPrefixes: ["/calendario-de-informes/"] },
+    ],
+    identification: "project",
+    maxResponseBytes: 256 * 1024,
+    deadlineMs: 15_000,
+    maxRedirects: 0,
+  }),
   // Tasa libre de riesgo en EUR (ADR 0087): una sola serie del ECB, el
   // rendimiento par a 10 años de la curva AAA. El resto del portal de datos
   // queda cerrado.

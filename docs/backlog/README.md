@@ -175,7 +175,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   147 | `F12-01`   | `in_progress` | Sesiones de NYSE/Nasdaq 2026–2028 declaradas y corroboradas por Schwab, en hora de Nueva York y de Buenos Aires con el cambio de horario marcado; `/calendario` al lado de Inicio y la franja «Hoy · Mañana».             | ADR 0088           |
 |   148 | `F12-02`   | `in_progress` | Fechas de resultados de todo el mercado desde Alpha Vantage como revisiones: riesgo a 5 sesiones en las swing, «Reporta hoy» en day y links a Finviz para el resto del mercado.                                           | `F12-01`           |
 |   149 | `F12-03`   | `in_progress` | Agenda de Estados Unidos: publicaciones declaradas desde FRED con su hora y su importancia, y reuniones del FOMC declaradas.                                                                                              | `F12-01`           |
-|   150 | `F12-04`   | `queued`      | Agenda argentina: calendario de informes del BCRA y del INDEC (IPC, EMAE, comercio, REM y fiscal), y «esperado hoy» junto a las marcas de `/argentina`.                                                                   | `F12-01`, `F9-20`  |
+|   150 | `F12-04`   | `in_progress` | Agenda argentina: calendario de informes del BCRA y del INDEC (IPC, EMAE, comercio, REM y fiscal), y «esperado hoy» junto a las marcas de `/argentina`.                                                                   | `F12-01`, `F9-20`  |
 |   151 | `F12-05`   | `queued`      | Reglas de frescura de precios y sesión de trading en versiones nuevas que saben qué días opera Nueva York.                                                                                                                | `F12-01`           |
 |   152 | `F9-23`    | `done`        | Guía ⓘ junto al título de cada bloque de `/argentina`: para qué sirve, cómo leerlo, con qué cruzarlo y qué puede confundir, en líneas cortas y sin consejos.                                                              | Pedido del owner   |
 |   153 | `F9-24`    | `done`        | El IPC observado del bloque REM se pide al abrir; si la API del INDEC no tiene el mes, se lee del BCRA «vía BCRA»; cada mes sin IPC dice por qué.                                                                         | Pedido del owner   |
@@ -8540,7 +8540,24 @@ cliente ni presencia de la clave en el HTML. Importancia inicial alta
 para IPC, empleo, PIB y PCE, pendiente de confirmación del owner.
 Queda el gate de PR.
 
-**Validación local.** Gate Playwright con axe, integración PostgreSQL y pruebas unitarias. Los checks de GitHub cierran el gate de PR.
+**`F12-04`, 2026-11-26.** El BCRA devolvió un HTML de 91.293 bytes y el job
+real guardó 96 fechas. INDEC quedó declarado desde el PDF oficial del
+segundo semestre 2026, actualizado el 1 de octubre. El endpoint de filtros
+web no dio datos estructurados verificables en la consulta exploratoria.
+La Secretaría de Hacienda aporta las últimas fechas fiscales de 2026.
+El cronograma público del Tesoro distingue llamado, licitación y
+liquidación y se mantiene fuera de la agenda adoptada por el owner.
+«Esperado hoy» se liga al período del dato que muestra cada bloque.
+Con el reloj simulado al día del IPC y dos períodos sintéticos en el
+PostgreSQL descartable, `/argentina` mostró «Esperado hoy» al mediodía y
+«Nuevo» al releer después de que estuviera disponible el período de
+noviembre. Se verificó a 1440 y 390 px, sin desborde, errores de cliente ni
+hallazgos bloqueantes de axe. Queda el gate de PR.
+
+**Validación local de las tres slices.** 5.091 unitarios, 259 integraciones
+PostgreSQL, build y gate Playwright con axe (410 aprobadas, 4 omitidas).
+Formato, lint y tipos pasan. Las slices siguen en progreso hasta su gate
+de PR.
 
 ## Cobertura de deuda transversal
 

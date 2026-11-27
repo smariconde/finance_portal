@@ -10,6 +10,7 @@ import {
 } from "@/modules/trading/application/market-hours-service";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
 import {
+  refreshBcraCalendar,
   refreshEarningsCalendar,
   refreshFredCalendar,
 } from "@/server/jobs/market-calendar-refresh";
@@ -52,12 +53,23 @@ export async function refreshCalendarOnOpen(): Promise<boolean> {
     const results = await Promise.allSettled([
       refreshEarningsCalendar(),
       refreshFredCalendar(),
+      refreshBcraCalendar(),
     ]);
     return results.some(
       (result) => result.status === "fulfilled" && result.value,
     );
   } catch (error) {
     console.error("earnings calendar refresh failed", safeErrorSummary(error));
+    return false;
+  }
+}
+
+export async function refreshArgentinaCalendarOnOpen(): Promise<boolean> {
+  if (!servesRealData(await getRequestConfigHealth())) return false;
+  try {
+    return await refreshBcraCalendar();
+  } catch (error) {
+    console.error("BCRA calendar refresh failed", safeErrorSummary(error));
     return false;
   }
 }
