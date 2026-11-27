@@ -48,7 +48,9 @@ Reglas:
 
 ## 3. Contrato de captura `listing-capture-1.0.0`
 
-Cerrado: un campo fuera del contrato rechaza la captura.
+Cerrado: un campo fuera del contrato rechaza la captura. En el código
+(`src/modules/real-estate/domain/listing-capture.ts`) cada campo va en
+camelCase (`externalId`, `priceStatus`, …).
 
 ```
 source              portal declarado en el registro

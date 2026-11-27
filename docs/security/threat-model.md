@@ -1,5 +1,15 @@
 # Threat model
 
+- Revisado el 2026-11-27 (`F13-01`, ADR 0089): el dominio inmobiliario entra
+  sin frontera nueva —sin red, ruta ni acción—. `listing-capture-1.0.0` es un
+  contrato cerrado que rechaza la captura entera y nombra el campo, nunca el
+  valor (`TM-05`); las revisiones de un aviso son append-only y fechadas por
+  la captura, y el cierre de una parcela por cuándo se supo, así que una
+  lectura anterior no ve lo posterior (`TM-06`); los checks de las tablas
+  `re_*` reflejan el contrato con `is not null` explícito (`TM-07`); cada
+  revisión guarda su contrato, su regla y el hash de su contenido (`TM-16`).
+  El endpoint de captura entra al modelo con `F13-02`.
+
 - Revisado el 2026-11-16 (`F11-16`, ADR 0077): `GET /api/company-logos/[ticker]`
   verifica modo antes de storage (`TM-01`, `TM-03`), acepta sólo un símbolo sin
   query y nunca una URL (`TM-08`). El egress de `logo-dev` limita host/path,
