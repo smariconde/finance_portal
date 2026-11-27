@@ -1,7 +1,11 @@
 import { browser } from "wxt/browser";
 
 import { isDeclaredEndpointBase } from "../../capture/endpoint-origins";
-import type { ExportedPage, WorkerMessage } from "../../capture/messages";
+import type {
+  ExportedPage,
+  SweepCommand,
+  WorkerMessage,
+} from "../../capture/messages";
 import {
   EMPTY_QUEUE,
   type CaptureSettings,
@@ -12,9 +16,14 @@ import {
   buenosAiresDate,
   type CaptureStatus,
 } from "../../capture/status";
+import { PORTAL_ADAPTERS, adapterFor } from "../../portals/registry";
+import { effectiveCap } from "../../sweep/plan";
+import { INITIAL_PORTAL_STATE, type PortalSweepState } from "../../sweep/state";
+import { runNowButton, sweepSummary } from "../../sweep/summary";
 
 const FAILURE_LABELS: Record<string, string> = {
   not_configured: "Falta la conexión",
+  disabled: "Captura apagada en el portal",
   unauthorized: "Token o bypass inválido",
   not_served: "El portal no sirve capturas (modo o token)",
   budget_exhausted: "Tope diario alcanzado",
@@ -116,7 +125,135 @@ async function render() {
   } else {
     byId<HTMLDetailsElement>("settings-box").open = true;
   }
+  await renderSweep();
 }
+
+/** Hoy hay un solo portal; el barrido se muestra para el primero. */
+const SWEEP_ADAPTER = PORTAL_ADAPTERS[0]!;
+
+async function sweepState(): Promise<PortalSweepState> {
+  const key = `sweep:${SWEEP_ADAPTER.sourceId}`;
+  const stored = (await browser.storage.local.get(key))[key] as
+    PortalSweepState | undefined;
+  return { ...INITIAL_PORTAL_STATE, ...stored };
+}
+
+async function sendSweep(command: SweepCommand): Promise<void> {
+  const message: WorkerMessage = {
+    type: "sweep_command",
+    source: SWEEP_ADAPTER.sourceId,
+    ...command,
+  };
+  await browser.runtime.sendMessage(message).catch(() => undefined);
+  await render();
+}
+
+function listRows(
+  list: HTMLElement,
+  title: string,
+  urls: readonly string[],
+  remove: (url: string) => SweepCommand,
+) {
+  const heading = document.createElement("li");
+  heading.className = "muted";
+  heading.textContent = urls.length === 0 ? `${title}: ninguno` : title;
+  list.replaceChildren(
+    heading,
+    ...urls.map((url) => {
+      const item = document.createElement("li");
+      const label = document.createElement("span");
+      label.textContent =
+        new URL(url).pathname.replace("/listings/", "") + new URL(url).search;
+      label.title = url;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = "Quitar";
+      button.setAttribute("aria-label", `Quitar ${label.textContent}`);
+      button.addEventListener("click", () => void sendSweep(remove(url)));
+      item.append(label, button);
+      return item;
+    }),
+  );
+}
+
+async function renderSweep() {
+  const state = await sweepState();
+  const summary = sweepSummary(
+    state,
+    new Date().toISOString(),
+    SWEEP_ADAPTER.sourceId,
+    SWEEP_ADAPTER.defaultSearches.length,
+  );
+  byId("sweep-status").textContent = summary.status;
+  fill(byId("sweep-coverage"), summary.coverage);
+  byId("sweep-toggle").textContent = state.ownerPaused ? "Reanudar" : "Pausar";
+  const runNow = runNowButton(
+    state,
+    new Date().toISOString(),
+    SWEEP_ADAPTER.sourceId,
+  );
+  const runNowButtonElement = byId<HTMLButtonElement>("sweep-now");
+  runNowButtonElement.disabled = !runNow.enabled;
+  runNowButtonElement.textContent = runNow.label;
+  byId("sweep-reactivate-row").hidden = !state.pausedByChallenges;
+  const cap = byId<HTMLInputElement>("sweep-cap");
+  if (document.activeElement !== cap)
+    cap.value = String(effectiveCap(state.cap));
+  listRows(
+    byId("sweep-searches"),
+    "Búsquedas guardadas",
+    state.searches,
+    (url) => ({
+      command: "remove_search",
+      url,
+    }),
+  );
+  listRows(
+    byId("sweep-followed"),
+    "Avisos seguidos",
+    state.followed,
+    (url) => ({
+      command: "unfollow",
+      url,
+    }),
+  );
+
+  // Lo que se puede hacer con la pestaña abierta: seguir la ficha o guardar
+  // el listado como búsqueda.
+  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+  const row = byId("sweep-page-row");
+  const action = byId<HTMLButtonElement>("sweep-page-action");
+  const url = tab?.url ?? "";
+  const adapter = adapterFor(url);
+  const kind = adapter === null ? null : adapter.pageKindOf(new URL(url));
+  row.hidden = adapter?.sourceId !== SWEEP_ADAPTER.sourceId || kind === null;
+  action.textContent =
+    kind === "listing_detail" ? "Seguir este aviso" : "Guardar esta búsqueda";
+  action.onclick = () =>
+    void sendSweep(
+      kind === "listing_detail"
+        ? { command: "follow", url }
+        : { command: "save_search", url },
+    );
+}
+
+byId("sweep-toggle").addEventListener("click", async () => {
+  const state = await sweepState();
+  await sendSweep({ command: state.ownerPaused ? "resume" : "pause" });
+});
+byId("sweep-now").addEventListener(
+  "click",
+  () => void sendSweep({ command: "run_now" }),
+);
+byId("sweep-reactivate").addEventListener(
+  "click",
+  () => void sendSweep({ command: "reactivate" }),
+);
+byId<HTMLInputElement>("sweep-cap").addEventListener("change", (event) => {
+  const value = Number((event.target as HTMLInputElement).value);
+  if (Number.isFinite(value))
+    void sendSweep({ command: "set_cap", cap: value });
+});
 
 byId<HTMLFormElement>("settings").addEventListener("submit", async (event) => {
   event.preventDefault();

@@ -405,4 +405,28 @@ describe("remax-ng-state-1.0.0", () => {
       remaxAdapter.read(document("https://www.remax.com.ar/agentes", "{}")),
     ).toEqual({ kind: "not_a_listing_page" });
   });
+
+  it("normaliza una búsqueda a «más recientes» sin página y arma cada página", () => {
+    const search = remaxAdapter.normalizeSearch(
+      "https://www.remax.com.ar/listings/buy?page=3&sort=price&landingPath=x&pageSize=48",
+    );
+    expect(search).toBe(
+      "https://www.remax.com.ar/listings/buy?landingPath=x&pageSize=24&sort=-createdAt",
+    );
+    expect(remaxAdapter.searchPageUrl(search!, 2)).toBe(
+      "https://www.remax.com.ar/listings/buy?landingPath=x&page=2&pageSize=24&sort=-createdAt",
+    );
+    expect(
+      remaxAdapter.normalizeSearch(
+        "https://www.remax.com.ar/listings/una-casa",
+      ),
+    ).toBeNull();
+    expect(remaxAdapter.normalizeSearch("no es url")).toBeNull();
+    expect(remaxAdapter.defaultSearches).toEqual([
+      "https://www.remax.com.ar/listings/buy?filterCount=0&landingPath=propiedades-en-venta-en-capital-cordoba&pageSize=24&sort=-createdAt&viewMode=listViewMode",
+    ]);
+    expect(
+      remaxAdapter.pageKindOf(new URL(remaxAdapter.defaultSearches[0])),
+    ).toBe("search_result");
+  });
 });

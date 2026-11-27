@@ -42,6 +42,8 @@ export type SendFailure =
   | "not_served"
   | "budget_exhausted"
   | "server_unavailable"
+  /** El owner apagó la captura (kill switch): el barrido se detiene. */
+  | "disabled"
   | "network_error"
   | "response_invalid";
 
@@ -153,6 +155,11 @@ export async function sendBatch(
   if (response.status === 404) return { kind: "failed", failure: "not_served" };
   if (response.status === 429)
     return { kind: "failed", failure: "budget_exhausted" };
+  if (
+    response.status === 503 &&
+    response.headers.get("x-capture-state") === "disabled"
+  )
+    return { kind: "failed", failure: "disabled" };
   if (response.status >= 500)
     return { kind: "failed", failure: "server_unavailable" };
   if (

@@ -392,6 +392,36 @@ function pageKindOf(url: URL): PageKind | null {
   return null;
 }
 
+/**
+ * Una búsqueda de Remax: `page` desde 0, `pageSize=24` y `sort=-createdAt`
+ * («más recientes»). Los demás parámetros (`landingPath`, filtros) quedan
+ * como el owner los eligió, ordenados para que la misma búsqueda sea la misma
+ * URL.
+ */
+function normalizeSearch(raw: string): string | null {
+  if (!URL.canParse(raw)) return null;
+  const url = new URL(raw);
+  if (pageKindOf(url) !== "search_result") return null;
+  const params = new URLSearchParams(url.search);
+  params.delete("page");
+  params.set("pageSize", "24");
+  params.set("sort", "-createdAt");
+  params.sort();
+  return `${ORIGIN}${url.pathname.replace(/\/+$/u, "")}?${params.toString()}`;
+}
+
+function searchPageUrl(search: string, page: number): string {
+  const url = new URL(search);
+  url.searchParams.set("page", String(page));
+  url.searchParams.sort();
+  return url.toString();
+}
+
+/** La búsqueda medida el 2026-11-27: venta en Capital, Córdoba. */
+const DEFAULT_SEARCH = normalizeSearch(
+  `${ORIGIN}/listings/buy?page=0&pageSize=24&sort=-createdAt&landingPath=propiedades-en-venta-en-capital-cordoba&viewMode=listViewMode&filterCount=0`,
+)!;
+
 function read(document: PortalDocument): PortalReading {
   const url = URL.canParse(document.url) ? new URL(document.url) : null;
   const pageKind = url === null ? null : pageKindOf(url);
@@ -528,5 +558,8 @@ export const remaxAdapter: PortalAdapter = {
     },
   },
   pageKindOf,
+  normalizeSearch,
+  searchPageUrl,
+  defaultSearches: [DEFAULT_SEARCH],
   read,
 };

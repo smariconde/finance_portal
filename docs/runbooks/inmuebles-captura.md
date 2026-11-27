@@ -41,6 +41,20 @@ openssl rand -base64 32 | tr '+/' '-_' | tr -d '='
   `https://finance-portal-flame.vercel.app/`, el token y el secreto de bypass
   de Vercel.
 
+El popup se cierra al cambiar de ventana: cargar la conexión en dos vueltas
+(portal y token, **Guardar**; después el bypass, **Guardar**), porque un campo
+vacío conserva lo guardado. El bypass que ya usa el MCP del owner sirve:
+
+```sh
+python3 -c "import json,os;print(json.load(open(os.path.expanduser('~/.claude.json')))['mcpServers']['portal']['headers']['x-vercel-protection-bypass'],end='')" | wl-copy
+curl -s -o /dev/null -w "%{http_code}\n" -H "x-vercel-protection-bypass: $(wl-paste)" https://finance-portal-flame.vercel.app/api/inmuebles/captura
+```
+
+`405` es un bypass válido (la ruta sólo acepta `POST`); `302` o `401` es que
+Vercel no lo aceptó y el pedido no llegó al portal. El token de Production
+está en `.env.capture-production.local` (ignorado por git):
+`wl-copy < .env.capture-production.local`.
+
 El ítem «Captura de inmuebles» de `/configuracion` dice si la ruta está
 abierta. Copiar el token sin mostrarlo:
 
@@ -79,6 +93,25 @@ Lo guardado se ve en `/inmuebles`.
 
 Un **desafío** (Cloudflare, captcha) no se resuelve: se cierra la pestaña. El
 popup lo cuenta; dos días seguidos es motivo para dejar el portal.
+
+## Barrido programado
+
+`listing-sweep-1.0.0`: una vez por día, entre las 08:30 y las 11:30 de Buenos
+Aires, la extensión abre una pestaña en segundo plano (sin foco) y recorre hasta 25 páginas por
+portal a paso humano. Necesita Brave abierto con el perfil Inmuebles; si a esa
+hora estaba cerrado, corre al abrirlo ese mismo día.
+
+| En el popup             | Qué hace                                                                  |
+| ----------------------- | ------------------------------------------------------------------------- |
+| Pausar / Reanudar       | Frena el barrido del portal hasta reanudarlo                              |
+| Barrer ahora            | Corre sin esperar la hora; relanza un día detenido, nunca uno con desafío |
+| Reactivar tras desafíos | Aparece después de dos días seguidos con desafío                          |
+| Seguir este aviso       | En una ficha: se revisa todos los días (hasta 20)                         |
+| Guardar esta búsqueda   | En un listado: se recorre por «más recientes» (hasta 10)                  |
+| Páginas por día         | Baja el tope de 25; nunca lo sube                                         |
+
+Cerrar la pestaña del barrido lo detiene por el día. Un desafío bloquea el
+portal por el día; dos días seguidos lo pausan.
 
 ## Frenar
 

@@ -454,3 +454,46 @@ Lo que el slice fijó al construir la extensión y el endpoint:
 Medido el 2026-11-27 en Córdoba Capital, entre el subagente (dos pasadas de
 medición) y el owner en el perfil Inmuebles: 157 avisos de los listados, 32
 fichas, 187 revisiones, 0 desafíos y 44 envíos aceptados.
+
+## Enmienda del 2026-11-27: el barrido programado (`F13-03`)
+
+`listing-sweep-1.0.0` vive en la extensión, no en el servidor: el servidor
+nunca sale a un portal. Lo que el slice fijó:
+
+- **La hora** se sortea por día y portal con un hash (FNV-1a), no con
+  `Math.random`, entre las 08:30 y las 11:30 de Buenos Aires: un service worker
+  que se reinicia no cambia la hora. Una alarma cada 15 minutos pregunta si
+  toca; si Brave estaba cerrado a esa hora, el barrido corre al abrirlo ese
+  mismo día. Un día que pasó entero no se recupera.
+- **El paso**: 8 a 15 s entre páginas y, cada 5 a 8 páginas, una pausa de 45 a
+  120 s, también sorteados por paso. Un service worker MV3 muere tras 30 s sin
+  eventos, así que las esperas cortas corren en el worker y las pausas largas
+  quedan anotadas en la corrida y las despierta `chrome.alarms`.
+- **El plan** del día se arma al empezar y se guarda con su cursor: seguidos,
+  primera página de las búsquedas guardadas (o la declarada por el adapter si
+  no hay ninguna), fichas sin revisar hace más de 7 días y, con lo que sobra,
+  un tercio de páginas profundas (con un cursor que sigue al día siguiente) y
+  el resto fichas vistas sólo en una tarjeta. Nunca más de 25 páginas por
+  portal; el tope guardado sólo baja. Seguidos hasta 20, búsquedas hasta 10.
+- **Una pestaña en segundo plano**, no una ventana propia (corrección del
+  owner el mismo día, en Omarchy): en Hyprland no hay ventanas minimizadas y
+  una ventana nueva entra en el mosaico del escritorio. La pestaña se abre sin
+  foco en una ventana del perfil Inmuebles —una ventana nueva sólo si el
+  perfil no tiene ninguna— y su ID vive en `storage.session`, porque el worker
+  que despierta de una pausa larga no tiene memoria: la primera versión
+  perdía el ID y abría una ventana por página. El barrido reusa la captura al
+  ver: espera el mismo `page_read` o `challenge_seen` del content script de
+  esa pestaña (30 s como mucho, cada espera con su propio plazo); las
+  pestañas del owner nunca cuentan como visitas del barrido. Cerrar la
+  pestaña del barrido lo detiene por el día.
+- **Frenos**: el owner pausa desde el popup; un desafío bloquea el portal por
+  el día y dos días seguidos lo pausan hasta reactivarlo; el endpoint apagado
+  responde `503` con `X-Capture-State: disabled`, y eso, un tope diario
+  agotado, un token o bypass inválido o la ventana cerrada por el owner
+  detienen el barrido del día. «Barrer ahora» no espera la hora sorteada y
+  relanza un día detenido, nunca uno con desafío.
+- **Cobertura** en el popup: estado, páginas y avisos del día, búsquedas
+  cubiertas, seguidos, la ficha más vieja sin revisar y los avisos conocidos.
+
+En Production la extensión necesita el bypass de Vercel además de
+`CAPTURE_TOKEN`; el que ya usa el MCP del owner sirve.

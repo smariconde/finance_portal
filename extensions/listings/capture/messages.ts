@@ -30,4 +30,22 @@ export type ExportedPage = {
   readonly document: PortalDocument;
 };
 
-export type WorkerMessage = PageReadMessage | ChallengeMessage | FlushMessage;
+/** Lo que el popup le pide al barrido de un portal (`listing-sweep-1.0.0`). */
+export type SweepCommand =
+  | { readonly command: "pause" }
+  | { readonly command: "resume" }
+  | { readonly command: "reactivate" }
+  | { readonly command: "run_now" }
+  | { readonly command: "set_cap"; readonly cap: number | null }
+  | { readonly command: "follow"; readonly url: string }
+  | { readonly command: "unfollow"; readonly url: string }
+  | { readonly command: "save_search"; readonly url: string }
+  | { readonly command: "remove_search"; readonly url: string };
+
+export type SweepCommandMessage = {
+  readonly type: "sweep_command";
+  readonly source: RealEstatePortal;
+} & SweepCommand;
+
+export type WorkerMessage =
+  PageReadMessage | ChallengeMessage | FlushMessage | SweepCommandMessage;

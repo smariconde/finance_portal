@@ -64,5 +64,14 @@ export type PortalAdapter = {
   /** Cada campo del contrato, con su base y su ruta o el motivo de ausencia. */
   readonly fields: Readonly<Record<DeclaredField, FieldSource>>;
   readonly pageKindOf: (url: URL) => PageKind | null;
+  /**
+   * Una búsqueda del portal como la guarda el barrido: ordenada por «más
+   * recientes» y sin página, o `null` si la URL no es un listado.
+   */
+  readonly normalizeSearch: (url: string) => string | null;
+  /** La página `page` (desde 0) de una búsqueda normalizada. */
+  readonly searchPageUrl: (search: string, page: number) => string;
+  /** Lo que el barrido recorre si el owner no guardó ninguna búsqueda. */
+  readonly defaultSearches: readonly string[];
   readonly read: (document: PortalDocument) => PortalReading;
 };
