@@ -475,10 +475,17 @@ nunca sale a un portal. Lo que el slice fijó:
   un tercio de páginas profundas (con un cursor que sigue al día siguiente) y
   el resto fichas vistas sólo en una tarjeta. Nunca más de 25 páginas por
   portal; el tope guardado sólo baja. Seguidos hasta 20, búsquedas hasta 10.
-- **Una ventana propia minimizada** con una pestaña que se navega en serie. El
-  barrido reusa la captura al ver: espera el mismo `page_read` o
-  `challenge_seen` del content script de esa pestaña (30 s como mucho); las
-  pestañas del owner nunca cuentan como visitas del barrido.
+- **Una pestaña en segundo plano**, no una ventana propia (corrección del
+  owner el mismo día, en Omarchy): en Hyprland no hay ventanas minimizadas y
+  una ventana nueva entra en el mosaico del escritorio. La pestaña se abre sin
+  foco en una ventana del perfil Inmuebles —una ventana nueva sólo si el
+  perfil no tiene ninguna— y su ID vive en `storage.session`, porque el worker
+  que despierta de una pausa larga no tiene memoria: la primera versión
+  perdía el ID y abría una ventana por página. El barrido reusa la captura al
+  ver: espera el mismo `page_read` o `challenge_seen` del content script de
+  esa pestaña (30 s como mucho, cada espera con su propio plazo); las
+  pestañas del owner nunca cuentan como visitas del barrido. Cerrar la
+  pestaña del barrido lo detiene por el día.
 - **Frenos**: el owner pausa desde el popup; un desafío bloquea el portal por
   el día y dos días seguidos lo pausan hasta reactivarlo; el endpoint apagado
   responde `503` con `X-Capture-State: disabled`, y eso, un tope diario

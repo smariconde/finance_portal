@@ -2110,7 +2110,9 @@ Since `F13-03` (in progress until a week is measured, ADR 0089 amendment)
 the extension sweeps on its own (`listing-sweep-1.0.0`, `extensions/listings/sweep/`):
 a daily time per portal drawn by an FNV-1a hash between 08:30 and 11:30
 Buenos Aires (never `Math.random`, so a restarted worker keeps it), a 15-minute
-check alarm, one minimized window with one tab navigated in series, 8–15 s
+check alarm, one background tab (`active: false`) in a profile window, its id in
+`storage.session` (Hyprland has no minimized windows, and a lost id opened a
+window per page), navigated in series, 8–15 s
 between pages in the worker and 45–120 s pauses woken by `chrome.alarms` (an
 MV3 worker dies after 30 s idle). The plan (followed → saved searches' first
 page or the adapter's `defaultSearches` → details older than 7 days → deep

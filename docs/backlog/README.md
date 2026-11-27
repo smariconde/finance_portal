@@ -8808,7 +8808,8 @@ on_request` con precio y moneda `null`. Los cuatro portales de la ADR
   inválidas o la ventana cerrada detienen el día; «Barrer ahora» relanza un día
   detenido, nunca uno con desafío. El adapter declara cómo normalizar una
   búsqueda, armar su página N y su búsqueda por defecto.
-- El service worker barre en una ventana minimizada con una pestaña en serie y
+- El service worker barre en una pestaña en segundo plano del perfil (su ID
+  en `storage.session`; en Hyprland no hay ventanas minimizadas) y
   reusa la captura al ver; el popup muestra estado y cobertura y permite
   pausar, barrer ahora, seguir un aviso, guardar una búsqueda y bajar el tope.
 - Production: `CAPTURE_TOKEN` cargado en Vercel (sólo Production); la

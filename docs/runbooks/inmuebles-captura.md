@@ -97,7 +97,7 @@ popup lo cuenta; dos días seguidos es motivo para dejar el portal.
 ## Barrido programado
 
 `listing-sweep-1.0.0`: una vez por día, entre las 08:30 y las 11:30 de Buenos
-Aires, la extensión abre una ventana minimizada y recorre hasta 25 páginas por
+Aires, la extensión abre una pestaña en segundo plano (sin foco) y recorre hasta 25 páginas por
 portal a paso humano. Necesita Brave abierto con el perfil Inmuebles; si a esa
 hora estaba cerrado, corre al abrirlo ese mismo día.
 
@@ -110,7 +110,7 @@ hora estaba cerrado, corre al abrirlo ese mismo día.
 | Guardar esta búsqueda   | En un listado: se recorre por «más recientes» (hasta 10)                  |
 | Páginas por día         | Baja el tope de 25; nunca lo sube                                         |
 
-Cerrar la ventana del barrido lo detiene por el día. Un desafío bloquea el
+Cerrar la pestaña del barrido lo detiene por el día. Un desafío bloquea el
 portal por el día; dos días seguidos lo pausan.
 
 ## Frenar

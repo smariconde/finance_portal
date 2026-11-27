@@ -33,7 +33,7 @@ import {
 /**
  * El service worker: el único que envía (ADR 0089, «Envío») y el que barre
  * (`listing-sweep-1.0.0`). Encola lo que leen los content scripts, envía en
- * lotes y reintenta cada cinco minutos; cada quince revisa si toca barrir.
+ * lotes y reintenta cada cinco minutos; cada quince revisa si toca barrer.
  * Todo el estado vive en `chrome.storage.local`, porque un service worker MV3
  * se duerme y se despierta sin memoria.
  */
@@ -70,10 +70,13 @@ export default defineBackground(() => {
   browser.runtime.onStartup.addListener(() => void sweepAll());
 
   browser.tabs.onRemoved.addListener((tabId) => {
-    if (tabId !== sweepTabId) return;
-    sweepTabId = null;
-    windowClosedAt = new Date().toISOString();
-    resolveWaiter({ kind: "unread", reason: "window_closed" });
+    void sweepTabReady.then(async () => {
+      if (tabId !== sweepTabId) return;
+      await rememberSweepTab(null);
+      // El owner cerró la pestaña del barrido: hoy no se insiste.
+      windowClosedAt = new Date().toISOString();
+      resolveWaiter({ kind: "unread", reason: "window_closed" });
+    });
   });
 
   browser.runtime.onMessage.addListener((message: unknown, sender) => {
@@ -234,15 +237,39 @@ async function handleSweepCommand(message: SweepCommandMessage): Promise<void> {
     void sweepAll();
 }
 
+/**
+ * La pestaña del barrido. Se guarda en `storage.session` porque un service
+ * worker que se duerme en una pausa larga se despierta sin memoria: sin eso,
+ * cada página abría otra pestaña (o, antes, otra ventana).
+ */
+const SWEEP_TAB_KEY = "sweepTab";
 let sweepTabId: number | null = null;
 let windowClosedAt: string | null = null;
-let waiter: ((outcome: VisitOutcome) => void) | null = null;
+let waiter: {
+  readonly id: number;
+  readonly resolve: (outcome: VisitOutcome) => void;
+} | null = null;
+let waiterSequence = 0;
 const ticking = new Set<RealEstatePortal>();
 
-function resolveWaiter(outcome: VisitOutcome) {
-  const resolve = waiter;
+const sweepTabReady = browser.storage.session
+  .get(SWEEP_TAB_KEY)
+  .then((stored) => {
+    const id = stored[SWEEP_TAB_KEY];
+    sweepTabId = typeof id === "number" ? id : null;
+  })
+  .catch(() => undefined);
+
+async function rememberSweepTab(id: number | null) {
+  sweepTabId = id;
+  await browser.storage.session.set({ [SWEEP_TAB_KEY]: id });
+}
+
+function resolveWaiter(outcome: VisitOutcome, id?: number) {
+  if (waiter === null || (id !== undefined && waiter.id !== id)) return;
+  const { resolve } = waiter;
   waiter = null;
-  resolve?.(outcome);
+  resolve(outcome);
 }
 
 function outcomeOf(
@@ -256,44 +283,76 @@ function outcomeOf(
   };
 }
 
+/** La pestaña del barrido si sigue abierta. */
+async function liveSweepTab(): Promise<number | null> {
+  await sweepTabReady;
+  if (sweepTabId === null) return null;
+  try {
+    await browser.tabs.get(sweepTabId);
+    return sweepTabId;
+  } catch {
+    await rememberSweepTab(null);
+    return null;
+  }
+}
+
 /**
- * Navega la pestaña del barrido, en su propia ventana minimizada, y espera la
- * lectura del content script de esa pestaña. Las pestañas del owner nunca
- * resuelven la espera.
+ * Navega la pestaña del barrido y espera la lectura del content script de esa
+ * pestaña; las pestañas del owner nunca resuelven la espera.
+ *
+ * Es una pestaña **en segundo plano** en una ventana del perfil, no una
+ * ventana propia: en Hyprland (Omarchy) no hay ventanas minimizadas y una
+ * ventana nueva entra en el mosaico del escritorio. Sólo si el perfil no tiene
+ * ninguna ventana abierta se crea una, sin foco.
  */
 async function visit(url: string): Promise<VisitOutcome> {
+  const id = (waiterSequence += 1);
   const loaded = new Promise<VisitOutcome>((resolve) => {
-    waiter = resolve;
+    waiter = { id, resolve };
     setTimeout(
-      () => resolveWaiter({ kind: "unread", reason: "timeout" }),
+      () => resolveWaiter({ kind: "unread", reason: "timeout" }, id),
       VISIT_TIMEOUT_MS,
     );
   });
   try {
-    if (sweepTabId !== null) {
-      await browser.tabs.update(sweepTabId, { url });
+    const tabId = await liveSweepTab();
+    if (tabId !== null) {
+      await browser.tabs.update(tabId, { url, active: false });
     } else {
-      const window = await browser.windows.create({
-        url,
-        focused: false,
-        state: "minimized",
-      });
-      sweepTabId = window?.tabs?.[0]?.id ?? null;
+      const windows = await browser.windows.getAll({ windowTypes: ["normal"] });
+      const target =
+        windows.find((candidate) => candidate.focused) ?? windows[0] ?? null;
+      if (target?.id !== undefined) {
+        const tab = await browser.tabs.create({
+          windowId: target.id,
+          url,
+          active: false,
+          index: 0,
+        });
+        await rememberSweepTab(tab.id ?? null);
+      } else {
+        const created = await browser.windows.create({ url, focused: false });
+        const [tab] =
+          created?.id === undefined
+            ? []
+            : await browser.tabs.query({ windowId: created.id });
+        await rememberSweepTab(tab?.id ?? null);
+      }
     }
   } catch {
-    sweepTabId = null;
-    resolveWaiter({ kind: "unread", reason: "navigation_failed" });
+    await rememberSweepTab(null);
+    resolveWaiter({ kind: "unread", reason: "navigation_failed" }, id);
   }
   return loaded;
 }
 
-async function closeSweepWindow() {
-  if (sweepTabId === null) return;
-  const tabId = sweepTabId;
-  sweepTabId = null;
+/** Al terminar, la pestaña del barrido se cierra (y con ella la ventana que haya creado). */
+async function closeSweepTab() {
+  const tabId = await liveSweepTab();
+  await rememberSweepTab(null);
+  if (tabId === null) return;
   try {
-    const tab = await browser.tabs.get(tabId);
-    await browser.windows.remove(tab.windowId);
+    await browser.tabs.remove(tabId);
   } catch {
     // Ya estaba cerrada.
   }
@@ -343,7 +402,7 @@ async function sweepPortal(portal: RealEstatePortal, force = false) {
             return failure.failure;
           return null;
         },
-        finish: closeSweepWindow,
+        finish: closeSweepTab,
       },
       { force },
     );
