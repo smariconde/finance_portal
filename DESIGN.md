@@ -28,6 +28,22 @@ colors:
   sidebar-accent-foreground: "#832b1d"
   sidebar-border: "#e5e2de"
   sidebar-ring: "#bd4227"
+  positive: "#036b4d"
+  positive-surface: "#ecf8f1"
+  positive-border: "#a7dcc0"
+  positive-fill: "#059669"
+  negative: "#a51a1a"
+  negative-surface: "#fdf0ee"
+  negative-border: "#f4c1bb"
+  negative-fill: "#dc2626"
+  warning: "#92400e"
+  warning-surface: "#fdf6e3"
+  warning-border: "#f3d58a"
+  warning-fill: "#c26508"
+  info: "#1a44c2"
+  info-surface: "#eef4fd"
+  info-border: "#bcd3f5"
+  info-fill: "#2563eb"
 typography:
   headline:
     fontFamily: '"Archivo Variable", "Segoe UI", sans-serif'
@@ -168,7 +184,8 @@ La paleta es semántica: fondos y superficies neutrales sostienen el trabajo; el
 ### Tertiary
 
 - **Destructivo** (`colors.destructive`): errores o acciones destructivas; no se usa para variación financiera ordinaria.
-- **Estados de disponibilidad:** verde para `ready`, ámbar para `degraded`, neutral para `disabled` y azul para `planned`. Son tratamientos implementados en `StatusMark`, no nuevos tokens globales.
+- **Estados** (`colors.positive`, `colors.negative`, `colors.warning`, `colors.info`): positivo (ganancia, target, `ready`), negativo (pérdida, stop, dato faltante), aviso (`degraded`, cierre temprano, sin actualizar) e información (`planned`, dato nuevo). Cada uno tiene cuatro roles: texto (`text-positive`), superficie (`bg-positive-surface`), borde (`border-positive-border`) y relleno para barras, puntos y líneas (`bg-positive-fill`, que también se tiñe: `bg-positive-fill/20`). Lo neutral (`disabled`) usa `muted`. Viven en `globals.css` con su valor oscuro.
+- **Contraste medido, no supuesto:** el texto de cada estado llega a 4,5:1 contra todos los fondos del tema —`accent` y `sidebar-accent` incluidos—, contra su propia superficie y sobre un tinte de hasta 25 % de su relleno; el relleno llega a 3:1 contra fondo, card y `muted`. `src/app/theme-tokens.test.ts` lo recalcula en los dos temas y niega cualquier tono de la paleta de Tailwind (`text-amber-700`, `bg-emerald-600`, `var(--color-red-600)`) en un componente. Blanco y negro quedan para las placas de logos y los overlays.
 
 **The Functional Accent Rule.** El bermellón funcional señala acción y selección; no se distribuye como decoración. El azul de información y las paletas categóricas conservan sus roles propios.
 

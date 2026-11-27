@@ -39,7 +39,7 @@ export function UnreadTradingParts({
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center gap-1.5 text-xs text-amber-800 dark:text-amber-300",
+        "flex flex-wrap items-center gap-1.5 text-xs text-warning",
         className,
       )}
     >

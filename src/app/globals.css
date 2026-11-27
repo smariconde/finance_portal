@@ -43,6 +43,29 @@
   --brand-ivory: #fff8ef;
   --candle-up: #16803c;
   --candle-down: #d83f4a;
+  /*
+   * Colores de estado (positivo, negativo, aviso, información). Cada uno tiene
+   * texto, superficie, borde y relleno; el texto llega a 4,5:1 y el relleno a
+   * 3:1 contra todos los fondos del tema —también `accent`, el de la celda
+   * seleccionada— y un test lo recalcula (`theme-tokens.test.ts`). Nunca un
+   * tono de la paleta de Tailwind en un componente: el test también lo niega.
+   */
+  --positive: #036b4d;
+  --positive-surface: #ecf8f1;
+  --positive-border: #a7dcc0;
+  --positive-fill: #059669;
+  --negative: #a51a1a;
+  --negative-surface: #fdf0ee;
+  --negative-border: #f4c1bb;
+  --negative-fill: #dc2626;
+  --warning: #92400e;
+  --warning-surface: #fdf6e3;
+  --warning-border: #f3d58a;
+  --warning-fill: #c26508;
+  --info: #1a44c2;
+  --info-surface: #eef4fd;
+  --info-border: #bcd3f5;
+  --info-fill: #2563eb;
   --app-font-sans: "Archivo Variable", "Segoe UI", sans-serif;
 }
 
@@ -89,6 +112,22 @@
     --sidebar-ring: #ff9a7d;
     --candle-up: #36c36b;
     --candle-down: #f05b67;
+    --positive: #6ee7b7;
+    --positive-surface: #173a31;
+    --positive-border: #1f5c49;
+    --positive-fill: #10b981;
+    --negative: #fca5a5;
+    --negative-surface: #43252a;
+    --negative-border: #6e3238;
+    --negative-fill: #f05b67;
+    --warning: #fcd34d;
+    --warning-surface: #3a3122;
+    --warning-border: #6b5320;
+    --warning-fill: #fbbf24;
+    --info: #93c5fd;
+    --info-surface: #1d2f48;
+    --info-border: #2c4a73;
+    --info-fill: #60a5fa;
   }
 }
 
@@ -124,6 +163,22 @@
   --sidebar-ring: #ff9a7d;
   --candle-up: #36c36b;
   --candle-down: #f05b67;
+  --positive: #6ee7b7;
+  --positive-surface: #173a31;
+  --positive-border: #1f5c49;
+  --positive-fill: #10b981;
+  --negative: #fca5a5;
+  --negative-surface: #43252a;
+  --negative-border: #6e3238;
+  --negative-fill: #f05b67;
+  --warning: #fcd34d;
+  --warning-surface: #3a3122;
+  --warning-border: #6b5320;
+  --warning-fill: #fbbf24;
+  --info: #93c5fd;
+  --info-surface: #1d2f48;
+  --info-border: #2c4a73;
+  --info-fill: #60a5fa;
 }
 
 /* `dark:` sigue al tema efectivo, no sólo a la preferencia del sistema. */
@@ -158,6 +213,22 @@
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
+  --color-positive: var(--positive);
+  --color-positive-surface: var(--positive-surface);
+  --color-positive-border: var(--positive-border);
+  --color-positive-fill: var(--positive-fill);
+  --color-negative: var(--negative);
+  --color-negative-surface: var(--negative-surface);
+  --color-negative-border: var(--negative-border);
+  --color-negative-fill: var(--negative-fill);
+  --color-warning: var(--warning);
+  --color-warning-surface: var(--warning-surface);
+  --color-warning-border: var(--warning-border);
+  --color-warning-fill: var(--warning-fill);
+  --color-info: var(--info);
+  --color-info-surface: var(--info-surface);
+  --color-info-border: var(--info-border);
+  --color-info-fill: var(--info-fill);
   --color-region-us: var(--region-us);
   --color-region-ar: var(--region-ar);
   --color-ring: var(--ring);

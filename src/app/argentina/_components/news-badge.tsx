@@ -6,8 +6,7 @@ import { cn } from "@/lib/utils";
  * «Nuevo» lleva el azul de información del sistema —el bermellón es de
  * acción—, y siempre con su palabra: el color nunca va solo (ADR 0079).
  */
-export const NEW_TONE =
-  "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-300";
+export const NEW_TONE = "border-info-border bg-info-surface text-info";
 
 export type NewsBadgeStatus = "new_period" | "revised" | "arrived";
 

@@ -64,7 +64,7 @@ function WinLossBar({ summary }: { readonly summary: JournalSummary }) {
       aria-hidden="true"
     >
       <span
-        className="bg-emerald-600 dark:bg-emerald-500"
+        className="bg-positive-fill"
         style={{ width: width(summary.winners) }}
       />
       <span
@@ -72,7 +72,7 @@ function WinLossBar({ summary }: { readonly summary: JournalSummary }) {
         style={{ width: width(summary.breakeven) }}
       />
       <span
-        className="bg-red-600 dark:bg-red-500"
+        className="bg-negative-fill"
         style={{ width: width(summary.losers) }}
       />
     </div>
@@ -235,9 +235,7 @@ function PnlChart({ summary }: { readonly summary: JournalSummary }) {
                       // clase no le gana al atributo que pone Recharts.
                       fill="currentColor"
                       className={
-                        row.pnl >= 0
-                          ? "text-emerald-600 dark:text-emerald-500"
-                          : "text-red-600 dark:text-red-500"
+                        row.pnl >= 0 ? "text-positive" : "text-negative"
                       }
                     />
                   ))}

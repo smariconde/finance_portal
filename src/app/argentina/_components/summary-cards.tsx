@@ -271,8 +271,7 @@ export function SummaryCards({
                         href={summary.href}
                         className={cn(
                           "h-full",
-                          mark === "new_period" &&
-                            "ring-blue-300 dark:ring-blue-800",
+                          mark === "new_period" && "ring-info-border",
                         )}
                         size="sm"
                         label={summary.label}

@@ -34,7 +34,7 @@ export function EarningsMark({
   return (
     <Badge
       variant="outline"
-      className="h-auto max-w-full multiline whitespace-normal border-amber-600/50 text-amber-800 dark:text-amber-300"
+      className="h-auto max-w-full multiline whitespace-normal border-warning-fill/50 text-warning"
     >
       Earnings · {shortMarketDate(report.date)} ·{" "}
       {earningsTimeLabel(report.time)} ·{" "}

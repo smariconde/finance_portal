@@ -255,7 +255,7 @@ function CandleChart({
             yAxisId="price"
             y={Number(plan.stop)}
             strokeDasharray="4 3"
-            className="stroke-red-600 dark:stroke-red-500"
+            className="stroke-negative-fill"
             label={{ value: "Stop", position: "insideTopRight", fontSize: 11 }}
           />
         )}
@@ -264,7 +264,7 @@ function CandleChart({
             yAxisId="price"
             y={Number(plan.target)}
             strokeDasharray="4 3"
-            className="stroke-emerald-600 dark:stroke-emerald-500"
+            className="stroke-positive-fill"
             label={{
               value: "Target",
               position: "insideTopRight",

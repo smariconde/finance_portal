@@ -2154,6 +2154,8 @@ Only the read-only `context.mjs` and `detect.mjs` scripts are approved. Impeccab
 
 Approved visual decisions live in [DESIGN.md](DESIGN.md) (tokens, typography) with per-surface briefs in `.impeccable/surfaces/`. shadcn is configured for Base UI + CSS variables ([components.json](components.json)); Recharts is the chart engine and ECharts is a measured escape hatch — do not add a second chart library without evidence. Read [docs/design/interface-foundations.md](docs/design/interface-foundations.md) before expanding the visual system; the home page is evidence, not a universal layout.
 
+Color comes only from the theme. State colors are tokens in `src/app/globals.css` —`positive`, `negative`, `warning`, `info`, each with text, `-surface`, `-border` and `-fill` (`text-warning`, `bg-positive-fill/20`)—; neutral states use `muted`. `src/app/theme-tokens.test.ts` measures every text token at 4.5:1 and every fill at 3:1 against every ground in both themes (`accent` included: a selected cell) and fails on any Tailwind hue class (`text-amber-700`) in `src/`. The E2E gate also selects an early close and a holiday on `/calendario`, so axe does not depend on what today is.
+
 Avoid generic AI-interface defaults (decorative gradients, gratuitous glass blur, interchangeable rounded cards, icon tiles above every heading, timid typography). Favor financial-product hierarchy, legible numeric density, and visible provenance.
 
 ## Conventions

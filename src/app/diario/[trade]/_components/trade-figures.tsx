@@ -57,9 +57,9 @@ function AdherenceMarks({
             className={cn(
               "flex size-5 items-center justify-center rounded-sm border",
               mark === "kept" &&
-                "border-emerald-600/40 bg-emerald-600/10 text-emerald-700 dark:text-emerald-400",
+                "border-positive-fill/40 bg-positive-fill/10 text-positive",
               mark === "broken" &&
-                "border-red-600/40 bg-red-600/10 text-red-700 dark:text-red-400",
+                "border-negative-fill/40 bg-negative-fill/10 text-negative",
               mark === null && "border-dashed text-muted-foreground",
             )}
           >

@@ -358,12 +358,12 @@ export function ScenariosTable({
               {ordered ? (
                 <CheckCircle2
                   aria-hidden="true"
-                  className="mt-0.5 size-4 shrink-0 text-emerald-700 dark:text-emerald-300"
+                  className="mt-0.5 size-4 shrink-0 text-positive"
                 />
               ) : (
                 <TriangleAlert
                   aria-hidden="true"
-                  className="mt-0.5 size-4 shrink-0 text-amber-700 dark:text-amber-300"
+                  className="mt-0.5 size-4 shrink-0 text-warning"
                 />
               )}
               <span>

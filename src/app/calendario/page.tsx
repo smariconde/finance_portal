@@ -115,7 +115,7 @@ export default async function CalendarPage() {
           {fullMarketDate(INDEC_CALENDAR.coversTo)}.
         </p>
         {coverage.renewalDue ? (
-          <p className="text-amber-700 dark:text-amber-400">
+          <p className="text-warning">
             Lo declarado termina el {fullMarketDate(coverage.coversTo)}: falta
             cargar el próximo anuncio de la NYSE.
           </p>

@@ -68,30 +68,29 @@ const SHAPE: Readonly<
   Record<PlanMarker["key"], { readonly axis: string; readonly swatch: string }>
 > = {
   stop: {
-    axis: "h-6 w-0.5 rounded-full bg-red-600 dark:bg-red-500",
-    swatch: "h-3 w-0.5 rounded-full bg-red-600 dark:bg-red-500",
+    axis: "h-6 w-0.5 rounded-full bg-negative-fill",
+    swatch: "h-3 w-0.5 rounded-full bg-negative-fill",
   },
   entry: {
     axis: "size-3 rounded-full border-2 border-foreground bg-card ring-2 ring-card",
     swatch: "size-2.5 rounded-full border-2 border-foreground bg-card",
   },
   two: {
-    axis: "h-6 w-0.5 rounded-full bg-emerald-600 dark:bg-emerald-500",
-    swatch: "h-3 w-0.5 rounded-full bg-emerald-600 dark:bg-emerald-500",
+    axis: "h-6 w-0.5 rounded-full bg-positive-fill",
+    swatch: "h-3 w-0.5 rounded-full bg-positive-fill",
   },
   three: {
-    axis: "h-6 w-0.5 rounded-full bg-emerald-600 dark:bg-emerald-500",
-    swatch: "h-3 w-0.5 rounded-full bg-emerald-600 dark:bg-emerald-500",
+    axis: "h-6 w-0.5 rounded-full bg-positive-fill",
+    swatch: "h-3 w-0.5 rounded-full bg-positive-fill",
   },
   target: {
-    axis: "h-6 w-0.5 rounded-full bg-emerald-600 dark:bg-emerald-500",
-    swatch: "h-3 w-0.5 rounded-full bg-emerald-600 dark:bg-emerald-500",
+    axis: "h-6 w-0.5 rounded-full bg-positive-fill",
+    swatch: "h-3 w-0.5 rounded-full bg-positive-fill",
   },
 };
 
 /** Un TP que no se eligió se dibuja como referencia, a media altura. */
-const REFERENCE_AXIS =
-  "h-3.5 w-0.5 rounded-full bg-emerald-600/45 dark:bg-emerald-500/45";
+const REFERENCE_AXIS = "h-3.5 w-0.5 rounded-full bg-positive-fill/45";
 
 const axisShape = (marker: PlanMarker) =>
   marker.key === "two" || marker.key === "three"
@@ -139,10 +138,8 @@ function PriceAxis({
   return (
     <div aria-hidden="true" className="relative mx-2 h-6">
       <div className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 overflow-hidden rounded-full bg-muted">
-        {stop === undefined
-          ? null
-          : zone(stop.value, "bg-red-600/20 dark:bg-red-500/25")}
-        {zone(target, "bg-emerald-600/20 dark:bg-emerald-500/25")}
+        {stop === undefined ? null : zone(stop.value, "bg-negative-fill/20")}
+        {zone(target, "bg-positive-fill/20")}
       </div>
       {markers.map((marker) => (
         <span
@@ -319,7 +316,7 @@ function SizeComparison({
       {exceeds && size !== null && quantity !== null ? (
         <p
           role="note"
-          className="flex items-start gap-1.5 text-xs text-amber-800 dark:text-amber-300"
+          className="flex items-start gap-1.5 text-xs text-warning"
         >
           <TriangleAlert
             className="mt-px size-3.5 shrink-0"
@@ -406,7 +403,7 @@ export function IdeaRiskSheet({
             Leyendo cuenta y reglas…
           </p>
         ) : live.state !== "read" || risk.state !== "read" ? (
-          <p className="flex items-start gap-1.5 text-amber-800 dark:text-amber-300">
+          <p className="flex items-start gap-1.5 text-warning">
             <TriangleAlert
               className="mt-0.5 size-4 shrink-0"
               aria-hidden="true"
@@ -450,7 +447,7 @@ export function IdeaRiskSheet({
         {levels === null ? (
           <p className="text-muted-foreground">Entrada y shares.</p>
         ) : levels.state === "invalid" ? (
-          <p className="flex items-start gap-1.5 text-amber-800 dark:text-amber-300">
+          <p className="flex items-start gap-1.5 text-warning">
             <TriangleAlert
               className="mt-0.5 size-4 shrink-0"
               aria-hidden="true"

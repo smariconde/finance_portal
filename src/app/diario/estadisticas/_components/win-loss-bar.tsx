@@ -18,7 +18,7 @@ export function WinLossBar({
         aria-hidden="true"
       >
         <span
-          className="bg-emerald-600 dark:bg-emerald-500"
+          className="bg-positive-fill"
           style={{ width: width(stats.winners) }}
         />
         <span
@@ -26,7 +26,7 @@ export function WinLossBar({
           style={{ width: width(stats.breakeven) }}
         />
         <span
-          className="bg-red-600 dark:bg-red-500"
+          className="bg-negative-fill"
           style={{ width: width(stats.losers) }}
         />
       </span>

@@ -54,24 +54,15 @@ export function signOf(value: string): -1 | 0 | 1 {
 }
 
 /**
- * Verde y rojo del P&L; el signo escrito dice lo mismo sin el color. `strong` es
- * para texto sobre un fondo teñido, donde el tono normal no llega a 4,5:1.
+ * Verde y rojo del P&L; el signo escrito dice lo mismo sin el color. Los
+ * tokens llegan a 4,5:1 también sobre un tinte de hasta 20 % de su relleno
+ * (`theme-tokens.test.ts`), así que no hace falta un tono más fuerte encima de
+ * una celda teñida.
  */
-export function pnlTone(
-  value: string | null,
-  strong = false,
-): string | undefined {
+export function pnlTone(value: string | null): string | undefined {
   if (value === null) return undefined;
   const sign = signOf(value);
-  if (sign > 0) {
-    return strong
-      ? "text-emerald-800 dark:text-emerald-300"
-      : "text-emerald-700 dark:text-emerald-400";
-  }
-  if (sign < 0) {
-    return strong
-      ? "text-red-800 dark:text-red-300"
-      : "text-red-700 dark:text-red-400";
-  }
+  if (sign > 0) return "text-positive";
+  if (sign < 0) return "text-negative";
   return undefined;
 }

@@ -539,7 +539,7 @@ export function PlanWorkspace({
             <p
               id="plan-field-error"
               role="alert"
-              className="text-sm text-amber-800 dark:text-amber-300"
+              className="text-sm text-warning"
             >
               {message}
             </p>
@@ -612,7 +612,7 @@ export function PlanWorkspace({
                 ? `US$ ${fmt(valid.stop)}`
                 : null
             }
-            computedTone="text-red-700 dark:text-red-400"
+            computedTone="text-negative"
           />
           <LevelChoice
             label="Target"
@@ -632,7 +632,7 @@ export function PlanWorkspace({
                 ? `US$ ${fmt(valid.target)}`
                 : null
             }
-            computedTone="text-emerald-700 dark:text-emerald-400"
+            computedTone="text-positive"
           />
           <div className="flex flex-col gap-1">
             <label htmlFor="idea-notes" className="text-xs font-medium">
@@ -998,7 +998,7 @@ function Watchlist({
                       <td
                         className={cn(
                           "numeric px-3 py-2 text-right whitespace-nowrap",
-                          !archived && "text-red-700 dark:text-red-400",
+                          !archived && "text-negative",
                         )}
                       >
                         {result.state === "valid" ? fmt(result.stop) : "—"}
@@ -1006,7 +1006,7 @@ function Watchlist({
                       <td
                         className={cn(
                           "numeric px-3 py-2 text-right whitespace-nowrap",
-                          !archived && "text-emerald-700 dark:text-emerald-400",
+                          !archived && "text-positive",
                         )}
                       >
                         {result.state === "valid" ? fmt(result.target) : "—"}

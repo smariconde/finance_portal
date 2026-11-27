@@ -147,7 +147,7 @@ export default async function ValuationReferencePage() {
         actions={<StatusMark status="ready" label="Motor verificado" />}
       />
 
-      <Alert className="border-amber-200 bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/30">
+      <Alert className="border-warning-border bg-warning-surface">
         <FlaskConical aria-hidden="true" />
         <AlertTitle>Empresa sintética, no una empresa real</AlertTitle>
         <AlertDescription>
