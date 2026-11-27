@@ -101,3 +101,29 @@ export function sweepSummary(
     ],
   };
 }
+
+/**
+ * Si «Barrer ahora» puede hacer algo hoy, y qué dice el botón. Un día
+ * terminado o bloqueado ya gastó su tope: el botón lo dice en vez de no hacer
+ * nada.
+ */
+export function runNowButton(
+  state: PortalSweepState,
+  now: string,
+  portal: string,
+): { readonly enabled: boolean; readonly label: string } {
+  if (state.ownerPaused || state.pausedByChallenges)
+    return { enabled: false, label: "Barrer ahora" };
+  const today = buenosAiresDate(now);
+  const run = state.run?.date === today ? state.run : null;
+  if (run === null || run.status === "stopped")
+    return { enabled: true, label: "Barrer ahora" };
+  if (run.status === "running") return { enabled: false, label: "Barriendo…" };
+  const tomorrow = new Date(Date.parse(`${today}T12:00:00.000Z`) + 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  return {
+    enabled: false,
+    label: `Próximo: mañana ${clock(sweepStartAt(tomorrow, portal))}`,
+  };
+}

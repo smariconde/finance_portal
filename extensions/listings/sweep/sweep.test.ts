@@ -500,3 +500,38 @@ describe("listing-sweep-1.0.0 · resumen del popup", () => {
     );
   });
 });
+
+describe("listing-sweep-1.0.0 · «Barrer ahora»", () => {
+  it("se ofrece sin corrida o con el día detenido; terminado dice el próximo", async () => {
+    const { runNowButton } = await import("./summary");
+    const due = "2026-12-10T16:00:00.000Z";
+    expect(runNowButton(INITIAL_PORTAL_STATE, due, PORTAL)).toEqual({
+      enabled: true,
+      label: "Barrer ahora",
+    });
+    const run = startRun(INITIAL_PORTAL_STATE, due, [
+      { url: pageOf(SEARCH, 0), reason: "search_first" },
+    ]);
+    expect(runNowButton(run, due, PORTAL)).toEqual({
+      enabled: false,
+      label: "Barriendo…",
+    });
+    expect(
+      runNowButton(stopRun(run, due, "disabled"), due, PORTAL).enabled,
+    ).toBe(true);
+    const done = recordVisit(
+      run,
+      { kind: "read", captures: 1 },
+      due,
+      1,
+      rotationAfterEmptyPage,
+    );
+    expect(runNowButton(done, due, PORTAL)).toMatchObject({ enabled: false });
+    expect(runNowButton(done, due, PORTAL).label).toMatch(
+      /^Próximo: mañana \d{2}:\d{2}$/u,
+    );
+    expect(
+      runNowButton({ ...done, ownerPaused: true }, due, PORTAL).enabled,
+    ).toBe(false);
+  });
+});

@@ -19,7 +19,7 @@ import {
 import { PORTAL_ADAPTERS, adapterFor } from "../../portals/registry";
 import { effectiveCap } from "../../sweep/plan";
 import { INITIAL_PORTAL_STATE, type PortalSweepState } from "../../sweep/state";
-import { sweepSummary } from "../../sweep/summary";
+import { runNowButton, sweepSummary } from "../../sweep/summary";
 
 const FAILURE_LABELS: Record<string, string> = {
   not_configured: "Falta la conexión",
@@ -187,6 +187,14 @@ async function renderSweep() {
   byId("sweep-status").textContent = summary.status;
   fill(byId("sweep-coverage"), summary.coverage);
   byId("sweep-toggle").textContent = state.ownerPaused ? "Reanudar" : "Pausar";
+  const runNow = runNowButton(
+    state,
+    new Date().toISOString(),
+    SWEEP_ADAPTER.sourceId,
+  );
+  const runNowButtonElement = byId<HTMLButtonElement>("sweep-now");
+  runNowButtonElement.disabled = !runNow.enabled;
+  runNowButtonElement.textContent = runNow.label;
   byId("sweep-reactivate-row").hidden = !state.pausedByChallenges;
   const cap = byId<HTMLInputElement>("sweep-cap");
   if (document.activeElement !== cap)
