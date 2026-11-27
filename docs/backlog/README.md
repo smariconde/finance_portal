@@ -173,10 +173,10 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   145 | `F6-58`    | `queued`      | NVO: el ADS como recibo de depósito (programa ADR 1:1 citado del 20-F), DKK, acciones A + B y patrimonio IFRS sin no controlantes.                                                                                        | `F6-55`            |
 |   146 | `F9-22`    | `done`        | `/argentina` dice qué cifra está verificada, buscándose, sin verificar o cargada a mano; la tira de novedades lleva la cifra y el antes → después; tarjetas de lo diario a lo mensual.                                    | Pedido del owner   |
 |   147 | `F12-01`   | `in_progress` | Sesiones de NYSE/Nasdaq 2026–2028 declaradas y corroboradas por Schwab, en hora de Nueva York y de Buenos Aires con el cambio de horario marcado; `/calendario` al lado de Inicio y la franja «Hoy · Mañana».             | ADR 0088           |
-|   148 | `F12-02`   | `in_progress` | Fechas de resultados de todo el mercado desde Alpha Vantage como revisiones: riesgo a 5 sesiones en las swing, «Reporta hoy» en day y links a Finviz para el resto del mercado.                                           | `F12-01`           |
-|   149 | `F12-03`   | `in_progress` | Agenda de Estados Unidos: publicaciones declaradas desde FRED con su hora y su importancia, y reuniones del FOMC declaradas.                                                                                              | `F12-01`           |
-|   150 | `F12-04`   | `in_progress` | Agenda argentina: calendario de informes del BCRA y del INDEC (IPC, EMAE, comercio, REM y fiscal), y «esperado hoy» junto a las marcas de `/argentina`.                                                                   | `F12-01`, `F9-20`  |
-|   151 | `F12-05`   | `queued`      | Reglas de frescura de precios y sesión de trading en versiones nuevas que saben qué días opera Nueva York.                                                                                                                | `F12-01`           |
+|   148 | `F12-02`   | `done`        | Fechas de resultados de todo el mercado desde Alpha Vantage como revisiones: riesgo a 5 sesiones en las swing, «Reporta hoy» en day y links a Finviz para el resto del mercado.                                           | `F12-01`           |
+|   149 | `F12-03`   | `done`        | Agenda de Estados Unidos: publicaciones declaradas desde FRED con su hora y su importancia, y reuniones del FOMC declaradas.                                                                                              | `F12-01`           |
+|   150 | `F12-04`   | `done`        | Agenda argentina: calendario de informes del BCRA y del INDEC (IPC, EMAE, comercio, REM y fiscal), y «esperado hoy» junto a las marcas de `/argentina`.                                                                   | `F12-01`, `F9-20`  |
+|   151 | `F12-05`   | `done`        | Reglas de frescura de precios y sesión de trading en versiones nuevas que saben qué días opera Nueva York.                                                                                                                | `F12-01`           |
 |   152 | `F9-23`    | `done`        | Guía ⓘ junto al título de cada bloque de `/argentina`: para qué sirve, cómo leerlo, con qué cruzarlo y qué puede confundir, en líneas cortas y sin consejos.                                                              | Pedido del owner   |
 |   153 | `F9-24`    | `done`        | El IPC observado del bloque REM se pide al abrir; si la API del INDEC no tiene el mes, se lee del BCRA «vía BCRA»; cada mes sin IPC dice por qué.                                                                         | Pedido del owner   |
 
@@ -8558,6 +8558,51 @@ hallazgos bloqueantes de axe. Queda el gate de PR.
 PostgreSQL, build y gate Playwright con axe (410 aprobadas, 4 omitidas).
 Formato, lint y tipos pasan. Las slices siguen en progreso hasta su gate
 de PR.
+
+**Cierre de `F12-02` a `F12-04`, 2026-11-26.** Quality y E2E de los PR
+[#201](https://github.com/smariconde/finance_portal/pull/201),
+[#202](https://github.com/smariconde/finance_portal/pull/202) y
+[#203](https://github.com/smariconde/finance_portal/pull/203) en verde. Antes
+de mergear se creó el snapshot `f12-02-before-0059-2026-11-26`
+(`snap-small-voice-b76mydf4`, rama `production`, 2026-11-27 00:07:56 UTC,
+322.084.864 bytes), se aplicó `0059` en Neon y `pnpm db:status:neon` dio 60 de 60. Los tres PR se mergearon en orden y Vercel desplegó `646859a`. En Neon de
+Production, los tres jobs `market_calendar_refresh` terminaron `completed`
+(00:09–00:10 UTC) y publicaron 678 revisiones de Alpha Vantage, 16 de FRED y
+96 del BCRA; ningún job de precios quedó abierto. El owner dejó la importancia
+inicial de FRED a criterio del agente: queda alta para IPC, empleo, PIB y PCE.
+Pendiente del owner, sin bloquear: ver la exposición a resultados con una
+posición o idea swing real.
+
+**Estado:** `done` (`F12-02`, `F12-03`, `F12-04`).
+
+**`F12-05`, 2026-11-26.** Las reglas de precios saben qué días opera Nueva
+York (ADR 0088, decisión 8, sin migración).
+
+- `sector-price-freshness-2.0.0` (y `ticker-price-freshness-2.0.0`, la misma
+  regla sobre una security): `latestSettledSession` camina hacia atrás por la
+  fecha de **Nueva York** con `market-sessions-1.0.0`; un feriado o fin de
+  semana no es sesión, y una sesión se asienta 60 minutos después de su cierre
+  regular (`sessionSettledInstant`, la espera de `settled-session-1.0.0`). En
+  horario de verano eso es 21:00 UTC en lugar de 22:00; el cierre temprano del
+  viernes después de Thanksgiving, 19:00 UTC. Fuera de lo declarado rige `1.1.0`
+  y lo nombra `undeclared_weekday`.
+- `assertPriceRefreshJob` acepta un job abierto planeado con `1.1.0`
+  (`PRICE_FRESHNESS_RULE_VERSIONS`): la versión decide qué se planea, no cómo
+  se baja. Medido en Neon: ningún job de precios abierto.
+- `latestSettledWeekday`/`sessionSettledAt` (`1.1.0`) quedan para la curva del
+  BCE y el consenso, que no operan con la NYSE o ya fecharon lo que muestran.
+- `trading-session-ny-2.0.0` (`preparedSessionOf`, `planPreparesSession`): la
+  sesión que prepara un instante, hoy antes del cierre regular o la próxima
+  declarada. El vínculo de una idea del pre-market con su trade la acepta además
+  de la fecha de Nueva York de `1.0.0`, así que un plan del domingo, de la noche
+  anterior o de Thanksgiving se une al trade de la próxima rueda. Las
+  ejecuciones siguen con `1.0.0` y los vínculos guardados no se recalculan.
+- Evidencia: 21 unitarios nuevos (Thanksgiving sin pedido, el cierre temprano
+  a las 19:00 UTC, horario de verano y estándar, la fecha de Nueva York a la
+  01:00 UTC, 2029 sin calendario, el lunes después del cierre temprano y la
+  idea del domingo); 5.112 en total, tipos, lint y formato.
+
+**Estado:** `done`.
 
 ## Cobertura de deuda transversal
 

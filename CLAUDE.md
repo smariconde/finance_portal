@@ -190,7 +190,7 @@ The render only reads (`readSectorPriceReadiness`); the client then calls
 idempotent step: report the open price job, or plan what is missing, or answer
 `fresh`. The worker runs after the response with `after()` and the page polls the
 same action. What is missing is `sector-price-freshness-1.0.0`, with no holiday
-calendar: a session is settled at 22:00 UTC; the reference is current if it has
+calendar (since `F12-05`, `2.0.0` reads the NYSE calendar, see below): a session is settled at 22:00 UTC; the reference is current if it has
 the last settled weekday **or** a job checked it after that instant (a holiday);
 a security is current if it has the **reference's last session** or was checked
 after it settled (a halted stock). Two phases never planned together —reference
@@ -455,7 +455,8 @@ The job downloads what it lacks before valuing (`F6-05`,
 assessment: no annual series → companyfacts of the CIK and its reporting
 predecessors as a `sec_companyfacts_backfill` durable job; no visible `sec-sic`
 → one `submissions` probe without a lease; no close of the last settled weekday
-and no price check after it (`ticker-price-freshness-1.0.0`) → a one-item
+and no price check after it (`ticker-price-freshness-1.0.0`, `2.0.0` since
+`F12-05`) → a one-item
 `yahoo_prices_refresh`. A plan equal to an open one returns it, which is the
 resumption; a busy, exhausted, disabled or backed-off source ends the job
 `ingestion_pending` with reason and time, a rejected subject `ingestion_failed`,
@@ -824,7 +825,7 @@ filer's original 20-F, never a 10-K), so the operations-mix task reads SPOT's
 «Revenue by country» against its EUR revenue with the same prompts (359.17 EUR,
 rigor `standard`); IFRS options with a USD strike are `F6-57`.
 
-Since `F12-01` (in progress, [ADR 0088](docs/architecture/adr/0088-market-calendar-agenda.md))
+Since `F12-01` (in progress until Schwab is measured, [ADR 0088](docs/architecture/adr/0088-market-calendar-agenda.md))
 the portal knows when New York trades. `declared-market-sessions.ts` holds the
 NYSE's 2026–2028 holidays and early closes as the exchange published them;
 `market-sessions-1.0.0` says whether a date trades and its regular hours in New
@@ -843,6 +844,35 @@ account, so a refusal names the key path (no values) in the page and the log;
 `session-corroboration-1.0.0` compares the regular session to the instant, says
 «Schwab coincide» with Schwab's extended hours, or names the difference (for
 that day Schwab wins). The first real response is measured in Production.
+
+The agenda (`F12-02`–`F12-04`, migration `0059`) stores every dated event as an
+append-only revision chain in `calendar_event_revisions` —a moved date, time or
+estimate is a new revision, the previous one stays visible— filled on open by a
+one-item `market_calendar_refresh` job per source under the usual lease, budget
+and kill switch: Alpha Vantage's `EARNINGS_CALENDAR` (one request per New York
+day; `earnings-exposure-1.0.0` flags a swing position or idea reporting within 5
+sessions, an unknown time counting as inside, and marks «Reporta hoy» for day
+only with a known time), FRED's release dates for the declared US releases
+(`declared-macro-releases.ts`, `FRED_API_KEY` added by the door as `env_query`)
+plus the declared FOMC meetings, and the BCRA's report calendar
+(`bcra-report-calendar-1.0.0` checks the list's title before reading). INDEC
+publishes no structured calendar, so its semester is transcribed from the PDF in
+`declared-indec-calendar.ts`; `/argentina` marks «Esperado hoy» until the block
+reads the scheduled period, next to ADR 0079's «Nuevo». Treasury auctions stay
+out (owner).
+
+Since `F12-05` (ADR 0088 decision 8) the price rules know the calendar:
+`sector-price-freshness-2.0.0` and `ticker-price-freshness-2.0.0` take the last
+settled New York session from `market-sessions-1.0.0` —a NYSE holiday asks for
+nothing, a session settles 60 minutes after **its** regular close (an early
+close at 13:00)—, and a date outside the declaration falls back to `1.1.0`'s
+weekday at 22:00 UTC, named `undeclared_weekday`. An open job planned with
+`1.1.0` still runs. `latestSettledWeekday`/`sessionSettledAt` stay for the ECB
+curve and the consensus dating. `trading-session-ny-2.0.0` (`preparedSessionOf`)
+is the session an instant prepares —today before its regular close, else the
+next declared session—, so a pre-market idea written on a Sunday, the night
+before or on a holiday links to the next session's trade; fills keep
+`tradingSessionOf` (`1.0.0`) and stored links are not recomputed.
 
 Company logos are loaded by the **browser** from logo.dev
 ([ADR 0062](docs/architecture/adr/0062-company-logos-browser-loaded.md)): the

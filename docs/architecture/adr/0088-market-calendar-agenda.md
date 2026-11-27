@@ -249,6 +249,23 @@ Una vez que existe `market-sessions-1.0.0`, las reglas de frescura de precios
 y la sesión de trading pasan a nuevas versiones que saben qué días opera
 Nueva York, sin tocar lo que ya fecharon. Es el último slice de la fase.
 
+**Implementada el 2026-11-26 (`F12-05`).** `sector-price-freshness-2.0.0` y
+`ticker-price-freshness-2.0.0` toman la última sesión asentada de
+`market-sessions-1.0.0`: un feriado de la NYSE no es sesión y no pide precios,
+y una sesión se asienta 60 minutos después de su cierre regular —la misma
+espera de `settled-session-1.0.0`—, así que el cierre temprano de las 13:00 se
+asienta a las 14:00 de Nueva York y no a las 22:00 UTC. Una fecha fuera de lo
+declarado vuelve a la regla `1.1.0` (día hábil a las 22:00 UTC) y lo nombra
+(`undeclared_weekday`); un job abierto planeado con `1.1.0` termina con el
+código nuevo, porque la versión decide qué se planea y no cómo se baja.
+`trading-session-ny-2.0.0` es la sesión que prepara un instante —hoy antes de
+su cierre regular, si no la próxima declarada— y la usa el vínculo de las ideas
+del pre-market con el trade: un plan del domingo, de la noche anterior o del
+feriado es de la próxima rueda. Las ejecuciones siguen fechadas por `1.0.0`
+(siempre caen en una sesión) y los vínculos guardados no se recalculan. La
+curva del BCE y el consenso conservan su regla de 22:00 UTC: no operan con la
+NYSE o ya fecharon lo que muestran.
+
 ## Fuera de alcance
 
 - Notificaciones fuera del portal (correo, push, Google Calendar). Una

@@ -37,8 +37,9 @@ import { CHART_PARSER_VERSION } from "../domain/parse-chart-payload";
 import {
   assessReferenceFreshness,
   PRICE_FRESHNESS_RULE_VERSION,
+  PRICE_FRESHNESS_RULE_VERSIONS,
   selectStaleSecurities,
-  sessionSettledAt,
+  sessionSettledInstant,
   type ReferenceFreshness,
 } from "../domain/price-freshness";
 import { BENCHMARK_DATASET_ID } from "./ingest-benchmark";
@@ -272,7 +273,7 @@ export async function assessSectorPrices(
       ...base,
       referenceUnavailable: checkedSince(
         referenceCheck,
-        sessionSettledAt(reference.expectedSession),
+        sessionSettledInstant(reference.expectedSession),
         retryFailures,
       ),
       targetSession: null,
@@ -282,7 +283,7 @@ export async function assessSectorPrices(
   }
 
   const targetSession = reference.latestClose;
-  const settled = sessionSettledAt(targetSession);
+  const settled = sessionSettledInstant(targetSession);
   const withTargetClose = new Set(
     await dependencies.prices.listSecuritiesWithClosesSince({
       from: targetSession,
@@ -550,16 +551,24 @@ export class PriceRefreshJobMismatchError extends Error {
 
 /**
  * Un job planeado con otra regla o con otro parser no se corre con el código
- * actual: diría haber revisado algo distinto de lo que el plan nombra.
+ * actual: diría haber revisado algo distinto de lo que el plan nombra. Las
+ * versiones de frescura sólo deciden **qué** se planea, no cómo se baja cada
+ * item, así que un job abierto con `sector-price-freshness-1.1.0` termina con
+ * este código sin decir otra cosa de lo que nombró.
  */
 export function assertPriceRefreshJob(job: IngestionJob): void {
+  const freshnessVersion = (
+    PRICE_FRESHNESS_RULE_VERSIONS as readonly (string | null)[]
+  ).includes(job.selectionVersion)
+    ? job.selectionVersion
+    : PRICE_FRESHNESS_RULE_VERSION;
   const expected = {
     kind: PRICE_REFRESH_KIND,
     sourceId: PRICES_SOURCE_ID,
     parserVersion: CHART_PARSER_VERSION,
     selectionVersion: isFiscalPriceHistoryJob(job)
       ? FISCAL_PRICE_HISTORY_VERSION
-      : PRICE_FRESHNESS_RULE_VERSION,
+      : freshnessVersion,
   };
 
   for (const [field, value] of Object.entries(expected)) {

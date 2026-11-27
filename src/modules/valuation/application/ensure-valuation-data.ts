@@ -230,9 +230,10 @@ async function sicStep(
 }
 
 /**
- * `ticker-price-freshness-1.0.0`: la regla de la referencia (ADR 0030) sobre
- * una security. Al día si tiene la última rueda asentada o si un job la revisó
- * después de que se asentó.
+ * `ticker-price-freshness-2.0.0`: la regla de la referencia (ADR 0030) sobre
+ * una security. Al día si tiene la última sesión de Nueva York asentada —un
+ * feriado de la NYSE no cuenta, un cierre temprano se asienta a su hora— o si
+ * un job la revisó después de que se asentó.
  */
 async function pricesStep(
   request: ValuationDataRequest,

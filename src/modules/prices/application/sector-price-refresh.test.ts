@@ -361,8 +361,9 @@ describe("ensureSectorPrices", () => {
       closes: { [FIXTURE]: "2026-09-29", [ANDES]: "2026-09-29" },
     });
 
-    // Revisada el 30 a las 21:00 UTC: la rueda del 30 todavía no estaba asentada.
-    setClock("2026-09-30T21:00:00.000Z");
+    // Revisada el 30 a las 20:30 UTC: la rueda del 30 (cierre 20:00 UTC en
+    // horario de verano) se asienta a las 21:00.
+    setClock("2026-09-30T20:30:00.000Z");
     expect(
       (await ensureSectorPrices({ sectorCode: "energy" }, dependencies)).status,
     ).toMatchObject({ state: "fresh" });
@@ -370,7 +371,7 @@ describe("ensureSectorPrices", () => {
     setClock(NOW);
     await ensureSectorPrices({ sectorCode: "energy" }, dependencies);
     await runJob(jobs.snapshot().jobs[0]!, ingestedEverything);
-    // El job se creó después de las 22:00: ahora sí cuenta como revisión.
+    // El job se creó después de las 21:00: ahora sí cuenta como revisión.
     expect(
       (await ensureSectorPrices({ sectorCode: "energy" }, dependencies)).status,
     ).toMatchObject({ state: "fresh", targetSession: "2026-09-29" });
