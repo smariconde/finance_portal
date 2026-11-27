@@ -33,6 +33,8 @@ export const NAV_SECTIONS: readonly NavSection[] = [
       { href: "/valuacion", label: "Valuación" },
       { href: "/sectores", label: "Matrices" },
       { href: "/argentina", label: "Argentina" },
+      // Córdoba (Fase 13, ADR 0089): los avisos que capturó la extensión.
+      { href: "/inmuebles", label: "Inmuebles" },
     ],
   },
   {
@@ -78,6 +80,7 @@ const DYNAMIC_SEGMENT: Readonly<Record<string, (segment: string) => string>> = {
       .join(" "),
   "/diario": () => "Trade",
   "/lecciones": () => "Lección",
+  "/inmuebles": () => "Aviso",
 };
 
 function decoded(segment: string): string {

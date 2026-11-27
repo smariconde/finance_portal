@@ -1,0 +1,13 @@
+{
+  "reducer": "listing-corpus-reducer-1.0.0",
+  "source": "remax-ar",
+  "adapterVersion": "remax-ng-state-1.0.0",
+  "document": {
+    "url": "https://www.remax.com.ar/listings/vendo-departamento-2-dormitorios-general-paz",
+    "capturedAt": "2026-11-27T21:25:15.035Z",
+    "embeddedStates": {
+      "script#ng-state": "{\"r0\":{\"u\":\"https://api-ar.redremax.com/remaxweb-ar/api/listings/findBySlug/vendo-departamento-2-dormitorios-general-paz\",\"s\":200,\"b\":{\"data\":{\"id\":\"964f2ffe-2408-4c83-89b4-8f04756bd4e8\",\"slug\":\"vendo-departamento-2-dormitorios-general-paz\",\"internalId\":\"421701107-29\",\"title\":\"VENDO DEPARTAMENTO 2 DORMITORIOS GENERAL PAZ\",\"operation\":{\"value\":\"sale\"},\"type\":{\"value\":\"departamento_estandar\"},\"listingStatus\":{\"value\":\"active\"},\"price\":135000,\"priceExposure\":true,\"currency\":{\"value\":\"USD\"},\"expensesPrice\":150000,\"expensesCurrency\":{\"value\":\"ARS\"},\"dimensionCovered\":65,\"dimensionTotalBuilt\":71,\"dimensionLand\":0,\"dimensionUncovered\":0,\"dimensionSemicovered\":6,\"totalRooms\":3,\"bedrooms\":2,\"bathrooms\":1,\"toilets\":1,\"floors\":6,\"parkingSpaces\":0,\"yearBuilt\":2011,\"aptCredit\":false,\"conditions\":[{\"value\":\"excelente\"}],\"features\":[{\"value\":\"Dormitorio\"},{\"value\":\"Baño\"},{\"value\":\"Terraza\"},{\"value\":\"Quincho\"},{\"value\":\"Balcón\"},{\"value\":\"Pileta\"},{\"value\":\"Cocina/Comedor\"}],\"displayAddress\":\"Fray Mamerto Esquiú 400\",\"geo\":{\"neighborhood\":\"general paz\"},\"location\":{\"coordinates\":[-64.1719779,-31.4123319]},\"associate\":{\"officeName\":null,\"office\":{\"name\":\"REMAX Ultra\"}},\"photos\":[{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}]}}}}"
+    },
+    "jsonLd": []
+  }
+}

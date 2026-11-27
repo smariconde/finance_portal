@@ -15,6 +15,8 @@ const SOY_RIGHTS_REVIEWED_AT = "2026-11-04T00:00:00.000Z";
 const SOY_RIGHTS_REVIEW_DUE_AT = "2027-02-04T00:00:00.000Z";
 const COUNTRY_RISK_RIGHTS_REVIEWED_AT = "2026-11-17T00:00:00.000Z";
 const COUNTRY_RISK_RIGHTS_REVIEW_DUE_AT = "2027-02-17T00:00:00.000Z";
+const REAL_ESTATE_RIGHTS_REVIEWED_AT = "2026-11-27T00:00:00.000Z";
+const REAL_ESTATE_RIGHTS_REVIEW_DUE_AT = "2027-02-27T00:00:00.000Z";
 const CONSENSUS_RIGHTS_REVIEWED_AT = "2026-11-18T00:00:00.000Z";
 const CONSENSUS_RIGHTS_REVIEW_DUE_AT = "2027-02-18T00:00:00.000Z";
 
@@ -1441,6 +1443,54 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
       ownerNotes:
         "Decisión del owner del 2026-11-17: Ámbito directo, porque ArgentinaDatos es una copia con decimales truncados, fines de semana rellenados y días faltantes. Ámbito dice «Todos los derechos reservados» y no enlaza sus condiciones; J.P. Morgan es dueño del índice.",
       recordedAt: COUNTRY_RISK_RIGHTS_REVIEWED_AT,
+    }),
+    sourceRegistryEntrySchema.parse({
+      sourceId: "remax-ar",
+      displayName: "RE/MAX Argentina — avisos inmobiliarios",
+      owner: "RE/MAX Argentina",
+      canonicalUrl: "https://www.remax.com.ar/",
+      documentationUrls: ["https://www.remax.com.ar/"],
+      datasets: ["remax-ar.listings"],
+      // La extensión lee la página que el owner ya abrió: el servidor nunca
+      // sale a este portal, así que no hay endpoint en la allowlist.
+      endpoints: [],
+      authentication: "none",
+      applicablePlan: null,
+      rateLimit: "sin cuota publicada; a paso humano en el navegador del owner",
+      attribution: "RE/MAX Argentina",
+      expectedCadence: "al ver una ficha o un listado (captura al ver)",
+      freshnessTarget: "la última página vista",
+      timezone: "America/Argentina/Buenos_Aires",
+      units: ["m²", "USD", "ARS"],
+      currencies: ["USD", "ARS"],
+      parserVersion: "remax-ng-state-1.0.0",
+      fixturePolicy:
+        "Captura real reducida por listing-corpus-reducer-1.0.0 (ADR 0089, Decisión 10): sin contacto, fotos ni descripción; fijada por sha256.",
+      fallbackSourceIds: [],
+      rights: {
+        personalUse: "owner_accepted",
+        automatedAccess: "owner_accepted",
+        rawStorage: "restricted",
+        normalizedStorage: "owner_accepted",
+        derivedStorage: "owner_accepted",
+        publicDisplay: "restricted",
+        export: "restricted",
+        aiTransfer: "restricted",
+        ownerAssistant: OWNER_ASSISTANT,
+      },
+      technicalStatus: "integrated",
+      approvalStatus: "approved_personal",
+      reviewedAt: REAL_ESTATE_RIGHTS_REVIEWED_AT,
+      rightsReviewedAt: REAL_ESTATE_RIGHTS_REVIEWED_AT,
+      rightsReviewDueAt: REAL_ESTATE_RIGHTS_REVIEW_DUE_AT,
+      reviewEvidence: [
+        "docs/architecture/adr/0089-real-estate-intelligence-cordoba.md",
+      ],
+      retentionClasses: ["R3"],
+      quotaPolicyId: null,
+      ownerNotes:
+        "Decisión del owner del 2026-11-27 (ADR 0089, Decisión 1): no se leen ni se citan los términos del portal; la extensión mira lo que el owner miraría, a su ritmo, en un perfil dedicado de Brave.",
+      recordedAt: REAL_ESTATE_RIGHTS_REVIEWED_AT,
     }),
     sourceRegistryEntrySchema.parse({
       sourceId: "bcr-cac-pizarra",

@@ -3,6 +3,7 @@ import {
   ChartScatter,
   ChevronRight,
   GraduationCap,
+  House,
   Landmark,
   ListChecks,
   NotebookPen,
@@ -45,6 +46,12 @@ const analysisLinks = [
     label: "Argentina",
     icon: Landmark,
     detail: "Actividad, dólar, inflación, reservas, resultado fiscal y soja",
+  },
+  {
+    href: "/inmuebles",
+    label: "Inmuebles",
+    icon: House,
+    detail: "Avisos de Córdoba vistos en el navegador, con su historial",
   },
 ] as const;
 

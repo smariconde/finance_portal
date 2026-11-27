@@ -5,10 +5,13 @@
 .impeccable/review
 .impeccable/mocks
 coverage
+extensions/listings/.output
+extensions/listings/.wxt
 docs/finance-portal-masterplan
 # El corpus congelado está fijado por hash: reformatearlo lo rompería (ADR 0023).
 src/modules/fundamentals/infrastructure/golden
 src/modules/ai-evals/infrastructure/corpus
+extensions/listings/corpus/files
 tests/fixtures/sec/*.html
 node_modules
 pnpm-lock.yaml

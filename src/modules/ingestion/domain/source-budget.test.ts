@@ -85,6 +85,7 @@ describe("topes declarados", () => {
       "ecb-data-portal",
       "fred",
       "indec-api",
+      "inmuebles-captura",
       "logo-dev",
       "magyp-datos-abiertos",
       "magyp-estimaciones",

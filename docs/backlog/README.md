@@ -180,7 +180,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   152 | `F9-23`    | `done`        | Guía ⓘ junto al título de cada bloque de `/argentina`: para qué sirve, cómo leerlo, con qué cruzarlo y qué puede confundir, en líneas cortas y sin consejos.                                                              | Pedido del owner   |
 |   153 | `F9-24`    | `done`        | El IPC observado del bloque REM se pide al abrir; si la API del INDEC no tiene el mes, se lee del BCRA «vía BCRA»; cada mes sin IPC dice por qué.                                                                         | Pedido del owner   |
 |   154 | `F13-01`   | `done`        | Contratos, identidad y fixtures sintéticas: parcela, unidad, aviso y revisión sólo cuando algo cambia, sin red.                                                                                                           | ADR 0089           |
-|   155 | `F13-02`   | `queued`      | Extensión WXT cargada en Brave o Chrome, captura al ver de Remax medida por el agente en el navegador, endpoint con dos secretos y ficha mínima con historial.                                                            | `F13-01`           |
+|   155 | `F13-02`   | `done`        | Extensión WXT cargada en Brave o Chrome, captura al ver de Remax medida por el agente en el navegador, endpoint con dos secretos y ficha mínima con historial.                                                            | `F13-01`           |
 |   156 | `F13-03`   | `queued`      | Barrido programado robusto: perfil dedicado, cola con prioridad, cursor, tope de 25 páginas por portal, detención ante desafío y cobertura medida.                                                                        | `F13-02`           |
 |   157 | `F13-04`   | `queued`      | Zonaprop, Argenprop y Mercado Libre: cada uno medido en el navegador, leído por datos estructurados primero y con su captura real reducida.                                                                               | `F13-03`           |
 |   158 | `F13-05`   | `queued`      | Deduplicación por dHash, SimHash y dirección; republicaciones; historial de precios; baja sólo con la ficha visitada.                                                                                                     | `F13-04`           |
@@ -8725,6 +8725,68 @@ on_request` con precio y moneda `null`. Los cuatro portales de la ADR
 - Evidencia: 31 unitarios nuevos (5.158 en total) y 6 de integración
   —rollback y reaplicación, la guarda, ida y vuelta exacta de una revisión y
   los checks con sus ramas nulas—; formato, lint, tipos y build.
+
+**Estado:** `done`.
+
+**`F13-02`, 2026-11-27.** La extensión de captura y el endpoint que la recibe
+(ADR 0089, enmiendas del 2026-11-27).
+
+- **Medición antes del adapter.** Un subagente Haiku manejó el Brave del owner
+  con Claude in Chrome en dos pasadas: Remax es Angular con
+  `<script id="ng-state">` (las respuestas de su API, buscadas por URL porque
+  la clave es un hash inestable), 24 avisos por página con `page` desde 0, la
+  tarjeta abre otra pestaña y el paginador recarga, JSON-LD sólo con
+  `BreadcrumbList`, fotos en CloudFront, sin fecha de publicación ni barrio y
+  sin desafíos. El uuid (`id` en la ficha, `entityId` en la tarjeta) es el
+  único ID común.
+- **Extensión** `extensions/listings/` con WXT 0.21.5 y MV3, sin auto-imports
+  (la cubren el `tsc`, el ESLint y el Vitest del repo) e importando el dominio
+  por ruta relativa, porque WXT fuerza su `@`. `portals/registry.ts` es la
+  única lista; los patrones viven en `portal-matches.ts` (sin imports, para el
+  manifest) y un test exige que cada adapter declare todos los campos del
+  contrato con base y ruta o motivo de ausencia, que ningún selector esté
+  vacío, que no compartan host y que los patrones coincidan.
+  `remax-ng-state-1.0.0` lee ficha y listado; un tipo con prefijo toma el del
+  prefijo, un galpón, un emprendimiento o un aviso vendido quedan afuera por
+  nombre, «consultar precio» es `on_request`, un 0 del portal no es un dato,
+  `[0, 0]` no es un pin y el 0 final de una dirección no es una altura.
+- **Rasgos en el navegador.** `description-simhash-1.0.0` (FNV-1a de pares de
+  palabras normalizadas, 64 bits) y `listing-features-1.0.0` (estado con
+  precedencia a reciclar > a estrenar > bueno, nunca bueno por defecto;
+  rasgos legales con negación) viajan desde la primera captura porque entran
+  en el hash. El dHash queda para `F13-05`.
+- **Envío.** El service worker es el único que envía: cola local
+  `listing-capture-queue-1.0.0` (2.000, descarta lo más viejo y lo cuenta),
+  lotes de 50 por versión de adapter, reintento cada cinco minutos y fallas
+  con nombre en el popup. `POST /api/inmuebles/captura` exige el `Origin` de
+  la extensión (ID fijado por la `key` del manifest), `CAPTURE_TOKEN` con la
+  regla del MCP, JSON de 256 kB como mucho y la cuota `inmuebles-captura`
+  (300 pedidos por día y kill switch); valida cada captura por separado,
+  aplica con un lock consultivo por aviso y responde el resultado de cada una
+  sin valores. Ítem de salud «Captura de inmuebles» (`disabled` sin token,
+  `degraded` en Preview). Fila `remax-ar` en el registro de fuentes,
+  `owner_accepted` sin cláusula citada.
+- **Ficha mínima.** `/inmuebles` lista los 100 avisos vistos más recientemente
+  y `/inmuebles/[portal].[id]` muestra lo último publicado y el historial
+  revisión por revisión con la variación en la misma moneda
+  (`listing-view-1.0.0`); entra al mapa bajo Análisis. Revisada a 1440 y
+  390 px en claro y oscuro: 0 desborde y 0 hallazgos de axe.
+- **Corpus real.** «Exportar página» en el popup y `pnpm inmuebles:corpus`
+  con `listing-corpus-reducer-1.0.0` por lista blanca: un listado (23 avisos,
+  un galpón afuera) y dos fichas, fijados por `sha256` con su lectura
+  esperada.
+- **Medido** el 2026-11-27 en Córdoba Capital con el perfil Inmuebles: 157
+  avisos, 32 fichas, 187 revisiones (30 avisos pasaron de la tarjeta a la
+  ficha; 5 fichas vueltas a ver no sumaron revisión), 17 fichas con
+  comodidades, 12 con rasgos legales, 29 con estado conocido, 1 «consultar
+  precio», 44 lotes aceptados y **0 desafíos** en ~60 páginas.
+- `TM-02` (el endpoint no devuelve ni registra valores ni errores de la base),
+  `TM-03` (origen, token y esquema cerrado), `TM-05` (contrato por captura),
+  `TM-12` (el reductor por lista blanca) y `TM-16` (logs con conteos).
+- Evidencia: 68 unitarios nuevos (5.226 en total), 2 de integración del store
+  contra PostgreSQL —la cadena igual que el doble y dos envíos simultáneos con
+  una sola revisión—, E2E del endpoint y de las dos rutas en personal y
+  trabado; formato, lint, tipos y build.
 
 **Estado:** `done`.
 

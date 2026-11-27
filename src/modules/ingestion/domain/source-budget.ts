@@ -107,6 +107,11 @@ export const SOURCE_DAILY_REQUEST_BUDGETS: Readonly<Record<string, number>> =
     // de Neon. Una sesión son unos pocos pedidos por pregunta; quinientos
     // cubren un día de uso intenso. Se revisa con la medición del slice.
     "portal-mcp": 500,
+    // La captura de inmuebles (ADR 0089) tampoco sale a la red: cuenta cada
+    // pedido de la extensión a `/api/inmuebles/captura`. Un pedido trae hasta
+    // 50 avisos (dos listados de Remax), así que 300 son 15.000 filas por día
+    // como mucho: lo que un día de mirar avisos no alcanza.
+    "inmuebles-captura": 300,
   });
 
 /** Tabla de topes declarados. Los tests inyectan la suya; el runtime usa la de arriba. */

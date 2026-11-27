@@ -5,6 +5,7 @@ import {
   MCP_ACCESS_TOKEN_VARIABLE,
   parseMcpAccessToken,
 } from "@/modules/owner-mcp/domain/mcp-access-token";
+import { CAPTURE_TOKEN_VARIABLE } from "@/modules/real-estate/domain/capture-token";
 import { parseTradingSecretKey } from "@/modules/trading/domain/trading-secret-key";
 
 import { parseDatabaseTarget, sameDatabaseTarget } from "./database-target";
@@ -75,7 +76,14 @@ export type AppRuntimeAccess = z.infer<typeof appRuntimeAccessSchema>;
 export type ConfigStatus = "ready" | "degraded" | "disabled";
 
 export type ConfigHealthItem = {
-  id: "core" | "database" | "liveIntegrations" | "trading" | "schwab" | "mcp";
+  id:
+    | "core"
+    | "database"
+    | "liveIntegrations"
+    | "trading"
+    | "schwab"
+    | "mcp"
+    | "listingCapture";
   label: string;
   status: ConfigStatus;
   message: string;
@@ -510,6 +518,77 @@ function inspectMcp(
   };
 }
 
+/**
+ * El endpoint de captura de inmuebles (ADR 0089, «Envío»). Como el MCP, no es
+ * parte de `personal`: sin `CAPTURE_TOKEN` la ruta no existe y la extensión
+ * encola, así que falta es `disabled`, nunca `degraded`.
+ */
+function inspectListingCapture(
+  environment: Environment,
+  runtime: RuntimeResolution,
+): ConfigHealthItem {
+  const label = "Captura de inmuebles";
+  const configured = hasValue(environment[CAPTURE_TOKEN_VARIABLE]);
+
+  if (runtime.mode === "locked") {
+    return {
+      id: "listingCapture",
+      label,
+      status: "disabled",
+      message: configured
+        ? "Hay un token de captura, pero un runtime trabado no abre la ruta."
+        : "Bloqueada mientras el runtime esté trabado.",
+      missingVariables: [],
+    };
+  }
+
+  // `TM-14`: el token vive sólo en local y en Production, como el del MCP.
+  if (environment.VERCEL_ENV === "preview") {
+    return {
+      id: "listingCapture",
+      label,
+      status: configured ? "degraded" : "disabled",
+      message: configured
+        ? "Preview no debe recibir el token de captura; se ignora."
+        : "Preview no recibe capturas.",
+      missingVariables: configured ? [CAPTURE_TOKEN_VARIABLE] : [],
+    };
+  }
+
+  const token = parseMcpAccessToken(environment[CAPTURE_TOKEN_VARIABLE]);
+
+  if (!token.ok && token.problem === "missing") {
+    return {
+      id: "listingCapture",
+      label,
+      status: "disabled",
+      message:
+        "Sin su token, la ruta de captura no existe; la extensión encola lo que ve.",
+      missingVariables: [CAPTURE_TOKEN_VARIABLE],
+    };
+  }
+
+  if (!token.ok) {
+    return {
+      id: "listingCapture",
+      label,
+      status: "degraded",
+      message:
+        "El token tiene que ser base64url de al menos 32 bytes aleatorios.",
+      missingVariables: [CAPTURE_TOKEN_VARIABLE],
+    };
+  }
+
+  return {
+    id: "listingCapture",
+    label,
+    status: "ready",
+    message:
+      "La extensión envía los avisos vistos con el token; sólo escribe avisos y revisiones.",
+    missingVariables: [],
+  };
+}
+
 export function getConfigHealth(environment: Environment): ConfigHealth {
   const runtime = resolveRuntime(environment);
   const trading = inspectTrading(environment, runtime);
@@ -524,6 +603,7 @@ export function getConfigHealth(environment: Environment): ConfigHealth {
       trading,
       inspectSchwab(environment, runtime, trading),
       inspectMcp(environment, runtime),
+      inspectListingCapture(environment, runtime),
     ],
   };
 }
@@ -563,5 +643,18 @@ export function servesOwnerMcp(health: ConfigHealth): boolean {
   return (
     servesRealData(health) &&
     health.items.some((item) => item.id === "mcp" && item.status === "ready")
+  );
+}
+
+/**
+ * Único predicado que abre `POST /api/inmuebles/captura`: modo personal **y**
+ * su token (ADR 0089).
+ */
+export function servesListingCapture(health: ConfigHealth): boolean {
+  return (
+    servesRealData(health) &&
+    health.items.some(
+      (item) => item.id === "listingCapture" && item.status === "ready",
+    )
   );
 }

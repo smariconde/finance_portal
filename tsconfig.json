@@ -30,5 +30,9 @@
     "**/*.tsx",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "extensions/listings/.output",
+    "extensions/listings/.wxt"
+  ]
 }
