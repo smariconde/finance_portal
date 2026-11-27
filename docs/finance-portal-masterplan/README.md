@@ -48,6 +48,9 @@ La IA propone, clasifica, investiga y explica. El codigo deterministico descarga
 
 ## Documentos derivados
 
+- [`../architecture/adr/0089-real-estate-intelligence-cordoba.md`](../architecture/adr/0089-real-estate-intelligence-cordoba.md): Fase 13, inmuebles de Córdoba Capital — extensión de uso personal en Brave o Chrome, identidades separadas, ubicación por Georef, banda predictiva de comparables, zonificación por parcela y cinco casos de negocio a grandes rasgos. Aprobada el 2026-11-27.
+- [`../real-estate/market-model.md`](../real-estate/market-model.md): identidad, contrato de captura `listing-capture-1.0.0`, fórmulas de los cinco casos, costos de compra y venta de Córdoba y oráculos del dominio inmobiliario.
+
 - [`../design/portal-brand.md`](../design/portal-brand.md): sello torii de velas aprobado por el owner, paleta bermellón/carbón/marfil, procedencia y regeneración del favicon.
 
 - [`../architecture/adr/0077-persisted-company-logos.md`](../architecture/adr/0077-persisted-company-logos.md): logos PNG guardados en PostgreSQL por pedido del owner y cuadrados redondeados en trading, conservando círculos en matrices y gráficos.

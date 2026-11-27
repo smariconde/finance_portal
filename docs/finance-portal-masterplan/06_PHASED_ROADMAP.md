@@ -33,6 +33,8 @@ Solo una fase puede estar `in_progress`. No marcar `done` por porcentaje, esfuer
 | Fase 10 - Persistencia, asistente y hardening | not_started | - |
 | Fase 12 - Calendario de mercado y agenda (se ejecuta en paralelo con las Fases 9 y 11, por pedido del owner) | in_progress | [ADR 0088](../architecture/adr/0088-market-calendar-agenda.md) aceptada el 2026-11-26 con las fuentes medidas y las decisiones del owner: sesiones de la NYSE declaradas y corroboradas por Schwab, sin feriados argentinos ni BYMA, resultados desde Alpha Vantage, agenda de Estados Unidos desde FRED y la Fed, y la argentina desde el BCRA y el INDEC. `F12-02` a `F12-05` hechos y en Production; `F12-01` espera la primera respuesta real de Schwab en Production para cerrar el gate |
 
+| Fase 13 - Inmuebles de Córdoba (fase especial, se ejecuta después de la Fase 12 y no comparte motor con la valuación de empresas) | not_started | [ADR 0089](../architecture/adr/0089-real-estate-intelligence-cordoba.md) aprobada por el owner el 2026-11-27, después de revisarla con él: extensión de uso personal en un perfil dedicado de Brave o Chrome —medido que cinco de los seis portales responden `403` o desafío a un cliente sin sesión—, captura al ver primero y barrido programado después, revisión sólo cuando algo cambia, ubicación por Georef, banda predictiva de comparables, cinco casos a grandes rasgos (cocheras con tinglado sobre el lote, flip, vivir, renta y desarrollo) y pesos al tipo de cambio oficial mayorista. `F13-01` es el primero. Modelo en [`docs/real-estate/market-model.md`](../real-estate/market-model.md) |
+
 **Reordenamiento del 2026-09-04.** La [ADR 0007](../architecture/adr/0007-ticker-driven-valuation-pivot.md) reordena las fases alrededor del objetivo real del owner: escribir un ticker y obtener una valuacion rigurosa, persistida y refrescable. El orden anterior —capas de capacidad— dejaba ese resultado despues de la Fase 5 y la capa IA en la Fase 7, detras del bloque de Argentina. Nada se elimina: screener, divergencias, macro y soja conservan su alcance y sus gates, corridos hacia abajo. La [ADR 0008](../architecture/adr/0008-remote-personal-access.md) habilita el acceso remoto en produccion, que hoy el codigo niega.
 
 **Alcance del 2026-09-16.** La [ADR 0016](../architecture/adr/0016-analysis-scope-sector-matrices.md) fija que el portal no es un screener general: el owner filtra el mercado con Finviz gratuito. La valuacion es puntual, sobre las empresas que el owner pide por ticker, y sus fundamentals se bajan al pedirlas. Las comparaciones son matrices por sector. La de riesgo (Sortino 2Y contra 5Y, con referencia S&P 500 y CEDEAR distinguido) usa solo precios; la de divergencias necesita pocos fundamentals por empresa del sector. La Fase 7 pasa a ser la matriz de riesgo, `F6-05` pasa a ser la ingesta bajo demanda y la valuacion por lote sale del alcance. El mismo dia el owner decidio adelantar la matriz de riesgo, que no depende del motor: el orden de ejecucion queda 2 → 7 → 3 → 4 → 5 → 6 → 8 → 9 → 10, sin cambiar los IDs, y el registro CEDEAR que necesita pasa a la Fase 7. La vista principal de divergencias es la que eligio el owner, market cap contra EPS, con el sesgo de recompras a la vista.
@@ -298,6 +300,55 @@ Pedido del owner del 2026-11-26: saber qué días opera el mercado, con qué hor
 - [x] Reglas de frescura de precios y sesión de trading con el calendario (`F12-05`).
 
 **Gate:** cada sesión declarada de 2026 coincide con la respuesta de Schwab en los días medidos, incluidos un feriado y un cierre temprano; una fecha de resultados o una publicación que la fuente mueve queda como revisión con la anterior visible; una fuente que cambia de forma se rechaza por nombre y la página sigue con lo guardado; ninguna fuente nueva hace un pedido antes de tener derechos, allowlist y cuota.
+
+## Fase 13 - Inmuebles de Córdoba
+
+Fase especial pedida por el owner el 2026-11-26 y revisada con él el
+2026-11-27: juntar avisos de venta de casas, departamentos y terrenos en
+Córdoba Capital y decidir, a grandes rasgos, si el precio está bien para lo
+que es y donde está, qué se puede construir en la parcela y qué conviene
+hacer —cocheras mensuales, remodelar y revender, remodelar para vivir,
+alquilar o demoler y desarrollar— ([ADR 0089](../architecture/adr/0089-real-estate-intelligence-cordoba.md)).
+No comparte motor con la valuación de empresas; comparte la disciplina:
+identidad versionada, observación append-only, corrida con hash y provenance
+visible. Impuestos sobre la renta, tasas municipales e indexación quedan
+afuera: son operatoria. Los pesos pasan a dólares al tipo de cambio oficial
+mayorista del BCRA, no al CCL. Aprobada por el owner el 2026-11-27; los
+valores de los parámetros de los casos se investigan en `F13-08`.
+
+La captura ocurre en un perfil dedicado de Brave o Chrome, con una extensión
+de uso personal que navega como el owner y no se publica en ninguna tienda.
+Lo medido el 2026-11-26 con `curl` sin sesión: `remax.com.ar`,
+`www.argenprop.com`, `inmuebles.mercadolibre.com.ar` y `www.properati.com.ar`
+responden `403`, `zonaprop.com.ar` redirige a un desafío de Cloudflare y sólo
+`mudafy.com.ar` responde `200`.
+
+- [ ] Contratos, identidad y fixtures sintéticas; revisión sólo cuando algo cambia (`F13-01`).
+- [ ] Extensión WXT en Brave o Chrome, captura al ver de Remax medida por el agente en el navegador, endpoint con dos secretos y ficha mínima con historial (`F13-02`).
+- [ ] Barrido programado robusto: perfil dedicado, cola con prioridad, cursor, tope de 25 páginas por portal, detención ante desafío y cobertura medida (`F13-03`).
+- [ ] Zonaprop, Argenprop y Mercado Libre, cada uno medido en el navegador y leído por datos estructurados primero (`F13-04`).
+- [ ] Deduplicación por huellas de fotos y descripción, republicaciones e historial de precios (`F13-05`).
+- [ ] Ubicación por Georef con precisión nombrada, barrio y parcela por polígono, zonificación y envolvente construible (`F13-06`).
+- [ ] Banda predictiva de comparables con backtest de error y cobertura (`F13-07`).
+- [ ] Cinco casos: cocheras con tinglado sobre el lote, flip, vivir, renta y desarrollo, con la cochera también como etapa previa del desarrollo (`F13-08`).
+- [ ] Registro de negociación y palancas con su cifra (`F13-09`).
+- [ ] `/inmuebles` con lo nuevo desde la visita, mapa, ficha completa, runbook y revisión del owner (`F13-10`).
+
+**Gate:** un aviso real de cada portal medido llega desde el navegador del
+owner a la base con su identidad y su fecha; volver a verlo sin cambios no
+agrega una revisión y un precio que baja sí; la misma casa publicada por dos
+agencias se une sin fusionar unidades distintas, y una republicación no
+reinicia los días publicados; un aviso que deja de aparecer en el barrido no
+se da de baja hasta que su ficha lo dice; una dirección con número se ubica
+con su precisión nombrada y un pin compartido no se usa como parcela; la banda
+de un segmento con menos de 30 avisos se niega por nombre y el backtest
+publica error y cobertura; una parcela sin zonificación resuelta muestra la
+sensibilidad de FOT y no un supuesto; ningún caso completa un insumo faltante
+con cero; el endpoint de captura sólo responde en modo `personal`, con su
+token y su tope diario; el barrido respeta su tope, retoma tras cerrar el
+navegador, se pausa desde el popup y se detiene ante un desafío sin
+reintentar; agregar un portal es un adapter y una línea en el registro; y
+ninguna captura guarda texto de descripción, fotos ni contacto.
 
 ## Definicion global de terminado
 
@@ -609,3 +660,6 @@ Agregar una fila al cerrar cada sesion. No borrar historia; corregir con una fil
 | 2026-11-26 | Fase 12 / `F12-02` a `F12-04` | Cierre: snapshot `f12-02-before-0059-2026-11-26`, `0059` en Neon y PR #201, #202 y #203 mergeados en orden | done | CI verde en los tres; Neon 60 de 60; Production publicó 678 revisiones de Alpha Vantage, 16 de FRED y 96 del BCRA con sus jobs `completed` | `F12-05` |
 | 2026-11-26 | Fase 12 / `F12-05` | `sector-price-freshness-2.0.0`, `ticker-price-freshness-2.0.0` y `trading-session-ny-2.0.0` con `market-sessions-1.0.0`: un feriado no pide precios, un cierre temprano se asienta a su hora y una idea escrita fuera de sesión se une al trade de la próxima | done | 21 unitarios nuevos, 5.112 en total; ningún job de precios abierto en Neon | Rediseño de `/calendario` pedido por el owner; `F12-01` con Schwab en Production |
 | 2026-11-26 | Fase 12 / revisión del owner | `/calendario` como un solo espacio: la agenda dentro del mes con color y nombre por región, «Lo que viene» al costado desde el día elegido y un filtro para los dos | done | 1440 claro y oscuro, 1100 y 390 sobre la base local: desborde 0, axe 0, sin errores; 7 unitarios de `agenda-items` | `F12-01` con Schwab en Production |
+| 2026-11-26 | Fase 13 / propuesta | Por pedido del owner: sección de inmuebles de Córdoba Capital con captura desde una extensión de Chrome sobre su propia sesión, banda de comparables, zonificación municipal por parcela y cuatro casos de negocio (cocheras, flip, vivir, renta) | propuesta | [ADR 0089](../architecture/adr/0089-real-estate-intelligence-cordoba.md) y [`docs/real-estate/market-model.md`](../real-estate/market-model.md). Medido sin sesión: `remax.com.ar` `403` (también su `robots.txt`), `argenprop` `403` (CloudFront), `mercadolibre` `403`, `properati` `403`, `zonaprop` `301` a Cloudflare y `mudafy` `200` con `sitemap_listings.xml` y `/ficha/` cerrado. Insumos: deptos Córdoba USD 1.580/m² y cierre contra publicado 0 % (Mudafy, nov-2026); cocheras ARS 10.000–105.000/mes; sellos 1,0 % (0,7 % digital), ITI derogado, cedular exento desde 2026. `F13-01` a `F13-10` en el backlog. Sin código ni migraciones | Decisión del owner: aprobar la fase o ajustar alcance antes de `F13-01` |
+| 2026-11-27 | Fase 13 / propuesta revisada | Revisión con el owner: capturas reales reducidas en el repositorio (excepción a la ADR 0023), extensión sin tienda cargada en Brave o Chrome, términos de los portales no leídos, revisión sólo cuando algo cambia, baja sólo con la ficha visitada, deduplicación por dHash y SimHash, ubicación por Georef, banda predictiva con cobertura, quinto caso de desarrollo (incidencia y valor residual) con la cochera de tinglado como etapa previa opcional, sin impuestos, tasas ni indexación, y barrido programado en su propio slice | propuesta | [ADR 0089](../architecture/adr/0089-real-estate-intelligence-cordoba.md) y [`docs/real-estate/market-model.md`](../real-estate/market-model.md) reescritos; `F13-01` a `F13-10` reordenados en el backlog. Sin código ni migraciones | Decisión del owner: aprobar la fase antes de `F13-01` |
+| 2026-11-27 | Fase 13 / aprobación | El owner aprueba la fase; los pesos pasan a dólares al tipo de cambio oficial mayorista del BCRA (Comunicación A 3500) en lugar del CCL; los valores de los parámetros de los casos se investigan en `F13-08` | aprobada | [ADR 0089](../architecture/adr/0089-real-estate-intelligence-cordoba.md) aceptada; plan en la rama `docs/f13-real-estate-plan`. Sin código ni migraciones | `F13-01` después de la Fase 12 |
