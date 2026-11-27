@@ -47,11 +47,11 @@ const SESSIONS: readonly {
 ];
 
 /**
- * La división entre «Before open» y «After close» dentro del día: punteada,
+ * La división entre «Before open» y «After close» dentro del día: sólida,
  * más tenue y más corta que el borde entre días, que es la que manda.
  */
 const SESSION_DIVIDER =
-  "relative before:pointer-events-none before:absolute before:inset-y-3 before:left-0 before:border-l before:border-dashed before:border-foreground/20";
+  "relative before:pointer-events-none before:absolute before:inset-y-3 before:left-0 before:border-l before:border-border/60";
 
 function nyseNote(day: MarketDay): string | null {
   if (day.status === "holiday") return "NYSE cerrada";
