@@ -160,6 +160,13 @@ export function finvizSymbol(symbol: string): string {
   return symbol.replace(/[./]/g, "-");
 }
 
+/** La ficha de una empresa en Finviz, o `null` si el símbolo no es válido. */
+export function buildFinvizQuoteUrl(symbol: string): string | null {
+  const clean = symbol.trim().toUpperCase();
+  if (!SYMBOL.test(clean)) return null;
+  return `https://finviz.com/quote.ashx?t=${encodeURIComponent(finvizSymbol(clean))}`;
+}
+
 /** La watchlist como pantalla de Finviz (`t=`), o `null` sin símbolos válidos. */
 export function buildFinvizTickersUrl(
   symbols: readonly string[],

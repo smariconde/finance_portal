@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarClock, ChevronLeft, ChevronRight } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import { InfoTip } from "@/app/_components/info-tip";
 import { shortMarketDate } from "@/app/_components/market-format";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { buildFinvizQuoteUrl } from "@/modules/finviz-screener/domain/finviz-screener-url";
 import type { EarningsCalendarView } from "@/modules/market-calendar/domain/calendar-publication";
 import {
   marketDayOf,
@@ -72,36 +73,45 @@ function MovedMark({ previousDate }: { readonly previousDate: string }) {
   );
 }
 
-/** El logo con el ticker debajo: se reconoce la empresa de un vistazo. */
-function EntryTile({ entry }: { readonly entry: EarningsEntry }) {
+/**
+ * Logo y ticker son un solo enlace a la ficha de Finviz, en otra pestaña. Sin
+ * un símbolo que Finviz entienda, quedan como texto.
+ */
+function FinvizLink({
+  symbol,
+  className,
+  children,
+}: {
+  readonly symbol: string;
+  readonly className: string;
+  readonly children: ReactNode;
+}) {
+  const href = buildFinvizQuoteUrl(symbol);
+  if (href === null) return <span className={className}>{children}</span>;
   return (
-    <li className="flex min-w-0 flex-col items-center gap-1 text-center">
-      <TickerMark ticker={entry.symbol} size="md" />
-      <span className="flex max-w-full items-center gap-0.5">
-        <span
-          className={cn(
-            "numeric truncate text-xs",
-            entry.followed ? "font-semibold" : "text-muted-foreground",
-          )}
-        >
-          {entry.symbol}
-        </span>
-        {entry.followed ? <span className="sr-only">, mi empresa</span> : null}
-        {entry.previousDate ? (
-          <MovedMark previousDate={entry.previousDate} />
-        ) : null}
-      </span>
-    </li>
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer noopener"
+      className={cn(
+        "group rounded-md outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none",
+        className,
+      )}
+    >
+      {children}
+      <span className="sr-only"> en Finviz, abre otra pestaña</span>
+    </a>
   );
 }
 
-/** Sin hora: chico, en línea, porque no se sabe en qué lado de la sesión cae. */
-function EntryChip({ entry }: { readonly entry: EarningsEntry }) {
+function SymbolText({ entry }: { readonly entry: EarningsEntry }) {
   return (
-    <li className="flex min-w-0 items-center gap-1">
-      <TickerMark ticker={entry.symbol} />
+    <>
       <span
-        className={cn("numeric text-xs", entry.followed && "font-semibold")}
+        className={cn(
+          "numeric truncate text-xs underline-offset-2 group-hover:underline",
+          entry.followed ? "font-semibold" : "text-muted-foreground",
+        )}
       >
         {entry.symbol}
       </span>
@@ -109,6 +119,38 @@ function EntryChip({ entry }: { readonly entry: EarningsEntry }) {
       {entry.previousDate ? (
         <MovedMark previousDate={entry.previousDate} />
       ) : null}
+    </>
+  );
+}
+
+/** El logo con el ticker debajo: se reconoce la empresa de un vistazo. */
+function EntryTile({ entry }: { readonly entry: EarningsEntry }) {
+  return (
+    <li className="flex min-w-0 justify-center">
+      <FinvizLink
+        symbol={entry.symbol}
+        className="flex max-w-full min-w-0 flex-col items-center gap-1 px-1 py-0.5 text-center"
+      >
+        <TickerMark ticker={entry.symbol} size="md" />
+        <span className="flex max-w-full items-center gap-0.5">
+          <SymbolText entry={entry} />
+        </span>
+      </FinvizLink>
+    </li>
+  );
+}
+
+/** Sin hora: chico, en línea, porque no se sabe en qué lado de la sesión cae. */
+function EntryChip({ entry }: { readonly entry: EarningsEntry }) {
+  return (
+    <li className="flex min-w-0">
+      <FinvizLink
+        symbol={entry.symbol}
+        className="flex min-w-0 items-center gap-1 py-0.5 pr-1"
+      >
+        <TickerMark ticker={entry.symbol} />
+        <SymbolText entry={entry} />
+      </FinvizLink>
     </li>
   );
 }
@@ -306,7 +348,7 @@ export function EarningsWeekCard({
               </p>
               <p>
                 Mis empresas: las valuadas y las que tienen CEDEAR, en negrita y
-                primero.
+                primero. Cada empresa abre su ficha de Finviz.
               </p>
             </InfoTip>
           </CardTitle>
