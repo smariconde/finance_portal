@@ -15,8 +15,8 @@ import type { SummaryMetric } from "./summary-change";
  * - `manual`: the series only arrives through a hand-run command and the
  *   page never asks for it (the ITCRM, ADR 0074; the REM rounds, ADR 0075).
  *
- * The state is about **checks**, never about whether the data changed: a
- * verified figure dated three days ago is the latest the source published.
+ * The state records **checks** against the configured cadence. The
+ * publication calendar separately indicates whether a period is still due.
  */
 export const ARGENTINA_FRESHNESS_VERSION = "argentina-freshness-1.0.0";
 

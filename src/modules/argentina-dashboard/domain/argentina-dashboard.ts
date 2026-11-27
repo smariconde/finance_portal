@@ -120,7 +120,12 @@ export type DollarBlock = {
   readonly latestOfficial: DatedValue | null;
   readonly latestCcl: DatedValue | null;
   /** The latest day with both quotes, which may precede either latest. */
-  readonly latestGap: { readonly on: string; readonly gap: string } | null;
+  readonly latestGap: {
+    readonly on: string;
+    readonly gap: string;
+    readonly official: string;
+    readonly ccl: string;
+  } | null;
   readonly latestBand: {
     readonly on: string;
     readonly low: string;
@@ -386,7 +391,10 @@ export function buildDollarBlock(input: {
     bandHigh: highMonths.get(on) ?? null,
   }));
 
-  const withGap = allDays.filter((day) => day.gap !== null).at(-1);
+  const latestGap = allDays.findLast(
+    (day): day is DollarDay & { gap: string; official: string; ccl: string } =>
+      day.gap !== null && day.official !== null && day.ccl !== null,
+  );
   const cclPoints = input.ccl.filter(
     (p): p is { marketDate: string; value: string } => p.value !== null,
   );
@@ -419,7 +427,14 @@ export function buildDollarBlock(input: {
     latestCcl: cclPoints.length
       ? { on: cclPoints.at(-1)!.marketDate, value: cclPoints.at(-1)!.value }
       : null,
-    latestGap: withGap ? { on: withGap.on, gap: withGap.gap! } : null,
+    latestGap: latestGap
+      ? {
+          on: latestGap.on,
+          gap: latestGap.gap,
+          official: latestGap.official,
+          ccl: latestGap.ccl,
+        }
+      : null,
     latestBand:
       lastLow && lastHigh && lastLow.periodOn === lastHigh.periodOn
         ? { on: lastLow.periodOn, low: lastLow.value, high: lastHigh.value }

@@ -226,3 +226,23 @@ publicado.
 
 Sin migración ni versión nueva de la regla de frescura: esta enmienda cambia
 qué se informa, no qué se pide.
+
+## Enmienda del 2026-11-27 — cadencias y publicaciones pendientes (`F9-25`)
+
+`argentina-refresh-freshness-1.2.0` distingue el corte a las 20:00 de Buenos
+Aires, el día local y la semana local. Ámbito aplica el día local según la
+ADR 0080. En Production figuraba como mensual y la regla semanal dejaba el
+cierre del 23/11 marcado con un tilde el 27/11.
+
+El calendario de la ADR 0088 adelanta la próxima consulta al abrir para los
+sujetos de EMAE, comercio, fiscal e IPC nacional que aún no tengan el período
+esperado. La primera consulta adicional vence a la hora declarada de difusión
+o al día siguiente si la agenda no declara una hora. Mientras falte el período,
+se permite una consulta por día local. La selección lee el último período
+publicado de cada sujeto al corte y conserva la cadencia base de los demás.
+
+Siguen vigentes el lease, la cuota y el kill switch de cada fuente. Un intento
+fallido cuenta en su ventana y el reintento explícito sigue disponible. Los
+jobs abiertos bajo `1.0.0` y `1.1.0` conservan sus sujetos y pueden terminar.
+Los datos se buscan al abrir mediante la misma Server Action. El REM sigue
+siendo de carga manual y puede mostrar su período pendiente.

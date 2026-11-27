@@ -189,6 +189,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   161 | `F13-08`   | `queued`      | Cinco casos a grandes rasgos —cocheras, flip, vivir, renta y desarrollo— con costos en porcentajes, obra anclada al ICC-Córdoba y pesos al oficial.                                                                       | `F13-07`           |
 |   162 | `F13-09`   | `queued`      | Registro de negociación y palancas con su cifra: días publicado, bajas, republicaciones, dispersión entre duplicados y percentil.                                                                                         | `F13-08`           |
 |   163 | `F13-10`   | `queued`      | `/inmuebles`: lo nuevo desde la visita, mapa PMTiles, ficha completa, notas de visita y cartera; runbook y revisión del owner sobre diez avisos.                                                                          | `F13-09`           |
+|   164 | `F9-25`    | `in_progress` | Riesgo país a diario, patas del CCL de la misma fecha y seguimiento de publicaciones mensuales pendientes.                                                                                                                | ADR 0070, 0088     |
 
 `F1-02` cerró con PostgreSQL 17.11 local dedicado, migración aplicada, composición
 aislada y repository integration test. `F1-UI-01` cerró el 2026-08-23 con la
@@ -8045,6 +8046,33 @@ La organización sigue en Launch y el regreso a Free queda a cargo del owner.
   también como línea vertical.
 - Sin migración. En Production la serie se baja en la primera apertura de
   `/argentina`, con un pedido.
+
+#### `F9-25` — frescura de `/argentina` según publicación
+
+- Ámbito se vuelve a consultar en el día de Buenos Aires. Los jobs abiertos
+  bajo las versiones anteriores pueden terminar (`TM-03`, `TM-10`).
+- La brecha CCL y las cifras de su tarjeta salen de la misma fecha. Rosario–Chicago
+  conserva su último cruce y avisa si falta Chicago para el día más reciente
+  que ya tiene pizarra y BNA (`TM-05`, `UI-02`).
+- El calendario mantiene visible el período faltante. EMAE, ICA, fiscal e IPC
+  nacional adelantan sólo el sujeto faltante a una consulta acotada por día,
+  con las fuentes y controles vigentes (`TM-03`, `TM-10`, `UI-02`).
+- Evidencia de origen: consulta de Ámbito el 24/11 a las 11:15 y de BCRA,
+  Yahoo, Rosario y BNA el 26/11 a las 20:37 en Production. El EMAE se había
+  consultado antes de la hora de difusión y el distribuidor de comercio
+  devolvió septiembre tras difundirse octubre.
+- Gate local: 5.169 unitarios, ocho de integración PostgreSQL y 416 E2E
+  aprobadas, cuatro omitidas. En el build final, Chromium o el servidor local
+  se cerraron en 42 casos con seis workers. Los 42 pasaron al reintentar el
+  mismo artefacto con dos workers. En el build
+  con fixtures se verificó «Falta sep 2026» y «Falta oct 2026» con consultas
+  exitosas y su retiro al ingresar ambos períodos. A 1440 px claro y 390 px
+  oscuro no hubo desborde, errores de página ni hallazgos bloqueantes de axe.
+  En el primer intento de CI hubo un timeout de la tabla móvil de referencia
+  reproducido localmente. La prueba ahora toma los estilos de los contenedores
+  dentro de `main` en una sola evaluación, sin recorrer índices que pueden
+  desaparecer al terminar el streaming.
+  Pendiente de integrar y comprobar la siguiente consulta en Production.
 
 #### `F9-24` — el IPC observado del REM
 

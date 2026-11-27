@@ -70,7 +70,7 @@ describe("selectStaleSubjects", () => {
       selectStaleSubjects({
         subjects: ["fresh", "before-settle", "never"],
         lastChecks,
-        cadence: "daily",
+        cadence: "market-close",
         now,
       }),
     ).toEqual(["before-settle", "never"]);
@@ -81,14 +81,15 @@ describe("selectStaleSubjects", () => {
           ["fresh", "2026-11-02T23:10:00.000Z"],
           ["today", "2026-11-03T03:00:00.000Z"],
         ]),
-        cadence: "monthly",
+        cadence: "local-week",
         now,
       }),
     ).toEqual([]);
   });
 
   it("names the threshold of each cadence", () => {
-    expect(freshSince("daily", now)).toBe("2026-11-02T23:00:00.000Z");
-    expect(freshSince("monthly", now)).toBe("2026-11-02T03:00:00.000Z");
+    expect(freshSince("market-close", now)).toBe("2026-11-02T23:00:00.000Z");
+    expect(freshSince("local-week", now)).toBe("2026-11-02T03:00:00.000Z");
+    expect(freshSince("local-day", now)).toBe("2026-11-03T03:00:00.000Z");
   });
 });

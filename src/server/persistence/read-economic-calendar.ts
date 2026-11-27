@@ -44,16 +44,8 @@ function repository() {
   return createPostgresCalendarRepository(getRuntimeDatabase());
 }
 
-export async function readArgentinaCalendar(
-  at: string,
-  personal: boolean,
-): Promise<EconomicAgendaRow[]> {
+export function readDeclaredArgentinaCalendar(at: string): EconomicAgendaRow[] {
   const today = calendarDateIn(at, BUENOS_AIRES);
-  const captured = personal
-    ? await repository()
-        .read(BCRA_CALENDAR_DATASET, at)
-        .catch(() => null)
-    : null;
   const declared = (
     publications: readonly EconomicPublication[],
     source: string,
@@ -89,6 +81,20 @@ export async function readArgentinaCalendar(
       FISCAL_CALENDAR.consultedOn,
       null,
     ),
+  ];
+}
+
+export async function readArgentinaCalendar(
+  at: string,
+  personal: boolean,
+): Promise<EconomicAgendaRow[]> {
+  const captured = personal
+    ? await repository()
+        .read(BCRA_CALENDAR_DATASET, at)
+        .catch(() => null)
+    : null;
+  return [
+    ...readDeclaredArgentinaCalendar(at),
     ...(captured?.events ?? []).flatMap(
       ({ key, event, previous, observedAt }) =>
         event.kind === "economic"

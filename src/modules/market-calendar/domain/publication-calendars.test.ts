@@ -170,31 +170,62 @@ describe("Argentine release dates", () => {
     ).toThrow("bcra_calendar_table_changed");
   });
 
-  it("removes Esperado hoy when the exact period arrives, including end-of-month dates", () => {
-    const publication: EconomicPublication = {
+  it("keeps a missing scheduled period visible until it arrives", () => {
+    const publication = {
       id: "ipc",
       title: "IPC nacional",
       date: "2026-12-15",
       period: "2026-11-01",
       status: "scheduled",
+      time: "16:00",
+    } satisfies EconomicPublication & { time: string };
+    const previous = {
+      ...publication,
+      date: "2026-11-12",
+      period: "2026-10-01",
     };
+    const releases = [publication, previous];
     expect(
-      expectedArgentinePublications([publication], "2026-12-15", {
+      expectedArgentinePublications(releases, "2026-12-15T18:59:00.000Z", {
         monetary: "2026-10-31",
       }),
-    ).toEqual({ monetary: "IPC nacional" });
+    ).toEqual({
+      monetary: { title: "IPC nacional", state: "today", period: "2026-11-01" },
+    });
     expect(
-      expectedArgentinePublications([publication], "2026-12-15", {
+      expectedArgentinePublications(releases, "2026-12-15T19:01:00.000Z", {}),
+    ).toEqual({
+      monetary: {
+        title: "IPC nacional",
+        state: "pending",
+        period: "2026-11-01",
+      },
+    });
+    expect(
+      expectedArgentinePublications(releases, "2026-12-16T15:00:00.000Z", {}),
+    ).toEqual({
+      monetary: {
+        title: "IPC nacional",
+        state: "pending",
+        period: "2026-11-01",
+      },
+    });
+    expect(
+      expectedArgentinePublications(releases, "2026-12-16T15:00:00.000Z", {
         monetary: "2026-11-30",
       }),
     ).toEqual({});
     expect(
-      expectedArgentinePublications([publication], "2026-12-16", {}),
+      expectedArgentinePublications(
+        [publication],
+        "2026-12-15T02:59:00.000Z",
+        {},
+      ),
     ).toEqual({});
     expect(
       expectedArgentinePublications(
         [{ ...publication, status: "cancelled" }],
-        "2026-12-15",
+        "2026-12-16T15:00:00.000Z",
         {},
       ),
     ).toEqual({});

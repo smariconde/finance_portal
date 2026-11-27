@@ -36,6 +36,7 @@ type Summary = {
   /** La cifra principal, o el motivo de su ausencia. */
   readonly value: string;
   readonly detail: string;
+  readonly note?: string;
   /** Fecha del dato principal, como se la lee. */
   readonly asOf: string | null;
   readonly cadence: SummaryCadence;
@@ -59,6 +60,12 @@ function headlinesOf(
   const { activity, dollar, monetary, countryRisk, external, soy } = dashboard;
   const inflation = monetary.monthlyInflation.at(-1);
   const trade = external.months.at(-1);
+  const lastSoyOn = soy.latest?.on;
+  const waitingForChicago =
+    lastSoyOn &&
+    soy.days.findLast(
+      (day) => day.on > lastSoyOn && day.reason === "missing_chicago",
+    );
 
   return [
     {
@@ -80,8 +87,8 @@ function headlinesOf(
       value: dollar.latestGap
         ? fractionAsPoints(dollar.latestGap.gap)
         : "Sin dato",
-      detail: dollar.latestOfficial?.value
-        ? `Oficial $ ${amount(dollar.latestOfficial.value)}${dollar.latestCcl?.value ? ` · CCL $ ${amount(dollar.latestCcl.value)}` : ""}`
+      detail: dollar.latestGap
+        ? `Oficial $ ${amount(dollar.latestGap.official)} · CCL $ ${amount(dollar.latestGap.ccl)}`
         : "Mayorista y CCL implícito",
       asOf: dollar.latestGap ? calendarDate(dollar.latestGap.on) : null,
     },
@@ -128,8 +135,11 @@ function headlinesOf(
       label: "Soja: Rosario–Chicago",
       value: soy.latest ? signedPoints(soy.latest.basis) : "Sin dato",
       detail: soy.latest
-        ? `US$ ${amount(soy.latest.rosarioUsd!, 0)} vs. US$ ${amount(soy.latest.chicagoUsd!, 0)} por t`
+        ? `US$ ${amount(soy.latest.rosarioUsd!, 0)} vs. US$ ${amount(soy.latest.chicagoUsd!, 0)} por\u00a0t`
         : "Pizarra de Rosario y CBOT",
+      note: waitingForChicago
+        ? `Falta Chicago del ${dayMonth(waitingForChicago.on)}`
+        : undefined,
       asOf: soy.latest ? calendarDate(soy.latest.on) : null,
     },
   ];
@@ -282,7 +292,11 @@ export function SummaryCards({
                             summary={summary}
                           />
                         }
-                        detail={summary.detail}
+                        detail={
+                          summary.note
+                            ? `${summary.detail} · ${summary.note}`
+                            : summary.detail
+                        }
                         footer={<TileStatus date={date} mark={mark} />}
                       />
                     </TileShell>

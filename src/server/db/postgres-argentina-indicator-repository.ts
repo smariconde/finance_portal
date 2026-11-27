@@ -1,7 +1,18 @@
 import "server-only";
 
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
-import { sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  max,
+  or,
+  sql,
+} from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 
 import type { ArgentinaIndicatorRepository } from "@/modules/macro-series/application/argentina-indicator-repository";
@@ -216,6 +227,35 @@ export function createPostgresArgentinaIndicatorRepository(
     allObservations: async (indicatorId) =>
       (await observations([indicatorId], false)).get(indicatorId)!,
     allObservationsOf: (indicatorIds) => observations(indicatorIds, false),
+    async latestPublishedPeriods({ indicatorIds, effectiveOn, knownAt }) {
+      if (indicatorIds.length === 0) return new Map();
+      const observation = schema.argentinaIndicatorObservations;
+      const cutoff = new Date(knownAt);
+      const rows = await database
+        .select({
+          indicatorId: observation.indicatorId,
+          period: max(observation.periodOn),
+        })
+        .from(observation)
+        .where(
+          and(
+            inArray(observation.indicatorId, indicatorIds),
+            lte(observation.periodOn, effectiveOn),
+            lte(observation.availableAt, cutoff),
+            or(
+              isNull(observation.supersededAt),
+              gt(observation.supersededAt, cutoff),
+            ),
+            isNotNull(observation.value),
+          ),
+        )
+        .groupBy(observation.indicatorId);
+      return new Map(
+        rows.flatMap(({ indicatorId, period }) =>
+          period === null ? [] : [[indicatorId, period]],
+        ),
+      );
+    },
     chartObservations,
     async apply(plan, indicatorId) {
       if (plan.guard.refused) throw new Error("mass_change_refused");
