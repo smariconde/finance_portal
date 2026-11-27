@@ -19,6 +19,7 @@ test.describe("matrices por sector sin base", () => {
     [ROUTES.sectorMatrix, "La matriz de riesgo sectorial"],
     [ROUTES.sectorDivergences, "La matriz de divergencias sectorial"],
     [ROUTES.argentina, "El tablero argentino"],
+    [ROUTES.realEstateListing, "La ficha del aviso"],
   ] as const) {
     test(`${route} dice que la base no respondió`, async ({ page }) => {
       await page.goto(route);

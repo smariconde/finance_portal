@@ -127,6 +127,9 @@ export const ROUTES = {
   lessons: "/lecciones",
   lessonSetup: "/lecciones/breakout",
   lessonConcept: "/lecciones/rsi-y-macd",
+  realEstate: "/inmuebles",
+  // Un uuid inventado: con la base cerrada nunca llega a buscarlo.
+  realEstateListing: "/inmuebles/remax-ar.00000000-0000-4000-8000-000000000000",
   missing: "/ruta-que-no-existe",
 } as const;
 

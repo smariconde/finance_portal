@@ -63,6 +63,8 @@ test.describe("negativa del runtime trabado", () => {
       [ROUTES.journal, "El diario"],
       [ROUTES.journalStats, "Las estadísticas del diario"],
       [ROUTES.journalTrade, "El diario"],
+      [ROUTES.realEstate, "Los avisos inmobiliarios"],
+      [ROUTES.realEstateListing, "La ficha del aviso"],
     ] as const) {
       await page.goto(route);
 

@@ -87,7 +87,8 @@
     "valuation:cycle": "tsx --conditions=react-server --env-file=.env.local scripts/value-cycle.ts",
     "valuation:reit": "tsx --conditions=react-server --env-file=.env.local scripts/value-reit.ts",
     "valuation:growth": "tsx --conditions=react-server --env-file=.env.local scripts/value-growth.ts",
-    "finviz:catalog": "tsx scripts/finviz-catalog.ts"
+    "finviz:catalog": "tsx scripts/finviz-catalog.ts",
+    "inmuebles:corpus": "tsx scripts/real-estate-corpus.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
