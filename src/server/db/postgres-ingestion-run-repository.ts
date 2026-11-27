@@ -61,7 +61,9 @@ function toDomainRun(row: IngestionRunRow) {
   });
 }
 
-function toRow(run: IngestionRun): typeof schema.ingestionRuns.$inferInsert {
+export function toIngestionRunRow(
+  run: IngestionRun,
+): typeof schema.ingestionRuns.$inferInsert {
   return {
     runId: run.runId,
     sourceId: run.sourceId,
@@ -200,7 +202,7 @@ export function createPostgresIngestionRunRepository(
       // publicable debe fallar y quedar visible.
       const [row] = await database
         .insert(schema.ingestionRuns)
-        .values(toRow(ingestionRunSchema.parse(run)))
+        .values(toIngestionRunRow(ingestionRunSchema.parse(run)))
         .returning();
 
       return toDomainRun(row!);

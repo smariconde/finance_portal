@@ -1175,16 +1175,20 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
      */
     sourceRegistryEntrySchema.parse({
       sourceId: "alpha-vantage",
-      displayName: "Alpha Vantage — earnings estimates",
+      displayName: "Alpha Vantage — earnings estimates and calendar",
       owner: "Alpha Vantage Inc.",
       canonicalUrl: "https://www.alphavantage.co/",
       documentationUrls: [
         "https://www.alphavantage.co/documentation/",
         "https://www.alphavantage.co/terms_of_service/",
       ],
-      datasets: ["alpha-vantage.earnings-estimates"],
+      datasets: [
+        "alpha-vantage.earnings-estimates",
+        "alpha-vantage.earnings-calendar",
+      ],
       endpoints: [
         "https://www.alphavantage.co/query?function=EARNINGS_ESTIMATES&symbol={ticker}",
+        "https://www.alphavantage.co/query?function=EARNINGS_CALENDAR&horizon=3month",
       ],
       authentication: "api_key",
       applicablePlan: "free (25 requests/day)",

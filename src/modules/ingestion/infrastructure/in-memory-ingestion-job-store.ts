@@ -165,7 +165,10 @@ export function createInMemoryIngestionJobStore(options: {
       const plan = ingestionJobPlanSchema.parse(planInput);
       const planHash = computeIngestionJobPlanHash(plan);
       const existing = [...jobs.values()].find(
-        (job) => job.planHash === planHash && !isTerminalJobStatus(job.status),
+        (job) =>
+          job.planHash === planHash &&
+          (plan.kind === "market_calendar_refresh" ||
+            !isTerminalJobStatus(job.status)),
       );
 
       if (existing) {

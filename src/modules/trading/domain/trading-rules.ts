@@ -1,3 +1,6 @@
+import type { EarningsReport } from "@/modules/market-calendar/domain/earnings-calendar";
+import { nextReportFor } from "@/modules/market-calendar/domain/earnings-exposure";
+
 import { z } from "zod";
 
 import {
@@ -497,4 +500,26 @@ export function capitalLeft(reading: RuleReading | undefined): string | null {
     return null;
   const left = parse(reading.limit).minus(parse(reading.used));
   return format(left.lessThan(ZERO) ? ZERO : left);
+}
+
+/** Informational rule. The existing sizing limits use only financial inputs. */
+export function swingEarningsWarnings(
+  positions: readonly {
+    readonly symbol: string;
+    readonly book: "day" | "swing";
+  }[],
+  reports: readonly EarningsReport[],
+  at: string,
+): string[] {
+  return [
+    ...new Set(
+      positions
+        .filter(
+          ({ symbol, book }) =>
+            book === "swing" &&
+            nextReportFor(reports, symbol, at, book) !== undefined,
+        )
+        .map(({ symbol }) => symbol),
+    ),
+  ].sort();
 }

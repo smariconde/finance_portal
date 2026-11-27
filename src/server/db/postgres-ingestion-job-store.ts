@@ -457,7 +457,9 @@ export function createPostgresIngestionJobStore(
           .where(
             and(
               eq(schema.ingestionJobs.planHash, planHash),
-              inArray(schema.ingestionJobs.status, ["open", "paused"]),
+              plan.kind === "market_calendar_refresh"
+                ? undefined
+                : inArray(schema.ingestionJobs.status, ["open", "paused"]),
             ),
           )
           .limit(1);

@@ -240,6 +240,13 @@ fecha nada: la disponibilidad es la captura y el P/E forward histórico empieza
 en la primera. El EPS del consenso puede ser ajustado, no el GAAP de la SEC. Se
 cita «Alpha Vantage».
 
+## Calendario de publicaciones
+
+- `alpha-vantage` comparte los mismos derechos y los 25 pedidos diarios del
+  consenso. El calendario de resultados conserva el símbolo de la fuente y las
+  revisiones de fecha, franja y estimación para uso personal. La respuesta cruda
+  se descarta.
+
 ## Riesgo país
 
 `F9-21`, [ADR 0080](../architecture/adr/0080-argentina-country-risk-source.md).

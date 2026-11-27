@@ -430,6 +430,7 @@ export const ingestionJobKind = pgEnum("ingestion_job_kind", [
   "argentina_data_refresh",
   // Consenso de analistas al abrir una valuación (ADR 0083): un item.
   "alpha_vantage_consensus_refresh",
+  "market_calendar_refresh",
 ]);
 
 export const ingestionJobStatus = pgEnum("ingestion_job_status", [
@@ -3675,5 +3676,22 @@ export const ownerMultipleThresholds = pgTable(
       "owner_multiple_thresholds_value_check",
       sql`${table.value} is null or (${table.value} > 0 and ${table.value} <= 1000)`,
     ),
+  ],
+);
+
+export const calendarEventRevisions = pgTable(
+  "calendar_event_revisions",
+  {
+    eventKey: varchar("event_key", { length: 128 }).notNull(),
+    revision: integer("revision").notNull(),
+    runId: uuid("run_id")
+      .notNull()
+      .references(() => ingestionRuns.runId),
+    event: jsonb("event").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.eventKey, table.revision] }),
+    index("calendar_event_revisions_run_idx").on(table.runId),
+    check("calendar_event_revisions_positive", sql`${table.revision} > 0`),
   ],
 );

@@ -31,6 +31,9 @@ import {
   liveCadence,
   liveFreshness,
 } from "@/modules/trading/domain/live-cadence";
+import { EarningsMark } from "@/app/_components/earnings-mark";
+import { nextReportFor } from "@/modules/market-calendar/domain/earnings-exposure";
+import { swingEarningsWarnings } from "@/modules/trading/domain/trading-rules";
 import type { PositionContext } from "@/modules/trading/domain/position-context";
 import {
   accountRisk,
@@ -122,8 +125,10 @@ function isVisible(): boolean {
  */
 export function LiveAccount({
   initial,
+  calendarReadAt,
 }: {
   readonly initial: LiveAccountResult;
+  readonly calendarReadAt: string;
 }) {
   const [reading, setReading] = useState<Reading | null>(
     initial.state === "read" ? initial : null,
@@ -276,7 +281,7 @@ export function LiveAccount({
     return () => {
       alive = false;
     };
-  }, [symbolsKey]);
+  }, [symbolsKey, calendarReadAt]);
   // Un cruce de otro conjunto de símbolos no vale para este: se espera el nuevo.
   const context = contextEntry?.key === symbolsKey ? contextEntry.result : null;
 
@@ -415,6 +420,15 @@ export function LiveAccount({
       </Card>
 
       <RiskCard
+        earningsWarnings={
+          context?.state === "read" && risk.bySymbol !== null
+            ? swingEarningsWarnings(
+                [...risk.bySymbol.values()],
+                context.earnings?.reports ?? [],
+                context.asOf,
+              )
+            : []
+        }
         view={risk.view}
         liquidationValue={reading.balances.liquidationValue}
         buyingPower={reading.balances.cashAvailableForTrading}
@@ -831,6 +845,16 @@ function PositionsCard({
             <TableBody>
               {positions.map((position) => {
                 const quote = quotes?.bySymbol.get(position.symbol) ?? null;
+                const book = risks?.get(position.symbol)?.book;
+                const earnings =
+                  context?.state === "read" && book && position.side !== "flat"
+                    ? nextReportFor(
+                        context.earnings?.reports ?? [],
+                        position.symbol,
+                        context.asOf,
+                        book,
+                      )
+                    : undefined;
                 return (
                   <TableRow key={`${position.symbol}-${position.side}`}>
                     <TableCell>
@@ -849,6 +873,15 @@ function PositionsCard({
                                 : "Cerrada hoy"}
                             </span>
                           )}
+                          {earnings && book && context?.state === "read" ? (
+                            <span className="mt-1 block">
+                              <EarningsMark
+                                report={earnings}
+                                at={context.asOf}
+                                book={book}
+                              />
+                            </span>
+                          ) : null}
                           {position.description !== null ? (
                             <span className="block max-w-48 truncate text-xs font-normal text-muted-foreground">
                               {position.description}
