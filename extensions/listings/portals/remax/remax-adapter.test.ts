@@ -40,7 +40,8 @@ function detailListing(overrides: Record<string, unknown> = {}) {
     conditions: [{ id: 4, value: "a_refaccionar" }],
     features: [
       { category: { value: "environments" }, value: "Jardín" },
-      { category: { value: "caracteristic" }, value: "Parrilla" },
+      { category: "environments", value: "Quincho", lang: "quincho" },
+      { category: "environments", value: "Pileta", lang: "pileta" },
       { category: { value: "service" }, value: "Gas" },
     ],
     geo: { neighborhood: null },
@@ -158,7 +159,7 @@ describe("remax-ng-state-1.0.0", () => {
       parkingSpaces: 1,
       ageYears: 48,
       floor: null,
-      amenities: ["garden", "grill"],
+      amenities: ["garden", "grill", "pool"],
       condition: "to_renovate",
       legalFlags: ["credit_eligible", "deed"],
       addressDeclared: "Calle Falsa 1200",

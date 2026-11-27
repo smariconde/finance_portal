@@ -1,0 +1,48 @@
+{
+  "kind": "captures",
+  "pageKind": "listing_detail",
+  "parseBasis": "embedded_state",
+  "captures": [
+    {
+      "source": "remax-ar",
+      "externalId": "964f2ffe-2408-4c83-89b4-8f04756bd4e8",
+      "canonicalUrl": "https://www.remax.com.ar/listings/vendo-departamento-2-dormitorios-general-paz",
+      "pageKind": "listing_detail",
+      "parseBasis": "embedded_state",
+      "operation": "sale",
+      "propertyType": "apartment",
+      "priceAmount": "135000",
+      "priceStatus": "published",
+      "priceCurrency": "USD",
+      "expensesAmount": "150000",
+      "expensesCurrency": "ARS",
+      "coveredAreaM2": "65",
+      "totalAreaM2": "71",
+      "landAreaM2": null,
+      "rooms": 3,
+      "bedrooms": 2,
+      "bathrooms": 1,
+      "parkingSpaces": 0,
+      "ageYears": 15,
+      "floor": null,
+      "amenities": [
+        "balcony",
+        "grill",
+        "pool"
+      ],
+      "condition": "good",
+      "legalFlags": [],
+      "addressDeclared": "Fray Mamerto Esquiú 400",
+      "neighborhood": "general paz",
+      "latitude": "-31.412332",
+      "longitude": "-64.171978",
+      "agency": "REMAX Ultra",
+      "publishedAt": null,
+      "descriptionSimhash": null,
+      "photoDhashes": [],
+      "photoCount": 21,
+      "capturedAt": "2026-11-27T21:25:15.035Z"
+    }
+  ],
+  "skipped": {}
+}

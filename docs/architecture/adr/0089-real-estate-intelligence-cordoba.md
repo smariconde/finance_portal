@@ -404,3 +404,53 @@ el agente un portal («Playwright … o Claude in Chrome»); queda así:
   host nativo (`com.anthropic.claude_code_browser_extension.json`) que
   `claude --chrome` escribe en `~/.config/google-chrome/NativeMessagingHosts/`
   se copia a `~/.config/BraveSoftware/Brave-Browser/NativeMessagingHosts/`.
+
+## Enmienda del 2026-11-27: la captura al ver, medida en Remax (`F13-02`)
+
+Lo que el slice fijó al construir la extensión y el endpoint:
+
+- **Remax es Angular con render en el servidor.** Cada página trae
+  `<script id="ng-state">` con las respuestas de su propia API ya resueltas
+  —`findBySlug/<slug>` en la ficha, `findAllWithEntrepreneurships` con 24
+  avisos en el listado—, bajo claves que son hashes inestables: el adapter las
+  busca por la URL `u`. JSON-LD sólo trae un `BreadcrumbList`, así que la base
+  es `embedded_state` (`remax-ng-state-1.0.0`). La tarjeta abre la ficha en
+  otra pestaña y el paginador recarga: leer el estado al cargar alcanza, sin
+  interceptar pedidos.
+- **El ID es el uuid del aviso** (`id` en la ficha, `entityId` en la
+  tarjeta); el `id` numérico de la tarjeta no existe en la ficha. Remax no
+  publica fecha de publicación ni barrio, redondea la altura a la centena
+  («Rincón 1900») y usa `floors` para el edificio, no la unidad: `floor` queda
+  `null`. Un tipo con prefijo (`departamento_penthouse`, `casa_duplex`) toma
+  el del prefijo; un galpón queda afuera por nombre.
+- **El endpoint acepta sólo a la extensión.** `POST /api/inmuebles/captura`
+  exige `Origin: chrome-extension://<ID>`, con el ID fijado por la `key`
+  pública del manifest (sin clave privada: una extensión desempaquetada no se
+  firma), además del bypass de Vercel y `CAPTURE_TOKEN` (otro token que el del
+  MCP, validado con su misma regla). Una página web no puede mandar ese
+  origen aunque robe el token. A diferencia del MCP, que rechaza todo
+  `Origin`, acá el origen es la credencial de la extensión.
+- **Lotes de hasta 50 capturas**, cada una validada por separado: una rota se
+  rechaza nombrando campo y motivo y las demás se aplican. El tope diario es
+  de pedidos (`inmuebles-captura`, 300 por día, 15.000 avisos como mucho) y es
+  también el kill switch. Reenviar es idempotente (`out_of_order`), así que
+  un fallo a mitad de lote se resuelve reenviando el lote entero.
+- **La cola local** (`listing-capture-queue-1.0.0`) guarda hasta 2.000
+  capturas, descarta lo más viejo si se llena y lo cuenta, y reintenta cada
+  cinco minutos con `chrome.alarms`. El popup muestra la cola, el último
+  envío o su falla con nombre, y las páginas, avisos, rechazos y desafíos del
+  día.
+- **SimHash y rasgos ya en `F13-02`.** `description-simhash-1.0.0` y
+  `listing-features-1.0.0` se calculan en el navegador desde la primera
+  captura, porque entran en el hash del contenido: agregarlos después habría
+  creado una revisión espuria por aviso. Los dHash de las fotos quedan para
+  `F13-05`, que decide cómo entran sin revisar todo lo guardado.
+- **El corpus lo exporta la extensión.** «Exportar página» en el popup baja la
+  página tal como la leyó el adapter; `pnpm inmuebles:corpus` la pasa por
+  `listing-corpus-reducer-1.0.0`, que trabaja con **lista blanca** (sólo las
+  claves que el parser lee, sin descripción, contacto ni URLs de fotos) y la
+  fija por `sha256` junto con su lectura esperada.
+
+Medido el 2026-11-27 en Córdoba Capital, entre el subagente (dos pasadas de
+medición) y el owner en el perfil Inmuebles: 157 avisos de los listados, 32
+fichas, 187 revisiones, 0 desafíos y 44 envíos aceptados.

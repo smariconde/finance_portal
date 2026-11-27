@@ -155,6 +155,7 @@ const PORTAL_CONDITIONS: Readonly<
   bueno: "good",
   a_refaccionar: "to_renovate",
   a_reciclar: "to_renovate",
+  // `en_construccion` no es una señal: ni a estrenar ni buen estado.
 };
 
 const AMENITY_LABELS: readonly (readonly [Amenity, RegExp])[] = [
@@ -162,7 +163,8 @@ const AMENITY_LABELS: readonly (readonly [Amenity, RegExp])[] = [
   ["gym", /^(gimnasio|gym)\b/u],
   ["sum", /^(sum|salon de usos multiples)\b/u],
   ["security", /^(seguridad|vigilancia)\b/u],
-  ["grill", /^(parrilla|parrillero|asador)\b/u],
+  // En Córdoba un quincho es el lugar de la parrilla.
+  ["grill", /^(parrilla|parrillero|asador|quincho)\b/u],
   ["elevator", /^ascensor\b/u],
   ["balcony", /^balcon\b/u],
   ["garden", /^(jardin|parque)\b/u],

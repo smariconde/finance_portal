@@ -2072,8 +2072,39 @@ confidence (owner > geocoded address > own pin; a shared pin is
 explicit `is not null` in every check branch (a NULL check passes), and the
 rollback refuses while revisions exist. Synthetic fixtures live in
 `real-estate/infrastructure/synthetic-listings.ts`. The listing → property
-link (deduplication) is `F13-05`; the extension and capture endpoint are
-`F13-02`.
+link (deduplication) is `F13-05`.
+
+```bash
+pnpm extension:build                                         # extensions/listings/.output/chrome-mv3, loaded unpacked in Brave
+pnpm inmuebles:corpus --file ~/Downloads/remax-ar-….json --name casa-1 [--write]   # freezes an exported page
+```
+
+Since `F13-02` ([runbook](docs/runbooks/inmuebles-captura.md)) the WXT/MV3
+extension in `extensions/listings/` (dedicated Brave profile «Inmuebles»)
+captures on view. `portals/registry.ts` is the only list (patterns in
+`portal-matches.ts`, import-free for the manifest; a test demands every
+contract field declared with basis and path or a reason). No auto-imports
+and the domain is imported by **relative path**: WXT forces its own `@` to
+the extension folder. `remax-ng-state-1.0.0` reads Remax's
+`<script id="ng-state">` (Angular SSR: API responses found by URL, the key is
+an unstable hash), ID = the listing uuid (`entityId` on cards). SimHash
+(`description-simhash-1.0.0`, `BigInt(…)`, never `1n` literals: the repo
+targets ES2017) and `listing-features-1.0.0` run in the browser from the first
+capture because they are in the content hash; dHash is `F13-05`. The service
+worker queues (`listing-capture-queue-1.0.0`) and sends batches of 50 to
+`POST /api/inmuebles/captura`, which demands `Origin:
+chrome-extension://gmhcgoihkkneboibeanlkemldaalnikk` (the manifest's public
+`key`), `CAPTURE_TOKEN` (the MCP token rule, another token) and the
+`inmuebles-captura` budget (300/day, kill switch); each capture is validated
+apart and applied under an advisory lock (`postgres-listing-store.ts`). The
+agent measured Remax through a **Haiku subagent** driving Claude in Chrome
+(owner's choice: a cheap model browses, extracts to the scratchpad; Brave
+needs the native host manifest copied to its `NativeMessagingHosts`);
+`javascript_tool` truncates output at ~2,000 characters, so real pages are
+exported by the extension's «Exportar página» and reduced by
+`listing-corpus-reducer-1.0.0` (an allowlist). `/inmuebles` and
+`/inmuebles/[portal].[id]` (`listing-view-1.0.0`) read stored listings only.
+Measured: 157 listings, 32 detail pages, 187 revisions, 0 challenges.
 
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 

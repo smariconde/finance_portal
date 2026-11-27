@@ -2,6 +2,13 @@
   "corpus": "listing-capture-corpus",
   "entries": [
     {
+      "file": "remax-ar-detail-departamento-general-paz.json",
+      "sha256": "9554528ee6dd28f3d5eb4630ccc5023faf38751b11db7602390a50bfa3c7dd55",
+      "source": "remax-ar",
+      "capturedAt": "2026-11-27T21:25:15.035Z",
+      "reducer": "listing-corpus-reducer-1.0.0"
+    },
+    {
       "file": "remax-ar-detail-duplex-urca.json",
       "sha256": "63d047e09939ca7d7771d5d79b5a2891d5cd52818b512c2e957e5f99fe428092",
       "source": "remax-ar",
