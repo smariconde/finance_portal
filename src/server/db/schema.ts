@@ -3695,3 +3695,322 @@ export const calendarEventRevisions = pgTable(
     check("calendar_event_revisions_positive", sql`${table.revision} > 0`),
   ],
 );
+
+/*
+ * Inmuebles de Córdoba (ADR 0089, Fase 13). Cuatro identidades como
+ * `legal_entity → security → listing → listing_symbol`: la parcela catastral
+ * versionada, la unidad que se vende, el aviso de un portal y sus revisiones.
+ * Los conjuntos cerrados van como `varchar` con check, igual que en el
+ * dominio, para que agregar un valor sea una migración chica y reversible.
+ * Cada rama de un check nombra `is not null`: un `CHECK` que da desconocido
+ * pasa, y `removed` sin evidencia habría entrado.
+ */
+
+const RE_PORTALS = sql`('remax-ar', 'zonaprop', 'argenprop', 'mercadolibre-inmuebles')`;
+const RE_PROPERTY_TYPES = sql`('house', 'apartment', 'ph', 'land', 'parking', 'office', 'retail')`;
+
+/** La parcela: sólo su identidad; lo que se sabe de ella vive en sus versiones. */
+export const reParcels = pgTable("re_parcels", {
+  parcelId: uuid("parcel_id").primaryKey(),
+  createdAt: instant("created_at").notNull(),
+});
+
+/**
+ * Una versión de la parcela, válida en `[valid_from, valid_to)`. Una
+ * subdivisión, una fusión o una corrección la cierran; `closed_observed_at` es
+ * cuándo se supo, para que una lectura anterior no vea el cierre.
+ */
+export const reParcelVersions = pgTable(
+  "re_parcel_versions",
+  {
+    parcelId: uuid("parcel_id").notNull(),
+    version: smallint("version").notNull(),
+    provincialNomenclature: varchar("provincial_nomenclature", { length: 40 }),
+    municipalNomenclature: varchar("municipal_nomenclature", { length: 32 }),
+    landAreaM2: numeric("land_area_m2", { mode: "string" }),
+    validFrom: date("valid_from", { mode: "string" }).notNull(),
+    validTo: date("valid_to", { mode: "string" }),
+    endedBy: varchar("ended_by", { length: 16 }),
+    closedObservedAt: instant("closed_observed_at"),
+    sourceId: varchar("source_id", { length: 64 }).notNull(),
+    observedAt: instant("observed_at").notNull(),
+    recordedAt: instant("recorded_at").notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: "re_parcel_versions_parcel_fk",
+      columns: [table.parcelId],
+      foreignColumns: [reParcels.parcelId],
+    }),
+    primaryKey({ columns: [table.parcelId, table.version] }),
+    uniqueIndex("re_parcel_versions_open_uidx")
+      .on(table.parcelId)
+      .where(sql`${table.validTo} is null`),
+    uniqueIndex("re_parcel_versions_open_provincial_uidx")
+      .on(table.provincialNomenclature)
+      .where(
+        sql`${table.validTo} is null and ${table.provincialNomenclature} is not null`,
+      ),
+    uniqueIndex("re_parcel_versions_open_municipal_uidx")
+      .on(table.municipalNomenclature)
+      .where(
+        sql`${table.validTo} is null and ${table.municipalNomenclature} is not null`,
+      ),
+    check("re_parcel_versions_version_check", sql`${table.version} > 0`),
+    check(
+      "re_parcel_versions_nomenclature_check",
+      sql`${table.provincialNomenclature} is not null or ${table.municipalNomenclature} is not null`,
+    ),
+    check(
+      "re_parcel_versions_area_check",
+      sql`${table.landAreaM2} is null or ${table.landAreaM2} > 0`,
+    ),
+    check(
+      "re_parcel_versions_closed_check",
+      sql`(${table.validTo} is null) = (${table.endedBy} is null) and (${table.validTo} is null) = (${table.closedObservedAt} is null)`,
+    ),
+    check(
+      "re_parcel_versions_ended_by_check",
+      sql`${table.endedBy} is null or ${table.endedBy} in ('subdivision', 'merge', 'correction')`,
+    ),
+    check(
+      "re_parcel_versions_validity_check",
+      sql`${table.validTo} is null or ${table.validTo} > ${table.validFrom}`,
+    ),
+    check(
+      "re_parcel_versions_closed_observed_check",
+      sql`${table.closedObservedAt} is null or ${table.closedObservedAt} >= ${table.observedAt}`,
+    ),
+  ],
+);
+
+/** De qué parcelas sale cada una tras una subdivisión o una fusión. */
+export const reParcelLineage = pgTable(
+  "re_parcel_lineage",
+  {
+    predecessorParcelId: uuid("predecessor_parcel_id").notNull(),
+    successorParcelId: uuid("successor_parcel_id").notNull(),
+    event: varchar("event", { length: 16 }).notNull(),
+    effectiveOn: date("effective_on", { mode: "string" }).notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: "re_parcel_lineage_predecessor_fk",
+      columns: [table.predecessorParcelId],
+      foreignColumns: [reParcels.parcelId],
+    }),
+    foreignKey({
+      name: "re_parcel_lineage_successor_fk",
+      columns: [table.successorParcelId],
+      foreignColumns: [reParcels.parcelId],
+    }),
+    primaryKey({
+      columns: [table.predecessorParcelId, table.successorParcelId],
+    }),
+    index("re_parcel_lineage_successor_idx").on(table.successorParcelId),
+    check(
+      "re_parcel_lineage_distinct_check",
+      sql`${table.predecessorParcelId} <> ${table.successorParcelId}`,
+    ),
+    check(
+      "re_parcel_lineage_event_check",
+      sql`${table.event} in ('subdivision', 'merge')`,
+    ),
+  ],
+);
+
+/** La unidad que se vende: casa, departamento, terreno, cochera… */
+export const reProperties = pgTable(
+  "re_properties",
+  {
+    propertyId: uuid("property_id").primaryKey(),
+    propertyType: varchar("property_type", { length: 16 }).notNull(),
+    createdAt: instant("created_at").notNull(),
+  },
+  (table) => [
+    check(
+      "re_properties_type_check",
+      sql`${table.propertyType} in ${RE_PROPERTY_TYPES}`,
+    ),
+  ],
+);
+
+/**
+ * El vínculo de la unidad con su parcela es una afirmación con confianza
+ * (`property-parcel-link-1.0.0`), una cadena de revisiones con una vigente.
+ */
+export const rePropertyParcelLinks = pgTable(
+  "re_property_parcel_links",
+  {
+    propertyId: uuid("property_id").notNull(),
+    revision: smallint("revision").notNull(),
+    parcelId: uuid("parcel_id").notNull(),
+    basis: varchar("basis", { length: 24 }).notNull(),
+    confidence: varchar("confidence", { length: 16 }).notNull(),
+    availableAt: instant("available_at").notNull(),
+    supersededAt: instant("superseded_at"),
+    recordedAt: instant("recorded_at").notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: "re_property_parcel_links_property_fk",
+      columns: [table.propertyId],
+      foreignColumns: [reProperties.propertyId],
+    }),
+    foreignKey({
+      name: "re_property_parcel_links_parcel_fk",
+      columns: [table.parcelId],
+      foreignColumns: [reParcels.parcelId],
+    }),
+    primaryKey({ columns: [table.propertyId, table.revision] }),
+    uniqueIndex("re_property_parcel_links_open_uidx")
+      .on(table.propertyId)
+      .where(sql`${table.supersededAt} is null`),
+    index("re_property_parcel_links_parcel_idx").on(table.parcelId),
+    check(
+      "re_property_parcel_links_revision_check",
+      sql`${table.revision} > 0`,
+    ),
+    check(
+      "re_property_parcel_links_confidence_check",
+      sql`(${table.basis} = 'owner_declared' and ${table.confidence} = 'confirmed') or (${table.basis} = 'address_geocoded' and ${table.confidence} = 'probable') or (${table.basis} = 'portal_pin' and ${table.confidence} = 'possible')`,
+    ),
+    check(
+      "re_property_parcel_links_superseded_check",
+      sql`${table.supersededAt} is null or ${table.supersededAt} > ${table.availableAt}`,
+    ),
+  ],
+);
+
+/**
+ * El aviso de un portal: su clave es `(fuente, id externo)`, nunca un precio
+ * ni una dirección. Volver a verlo igual sólo mueve `last_seen_at`.
+ */
+export const reListings = pgTable(
+  "re_listings",
+  {
+    listingId: uuid("listing_id").primaryKey(),
+    sourceId: varchar("source_id", { length: 32 }).notNull(),
+    externalId: varchar("external_id", { length: 64 }).notNull(),
+    canonicalUrl: varchar("canonical_url", { length: 512 }).notNull(),
+    firstSeenAt: instant("first_seen_at").notNull(),
+    lastSeenAt: instant("last_seen_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("re_listings_source_external_uidx").on(
+      table.sourceId,
+      table.externalId,
+    ),
+    check("re_listings_source_check", sql`${table.sourceId} in ${RE_PORTALS}`),
+    check(
+      "re_listings_seen_check",
+      sql`${table.lastSeenAt} >= ${table.firstSeenAt}`,
+    ),
+    check(
+      "re_listings_url_check",
+      sql`${table.canonicalUrl} like 'https://%' and position('?' in ${table.canonicalUrl}) = 0 and position('#' in ${table.canonicalUrl}) = 0`,
+    ),
+  ],
+);
+
+/**
+ * El estado completo de un aviso cuando algo cambió (`listing-revision-1.0.0`):
+ * append-only, sin texto de la descripción, fotos ni contacto (ADR 0018). Los
+ * decimales son `numeric` sin escala fija, para que vuelvan como se
+ * escribieron y el hash del contenido se pueda recomputar.
+ */
+export const reListingRevisions = pgTable(
+  "re_listing_revisions",
+  {
+    listingId: uuid("listing_id").notNull(),
+    revision: integer("revision").notNull(),
+    captureContract: varchar("capture_contract", { length: 32 }).notNull(),
+    revisionRule: varchar("revision_rule", { length: 32 }).notNull(),
+    observedAt: instant("observed_at").notNull(),
+    recordedAt: instant("recorded_at").notNull(),
+    pageKind: varchar("page_kind", { length: 16 }).notNull(),
+    parseBasis: varchar("parse_basis", { length: 16 }).notNull(),
+    status: varchar("status", { length: 8 }).notNull(),
+    removalEvidence: varchar("removal_evidence", { length: 16 }),
+    detailSeen: boolean("detail_seen").notNull(),
+    contentHash: sha256("content_hash").notNull(),
+    operation: varchar("operation", { length: 8 }).notNull(),
+    propertyType: varchar("property_type", { length: 16 }).notNull(),
+    priceStatus: varchar("price_status", { length: 16 }).notNull(),
+    priceAmount: numeric("price_amount", { mode: "string" }),
+    priceCurrency: char("price_currency", { length: 3 }),
+    expensesAmount: numeric("expenses_amount", { mode: "string" }),
+    expensesCurrency: char("expenses_currency", { length: 3 }),
+    coveredAreaM2: numeric("covered_area_m2", { mode: "string" }),
+    totalAreaM2: numeric("total_area_m2", { mode: "string" }),
+    landAreaM2: numeric("land_area_m2", { mode: "string" }),
+    rooms: smallint("rooms"),
+    bedrooms: smallint("bedrooms"),
+    bathrooms: smallint("bathrooms"),
+    parkingSpaces: smallint("parking_spaces"),
+    ageYears: smallint("age_years"),
+    floor: smallint("floor"),
+    amenities: varchar("amenities", { length: 16 }).array().notNull(),
+    condition: varchar("condition", { length: 16 }).notNull(),
+    legalFlags: varchar("legal_flags", { length: 16 }).array().notNull(),
+    addressDeclared: varchar("address_declared", { length: 300 }),
+    neighborhood: varchar("neighborhood", { length: 120 }),
+    latitude: numeric("latitude", { mode: "string" }),
+    longitude: numeric("longitude", { mode: "string" }),
+    agency: varchar("agency", { length: 200 }),
+    publishedAt: date("published_at", { mode: "string" }),
+    descriptionSimhash: char("description_simhash", { length: 16 }),
+    photoDhashes: char("photo_dhashes", { length: 16 }).array().notNull(),
+    photoCount: smallint("photo_count").notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: "re_listing_revisions_listing_fk",
+      columns: [table.listingId],
+      foreignColumns: [reListings.listingId],
+    }),
+    primaryKey({ columns: [table.listingId, table.revision] }),
+    index("re_listing_revisions_observed_idx").on(table.observedAt),
+    check("re_listing_revisions_revision_check", sql`${table.revision} > 0`),
+    check(
+      "re_listing_revisions_closed_sets_check",
+      sql`${table.pageKind} in ('listing_detail', 'search_result') and ${table.parseBasis} in ('json_ld', 'embedded_state', 'dom') and ${table.operation} in ('sale', 'rent') and ${table.propertyType} in ${RE_PROPERTY_TYPES} and ${table.condition} in ('new', 'good', 'to_renovate', 'unknown')`,
+    ),
+    check(
+      "re_listing_revisions_status_check",
+      sql`(${table.status} = 'active' and ${table.removalEvidence} is null) or (${table.status} = 'removed' and ${table.removalEvidence} is not null and ${table.removalEvidence} in ('portal_finished', 'http_404'))`,
+    ),
+    check(
+      "re_listing_revisions_price_check",
+      sql`(${table.priceStatus} = 'published' and ${table.priceAmount} is not null and ${table.priceAmount} > 0 and ${table.priceCurrency} is not null and ${table.priceCurrency} in ('USD', 'ARS')) or (${table.priceStatus} = 'on_request' and ${table.priceAmount} is null and ${table.priceCurrency} is null)`,
+    ),
+    check(
+      "re_listing_revisions_expenses_check",
+      sql`(${table.expensesAmount} is null and ${table.expensesCurrency} is null) or (${table.expensesAmount} is not null and ${table.expensesAmount} > 0 and ${table.expensesCurrency} is not null and ${table.expensesCurrency} in ('USD', 'ARS'))`,
+    ),
+    check(
+      "re_listing_revisions_areas_check",
+      sql`coalesce(${table.coveredAreaM2}, 1) > 0 and coalesce(${table.totalAreaM2}, 1) > 0 and coalesce(${table.landAreaM2}, 1) > 0`,
+    ),
+    check(
+      "re_listing_revisions_counts_check",
+      sql`coalesce(${table.rooms}, 1) between 1 and 99 and coalesce(${table.bedrooms}, 0) between 0 and 99 and coalesce(${table.bathrooms}, 0) between 0 and 99 and coalesce(${table.parkingSpaces}, 0) between 0 and 999 and coalesce(${table.ageYears}, 0) between 0 and 300 and coalesce(${table.floor}, 0) between -5 and 200`,
+    ),
+    check(
+      "re_listing_revisions_amenities_check",
+      sql`${table.amenities} <@ array['pool', 'gym', 'sum', 'security', 'grill', 'elevator', 'balcony', 'garden']::varchar[]`,
+    ),
+    check(
+      "re_listing_revisions_legal_flags_check",
+      sql`${table.legalFlags} <@ array['credit_eligible', 'deed', 'boleto_only', 'succession', 'possession']::varchar[]`,
+    ),
+    check(
+      "re_listing_revisions_coordinates_check",
+      sql`(${table.latitude} is null and ${table.longitude} is null) or (${table.latitude} is not null and ${table.longitude} is not null and ${table.latitude} between -90 and 90 and ${table.longitude} between -180 and 180)`,
+    ),
+    check(
+      "re_listing_revisions_hashes_check",
+      sql`(${table.descriptionSimhash} is null or ${table.descriptionSimhash} ~ '^[0-9a-f]{16}$') and cardinality(${table.photoDhashes}) <= 5 and ${table.photoCount} >= cardinality(${table.photoDhashes})`,
+    ),
+  ],
+);

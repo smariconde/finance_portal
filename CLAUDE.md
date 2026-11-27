@@ -2051,6 +2051,30 @@ account, re-validated against the current catalog when read; the actions take
 the selection, never a URL. `/plan`'s watchlist opens its active ideas with
 `?t=`.
 
+Phase 13 ([ADR 0089](docs/architecture/adr/0089-real-estate-intelligence-cordoba.md),
+[model](docs/real-estate/market-model.md)) is Córdoba real estate, its own
+module (`src/modules/real-estate/`) that never imports the company engine. It
+carries owner exceptions that are not to be "fixed" with the repo's general
+rules (reduced real captures frozen in the repo, an unpacked extension, portal
+terms not read, no taxes or indexation). Since `F13-01` (migration `0060`) the
+domain has its contracts and no network: `listing-capture-1.0.0` is a closed
+Zod contract (camelCase; «consultar precio» is `priceStatus = on_request` with
+a null price; canonical decimal strings; a canonical URL on the portal's own
+host); `listing-revision-1.0.0` writes a revision —the listing's whole
+state— only when its content hash changes, lets a search card after the
+detail move only the price, refuses to rewrite the chain with a late capture
+(`out_of_order`) and removes only with `portal_finished` or `http_404`;
+`re-parcel-1.0.0` versions parcels through subdivision, merge and correction
+with `closedObservedAt`, so an earlier read never sees a later close;
+`property-parcel-link-1.0.0` affirms a property's parcel with ordinal
+confidence (owner > geocoded address > own pin; a shared pin is
+`location_imprecise`). The seven `re_*` tables mirror the contract with
+explicit `is not null` in every check branch (a NULL check passes), and the
+rollback refuses while revisions exist. Synthetic fixtures live in
+`real-estate/infrastructure/synthetic-listings.ts`. The listing → property
+link (deduplication) is `F13-05`; the extension and capture endpoint are
+`F13-02`.
+
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 
 Node `>=22.11.0 <27`, pnpm `10.33.2` via corepack. Arch Linux dev host — use POSIX shell syntax for env-var examples in docs, matching the `ubuntu-latest` runners CI validates on.

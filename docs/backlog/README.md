@@ -179,7 +179,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   151 | `F12-05`   | `done`        | Reglas de frescura de precios y sesión de trading en versiones nuevas que saben qué días opera Nueva York.                                                                                                                | `F12-01`           |
 |   152 | `F9-23`    | `done`        | Guía ⓘ junto al título de cada bloque de `/argentina`: para qué sirve, cómo leerlo, con qué cruzarlo y qué puede confundir, en líneas cortas y sin consejos.                                                              | Pedido del owner   |
 |   153 | `F9-24`    | `done`        | El IPC observado del bloque REM se pide al abrir; si la API del INDEC no tiene el mes, se lee del BCRA «vía BCRA»; cada mes sin IPC dice por qué.                                                                         | Pedido del owner   |
-|   154 | `F13-01`   | `queued`      | Contratos, identidad y fixtures sintéticas: parcela, unidad, aviso y revisión sólo cuando algo cambia, sin red.                                                                                                           | ADR 0089           |
+|   154 | `F13-01`   | `done`        | Contratos, identidad y fixtures sintéticas: parcela, unidad, aviso y revisión sólo cuando algo cambia, sin red.                                                                                                           | ADR 0089           |
 |   155 | `F13-02`   | `queued`      | Extensión WXT cargada en Brave o Chrome, captura al ver de Remax medida por el agente en el navegador, endpoint con dos secretos y ficha mínima con historial.                                                            | `F13-01`           |
 |   156 | `F13-03`   | `queued`      | Barrido programado robusto: perfil dedicado, cola con prioridad, cursor, tope de 25 páginas por portal, detención ante desafío y cobertura medida.                                                                        | `F13-02`           |
 |   157 | `F13-04`   | `queued`      | Zonaprop, Argenprop y Mercado Libre: cada uno medido en el navegador, leído por datos estructurados primero y con su captura real reducida.                                                                               | `F13-03`           |
@@ -8674,6 +8674,59 @@ Costos de transferencia como conjunto: comprador 3–4 %, vendedor 1–2,5 %,
 comisión 3–4 % por lado. Costo de obra: ICC-Córdoba, vivienda tipo de
 50,25 m², por encima de ARS 823.000 por m² en diciembre de 2025 según la
 prensa (a confirmar en el informe oficial en `F13-08`).
+
+**`F13-01`, 2026-11-27.** Contratos e identidad del dominio inmobiliario en
+`src/modules/real-estate/domain/`, puros y sin red, con la migración `0060`.
+
+- `listing-capture-1.0.0` (`listing-capture.ts`): el contrato del §3 del
+  modelo en Zod `strictObject`, con los nombres en camelCase. Rechaza por
+  nombre un campo de más (nombra la clave, nunca el valor), un precio en cero,
+  una superficie negativa, un decimal no canónico («85.50», «85,5»), un
+  `amenities` o un `legalFlags` fuera del conjunto o repetido, una URL fuera
+  del host del portal o con query, fragmento o credenciales, coordenadas
+  sueltas y más hashes que fotos. «Consultar precio» es `priceStatus =
+on_request` con precio y moneda `null`. Los cuatro portales de la ADR
+  (`remax-ar`, `zonaprop`, `argenprop`, `mercadolibre-inmuebles`) se declaran
+  con su sufijo de host; sus filas de derechos llegan con su slice.
+- `listing-revision-1.0.0` (`listing-revisions.ts`): una revisión guarda el
+  estado completo del aviso y existe sólo cuando cambia el hash de sus hechos
+  (precio, moneda, superficie, estado o cualquier otro); los conjuntos se
+  ordenan antes del hash. Una tarjeta de búsqueda, una vez vista la ficha, sólo
+  mueve el precio, porque redondea la superficie y no lista amenities. Una
+  captura con instante menor o igual a la última revisión es `out_of_order`: a
+  lo sumo adelanta `firstSeenAt`, nunca reescribe la cadena. La baja sólo con
+  `portal_finished` o `http_404` (`planListingRemoval`); verlo publicado de
+  nuevo lo reactiva con el cambio `status`.
+- `re-parcel-1.0.0` (`parcel.ts`): subdivisión (nunca crea suelo, 1 % de
+  margen), fusión y corrección cierran la versión vigente y abren las nuevas
+  con su linaje; `closedObservedAt` fecha cuándo se supo el cierre, así que una
+  lectura anterior no lo ve. La nomenclatura provincial y la municipal se
+  guardan como vengan, sin derivar una de la otra: el formato se mide en
+  `F13-06`.
+- `property-parcel-link-1.0.0` (`property-parcel-link.ts`): el vínculo se
+  afirma sólo con `address_geocoded` (`probable`), `portal_pin` (`possible`) o
+  la declaración del owner (`confirmed`); un pin compartido o sólo el barrio
+  es `location_imprecise`, y una evidencia más débil nunca reemplaza una más
+  fuerte.
+- Migración `0060_real_estate_identity` con `re_parcels`,
+  `re_parcel_versions`, `re_parcel_lineage`, `re_properties`,
+  `re_property_parcel_links`, `re_listings` y `re_listing_revisions`. Los
+  checks reflejan el contrato y cada rama nombra `is not null`: la primera
+  versión dejaba entrar `removed` sin evidencia, porque un `CHECK` desconocido
+  pasa. Decimales en `numeric` sin escala, para que vuelvan como se
+  escribieron. El rollback se niega mientras haya revisiones guardadas.
+- Fixtures sintéticas (`infrastructure/synthetic-listings.ts`): la misma casa
+  en tres agencias y tres portales, una republicación con otro ID, una parcela
+  de 600 m² subdividida en 300 y 290, un pin compartido por tres casas (una
+  con «consultar precio»), un departamento que baja dos veces —una vista en la
+  tarjeta— y se vuelve a ver igual, y un terreno en pesos sin superficie.
+- El vínculo aviso → unidad (la deduplicación) queda para `F13-05`, que lo
+  necesita como afirmación con candidatos.
+- Evidencia: 31 unitarios nuevos (5.158 en total) y 6 de integración
+  —rollback y reaplicación, la guarda, ida y vuelta exacta de una revisión y
+  los checks con sus ramas nulas—; formato, lint, tipos y build.
+
+**Estado:** `done`.
 
 ## Cobertura de deuda transversal
 
