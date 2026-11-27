@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { ROUTES } from "../support/runtime";
+import { withinMain } from "../support/streaming";
 
 /**
  * Las lecciones (`F11-10`) en el runtime personal del gate. El contenido es
@@ -21,7 +22,9 @@ test.describe("lecciones", () => {
     await expect(
       page.getByRole("link", { name: /Candlestick/u }),
     ).toBeVisible();
-    await expect(page.getByText("Base de trading no disponible")).toBeVisible();
+    await expect(
+      withinMain(page).getByText("Base de trading no disponible"),
+    ).toBeVisible();
   });
 
   test("una regla lleva el cursor a su marca y un término abre su definición", async ({
@@ -40,12 +43,15 @@ test.describe("lecciones", () => {
     const term = page.getByRole("button", { name: "Relative volume" });
     await term.focus();
     await page.keyboard.press("Enter");
+    // La definición abre en un popover, fuera de `<main>`.
     await expect(page.getByText(/volumen normal de esa hora/u)).toBeVisible();
 
     await expect(
       page.getByRole("heading", { level: 2, name: "Tu historial" }),
     ).toBeVisible();
-    await expect(page.getByText("Base de trading no disponible")).toBeVisible();
+    await expect(
+      withinMain(page).getByText("Base de trading no disponible"),
+    ).toBeVisible();
     await expect(page.getByText(/Ningún trade con el setup/u)).toHaveCount(0);
   });
 

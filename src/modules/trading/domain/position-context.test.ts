@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import type { SubjectClassification } from "@/modules/classification/domain/subject-classification";
 import {
   DEMO_IDENTITY_GRAPH,
   DEMO_IDENTITY_IDS,
@@ -8,12 +7,7 @@ import {
 import { pointInTimeQuerySchema } from "@/modules/temporal/domain/point-in-time-query";
 import type { StoredValuationRun } from "@/modules/valuation/domain/stored-valuation-run";
 
-import {
-  cedearOf,
-  resolvePositionIdentity,
-  sectorOf,
-  valuationOf,
-} from "./position-context";
+import { resolvePositionIdentity, valuationOf } from "./position-context";
 
 function at(instant: string) {
   return pointInTimeQuerySchema.parse({
@@ -110,65 +104,5 @@ describe("valuationOf", () => {
     ],
   ])("is absent when %s", (_, run, requested, reason) => {
     expect(valuationOf(run, requested)).toEqual({ status: "absent", reason });
-  });
-});
-
-describe("sectorOf", () => {
-  const classification = {
-    classificationAssignmentId: "00000000-0000-4000-8000-000000000001",
-    subjectType: "legal_entity",
-    subjectId: DEMO_IDENTITY_IDS.fixtureCoEntity,
-    taxonomyId: "sp500-wikipedia-gics-sector",
-    taxonomyVersion: "pin",
-    code: "information-technology",
-    label: "Information Technology",
-    validFrom: "2026-01-01T00:00:00.000Z",
-    validTo: null,
-    availableAt: "2026-01-01T00:00:00.000Z",
-    recordedAt: "2026-01-01T00:00:00.000Z",
-    supersededAt: null,
-  } as unknown as SubjectClassification;
-
-  it("reads the open assertion with its label", () => {
-    expect(
-      sectorOf([classification], DEMO_IDENTITY_IDS.fixtureCoEntity, NOW),
-    ).toEqual({
-      status: "classified",
-      code: "information-technology",
-      label: "Information Technology",
-    });
-  });
-
-  it("says why there is no sector, never a default bucket", () => {
-    expect(sectorOf([], DEMO_IDENTITY_IDS.andesEntity, NOW)).toEqual({
-      status: "absent",
-      reason: "never_classified",
-    });
-    expect(
-      sectorOf(
-        [classification],
-        DEMO_IDENTITY_IDS.fixtureCoEntity,
-        at("2025-06-01T00:00:00.000Z"),
-      ),
-    ).toEqual({ status: "absent", reason: "not_effective_at_cutoff" });
-  });
-});
-
-describe("cedearOf", () => {
-  const registry = {
-    programs: DEMO_IDENTITY_GRAPH.depositaryPrograms,
-    ratios: DEMO_IDENTITY_GRAPH.depositaryRatios,
-  };
-
-  it("names the program and its ratio at the cutoff", () => {
-    const cedear = cedearOf(registry, DEMO_IDENTITY_IDS.fixtureCoClassA, NOW);
-    expect(cedear.status).toBe("program");
-  });
-
-  it("says no program was ever recorded", () => {
-    expect(cedearOf(registry, DEMO_IDENTITY_IDS.andesCommon, NOW)).toEqual({
-      status: "absent",
-      reason: "no_program_recorded",
-    });
   });
 });

@@ -11,6 +11,10 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import {
+  tradeKeyOf,
+  tradeRefOf,
+} from "@/modules/trading/domain/trade-annotation";
+import {
   servesRealData,
   servesSchwabConnection,
 } from "@/modules/configuration/domain/config-health";
@@ -21,7 +25,10 @@ import { safeErrorSummary } from "@/server/trading/safe-error";
 import { loadJournalState } from "@/server/trading/transactions";
 
 import { PlanNav } from "./_components/plan-nav";
-import { PlanWorkspace } from "./_components/plan-workspace";
+import {
+  PlanWorkspace,
+  type IdeaExecution,
+} from "./_components/plan-workspace";
 
 export const metadata: Metadata = {
   title: "Plan | Portal Financiero",
@@ -116,8 +123,24 @@ async function PlanContent() {
   const earnings = await readEarningsCalendar(at, { symbols }).catch(
     () => null,
   );
+  // La idea que ya se ejecutó muestra la entrada real: el plan dice dónde se
+  // pensaba entrar, el diario dónde se entró.
+  const executions: Record<string, IdeaExecution> = {};
+  for (const trade of result.state.trades) {
+    const key = tradeKeyOf(trade);
+    const linked = result.state.linkedPlans.get(key);
+    if (linked === undefined || trade.status === "opened_before_history")
+      continue;
+    executions[linked.link.ideaId] = {
+      tradeRef: tradeRefOf(key),
+      status: trade.status,
+      averageEntryPrice: trade.averageEntryPrice,
+      entryQuantity: trade.entryQuantity,
+    };
+  }
   return (
     <PlanWorkspace
+      executions={executions}
       earnings={earnings?.reports ?? []}
       calendarAt={at}
       ideas={result.ideas.map(({ accountKey, ...idea }) => {

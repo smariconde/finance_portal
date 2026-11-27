@@ -22,6 +22,7 @@ import {
 } from "@/modules/trading/domain/trading-rules";
 import { getTradingRiskSettingsStore } from "@/server/persistence/trading/get-trading-risk-settings-store";
 import { ideaLevels } from "@/modules/trading/domain/pre-market-plan";
+import type { RoundTrip } from "@/modules/trading/domain/trade-round-trips";
 import { tradingSessionOf } from "@/modules/trading/domain/trading-session";
 
 import { loadJournalState, type JournalStores } from "./transactions";
@@ -33,7 +34,8 @@ export type RiskContext = {
   readonly settingsRevision: number | null;
   /**
    * Lo planeado para cada trade abierto, por símbolo, con su tipo
-   * (`trading-book-1.0.0`): day si abrió en la sesión de hoy.
+   * (`trading-book-1.1.0`): el de su idea de `/plan` o, sin ella, day si abrió
+   * en la sesión de hoy.
    */
   readonly plans: readonly (PlanLevels & {
     readonly symbol: string;
@@ -101,6 +103,9 @@ export async function readRiskContext(
   ]);
   for (const part of state.unread) unread.add(part);
   const session = tradingSessionOf(now);
+  // Manda el plan (`trading-book-1.1.0`): la idea unida dice day o swing.
+  const plannedBookOf = (trade: RoundTrip) =>
+    state.linkedPlans.get(tradeKeyOf(trade))?.idea.book ?? null;
   const plans = state.trades
     .filter((trade) => trade.status === "open")
     .map((trade) => {
@@ -110,7 +115,7 @@ export async function readRiskContext(
       const levels = linked === undefined ? null : ideaLevels(linked.idea);
       return {
         symbol: trade.symbol,
-        book: bookOfTrade(trade, session),
+        book: bookOfTrade(trade, session, plannedBookOf(trade)),
         stop: plan?.stop ?? (levels?.state === "valid" ? levels.stop : null),
         target:
           plan?.target ?? (levels?.state === "valid" ? levels.target : null),
@@ -121,7 +126,7 @@ export async function readRiskContext(
     settings: settingsOf(stored),
     settingsRevision: stored?.revision ?? null,
     plans,
-    activity: sessionActivity(state.trades, now),
+    activity: sessionActivity(state.trades, now, plannedBookOf),
     cashFlows: sessionCashFlows(state.transactions, now),
     unread: unreadParts(unread),
   };

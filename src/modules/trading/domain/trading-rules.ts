@@ -21,7 +21,7 @@ import { tradingSessionOf } from "./trading-session";
  * regla sólo dice en qué estado está el día.
  *
  * `trading-rules-2.0.0` (`F11-18`, decisiones del owner del 2026-11-25) parte
- * la cuenta en dos bolsillos según el tipo de cada trade (`trading-book-1.0.0`,
+ * la cuenta en dos bolsillos según el tipo de cada trade (`trading-book-1.1.0`,
  * automático):
  *
  * - **Swing, 70 % del valor de liquidación:** el valor de mercado de las
@@ -244,7 +244,7 @@ export type SessionActivity = {
 };
 
 /**
- * Los day trades de una sesión (`trading-book-1.0.0`): los que abrieron en
+ * Los day trades de una sesión (`trading-book-1.1.0`): los que abrieron en
  * ella, cerrados o todavía abiertos. Un trade cuenta en la racha cuando cierra:
  * con P&L negativo suma, con cero o positivo la corta. Las salidas de un swing
  * no cuentan: tienen su propio bolsillo.
@@ -252,13 +252,15 @@ export type SessionActivity = {
 export function sessionActivity(
   trades: readonly RoundTrip[],
   now: string,
+  /** El tipo de la idea unida a cada trade (`trading-book-1.1.0`). */
+  plannedBookOf: (trade: RoundTrip) => TradingBook | null = () => null,
 ): SessionActivity {
   const session = tradingSessionOf(now);
   const day = trades.filter(
     (trade) =>
       trade.status !== "opened_before_history" &&
       trade.openedSession === session &&
-      bookOfTrade(trade, session) === "day",
+      bookOfTrade(trade, session, plannedBookOf(trade)) === "day",
   );
   const realized: Dec[] = [];
   const buys: Dec[] = [];

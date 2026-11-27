@@ -110,18 +110,3 @@ export const VALUATION_ABSENCE_COPY: Record<string, string> = {
   run_rejected: "Corrida rechazada",
   run_without_value: "Sin valor por acción",
 };
-
-export const SECTOR_ABSENCE_COPY: Record<string, string> = {
-  never_classified: "Sin sector",
-  not_effective_at_cutoff: "Sin sector vigente",
-};
-
-export const CEDEAR_ABSENCE_COPY: Record<string, string> = {
-  no_program_recorded: "Sin CEDEAR registrado",
-  not_effective_at_cutoff: "Sin programa vigente",
-};
-
-export const IDENTITY_ABSENCE_COPY: Record<string, string> = {
-  not_in_universe: "Fuera del universo",
-  ambiguous_symbol: "Ticker ambiguo",
-};

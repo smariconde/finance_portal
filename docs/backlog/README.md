@@ -8988,6 +8988,14 @@ probar el control; fases posteriores pueden volver a verificarlo.
   rollback de `0008`, `0006` y `0005`), 393 E2E, lint, tipos, formato y build.
   El card de riesgo se miró renderizado a 1280 y 390 con datos de ejemplo: con
   el capital day agotado el planner day da 0 acciones y nombra el tope.
+- 2026-11-27, operando un swing real de MELI
+  ([enmienda](../architecture/adr/0076-schwab-read-only-account-trading-journal.md#enmienda-del-2026-11-27-manda-el-plan-entradas-reales-y-lecturas-con-techo)):
+  `trading-book-1.1.0` (una idea swing unida hace swing al trade desde la
+  entrada; decisión del owner), entrada real en la watchlist de `/plan`,
+  `position-context-2.0.0` sin sector ni CEDEAR, techo de 20 s en las lecturas
+  de trading tras cuatro 504 de 300 s medidos en `/plan`, el riesgo por trade
+  del tipo al guardar una idea y `loading.tsx` en las nueve rutas que no lo
+  tenían. Sin migración.
 
 ## `F12-01` — sesiones de Nueva York y `/calendario`
 

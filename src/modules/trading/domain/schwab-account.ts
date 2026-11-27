@@ -245,7 +245,7 @@ export type SchwabPosition = {
   /**
    * La cantidad del lado de la posición al cierre de la sesión anterior, como la
    * publica Schwab; `null` si no la publica. Dice si la posición pasó la noche
-   * cuando el diario no tiene su trade (`trading-book-1.0.0`).
+   * cuando el diario no tiene su trade (`trading-book-1.1.0`).
    */
   readonly previousSessionQuantity: string | null;
   /** Sólo opciones: lo que dice Schwab, `null` si no lo dice (nunca 100 supuesto). */

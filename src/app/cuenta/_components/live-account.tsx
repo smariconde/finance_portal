@@ -60,16 +60,13 @@ import {
 import { PositionRiskCell, RiskCard, type RiskView } from "./account-risk";
 
 import {
-  CEDEAR_ABSENCE_COPY,
   formatClock,
   formatDateTime,
   formatMoney,
   formatQuantity,
-  IDENTITY_ABSENCE_COPY,
   INSTRUCTION_COPY,
   liveFailureCopy,
   ORDER_STATUS_COPY,
-  SECTOR_ABSENCE_COPY,
   VALUATION_ABSENCE_COPY,
 } from "./live-account-copy";
 
@@ -449,7 +446,7 @@ export function LiveAccount({
  * El riesgo de la lectura vigente (`position-size-risk-2.0.0`,
  * `trading-rules-2.0.0`): el precio de cada posición es su cotización si la hay
  * y, si no, el de Schwab en la cuenta. Cada posición es day o swing
- * (`trading-book-1.0.0`) y mide en su bolsillo. Sin los planes de la base de trading no
+ * (`trading-book-1.1.0`) y mide en su bolsillo. Sin los planes de la base de trading no
  * se calcula: una posición sin plan leído no es una posición sin stop.
  */
 function computeRisk(
@@ -687,84 +684,37 @@ function contextFor(
   return context.contexts.find((row) => row.symbol === symbol) ?? null;
 }
 
-function ContextCells({
+function ValuationCell({
   context,
 }: {
   readonly context: PositionContext | "loading" | null;
 }) {
   if (context === "loading") {
-    return (
-      <TableCell colSpan={3} className="text-muted-foreground">
-        Cruzando…
-      </TableCell>
-    );
+    return <TableCell className="text-muted-foreground">Cruzando…</TableCell>;
   }
   if (context === null) {
-    return (
-      <TableCell colSpan={3} className="text-muted-foreground">
-        Sin cruce
-      </TableCell>
-    );
+    return <TableCell className="text-muted-foreground">Sin cruce</TableCell>;
   }
-  if (context.status === "unresolved") {
-    return (
-      <TableCell colSpan={3} className="text-muted-foreground">
-        {IDENTITY_ABSENCE_COPY[context.reason] ?? context.reason}
-      </TableCell>
-    );
-  }
-  const { valuation, sector, cedear } = context;
+  const { valuation } = context;
   return (
-    <>
-      <TableCell>
-        {valuation.status === "valued" ? (
-          <Link
-            href={`/valuacion/${encodeURIComponent(context.symbol)}` as Route}
-            className="numeric underline-offset-4 hover:underline"
-          >
-            {valuation.currency} {formatMoney(valuation.valuePerShare)}
-            <span className="block text-xs text-muted-foreground">
-              al {formatCalendarDate(valuation.asOf)}
-              {valuation.runStatus === "requires_review"
-                ? " · en revisión"
-                : ""}
-            </span>
-          </Link>
-        ) : (
-          <span className="text-muted-foreground">
-            {VALUATION_ABSENCE_COPY[valuation.reason]}
+    <TableCell>
+      {valuation.status === "valued" ? (
+        <Link
+          href={`/valuacion/${encodeURIComponent(context.symbol)}` as Route}
+          className="numeric underline-offset-4 hover:underline"
+        >
+          {valuation.currency} {formatMoney(valuation.valuePerShare)}
+          <span className="block text-xs text-muted-foreground">
+            al {formatCalendarDate(valuation.asOf)}
+            {valuation.runStatus === "requires_review" ? " · en revisión" : ""}
           </span>
-        )}
-      </TableCell>
-      <TableCell>
-        {sector.status === "classified" ? (
-          <Link
-            href={`/sectores/${sector.code}` as Route}
-            className="underline-offset-4 hover:underline"
-          >
-            {sector.label}
-          </Link>
-        ) : (
-          <span className="text-muted-foreground">
-            {SECTOR_ABSENCE_COPY[sector.reason]}
-          </span>
-        )}
-      </TableCell>
-      <TableCell>
-        {cedear.status === "program" ? (
-          <span className="numeric">
-            Sí
-            {cedear.ratios.some((ratio) => ratio !== null)
-              ? ` · ${cedear.ratios.filter((ratio) => ratio !== null).join(", ")}`
-              : ""}
-          </span>
-        ) : (
-          <span className="text-muted-foreground">
-            {CEDEAR_ABSENCE_COPY[cedear.reason]}
-          </span>
-        )}
-      </TableCell>
-    </>
+        </Link>
+      ) : (
+        <span className="text-muted-foreground">
+          {VALUATION_ABSENCE_COPY[valuation.reason]}
+        </span>
+      )}
+    </TableCell>
   );
 }
 
@@ -792,8 +742,8 @@ function PositionsCard({
               abiertos.
             </p>
             <p>
-              Valuación, sector y CEDEAR salen del portal: la última valuación
-              registrada, a su propia fecha.
+              La valuación sale del portal: la última registrada, a su propia
+              fecha.
             </p>
           </InfoTip>
         </CardTitle>
@@ -821,8 +771,8 @@ function PositionsCard({
         <CardContent className="space-y-3 px-0">
           {context !== null && context.state === "analysis_unavailable" ? (
             <p className="px-4 text-sm text-muted-foreground">
-              La base de análisis no respondió: valuación, sector y CEDEAR no se
-              cruzaron. La cuenta no depende de ella. Referencia{" "}
+              La base de análisis no respondió: la valuación no se cruzó. La
+              cuenta no depende de ella. Referencia{" "}
               <code className="font-mono text-xs">{context.reference}</code>.
             </p>
           ) : null}
@@ -838,8 +788,6 @@ function PositionsCard({
                 <TableHead className="text-right">P&amp;L abierto</TableHead>
                 <TableHead>Stop · target</TableHead>
                 <TableHead>Valuación</TableHead>
-                <TableHead>Sector</TableHead>
-                <TableHead>CEDEAR</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -938,7 +886,7 @@ function PositionsCard({
                         <span className="text-muted-foreground">—</span>
                       )}
                     </TableCell>
-                    <ContextCells
+                    <ValuationCell
                       context={contextFor(context, position.symbol)}
                     />
                   </TableRow>

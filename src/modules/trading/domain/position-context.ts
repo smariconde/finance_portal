@@ -1,17 +1,4 @@
 import {
-  resolveCedearAccess,
-  type CedearAccess,
-} from "@/modules/cedears/domain/resolve-cedear-access";
-import type { StoredCedearRegistry } from "@/modules/cedears/domain/plan-cedear-registry";
-import {
-  listSectors,
-  SP500_SECTOR_TAXONOMY_ID,
-} from "@/modules/classification/domain/sector-taxonomy";
-import {
-  resolveClassificationAt,
-  type SubjectClassification,
-} from "@/modules/classification/domain/subject-classification";
-import {
   normalizeSymbol,
   type IdentityGraph,
 } from "@/modules/identity/domain/identity-graph";
@@ -24,19 +11,21 @@ import type { StoredValuationRun } from "@/modules/valuation/domain/stored-valua
 
 /**
  * El cruce de una posición con lo que el portal sabe de ella
- * (`position-context-1.0.0`, ADR 0076, sección 3; `F11-04`): su última
- * valuación registrada, su sector y su acceso por CEDEAR, al corte de la lectura.
+ * (`position-context-2.0.0`, ADR 0076, sección 3; `F11-04`): su última
+ * valuación registrada, buscada por el ticker. `1.0.0` también daba sector y
+ * acceso por CEDEAR, y para eso leía el grafo de identidad, la clasificación y
+ * el registro de CEDEARs en cada apertura de la cuenta.
  *
  * Es opcional por construcción: vive en la base de análisis, que puede no
- * responder, y la cuenta se muestra igual. Cada parte que falta dice por qué;
- * ninguna se rellena.
+ * responder, y la cuenta se muestra igual. Lo que falta dice por qué; nada se
+ * rellena.
  *
- * La identidad sigue `schwab-position-identity-1.0.0`: el símbolo de Schwab se
+ * `resolvePositionIdentity` sigue para los earnings de la cuenta. La identidad sigue `schwab-position-identity-1.0.0`: el símbolo de Schwab se
  * busca entre los tickers vigentes de listings activos en dólares —Schwab opera
  * en EE.UU.—, y sólo una security candidata resuelve. Un CEDEAR en BYMA puede
  * tener el mismo ticker que su subyacente, y por eso el filtro de moneda.
  */
-export const POSITION_CONTEXT_VERSION = "position-context-1.0.0";
+export const POSITION_CONTEXT_VERSION = "position-context-2.0.0";
 export const POSITION_IDENTITY_VERSION = "schwab-position-identity-1.0.0";
 
 export type PositionIdentity =
@@ -141,82 +130,9 @@ export function valuationOf(
   };
 }
 
-export type PositionSector =
-  | {
-      readonly status: "classified";
-      readonly code: string;
-      readonly label: string;
-    }
-  | {
-      readonly status: "absent";
-      readonly reason: "never_classified" | "not_effective_at_cutoff";
-    };
-
-const SECTOR_LABEL: ReadonlyMap<string, string> = new Map(
-  listSectors().map(({ code, label }) => [code, label]),
-);
-
-export function sectorOf(
-  classifications: readonly SubjectClassification[],
-  legalEntityId: string,
-  query: PointInTimeQuery,
-): PositionSector {
-  const resolution = resolveClassificationAt(
-    classifications,
-    SP500_SECTOR_TAXONOMY_ID,
-    query,
-    legalEntityId,
-  );
-  if (!resolution.classified) {
-    return { status: "absent", reason: resolution.absence };
-  }
-  const code = resolution.classification.code;
-  return { status: "classified", code, label: SECTOR_LABEL.get(code) ?? code };
-}
-
-export type PositionCedear =
-  | {
-      readonly status: "program";
-      /** Ratio de cada programa: `depositario:subyacente`, o `null` sin ratio al corte. */
-      readonly ratios: readonly (string | null)[];
-    }
-  | {
-      readonly status: "absent";
-      readonly reason: Extract<
-        CedearAccess,
-        { status: "none_known" }
-      >["reason"];
-    };
-
-export function cedearOf(
-  registry: StoredCedearRegistry,
-  securityId: string,
-  query: PointInTimeQuery,
-): PositionCedear {
-  const access = resolveCedearAccess(registry, securityId, query);
-  if (access.status !== "program") {
-    return { status: "absent", reason: access.reason };
-  }
-  return {
-    status: "program",
-    ratios: access.programs.map(({ ratio }) =>
-      ratio === null
-        ? null
-        : `${ratio.depositaryUnits}:${ratio.underlyingUnits}`,
-    ),
-  };
-}
-
-export type PositionContext =
-  | {
-      readonly symbol: string;
-      readonly status: "resolved";
-      readonly valuation: PositionValuation;
-      readonly sector: PositionSector;
-      readonly cedear: PositionCedear;
-    }
-  | {
-      readonly symbol: string;
-      readonly status: "unresolved";
-      readonly reason: "not_in_universe" | "ambiguous_symbol";
-    };
+/** Desde `position-context-2.0.0`, sólo la valuación: el owner sacó sector y
+ * CEDEAR de la cuenta (2026-11-27) por no usarlos al operar. */
+export type PositionContext = {
+  readonly symbol: string;
+  readonly valuation: PositionValuation;
+};

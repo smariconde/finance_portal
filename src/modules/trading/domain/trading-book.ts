@@ -6,16 +6,19 @@ import {
 import type { RoundTrip } from "./trade-round-trips";
 
 /**
- * Day o swing (`trading-book-1.0.0`, `F11-18`). Decisión del owner del
- * 2026-11-25: el tipo es **automático**, nunca declarado. Un trade es day
- * mientras vive dentro de una sola sesión de Nueva York: cerró en la sesión en
- * que abrió o, abierto, abrió en la de hoy. Lo que pasa la noche es swing desde
- * la sesión siguiente, también un trade abierto antes de la historia.
+ * Day o swing (`F11-18`). `trading-book-1.0.0` (owner, 2026-11-25) era sólo
+ * automático: un trade es day mientras vive dentro de una sola sesión de Nueva
+ * York —cerró en la sesión en que abrió o, abierto, abrió en la de hoy— y lo que
+ * pasa la noche es swing desde la sesión siguiente, también un trade abierto
+ * antes de la historia.
  *
- * La consecuencia es buscada: una compra pensada como swing usa el capital del
- * day trading el día que entra, y pasa al de swing al día siguiente.
+ * `trading-book-1.1.0` (owner, 2026-11-27, operando un swing de MELI que el
+ * 1.0.0 cargaba al capital day): **manda el plan**. Un trade unido a una idea
+ * swing de `/plan` es swing desde la entrada. Pasar la noche lo hace swing
+ * siempre, aunque la idea dijera day: la exposición nocturna es real. Sin idea
+ * unida, sigue la regla automática.
  */
-export const TRADING_BOOK_VERSION = "trading-book-1.0.0";
+export const TRADING_BOOK_VERSION = "trading-book-1.1.0";
 
 export type TradingBook = "day" | "swing";
 
@@ -28,11 +31,12 @@ const { parseDecimal, formatDecimal } = createDecimalOperations(
 export function bookOfTrade(
   trade: Pick<RoundTrip, "status" | "openedSession" | "closedSession">,
   session: string,
+  /** El tipo de la idea de `/plan` unida al trade; `null` sin idea. */
+  planned: TradingBook | null = null,
 ): TradingBook {
   if (trade.status === "opened_before_history") return "swing";
-  return trade.openedSession === (trade.closedSession ?? session)
-    ? "day"
-    : "swing";
+  if (trade.openedSession !== (trade.closedSession ?? session)) return "swing";
+  return planned ?? "day";
 }
 
 /**

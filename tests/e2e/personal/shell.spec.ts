@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { ROUTES } from "../support/runtime";
+import { withinMain } from "../support/streaming";
 
 /**
  * Abre la navegación cuando el viewport la sirve como drawer.
@@ -89,7 +90,9 @@ test.describe("shell del portal", () => {
     ).toBeVisible();
     // La explicación larga vive en el ⓘ; la página dice una línea.
     await expect(
-      page.getByText("abre su valuación con precio, valor y evidencia"),
+      withinMain(page).getByText(
+        "abre su valuación con precio, valor y evidencia",
+      ),
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Qué significa: Qué pasa al valuar" }),
