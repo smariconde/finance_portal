@@ -50,6 +50,40 @@ describe("bookOfTrade", () => {
   });
 });
 
+describe("bookOfTrade with a linked plan (trading-book-1.1.0)", () => {
+  const today = {
+    status: "open" as const,
+    openedSession: TODAY,
+    closedSession: null,
+  };
+  const overnight = {
+    status: "open" as const,
+    openedSession: "2026-11-24",
+    closedSession: null,
+  };
+
+  it("lets a swing plan make the trade swing from its entry", () => {
+    expect(bookOfTrade(today, TODAY, "swing")).toBe("swing");
+    expect(
+      bookOfTrade(
+        { status: "closed", openedSession: TODAY, closedSession: TODAY },
+        TODAY,
+        "swing",
+      ),
+    ).toBe("swing");
+  });
+
+  it("keeps a day plan day inside the session, swing after a night", () => {
+    expect(bookOfTrade(today, TODAY, "day")).toBe("day");
+    expect(bookOfTrade(overnight, TODAY, "day")).toBe("swing");
+  });
+
+  it("falls back on the automatic rule without a plan", () => {
+    expect(bookOfTrade(today, TODAY, null)).toBe("day");
+    expect(bookOfTrade(overnight, TODAY, null)).toBe("swing");
+  });
+});
+
 describe("bookOfPosition", () => {
   it("follows the journal's trade first", () => {
     expect(

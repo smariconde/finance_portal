@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { ROUTES } from "../support/runtime";
+import { withinMain } from "../support/streaming";
 
 /**
  * Corrida de referencia servida por un runtime personal (`F1-07`).
@@ -176,7 +177,7 @@ test.describe("corrida de referencia", () => {
     page,
   }) => {
     await expect(
-      page.getByText("Empresa sintética, no una empresa real"),
+      withinMain(page).getByText("Empresa sintética, no una empresa real"),
     ).toBeVisible();
 
     const headline = cardWithHeading(page, "Resultado de la corrida");

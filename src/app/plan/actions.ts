@@ -20,6 +20,7 @@ import {
   issueQuoteScope,
   QUOTE_SCOPE_MAX_SYMBOLS,
 } from "@/modules/trading/domain/quote-scope";
+import { riskPerTradeOf } from "@/modules/trading/domain/trading-rules";
 import {
   tradeKeyFromRef,
   tradeKeyOf,
@@ -27,9 +28,11 @@ import {
 } from "@/modules/trading/domain/trade-annotation";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
 import { getPreMarketStore } from "@/server/persistence/trading/get-pre-market-store";
+import { getSchwabTransactionStore } from "@/server/persistence/trading/get-schwab-transaction-store";
 import { getTradingRiskSettingsStore } from "@/server/persistence/trading/get-trading-risk-settings-store";
 import { getLiveAccountDependencies } from "@/server/trading/live-account";
 import { settingsOf } from "@/server/trading/risk";
+import { withTradingDeadline } from "@/server/trading/deadline";
 import { safeErrorSummary } from "@/server/trading/safe-error";
 import { loadJournalState } from "@/server/trading/transactions";
 
@@ -86,9 +89,11 @@ export async function savePreMarketIdea(
     if (live.account.lastFour !== state.account.lastFour)
       return { state: "account_unavailable" };
     const rules = settingsOf(storedRules);
+    // El riesgo por trade del tipo de la idea, el mismo que mostró el editor:
+    // con el del swing, una idea day guardaba otro stop automático.
     const basis = {
       liquidationValue: live.balances.liquidationValue,
-      riskPercent: rules.riskPerTradePercent,
+      riskPercent: riskPerTradeOf(rules, fields.book),
     };
     const levels = ideaLevels({ ...(fields as IdeaFields), ...basis });
     if (levels.state === "invalid")
@@ -124,32 +129,34 @@ export async function readPlanQuotes(input: unknown) {
   )
     return { state: "unavailable" as const };
   try {
-    const state = await loadJournalState();
-    if (state.account === null) return { state: "unavailable" as const };
-    const ideas = await getPreMarketStore().listCurrent(
-      state.account.accountKey,
-    );
-    if (
-      new Set(
-        ideas
-          .filter((idea) => idea.status === "active")
-          .map((idea) => idea.symbol),
-      ).size > QUOTE_SCOPE_MAX_SYMBOLS
-    )
-      return { state: "limit_reached" as const };
-    const dependencies = getLiveAccountDependencies();
-    const scope = issueQuoteScope(
-      dependencies.quoteScopeKey,
-      ideas
-        .filter((idea) => idea.status === "active")
-        .map((idea) => idea.symbol),
-      dependencies.now(),
-    );
-    return await readLiveQuotes(dependencies, scope);
+    return await withTradingDeadline("readPlanQuotes", () => planQuotes());
   } catch (error) {
     console.error("pre-market quotes failed", safeErrorSummary(error));
     return { state: "unavailable" as const };
   }
+}
+
+/** La cuenta sale de la lista de cuentas, no del diario entero: cotizar no
+ * necesita trades ni anotaciones. */
+async function planQuotes() {
+  const [account] = await getSchwabTransactionStore().listAccounts();
+  if (account === undefined) return { state: "unavailable" as const };
+  const symbols = [
+    ...new Set(
+      (await getPreMarketStore().listCurrent(account.accountKey))
+        .filter((idea) => idea.status === "active")
+        .map((idea) => idea.symbol),
+    ),
+  ];
+  if (symbols.length > QUOTE_SCOPE_MAX_SYMBOLS)
+    return { state: "limit_reached" as const };
+  const dependencies = getLiveAccountDependencies();
+  const scope = issueQuoteScope(
+    dependencies.quoteScopeKey,
+    symbols,
+    dependencies.now(),
+  );
+  return await readLiveQuotes(dependencies, scope);
 }
 
 const linkRequest = z

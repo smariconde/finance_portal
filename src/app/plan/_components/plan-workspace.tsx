@@ -10,6 +10,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useEffect, useId, useState } from "react";
+import type { Route } from "next";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { PercentChange } from "@/app/_components/price-change";
@@ -55,6 +57,14 @@ import { readPlanQuotes, savePreMarketIdea } from "../actions";
 import { IdeaRiskSheet } from "./idea-risk-sheet";
 
 type PublicIdea = Omit<StoredIdea, "accountKey">;
+
+/** El trade del diario unido a una idea: dónde se entró de verdad. */
+export type IdeaExecution = {
+  readonly tradeRef: string;
+  readonly status: "open" | "closed";
+  readonly averageEntryPrice: string | null;
+  readonly entryQuantity: string;
+};
 type Draft = {
   ideaId: string | null;
   baseRevision: number | null;
@@ -240,11 +250,13 @@ function FieldSelect<T extends string>({
 
 export function PlanWorkspace({
   ideas,
+  executions,
   setups,
   earnings,
   calendarAt,
 }: {
   ideas: readonly PublicIdea[];
+  executions: Readonly<Record<string, IdeaExecution>>;
   setups: readonly TradingSetup[];
   earnings: readonly EarningsReport[];
   calendarAt: string;
@@ -268,22 +280,38 @@ export function PlanWorkspace({
     setMessage("");
   };
 
+  const [readCycle, setReadCycle] = useState(0);
   useEffect(() => {
+    // Cada lectura por su lado: una que tarda o falla no deja a las otras sin
+    // mostrar, y una que no vuelve se ve como falla con «Reintentar», nunca como
+    // «Leyendo…» para siempre (las acciones cortan a los 20 s).
     let mounted = true;
-    void Promise.all([
-      readLiveAccount({}),
-      readAccountRisk({ force: false }),
-      readPlanQuotes({}),
-    ]).then(([account, context, prices]) => {
-      if (!mounted) return;
-      setLive(account);
-      setRisk(context);
-      setQuotes(prices);
+    const settle = <T,>(
+      read: () => Promise<T>,
+      set: (value: T) => void,
+      failed: T,
+    ) =>
+      void read()
+        .catch(() => failed)
+        .then((value) => {
+          if (mounted) set(value);
+        });
+    settle(() => readLiveAccount({}), setLive, { state: "unavailable" });
+    settle(() => readAccountRisk({ force: false }), setRisk, {
+      state: "unavailable",
     });
+    settle(() => readPlanQuotes({}), setQuotes, { state: "unavailable" });
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [readCycle]);
+
+  function retryReads() {
+    setLive(null);
+    setRisk(null);
+    setQuotes(null);
+    setReadCycle((cycle) => cycle + 1);
+  }
 
   const equity = live?.state === "read" ? live.balances.liquidationValue : null;
   const settings = risk?.state === "read" ? risk.settings : null;
@@ -669,12 +697,14 @@ export function PlanWorkspace({
           book={draft.book}
           capitalLeft={left}
           onUseSuggested={(shares) => change("quantity", shares)}
+          onRetry={retryReads}
         />
         <div className="lg:hidden">{actions}</div>
         <Watchlist
           earnings={earnings}
           calendarAt={calendarAt}
           ideas={shownIdeas}
+          executions={executions}
           activeIdeas={activeIdeas}
           archivedCount={archivedCount}
           showArchived={showArchived}
@@ -772,6 +802,7 @@ function Watchlist({
   earnings,
   calendarAt,
   ideas,
+  executions,
   activeIdeas,
   archivedCount,
   showArchived,
@@ -790,6 +821,7 @@ function Watchlist({
   readonly earnings: readonly EarningsReport[];
   readonly calendarAt: string;
   readonly ideas: readonly PublicIdea[];
+  readonly executions: Readonly<Record<string, IdeaExecution>>;
   readonly activeIdeas: readonly PublicIdea[];
   readonly archivedCount: number;
   readonly showArchived: boolean;
@@ -890,7 +922,9 @@ function Watchlist({
           <div className="relative overflow-x-auto">
             <table className="w-full min-w-[620px] text-left text-sm">
               <caption className="sr-only">
-                Ideas de la watchlist. La compra es entrada por cantidad.
+                Ideas de la watchlist. La compra es entrada por cantidad; en una
+                idea ya ejecutada, la entrada y la cantidad reales del diario,
+                con las del plan debajo.
               </caption>
               <thead className="text-xs text-muted-foreground">
                 <tr className="border-b">
@@ -926,6 +960,10 @@ function Watchlist({
                   const quote =
                     idea.status === "active" ? bySymbol.get(idea.symbol) : null;
                   const archived = idea.status === "archived";
+                  const executed = executions[idea.ideaId] ?? null;
+                  const realEntry = executed?.averageEntryPrice ?? null;
+                  const realQuantity =
+                    executed === null ? null : executed.entryQuantity;
                   const setup =
                     setups.find(
                       (candidate) => candidate.code === idea.setupCode,
@@ -967,6 +1005,21 @@ function Watchlist({
                                 )}
                               />
                             )}
+                            {executed === null ? null : (
+                              <Link
+                                href={`/diario/${executed.tradeRef}` as Route}
+                                className={cn(
+                                  "w-fit rounded-sm px-1 text-xs font-medium underline-offset-4 hover:underline",
+                                  executed.status === "open"
+                                    ? "bg-info-surface text-info"
+                                    : "bg-muted text-muted-foreground",
+                                )}
+                              >
+                                {executed.status === "open"
+                                  ? "En posición"
+                                  : "Cerrada"}
+                              </Link>
+                            )}
                             <span className="numeric text-xs whitespace-nowrap text-muted-foreground">
                               {setup === null ? "" : `${setup} · `}
                               <time
@@ -993,7 +1046,19 @@ function Watchlist({
                         )}
                       </td>
                       <td className="numeric px-3 py-2 text-right whitespace-nowrap">
-                        {fmt(idea.entry)}
+                        {realEntry === null ? (
+                          fmt(idea.entry)
+                        ) : (
+                          <span className="flex flex-col items-end">
+                            <span className="font-medium">
+                              {fmt(realEntry)}
+                              <span className="sr-only"> real</span>
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              plan {fmt(idea.entry)}
+                            </span>
+                          </span>
+                        )}
                       </td>
                       <td
                         className={cn(
@@ -1012,12 +1077,24 @@ function Watchlist({
                         {result.state === "valid" ? fmt(result.target) : "—"}
                       </td>
                       <td className="numeric px-3 py-2 text-right whitespace-nowrap">
-                        {idea.quantity}
+                        {realQuantity === null ||
+                        realQuantity === idea.quantity ? (
+                          idea.quantity
+                        ) : (
+                          <span className="flex flex-col items-end">
+                            {realQuantity}
+                            <span className="text-xs text-muted-foreground">
+                              plan {idea.quantity}
+                            </span>
+                          </span>
+                        )}
                       </td>
                       <td className="numeric px-3 py-2 text-right font-semibold whitespace-nowrap">
-                        {result.state === "valid"
-                          ? `US$ ${fmt(result.chosenValue)}`
-                          : "—"}
+                        {realEntry !== null && realQuantity !== null
+                          ? `US$ ${fmt(purchaseTotal([{ entry: realEntry, quantity: realQuantity }]))}`
+                          : result.state === "valid"
+                            ? `US$ ${fmt(result.chosenValue)}`
+                            : "—"}
                       </td>
                       <td className="px-4 py-2">
                         <span className="flex justify-end gap-1">

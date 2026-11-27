@@ -62,7 +62,7 @@ import { saveRiskSettings, type SaveRiskSettingsResult } from "../actions";
 
 /**
  * El riesgo de la cuenta (`F11-09`, `F11-18`, ADR 0076): las reglas como
- * medidores en dos bolsillos —day y swing, `trading-book-1.0.0`—, el planner de
+ * medidores en dos bolsillos —day y swing, `trading-book-1.1.0`—, el planner de
  * cada tipo con precios que escribe el owner y el editor de sus reglas. Nada
  * bloquea: el portal no envía órdenes. El cálculo es `position-size-risk-2.0.0`
  * y `trading-rules-2.0.0`, en decimal; `number` sólo para la geometría de las

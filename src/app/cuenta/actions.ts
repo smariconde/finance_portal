@@ -38,6 +38,7 @@ import {
   settingsOf,
   type RiskContext,
 } from "@/server/trading/risk";
+import { withTradingDeadline } from "@/server/trading/deadline";
 import { safeErrorSummary } from "@/server/trading/safe-error";
 import { getSchwabRuntime } from "@/server/trading/schwab-connection";
 import { getTransactionSyncDependencies } from "@/server/trading/transactions";
@@ -134,7 +135,9 @@ export async function readLiveAccount(
   }
 
   try {
-    const reading = await readLiveAccountNow(getLiveAccountDependencies());
+    const reading = await withTradingDeadline("readLiveAccount", () =>
+      readLiveAccountNow(getLiveAccountDependencies()),
+    );
     if (reading.state === "failed") {
       console.warn(
         "schwab account read failed",
@@ -166,9 +169,8 @@ export async function readLiveQuotes(
   if (!request.success) return { state: "unavailable" };
 
   try {
-    const reading = await readLiveQuotesNow(
-      getLiveAccountDependencies(),
-      request.data.scope,
+    const reading = await withTradingDeadline("readLiveQuotes", () =>
+      readLiveQuotesNow(getLiveAccountDependencies(), request.data.scope),
     );
     if (reading.state === "failed") {
       console.warn("schwab quotes read failed", reading.code);
@@ -199,8 +201,8 @@ class PositionContextTimeoutError extends Error {
 }
 
 /**
- * Cruza las posiciones del alcance con valuación, sector y CEDEAR
- * (`position-context-1.0.0`). Lee sólo la base de análisis, nunca Schwab, y la
+ * Cruza las posiciones del alcance con su última valuación y sus earnings
+ * (`position-context-2.0.0`). Lee sólo la base de análisis, nunca Schwab, y la
  * página lo pide una vez por conjunto de símbolos.
  */
 export async function readPositionContext(
@@ -230,7 +232,7 @@ export async function readPositionContext(
   try {
     const [contexts, earnings] = await Promise.race([
       Promise.all([
-        loadPositionContext(symbols, now),
+        loadPositionContext(symbols),
         readEarningsCalendar(now, { symbols }).catch(() => null),
       ]),
       new Promise<never>((_, reject) => {
@@ -287,25 +289,29 @@ export async function readAccountRisk(
 
   let syncFailed: string | null = null;
   try {
-    const dependencies = getTransactionSyncDependencies();
-    if (
-      request.data.force ||
-      (await transactionsDue(dependencies.store, dependencies.now()))
-    ) {
-      const result = await syncSchwabTransactions(dependencies);
-      if (result.state === "synced") await reconcilePreMarketTrades();
-      if (result.state === "failed" || result.state === "quarantined") {
-        console.warn("schwab transactions sync", result.state, result.code);
-        syncFailed = result.code;
+    await withTradingDeadline("readAccountRisk.sync", async () => {
+      const dependencies = getTransactionSyncDependencies();
+      if (
+        request.data.force ||
+        (await transactionsDue(dependencies.store, dependencies.now()))
+      ) {
+        const result = await syncSchwabTransactions(dependencies);
+        if (result.state === "synced") await reconcilePreMarketTrades();
+        if (result.state === "failed" || result.state === "quarantined") {
+          console.warn("schwab transactions sync", result.state, result.code);
+          syncFailed = result.code;
+        }
       }
-    }
+    });
   } catch (error) {
     console.error("schwab transactions sync failed", safeErrorSummary(error));
     syncFailed = "unavailable";
   }
 
   try {
-    const context = await readRiskContext(new Date().toISOString());
+    const context = await withTradingDeadline("readAccountRisk.read", () =>
+      readRiskContext(new Date().toISOString()),
+    );
     return { state: "read", ...context, syncFailed };
   } catch (error) {
     const reference = randomUUID();

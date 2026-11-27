@@ -778,6 +778,52 @@ automático y el tamaño usan los del tipo. Una revisión anterior se lee swing:
 usaba el riesgo por trade de entonces. `accountRisk` es el cálculo que leen
 `/cuenta` y `/plan`, así que las dos superficies dicen lo mismo.
 
+## Enmienda del 2026-11-27: manda el plan, entradas reales y lecturas con techo
+
+**Lo que vio el owner operando.** Un swing de MELI planeado como swing en
+`/plan` figuraba «day» en `/cuenta` y consumía el capital day («Capital:
+Cortar», «Trades 3 de 3: Cortar»); la watchlist seguía mostrando la entrada
+planeada (1.519) y no la real (1.516,26); y `/plan` no abría.
+
+**Medido en Production.** Entre las 15:21 y las 15:23 UTC, justo después de
+la entrada (15:20:57) y de su vínculo automático con la idea (15:21:12),
+cuatro Server Actions de `/plan` esperaron hasta el timeout de Vercel
+(`Task timed out after 300 seconds`, 504). La página leía cuenta, reglas y
+cotizaciones con un `Promise.all`: una sola que no volvía dejaba «Leyendo cuenta
+y reglas…» para siempre. Las lecturas del servidor con los datos reales de
+Production (diario, idea, vínculo, niveles, earnings) no fallan; la causa de la
+espera no quedó identificada en el código. Los stores de trading son
+singletons por instancia con una sola conexión (`max: 1`), así que una consulta
+colgada en una instancia caliente arrastra a las que vienen detrás.
+
+**Lo que decidió el owner y lo que cambia:**
+
+- **`trading-book-1.1.0`: manda el plan.** Un trade unido a una idea swing es
+  swing desde la entrada: no consume el capital day ni cuenta en trades,
+  pérdida diaria o racha. Pasar la noche lo hace swing siempre, aunque la idea
+  dijera day. Sin idea unida sigue la regla automática de `1.0.0`. Corrige la
+  «consecuencia buscada» de `1.0.0`, que el owner revirtió al operarla.
+- **`position-context-2.0.0`.** La cuenta deja de mostrar sector y CEDEAR (el
+  owner no los usa al operar). El cruce lee sólo la última valuación por
+  ticker: ya no carga el grafo de identidad, la clasificación ni el registro de
+  CEDEARs en cada apertura.
+- **Entrada real en la watchlist.** Una idea unida a un trade muestra la
+  entrada y la cantidad reales del diario, con las del plan debajo, la compra
+  real y una marca «En posición» o «Cerrada» que lleva al trade. El plan
+  guardado no cambia: sigue siendo la decisión fechada antes de la entrada.
+- **Lecturas con techo.** `readLiveAccount`, `readLiveQuotes`,
+  `readAccountRisk` (sincronización y lectura por separado) y `readPlanQuotes`
+  cortan a los 20 s con un log que nombra la lectura; `/plan` lee cada parte
+  por su lado y ofrece «Reintentar». `readPlanQuotes` ya no arma el diario
+  para conocer la cuenta.
+- **El riesgo de una idea day.** `savePreMarketIdea` guardaba el riesgo por
+  trade del swing también en una idea day, y su stop automático difería del
+  que había mostrado el editor; ahora guarda el del tipo de la idea.
+- **Navegación.** Las rutas que no tenían `loading.tsx` (inicio, plan,
+  screener, calendario, configuración, lecciones, valuación y su referencia)
+  lo tienen: la navegación responde enseguida en lugar de quedarse en la
+  página anterior hasta que el servidor termina.
+
 ## Controles del threat model
 
 | Control | Cómo se cierra en la Fase 11                                                                                                                                                      |

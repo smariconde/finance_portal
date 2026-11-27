@@ -88,6 +88,17 @@ describe("sessionActivity", () => {
     expect(sessionActivity(trades, NOW).lossStreak).toBe(0);
   });
 
+  it("leaves a buy planned as swing out of the day book (trading-book-1.1.0)", () => {
+    const trades = buildRoundTrips([
+      ...closed(-3, at("15"), at("16"), "schwab:2"),
+      fill("buy", "-3032.52", `${TODAY}T18:45:00Z`, "schwab:6"),
+    ]);
+    const activity = sessionActivity(trades, NOW, (trade) =>
+      trade.symbol === "schwab:6" ? "swing" : null,
+    );
+    expect(activity).toMatchObject({ tradesOpened: 1, dayBuys: "100" });
+  });
+
   it("leaves swings and exits without history out", () => {
     const trades = buildRoundTrips([
       fill("sell", "50", at("15"), "schwab:9"),

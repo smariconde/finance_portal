@@ -1,6 +1,6 @@
 "use client";
 
-import { TriangleAlert } from "lucide-react";
+import { RefreshCw, TriangleAlert } from "lucide-react";
 
 import type {
   LiveAccountResult,
@@ -343,6 +343,7 @@ export function IdeaRiskSheet({
   book,
   capitalLeft,
   onUseSuggested,
+  onRetry,
 }: {
   readonly live: LiveAccountResult | null;
   readonly risk: RiskContextResult | null;
@@ -358,6 +359,8 @@ export function IdeaRiskSheet({
   /** Lo que le queda al capital del tipo hoy; `null` sin medir. */
   readonly capitalLeft: string | null;
   readonly onUseSuggested: (shares: string) => void;
+  /** Vuelve a leer cuenta, reglas y cotizaciones. */
+  readonly onRetry: () => void;
 }) {
   const valid = levels?.state === "valid" ? levels : null;
   const planned = size?.state === "planned" ? size : null;
@@ -403,13 +406,21 @@ export function IdeaRiskSheet({
             Leyendo cuenta y reglas…
           </p>
         ) : live.state !== "read" || risk.state !== "read" ? (
-          <p className="flex items-start gap-1.5 text-warning">
-            <TriangleAlert
-              className="mt-0.5 size-4 shrink-0"
-              aria-hidden="true"
-            />
-            Sin cuenta: no hay tamaño sugerido
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="flex items-start gap-1.5 text-warning">
+              <TriangleAlert
+                className="mt-0.5 size-4 shrink-0"
+                aria-hidden="true"
+              />
+              {live.state !== "read"
+                ? "Schwab no respondió: no hay tamaño sugerido"
+                : "Las reglas no se leyeron: no hay tamaño sugerido"}
+            </p>
+            <Button type="button" size="sm" variant="outline" onClick={onRetry}>
+              <RefreshCw data-icon="inline-start" aria-hidden="true" />
+              Reintentar
+            </Button>
+          </div>
         ) : (
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-b pb-4 sm:grid-cols-3">
             <Fact

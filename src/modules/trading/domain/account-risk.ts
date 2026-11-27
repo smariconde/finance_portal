@@ -24,7 +24,7 @@ import {
 
 /**
  * El riesgo de una lectura de la cuenta en sus dos bolsillos (`F11-18`): el
- * tipo de cada posición (`trading-book-1.0.0`), su riesgo, el 6 % de las swing
+ * tipo de cada posición (`trading-book-1.1.0`), su riesgo, el 6 % de las swing
  * y las reglas (`trading-rules-2.0.0`). Lo leen `/cuenta` y `/plan`, así que las
  * dos superficies dicen lo mismo de la misma lectura.
  */
