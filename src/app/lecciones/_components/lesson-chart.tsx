@@ -80,8 +80,8 @@ const chartConfig = {
 
 /** Stop en rojo y target en verde con su rótulo escrito: el color no está solo. */
 const LEVEL_CLASS: Readonly<Record<LevelTone, string>> = {
-  stop: "stroke-red-600 dark:stroke-red-500",
-  target: "stroke-emerald-600 dark:stroke-emerald-500",
+  stop: "stroke-negative-fill",
+  target: "stroke-positive-fill",
   entry: "stroke-foreground",
   support: "stroke-muted-foreground",
   resistance: "stroke-muted-foreground",
@@ -101,9 +101,9 @@ const KIND_CLASS: Readonly<Record<RuleKind, string>> = {
   read: "text-muted-foreground",
   context: "text-muted-foreground",
   entry: "text-foreground",
-  stop: "text-red-700 dark:text-red-400",
-  target: "text-emerald-700 dark:text-emerald-400",
-  invalidation: "text-amber-700 dark:text-amber-400",
+  stop: "text-negative",
+  target: "text-positive",
+  invalidation: "text-warning",
 };
 
 type Row = {

@@ -64,7 +64,7 @@ function nyseNote(day: MarketDay): string | null {
 function MovedMark({ previousDate }: { readonly previousDate: string }) {
   return (
     <span
-      className="inline-flex shrink-0 items-center text-amber-700 dark:text-amber-400"
+      className="inline-flex shrink-0 items-center text-warning"
       title={`Antes ${shortMarketDate(previousDate)}`}
     >
       <CalendarClock className="size-3" aria-hidden="true" />
@@ -279,7 +279,7 @@ function DayHeading({
           className={cn(
             "text-xs font-normal",
             market.status === "early_close"
-              ? "text-amber-700 dark:text-amber-400"
+              ? "text-warning"
               : "text-muted-foreground",
           )}
         >
@@ -574,7 +574,7 @@ export function EarningsWeekCard({
           </span>
           <span className="flex items-center gap-1">
             <CalendarClock
-              className="size-3.5 text-amber-700 dark:text-amber-400"
+              className="size-3.5 text-warning"
               aria-hidden="true"
             />
             fecha movida

@@ -29,7 +29,7 @@ import { NewsBadge } from "./news-badge";
 /** How long a figure that just changed stays tinted. */
 const ARRIVAL_MS = 2_400;
 
-const WARNING_TEXT = "text-amber-700 dark:text-amber-400";
+const WARNING_TEXT = "text-warning";
 
 /**
  * Always in Buenos Aires: the server draws these marks first and the browser
@@ -125,7 +125,7 @@ export function TileShell({
           <span
             key={arrival?.key}
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 rounded-xl bg-blue-500/12 motion-safe:animate-[freshness-arrive_2.4s_cubic-bezier(0.16,1,0.3,1)_forwards] motion-reduce:bg-blue-500/8 dark:bg-blue-400/14"
+            className="pointer-events-none absolute inset-0 rounded-xl bg-info-fill/12 motion-safe:animate-[freshness-arrive_2.4s_cubic-bezier(0.16,1,0.3,1)_forwards] motion-reduce:bg-info-fill/8"
           />
         ) : null}
       </div>

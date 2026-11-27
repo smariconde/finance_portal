@@ -82,9 +82,7 @@ export function NewsDot({ status }: { readonly status: Marked["status"] }) {
         aria-hidden="true"
         className={cn(
           "size-1.5 shrink-0 rounded-full",
-          status === "new_period"
-            ? "bg-blue-600 dark:bg-blue-400"
-            : "bg-muted-foreground",
+          status === "new_period" ? "bg-info-fill" : "bg-muted-foreground",
         )}
       />
       <span className="sr-only">

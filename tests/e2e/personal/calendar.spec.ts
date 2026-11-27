@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 
+import { expectNoAccessibilityViolations } from "../support/accessibility";
 import { ROUTES } from "../support/runtime";
 
 /**
@@ -62,4 +63,30 @@ test.describe("calendario", () => {
         .getByRole("link", { name: "Calendario", exact: true }),
     ).toHaveAttribute("href", "/calendario");
   });
+
+  /*
+   * El día seleccionado lleva el fondo `accent`, y por defecto es hoy: sin
+   * esto, axe sólo veía un cierre temprano seleccionado el día que caía en
+   * hoy (falló el 2026-11-27). Se busca el próximo de cada uno hacia
+   * adelante, dentro de lo declarado.
+   */
+  for (const [kind, name] of [
+    ["un cierre temprano", /cierre temprano/u],
+    ["un feriado", /NYSE cerrada/u],
+  ] as const) {
+    test(`pasa axe con ${kind} seleccionado`, async ({ page }) => {
+      await page.goto(ROUTES.calendar);
+      const month = page.getByRole("table", {
+        name: /Horario regular de la bolsa/u,
+      });
+      const next = page.getByRole("button", { name: "Mes siguiente" });
+      const day = month.getByRole("button", { name }).first();
+      for (let step = 0; step < 13 && !(await day.isVisible()); step += 1) {
+        await next.click();
+      }
+      await day.click();
+      await expect(day).toHaveAttribute("aria-pressed", "true");
+      await expectNoAccessibilityViolations(page);
+    });
+  }
 });

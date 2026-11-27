@@ -190,12 +190,10 @@ export function TodayStrip({
             ) : open.kind === "failed" ? (
               <span className="inline-flex items-center gap-1 text-base font-normal">
                 <CircleAlert
-                  className="size-4 text-amber-700 dark:text-amber-400"
+                  className="size-4 text-warning"
                   aria-hidden="true"
                 />
-                <span className="text-amber-800 dark:text-amber-300">
-                  Sin leer
-                </span>
+                <span className="text-warning">Sin leer</span>
                 <InfoTip title="Por qué no se leyó">
                   <p>{FAILURE_COPY[open.code] ?? "Schwab no respondió."}</p>
                   <p className="font-mono text-xs">{open.code}</p>

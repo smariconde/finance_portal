@@ -31,8 +31,8 @@ const SHIFT_NOTICE_DAYS = 21;
 type Tone = "open" | "early" | "closed";
 
 const DOT: Readonly<Record<Tone, string>> = {
-  open: "bg-emerald-600 dark:bg-emerald-400",
-  early: "bg-amber-500 dark:bg-amber-400",
+  open: "bg-positive-fill",
+  early: "bg-warning-fill",
   closed: "bg-muted-foreground/60",
 };
 

@@ -100,7 +100,7 @@ export function RunHeadline({ run }: { run: ValuationRun }) {
           </div>
 
           {run.failure === null ? null : (
-            <div className="rounded-lg border border-rose-200 bg-rose-50/70 p-3 text-sm dark:border-rose-900 dark:bg-rose-950/30">
+            <div className="rounded-lg border border-negative-border bg-negative-surface p-3 text-sm">
               <p className="font-medium">Motivo del rechazo</p>
               <p className="mt-1 text-muted-foreground">
                 {run.failure.message}

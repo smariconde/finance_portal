@@ -75,7 +75,7 @@ function WinRateCell({ group }: { readonly group: CutGroup }) {
         aria-hidden="true"
       >
         <span
-          className="absolute inset-y-0 left-0 bg-emerald-600 dark:bg-emerald-500"
+          className="absolute inset-y-0 left-0 bg-positive-fill"
           style={{ width: `${share}%` }}
         />
         <span className="absolute inset-y-0 left-1/2 w-px bg-foreground/40" />
@@ -112,8 +112,8 @@ function ExpectancyCell({
           className={cn(
             "absolute inset-y-0 rounded-sm",
             value >= 0
-              ? "left-1/2 bg-emerald-600 dark:bg-emerald-500"
-              : "right-1/2 bg-red-600 dark:bg-red-500",
+              ? "left-1/2 bg-positive-fill"
+              : "right-1/2 bg-negative-fill",
           )}
           style={{ width: `${width}%` }}
         />

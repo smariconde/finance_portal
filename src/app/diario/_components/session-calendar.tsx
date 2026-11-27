@@ -71,14 +71,14 @@ function intensity(pnl: PeriodPnl, largest: number): 1 | 2 | 3 {
 }
 
 const POSITIVE_FILL = {
-  1: "bg-emerald-500/7 dark:bg-emerald-400/8",
-  2: "bg-emerald-500/13 dark:bg-emerald-400/14",
-  3: "bg-emerald-500/20 dark:bg-emerald-400/20",
+  1: "bg-positive-fill/7",
+  2: "bg-positive-fill/13",
+  3: "bg-positive-fill/20",
 } as const;
 const NEGATIVE_FILL = {
-  1: "bg-red-500/7 dark:bg-red-400/8",
-  2: "bg-red-500/13 dark:bg-red-400/14",
-  3: "bg-red-500/20 dark:bg-red-400/20",
+  1: "bg-negative-fill/7",
+  2: "bg-negative-fill/13",
+  3: "bg-negative-fill/20",
 } as const;
 
 function fillOf(pnl: PeriodPnl, largest: number): string | undefined {
@@ -166,7 +166,7 @@ function DayCell({
             <span
               className={cn(
                 "numeric text-sm leading-tight font-semibold",
-                pnlTone(day.pnl.realizedPnl, filled),
+                pnlTone(day.pnl.realizedPnl),
               )}
             >
               <CellAmount value={day.pnl.realizedPnl} />

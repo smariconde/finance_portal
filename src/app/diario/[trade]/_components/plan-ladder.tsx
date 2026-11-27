@@ -17,8 +17,8 @@ type Marker = {
 
 /** Stop y target son rayas largas de color; entradas y salida, puntos. */
 const MARKER_SHAPE: Readonly<Record<MarkerKey, string>> = {
-  stop: "h-6 w-0.5 rounded-full bg-red-600 dark:bg-red-500",
-  target: "h-6 w-0.5 rounded-full bg-emerald-600 dark:bg-emerald-500",
+  stop: "h-6 w-0.5 rounded-full bg-negative-fill",
+  target: "h-6 w-0.5 rounded-full bg-positive-fill",
   plannedEntry: "size-3 rounded-full border-2 border-muted-foreground bg-card",
   entry: "size-3 rounded-full bg-foreground ring-2 ring-card",
   exit: "size-3 rotate-45 rounded-[2px] bg-primary ring-2 ring-card",
@@ -94,12 +94,10 @@ export function PlanLadder({
       <CardContent className="flex flex-col gap-3 px-4 py-4">
         <div aria-hidden="true" className="relative mx-2 h-6">
           <div className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 overflow-hidden rounded-full bg-muted">
-            {plan.stop === null
-              ? null
-              : zone(plan.stop, "bg-red-600/20 dark:bg-red-500/25")}
+            {plan.stop === null ? null : zone(plan.stop, "bg-negative-fill/20")}
             {plan.target === null
               ? null
-              : zone(plan.target, "bg-emerald-600/20 dark:bg-emerald-500/25")}
+              : zone(plan.target, "bg-positive-fill/20")}
           </div>
           {markers.map((marker) => (
             <span

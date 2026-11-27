@@ -33,8 +33,8 @@ export function changeTone(
 
 /** Las clases de cada tono; contraste AA sobre `card` y `muted` en los dos temas. */
 export const CHANGE_TONE_CLASS: Readonly<Record<ChangeTone, string>> = {
-  favorable: "text-emerald-700 dark:text-emerald-400",
-  unfavorable: "text-red-700 dark:text-red-400",
+  favorable: "text-positive",
+  unfavorable: "text-negative",
   flat: "text-muted-foreground",
   neutral: "text-foreground",
 };

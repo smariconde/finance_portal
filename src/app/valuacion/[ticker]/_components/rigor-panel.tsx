@@ -47,8 +47,8 @@ const RIGOR_MEANING: Record<RigorLevel, string> = {
 
 const STATUS_TONE: Record<CompletenessStatus, string> = {
   met: "text-foreground",
-  partial: "text-amber-800 dark:text-amber-300",
-  missing: "text-rose-800 dark:text-rose-300",
+  partial: "text-warning",
+  missing: "text-negative",
   not_evaluated: "text-muted-foreground",
 };
 

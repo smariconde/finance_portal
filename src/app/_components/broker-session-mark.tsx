@@ -87,10 +87,7 @@ export function BrokerSessionMark() {
     const extended = today?.broker.extended ?? null;
     return (
       <span className="flex items-center gap-1" aria-live="polite">
-        <CircleCheck
-          className="size-3.5 text-emerald-600 dark:text-emerald-400"
-          aria-hidden="true"
-        />
+        <CircleCheck className="size-3.5 text-positive" aria-hidden="true" />
         <span>Schwab coincide</span>
         {extended === null ? null : (
           <span className="text-muted-foreground">
@@ -106,10 +103,7 @@ export function BrokerSessionMark() {
 
   return (
     <span className="flex flex-wrap items-center gap-1" aria-live="polite">
-      <TriangleAlert
-        className="size-3.5 text-amber-700 dark:text-amber-400"
-        aria-hidden="true"
-      />
+      <TriangleAlert className="size-3.5 text-warning" aria-hidden="true" />
       <span>Schwab dice otra cosa:</span>
       {differing.map((day) => (
         <span key={day.date} className="numeric">

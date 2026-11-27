@@ -803,7 +803,7 @@ function PositionsCard({
               "numeric text-sm",
               quotes.failedCode === null
                 ? "text-muted-foreground"
-                : "text-amber-800 dark:text-amber-300",
+                : "text-warning",
             )}
           >
             Cotización {formatClock(quotes.readAt)}
@@ -959,7 +959,7 @@ function PositionsCard({
 function OrdersUnread({ failure }: { readonly failure: FailureNote | null }) {
   const copy = liveFailureCopy(failure?.code ?? "unexpected");
   return (
-    <p className="flex items-center gap-1.5 text-sm text-amber-800 dark:text-amber-300">
+    <p className="flex items-center gap-1.5 text-sm text-warning">
       <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
       Órdenes sin leer · {copy.title}
       <InfoTip title={copy.title}>

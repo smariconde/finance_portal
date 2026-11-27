@@ -11,26 +11,22 @@ const statusConfig = {
   ready: {
     label: "Listo",
     icon: CheckCircle2,
-    className:
-      "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300",
+    className: "border-positive-border bg-positive-surface text-positive",
   },
   degraded: {
     label: "Requiere atención",
     icon: TriangleAlert,
-    className:
-      "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300",
+    className: "border-warning-border bg-warning-surface text-warning",
   },
   disabled: {
     label: "Deshabilitado",
     icon: Ban,
-    className:
-      "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300",
+    className: "border-border bg-muted text-muted-foreground",
   },
   planned: {
     label: "Planificado",
     icon: CircleDashed,
-    className:
-      "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-300",
+    className: "border-info-border bg-info-surface text-info",
   },
 } as const;
 

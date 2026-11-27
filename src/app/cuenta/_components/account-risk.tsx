@@ -110,20 +110,20 @@ const STATE_VIEW: Readonly<
   ok: {
     label: "OK",
     icon: CheckCircle2,
-    tone: "text-emerald-700 dark:text-emerald-300",
-    fill: "bg-emerald-600 dark:bg-emerald-500",
+    tone: "text-positive",
+    fill: "bg-positive-fill",
   },
   warning: {
     label: "Atención",
     icon: TriangleAlert,
-    tone: "text-amber-800 dark:text-amber-300",
-    fill: "bg-amber-500 dark:bg-amber-400",
+    tone: "text-warning",
+    fill: "bg-warning-fill",
   },
   stop: {
     label: "Cortar",
     icon: OctagonX,
-    tone: "text-red-700 dark:text-red-400",
-    fill: "bg-red-600 dark:bg-red-500",
+    tone: "text-negative",
+    fill: "bg-negative-fill",
   },
   off: {
     label: "Apagada",
@@ -332,7 +332,7 @@ function BookRules({
         </span>
       </div>
       {book === "swing" && earningsWarnings.length > 0 ? (
-        <p className="flex items-center gap-1.5 text-xs text-amber-800 dark:text-amber-300">
+        <p className="flex items-center gap-1.5 text-xs text-warning">
           <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
           Earnings dentro de 5 sesiones · {earningsWarnings.join(" · ")}
         </p>
@@ -344,7 +344,7 @@ function BookRules({
             reading={reading}
             extra={
               reading.rule === "open_risk" && openRisk.missing.length > 0 ? (
-                <span className="block text-amber-800 dark:text-amber-300">
+                <span className="block text-warning">
                   Sin stop: {openRisk.missing.join(", ")}
                 </span>
               ) : reading.rule === "open_risk" && openRisk.percent !== null ? (
@@ -616,7 +616,7 @@ function Planner({
           className="flex min-h-16 items-center rounded-lg bg-muted/50 px-4 py-3"
         >
           {invalid !== null ? (
-            <p className="flex items-center gap-1.5 text-sm text-amber-800 dark:text-amber-300">
+            <p className="flex items-center gap-1.5 text-sm text-warning">
               <TriangleAlert className="size-4" aria-hidden="true" />
               {INVALID_COPY[invalid]}
             </p>
@@ -729,7 +729,7 @@ function AmountResult({
   readonly plan: Extract<AmountPlan, { state: "planned" }>;
   readonly riskPerTradePercent: string;
 }) {
-  const warn = "text-amber-800 dark:text-amber-300";
+  const warn = "text-warning";
   return (
     <dl className="flex flex-wrap items-end gap-x-6 gap-y-3">
       <SharesFigure shares={plan.shares} />
@@ -1111,7 +1111,7 @@ export function RiskCard({
               ))}
             </div>
             {view.syncFailed === null ? null : (
-              <p className="flex items-center gap-1.5 text-xs text-amber-800 dark:text-amber-300">
+              <p className="flex items-center gap-1.5 text-xs text-warning">
                 <TriangleAlert className="size-3.5" aria-hidden="true" />
                 Transacciones sin actualizar: trades y pérdidas leen lo guardado
                 <code className="font-mono">{view.syncFailed}</code>
@@ -1143,8 +1143,8 @@ const POSITION_REASON_COPY: Readonly<Record<PositionRiskReason, string>> = {
 type LevelKey = "stop" | "entry" | "price" | "target";
 
 const LEVEL_SHAPE: Readonly<Record<LevelKey, string>> = {
-  stop: "h-4 w-0.5 rounded-full bg-red-600 dark:bg-red-500",
-  target: "h-4 w-0.5 rounded-full bg-emerald-600 dark:bg-emerald-500",
+  stop: "h-4 w-0.5 rounded-full bg-negative-fill",
+  target: "h-4 w-0.5 rounded-full bg-positive-fill",
   entry: "size-2.5 rounded-full border-2 border-foreground bg-card",
   price: "size-2.5 rotate-45 rounded-[2px] bg-primary ring-2 ring-card",
 };
@@ -1201,8 +1201,8 @@ export function PositionRiskCell({
     <div className="flex min-w-44 flex-col gap-1">
       <div aria-hidden="true" className="relative mx-1 h-4">
         <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 overflow-hidden rounded-full bg-muted">
-          {zone(risk.stop, "bg-red-600/25 dark:bg-red-500/30")}
-          {zone(risk.target, "bg-emerald-600/20 dark:bg-emerald-500/25")}
+          {zone(risk.stop, "bg-negative-fill/25")}
+          {zone(risk.target, "bg-positive-fill/20")}
         </div>
         {levels.map(([key, value]) => (
           <span
@@ -1227,12 +1227,12 @@ export function PositionRiskCell({
         ) : risk.risk.reason === "no_stop" && risk.tradeRef !== null ? (
           <Link
             href={`/diario/${risk.tradeRef}` as Route}
-            className="font-medium text-amber-800 underline-offset-4 hover:underline dark:text-amber-300"
+            className="font-medium text-warning underline-offset-4 hover:underline"
           >
             Sin stop · planear
           </Link>
         ) : (
-          <span className="text-amber-800 dark:text-amber-300">
+          <span className="text-warning">
             {POSITION_REASON_COPY[risk.risk.reason]}
           </span>
         )}
@@ -1242,9 +1242,7 @@ export function PositionRiskCell({
           </span>
         )}
         {risk.lockedIn ? (
-          <span className="text-emerald-700 dark:text-emerald-300">
-            stop en ganancia
-          </span>
+          <span className="text-positive">stop en ganancia</span>
         ) : null}
         {risk.stopSource === null ? null : (
           <span className="text-muted-foreground">

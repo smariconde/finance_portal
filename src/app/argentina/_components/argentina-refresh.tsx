@@ -137,14 +137,12 @@ const CHIP_STATE: Readonly<
   failed: {
     icon: CircleAlert,
     text: "sin datos",
-    className:
-      "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
+    className: "border-warning-border bg-warning-surface text-warning",
   },
   blocked: {
     icon: CirclePause,
     text: "frenada",
-    className:
-      "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
+    className: "border-warning-border bg-warning-surface text-warning",
   },
 };
 
@@ -351,9 +349,7 @@ function StatusLine({
           aria-hidden="true"
           className={cn(
             "mt-0.5 size-4 shrink-0",
-            tone === "warning"
-              ? "text-amber-600 dark:text-amber-400"
-              : "text-muted-foreground",
+            tone === "warning" ? "text-warning" : "text-muted-foreground",
             spinning && "motion-safe:animate-spin",
           )}
         />

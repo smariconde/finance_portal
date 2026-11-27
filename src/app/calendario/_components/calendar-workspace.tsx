@@ -205,8 +205,7 @@ function DayCell({
               {day.regular.open.buenosAires}–
               <span
                 className={cn(
-                  day.status === "early_close" &&
-                    "font-medium text-amber-800 dark:text-amber-400",
+                  day.status === "early_close" && "font-medium text-warning",
                 )}
               >
                 {day.regular.close.buenosAires}
@@ -220,8 +219,7 @@ function DayCell({
             <span>{day.regular.open.buenosAires}</span>
             <span
               className={cn(
-                day.status === "early_close" &&
-                  "font-medium text-amber-800 dark:text-amber-400",
+                day.status === "early_close" && "font-medium text-warning",
               )}
             >
               {day.regular.close.buenosAires}
@@ -372,7 +370,7 @@ function DayGroup({
       <p
         className={cn(
           "numeric mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground",
-          day.status === "early_close" && "text-amber-800 dark:text-amber-400",
+          day.status === "early_close" && "text-warning",
         )}
       >
         {day.status === "early_close" ? (
@@ -574,10 +572,8 @@ export function CalendarWorkspace({
               hora de Buenos Aires
             </li>
             <li>
-              <span className="font-medium text-amber-800 dark:text-amber-400">
-                15:00
-              </span>{" "}
-              cierre temprano
+              <span className="font-medium text-warning">15:00</span> cierre
+              temprano
             </li>
             <li className="flex items-center gap-1">
               <span

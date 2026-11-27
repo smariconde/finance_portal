@@ -134,10 +134,7 @@ export function TransactionSync({
         role="status"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground"
       >
-        <CircleCheck
-          className="size-4 text-emerald-600 dark:text-emerald-400"
-          aria-hidden="true"
-        />
+        <CircleCheck className="size-4 text-positive" aria-hidden="true" />
         Al día
         {view.at === null ? null : (
           <time dateTime={view.at} className="numeric text-xs">
@@ -150,11 +147,8 @@ export function TransactionSync({
 
   return (
     <span role="status" className="inline-flex items-center gap-1 text-sm">
-      <CircleAlert
-        className="size-4 text-amber-700 dark:text-amber-400"
-        aria-hidden="true"
-      />
-      <span className="text-amber-800 dark:text-amber-300">Sin actualizar</span>
+      <CircleAlert className="size-4 text-warning" aria-hidden="true" />
+      <span className="text-warning">Sin actualizar</span>
       <InfoTip title="Por qué no se actualizó">
         <p>{FAILURE_COPY[view.code] ?? "Schwab no respondió."}</p>
         <p className="font-mono text-xs">{view.code}</p>

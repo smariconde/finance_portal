@@ -46,7 +46,7 @@ const PLOT_RIGHT = 8;
 
 const chartConfig = {
   cumulative: { label: "Acumulado", color: "var(--chart-2)" },
-  drawdown: { label: "Drawdown", color: "var(--color-red-600)" },
+  drawdown: { label: "Drawdown", color: "var(--color-negative-fill)" },
 } satisfies ChartConfig;
 
 const axisMoney = new Intl.NumberFormat("es-AR", {
@@ -136,7 +136,7 @@ function Charts({
               // le gana al atributo que pone Recharts.
               fill="currentColor"
               fillOpacity={0.1}
-              className="text-red-600 dark:text-red-500"
+              className="text-negative"
               ifOverflow="extendDomain"
             />
           )}
@@ -168,7 +168,7 @@ function Charts({
             fillOpacity={0.2}
             stroke="currentColor"
             strokeWidth={1.5}
-            className="text-red-600 dark:text-red-500"
+            className="text-negative"
             isAnimationActive={false}
           />
         </AreaChart>
