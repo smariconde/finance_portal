@@ -1,4 +1,19 @@
 {
   "corpus": "listing-capture-corpus",
-  "entries": []
+  "entries": [
+    {
+      "file": "remax-ar-detail-duplex-urca.json",
+      "sha256": "63d047e09939ca7d7771d5d79b5a2891d5cd52818b512c2e957e5f99fe428092",
+      "source": "remax-ar",
+      "capturedAt": "2026-11-27T21:10:37.733Z",
+      "reducer": "listing-corpus-reducer-1.0.0"
+    },
+    {
+      "file": "remax-ar-search-capital-cordoba-p1.json",
+      "sha256": "0b95d5741b83b67b5df4969864c0737adc0678ebe10cf9705ec72cce392801a2",
+      "source": "remax-ar",
+      "capturedAt": "2026-11-27T21:10:18.248Z",
+      "reducer": "listing-corpus-reducer-1.0.0"
+    }
+  ]
 }

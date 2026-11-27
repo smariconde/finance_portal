@@ -125,6 +125,19 @@ const PROPERTY_TYPES: Readonly<Record<string, PropertyType>> = {
   local: "retail",
 };
 
+/**
+ * Remax nombra las variantes con un prefijo (`departamento_penthouse`,
+ * `casa_duplex`): la tabla manda y, si no está, el prefijo. Un galpón o un
+ * campo no tienen tipo en el contrato y quedan afuera por nombre.
+ */
+function propertyTypeOf(value: string): PropertyType | undefined {
+  const exact = PROPERTY_TYPES[value];
+  if (exact !== undefined) return exact;
+  if (value.startsWith("departamento_")) return "apartment";
+  if (value.startsWith("casa_")) return "house";
+  return undefined;
+}
+
 const OPERATIONS: Readonly<Record<string, "sale" | "rent">> = {
   sale: "sale",
   rent: "rent",
@@ -261,7 +274,7 @@ export function mapRemaxListing(
   const operation = OPERATIONS[raw.operation?.value ?? ""];
   if (operation === undefined)
     return { ok: false, reason: "operation_unmapped" };
-  const propertyType = PROPERTY_TYPES[raw.type?.value ?? ""];
+  const propertyType = propertyTypeOf(raw.type?.value ?? "");
   if (propertyType === undefined)
     return { ok: false, reason: "property_type_unmapped" };
   if (!PUBLISHED_STATUSES.has(raw.listingStatus?.value ?? ""))

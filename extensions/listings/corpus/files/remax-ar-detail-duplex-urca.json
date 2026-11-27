@@ -1,0 +1,13 @@
+{
+  "reducer": "listing-corpus-reducer-1.0.0",
+  "source": "remax-ar",
+  "adapterVersion": "remax-ng-state-1.0.0",
+  "document": {
+    "url": "https://www.remax.com.ar/listings/venta-duplex-3-d-apto-credito-nuevo-urca",
+    "capturedAt": "2026-11-27T21:10:37.733Z",
+    "embeddedStates": {
+      "script#ng-state": "{\"r0\":{\"u\":\"https://api-ar.redremax.com/remaxweb-ar/api/listings/findBySlug/venta-duplex-3-d-apto-credito-nuevo-urca\",\"s\":200,\"b\":{\"data\":{\"id\":\"7cba9903-6ade-4a40-b57d-b864fd556fcb\",\"slug\":\"venta-duplex-3-d-apto-credito-nuevo-urca\",\"internalId\":\"420401235-32\",\"title\":\"VENTA DUPLEX 3 D APTO CRÉDITO - NUEVO URCA\",\"operation\":{\"value\":\"sale\"},\"type\":{\"value\":\"casa_duplex\"},\"listingStatus\":{\"value\":\"active\"},\"price\":168000,\"priceExposure\":true,\"currency\":{\"value\":\"USD\"},\"expensesPrice\":0,\"expensesCurrency\":{\"value\":\"ARS\"},\"dimensionCovered\":121,\"dimensionTotalBuilt\":121,\"dimensionLand\":143,\"dimensionUncovered\":0,\"dimensionSemicovered\":0,\"totalRooms\":4,\"bedrooms\":3,\"bathrooms\":1,\"toilets\":1,\"floors\":2,\"parkingSpaces\":1,\"yearBuilt\":2014,\"aptCredit\":false,\"conditions\":[{\"value\":\"excelente\"}],\"features\":[],\"displayAddress\":\"Conscripto Gustavo Osvaldo Miretti 6700\",\"geo\":{\"neighborhood\":\"nuevo urca\"},\"location\":{\"coordinates\":[-64.2679418,-31.3817627]},\"associate\":{\"officeName\":null,\"office\":{\"name\":\"REMAX Docta\"}},\"photos\":[{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}]}}}}"
+    },
+    "jsonLd": []
+  }
+}

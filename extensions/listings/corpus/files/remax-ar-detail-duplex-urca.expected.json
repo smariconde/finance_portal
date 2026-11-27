@@ -1,0 +1,46 @@
+{
+  "kind": "captures",
+  "pageKind": "listing_detail",
+  "parseBasis": "embedded_state",
+  "captures": [
+    {
+      "source": "remax-ar",
+      "externalId": "7cba9903-6ade-4a40-b57d-b864fd556fcb",
+      "canonicalUrl": "https://www.remax.com.ar/listings/venta-duplex-3-d-apto-credito-nuevo-urca",
+      "pageKind": "listing_detail",
+      "parseBasis": "embedded_state",
+      "operation": "sale",
+      "propertyType": "house",
+      "priceAmount": "168000",
+      "priceStatus": "published",
+      "priceCurrency": "USD",
+      "expensesAmount": null,
+      "expensesCurrency": null,
+      "coveredAreaM2": "121",
+      "totalAreaM2": "121",
+      "landAreaM2": "143",
+      "rooms": 4,
+      "bedrooms": 3,
+      "bathrooms": 1,
+      "parkingSpaces": 1,
+      "ageYears": 12,
+      "floor": null,
+      "amenities": [],
+      "condition": "good",
+      "legalFlags": [
+        "credit_eligible"
+      ],
+      "addressDeclared": "Conscripto Gustavo Osvaldo Miretti 6700",
+      "neighborhood": "nuevo urca",
+      "latitude": "-31.381763",
+      "longitude": "-64.267942",
+      "agency": "REMAX Docta",
+      "publishedAt": null,
+      "descriptionSimhash": null,
+      "photoDhashes": [],
+      "photoCount": 30,
+      "capturedAt": "2026-11-27T21:10:37.733Z"
+    }
+  ],
+  "skipped": {}
+}

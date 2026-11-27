@@ -259,6 +259,20 @@ describe("remax-ng-state-1.0.0", () => {
     if (reading.kind === "captures") expect(reading.captures).toHaveLength(1);
   });
 
+  it("las variantes con prefijo toman el tipo del prefijo; un galpón no", () => {
+    const typeOf = (value: string) => {
+      const mapped = mapRemaxListing(
+        detailListing({ type: { value } }),
+        "listing_detail",
+        CAPTURED_AT,
+      );
+      return mapped.ok ? mapped.capture.propertyType : mapped.reason;
+    };
+    expect(typeOf("departamento_penthouse")).toBe("apartment");
+    expect(typeOf("casa_quinta")).toBe("house");
+    expect(typeOf("galpon")).toBe("property_type_unmapped");
+  });
+
   it("«consultar precio» es un estado, no un cero", () => {
     const mapped = mapRemaxListing(
       detailListing({ priceExposure: false, price: 120000 }),
