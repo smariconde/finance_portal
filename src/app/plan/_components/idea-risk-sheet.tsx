@@ -382,7 +382,7 @@ export function IdeaRiskSheet({
               abierto; no cambia tu cantidad ni envía órdenes.
             </p>
             <p>
-              En swing, un gap de apertura tras los resultados puede ejecutar el
+              En swing, un gap de apertura tras los earnings puede ejecutar el
               stop a otro precio y ampliar la pérdida.
             </p>
             {valid !== null &&

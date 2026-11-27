@@ -9,8 +9,8 @@ import type { TradingBook } from "@/modules/trading/domain/trading-book";
 import { shortMarketDate } from "./market-format";
 
 export function earningsTimeLabel(time: EarningsReport["time"]): string {
-  if (time === "pre-market") return "pre-apertura";
-  if (time === "post-market") return "post-cierre";
+  if (time === "pre-market") return "before open";
+  if (time === "post-market") return "after close";
   return "hora s/i";
 }
 
@@ -26,7 +26,7 @@ export function EarningsMark({
   if (!report) return null;
   if (book === "day") {
     return reportsToday(report, at) ? (
-      <Badge variant="secondary">Reporta hoy</Badge>
+      <Badge variant="secondary">Earnings hoy</Badge>
     ) : null;
   }
   const exposure = earningsExposureAt(report, at);
@@ -36,7 +36,7 @@ export function EarningsMark({
       variant="outline"
       className="h-auto max-w-full multiline whitespace-normal border-amber-600/50 text-amber-800 dark:text-amber-300"
     >
-      Resultados · {shortMarketDate(report.date)} ·{" "}
+      Earnings · {shortMarketDate(report.date)} ·{" "}
       {earningsTimeLabel(report.time)} ·{" "}
       {exposure.session === 1 ? "1 sesión" : `en ${exposure.session} sesiones`}
     </Badge>

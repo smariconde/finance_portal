@@ -334,7 +334,7 @@ function BookRules({
       {book === "swing" && earningsWarnings.length > 0 ? (
         <p className="flex items-center gap-1.5 text-xs text-amber-800 dark:text-amber-300">
           <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
-          Resultados dentro de 5 sesiones · {earningsWarnings.join(" · ")}
+          Earnings dentro de 5 sesiones · {earningsWarnings.join(" · ")}
         </p>
       ) : null}
       <div className="grid grid-cols-2 gap-x-4 gap-y-5 lg:grid-cols-4">

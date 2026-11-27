@@ -23,6 +23,7 @@ import { INDEC_CALENDAR } from "@/modules/market-calendar/domain/declared-indec-
 import { readEarningsCalendar } from "@/server/persistence/read-earnings-calendar";
 
 import { CalendarWorkspace } from "./_components/calendar-workspace";
+import { EarningsWeekCard } from "./_components/earnings-week-card";
 
 export const metadata: Metadata = { title: "Calendario" };
 
@@ -84,11 +85,17 @@ export default async function CalendarPage() {
         months={declaredMonths()}
         unitedStates={unitedStates}
         argentina={argentina}
-        earnings={earnings}
-        followed={[
-          ...new Set(followed?.reports.map((report) => report.symbol)),
-        ]}
       />
+
+      {earnings !== null ? (
+        <EarningsWeekCard
+          today={today}
+          earnings={earnings}
+          followed={[
+            ...new Set(followed?.reports.map((report) => report.symbol)),
+          ]}
+        />
+      ) : null}
 
       <footer className="flex flex-col gap-1 text-xs text-muted-foreground">
         {personal ? (

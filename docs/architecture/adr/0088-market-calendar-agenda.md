@@ -223,13 +223,13 @@ Una fecha de resultados se lee de dos maneras, según el libro de
 - **Swing: un riesgo.** `earnings-exposure-1.0.0` marca una posición swing
   abierta, o una idea swing de `/plan`, cuyo próximo reporte cae dentro de las
   próximas **5 sesiones** de Nueva York, contando la de hoy. En `/cuenta` la
-  fila de la posición lleva un chip ámbar («Resultados · jue 3/12 · post-cierre
-  · en 3 sesiones») y la fila swing de la tarjeta de riesgo suma una alerta
+  fila de la posición lleva un chip ámbar («Earnings · jue 3/12 · after close
+  · en 3 sesiones»; «Resultados · … · post-cierre» hasta el 2026-11-27) y la fila swing de la tarjeta de riesgo suma una alerta
   `warning` de `trading-rules`, que no bloquea nada. En `/plan` el chip va en
   la idea, y el planner dice en un `InfoTip` que el stop no protege de un gap
   de apertura: el riesgo real puede ser mayor que el calculado.
-- **Day: una oportunidad.** No es una alerta: es una marca neutra «Reporta
-  hoy» para las empresas seguidas cuyo reporte mueve la sesión de hoy —el de
+- **Day: una oportunidad.** No es una alerta: es una marca neutra «Earnings
+  hoy» («Reporta hoy» hasta el 2026-11-27) para las empresas seguidas cuyo reporte mueve la sesión de hoy —el de
   anoche después del cierre o el de hoy antes de la apertura—, en la franja y
   en `/plan`. Para el resto del mercado, la franja ofrece dos links al
   screener de Finviz armados con `finviz-screener-url-1.0.0`
