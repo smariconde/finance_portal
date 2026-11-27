@@ -50,6 +50,9 @@ export const SECRET_SENTINELS = {
   // El token del MCP del owner (ADR 0078), con forma válida para que la ruta
   // exista en el servidor personal. base64url de "sentinel-mcp-access-token-32by!!".
   MCP_ACCESS_TOKEN: "c2VudGluZWwtbWNwLWFjY2Vzcy10b2tlbi0zMmJ5ISE",
+  // El token de la captura de inmuebles (ADR 0089), con forma válida.
+  // base64url de "sentinel-capture-token-32bytes!!".
+  CAPTURE_TOKEN: "c2VudGluZWwtY2FwdHVyZS10b2tlbi0zMmJ5dGVzISE",
 } as const;
 
 export const SENTINEL_VALUES = Object.values(SECRET_SENTINELS);

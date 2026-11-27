@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Inmuebles</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font:
+          13px/1.4 system-ui,
+          sans-serif;
+      }
+      body {
+        margin: 0;
+        padding: 12px;
+        width: 320px;
+      }
+      h1 {
+        font-size: 14px;
+        margin: 0 0 8px;
+      }
+      h2 {
+        font-size: 12px;
+        margin: 12px 0 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        opacity: 0.7;
+      }
+      dl {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 2px 8px;
+        margin: 0;
+      }
+      dt {
+        opacity: 0.7;
+      }
+      dd {
+        margin: 0;
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+      }
+      label {
+        display: block;
+        margin-top: 6px;
+      }
+      input {
+        box-sizing: border-box;
+        width: 100%;
+        padding: 4px 6px;
+        font: inherit;
+      }
+      .row {
+        display: flex;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      button {
+        flex: 1;
+        padding: 6px;
+        font: inherit;
+        cursor: pointer;
+      }
+      .bad {
+        color: #c62828;
+      }
+      .ok {
+        color: #2e7d32;
+      }
+      details {
+        margin-top: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Inmuebles · captura</h1>
+    <dl>
+      <dt>En cola</dt>
+      <dd id="queued">—</dd>
+      <dt>Último envío</dt>
+      <dd id="last-sent">—</dd>
+      <dt>Estado</dt>
+      <dd id="last-failure">—</dd>
+    </dl>
+    <h2>Hoy</h2>
+    <dl id="today"></dl>
+    <h2>Resultados</h2>
+    <dl id="outcomes"></dl>
+    <div class="row">
+      <button id="flush" type="button">Enviar ahora</button>
+      <button id="export" type="button">Exportar página</button>
+    </div>
+    <details id="settings-box">
+      <summary>Conexión</summary>
+      <form id="settings">
+        <label
+          >Portal
+          <input
+            id="endpoint"
+            name="endpoint"
+            placeholder="https://finance-portal-flame.vercel.app/"
+            autocomplete="off"
+          />
+        </label>
+        <label
+          >CAPTURE_TOKEN
+          <input id="token" name="token" type="password" autocomplete="off" />
+        </label>
+        <label
+          >Bypass de Vercel
+          <input id="bypass" name="bypass" type="password" autocomplete="off" />
+        </label>
+        <div class="row"><button type="submit">Guardar</button></div>
+        <p id="settings-result" role="status"></p>
+      </form>
+    </details>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

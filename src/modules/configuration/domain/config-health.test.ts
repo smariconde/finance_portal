@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   getConfigHealth,
+  servesListingCapture,
   servesOwnerMcp,
   servesRealData,
   servesSchwabConnection,
@@ -37,6 +38,11 @@ describe("getConfigHealth", () => {
       }),
       expect.objectContaining({
         id: "mcp",
+        status: "disabled",
+        missingVariables: [],
+      }),
+      expect.objectContaining({
+        id: "listingCapture",
         status: "disabled",
         missingVariables: [],
       }),
@@ -565,6 +571,58 @@ describe("getConfigHealth", () => {
 
       expect(mcpItem(preview)).toMatchObject({ status: "degraded" });
       expect(servesOwnerMcp(getConfigHealth(preview))).toBe(false);
+    });
+  });
+
+  /** La captura de inmuebles (`F13-02`, ADR 0089): su propio token. */
+  describe("captura de inmuebles", () => {
+    const TOKEN = Buffer.alloc(32, 9).toString("base64url");
+    const item = (environment: Record<string, string>) =>
+      getConfigHealth(environment).items.find(
+        (candidate) => candidate.id === "listingCapture",
+      );
+
+    it("sin token está deshabilitada y nombra la variable", () => {
+      expect(item(PRIVATE_LOCAL)).toMatchObject({
+        status: "disabled",
+        missingVariables: ["CAPTURE_TOKEN"],
+      });
+      expect(servesListingCapture(getConfigHealth(PRIVATE_LOCAL))).toBe(false);
+    });
+
+    it("con un token válido en personal abre la ruta, y el del MCP no la abre", () => {
+      expect(
+        servesListingCapture(
+          getConfigHealth({ ...PRIVATE_LOCAL, CAPTURE_TOKEN: TOKEN }),
+        ),
+      ).toBe(true);
+      expect(
+        servesListingCapture(
+          getConfigHealth({ ...PRIVATE_LOCAL, MCP_ACCESS_TOKEN: TOKEN }),
+        ),
+      ).toBe(false);
+    });
+
+    it("un token corto es una configuración rota y un runtime trabado no abre", () => {
+      expect(item({ ...PRIVATE_LOCAL, CAPTURE_TOKEN: "corto" })).toMatchObject({
+        status: "degraded",
+      });
+      const locked = getConfigHealth({ CAPTURE_TOKEN: TOKEN });
+      expect(servesListingCapture(locked)).toBe(false);
+      expect(JSON.stringify(locked)).not.toContain(TOKEN);
+    });
+
+    it("Preview ignora el token (`TM-14`)", () => {
+      const preview = {
+        APP_MODE: "personal",
+        APP_RUNTIME_ACCESS: "protected",
+        DATABASE_URL: "postgres://pooled",
+        VERCEL: "1",
+        VERCEL_ENV: "preview",
+        CAPTURE_TOKEN: TOKEN,
+      };
+      expect(item(preview)).toMatchObject({ status: "degraded" });
+      expect(servesListingCapture(getConfigHealth(preview))).toBe(false);
     });
   });
 });

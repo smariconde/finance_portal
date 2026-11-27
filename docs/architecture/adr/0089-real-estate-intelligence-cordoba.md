@@ -381,3 +381,26 @@ frontera nueva y su superficie entra al threat model en `F13-02`.
   si vale la pena mirar más.
 - La zonificación nunca es verdad: es una lectura fechada con confianza, y un
   FOT mal leído se ve en la sensibilidad.
+
+## Enmienda del 2026-11-27: el agente mide con Claude in Chrome (`F13-02`)
+
+Decisión del owner al arrancar `F13-02`. La Decisión 2 dejaba abierto cómo mira
+el agente un portal («Playwright … o Claude in Chrome»); queda así:
+
+- **Claude in Chrome primero**, en el Brave del owner. Un Playwright que
+  arranca un navegador limpio es lo que un portal distingue de una persona;
+  la extensión de Claude maneja el Brave de todos los días. Playwright con
+  `/usr/bin/brave` y un perfil propio queda como alternativa.
+- **El perfil del owner, con sus sesiones**, para medir. La regla del perfil
+  dedicado sin sesión (Decisión 1) se deja de lado **para la medición del
+  agente** en esta fase: es poca navegación, a paso humano, y no hace clic en
+  contactar ni en formularios. La extensión de captura sigue la Decisión 1.
+- **Un modelo de bajo costo navega**: la medición la hace un subagente Haiku
+  que extrae con `javascript_tool` (JSON-LD, estado embebido, selectores,
+  pedidos de red) y escribe los extractos en el scratchpad de la sesión, nunca
+  en el repositorio; el agente principal lee sólo esos archivos para fijar el
+  adapter. Un desafío no se resuelve: el subagente saca la captura y termina.
+- Brave no es un navegador que Claude Code configure solo: el manifiesto del
+  host nativo (`com.anthropic.claude_code_browser_extension.json`) que
+  `claude --chrome` escribe en `~/.config/google-chrome/NativeMessagingHosts/`
+  se copia a `~/.config/BraveSoftware/Brave-Browser/NativeMessagingHosts/`.

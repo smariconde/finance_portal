@@ -16,6 +16,8 @@
     "certs:local": "sh scripts/local-https-cert.sh",
     "dev:neon": "node --network-family-autoselection-attempt-timeout=2000 --env-file=.env.neon.local node_modules/next/dist/bin/next dev --hostname 127.0.0.1",
     "build": "next build",
+    "extension:build": "wxt build extensions/listings",
+    "extension:dev": "wxt extensions/listings",
     "start": "next start",
     "start:neon": "node --network-family-autoselection-attempt-timeout=2000 --env-file=.env.neon.local node_modules/next/dist/bin/next start --hostname 127.0.0.1",
     "lint": "eslint . --max-warnings=0",
@@ -125,6 +127,7 @@
     "tailwindcss": "4.3.3",
     "tsx": "4.23.12",
     "typescript": "6.0.3",
-    "vitest": "3.2.7"
+    "vitest": "3.2.7",
+    "wxt": "0.21.5"
   }
 }

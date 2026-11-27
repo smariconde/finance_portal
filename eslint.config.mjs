@@ -151,6 +151,8 @@ export default defineConfig([
     ".agents/skills/**",
     ".next/**",
     "coverage/**",
+    "extensions/listings/.output/**",
+    "extensions/listings/.wxt/**",
     "out/**",
     "next-env.d.ts",
   ]),
