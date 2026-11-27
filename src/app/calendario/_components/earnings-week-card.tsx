@@ -46,6 +46,13 @@ const SESSIONS: readonly {
   },
 ];
 
+/**
+ * La división entre «Before open» y «After close» dentro del día: punteada,
+ * más tenue y más corta que el borde entre días, que es la que manda.
+ */
+const SESSION_DIVIDER =
+  "relative before:pointer-events-none before:absolute before:inset-y-3 before:left-0 before:border-l before:border-dashed before:border-foreground/20";
+
 function nyseNote(day: MarketDay): string | null {
   if (day.status === "holiday") return "NYSE cerrada";
   if (day.status === "early_close" && day.regular !== null)
@@ -391,6 +398,8 @@ export function EarningsWeekCard({
                       className={cn(
                         "border-b px-1 pb-2 font-normal",
                         position > 0 && side === 0 && "border-l",
+                        side === 1 && SESSION_DIVIDER,
+                        side === 1 && "before:inset-y-1",
                         shaded(day.date) && "bg-muted/50",
                       )}
                     >
@@ -411,6 +420,7 @@ export function EarningsWeekCard({
                         className={cn(
                           "min-w-0 px-1 py-3 align-top",
                           position > 0 && side === 0 && "border-l",
+                          side === 1 && SESSION_DIVIDER,
                           shaded(day.date) && "bg-muted/50",
                         )}
                       >
@@ -466,14 +476,18 @@ export function EarningsWeekCard({
               <h3 className="self-start">
                 <DayHeading day={day} today={today} />
               </h3>
-              <div className="grid grid-cols-2 divide-x">
-                {SESSIONS.map((session) => {
+              <div className="grid grid-cols-2">
+                {SESSIONS.map((session, side) => {
                   const key = `${day.date}:${session.key}`;
                   return (
                     <section
                       key={session.key}
                       aria-label={session.spoken}
-                      className="flex min-w-0 flex-col gap-2 px-2"
+                      className={cn(
+                        "flex min-w-0 flex-col gap-2 px-2",
+                        side === 1 && SESSION_DIVIDER,
+                        side === 1 && "before:inset-y-1",
+                      )}
                     >
                       <SessionLabel session={session} />
                       <TileList
