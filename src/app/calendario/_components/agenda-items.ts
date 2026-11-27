@@ -1,15 +1,14 @@
-import { earningsTimeLabel } from "@/app/_components/earnings-mark";
-import type { EarningsCalendarView } from "@/modules/market-calendar/domain/calendar-publication";
 import { addCalendarDays } from "@/modules/market-calendar/domain/zoned-time";
 
 import type { EconomicAgendaRow } from "@/server/persistence/read-economic-calendar";
 
 /**
  * La agenda de `/calendario` en una sola lista: publicaciones de Estados
- * Unidos, de la Argentina y fechas de resultados. Cada ítem dice su región,
- * que la página marca con color **y** con texto.
+ * Unidos y de la Argentina. Cada ítem dice su región, que la página marca con
+ * color **y** con texto. Los earnings van aparte, por semana
+ * (`earnings-week.ts`).
  */
-export type AgendaRegion = "us" | "ar" | "earnings";
+export type AgendaRegion = "us" | "ar";
 
 export type AgendaItem = {
   readonly id: string;
@@ -25,15 +24,11 @@ export type AgendaItem = {
   readonly previousDate: string | null;
   readonly cancelled: boolean;
   readonly important: boolean;
-  /** Sólo resultados: es una empresa que el owner sigue. */
-  readonly followed: boolean;
 };
 
 export type AgendaFilter = {
   readonly region: "all" | AgendaRegion;
   readonly onlyImportant: boolean;
-  /** Resultados sólo de las empresas que el owner sigue. */
-  readonly onlyFollowed: boolean;
 };
 
 /** Rótulos cortos de las publicaciones declaradas; el resto usa su título. */
@@ -81,39 +76,16 @@ function publicationItem(
         : null,
     cancelled: row.status === "cancelled",
     important: row.important,
-    followed: false,
   };
 }
 
 export function agendaItems(input: {
   readonly unitedStates: readonly EconomicAgendaRow[];
   readonly argentina: readonly EconomicAgendaRow[];
-  readonly earnings: EarningsCalendarView | null;
-  readonly followed: readonly string[];
 }): readonly AgendaItem[] {
-  const followed = new Set(input.followed);
   return [
     ...input.unitedStates.map((row) => publicationItem(row, "us")),
     ...input.argentina.map((row) => publicationItem(row, "ar")),
-    ...(input.earnings?.reports ?? []).map((report): AgendaItem => ({
-      id: `av:${report.symbol}:${report.fiscalDateEnding ?? "undated"}`,
-      date: report.date,
-      region: "earnings",
-      title: `${report.symbol} · resultados estimados`,
-      short: report.symbol,
-      time: earningsTimeLabel(report.time),
-      source: "Alpha Vantage",
-      sourceUrl: null,
-      observedOn: null,
-      previousDate:
-        report.previousDate !== null && report.previousDate !== report.date
-          ? report.previousDate
-          : null,
-      cancelled: false,
-      // Una empresa que el owner sigue pesa como una publicación alta.
-      important: followed.has(report.symbol),
-      followed: followed.has(report.symbol),
-    })),
   ].sort(
     (left, right) =>
       left.date.localeCompare(right.date) ||
@@ -129,8 +101,7 @@ export function filterAgenda(
   return items.filter(
     (item) =>
       (filter.region === "all" || item.region === filter.region) &&
-      (!filter.onlyImportant || item.important) &&
-      (!filter.onlyFollowed || item.region !== "earnings" || item.followed),
+      (!filter.onlyImportant || item.important),
   );
 }
 

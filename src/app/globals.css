@@ -26,6 +26,9 @@
   --chart-3: oklch(0.66 0.16 61.8);
   --chart-4: oklch(0.57 0.13 301.1);
   --chart-5: oklch(0.59 0.18 26.4);
+  /* Regiones del calendario: EE. UU. rojo, Argentina celeste (bandera). */
+  --region-us: oklch(0.56 0.2 20);
+  --region-ar: oklch(0.68 0.12 232);
   --radius: 0.75rem;
   --sidebar: #f4f2ef;
   --sidebar-foreground: #293638;
@@ -74,6 +77,8 @@
     --border: oklch(1 0 0 / 12%);
     --input: oklch(1 0 0 / 16%);
     --ring: #ff9a7d;
+    --region-us: oklch(0.7 0.17 20);
+    --region-ar: oklch(0.78 0.1 232);
     --sidebar: #1d2729;
     --sidebar-foreground: #e6e5e1;
     --sidebar-primary: #ff9a7d;
@@ -107,6 +112,8 @@
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 16%);
   --ring: #ff9a7d;
+  --region-us: oklch(0.7 0.17 20);
+  --region-ar: oklch(0.78 0.1 232);
   --sidebar: #1d2729;
   --sidebar-foreground: #e6e5e1;
   --sidebar-primary: #ff9a7d;
@@ -151,6 +158,8 @@
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
+  --color-region-us: var(--region-us);
+  --color-region-ar: var(--region-ar);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);

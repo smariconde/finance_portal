@@ -189,7 +189,7 @@ export async function MarketStrip({
         <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-1.5 border-t pt-1.5 text-xs">
           {todayReports.length ? (
             <span>
-              <strong>Reporta hoy</strong> · {todayReports.join(" · ")}
+              <strong>Earnings hoy</strong> · {todayReports.join(" · ")}
             </span>
           ) : null}
           <a
@@ -202,7 +202,7 @@ export async function MarketStrip({
               signal: null,
             })}
           >
-            Finviz · ayer post-cierre
+            Finviz · ayer after close
           </a>
           <a
             className="text-primary underline underline-offset-4"
@@ -214,7 +214,7 @@ export async function MarketStrip({
               signal: null,
             })}
           >
-            Finviz · hoy pre-apertura
+            Finviz · hoy before open
           </a>
         </div>
       ) : null}

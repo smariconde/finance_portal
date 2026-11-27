@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import type { EarningsCalendarView } from "@/modules/market-calendar/domain/calendar-publication";
 import {
   marketMonth,
   type MarketMonthDay,
@@ -57,8 +56,9 @@ const HORIZON_MAX_DAYS = 120;
 const CHIPS_PER_CELL = 2;
 
 /**
- * Región → color y nombre. El color reusa la paleta categórica de los
- * gráficos y nunca va solo: cada marca lleva el nombre de la región.
+ * Región → color y nombre: EE. UU. en rojo y la Argentina en celeste, por sus
+ * banderas (`--region-us`, `--region-ar`). El color nunca va solo: cada marca
+ * lleva el nombre de la región.
  */
 const REGIONS: Record<
   AgendaRegion,
@@ -66,18 +66,13 @@ const REGIONS: Record<
 > = {
   us: {
     label: "EE. UU.",
-    dot: "bg-chart-1",
-    chip: "bg-chart-1/12 dark:bg-chart-1/20",
+    dot: "bg-region-us",
+    chip: "bg-region-us/12 dark:bg-region-us/20",
   },
   ar: {
     label: "Argentina",
-    dot: "bg-chart-2",
-    chip: "bg-chart-2/14 dark:bg-chart-2/22",
-  },
-  earnings: {
-    label: "Resultados",
-    dot: "bg-chart-4",
-    chip: "bg-chart-4/12 dark:bg-chart-4/22",
+    dot: "bg-region-ar",
+    chip: "bg-region-ar/18 dark:bg-region-ar/20",
   },
 };
 
@@ -316,7 +311,7 @@ function ItemRow({ item }: { readonly item: AgendaItem }) {
           {item.cancelled ? (
             <span className="text-xs font-medium">Cancelado</span>
           ) : null}
-          {item.important && item.region !== "earnings" ? (
+          {item.important ? (
             <span className="text-xs text-muted-foreground">
               importancia alta
             </span>
@@ -405,7 +400,8 @@ function DayGroup({
 
 /**
  * El mes de la bolsa de Nueva York con la agenda adentro, y al costado «Lo
- * que viene» desde el día elegido. Los filtros valen para los dos. La grilla
+ * que viene» desde el día elegido. Los filtros valen para los dos. Los
+ * earnings van aparte, por semana (`EarningsWeekCard`). La grilla
  * es una tabla con encabezados y texto, y cada día es un botón que dice su
  * sesión y sus eventos, así que no necesita un equivalente aparte.
  */
@@ -414,16 +410,12 @@ export function CalendarWorkspace({
   months,
   unitedStates,
   argentina,
-  earnings,
-  followed,
 }: {
   readonly today: string;
   /** Los meses declarados, en orden. */
   readonly months: readonly string[];
   readonly unitedStates: readonly EconomicAgendaRow[];
   readonly argentina: readonly EconomicAgendaRow[];
-  readonly earnings: EarningsCalendarView | null;
-  readonly followed: readonly string[];
 }) {
   const initial = Math.max(0, months.indexOf(today.slice(0, 7)));
   const [index, setIndex] = useState(initial);
@@ -432,15 +424,14 @@ export function CalendarWorkspace({
   const [filter, setFilter] = useState<AgendaFilter>({
     region: "all",
     onlyImportant: false,
-    onlyFollowed: true,
   });
   const panel = useRef<HTMLDivElement>(null);
 
   const month = months[index]!;
   const calendar = useMemo(() => marketMonth(month), [month]);
   const all = useMemo(
-    () => agendaItems({ unitedStates, argentina, earnings, followed }),
-    [unitedStates, argentina, earnings, followed],
+    () => agendaItems({ unitedStates, argentina }),
+    [unitedStates, argentina],
   );
   const byDate = useMemo(
     () => itemsByDate(filterAgenda(all, filter)),
@@ -491,9 +482,6 @@ export function CalendarWorkspace({
     { value: "all" as const, label: "Todo" },
     { value: "us" as const, label: "EE. UU." },
     { value: "ar" as const, label: "Argentina" },
-    ...(earnings !== null
-      ? [{ value: "earnings" as const, label: "Resultados" }]
-      : []),
   ];
 
   return (
@@ -575,14 +563,12 @@ export function CalendarWorkspace({
             aria-label="Referencias"
             className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"
           >
-            {(Object.keys(REGIONS) as AgendaRegion[])
-              .filter((region) => region !== "earnings" || earnings !== null)
-              .map((region) => (
-                <li key={region} className="flex items-center gap-1.5">
-                  <RegionDot region={region} />
-                  {REGIONS[region].label}
-                </li>
-              ))}
+            {(Object.keys(REGIONS) as AgendaRegion[]).map((region) => (
+              <li key={region} className="flex items-center gap-1.5">
+                <RegionDot region={region} />
+                {REGIONS[region].label}
+              </li>
+            ))}
             <li className="numeric">
               <span className="text-foreground">11:30–18:00</span> sesión en
               hora de Buenos Aires
@@ -620,8 +606,8 @@ export function CalendarWorkspace({
                 <p>
                   Feriados, cierres tempranos y cambios de horario de la NYSE;
                   publicaciones de Estados Unidos (FRED y la Fed) y de la
-                  Argentina (INDEC, Hacienda y BCRA); y fechas de resultados de
-                  Alpha Vantage.
+                  Argentina (INDEC, Hacienda y BCRA). Los earnings están en su
+                  propia semana, abajo.
                 </p>
                 <p>
                   Las horas son de Buenos Aires. «Habitual» es la hora que el
@@ -658,22 +644,6 @@ export function CalendarWorkspace({
                 />
                 Sólo importancia alta
               </label>
-              {earnings !== null ? (
-                <label className="flex min-h-7 items-center gap-2 text-xs">
-                  <input
-                    type="checkbox"
-                    className="size-4 accent-primary"
-                    checked={filter.onlyFollowed}
-                    onChange={(event) =>
-                      setFilter({
-                        ...filter,
-                        onlyFollowed: event.target.checked,
-                      })
-                    }
-                  />
-                  Resultados sólo de mis empresas
-                </label>
-              ) : null}
             </div>
           </div>
         </CardHeader>
@@ -711,16 +681,6 @@ export function CalendarWorkspace({
             >
               Ver tres semanas más
             </Button>
-          ) : null}
-          {earnings?.observedAt ? (
-            <p className="pt-3 text-xs text-muted-foreground">
-              Resultados vistos el{" "}
-              {shortMarketDate(earnings.observedAt.slice(0, 10))} (UTC).
-            </p>
-          ) : earnings !== null ? (
-            <p className="pt-3 text-xs text-muted-foreground">
-              Resultados todavía sin verificar.
-            </p>
           ) : null}
         </CardContent>
       </Card>

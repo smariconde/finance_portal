@@ -62,30 +62,6 @@ const items = agendaItems({
       date: "2026-12-04",
     }),
   ],
-  earnings: {
-    observedAt: "2026-11-26T12:00:00Z",
-    reports: [
-      {
-        symbol: "AAPL",
-        date: "2026-12-10",
-        fiscalDateEnding: "2026-12-31",
-        estimate: null,
-        currency: "USD",
-        time: "post-market",
-        previousDate: null,
-      },
-      {
-        symbol: "ZZZ",
-        date: "2026-12-10",
-        fiscalDateEnding: null,
-        estimate: null,
-        currency: "USD",
-        time: null,
-        previousDate: null,
-      },
-    ] as never,
-  },
-  followed: ["AAPL"],
 });
 
 describe("agendaItems", () => {
@@ -117,56 +93,34 @@ describe("agendaItems", () => {
     );
   });
 
-  it("los resultados de una empresa seguida cuentan como importantes", () => {
-    expect(items.find((item) => item.short === "AAPL")).toMatchObject({
-      region: "earnings",
-      time: "post-cierre",
-      followed: true,
-      important: true,
-    });
-    expect(items.find((item) => item.short === "ZZZ")).toMatchObject({
-      time: "hora s/i",
-      followed: false,
-      important: false,
-    });
-  });
-
   it("ordena por fecha y pone primero lo importante", () => {
     const tenth = items.filter((item) => item.date === "2026-12-10");
-    expect(tenth.at(-1)!.short).toBe("ZZZ");
+    expect(tenth.map((item) => item.title)).toEqual([
+      "IPC de Estados Unidos",
+      "IPC nacional",
+    ]);
     expect(items[0]!.date).toBe("2026-12-04");
   });
 });
 
 describe("filterAgenda", () => {
-  it("filtra por región, importancia y empresas seguidas", () => {
+  it("filtra por región e importancia", () => {
     expect(
-      filterAgenda(items, {
-        region: "ar",
-        onlyImportant: false,
-        onlyFollowed: true,
-      }).map((item) => item.id),
+      filterAgenda(items, { region: "ar", onlyImportant: false }).map(
+        (item) => item.id,
+      ),
     ).toEqual(["bcra:imm", "indec:ipc"]);
     expect(
-      filterAgenda(items, {
-        region: "all",
-        onlyImportant: true,
-        onlyFollowed: false,
-      }).map((item) => item.short),
-    ).toEqual(["AAPL", "IPC", "IPC"]);
-    expect(
-      filterAgenda(items, {
-        region: "earnings",
-        onlyImportant: false,
-        onlyFollowed: true,
-      }).map((item) => item.short),
-    ).toEqual(["AAPL"]);
+      filterAgenda(items, { region: "all", onlyImportant: true }).map(
+        (item) => item.id,
+      ),
+    ).toEqual(["fred:10:2026-12-10", "indec:ipc"]);
   });
 });
 
 describe("itemsByDate y datesFrom", () => {
   it("agrupa por fecha y cuenta días corridos", () => {
-    expect(itemsByDate(items).get("2026-12-10")).toHaveLength(4);
+    expect(itemsByDate(items).get("2026-12-10")).toHaveLength(2);
     expect(datesFrom("2026-12-30", 3)).toEqual([
       "2026-12-30",
       "2026-12-31",

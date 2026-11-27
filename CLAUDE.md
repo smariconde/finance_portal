@@ -862,11 +862,16 @@ reads the scheduled period, next to ADR 0079's «Nuevo». Treasury auctions stay
 out (owner).
 Since the owner's 2026-11-26 review, `/calendario` is one workspace
 (`CalendarWorkspace`): the month grid carries the agenda inside each day as
-chips coloured by region —EE. UU. `chart-1`, Argentina `chart-2`, results
-`chart-4`, always with the region's name— and «Lo que viene» sits beside it from
-`xl` (below it otherwise), listing from the chosen day in three-week steps. One
-filter (region, high importance, results of followed companies) drives both;
-`agenda-items.ts` builds the list.
+chips coloured by region —EE. UU. red `--region-us`, Argentina celeste
+`--region-ar`, by their flags (owner, 2026-11-27), always with the region's
+name— and «Lo que viene» sits beside it from `xl` (below it otherwise), listing
+from the chosen day in three-week steps. One filter (region, high importance)
+drives both; `agenda-items.ts` builds the list. Earnings live outside the month
+(owner, 2026-11-27): `EarningsWeekCard` sits under it at full width, each
+weekday a column split into «Before open» and «After close», each ticker a
+stored logo (`TickerMark`) with the symbol beneath, and a «Sin hora» strip
+when the source gives no session (`earnings-week.ts`); followed companies first
+and in bold, week by week up to the last report. The UI says «earnings», never «resultados».
 
 Since `F12-05` (ADR 0088 decision 8) the price rules know the calendar:
 `sector-price-freshness-2.0.0` and `ticker-price-freshness-2.0.0` take the last

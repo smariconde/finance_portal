@@ -413,6 +413,13 @@ Implementados en `src/app/argentina/_components/` (`F9-06`).
 - **Densidad:** ventana local con paso mínimo de 10 px por vela; conserva todas las filas disponibles. Botones, slider rotulado y lectura «Velas n–m de total» sólo cuando no cabe toda la serie. Flechas, Inicio/Fin y las reglas de una lección mueven la selección global y la ventana la sigue. El cursor, las marcas, los paneles de indicadores y las zonas comparten la ventana; los indicadores se calculan sobre la historia completa antes de recortar su dibujo.
 - **Ejes y estados:** ticks en `muted-foreground` explícito, en ambos temas. Se conservan fuente, resolución, fecha de lectura, ajustes de Schwab, ejecuciones, planes, negativas y faltantes. No se agrega una llamada ni persistencia.
 
+### Calendario
+
+Implementado en `src/app/calendario/_components/` (2026-11-27, decisión del owner).
+
+- **Regiones:** EE. UU. en rojo (`--region-us`) y la Argentina en celeste (`--region-ar`), por sus banderas; el azul de `--chart-1` quedaba demasiado cerca del celeste. El color nunca va solo: cada punto o chip lleva el nombre de la región. Los chips son el tinte al 12–20 % con texto `foreground`; axe midió 0 problemas de contraste en claro y oscuro.
+- **Earnings:** fuera del mes, en su propia semana y a todo el ancho: el día es la columna y adentro van dos subcolumnas, «Before open» y «After close», con el logo (`TickerMark` `md`, 32 px; a 48 px la semana se hacía muy alta) y el ticker debajo, dos por fila donde entran; lo que la fuente no ubica en la sesión va en una franja «Sin hora» con logos chicos. Las empresas seguidas van primero y su ticker en negrita. Más de ocho por subcolumna se pliegan en «+N más». La tabla aparece desde `lg` con un mínimo de 40rem (si no entra, se desplaza); debajo, un día por bloque con las dos subcolumnas lado a lado. La celda no muestra el EPS estimado: en columnas angostas cortaba el ticker, y una cifra cortada engaña.
+
 ### Navigation
 
 - **Desktop:** sidebar de `16rem`, colapsable a iconos de `3rem`; shortcut `Ctrl/Cmd+B` y tooltips cuando está colapsada. El rail de arrastre queda fuera del árbol de accesibilidad: duplicaba el nombre del trigger sin agregar ninguna capacidad para teclado o lector de pantalla.
