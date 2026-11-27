@@ -12,6 +12,7 @@ import { FINVIZ_SCREENER_PAGE_PARSER_VERSION } from "./finviz-screener-page";
 import {
   buildFinvizScreenerUrl,
   EMPTY_FINVIZ_SELECTION,
+  buildFinvizQuoteUrl,
   buildFinvizTickersUrl,
   finvizFilterQuery,
   parseFinvizFilterQuery,
@@ -166,5 +167,18 @@ describe("finviz screener links", () => {
       buildFinvizTickersUrl(["nvda", "BRK.B", "AAPL", "NVDA", "BF/B", "1BAD"]),
     ).toBe("https://finviz.com/screener/stocks?v=341&t=AAPL,BF-B,BRK-B,NVDA");
     expect(buildFinvizTickersUrl([])).toBeNull();
+  });
+});
+
+describe("buildFinvizQuoteUrl", () => {
+  it("abre la ficha con el símbolo como lo escribe Finviz", () => {
+    expect(buildFinvizQuoteUrl("aapl")).toBe(
+      "https://finviz.com/quote.ashx?t=AAPL",
+    );
+    expect(buildFinvizQuoteUrl("BF.B")).toBe(
+      "https://finviz.com/quote.ashx?t=BF-B",
+    );
+    expect(buildFinvizQuoteUrl("1BAD")).toBeNull();
+    expect(buildFinvizQuoteUrl("")).toBeNull();
   });
 });
