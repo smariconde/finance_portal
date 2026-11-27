@@ -8068,6 +8068,10 @@ La organización sigue en Launch y el regreso a Free queda a cargo del owner.
   con fixtures se verificó «Falta sep 2026» y «Falta oct 2026» con consultas
   exitosas y su retiro al ingresar ambos períodos. A 1440 px claro y 390 px
   oscuro no hubo desborde, errores de página ni hallazgos bloqueantes de axe.
+  En el primer intento de CI hubo un timeout de la tabla móvil de referencia
+  reproducido localmente. La prueba ahora toma los estilos de los contenedores
+  dentro de `main` en una sola evaluación, sin recorrer índices que pueden
+  desaparecer al terminar el streaming.
   Pendiente de integrar y comprobar la siguiente consulta en Production.
 
 #### `F9-24` — el IPC observado del REM

@@ -228,15 +228,16 @@ test.describe("corrida de referencia", () => {
   test("las tablas anchas desplazan dentro de su contenedor", async ({
     page,
   }) => {
-    const containers = page.locator("[data-slot='table-container']");
-    const count = await containers.count();
+    const containers = withinMain(page).locator(
+      "[data-slot='table-container']",
+    );
+    await expect(containers.first()).toBeAttached();
+    const overflows = await containers.evaluateAll((nodes) =>
+      nodes.map((node) => getComputedStyle(node).overflowX),
+    );
 
-    expect(count).toBeGreaterThan(0);
-
-    for (let index = 0; index < count; index += 1) {
-      const overflowX = await containers
-        .nth(index)
-        .evaluate((node) => getComputedStyle(node).overflowX);
+    expect(overflows.length).toBeGreaterThan(0);
+    for (const overflowX of overflows) {
       expect(["auto", "scroll"]).toContain(overflowX);
     }
   });
