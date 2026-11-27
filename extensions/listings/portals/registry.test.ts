@@ -36,6 +36,20 @@ describe("portals/registry", () => {
     }
   });
 
+  it("cada adapter sabe armar sus búsquedas y declara una por defecto", () => {
+    for (const adapter of PORTAL_ADAPTERS) {
+      expect(adapter.defaultSearches.length, adapter.sourceId).toBeGreaterThan(
+        0,
+      );
+      for (const search of adapter.defaultSearches) {
+        expect(adapter.normalizeSearch(search), search).toBe(search);
+        expect(adapterFor(adapter.searchPageUrl(search, 1))?.sourceId).toBe(
+          adapter.sourceId,
+        );
+      }
+    }
+  });
+
   it("ningún selector obligatorio está vacío", () => {
     for (const adapter of PORTAL_ADAPTERS) {
       expect(adapter.embeddedStateSelectors.length).toBeGreaterThan(0);

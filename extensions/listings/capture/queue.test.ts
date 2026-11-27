@@ -177,6 +177,17 @@ describe("listing-capture-queue-1.0.0", () => {
         expected,
       );
     }
+    const disabled = vi.fn(
+      async () =>
+        new Response("Capture disabled.", {
+          status: 503,
+          headers: { "x-capture-state": "disabled" },
+        }),
+    );
+    expect(await sendBatch(disabled, SETTINGS, [capture(1)])).toEqual({
+      kind: "failed",
+      failure: "disabled",
+    });
     const throwing = vi.fn(async () => {
       throw new TypeError("Failed to fetch");
     });

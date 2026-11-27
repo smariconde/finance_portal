@@ -91,7 +91,8 @@ async function readBody(request: Request): Promise<string | null> {
  *    robe el token, porque no puede mandar ese `Origin`;
  * 4. sin el token: `401`, comparado en tiempo constante;
  * 5. `application/json` y 256 kB como mucho;
- * 6. el tope diario y el kill switch de `inmuebles-captura`;
+ * 6. el tope diario y el kill switch de `inmuebles-captura`, que responde
+ *    `503` con `X-Capture-State: disabled`;
  * 7. el esquema cerrado del pedido y, captura por captura, el del contrato:
  *    una captura rechazada no frena a las demás y nombra campo y motivo,
  *    nunca el valor.
@@ -189,7 +190,12 @@ export async function handleListingCaptureRequest(
     );
   }
   if (verdict.status !== "allowed") {
-    return finish(plain(503, "Capture disabled."), verdict.status);
+    // El encabezado distingue el kill switch de una caída: la extensión deja
+    // de barrer por el día en vez de reintentar (`listing-sweep-1.0.0`).
+    return finish(
+      plain(503, "Capture disabled.", { "X-Capture-State": "disabled" }),
+      verdict.status,
+    );
   }
 
   let json: unknown;

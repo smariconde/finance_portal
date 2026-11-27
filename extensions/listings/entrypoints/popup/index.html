@@ -91,6 +91,37 @@
       <button id="flush" type="button">Enviar ahora</button>
       <button id="export" type="button">Exportar página</button>
     </div>
+    <h2>Barrido</h2>
+    <p id="sweep-status" role="status">—</p>
+    <dl id="sweep-coverage"></dl>
+    <div class="row">
+      <button id="sweep-toggle" type="button">Pausar</button>
+      <button id="sweep-now" type="button">Barrer ahora</button>
+    </div>
+    <div class="row" id="sweep-reactivate-row" hidden>
+      <button id="sweep-reactivate" type="button">
+        Reactivar tras desafíos
+      </button>
+    </div>
+    <div class="row" id="sweep-page-row" hidden>
+      <button id="sweep-page-action" type="button"></button>
+    </div>
+    <label class="cap"
+      >Páginas por día
+      <input
+        id="sweep-cap"
+        type="number"
+        min="0"
+        max="25"
+        step="1"
+        inputmode="numeric"
+      />
+    </label>
+    <details>
+      <summary>Búsquedas y seguidos</summary>
+      <ul id="sweep-searches"></ul>
+      <ul id="sweep-followed"></ul>
+    </details>
     <details id="settings-box">
       <summary>Conexión</summary>
       <form id="settings">

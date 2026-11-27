@@ -239,10 +239,12 @@ describe("POST /api/inmuebles/captura", () => {
         consume: async () => ({ status: "source_disabled", reason: "owner" }),
       },
     });
-    expect(
-      (await handleListingCaptureRequest(post(batch([FIRST])), disabled.deps))
-        .status,
-    ).toBe(503);
+    const off = await handleListingCaptureRequest(
+      post(batch([FIRST])),
+      disabled.deps,
+    );
+    expect(off.status).toBe(503);
+    expect(off.headers.get("x-capture-state")).toBe("disabled");
   });
 
   it("si la base falla a mitad del lote responde 503 sin detalles", async () => {
