@@ -8575,6 +8575,20 @@ posición o idea swing real.
 
 **Estado:** `done` (`F12-02`, `F12-03`, `F12-04`).
 
+**Revisión del owner de `/calendario`, 2026-11-26.** Pidió distinguir Estados
+Unidos de la Argentina con color, ver la agenda dentro del calendario y «Lo que
+viene» al lado, en lugar de la tabla semanal larga antes del mes.
+`CalendarWorkspace` reemplaza a `MarketMonthCard` y `CalendarAgenda`: cada día
+de la grilla es un botón con su sesión y sus eventos como chips por región
+(EE. UU. `chart-1`, Argentina `chart-2`, resultados `chart-4`, siempre con el
+nombre), y al costado desde `xl` —debajo en pantallas menores, con
+desplazamiento al elegir un día— «Lo que viene» desde el día elegido, agrupado
+por día, de a tres semanas. Un mismo filtro (región, importancia alta,
+resultados de mis empresas) rige la grilla y la lista; `agenda-items.ts` arma
+la lista con 7 unitarios. Revisado sobre la base local a 1440 claro y oscuro,
+1100 y 390: desborde 0, axe 0, sin errores de consola; detector de Impeccable
+vacío.
+
 **`F12-05`, 2026-11-26.** Las reglas de precios saben qué días opera Nueva
 York (ADR 0088, decisión 8, sin migración).
 

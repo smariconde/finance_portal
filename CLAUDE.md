@@ -860,6 +860,13 @@ publishes no structured calendar, so its semester is transcribed from the PDF in
 `declared-indec-calendar.ts`; `/argentina` marks «Esperado hoy» until the block
 reads the scheduled period, next to ADR 0079's «Nuevo». Treasury auctions stay
 out (owner).
+Since the owner's 2026-11-26 review, `/calendario` is one workspace
+(`CalendarWorkspace`): the month grid carries the agenda inside each day as
+chips coloured by region —EE. UU. `chart-1`, Argentina `chart-2`, results
+`chart-4`, always with the region's name— and «Lo que viene» sits beside it from
+`xl` (below it otherwise), listing from the chosen day in three-week steps. One
+filter (region, high importance, results of followed companies) drives both;
+`agenda-items.ts` builds the list.
 
 Since `F12-05` (ADR 0088 decision 8) the price rules know the calendar:
 `sector-price-freshness-2.0.0` and `ticker-price-freshness-2.0.0` take the last
