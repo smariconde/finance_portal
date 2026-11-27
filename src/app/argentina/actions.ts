@@ -1,16 +1,20 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+
 import { after } from "next/server";
 import { z } from "zod";
 
 import type { ArgentinaRefreshStatus } from "@/modules/argentina-dashboard/application/argentina-refresh";
 import { servesRealData } from "@/modules/configuration/domain/config-health";
+import type { CountryRiskQuote } from "@/modules/macro-series/domain/ambito-country-risk-parser";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
 import {
   ensureArgentinaRefreshForRequest,
   startArgentinaRefreshWorker,
 } from "@/server/jobs/argentina-refresh";
 import { getSurfaceVisitRepository } from "@/server/persistence/get-surface-visit-repository";
+import { readArgentinaCountryRiskQuote as readQuote } from "@/server/persistence/read-argentina-country-risk-quote";
 
 const refreshRequestSchema = z
   .object({
@@ -62,6 +66,27 @@ export async function refreshArgentinaData(
       error instanceof Error ? error.name : typeof error,
     );
     return { state: "unavailable" };
+  }
+}
+
+/** One personal, metered quote with the destination and day fixed by the server. */
+export async function readArgentinaCountryRiskQuote(input?: unknown): Promise<{
+  readonly quote: CountryRiskQuote | null;
+  readonly requestId: string;
+}> {
+  const requestId = randomUUID();
+  if (input !== undefined) return { quote: null, requestId };
+  const health = await getRequestConfigHealth();
+  if (!servesRealData(health)) return { quote: null, requestId };
+  try {
+    return { quote: await readQuote(), requestId };
+  } catch (error) {
+    console.error(
+      "argentina country risk quote failed",
+      requestId,
+      error instanceof Error ? error.name : typeof error,
+    );
+    return { quote: null, requestId };
   }
 }
 

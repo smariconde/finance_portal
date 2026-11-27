@@ -98,3 +98,25 @@ corrida pide la historia completa —un pedido— y compara todo
   guardado.
 - Un spread propio calculado con bonos y Treasuries queda fuera: necesita
   precios de bonos con derechos y sus flujos declarados.
+
+## Enmienda del 2026-11-27 — cotización del día en la tarjeta (`F9-26`)
+
+El owner pidió ver el movimiento del día. El histórico de Ámbito devolvía
+como último cierre el 26/11 y `/riesgopais/variacion` ya daba una cotización
+del 27/11. El endpoint informa el día y el nivel. La hora que muestra el
+portal es la de consulta en Buenos Aires.
+
+La tarjeta pide la cotización al abrir o volver a la pestaña. Sólo usa un
+valor positivo con fecha del día local y posterior al último cierre. Si hay
+un cierre de la misma fecha, usa ese cierre. La diferencia en puntos básicos
+se calcula contra el último cierre comparable con `summary-change-1.1.0`.
+El gráfico, su tabla y las lecturas históricas siguen usando los cierres.
+
+`ambito-riesgo-pais-cotizacion` tiene una declaración de derechos personales,
+un GET fijo sin query ni redirecciones y una cuota de 24 pedidos por día UTC.
+El kill switch de la fuente histórica también suspende esta consulta. La
+acción exige el runtime personal, toma la fecha y el destino del servidor
+y devuelve la cotización normalizada con un identificador de request. El
+resultado vive hasta cinco minutos en memoria por proceso con una consulta
+en vuelo. Una falla espera un minuto y el cambio de fecha local invalida la
+caché. El payload y la cotización quedan fuera de PostgreSQL.

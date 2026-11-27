@@ -57,6 +57,7 @@ describe("topes declarados", () => {
     expect(declaredDailyBudget("argentina-series-tiempo")).toBe(50);
     expect(declaredDailyBudget("indec-api")).toBe(60);
     expect(declaredDailyBudget("ambito-riesgo-pais")).toBe(10);
+    expect(declaredDailyBudget("ambito-riesgo-pais-cotizacion")).toBe(24);
     expect(declaredDailyBudget("alpha-vantage")).toBe(25);
     expect(declaredDailyBudget("ecb-data-portal")).toBe(20);
     expect(declaredDailyBudget("bcr-cac-pizarra")).toBe(20);
@@ -70,6 +71,7 @@ describe("topes declarados", () => {
     expect(Object.keys(SOURCE_DAILY_REQUEST_BUDGETS).sort()).toEqual([
       "alpha-vantage",
       "ambito-riesgo-pais",
+      "ambito-riesgo-pais-cotizacion",
       "argentina-series-tiempo",
       "bcr-cac-pizarra",
       "bcra-calendario-informes",

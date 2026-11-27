@@ -91,11 +91,17 @@ const pathPrefixSchema = z
     message: "A path prefix must not contain a traversal segment.",
   });
 
-export const egressOriginSchema = z.object({
-  host: allowlistHostSchema,
-  /** Prefijos exactos. Un recurso fuera de todos ellos no se pide. */
-  pathPrefixes: z.array(pathPrefixSchema).min(1).max(16),
-});
+export const egressOriginSchema = z
+  .object({
+    host: allowlistHostSchema,
+    pathPrefixes: z.array(pathPrefixSchema).max(16),
+    /** Recursos fijos que no admiten un query string. */
+    exactPaths: z.array(pathPrefixSchema).min(1).max(16).optional(),
+  })
+  .refine(
+    (origin) =>
+      origin.pathPrefixes.length > 0 || origin.exactPaths !== undefined,
+  );
 
 export type EgressOrigin = z.infer<typeof egressOriginSchema>;
 
@@ -348,7 +354,12 @@ export function authorizeEgressUrl(
   // segmentos relativos. Se compara sobre esa forma, nunca sobre el texto crudo.
   const path = url.pathname;
 
-  if (!origin.pathPrefixes.some((prefix) => path.startsWith(prefix))) {
+  const matchesExactPath =
+    url.search === "" && url.hash === "" && origin.exactPaths?.includes(path);
+  if (
+    !matchesExactPath &&
+    !origin.pathPrefixes.some((prefix) => path.startsWith(prefix))
+  ) {
     return { allowed: false, code: "path_not_allowlisted" };
   }
 

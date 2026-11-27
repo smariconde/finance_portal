@@ -112,3 +112,11 @@ había, sin confundir lo viejo con lo nuevo.
   abierta —porque la actualización de la ADR 0070 la trajo—, su tarjeta se
   tiñe una vez y dice «Actualizado» hasta que se deja la página: no se guarda
   y no sobrevive a la visita.
+
+## Enmienda del 2026-11-27 — contorno de las tarjetas (`F9-26`)
+
+El owner eligió un contorno azul para las tarjetas con un período nuevo,
+revisado o una cifra que cambia durante la visita. La tarjeta conserva su
+fondo y distribución. El estado tiene texto accesible para el lector de
+pantalla. La tira de novedades y los bloques usan el mismo contorno y
+conservan sus cifras y vínculos.

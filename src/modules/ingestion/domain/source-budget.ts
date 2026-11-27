@@ -70,6 +70,7 @@ export const SOURCE_DAILY_REQUEST_BUDGETS: Readonly<Record<string, number>> =
     // Riesgo país (ADR 0080): la historia entera en un pedido, una vez por día
     // de Buenos Aires al abrir la página; diez dejan lugar a corridas a mano.
     "ambito-riesgo-pais": 10,
+    "ambito-riesgo-pais-cotizacion": 24,
     // Tasa libre de riesgo en EUR (ADR 0087): una request por valuación de un
     // emisor que reporta en EUR, sólo si la release guardada no tiene el día.
     "ecb-data-portal": 20,

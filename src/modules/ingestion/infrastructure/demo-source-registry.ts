@@ -1,4 +1,11 @@
 import {
+  AMBITO_COUNTRY_RISK_QUOTE_DATASET,
+  AMBITO_COUNTRY_RISK_QUOTE_PARSER_VERSION,
+  AMBITO_COUNTRY_RISK_QUOTE_SOURCE,
+  AMBITO_COUNTRY_RISK_QUOTE_URL,
+} from "@/modules/macro-series/domain/ambito-country-risk-parser";
+
+import {
   sourceRegistryEntrySchema,
   type SourceRegistryEntry,
 } from "@/modules/ingestion/domain/source-registry-entry";
@@ -1443,6 +1450,53 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
       ownerNotes:
         "Decisión del owner del 2026-11-17: Ámbito directo, porque ArgentinaDatos es una copia con decimales truncados, fines de semana rellenados y días faltantes. Ámbito dice «Todos los derechos reservados» y no enlaza sus condiciones; J.P. Morgan es dueño del índice.",
       recordedAt: COUNTRY_RISK_RIGHTS_REVIEWED_AT,
+    }),
+    sourceRegistryEntrySchema.parse({
+      sourceId: AMBITO_COUNTRY_RISK_QUOTE_SOURCE,
+      displayName: "Ámbito — cotización del día de riesgo país",
+      owner: "Nefir S.A. (Ámbito); índice de J.P. Morgan",
+      canonicalUrl: "https://www.ambito.com/contenidos/riesgo-pais.html",
+      documentationUrls: ["https://www.ambito.com/contenidos/riesgo-pais.html"],
+      datasets: [AMBITO_COUNTRY_RISK_QUOTE_DATASET],
+      endpoints: [AMBITO_COUNTRY_RISK_QUOTE_URL],
+      authentication: "none",
+      applicablePlan: null,
+      rateLimit: "24 pedidos por día UTC como tope interno",
+      attribution: "J.P. Morgan (EMBI), vía Ámbito",
+      expectedCadence:
+        "al abrir o volver al tablero, con caché en memoria de cinco minutos",
+      freshnessTarget: "cotización del día de Buenos Aires",
+      timezone: "America/Argentina/Buenos_Aires",
+      units: ["Puntos básicos"],
+      currencies: ["USD"],
+      parserVersion: AMBITO_COUNTRY_RISK_QUOTE_PARSER_VERSION,
+      fixturePolicy:
+        "Fixtures sintéticas. El payload y el valor del día no se persisten.",
+      fallbackSourceIds: [],
+      rights: {
+        personalUse: "owner_accepted",
+        automatedAccess: "owner_accepted",
+        rawStorage: "restricted",
+        normalizedStorage: "restricted",
+        derivedStorage: "restricted",
+        publicDisplay: "restricted",
+        export: "restricted",
+        aiTransfer: "restricted",
+        ownerAssistant: "restricted",
+      },
+      technicalStatus: "integrated",
+      approvalStatus: "approved_personal",
+      reviewedAt: "2026-11-27T00:00:00.000Z",
+      rightsReviewedAt: "2026-11-27T00:00:00.000Z",
+      rightsReviewDueAt: COUNTRY_RISK_RIGHTS_REVIEW_DUE_AT,
+      reviewEvidence: [
+        "docs/architecture/adr/0080-argentina-country-risk-source.md",
+      ],
+      retentionClasses: ["R3"],
+      quotaPolicyId: null,
+      ownerNotes:
+        "Pedido del owner del 2026-11-27. Cotización para la tarjeta personal, separada de los cierres.",
+      recordedAt: "2026-11-27T00:00:00.000Z",
     }),
     sourceRegistryEntrySchema.parse({
       sourceId: "remax-ar",

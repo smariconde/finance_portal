@@ -1,14 +1,9 @@
 "use client";
 
 import { Check, CircleAlert, CircleDashed, RefreshCw } from "lucide-react";
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+
+import { StatTile } from "@/app/_components/stat-tile";
 
 import { cn } from "@/lib/utils";
 import {
@@ -24,11 +19,7 @@ import {
   useExpectedPublication,
   useGroupFreshness,
 } from "./freshness-provider";
-import { NewsBadge } from "./news-badge";
 import { shortMonth } from "./format";
-
-/** How long a figure that just changed stays tinted. */
-const ARRIVAL_MS = 2_400;
 
 const WARNING_TEXT = "text-warning";
 
@@ -50,122 +41,103 @@ function listOf(labels: readonly string[]): string {
   return `${labels.slice(0, -1).join(", ")} y ${labels.at(-1)}`;
 }
 
-type TileState = {
-  readonly freshness: GroupFreshness | null;
-  readonly group: FreshnessGroup;
-  /** When the figure changed with the page open, on this device's clock. */
-  readonly arrivedAt: string | null;
+export type SummaryTileProps = {
+  readonly metric: SummaryMetric;
+  readonly href: string;
+  readonly label: string;
+  readonly value: string;
+  readonly detail: string;
+  readonly note?: string;
+  readonly date: string;
+  readonly change: ReactNode;
+  readonly mark: "new_period" | "revised" | null;
+  readonly observedQuoteAt?: string;
 };
 
-const TileContext = createContext<TileState>({
-  freshness: null,
-  group: "activity",
-  arrivedAt: null,
-});
-
-/**
- * A summary tile that knows how current its figure is (`F9-22`). While a
- * source it reads is being asked, the figure turns muted and a thin line runs
- * along the tile's top edge: it is the stored one, and may change. When the
- * page is read again with another figure, the tile is tinted once and keeps
- * «Actualizado» for the rest of the visit, so a daily figure that moved is
- * seen without being marked as news forever.
- */
-export function TileShell({
+/** A changed figure keeps a blue outline for the current visit. */
+export function SummaryTile({
   metric,
-  token,
-  children,
-}: {
-  readonly metric: SummaryMetric;
-  /** What the tile shows; a different token is a different figure. */
-  readonly token: string;
-  readonly children: ReactNode;
-}) {
+  href,
+  label,
+  value,
+  detail,
+  note,
+  date,
+  change,
+  mark,
+  observedQuoteAt,
+}: SummaryTileProps) {
   const group = SUMMARY_FRESHNESS_GROUP[metric];
-  const freshness = useGroupFreshness(group);
-  const [arrival, setArrival] = useState<{
-    readonly at: string;
-    readonly key: number;
-  } | null>(null);
-  const [tinted, setTinted] = useState(false);
+  const groupFreshness = useGroupFreshness(group);
+  const publication = useExpectedPublication(group);
+  const freshness = observedQuoteAt === undefined ? groupFreshness : null;
+  const verifying = freshness?.state === "verifying";
+  const showFreshness =
+    freshness?.state !== "verified" || publication?.state !== "pending";
+  const [arrived, setArrived] = useState(false);
+  const token = `${value}|${date}|${detail}`;
   const previous = useRef(token);
-
   useEffect(() => {
     if (previous.current === token) return;
     previous.current = token;
-    setArrival((current) => ({
-      at: new Date().toISOString(),
-      key: (current?.key ?? 0) + 1,
-    }));
-    setTinted(true);
-    const timer = setTimeout(() => setTinted(false), ARRIVAL_MS);
-    return () => clearTimeout(timer);
+    setArrived(true);
   }, [token]);
-
-  const verifying = freshness?.state === "verifying";
+  const highlighted = mark !== null || arrived;
+  const status =
+    mark === "new_period"
+      ? "Dato nuevo"
+      : mark === "revised"
+        ? "Dato revisado"
+        : arrived
+          ? "Dato actualizado"
+          : null;
 
   return (
-    <TileContext.Provider
-      value={{ freshness, group, arrivedAt: arrival?.at ?? null }}
+    <div
+      className="relative h-full data-pending:[&_[data-slot=stat-value]]:text-muted-foreground"
+      data-pending={verifying ? "" : undefined}
+      data-highlighted={highlighted ? "" : undefined}
+      aria-busy={verifying || undefined}
     >
-      <div
-        className="relative h-full data-pending:[&_[data-slot=stat-value]]:text-muted-foreground"
-        data-pending={verifying ? "" : undefined}
-        aria-busy={verifying || undefined}
-      >
-        {children}
-        {verifying ? (
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-4 top-px h-0.5 overflow-hidden rounded-full bg-muted"
-          >
-            <span className="block h-full w-1/3 rounded-full bg-muted-foreground/60 motion-safe:animate-[freshness-sweep_1.6s_cubic-bezier(0.22,1,0.36,1)_infinite] motion-reduce:w-full motion-reduce:bg-muted-foreground/30" />
+      <StatTile
+        href={href}
+        className={cn(
+          "h-full",
+          highlighted && "ring-2 ring-info-fill hover:ring-info-fill",
+        )}
+        size="sm"
+        label={label}
+        value={value}
+        change={change}
+        detail={note === undefined ? detail : `${detail} · ${note}`}
+        footer={
+          <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+            <span>{date}</span>
+            {observedQuoteAt === undefined ? null : (
+              <span>
+                Consulta{" "}
+                <time dateTime={observedQuoteAt}>{clock(observedQuoteAt)}</time>
+              </span>
+            )}
+            {showFreshness ? (
+              <FreshnessGlyph freshness={freshness} compact />
+            ) : null}
+            <ExpectedBadge group={group} />
+            <span className="sr-only" aria-live="polite">
+              {status}
+            </span>
           </span>
-        ) : null}
-        {tinted ? (
-          <span
-            key={arrival?.key}
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 rounded-xl bg-info-fill/12 motion-safe:animate-[freshness-arrive_2.4s_cubic-bezier(0.16,1,0.3,1)_forwards] motion-reduce:bg-info-fill/8"
-          />
-        ) : null}
-      </div>
-    </TileContext.Provider>
-  );
-}
-
-/**
- * The foot of a tile: the figure's date, how current it is in an icon and at
- * most one word, and its mark. «Nuevo» or «Revisado» (since the previous
- * visit) wins over «Actualizado» (since the page opened).
- */
-export function TileStatus({
-  date,
-  mark,
-}: {
-  readonly date: string;
-  readonly mark: "new_period" | "revised" | null;
-}) {
-  const { freshness, group, arrivedAt } = useContext(TileContext);
-  const publication = useExpectedPublication(group);
-  const showFreshness =
-    freshness?.state !== "verified" || publication?.state !== "pending";
-  const badge = mark ?? (arrivedAt === null ? null : "arrived");
-
-  return (
-    <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-      <span>{date}</span>
-      {showFreshness ? <FreshnessGlyph freshness={freshness} compact /> : null}
-      <ExpectedBadge group={group} />
-      {badge === null ? null : (
-        <span className="inline-flex items-center gap-1">
-          <NewsBadge status={badge} />
-          {badge === "arrived" && arrivedAt !== null ? (
-            <span className="sr-only">a las {clock(arrivedAt)}</span>
-          ) : null}
+        }
+      />
+      {verifying ? (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-4 top-px h-0.5 overflow-hidden rounded-full bg-muted"
+        >
+          <span className="block h-full w-1/3 rounded-full bg-muted-foreground/60 motion-safe:animate-[freshness-sweep_1.6s_cubic-bezier(0.22,1,0.36,1)_infinite] motion-reduce:w-full motion-reduce:bg-muted-foreground/30" />
         </span>
-      )}
-    </span>
+      ) : null}
+    </div>
   );
 }
 
@@ -270,13 +242,21 @@ export function BlockFreshness({ blockId }: { readonly blockId: string }) {
   );
 }
 
-/** «Nuevo» or «Revisado» next to a block's title (ADR 0079). */
-export function BlockNewsBadge({ blockId }: { readonly blockId: string }) {
+/** The block's accessible news state and visible publication status. */
+export function BlockPublicationMark({
+  blockId,
+}: {
+  readonly blockId: string;
+}) {
   const mark = useBlockMark(blockId);
   const group = BLOCK_FRESHNESS_GROUP[blockId];
   return (
     <>
-      {mark === null ? null : <NewsBadge status={mark} />}
+      {mark === null ? null : (
+        <span className="sr-only" data-block-news="">
+          {mark === "new_period" ? "Dato nuevo" : "Dato revisado"}
+        </span>
+      )}
       {group === undefined ? null : <ExpectedBadge group={group} />}
     </>
   );

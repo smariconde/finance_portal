@@ -54,3 +54,5 @@ related_targets:
 - Guías de bloque (2026-11-26, `F9-23`, pedido del owner): un ⓘ junto a cada título abre un panel de 24 rem con cuatro partes —el propósito en una línea, «Cómo leerlo», «Cruzalo con» (vínculos en bermellón a cada bloque) y «Ojo con»—, viñetas cortas y scroll propio en el teléfono. Describe y enseña a leer; ningún consejo ni pronóstico (lo verifica un test). Revisado contra una réplica: 1440 claro y 390 oscuro, axe sin hallazgos en el panel.
 
 - Frescura por publicación (`F9-25`, 2026-11-27): una cifra mensual conserva su fecha. Cuando la agenda espera un mes que todavía falta, su tarjeta y bloque muestran «Falta [mes]» hasta que llega. El tilde indica que se consultó la fuente e incluye fecha y hora en su descripción. Las cotizaciones debajo de la brecha CCL usan el día del cálculo.
+
+- Cotización y novedades (`F9-26`, 2026-11-27): riesgo país muestra la cotización del día de Ámbito con fecha y hora de consulta, o el cierre y su fecha. La tarjeta con un dato nuevo, revisado o actualizado lleva un contorno azul y un estado accesible.

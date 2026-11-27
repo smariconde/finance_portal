@@ -21,7 +21,10 @@ describe("ownerAssistant", () => {
       DEMO_SOURCE_REGISTRY.filter(
         (entry) => entry.rights.ownerAssistant !== "owner_accepted",
       ).map((entry) => [entry.sourceId, entry.rights.ownerAssistant]),
-    ).toEqual([["ambito-riesgo-pais", "restricted"]]);
+    ).toEqual([
+      ["ambito-riesgo-pais", "restricted"],
+      ["ambito-riesgo-pais-cotizacion", "restricted"],
+    ]);
   });
 
   it("no abre las tareas IA del portal: aiTransfer sigue por su cuenta", () => {

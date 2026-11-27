@@ -102,12 +102,12 @@ export function CountryRiskSection({
             se publica una vez por día con el cierre anterior.
           </p>
           <p>
-            El portal guarda sólo los cierres del histórico de Ámbito, no el
-            valor que cambia durante la rueda. Un día publicado con dos valores
-            distintos queda afuera, nombrado en la corrida. En rangos de más de
-            cinco años se muestra el último cierre de cada mes, sin promediar.
-            El índice es propiedad de J.P. Morgan: se usa sólo en este portal
-            personal.
+            La tarjeta consulta la cotización del día de Ámbito. El gráfico y la
+            tabla usan los cierres del histórico. Un día publicado con dos
+            valores distintos queda afuera, nombrado en la corrida. En rangos de
+            más de cinco años se muestra el último cierre de cada mes, sin
+            promediar. El índice es propiedad de J.P. Morgan: se usa sólo en
+            este portal personal.
           </p>
           <p>
             Fuente:{" "}

@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import { createDecimalOperations } from "@/modules/numeric/domain/decimal-policy";
 
 /**
@@ -134,4 +136,41 @@ export function ambitoCountryRiskUrl(untilOn: string): string {
     throw new Error("invalid_country_risk_request");
   }
   return `https://mercados.ambito.com/riesgopais/historico-general/1990-01-01/${untilOn}`;
+}
+
+export const AMBITO_COUNTRY_RISK_QUOTE_PARSER_VERSION =
+  "ambito-riesgo-pais-quote-1.0.0";
+export const AMBITO_COUNTRY_RISK_QUOTE_SOURCE = "ambito-riesgo-pais-cotizacion";
+export const AMBITO_COUNTRY_RISK_QUOTE_DATASET =
+  "ambito.riesgo-pais-cotizacion";
+export const AMBITO_COUNTRY_RISK_QUOTE_URL =
+  "https://mercados.ambito.com/riesgopais/variacion";
+
+const quoteSchema = z.strictObject({
+  ultimo: z
+    .string()
+    .regex(/^(?:\d{1,6}|\d{1,3}(?:\.\d{3}){1,2})(?:,\d{1,2})?$/u),
+  fecha: z.string().length(10),
+  variacion: z.string().max(32),
+  "class-variacion": z.string().max(32),
+});
+
+export type CountryRiskQuote = {
+  readonly on: string;
+  readonly value: string;
+  readonly observedAt: string;
+};
+
+/** Ámbito supplies a session date and a level. Its clock time is not published. */
+export function parseAmbitoCountryRiskQuote(
+  body: unknown,
+): Omit<CountryRiskQuote, "observedAt"> | null {
+  const parsed = quoteSchema.safeParse(body);
+  if (!parsed.success) return null;
+  const on = isoDateOf(parsed.data.fecha);
+  const points = parsed.data.ultimo.replaceAll(".", "").replace(",", ".");
+  const value = decimal.parseDecimal(points, "puntos");
+  return on !== null && value.greaterThan(0)
+    ? { on, value: decimal.formatDecimal(value, "puntos") }
+    : null;
 }
