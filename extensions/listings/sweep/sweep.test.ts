@@ -231,6 +231,21 @@ describe("listing-sweep-1.0.0 · estado", () => {
       kind: "idle",
       reason: "finished_today",
     });
+    // «Barrer ahora» relanza un día detenido, nunca uno con desafío.
+    expect(decideSweep(done, due, PORTAL, { force: true })).toEqual({
+      kind: "start",
+    });
+    const challenged = recordVisit(
+      running(),
+      { kind: "challenge" },
+      due,
+      1,
+      rotationAfterEmptyPage,
+    );
+    expect(decideSweep(challenged, due, PORTAL, { force: true })).toEqual({
+      kind: "idle",
+      reason: "finished_today",
+    });
     // Al día siguiente, a su hora, empieza otra vez y archiva la anterior.
     const tomorrow = "2026-12-11T16:00:00.000Z";
     expect(decideSweep(done, tomorrow, PORTAL)).toEqual({ kind: "start" });

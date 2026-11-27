@@ -87,7 +87,10 @@ export type SweepDecision =
   | { readonly kind: "start" }
   | { readonly kind: "resume" };
 
-/** `force` es «Barrer ahora» del popup: no espera la hora sorteada, nada más. */
+/**
+ * `force` es «Barrer ahora» del popup: no espera la hora sorteada y relanza un
+ * día detenido; nunca pasa por encima de una pausa ni de un desafío.
+ */
 export function decideSweep(
   state: PortalSweepState,
   now: string,
@@ -99,9 +102,12 @@ export function decideSweep(
     return { kind: "idle", reason: "paused_by_challenges" };
   const today = buenosAiresDate(now);
   if (state.run !== null && state.run.date === today) {
-    return state.run.status === "running"
-      ? { kind: "resume" }
-      : { kind: "idle", reason: "finished_today" };
+    if (state.run.status === "running") return { kind: "resume" };
+    // «Barrer ahora» relanza un día que se detuvo por el endpoint o la
+    // ventana; un desafío no se fuerza nunca.
+    if (options.force && state.run.status === "stopped")
+      return { kind: "start" };
+    return { kind: "idle", reason: "finished_today" };
   }
   if (!options.force && !sweepIsDue(now, portal))
     return { kind: "idle", reason: "not_due" };

@@ -181,7 +181,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   153 | `F9-24`    | `done`        | El IPC observado del bloque REM se pide al abrir; si la API del INDEC no tiene el mes, se lee del BCRA «vía BCRA»; cada mes sin IPC dice por qué.                                                                         | Pedido del owner   |
 |   154 | `F13-01`   | `done`        | Contratos, identidad y fixtures sintéticas: parcela, unidad, aviso y revisión sólo cuando algo cambia, sin red.                                                                                                           | ADR 0089           |
 |   155 | `F13-02`   | `done`        | Extensión WXT cargada en Brave o Chrome, captura al ver de Remax medida por el agente en el navegador, endpoint con dos secretos y ficha mínima con historial.                                                            | `F13-01`           |
-|   156 | `F13-03`   | `queued`      | Barrido programado robusto: perfil dedicado, cola con prioridad, cursor, tope de 25 páginas por portal, detención ante desafío y cobertura medida.                                                                        | `F13-02`           |
+|   156 | `F13-03`   | `in_progress` | Barrido programado robusto: perfil dedicado, cola con prioridad, cursor, tope de 25 páginas por portal, detención ante desafío y cobertura medida.                                                                        | `F13-02`           |
 |   157 | `F13-04`   | `queued`      | Zonaprop, Argenprop y Mercado Libre: cada uno medido en el navegador, leído por datos estructurados primero y con su captura real reducida.                                                                               | `F13-03`           |
 |   158 | `F13-05`   | `queued`      | Deduplicación por dHash, SimHash y dirección; republicaciones; historial de precios; baja sólo con la ficha visitada.                                                                                                     | `F13-04`           |
 |   159 | `F13-06`   | `queued`      | Ubicación por Georef con precisión nombrada, barrio y parcela por polígono, zonificación con confianza y envolvente construible.                                                                                          | `F13-02`           |
@@ -8789,6 +8789,36 @@ on_request` con precio y moneda `null`. Los cuatro portales de la ADR
   trabado; formato, lint, tipos y build.
 
 **Estado:** `done`.
+
+**`F13-03`, desde el 2026-11-27.** El barrido programado
+(`listing-sweep-1.0.0`, ADR 0089, enmienda del 2026-11-27).
+
+- `sweep/schedule.ts`: hora sorteada por día y portal con FNV-1a entre las
+  08:30 y las 11:30 de Buenos Aires; 8–15 s entre páginas y una pausa de
+  45–120 s cada 5–8, sorteadas por paso.
+- `sweep/plan.ts`: seguidos → primera página de las búsquedas guardadas (o la
+  declarada por el adapter) → fichas sin revisar hace más de 7 días → un
+  tercio de páginas profundas con cursor entre días y el resto fichas vistas
+  sólo en tarjetas; 25 páginas como mucho, el tope guardado sólo baja, una URL
+  una vez por día.
+- `sweep/state.ts` y `sweep/runner.ts`: la corrida del día con su cursor y su
+  pausa larga en `chrome.storage.local`, guardada después de cada visita; un
+  desafío bloquea el día y dos seguidos pausan; el endpoint apagado
+  (`503` con `X-Capture-State: disabled`), sin cuota, con credenciales
+  inválidas o la ventana cerrada detienen el día; «Barrer ahora» relanza un día
+  detenido, nunca uno con desafío. El adapter declara cómo normalizar una
+  búsqueda, armar su página N y su búsqueda por defecto.
+- El service worker barre en una ventana minimizada con una pestaña en serie y
+  reusa la captura al ver; el popup muestra estado y cobertura y permite
+  pausar, barrer ahora, seguir un aviso, guardar una búsqueda y bajar el tope.
+- Production: `CAPTURE_TOKEN` cargado en Vercel (sólo Production); la
+  extensión envía con el bypass que ya usa el MCP.
+- Evidencia hasta ahora: 20 unitarios nuevos del barrido (incluido un worker
+  que muere en una pausa y retoma sin repetir), primer barrido real el
+  2026-11-27.
+- Falta: una semana de barridos sobre Remax con desafíos y cobertura escritos.
+
+**Estado:** `in_progress`.
 
 ## Cobertura de deuda transversal
 

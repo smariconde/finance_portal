@@ -2106,6 +2106,22 @@ exported by the extension's «Exportar página» and reduced by
 `/inmuebles/[portal].[id]` (`listing-view-1.0.0`) read stored listings only.
 Measured: 157 listings, 32 detail pages, 187 revisions, 0 challenges.
 
+Since `F13-03` (in progress until a week is measured, ADR 0089 amendment)
+the extension sweeps on its own (`listing-sweep-1.0.0`, `extensions/listings/sweep/`):
+a daily time per portal drawn by an FNV-1a hash between 08:30 and 11:30
+Buenos Aires (never `Math.random`, so a restarted worker keeps it), a 15-minute
+check alarm, one minimized window with one tab navigated in series, 8–15 s
+between pages in the worker and 45–120 s pauses woken by `chrome.alarms` (an
+MV3 worker dies after 30 s idle). The plan (followed → saved searches' first
+page or the adapter's `defaultSearches` → details older than 7 days → deep
+pages with a cross-day cursor and card-only listings) is saved with its cursor
+after every visit; at most 25 pages, the stored cap only lowers. A challenge
+blocks the day, two days in a row pause; the endpoint's kill switch answers
+`503` with `X-Capture-State: disabled`, which, an exhausted budget, bad
+credentials or a closed window stop the day; «Barrer ahora» relaunches a
+stopped day, never a challenged one. In Production the extension sends with
+the MCP's Vercel bypass; the token is in `.env.capture-production.local`.
+
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 
 Node `>=22.11.0 <27`, pnpm `10.33.2` via corepack. Arch Linux dev host — use POSIX shell syntax for env-var examples in docs, matching the `ubuntu-latest` runners CI validates on.
