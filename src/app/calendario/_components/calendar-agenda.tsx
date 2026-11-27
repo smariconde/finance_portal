@@ -21,17 +21,22 @@ import {
   isoWeekday,
 } from "@/modules/market-calendar/domain/zoned-time";
 
+import type { EconomicAgendaRow } from "@/server/persistence/read-economic-calendar";
+
 export function CalendarAgenda({
   today,
   earnings,
   followed,
+  publications = [],
 }: {
   readonly today: string;
   readonly earnings: EarningsCalendarView | null;
   readonly followed: readonly string[];
+  readonly publications?: readonly EconomicAgendaRow[];
 }) {
   const [week, setWeek] = useState(0);
   const [mine, setMine] = useState(true);
+  const [high, setHigh] = useState(false);
   const first = addCalendarDays(today, 1 - isoWeekday(today) + week * 7);
   const last = addCalendarDays(first, 6);
   const inWeek = (date: string) => date >= first && date <= last;
@@ -55,6 +60,9 @@ export function CalendarAgenda({
             ? null
             : `${day.regular.open.buenosAires}–${day.regular.close.buenosAires}`,
         previousDate: null,
+        cancelled: false,
+        sourceUrl: null,
+        observedOn: null,
       })),
     ...(earnings?.reports ?? [])
       .filter(
@@ -68,6 +76,22 @@ export function CalendarAgenda({
         source: "Alpha Vantage",
         time: earningsTimeLabel(report.time),
         previousDate: report.previousDate,
+        cancelled: false,
+        sourceUrl: null,
+        observedOn: null,
+      })),
+    ...publications
+      .filter((event) => inWeek(event.date) && (!high || event.important))
+      .map((event) => ({
+        ...event,
+        id: event.key,
+        cancelled: event.status === "cancelled",
+        time:
+          event.time === null
+            ? "hora s/i"
+            : event.usualTime
+              ? `${event.time} habitual`
+              : event.time,
       })),
   ].sort((a, b) => a.date.localeCompare(b.date));
 
@@ -107,6 +131,16 @@ export function CalendarAgenda({
               Mis empresas
             </label>
           ) : null}
+          {publications.length > 0 ? (
+            <label className="flex items-center gap-1.5 text-sm">
+              <input
+                type="checkbox"
+                checked={high}
+                onChange={(event) => setHigh(event.target.checked)}
+              />
+              Sólo publicaciones de importancia alta
+            </label>
+          ) : null}
         </div>
       </CardHeader>
       <CardContent className="px-0">
@@ -127,6 +161,7 @@ export function CalendarAgenda({
                 </TableCell>
                 <TableCell className="whitespace-normal">
                   {row.title}
+                  {row.cancelled ? " · Cancelado" : ""}
                   {row.previousDate && row.previousDate !== row.date ? (
                     <span className="block text-xs text-muted-foreground">
                       Antes {shortMarketDate(row.previousDate)}
@@ -135,7 +170,23 @@ export function CalendarAgenda({
                 </TableCell>
                 <TableCell className="numeric">{row.time ?? "—"}</TableCell>
                 <TableCell className="whitespace-normal">
-                  {row.source}
+                  {row.sourceUrl ? (
+                    <a
+                      className="text-primary underline underline-offset-4"
+                      href={row.sourceUrl}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                    >
+                      {row.source}
+                    </a>
+                  ) : (
+                    row.source
+                  )}
+                  {row.observedOn ? (
+                    <span className="block text-xs text-muted-foreground">
+                      Visto {shortMarketDate(row.observedOn)}
+                    </span>
+                  ) : null}
                 </TableCell>
               </TableRow>
             ))}

@@ -30,6 +30,7 @@ export const SECRET_SENTINELS = {
   TAVILY_API_KEY: "sentinel-tavily-key-must-not-leak",
   INDEC_API_TOKEN: "sentinel-indec-token-must-not-leak",
   ALPHA_VANTAGE_API_KEY: "sentinel-alpha-vantage-key-must-not-leak",
+  FRED_API_KEY: "sentinel-fred-key-must-not-leak",
   CRON_SECRET: "sentinel-cron-secret-must-not-leak",
   DATABASE_DIRECT_URL:
     "postgresql://sentinel-direct-user:sentinel-direct-password@127.0.0.1:1/sentinel",

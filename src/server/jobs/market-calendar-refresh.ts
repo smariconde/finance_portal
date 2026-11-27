@@ -17,6 +17,15 @@ import {
   earningsReportKey,
   parseEarningsCalendar,
 } from "@/modules/market-calendar/domain/earnings-calendar";
+import {
+  FRED_CALENDAR_DATASET,
+  FRED_CALENDAR_PARSER,
+  FRED_CALENDAR_URL,
+  FRED_MAX_PAGES,
+  fredCalendarPageUrl,
+  parseFredCalendarPage,
+  reconcileFredDates,
+} from "@/modules/market-calendar/domain/fred-release-calendar";
 import type { CalendarEvent } from "@/modules/market-calendar/domain/calendar-publication";
 import {
   calendarDateIn,
@@ -36,6 +45,15 @@ export const EARNINGS_SOURCE: CalendarSource = {
   url: EARNINGS_CALENDAR_URL,
   zone: NEW_YORK,
   credential: "ALPHA_VANTAGE_API_KEY",
+};
+
+const FRED_SOURCE: CalendarSource = {
+  sourceId: "fred",
+  datasetId: FRED_CALENDAR_DATASET,
+  parserVersion: FRED_CALENDAR_PARSER,
+  url: FRED_CALENDAR_URL,
+  zone: NEW_YORK,
+  credential: "FRED_API_KEY",
 };
 
 type CalendarReader = (input: {
@@ -139,5 +157,48 @@ export async function refreshEarningsCalendar(): Promise<boolean> {
         event: { kind: "earnings", report },
       })),
     };
+  });
+}
+
+export async function refreshFredCalendar(): Promise<boolean> {
+  return refreshDailyCalendar(FRED_SOURCE, async ({ read, day, startedAt }) => {
+    const rows: ReturnType<typeof parseFredCalendarPage>["rows"] = [];
+    let expectedCount: number | null = null;
+    for (let page = 0; page < FRED_MAX_PAGES; page++) {
+      const { text, observedAt } = await read(fredCalendarPageUrl(day, page));
+      const parsed = parseFredCalendarPage(text, day, page);
+      if (
+        (expectedCount !== null && parsed.total !== expectedCount) ||
+        (rows.length > 0 &&
+          parsed.rows[0] &&
+          parsed.rows[0].date > rows.at(-1)!.date)
+      ) {
+        throw new Error("fred_calendar_changed_during_capture");
+      }
+      expectedCount = parsed.total;
+      rows.push(...parsed.rows);
+      if (parsed.last) {
+        const previous = await createPostgresCalendarRepository(
+          getRuntimeDatabase(),
+        ).read(FRED_CALENDAR_DATASET, startedAt);
+        const publications = reconcileFredDates(rows, previous.events, day);
+        if (
+          !publications.some(
+            ({ publication }) =>
+              publication.date > day && publication.status === "scheduled",
+          )
+        ) {
+          throw new Error("fred_calendar_no_future_dates");
+        }
+        return {
+          observedAt,
+          events: publications.map(({ key, publication }) => ({
+            key,
+            event: { kind: "economic", publication },
+          })),
+        };
+      }
+    }
+    throw new Error("fred_calendar_page_limit");
   });
 }

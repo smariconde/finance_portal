@@ -170,6 +170,13 @@ que decide el owner. La lista aceptada por el owner es CPI, Employment Situation
 GDP, Personal Income and Outlays (PCE), Retail Sales, JOLTS y los pedidos
 iniciales de desempleo.
 
+En `F12-03` la primera consulta autenticada agotó los 15 segundos. El
+pedido acotado de siete días atrás a 98 días adelante, con
+`include_release_dates_with_no_data=true`, completó en dos páginas sobre
+la misma cuota. El parser comprueba el rango devuelto, el orden y el total
+antes de publicar. Las fechas anteriores quedan conservadas como
+revisiones si FRED mueve una publicación identificable en su cadencia.
+
 Las reuniones del FOMC se declaran desde la página de la Fed con su fecha de
 consulta, como las sesiones de la NYSE: son ocho por año, se publican con un
 año de anticipación y cambian rara vez (el 2026-11-12 cambiaron las de 2027).

@@ -25,6 +25,7 @@ import {
 
 import { servesRealData } from "@/modules/configuration/domain/config-health";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
+import { readUnitedStatesCalendar } from "@/server/persistence/read-economic-calendar";
 import { readEarningsCalendar } from "@/server/persistence/read-earnings-calendar";
 
 import { CalendarAgenda } from "./_components/calendar-agenda";
@@ -125,6 +126,7 @@ export default async function CalendarPage() {
       ])
     : [null, null];
   const today = moment.today.date;
+  const unitedStates = await readUnitedStatesCalendar(at, personal);
   const events = upcomingMarketEvents(today, UPCOMING_DAYS);
   const coverage = calendarCoverage(today);
 
@@ -160,7 +162,18 @@ export default async function CalendarPage() {
         followed={[
           ...new Set(followed?.reports.map((report) => report.symbol)),
         ]}
+        publications={unitedStates}
       />
+
+      {personal ? (
+        <div className="text-xs text-muted-foreground">
+          <p>
+            {unitedStates.some(({ source }) => source.startsWith("FRED"))
+              ? "This product uses the FRED® API but is not endorsed or certified by the Federal Reserve Bank of St. Louis."
+              : "Agenda de FRED todavía sin verificar."}
+          </p>
+        </div>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">

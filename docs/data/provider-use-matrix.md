@@ -246,6 +246,12 @@ cita «Alpha Vantage».
   consenso. El calendario de resultados conserva el símbolo de la fuente y las
   revisiones de fecha, franja y estimación para uso personal. La respuesta cruda
   se descarta.
+- `fred` usa la [API de fechas](https://fred.stlouisfed.org/docs/api/fred/releases_dates.html)
+  y sus [términos](https://fred.stlouisfed.org/docs/api/terms_of_use.html). El
+  portal conserva en privado las fechas normalizadas de ocho publicaciones
+  oficiales, con atribución y el aviso de FRED. La puerta agrega
+  `FRED_API_KEY` y el límite interno es de ocho pedidos al día. El payload,
+  la redistribución, la exportación y la transferencia a IA quedan restringidos.
 
 ## Riesgo país
 

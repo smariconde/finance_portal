@@ -40,6 +40,9 @@ TAVILY_API_KEY=
 # Catalogo API-INDEC: JWT de la cuenta del owner, 12 meses (ADR 0069)
 INDEC_API_TOKEN=
 
+# Agenda económica de Estados Unidos (ADR 0088)
+FRED_API_KEY=
+
 # Opcionales
 SENTRY_DSN=
 ```
@@ -68,6 +71,11 @@ cp .env.example .env.local
 pnpm db:migrate
 pnpm dev
 ```
+
+Para habilitar las publicaciones económicas de EE. UU., generá una [clave
+de FRED](https://fredaccount.stlouisfed.org/apikeys) y guardala en
+`.env.local` como `FRED_API_KEY`. La primera apertura de
+`/calendario` en modo personal inicia la captura diaria.
 
 Comandos objetivo:
 

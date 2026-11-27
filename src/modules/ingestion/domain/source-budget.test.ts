@@ -82,6 +82,7 @@ describe("topes declarados", () => {
       "damodaran-current-data",
       "datahub-sp500-pddl",
       "ecb-data-portal",
+      "fred",
       "indec-api",
       "logo-dev",
       "magyp-datos-abiertos",

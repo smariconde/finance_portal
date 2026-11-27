@@ -27,6 +27,7 @@ describe("egress allowlist", () => {
         "argentina-series-tiempo",
         "indec-api",
         "alpha-vantage",
+        "fred",
         "ecb-data-portal",
         "ambito-riesgo-pais",
         "bcr-cac-pizarra",
@@ -353,6 +354,25 @@ describe("egress allowlist", () => {
           kind: "env_bearer",
           variable: "INDEC_API_TOKEN",
         });
+      } else if (entry.sourceId === "fred") {
+        expect(entry.credential).toEqual({
+          kind: "env_query",
+          variable: "FRED_API_KEY",
+          parameter: "api_key",
+        });
+        expect(entry.maxRedirects).toBe(0);
+        expect(
+          authorizeEgressUrl(
+            "https://api.stlouisfed.org/fred/releases/dates?file_type=json",
+            entry,
+          ).allowed,
+        ).toBe(true);
+        expect(
+          authorizeEgressUrl(
+            "https://api.stlouisfed.org/fred/series/observations",
+            entry,
+          ).allowed,
+        ).toBe(false);
       } else if (entry.sourceId === "alpha-vantage") {
         // ADR 0083: the key only travels as a query parameter the door adds.
         expect(entry.credential).toEqual({
