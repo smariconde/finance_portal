@@ -171,21 +171,28 @@ se muestran las dos y se nombra la diferencia.
 ## 7. Ubicación `location-precision-1.0.0`
 
 1. Dirección con altura → Georef `/direcciones` (provincia Córdoba,
-   departamento Capital, lotes por `POST`) → calle normalizada y coordenadas.
-2. Pin del portal, si existe. Un pin repetido en muchos avisos es el centro del
-   barrio (`portal_pin_shared`).
-3. Punto en polígono: barrio oficial, parcela y patrón urbanístico.
+   departamento Capital, lotes de hasta 1.000 por `POST`) → calle normalizada
+   y coordenadas. Una designación de lote o manzana no se pregunta.
+2. Pin del portal, si existe.
+3. Punto en polígono: barrio (Municipalidad), zona (Ord. 8256 de IDECOR) y,
+   sólo si el punto ubica la parcela, la parcela bajo el punto (IDECOR).
 
-| Precisión           | Qué significa                                     |
-| ------------------- | ------------------------------------------------- |
-| `address_geocoded`  | Dirección con número que Georef resolvió          |
-| `portal_pin`        | Sólo el pin del portal, no repetido               |
-| `portal_pin_shared` | Pin compartido: vale como barrio, no como parcela |
-| `neighborhood_only` | Sólo el texto del barrio                          |
+| Precisión           | Qué significa                                                   | Parcela |
+| ------------------- | --------------------------------------------------------------- | ------- |
+| `address_geocoded`  | Dirección con altura exacta que Georef resolvió                 | sí      |
+| `portal_pin`        | El pin del portal, no repetido con otra dirección               | sí      |
+| `address_block`     | Altura múltiplo de 100 resuelta: la cuadra (Remax redondea)     | no      |
+| `portal_pin_shared` | El mismo pin en avisos con otra dirección: el centro de la zona | no      |
+| `neighborhood_only` | Sólo el texto del barrio                                        | no      |
+| `unlocated`         | Nada                                                            | no      |
 
-Si el geocodificado y el pin están a más de 150 m, se marca. El vínculo con la
-parcela sólo se afirma con `address_geocoded` o `portal_pin`; el owner puede
-confirmarlo o corregirlo.
+Si el pin y lo que resolvió Georef están a más de 150 m, se marca. La parcela
+(`parcel-match-1.0.0`) se afirma con la superficie del aviso a ±10 %
+(`matched`) o, en un departamento, oficina, local o cochera, como la del
+edificio (`building_parcel`); si no coincide queda candidata
+(`area_mismatch`). El barrio y la zona salen del mejor punto, con o sin
+parcela. Medido el 2026-11-28 y decidido con el owner: ver la enmienda de la
+ADR 0089 de esa fecha.
 
 ## 8. Comparables `avm-comparable-1.0.0`
 
@@ -242,30 +249,43 @@ inmobiliaria.
 ### `zoning-resolution-1.0.0`
 
 ```
-patron_urbanistico   código del patrón o del área/corredor
-fos                  factor de ocupación del suelo
-fot                  factor de ocupación total
+patron_urbanistico   código del patrón o perfil («8256-G1», «8057-PERFIL X»)
+fos                  fracción (la capa publica porcentaje)
+fot                  factor
 height_max_m         altura máxima
-uses_allowed         vivienda | cochera | comercio | mixto
-ordinance_version    norma y año (8256/1986 con sus modificaciones)
-observed_at          cuándo se leyó
+floors_max           plantas, planta baja incluida («Planta Baja + 2 pisos» = 3)
+ordinance            norma original y modificatoria
+observed_at          la release de la capa o la consulta
 confidence           official_query | official_map | corridor_inferred | unknown
-evidence_url         la consulta o la capa
+evidence             el polígono de la capa o la referencia de la consulta
 ```
 
-Sólo `official_query` es documento oficial. `unknown` no se completa con el
-promedio del barrio. La capa que se lee se mide en `F13-06`.
+- `official_query`: la consulta del owner al municipio por esa parcela
+  (`pnpm inmuebles:zoning-query`). Es el único documento oficial.
+- `official_map`: un punto que ubica la parcela cae en un solo polígono.
+- `corridor_inferred`: un punto de cuadra o un pin en la calle con una sola
+  zona a 25 m.
+- `unknown`: sin punto, pin compartido, fuera de la capa o varias zonas a
+  25 m (se nombran las candidatas). No se completa con el promedio del barrio.
+
+Un cero de la capa es «no publicado»; un convenio urbanístico no aporta
+parámetros. Los usos admitidos (`8133`) quedan para `F13-08`, que los necesita
+para `parking_use_not_allowed`.
 
 ### `buildable-envelope-1.0.0`
 
 ```
-planta_max   = fos × area_parcela
-total_max    = fot × area_parcela
-pisos_max    = floor((height_max_m − planta_baja) / altura_piso) + 1
-construible  = min(total_max, planta_max × pisos_max)
+planta_max   = fos × area
+total_fot    = fot × area
+por_altura   = planta_max × plantas
+construible  = min(total_fot, por_altura)
 ```
 
-Con sensibilidad a `fot ± 0,3`.
+Las plantas son las publicadas; sin ese texto, `floor((altura − 3,5) / 2,8) + 1`.
+Sin FOT manda la altura (el área central); sin FOS no hay envolvente. El área
+es la de la parcela si coincide, la del aviso si no, y la de la parcela sin
+verificar si el aviso no publica terreno. Sensibilidad: FOT ±0,3. Se calcula
+al leer, nunca se guarda.
 
 ## 10. Costos y conversiones
 

@@ -17,7 +17,7 @@ import {
  * `www.sec.gov` no sirven los mismos recursos, y acotar el path evita que un bug
  * de construcción de URL termine paseando por el sitio entero de la SEC.
  */
-export const EGRESS_ALLOWLIST_VERSION = "egress-allowlist-1.8.0";
+export const EGRESS_ALLOWLIST_VERSION = "egress-allowlist-1.9.0";
 
 const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
   egressAllowlistEntrySchema.parse({
@@ -392,6 +392,58 @@ const ENTRIES: readonly EgressAllowlistEntry[] = Object.freeze([
     identification: "project",
     maxRequestBytes: 4 * 1024,
     maxResponseBytes: 1024 * 1024,
+    deadlineMs: 30_000,
+    maxRedirects: 0,
+  }),
+  // Ubicación de los avisos (`F13-06`, ADR 0089, Decisión 6). Georef por
+  // lotes (`POST`, hasta 1.000 direcciones), el WFS de IDECOR (la capa 8256
+  // entera y una parcela por punto) y el KMZ de barrios de la Municipalidad.
+  egressAllowlistEntrySchema.parse({
+    sourceId: "georef-ar",
+    origins: [
+      {
+        host: "apis.datos.gob.ar",
+        pathPrefixes: [],
+        exactPaths: ["/georef/api/direcciones"],
+      },
+    ],
+    method: "POST",
+    identification: "project",
+    // 1.000 direcciones son ~80 KB de JSON.
+    maxRequestBytes: 256 * 1024,
+    // La medición: 364 direcciones respondieron 237 KB.
+    maxResponseBytes: 2 * 1024 * 1024,
+    deadlineMs: 30_000,
+    maxRedirects: 0,
+  }),
+  egressAllowlistEntrySchema.parse({
+    sourceId: "idecor-geoserver",
+    origins: [
+      {
+        host: "idecor-ws.mapascordoba.gob.ar",
+        // Un prefijo y no un path exacto: el WFS se consulta por query string.
+        // El resto del GeoServer (WMS, otros workspaces, la consola) queda fuera.
+        pathPrefixes: ["/geoserver/idecor/wfs"],
+      },
+    ],
+    identification: "project",
+    // La 8256 entera pesó 2,4 MB el 2026-11-28; una parcela, 1,6 KB.
+    maxResponseBytes: 12 * 1024 * 1024,
+    deadlineMs: 60_000,
+    maxRedirects: 0,
+  }),
+  egressAllowlistEntrySchema.parse({
+    sourceId: "cordoba-gobierno-abierto",
+    origins: [
+      {
+        host: "gobiernoabierto.cordoba.gob.ar",
+        pathPrefixes: [],
+        exactPaths: ["/datos/recurso/18854/Barrio_1.kmz"],
+      },
+    ],
+    identification: "project",
+    // El KMZ pesó 524 KB.
+    maxResponseBytes: 4 * 1024 * 1024,
     deadlineMs: 30_000,
     maxRedirects: 0,
   }),

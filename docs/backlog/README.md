@@ -184,7 +184,7 @@ decide qué fase está activa y este archivo decide qué issue de esa fase sigue
 |   156 | `F13-03`   | `in_progress` | Barrido programado robusto: perfil dedicado, cola con prioridad, cursor, tope de 25 páginas por portal, detención ante desafío y cobertura medida.                                                                        | `F13-02`           |
 |   157 | `F13-04`   | `queued`      | Zonaprop, Argenprop y Mercado Libre: cada uno medido en el navegador, leído por datos estructurados primero y con su captura real reducida.                                                                               | `F13-03`           |
 |   158 | `F13-05`   | `queued`      | Deduplicación por dHash, SimHash y dirección; republicaciones; historial de precios; baja sólo con la ficha visitada.                                                                                                     | `F13-04`           |
-|   159 | `F13-06`   | `queued`      | Ubicación por Georef con precisión nombrada, barrio y parcela por polígono, zonificación con confianza y envolvente construible.                                                                                          | `F13-02`           |
+|   159 | `F13-06`   | `done`        | Ubicación por Georef con precisión nombrada, barrio y parcela por polígono, zonificación con confianza y envolvente construible.                                                                                          | `F13-02`           |
 |   160 | `F13-07`   | `queued`      | Banda predictiva `avm-comparable-1.0.0` con backtest de error y cobertura, ocho comparables a la vista y negativa bajo 30 avisos.                                                                                         | `F13-05`, `F13-06` |
 |   161 | `F13-08`   | `queued`      | Cinco casos a grandes rasgos —cocheras, flip, vivir, renta y desarrollo— con costos en porcentajes, obra anclada al ICC-Córdoba y pesos al oficial.                                                                       | `F13-07`           |
 |   162 | `F13-09`   | `queued`      | Registro de negociación y palancas con su cifra: días publicado, bajas, republicaciones, dispersión entre duplicados y percentil.                                                                                         | `F13-08`           |
@@ -8870,6 +8870,61 @@ on_request` con precio y moneda `null`. Los cuatro portales de la ADR
 - Falta: una semana de barridos sobre Remax con desafíos y cobertura escritos.
 
 **Estado:** `in_progress`.
+
+**`F13-06`, 2026-11-28.** Ubicación, parcela, zonificación y envolvente
+(ADR 0089, enmienda del 2026-11-28; migración `0061`). Arrancó con `F13-03`
+todavía en curso por pedido explícito del owner («Sigamos con el desarrollo
+con F13-06»), que sólo dependía de `F13-02`.
+
+- **Medición antes de las reglas**, sobre los 364 avisos de Remax de
+  Production: 300 alturas redondeadas a la centena; Georef resolvió 224, a una
+  mediana de 80 m del pin; la parcela del punto geocodificado coincidió en
+  superficie con el aviso en 0 de 115 casos y la del pin en 72 de 141; 69 pines
+  caen en la calle; 53 avisos comparten pin, casi siempre el mismo edificio.
+  Entre el punto de la cuadra y el pin la zona coincide en 162 de 225 y el
+  barrio en 191: el punto de Georef cae sobre el eje de la calle. Con esa tabla
+  el owner decidió: altura redonda = cuadra, pin compartido = otra dirección,
+  barrio y zona del mejor punto con o sin parcela, y la consulta al municipio
+  por comando con archivo fuera del repo.
+- **Fuentes nuevas** con fila de derechos, allowlist y cuota antes del primer
+  pedido de la app: `georef-ar` (CC BY 4.0, `POST` por lotes de 1.000, 10 por
+  día), `idecor-geoserver` (CC BY-SA 4.0, WFS por prefijo de path, 600 por
+  día) y `cordoba-gobierno-abierto` (CC BY-SA AR, un KMZ exacto, 4 por día);
+  un pedido por segundo a cada una. Términos leídos el 2026-11-28.
+- **Dominio** (`src/modules/real-estate/domain/`): `point-in-polygon-1.0.0`,
+  `declared-address-1.0.0` y `georef-direcciones-1.0.0`,
+  `idecor-wfs-geojson-1.0.0` (colección truncada o columna faltante: rechazo
+  por nombre; la parcela en PH de 21 dígitos se une a la de 16),
+  `cordoba-barrios-kml-1.0.0` (el KMZ se abre con el lector de zip del
+  `.xlsx`, `readZipXmlPart`), `location-precision-1.0.0` (con
+  `address_block`), `parcel-match-1.0.0`, `zoning-resolution-1.0.0` con las
+  cuatro confianzas, `buildable-envelope-1.0.0` con FOT ±0,3 y
+  `listing-location-1.0.0`, que se guarda sólo cuando cambia lo que leyó. La
+  nomenclatura provincial pasa a los 16 dígitos medidos.
+- **Al abrir**: `refreshListingLocations` (un booleano, `TM-03`) planea un job
+  `real_estate_location_refresh` por fuente bajo su lease, cuota y kill switch
+  (`TM-10`); un sujeto que falló sólo vuelve con «Reintentar». La ficha suma
+  «Ubicación y suelo»: precisión, barrio, parcela con su estado, zona con FOS,
+  FOT, altura y plantas, y la envolvente con su sensibilidad; explicaciones en
+  `InfoTip`. Revisada con cinco fichas reales a 1440 y 390 px en claro y
+  oscuro: 0 desborde y 0 hallazgos de axe.
+- **Comandos**: `pnpm inmuebles:locate` (en seco sin red; `--apply` corre los
+  jobs) y `pnpm inmuebles:zoning-query --file … --apply`.
+- **Medido en la base local** (157 avisos de `F13-02`): 1 pedido a Georef, 2
+  capas, 140 parcelas; 151 con barrio, 152 zonas del mapa oficial, 26 parcelas
+  `matched`, 71 de edificio, 24 candidatas por superficie, 26 pines en la calle
+  y 19 pines a más de 150 m de su dirección.
+- Fuera de este slice: los usos admitidos (Ord. 8133) van con `F13-08`, que
+  los necesita para `parking_use_not_allowed`; el vínculo aviso → unidad →
+  parcela con `F13-05`.
+- `TM-05` (cada respuesta por un parser cerrado), `TM-08` (tres destinos
+  acotados por host y path, `POST` sólo para Georef), `TM-10` (cuota diaria,
+  ritmo y kill switch) y `TM-16` (cada escritura con su corrida).
+- Evidencia: 5.318 unitarios (54 nuevos en el módulo), 3 de integración nuevos
+  (rollback y reaplicación de `0061`, la guarda, y el store de punta a punta
+  con la corrección de una parcela), build y revisión renderizada.
+
+**Estado:** `done`.
 
 ## Cobertura de deuda transversal
 

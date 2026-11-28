@@ -29,6 +29,7 @@ import { getListingStore } from "@/server/persistence/get-listing-store";
 
 import { formatArea, formatListingPrice } from "./_components/listing-format";
 import { ListingsUnavailable } from "./_components/listings-unavailable";
+import { LocationRefresh } from "./_components/location-refresh";
 
 export const metadata: Metadata = {
   title: "Inmuebles | Portal Financiero",
@@ -72,6 +73,7 @@ export default async function RealEstatePage() {
           </>
         }
       />
+      <LocationRefresh />
       <Suspense
         fallback={<RouteLoading label="Cargando los avisos" shape="list" />}
       >

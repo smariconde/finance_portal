@@ -391,7 +391,7 @@ export const SUBDIVIDED_PARCEL = {
     parcelId: "00000000-0000-4000-8000-0000000000a1",
     version: 1,
     nomenclature: {
-      provincial: "11-01-01-99-99-001-001",
+      provincial: "1101019999001001",
       municipal: "99-99-001-001",
     },
     landAreaM2: "600",
@@ -406,7 +406,7 @@ export const SUBDIVIDED_PARCEL = {
     {
       parcelId: "00000000-0000-4000-8000-0000000000a2",
       nomenclature: {
-        provincial: "11-01-01-99-99-001-002",
+        provincial: "1101019999001002",
         municipal: "99-99-001-002",
       },
       landAreaM2: "300",
@@ -414,7 +414,7 @@ export const SUBDIVIDED_PARCEL = {
     {
       parcelId: "00000000-0000-4000-8000-0000000000a3",
       nomenclature: {
-        provincial: "11-01-01-99-99-001-003",
+        provincial: "1101019999001003",
         municipal: "99-99-001-003",
       },
       landAreaM2: "290",

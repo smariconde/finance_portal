@@ -1,3 +1,7 @@
+import type { LocationPrecision } from "./location-precision";
+
+export type { LocationPrecision };
+
 /**
  * La unidad que se vende y la parcela sobre la que está (ADR 0089, Decisiones
  * 3 y 6). Casi ningún aviso publica la nomenclatura, así que el vínculo es una
@@ -11,10 +15,6 @@
  * evidencia más débil nunca reemplaza una más fuerte.
  */
 export const PROPERTY_PARCEL_LINK_VERSION = "property-parcel-link-1.0.0";
-
-/** `location-precision-1.0.0` (`F13-06`); acá sólo se lee. */
-export type LocationPrecision =
-  "address_geocoded" | "portal_pin" | "portal_pin_shared" | "neighborhood_only";
 
 export type ParcelLinkBasis =
   "owner_declared" | "address_geocoded" | "portal_pin";

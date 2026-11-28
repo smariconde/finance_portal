@@ -512,3 +512,35 @@ export function readXlsxSheets(
     throw cause;
   }
 }
+
+/**
+ * Abre una sola parte XML de un zip con las mismas guardas que una hoja
+ * (directorio central, techos, CRC32, sin DTD). La usa el KMZ de barrios de
+ * la Municipalidad de Córdoba (`F13-06`), que es un zip con un `doc.kml`.
+ */
+export function readZipXmlPart(
+  bytes: Uint8Array,
+  name: string,
+  limits: {
+    readonly maxPartBytes: number;
+    readonly maxTotalBytes: number;
+  },
+):
+  | { readonly ok: true; readonly xml: string }
+  | { readonly ok: false; readonly code: XlsxRejection } {
+  try {
+    const entries = centralDirectory(bytes);
+    const xml = openPart(
+      bytes,
+      entries,
+      name,
+      { remaining: limits.maxTotalBytes },
+      limits.maxPartBytes,
+    );
+    if (xml === null) throw new XlsxError("part_missing");
+    return { ok: true, xml };
+  } catch (cause) {
+    if (cause instanceof XlsxError) return { ok: false, code: cause.code };
+    throw cause;
+  }
+}

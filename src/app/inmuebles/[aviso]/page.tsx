@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/table";
 import { servesRealData } from "@/modules/configuration/domain/config-health";
 import type { StoredListingHistory } from "@/modules/real-estate/application/listing-store";
+import type { StoredListingLocation } from "@/modules/real-estate/application/location-store";
 import {
   AMENITY_LABELS,
   CHANGE_LABELS,
@@ -41,8 +42,11 @@ import {
 import { formatPercent } from "@/modules/valuation/domain/display-format";
 import { getRequestConfigHealth } from "@/server/config/app-environment";
 import { getListingStore } from "@/server/persistence/get-listing-store";
+import { getLocationStore } from "@/server/persistence/get-location-store";
 
 import { formatArea, formatListingPrice } from "../_components/listing-format";
+import { LocationRefresh } from "../_components/location-refresh";
+import { LocationSection } from "../_components/location-section";
 
 export const metadata: Metadata = {
   title: "Aviso | Inmuebles | Portal Financiero",
@@ -86,8 +90,12 @@ async function ListingSheet({
   readonly externalId: string;
 }) {
   let listing: StoredListingHistory | null;
+  let location: StoredListingLocation | null;
   try {
-    listing = await getListingStore().readListing(source, externalId);
+    [listing, location] = await Promise.all([
+      getListingStore().readListing(source, externalId),
+      getLocationStore().readListingLocation(source, externalId),
+    ]);
   } catch (error) {
     console.error(
       "listing read failed",
@@ -228,6 +236,14 @@ async function ListingSheet({
           </Badge>
         ))}
       </section>
+
+      <LocationRefresh />
+
+      <LocationSection
+        location={location}
+        propertyType={facts.propertyType}
+        landAreaM2={facts.landAreaM2}
+      />
 
       <section aria-labelledby="history-title" className="flex flex-col gap-3">
         <h2

@@ -6,6 +6,7 @@ import {
   check,
   customType,
   date,
+  doublePrecision,
   foreignKey,
   index,
   integer,
@@ -431,6 +432,9 @@ export const ingestionJobKind = pgEnum("ingestion_job_kind", [
   // Consenso de analistas al abrir una valuación (ADR 0083): un item.
   "alpha_vantage_consensus_refresh",
   "market_calendar_refresh",
+  // Ubicación y zonificación de los avisos al abrir `/inmuebles` (`F13-06`):
+  // un job por fuente —barrios, Georef, IDECOR—, sólo lo pendiente.
+  "real_estate_location_refresh",
 ]);
 
 export const ingestionJobStatus = pgEnum("ingestion_job_status", [
@@ -4011,6 +4015,210 @@ export const reListingRevisions = pgTable(
     check(
       "re_listing_revisions_hashes_check",
       sql`(${table.descriptionSimhash} is null or ${table.descriptionSimhash} ~ '^[0-9a-f]{16}$') and cardinality(${table.photoDhashes}) <= 5 and ${table.photoCount} >= cardinality(${table.photoDhashes})`,
+    ),
+  ],
+);
+
+/*
+ * Ubicación y zonificación (`F13-06`, ADR 0089, Decisiones 6 y 7). Las capas
+ * se guardan enteras como releases —una release nueva sólo cuando cambia su
+ * contenido— y el punto en polígono corre en código. Las respuestas de Georef
+ * por dirección y de IDECOR por punto son cadenas de revisiones reusables: un
+ * aviso que se vuelve a leer no gasta un pedido. Cada fila nace de su corrida
+ * de ingesta (ADR 0018).
+ */
+
+const RE_GEO_LAYERS = sql`('idecor.cba-ordenanza-8256', 'cordoba.barrios')`;
+
+export const reGeoLayerReleases = pgTable(
+  "re_geo_layer_releases",
+  {
+    releaseId: uuid("release_id").primaryKey(),
+    layerId: varchar("layer_id", { length: 48 }).notNull(),
+    runId: uuid("run_id").notNull(),
+    contentHash: sha256("content_hash").notNull(),
+    featureCount: integer("feature_count").notNull(),
+    availableAt: instant("available_at").notNull(),
+    recordedAt: instant("recorded_at").notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: "re_geo_layer_releases_run_fk",
+      columns: [table.runId],
+      foreignColumns: [ingestionRuns.runId],
+    }),
+    index("re_geo_layer_releases_layer_idx").on(
+      table.layerId,
+      table.availableAt,
+    ),
+    check(
+      "re_geo_layer_releases_layer_check",
+      sql`${table.layerId} in ${RE_GEO_LAYERS}`,
+    ),
+    check("re_geo_layer_releases_count_check", sql`${table.featureCount} > 0`),
+  ],
+);
+
+/** Un polígono de una release, con su caja para el prefiltro. */
+export const reGeoLayerFeatures = pgTable(
+  "re_geo_layer_features",
+  {
+    releaseId: uuid("release_id").notNull(),
+    featureKey: varchar("feature_key", { length: 128 }).notNull(),
+    properties: jsonb("properties").notNull(),
+    geometry: jsonb("geometry").notNull(),
+    minLon: doublePrecision("min_lon").notNull(),
+    minLat: doublePrecision("min_lat").notNull(),
+    maxLon: doublePrecision("max_lon").notNull(),
+    maxLat: doublePrecision("max_lat").notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: "re_geo_layer_features_release_fk",
+      columns: [table.releaseId],
+      foreignColumns: [reGeoLayerReleases.releaseId],
+    }),
+    primaryKey({ columns: [table.releaseId, table.featureKey] }),
+    check(
+      "re_geo_layer_features_box_check",
+      sql`${table.minLon} <= ${table.maxLon} and ${table.minLat} <= ${table.maxLat} and ${table.minLon} >= -180 and ${table.maxLon} <= 180 and ${table.minLat} >= -90 and ${table.maxLat} <= 90`,
+    ),
+    check(
+      "re_geo_layer_features_json_check",
+      sql`jsonb_typeof(${table.properties}) = 'object' and jsonb_typeof(${table.geometry}) = 'array'`,
+    ),
+  ],
+);
+
+/** Lo que respondió Georef por una dirección normalizada. */
+export const reAddressGeocodes = pgTable(
+  "re_address_geocodes",
+  {
+    addressKey: varchar("address_key", { length: 300 }).notNull(),
+    revision: integer("revision").notNull(),
+    runId: uuid("run_id").notNull(),
+    status: varchar("status", { length: 24 }).notNull(),
+    result: jsonb("result").notNull(),
+    observedAt: instant("observed_at").notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: "re_address_geocodes_run_fk",
+      columns: [table.runId],
+      foreignColumns: [ingestionRuns.runId],
+    }),
+    primaryKey({ columns: [table.addressKey, table.revision] }),
+    check("re_address_geocodes_revision_check", sql`${table.revision} > 0`),
+    check(
+      "re_address_geocodes_status_check",
+      sql`${table.status} in ('matched', 'not_found', 'number_not_matched', 'outside_capital', 'no_coordinates') and ${table.result} ->> 'status' = ${table.status}`,
+    ),
+  ],
+);
+
+/** Las parcelas que IDECOR devolvió bajo un punto (`lat,lon` a 7 decimales). */
+export const rePointParcelLookups = pgTable(
+  "re_point_parcel_lookups",
+  {
+    pointKey: varchar("point_key", { length: 32 }).notNull(),
+    revision: integer("revision").notNull(),
+    runId: uuid("run_id").notNull(),
+    parcels: jsonb("parcels").notNull(),
+    observedAt: instant("observed_at").notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: "re_point_parcel_lookups_run_fk",
+      columns: [table.runId],
+      foreignColumns: [ingestionRuns.runId],
+    }),
+    primaryKey({ columns: [table.pointKey, table.revision] }),
+    check("re_point_parcel_lookups_revision_check", sql`${table.revision} > 0`),
+    check(
+      "re_point_parcel_lookups_key_check",
+      sql`${table.pointKey} ~ '^-?[0-9]{1,3}[.][0-9]{7},-?[0-9]{1,3}[.][0-9]{7}$'`,
+    ),
+    check(
+      "re_point_parcel_lookups_json_check",
+      sql`jsonb_typeof(${table.parcels}) = 'array'`,
+    ),
+  ],
+);
+
+/** La consulta del owner al municipio por una parcela (`zoning-query-1.0.0`). */
+export const reZoningQueries = pgTable(
+  "re_zoning_queries",
+  {
+    nomenclature: varchar("nomenclature", { length: 16 }).notNull(),
+    revision: integer("revision").notNull(),
+    query: jsonb("query").notNull(),
+    consultedOn: date("consulted_on", { mode: "string" }).notNull(),
+    declaredAt: instant("declared_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.nomenclature, table.revision] }),
+    check("re_zoning_queries_revision_check", sql`${table.revision} > 0`),
+    check(
+      "re_zoning_queries_nomenclature_check",
+      sql`${table.nomenclature} ~ '^[0-9]{16}$'`,
+    ),
+  ],
+);
+
+/**
+ * Dónde está un aviso (`listing-location-1.0.0`): una revisión nueva sólo
+ * cuando cambia lo que la lectura leyó (`input_hash`); un cambio de precio no
+ * la mueve. La parcela se referencia sólo si se afirma.
+ */
+export const reListingLocations = pgTable(
+  "re_listing_locations",
+  {
+    listingId: uuid("listing_id").notNull(),
+    revision: integer("revision").notNull(),
+    listingRevision: integer("listing_revision").notNull(),
+    /** Lo que la lectura leyó: cambia con la dirección, el pin, una respuesta o una capa. */
+    inputHash: sha256("input_hash").notNull(),
+    readingHash: sha256("reading_hash").notNull(),
+    reading: jsonb("reading").notNull(),
+    precision: varchar("precision", { length: 24 }).notNull(),
+    parcelStatus: varchar("parcel_status", { length: 24 }).notNull(),
+    zoningConfidence: varchar("zoning_confidence", { length: 24 }).notNull(),
+    parcelId: uuid("parcel_id"),
+    resolvedAt: instant("resolved_at").notNull(),
+    recordedAt: instant("recorded_at").notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: "re_listing_locations_listing_fk",
+      columns: [table.listingId, table.listingRevision],
+      foreignColumns: [
+        reListingRevisions.listingId,
+        reListingRevisions.revision,
+      ],
+    }),
+    foreignKey({
+      name: "re_listing_locations_parcel_fk",
+      columns: [table.parcelId],
+      foreignColumns: [reParcels.parcelId],
+    }),
+    primaryKey({ columns: [table.listingId, table.revision] }),
+    index("re_listing_locations_parcel_idx").on(table.parcelId),
+    check("re_listing_locations_revision_check", sql`${table.revision} > 0`),
+    check(
+      "re_listing_locations_precision_check",
+      sql`${table.precision} in ('address_geocoded', 'portal_pin', 'address_block', 'portal_pin_shared', 'neighborhood_only', 'unlocated') and ${table.reading} ->> 'precision' = ${table.precision}`,
+    ),
+    check(
+      "re_listing_locations_parcel_status_check",
+      sql`${table.parcelStatus} in ('matched', 'building_parcel', 'area_unverified', 'area_mismatch', 'no_parcel_at_point', 'several_parcels', 'not_located', 'pending')`,
+    ),
+    check(
+      "re_listing_locations_parcel_check",
+      sql`(${table.parcelId} is not null and ${table.parcelStatus} in ('matched', 'building_parcel')) or (${table.parcelId} is null and ${table.parcelStatus} not in ('matched', 'building_parcel'))`,
+    ),
+    check(
+      "re_listing_locations_zoning_check",
+      sql`${table.zoningConfidence} in ('official_query', 'official_map', 'corridor_inferred', 'unknown')`,
     ),
   ],
 );

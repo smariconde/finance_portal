@@ -2124,6 +2124,42 @@ credentials or a closed window stop the day; «Barrer ahora» relaunches a
 stopped day, never a challenged one. In Production the extension sends with
 the MCP's Vercel bypass; the token is in `.env.capture-production.local`.
 
+```bash
+pnpm inmuebles:locate                          # what is pending and what the stored data would read; no network
+pnpm inmuebles:locate --apply [--retry]        # plans and runs the location jobs (spends quota), writes readings
+pnpm inmuebles:zoning-query --file ~/q.json --apply   # the owner's municipal zoning query for a parcel
+```
+
+Since `F13-06` (ADR 0089 amendment of 2026-11-28, migration `0061`) every
+listing has a location reading (`listing-location-1.0.0`), resolved on open
+of `/inmuebles` and the listing sheet by `refreshListingLocations` (one
+boolean) as one `real_estate_location_refresh` job per source —barrios,
+the 8256 layer, Georef, parcels— under the usual lease, budget and kill
+switch; a new reading only when what it read changes (`input_hash`), never
+for a price. Measured first on the 364 Remax listings: 300 round the street
+number to the hundred and the geocoded parcel matched the listing's land in
+0 of 115 cases (the pin's in 72 of 141), so `location-precision-1.0.0` reads
+a round number as `address_block` (the block and the barrio, never the
+parcel) and the own pin wins; a pin repeated with another address is
+`portal_pin_shared` (owner decisions). `declared-address-1.0.0` never sends a
+lot or manzana designation to Georef (`georef-ar`, `POST` batches of 1,000,
+CC BY 4.0). `parcel-match-1.0.0` affirms the IDECOR parcel under the point
+(`idecor-geoserver`, one WFS `INTERSECTS` per point, CC BY-SA 4.0) only
+within ±10 % of the listing's land or as a building's parcel for a unit;
+otherwise it stays a candidate. Barrio (the Municipality's 2023 KMZ,
+`cordoba-gobierno-abierto`) and zone (`idecor:CBA_Ordenanza_8256`, the whole
+layer as a release every 30 days, point-in-polygon in code,
+`point-in-polygon-1.0.0`) come from the best point, with or without a
+parcel (owner). `zoning-resolution-1.0.0`: `official_map` for a parcel-locating
+point inside one polygon, `corridor_inferred` when every polygon within 25 m
+is one zone (a block point sits on the street axis, the zone boundary),
+`unknown` naming the candidates, and `official_query` from the owner's
+command; an urban agreement (Ord. 12077) gives no parameters and a 0 is
+«not published». `buildable-envelope-1.0.0` reads floors as published
+(«Planta Baja + 2 pisos» = 3; without it 3.5 + 2.8 m), binds by FOT or
+height, moves FOT ±0.3, and is computed at read time. The provincial
+nomenclature is 16 digits (21 under horizontal property, joined to its 16).
+
 Integration tests need a dedicated disposable database; `tests/integration/setup.ts` throws without `DATABASE_TEST_URL`. Full workflow, rollback procedure, and safe-failure cases: [docs/runbooks/database-migrations.md](docs/runbooks/database-migrations.md).
 
 Node `>=22.11.0 <27`, pnpm `10.33.2` via corepack. Arch Linux dev host — use POSIX shell syntax for env-var examples in docs, matching the `ubuntu-latest` runners CI validates on.

@@ -274,6 +274,25 @@ cinco minutos. La cotización tiene su propio presupuesto de 24 pedidos por
 día UTC y comparte el freno del histórico. Los valores intradiarios quedan
 fuera de almacenamiento permanente y de exportación.
 
+## Ubicación de los avisos inmobiliarios
+
+`F13-06`, [ADR 0089](../architecture/adr/0089-real-estate-intelligence-cordoba.md)
+(enmienda del 2026-11-28). Tres fuentes públicas, todas con licencia libre y
+leídas el 2026-11-28:
+
+| Fuente                     | Qué se lee                                                    | Licencia     | Tope diario | Ritmo      |
+| -------------------------- | ------------------------------------------------------------- | ------------ | ----------- | ---------- |
+| `georef-ar`                | `POST /direcciones` en lotes de hasta 1.000                   | CC BY 4.0    | 10          | 1 pedido/s |
+| `idecor-geoserver`         | WFS: la capa 8256 entera cada 30 días y una parcela por punto | CC BY-SA 4.0 | 600         | 1 pedido/s |
+| `cordoba-gobierno-abierto` | El KMZ de barrios 2023 cada 30 días                           | CC BY-SA AR  | 4           | 1 pedido/s |
+
+Georef está en alfa y no define cuotas abiertas; IDECOR prohíbe sobrecargar la
+plataforma; ninguna publica un número, así que el ritmo es propio. Se guardan
+la calle normalizada y el punto, los polígonos de las capas y la parcela
+(nomenclatura, superficie, estado); nunca la cuenta ni la valuación fiscal.
+Atribución en la ficha: «Georef (CC BY 4.0), IDECOR (CC BY-SA 4.0) y
+Municipalidad de Córdoba».
+
 ## Servicios que reciben datos del portal
 
 ### OpenRouter

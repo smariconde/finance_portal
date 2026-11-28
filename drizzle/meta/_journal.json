@@ -428,6 +428,13 @@
       "when": 1795781609215,
       "tag": "0060_real_estate_identity",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1795838010448,
+      "tag": "0061_real_estate_location",
+      "breakpoints": true
     }
   ]
 }

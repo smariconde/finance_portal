@@ -35,6 +35,9 @@ describe("egress allowlist", () => {
         "bcr-cac-pizarra",
         "bna-fx",
         "magyp-estimaciones",
+        "georef-ar",
+        "idecor-geoserver",
+        "cordoba-gobierno-abierto",
         "magyp-datos-abiertos",
         "damodaran-current-data",
         "openrouter",
@@ -341,8 +344,12 @@ describe("egress allowlist", () => {
       ) {
         continue;
       }
-      // Estimaciones Agrícolas answers a form, not a URL (ADR 0071).
-      if (entry.sourceId === "magyp-estimaciones") {
+      // Estimaciones Agrícolas answers a form, not a URL (ADR 0071); Georef
+      // normalizes addresses in batches of up to 1,000 (`F13-06`).
+      if (
+        entry.sourceId === "magyp-estimaciones" ||
+        entry.sourceId === "georef-ar"
+      ) {
         expect(entry.method).toBe("POST");
         expect(entry.credential).toBeNull();
         expect(entry.maxRedirects).toBe(0);
@@ -399,6 +406,47 @@ describe("egress allowlist", () => {
         expect(entry.credential).toBeNull();
       }
     }
+  });
+
+  it("reaches only the location resources of `F13-06`", () => {
+    const cases: readonly (readonly [string, string, readonly string[]])[] = [
+      [
+        "georef-ar",
+        "https://apis.datos.gob.ar/georef/api/direcciones",
+        [
+          "https://apis.datos.gob.ar/georef/api/provincias",
+          "https://apis.datos.gob.ar/georef/api/direcciones?direccion=x",
+          "https://apis.datos.gob.ar/series/api/series",
+        ],
+      ],
+      [
+        "idecor-geoserver",
+        "https://idecor-ws.mapascordoba.gob.ar/geoserver/idecor/wfs?service=WFS&request=GetFeature&typeNames=idecor:parcelas",
+        [
+          "https://idecor-ws.mapascordoba.gob.ar/geoserver/idecor/wms?service=WMS",
+          "https://idecor-ws.mapascordoba.gob.ar/geoserver/web/",
+          "https://idecor-ws.mapascordoba.gob.ar/geoserver/ows?service=WFS",
+        ],
+      ],
+      [
+        "cordoba-gobierno-abierto",
+        "https://gobiernoabierto.cordoba.gob.ar/datos/recurso/18854/Barrio_1.kmz",
+        [
+          "https://gobiernoabierto.cordoba.gob.ar/datos/recurso/17613/Barrio.kml",
+          "https://gobiernoabierto.cordoba.gob.ar/api/datos-abiertos/dato/118/version-dato",
+        ],
+      ],
+    ];
+    for (const [sourceId, allowed, refused] of cases) {
+      const entry = findEgressAllowlistEntry(sourceId)!;
+      expect(entry.identification).toBe("project");
+      expect(entry.maxRedirects).toBe(0);
+      expect(authorizeEgressUrl(allowed, entry).allowed).toBe(true);
+      for (const url of refused) {
+        expect(authorizeEgressUrl(url, entry).allowed).toBe(false);
+      }
+    }
+    expect(findEgressAllowlistEntry("georef-ar")!.method).toBe("POST");
   });
 
   it("reaches only the one resource each soy source publishes", () => {

@@ -22,9 +22,15 @@ export const PARCEL_END_EVENTS = [
 ] as const;
 export type ParcelEndEvent = (typeof PARCEL_END_EVENTS)[number];
 
+/**
+ * La nomenclatura provincial como la publica el parcelario de IDECOR, medido
+ * en `F13-06`: 16 dígitos corridos —departamento, pedanía y pueblo de dos,
+ * circunscripción y sección de dos, manzana y parcela de tres
+ * («1101010409014065»)—. Con guiones no se publica en ningún lado.
+ */
 export const provincialNomenclatureSchema = z
   .string()
-  .regex(/^[0-9]{1,4}(?:-[0-9]{1,4}){6}$/u, "not_a_provincial_nomenclature");
+  .regex(/^[0-9]{16}$/u, "not_a_provincial_nomenclature");
 export const municipalNomenclatureSchema = z
   .string()
   .regex(/^[0-9]{1,4}(?:-[0-9]{1,4}){3}$/u, "not_a_municipal_nomenclature");
