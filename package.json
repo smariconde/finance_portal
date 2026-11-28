@@ -88,7 +88,9 @@
     "valuation:reit": "tsx --conditions=react-server --env-file=.env.local scripts/value-reit.ts",
     "valuation:growth": "tsx --conditions=react-server --env-file=.env.local scripts/value-growth.ts",
     "finviz:catalog": "tsx scripts/finviz-catalog.ts",
-    "inmuebles:corpus": "tsx scripts/real-estate-corpus.ts"
+    "inmuebles:corpus": "tsx scripts/real-estate-corpus.ts",
+    "inmuebles:locate": "tsx --conditions=react-server --env-file=.env.local scripts/real-estate-locate.ts",
+    "inmuebles:zoning-query": "tsx --conditions=react-server --env-file=.env.local scripts/real-estate-zoning-query.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

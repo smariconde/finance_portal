@@ -113,6 +113,15 @@ export const SOURCE_DAILY_REQUEST_BUDGETS: Readonly<Record<string, number>> =
     // 50 avisos (dos listados de Remax), así que 300 son 15.000 filas por día
     // como mucho: lo que un día de mirar avisos no alcanza.
     "inmuebles-captura": 300,
+    // Ubicación de los avisos (`F13-06`). Georef responde hasta 1.000
+    // direcciones por pedido: diez pedidos cubren un día de capturas con
+    // holgura. IDECOR es un pedido por punto nuevo más la capa cada 30 días;
+    // 364 avisos fueron 364 consultas de parcela en la medición, así que 600
+    // por día cubren un barrido y la carga inicial sin sobrecargarlo. Los
+    // barrios son un archivo cada 30 días.
+    "georef-ar": 10,
+    "idecor-geoserver": 600,
+    "cordoba-gobierno-abierto": 4,
   });
 
 /** Tabla de topes declarados. Los tests inyectan la suya; el runtime usa la de arriba. */

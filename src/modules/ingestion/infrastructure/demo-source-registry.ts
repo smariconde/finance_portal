@@ -24,6 +24,9 @@ const COUNTRY_RISK_RIGHTS_REVIEWED_AT = "2026-11-17T00:00:00.000Z";
 const COUNTRY_RISK_RIGHTS_REVIEW_DUE_AT = "2027-02-17T00:00:00.000Z";
 const REAL_ESTATE_RIGHTS_REVIEWED_AT = "2026-11-27T00:00:00.000Z";
 const REAL_ESTATE_RIGHTS_REVIEW_DUE_AT = "2027-02-27T00:00:00.000Z";
+// Ubicación y zonificación (`F13-06`): Georef, IDECOR y los barrios municipales.
+const LOCATION_RIGHTS_REVIEWED_AT = "2026-11-28T00:00:00.000Z";
+const LOCATION_RIGHTS_REVIEW_DUE_AT = "2027-02-28T00:00:00.000Z";
 const CONSENSUS_RIGHTS_REVIEWED_AT = "2026-11-18T00:00:00.000Z";
 const CONSENSUS_RIGHTS_REVIEW_DUE_AT = "2027-02-18T00:00:00.000Z";
 
@@ -1545,6 +1548,162 @@ export const DEMO_SOURCE_REGISTRY: readonly SourceRegistryEntry[] =
       ownerNotes:
         "Decisión del owner del 2026-11-27 (ADR 0089, Decisión 1): no se leen ni se citan los términos del portal; la extensión mira lo que el owner miraría, a su ritmo, en un perfil dedicado de Brave.",
       recordedAt: REAL_ESTATE_RIGHTS_REVIEWED_AT,
+    }),
+    sourceRegistryEntrySchema.parse({
+      sourceId: "georef-ar",
+      displayName: "Georef AR — normalización de direcciones",
+      owner: "Secretaría de Innovación Pública (datos.gob.ar)",
+      canonicalUrl: "https://datosgobar.github.io/georef-ar-api/",
+      documentationUrls: [
+        "https://datosgobar.github.io/georef-ar-api/bulk/",
+        "https://datosgobar.github.io/georef-ar-api/terms/",
+      ],
+      datasets: ["georef.direcciones"],
+      endpoints: ["https://apis.datos.gob.ar/georef/api/direcciones"],
+      authentication: "none",
+      applicablePlan: null,
+      rateLimit:
+        "cuotas abiertas sin definir (alfa); hasta 1.000 consultas y 5.000 resultados por lote",
+      attribution: "Georef AR, datos.gob.ar (CC BY 4.0)",
+      expectedCadence: "al abrir /inmuebles, una vez por dirección nueva",
+      freshnessTarget: "la dirección publicada por el aviso",
+      timezone: "America/Argentina/Buenos_Aires",
+      units: ["grados WGS84"],
+      currencies: [],
+      parserVersion: "georef-direcciones-1.0.0",
+      fixturePolicy:
+        "Fixtures sintéticas con la forma de la respuesta por lotes; ninguna respuesta real en el repositorio.",
+      fallbackSourceIds: [],
+      rights: {
+        personalUse: "allowed",
+        automatedAccess: "allowed",
+        rawStorage: "restricted",
+        normalizedStorage: "allowed",
+        derivedStorage: "allowed",
+        publicDisplay: "restricted",
+        export: "allowed",
+        aiTransfer: "restricted",
+        ownerAssistant: OWNER_ASSISTANT,
+      },
+      technicalStatus: "integrated",
+      approvalStatus: "approved_personal",
+      reviewedAt: LOCATION_RIGHTS_REVIEWED_AT,
+      rightsReviewedAt: LOCATION_RIGHTS_REVIEWED_AT,
+      rightsReviewDueAt: LOCATION_RIGHTS_REVIEW_DUE_AT,
+      reviewEvidence: [
+        "docs/architecture/adr/0089-real-estate-intelligence-cordoba.md",
+        "https://datosgobar.github.io/georef-ar-api/terms/",
+      ],
+      retentionClasses: ["R3"],
+      quotaPolicyId: null,
+      ownerNotes:
+        "Datos bajo CC BY 4.0 (condiciones de uso de Georef, leídas el 2026-11-28). Se guarda la calle normalizada y el punto, no la respuesta.",
+      recordedAt: LOCATION_RIGHTS_REVIEWED_AT,
+    }),
+    sourceRegistryEntrySchema.parse({
+      sourceId: "idecor-geoserver",
+      displayName: "IDECOR — parcelario y Ocupación del Suelo de Córdoba",
+      owner: "Infraestructura de Datos Espaciales de la Provincia de Córdoba",
+      canonicalUrl: "https://www.idecor.gob.ar/",
+      documentationUrls: [
+        "https://www.idecor.gob.ar/terminos-y-condiciones/",
+        "https://www.idecor.gob.ar/web-service-y-apis/",
+      ],
+      datasets: ["idecor.cba-ordenanza-8256", "idecor.parcelas"],
+      endpoints: ["https://idecor-ws.mapascordoba.gob.ar/geoserver/idecor/wfs"],
+      authentication: "none",
+      applicablePlan: null,
+      rateLimit:
+        "sin cuota publicada; los términos prohíben sobrecargar la plataforma",
+      attribution:
+        "IDECOR (CC BY-SA 4.0); Ocupación del Suelo: Municipalidad de Córdoba",
+      expectedCadence:
+        "la capa 8256 cada 30 días; una consulta de parcela por punto nuevo",
+      freshnessTarget: "la release vigente de la capa",
+      timezone: "America/Argentina/Buenos_Aires",
+      units: ["m²", "%", "m"],
+      currencies: [],
+      parserVersion: "idecor-wfs-geojson-1.0.0",
+      fixturePolicy:
+        "Fixtures sintéticas con la forma del GeoJSON del WFS; ninguna capa real en el repositorio.",
+      fallbackSourceIds: [],
+      rights: {
+        personalUse: "allowed",
+        automatedAccess: "allowed",
+        rawStorage: "restricted",
+        normalizedStorage: "allowed",
+        derivedStorage: "allowed",
+        publicDisplay: "restricted",
+        export: "allowed",
+        aiTransfer: "restricted",
+        ownerAssistant: OWNER_ASSISTANT,
+      },
+      technicalStatus: "integrated",
+      approvalStatus: "approved_personal",
+      reviewedAt: LOCATION_RIGHTS_REVIEWED_AT,
+      rightsReviewedAt: LOCATION_RIGHTS_REVIEWED_AT,
+      rightsReviewDueAt: LOCATION_RIGHTS_REVIEW_DUE_AT,
+      reviewEvidence: [
+        "docs/architecture/adr/0089-real-estate-intelligence-cordoba.md",
+        "https://www.idecor.gob.ar/terminos-y-condiciones/",
+      ],
+      retentionClasses: ["R3"],
+      quotaPolicyId: null,
+      ownerNotes:
+        "CC BY-SA 4.0 (términos de IDECOR del 16.05.2023, leídos el 2026-11-28): atribuir y compartir derivados con la misma licencia. A paso de un pedido por segundo.",
+      recordedAt: LOCATION_RIGHTS_REVIEWED_AT,
+    }),
+    sourceRegistryEntrySchema.parse({
+      sourceId: "cordoba-gobierno-abierto",
+      displayName: "Municipalidad de Córdoba — mapa de barrios",
+      owner: "Municipalidad de Córdoba (Dirección de Catastro)",
+      canonicalUrl:
+        "https://gobiernoabierto.cordoba.gob.ar/data/datos-abiertos/categoria/geografia-y-mapas/barrios-de-la-ciudad/118",
+      documentationUrls: [
+        "https://gobiernoabierto.cordoba.gob.ar/api/datos-abiertos/dato/118/version-dato",
+      ],
+      datasets: ["cordoba.barrios"],
+      endpoints: [
+        "https://gobiernoabierto.cordoba.gob.ar/datos/recurso/18854/Barrio_1.kmz",
+      ],
+      authentication: "none",
+      applicablePlan: null,
+      rateLimit: "sin cuota publicada; un archivo estático",
+      attribution:
+        "Municipalidad de Córdoba, Dirección de Catastro (CC BY-SA AR)",
+      expectedCadence: "cada 30 días",
+      freshnessTarget: "la versión 2023 del mapa de barrios",
+      timezone: "America/Argentina/Buenos_Aires",
+      units: ["grados WGS84"],
+      currencies: [],
+      parserVersion: "cordoba-barrios-kml-1.0.0",
+      fixturePolicy:
+        "Fixtures sintéticas con la forma del KML; el KMZ real no entra al repositorio.",
+      fallbackSourceIds: [],
+      rights: {
+        personalUse: "allowed",
+        automatedAccess: "allowed",
+        rawStorage: "restricted",
+        normalizedStorage: "allowed",
+        derivedStorage: "allowed",
+        publicDisplay: "restricted",
+        export: "allowed",
+        aiTransfer: "restricted",
+        ownerAssistant: OWNER_ASSISTANT,
+      },
+      technicalStatus: "integrated",
+      approvalStatus: "approved_personal",
+      reviewedAt: LOCATION_RIGHTS_REVIEWED_AT,
+      rightsReviewedAt: LOCATION_RIGHTS_REVIEWED_AT,
+      rightsReviewDueAt: LOCATION_RIGHTS_REVIEW_DUE_AT,
+      reviewEvidence: [
+        "docs/architecture/adr/0089-real-estate-intelligence-cordoba.md",
+      ],
+      retentionClasses: ["R3"],
+      quotaPolicyId: null,
+      ownerNotes:
+        "La licencia la declara el recurso del portal de datos abiertos (CC-BY-SA-AR, licencia libre). IDECOR no publica barrios de Capital.",
+      recordedAt: LOCATION_RIGHTS_REVIEWED_AT,
     }),
     sourceRegistryEntrySchema.parse({
       sourceId: "bcr-cac-pizarra",

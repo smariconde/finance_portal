@@ -95,6 +95,12 @@ const rollback = readFileSync(
   "utf8",
 );
 const up = readFileSync("drizzle/0060_real_estate_identity.sql", "utf8");
+const locationRollbackBody = readFileSync(
+  "drizzle/rollback/0061_real_estate_location.down.sql",
+  "utf8",
+)
+  .replace(/^BEGIN;$/mu, "")
+  .replace(/^COMMIT;$/mu, "");
 /** El rollback trae su propia transacción; adentro del test manda la del test. */
 const rollbackBody = rollback
   .replace(/^BEGIN;$/mu, "")
@@ -104,6 +110,10 @@ describe("PostgreSQL real-estate identity (migration 0060)", () => {
   it("supports the paired rollback and a clean reapply on the disposable test database", async () => {
     await expect(
       database.transaction(async (transaction) => {
+        // La 0061 cuelga de estas tablas: se deshace primero.
+        await transaction.execute(sql`delete from re_listing_locations`);
+        await transaction.execute(sql`delete from re_zoning_queries`);
+        await transaction.execute(sql.raw(locationRollbackBody));
         await transaction.execute(sql`delete from re_listing_revisions`);
         await transaction.execute(sql.raw(rollbackBody));
         const [absent] = await transaction.execute(
@@ -196,7 +206,7 @@ describe("PostgreSQL real-estate identity (migration 0060)", () => {
     const parcelId = randomUUID();
     parcelIds.push(parcelId);
     const suffix = String(Math.floor(Math.random() * 1000)).padStart(3, "0");
-    const nomenclature = `11-01-01-98-98-${suffix}-001`;
+    const nomenclature = `1101019898${suffix}001`;
     await database
       .insert(schema.reParcels)
       .values({ parcelId, createdAt: recordedAt });

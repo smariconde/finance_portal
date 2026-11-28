@@ -497,3 +497,61 @@ nunca sale a un portal. Lo que el slice fijó:
 
 En Production la extensión necesita el bypass de Vercel además de
 `CAPTURE_TOKEN`; el que ya usa el MCP del owner sirve.
+
+## Enmienda del 2026-11-28: ubicación, parcela y zonificación (`F13-06`)
+
+Medido antes de fijar las reglas, sobre los 364 avisos de Remax guardados en
+Production, y decidido con el owner a la vista de la tabla:
+
+- **La altura de Remax es la cuadra.** 300 de 364 direcciones traen la altura
+  redondeada a la centena («Rincón 900»); Georef resuelve 224 y el punto queda
+  a una mediana de 80 m del pin (p90 238 m). En casas, PH y terrenos con
+  terreno publicado, la parcela del punto geocodificado coincidió en
+  superficie (±10 %) en **0 de 115** casos; la del pin, en 72 de 141. Decisión
+  del owner: una altura múltiplo de 100 es `address_block` —ubica la cuadra y
+  el barrio, nunca la parcela— y el pin propio manda. Una altura exacta sigue
+  siendo `address_geocoded`, como decía la Decisión 6. La designación de lote
+  o manzana no se le pregunta a Georef: confundió «Mza 111» con «MENDOZA 111».
+- **Pin compartido** es el mismo pin en avisos con **otra** dirección (el
+  centro de un country: Docta, «Manzana 108», «Colectora RN 20»); el mismo pin
+  con la misma dirección es el mismo edificio y sigue siendo `portal_pin`
+  (decisión del owner).
+- **La parcela se afirma sólo si coincide.** `parcel-match-1.0.0`: una parcela
+  bajo el punto con la superficie del aviso a ±10 % es `matched`; un
+  departamento, oficina, local o cochera toma la parcela del edificio
+  (`building_parcel`); una superficie que no coincide (cocientes de hasta
+  1.577×: parcelas madre de countries) queda candidata y la envolvente usa el
+  terreno del aviso. 69 de 364 pines caen en la calle, sin parcela. El owner
+  pidió que el barrio y la zona se lean igual: salen del mejor punto que haya,
+  con o sin parcela.
+- **Capas elegidas.** IDECOR publica la Ocupación del Suelo de la
+  Municipalidad (`idecor:CBA_Ordenanza_8256`, 600 polígonos, 2,4 MB, FOS en
+  porcentaje, FOT, altura y «Planta Baja + N pisos») y el parcelario
+  provincial (`idecor:parcelas`, nomenclatura de 16 dígitos y superficie),
+  ambos por WFS bajo CC BY-SA 4.0. La 8256 se baja entera como release cada 30
+  días y el punto en polígono corre en código; la parcela se consulta por
+  punto. IDECOR no tiene barrios de Capital: los publica la Municipalidad
+  (Catastro, «Mapa de barrios 2023», 485 polígonos, CC BY-SA AR), también como
+  release. Mapas Córdoba es el visor de IDECOR; no se lee aparte.
+- **La zona de un punto de cuadra es inferida.** El punto de Georef cae sobre
+  el eje de la calle, que suele ser el límite entre dos zonas: medido sobre
+  225 cuadras, la zona coincide con la del pin en 162. `zoning-resolution-1.0.0`
+  da `official_map` sólo a un punto que ubica la parcela y cae en un polígono;
+  `corridor_inferred` cuando todos los polígonos a 25 m son de la misma zona
+  (153 de 225, el 86 % igual a la del pin); `unknown` con las candidatas
+  nombradas si hay varias. Un convenio urbanístico (Ord. 12077) no aporta
+  parámetros: la capa los trae en cero o cruzados. `official_query` es la
+  consulta del owner al municipio, cargada con `pnpm inmuebles:zoning-query`
+  desde un archivo fuera del repositorio (decisión del owner).
+- **La envolvente usa los pisos publicados.** La fórmula de la altura de la
+  ADR no reproducía los pares de la capa; los pisos se leen del texto y sólo
+  sin él salen de la altura con 3,5 m de planta baja y 2,8 m por piso (9 de 11
+  pares). El área central no publica FOT: ahí manda la altura.
+- **Al abrir.** `/inmuebles` y la ficha piden lo pendiente con
+  `refreshListingLocations` (un booleano), un job durable por fuente
+  (`real_estate_location_refresh`, migración `0061`) bajo su lease, su cuota y
+  su kill switch; una lectura nueva sólo cuando cambia lo que leyó.
+
+La nomenclatura provincial que asumía `F13-01` con guiones no se publica en
+ningún lado: es de 16 dígitos corridos, y una parcela en propiedad horizontal
+se publica además con 21 (los 16 y cinco del régimen), que se unen a la misma.
